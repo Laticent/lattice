@@ -42,6 +42,11 @@ describe('suggestMembership — the deterministic, no-AI heuristics', () => {
 		// title(0) closing(7) frame; content(1) statement; kpi(2) metric. wifi(3) is statement BUT connect → excluded.
 		expect(members(s, 'brief').sort((a, b) => a - b)).toEqual([0, 1, 2, 7]);
 	});
+	it('reads a @meta record\'s layout the same as a _class comment', () => {
+		const rec = (name: string) => `<!-- @meta{layout=${name}} -->\n# ${name}`;
+		const r = suggestMembership(['title', 'content', 'kpi', 'wifi', 'list-steps', 'chart', 'divider', 'closing'].map(rec), REG, CATALOG);
+		expect(r).toEqual(s);
+	});
 	it('ask picks exactly one slide — the last closing', () => {
 		expect(members(s, 'ask')).toEqual([7]);
 	});

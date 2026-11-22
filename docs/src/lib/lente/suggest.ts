@@ -5,18 +5,19 @@
 // review UI writes only the shortest correct tag. Determinism is scoped to the injected catalog: the
 // SAME catalog in gives the SAME proposals out.
 
-import { findDirectiveComment } from './tags.js';
+import { slideClassSite } from './tags.js';
 import type { ComponentCatalog, ComponentInfo, LensRegistry, Suggestion } from './types.js';
 import { FULL_LENS_ID } from './types.js';
 
 const NAME_RE = /^[A-Za-z0-9-]+$/; // validates a single already-split token; not run on raw input
 
-/** The component name of a slide — its first non-fenced `_class` token, or `text` for bare markdown
- *  (a `_class` shown inside a code fence is ignored, mirroring the read-path's fence handling). */
+/** The component name of a slide — the first class word of its first non-fenced `_class` comment or `@meta{…}`
+ *  record, or `text` for bare markdown (one shown inside a code fence is ignored, mirroring the read-path's fence
+ *  handling). */
 function slideClass(src: string): string {
-	const found = findDirectiveComment(src, 'class');
+	const found = slideClassSite(src);
 	if (!found) return 'text';
-	const first = found.body.trim().split(/[ \t]+/)[0] ?? '';
+	const first = found.words.split(/[ \t]+/)[0] ?? '';
 	return NAME_RE.test(first) ? first : 'text';
 }
 

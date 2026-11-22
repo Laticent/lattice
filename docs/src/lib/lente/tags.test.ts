@@ -3,7 +3,8 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { applyTag, parseSlideTags, taggedLensIds } from './tags';
+import { readRecord } from '../../../../lib/core/meta-door.mjs';
+import { applyTag, parseSlideTags, recordClassWords, slideClassSite, taggedLensIds } from './tags';
 
 // Work counts in place of a stopwatch (HARD RULE #32, F1). The root's helpers are CommonJS.
 const req = createRequire(import.meta.url);
@@ -85,5 +86,74 @@ describe('applyTag — base:all (subtractive)', () => {
 	it('re-including a member clears the -exclude token', () => {
 		const out = applyTag('<!-- _lens: -evidence -->\n# X', 'evidence', true, 'all');
 		expect(out).toBe('# X');
+	});
+});
+
+// Lente cannot import lib/core (it is a zero-dependency package), so it reads a record's class words itself. These cases
+// hold it to the engine's reader: the same words when the engine reads the record, and nothing when it does not.
+describe('recordClassWords — equal to the engine\'s readRecord', () => {
+	const cases = [
+		'@meta{layout=kpi}',
+		'@meta{layout=cards wide}',
+		'@meta{layout=cards, variant=wide}',
+		'@meta{variant=wide, layout=cards}',
+		'@meta{class="cards x"}',
+		'@meta{layout=cards,footer="a, b"}',
+		'@meta{ layout = cards }',
+		'@meta{ layout=cards }',
+		'@meta{layout=cards }',
+		'@meta{layout =cards}',
+		'@meta{layout= cards}',
+		'@meta{layout=cards ,variant=wide}',
+		'@meta{layout=kpi}\nnote: hi',
+		'@meta{build}',
+		'@meta{layout=[a,b]}',
+		'@meta{layout=cards',
+		'@meta{lens="brief -ask", layout=decision}',
+		'@meta{layout=cards,\n  footer=Q3}',
+		'@meta{Layout=cards}',
+		'@meta{LAYOUT=cards}',
+		'@meta{layout=cards, layout=table}',
+		'@meta{layout=""}',
+		'@meta{layout=cards, bogus=1}',
+		'@meta{x=1,,layout=cards}',
+		'@meta{layout=cards,}',
+		'@meta{layout=c\\"x}',
+		' @meta{layout=kpi} ',
+		'_class: kpi',
+		'{layout=kpi}',
+	];
+	for (const body of cases) {
+		it(JSON.stringify(body), () => {
+			const rec = readRecord(body);
+			const engine = rec && rec.ok ? (rec.d.class ?? null) : null;
+			const ours = recordClassWords(body);
+			if (body.startsWith('{')) expect(ours).toBeNull(); // the bare form is retired: Lente reads only @meta
+			else expect(ours).toBe(engine);
+		});
+	}
+	it('leaves register words out, and they never come first in the engine either', () => {
+		const body = '@meta{headline=quiet, layout=cards}';
+		expect(recordClassWords(body)).toBe('cards');
+		expect(readRecord(body)?.d.class?.split(' ')[0]).toBe('cards');
+	});
+});
+
+describe('slideClassSite — the comment that names the class, in either form', () => {
+	it('reads a _class comment and a @meta record alike', () => {
+		expect(slideClassSite('<!-- _class: kpi -->\n# X')?.words).toBe('kpi');
+		expect(slideClassSite('<!-- @meta{layout=kpi, footer=Q3} -->\n# X')?.words).toBe('kpi');
+	});
+	it('reads a running global class on the slide that declares it', () => {
+		expect(slideClassSite('<!-- class: diagram dark -->\n# X')?.words).toBe('diagram dark');
+		expect(slideClassSite('<!-- @meta{layout=diagram, class=dark, carry} -->\n# X')?.words).toBe('diagram dark');
+	});
+	it('skips a record with no class, and a fenced example', () => {
+		expect(slideClassSite('<!-- @meta{build} -->\n<!-- _class: table -->\n# X')?.words).toBe('table');
+		expect(slideClassSite('```\n<!-- @meta{layout=kpi} -->\n```\n# X')).toBeNull();
+	});
+	it('applyTag inserts the lens tag after a @meta record that names the class', () => {
+		const out = applyTag('<!-- @meta{layout=kpi} -->\n# X', 'brief', true, 'none');
+		expect(out).toBe('<!-- @meta{layout=kpi} -->\n<!-- _lens: brief -->\n# X');
 	});
 });

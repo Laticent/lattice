@@ -69,7 +69,7 @@ Read-path only by construction: `lens()` never imports the suggester and has **n
 - **Read** (`project.ts`) computes a reader's view from approved tags + the registry. It **does not
   import the suggester** — a boundary kept by construction (the read module simply never references
   `./suggest`). It is a convention, not a CI-enforced gate.
-- **Suggest** (`suggest.ts`) is a transparent rule table over each slide's `_class`. It returns
+- **Suggest** (`suggest.ts`) is a transparent rule table over each slide's class (its `_class` comment or `@meta{layout=…}` record). It returns
   *proposals* and writes nothing.
 
 The only bridge is a human pressing **Approve** in the Studio, which writes the tags and stamps a

@@ -99,6 +99,126 @@ export function allDirectiveBodies(src: string, key: 'lens' | 'class'): string[]
 	return out;
 }
 
+// ── The slide's class, from a `_class` comment OR a `@meta{…}` record ──────────────────────────────────
+// A slide can name its layout two ways: `<!-- _class: kpi -->` or `<!-- @meta{layout=kpi} -->` (the record the engine
+// reads through lib/core/meta-door.mjs `readRecord`; engineering/decisions/2026-10-17-meta-record.md §15). This package
+// is zero-dependency and cannot import lib/core, so it carries its own STRICT read of the record's class words: it takes
+// the class only from a record the engine also reads, and gives up (null) on any shape it is unsure of, so it can miss
+// a class but never invent one. `tags.test.ts` holds it equal to `readRecord` on every case it names.
+
+/** The record's text from `{` to its matching `}` (quote- and nesting-aware), or null when it does not close or a
+ *  quoted value crosses a newline. Mirrors meta-door.mjs `recordEnd`. */
+function recordBraces(body: string, from: number): string | null {
+	let depth = 0;
+	let quoted = false;
+	for (let i = from; i < body.length; i++) {
+		const c = body[i];
+		if (quoted) {
+			if (c === '\\') i++;
+			else if (c === '"') quoted = false;
+			else if (c === '\n') return null;
+			continue;
+		}
+		if (c === '"') quoted = true;
+		else if (c === '{' || c === '[') depth++;
+		else if (c === '}' || c === ']') {
+			depth--;
+			if (depth === 0) return body.slice(from, i + 1);
+			if (depth < 0) return null;
+		}
+	}
+	return null;
+}
+
+/** Split the inside of a record on top-level commas (outside quotes and brackets). */
+function recordItems(inside: string): string[] {
+	const out: string[] = [];
+	let depth = 0;
+	let quoted = false;
+	let start = 0;
+	for (let i = 0; i < inside.length; i++) {
+		const c = inside[i];
+		if (quoted) {
+			if (c === '\\') i++;
+			else if (c === '"') quoted = false;
+			continue;
+		}
+		if (c === '"') quoted = true;
+		else if (c === '{' || c === '[') depth++;
+		else if (c === '}' || c === ']') depth--;
+		else if (c === ',' && depth === 0) {
+			out.push(inside.slice(start, i));
+			start = i + 1;
+		}
+	}
+	out.push(inside.slice(start));
+	return out;
+}
+
+const CLASS_FIELD_ORDER = ['layout', 'variant', 'universal', 'modifiers'];
+
+/** The class words a `@meta{…}` comment body carries, space-joined, or null when it is not a record, does not read,
+ *  or names no class. Typed fields first (layout, variant, universal, modifiers), then `class`, as `readRecord` orders
+ *  them; registers (`headline=`, `icon=`) are left out, and they never come first there either. */
+export function recordClassWords(inner: string): string | null {
+	const body = String(inner ?? '');
+	const lead = body.length - body.trimStart().length;
+	if (!body.startsWith('@meta{', lead)) return null;
+	const braces = recordBraces(body, lead + 5);
+	if (!braces) return null;
+	const inside = braces.slice(1, -1).replace(/\n[ \t]*/g, ' ');
+	if (!inside.length || inside[0] === ' ' || inside[0] === '\t') return null; // the engine's grammar refuses a lead space
+	const typed: Record<string, string> = {};
+	const cls: string[] = [];
+	for (const raw of recordItems(inside)) {
+		const item = raw.trim();
+		if (!item) return null; // `a,,b` and a trailing comma do not read
+		const eq = item.indexOf('=');
+		if (eq < 0) continue; // a bare word: a flag or a marker, never a class
+		const name = item.slice(0, eq).trim().toLowerCase();
+		let value = item.slice(eq + 1).trim();
+		if (!name) return null;
+		if (value.startsWith('[') || value.startsWith('{')) continue; // a list or a record is not one value
+		if (value.startsWith('"')) {
+			try {
+				value = String(JSON.parse(value));
+			} catch {
+				return null;
+			}
+		}
+		if (CLASS_FIELD_ORDER.includes(name)) typed[name] = value;
+		else if (name === 'class') cls.push(...value.split(/[ \t]+/).filter(Boolean));
+	}
+	const words: string[] = [];
+	for (const f of CLASS_FIELD_ORDER) if (typed[f]) words.push(...typed[f].split(/[ \t]+/).filter(Boolean));
+	for (const w of cls) if (!words.includes(w)) words.push(w);
+	return words.length ? words.join(' ') : null;
+}
+
+/** The first non-fenced comment that names the slide's class, a `_class` or `class` comment or a `@meta{…}` record,
+ *  with its span and the class words. A record that names no class is skipped. */
+export function slideClassSite(src: string): { start: number; end: number; words: string } | null {
+	const text = String(src ?? '');
+	const fences = fenceRanges(text);
+	let i = 0;
+	for (;;) {
+		const open = text.indexOf('<!--', i);
+		if (open < 0) return null;
+		const close = text.indexOf('-->', open + 4);
+		if (close < 0) return null;
+		i = close + 3;
+		if (inFence(open, fences)) continue;
+		const inner = text.slice(open + 4, close);
+		// `_class:` (this slide) or `class:` (a running global, which applies from its own slide on). Later slides that
+		// the global carries onto are not read here, in either form.
+		const marker = inner.indexOf('_class:') >= 0 ? '_class:' : 'class:';
+		const k = inner.indexOf(marker);
+		if (k >= 0 && isBlank(inner.slice(0, k))) return { start: open, end: close + 3, words: inner.slice(k + marker.length).trim() };
+		const words = recordClassWords(inner);
+		if (words) return { start: open, end: close + 3, words };
+	}
+}
+
 /** Parse the include/exclude tokens off a slide's first non-fenced `_lens` comment. `id`/`+id`
  *  include; `-id` exclude. A `_lens` shown inside a code fence (documentation) is ignored. */
 export function parseSlideTags(slideSrc: string): SlideTags {
@@ -141,7 +261,8 @@ function emitTokens(tags: SlideTags): string {
 
 /** Write the `<!-- _lens: … -->` comment for a slide from its token sets. Replaces the slide's first
  *  NON-fenced `_lens` comment (a fenced example is left untouched); removes it when empty; inserts a
- *  new one right after the `_class` comment (or at the top) when none exists. */
+ *  new one right after the comment that names the slide's class, `_class` or a `@meta{…}` record (or at the top),
+ *  when none exists. */
 function writeTags(slideSrc: string, tags: SlideTags): string {
 	const src = String(slideSrc ?? '');
 	const tokens = emitTokens(tags);
@@ -153,7 +274,7 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 		return src.slice(0, existing.start) + (tokens ? comment : '') + src.slice(end);
 	}
 	if (!tokens) return src;
-	const cls = findDirectiveComment(src, 'class');
+	const cls = slideClassSite(src);
 	if (cls) return `${src.slice(0, cls.end)}\n${comment}${src.slice(cls.end)}`;
 	return `${comment}\n${src}`;
 }
