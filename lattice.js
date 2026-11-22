@@ -795,6 +795,9 @@ const NO_SPLIT = !!flags['no-split'];
 // when it overflows at its box and venue, and its members are packed onto body pages by measured
 // height with this packer (`@laticent/fluido`'s `pack`). Unset, the split is today's structural one.
 const FIT_PACK = flags['fit-pack'] || null;
+// `--fit-pack` measures any deck, so the engine draws a phone chart for the page its coda leaves (lib/engine/index.js
+// `activeMeasured`); without it the engine reads the deck's `fit:`, the same rule the split below uses.
+const MEASURED_OPT = FIT_PACK ? { measured: true } : {};
 const FIT_MEMORY = flags['fit-memory'] ? path.resolve(flags['fit-memory']) : null;
 if (FIT_PACK && !['greedy', 'balanced', 'knuth-plass'].includes(FIT_PACK)) {
   console.error(`✗ --fit-pack must be greedy, balanced or knuth-plass (got "${FIT_PACK}")`);
@@ -2598,7 +2601,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/cli/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize, ...MEASURED_OPT }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2614,7 +2617,7 @@ function engineSlides(deckSource = rawMd) {
     const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
     DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize, ...MEASURED_OPT });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in

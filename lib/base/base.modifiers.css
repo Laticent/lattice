@@ -3631,8 +3631,8 @@ section:is([data-split-role="body"], [data-split-role="closing"])[data-split-rol
    slide's footer line on it (the rail and the page number stay off, as above), and the run's cover drops its footer
    line (`lat-split-footer-moved`, auto-split.js `applyRails`): a long `_footer:` on a phone cover, beside the page
    number, cut off mid-word. */
-section.lat-split-footer-moved[data-split-role="cover"] > .cell-footer > footer,
-section.lat-split-footer-moved[data-split-role="cover"] > footer {
+section.lat-split-footer-moved:is([data-split-role="cover"], :not([data-split-role])) > .cell-footer > footer,
+section.lat-split-footer-moved:is([data-split-role="cover"], :not([data-split-role])) > footer {
   display: none;
 }
 /* On the coda page the footer line has the band to itself (no rail, no page number), and a line too long for even that

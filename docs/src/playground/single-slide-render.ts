@@ -1920,8 +1920,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// bundle's own default set, so a change of either never serves a stale render.
 					const slicePlugins = renderSource !== markdown ? (PG.pluginAdmission?.(markdown) ?? undefined) : undefined;
 					const pluginKey = `${PG.pluginDefaultsKey?.() ?? '*'}:${slicePlugins ? slicePlugins.join(',') : ''}`;
+					// A render that will not be split (no caret: Present, the slide overview) draws a phone chart with its key
+					// insight beside it (`measured: false`, render-engine.ts), so it never shares a cached render with the
+					// editor preview of the same slide, which is drawn for the page the insight leaves.
+					const measuredKey = typeof opts?.caretText === 'string' ? 'm' : 'u';
 					const key = typeof opts?.slideIndex === 'number'
-						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${measuredKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
 					// Two caches, because the two paths cache different things: the whole-deck memo
 					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
@@ -1940,7 +1944,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}), ...(measuredKey === 'm' ? {} : { measured: false }) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
