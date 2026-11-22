@@ -239,6 +239,12 @@ owe nothing here. See
   body executes, with `Process from config.webServer exited early`. The build step
   before it succeeded, and the site serves fine by hand. **It does not reproduce on a
   GitHub runner** — which is the part that misleads.
+- **Second symptom, quieter: e2e passes against the old build after a source change.**
+  The preview server a run starts stays up after the run ends (the background above), so
+  the next run in the same worktree finds it, skips `build:e2e`, and tests the build from
+  before your edit. Nothing looks wrong: a failing arm can stay green, or a fix's run can
+  test the code you meant to replace (PR #3441 re-ran its evidence for this). Stop the
+  server before every run that follows a source change, and check `docs/dist/`'s time.
 - **Cause, and it is NOT "astro 7 daemonizes":** astro 7 backgrounds the server when it
   detects an AGENTIC environment, and only then. From
   `astro/dist/cli/preview/index.js`:
