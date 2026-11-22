@@ -1,8 +1,9 @@
 /**
- * THE ANDROID FILE-CHOOSER PROBE (PROBE=chooser, #3356). What Chrome on Android offers when the Studio's Library Import is
- * tapped. That input names no `accept` (a list grays a `.lattice` out on iOS: Library.tsx), and on an iPhone the owner's
- * screenshot showed Photo Library, Take Photo or Video and Choose Files still offered. This is the same question on Android,
- * in Chrome on an Android emulator, driven through adb: no WebDriver, no Chrome DevTools, only what a person sees and taps.
+ * THE ANDROID FILE-CHOOSER PROBE. What Chrome on Android offers when the Studio's Library Import is tapped: the camera and
+ * a way to choose photos, videos and files, whatever `accept` list Library.tsx gives that input (#3356 drops it so iOS
+ * stops graying out a `.lattice`; on an iPhone the owner's screenshot showed Photo Library, Take Photo or Video and Choose
+ * Files still offered). This is that question on Android, in Chrome on an Android emulator, driven through adb: no
+ * WebDriver, no Chrome DevTools, only what a person sees and taps.
  *
  * It reads the screen with `uiautomator dump` (Chrome exposes a page's accessible names to it), taps an element at the
  * centre of its bounds, and judges what the system chooser lists. Two arms:
