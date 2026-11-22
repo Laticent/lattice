@@ -24,9 +24,15 @@ const FM = ['---', 'theme: indaco', 'paginate: true', '---', ''].join('\n');
 const WALL_DECK = [FM, '<!-- _class: logo-wall -->', '', '`Trusted by`', '', '## Six partners already run the program.', '', ...['acme', 'globex', 'vantage', 'umbra', 'meridian', 'helios'].map((n) => `- ![${n}](sample:logo-${n}.svg)`), ''].join('\n');
 const MAP_DECK = [FM, '<!-- _class: map world highlight -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', '- India `2.8`', ''].join('\n');
 
-/** The `_class` tokens of the persisted deck's only slide. */
+/** The class tokens of the persisted deck's only slide, in either spelling: a Reshape writes them as a record
+ *  (`<!-- @meta{layout=map, class=world highlight} -->`, record note §15), and the deck starts as an old comment. */
 async function classTokens(page: Page): Promise<string[]> {
 	const src = await persistedSource(page);
+	const record = src.match(/<!--\s*@meta\{([^}]*)\}\s*-->/);
+	if (record) {
+		const field = (name: string) => record[1].match(new RegExp(`(?:^|[,\\s])${name}=("([^"]*)"|[^,]*)`))?.[2] ?? record[1].match(new RegExp(`(?:^|[,\\s])${name}=([^,"]*)`))?.[1] ?? '';
+		return `${field('layout')} ${field('class')}`.split(/\s+/).filter(Boolean);
+	}
 	const m = src.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
 	return m ? m[1].split(/\s+/).filter(Boolean) : [];
 }
