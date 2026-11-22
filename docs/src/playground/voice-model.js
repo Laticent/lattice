@@ -441,7 +441,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + key,
           'HTTP-Referer': referer(),
-          'X-Title': 'Lattice Drawing Board',
+          'X-Title': 'Lattice Studio',
         },
         body: JSON.stringify({
           model,
