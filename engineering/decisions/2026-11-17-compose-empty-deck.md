@@ -118,6 +118,12 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   side padding, held still five frames), reads that the editor has the focus with a caret in the empty line and the grid
   still up, then puts the deck back. `PROBE=empty-deck node scripts/ios-safari/probe.selftest.mjs` runs the same probe on
   Playwright's WebKit at the iPad, iPad-Safari and iPhone sizes. Making the canvas click a no-op turned all three red.
+  **The caret now comes from the touch's release, not its click.** On three simulator runs during PR 3385
+  (twice on the iPhone, once on the iPad) Safari delivered the tap's `pointerdown`, `touchstart`, `pointerup` and
+  `touchend` to the grid, then no `mousedown` and no `click`, with listener lag of up to +288 ms; the editor never took
+  the focus. The grid now puts the caret on a primary touch `pointerup` off its controls (a scroll ends in
+  `pointercancel`, so that release is a tap) and skips the click that follows within 800 ms.
+  `compose-empty-deck.spec.ts` cancels `touchend`, which withholds the click on every engine, and checks the focus.
   WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
   by the empty rule.
   On the iPhone simulator (runs 44087025343 and 44092405081) every tap check passed both times. The probe's clean-up,

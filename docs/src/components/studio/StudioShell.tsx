@@ -1985,6 +1985,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// first slide would otherwise unmount a live editor and rebuild it later.
 	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
+	/** When a touch release on the start grid last put the caret (an event timeStamp), so that tap's click is not a second one. */
+	const startGridTapAt = React.useRef(Number.NEGATIVE_INFINITY);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
 	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
@@ -7778,8 +7780,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
 					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
 					style={{ top: startGridTop ?? 56 }}
+					// A TOUCH TAP PUTS THE CARET ON ITS RELEASE, not on its click. iOS Safari sometimes withholds the click of a
+					// tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no mousedown and no
+					// click, so the editor never took the focus (three simulator runs on PR #3385, listener lag up to +288 ms;
+					// followups.d/3385-p2-ios-empty-deck-tap-focus.md). A scroll ends in pointercancel, not pointerup, so this
+					// release is a tap. The click that does follow is then the same tap and is skipped.
+					onPointerUp={(e) => {
+						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
+						startGridTapAt.current = e.timeStamp;
+						composeRef.current?.focusEmptyLine();
+					}}
 					onClick={(e) => {
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
+						if (e.timeStamp - startGridTapAt.current < 800) return;
 						composeRef.current?.focusEmptyLine();
 					}}
 				>
