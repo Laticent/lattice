@@ -116,3 +116,37 @@ describe('fit-grace: owner decisions D1 and D3', { skip: skipWithoutChrome(resol
     }
   });
 });
+
+// The checker on #3362: grace's signal handler could not run while a trial blocked the event loop, and Node dropped the
+// queued signal, so the export carried on and exited 0. Grace now installs no handler: the process dies of the signal,
+// as it would without grace, and the next grace run sweeps any trial files the killed run left.
+describe('fit-grace stops on a signal', { skip: skipWithoutChrome(resolveChrome()) }, () => {
+  test('SIGTERM during a trial ends the process with SIGTERM and sweeps the trial files', async () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawn } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fit-grace-signal-'));
+    fs.writeFileSync(path.join(dir, 'deck.md'), `${FM}${GANTT}\n`);
+    const lib = path.join(__dirname, '..', '..', '..', 'lib', 'cli', 'fit-grace.js');
+    const script = `const g = require(${JSON.stringify(lib)}); const fs = require('node:fs');
+      g.plan(fs.readFileSync(${JSON.stringify(path.join(dir, 'deck.md'))}, 'utf8'), { dir: ${JSON.stringify(dir)} });
+      console.log('finished');`;
+    const child = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; });
+    // Wait for a signal, not a duration (#32): the first trial file to appear beside the deck.
+    const watcher = fs.watch(dir, (_e, name) => {
+      if (name && name.startsWith('.fit-grace-') && fs.existsSync(path.join(dir, name))) { watcher.close(); child.kill('SIGTERM'); }
+    });
+    const [code, signal] = await new Promise((resolve) => child.on('exit', (c, s) => resolve([c, s])));
+    watcher.close();
+    // The killed run may leave its trial files; the next grace run in that folder removes them.
+    require(lib).sweepStale(dir);
+    const left = fs.readdirSync(dir).filter((f) => f.startsWith('.fit-grace-'));
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.equal(signal, 'SIGTERM', `the process exited ${code} instead of dying of SIGTERM; stdout: ${out}`);
+    assert.doesNotMatch(out, /finished/);
+    assert.deepEqual(left, []);
+  });
+});

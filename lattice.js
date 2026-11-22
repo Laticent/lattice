@@ -4565,7 +4565,7 @@ async function renderBody(browser, g, closeBrowser) {
   // (lib/cli/fit-grace.js). Only when a slide's BODY clips (a footer-only cut is not a claim's to fix), only for a
   // Markdown deck on disk, and never inside the check's own renders (`LATTICE_FIT_GRACE=off` turns it off).
   // Not under CI (owner, D3 on #3362): a CI render of a deck that clips on purpose paid ~1.75x for advice nobody reads.
-  if ((overflowing.length || contentOnly.some((o) => !o.chromeOnly)) && process.env.LATTICE_FIT_GRACE !== 'off' && !flags['no-grace'] && !process.env.CI
+  if ((overflowing.length || contentOnly.some((o) => !o.chromeOnly)) && process.env.LATTICE_FIT_GRACE !== 'off' && !flags['no-grace'] && !require('./lib/cli/fit-grace.js').inCI(process.env)
     && !process.env.LATTICE_FIT_REPORT && mdFile && mdFile !== '-' && !LATTICE_INPUT) {
     try {
       const grace = require('./lib/cli/fit-grace.js');

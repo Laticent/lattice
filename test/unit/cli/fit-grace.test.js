@@ -84,6 +84,28 @@ describe('fit-grace: the trial renders the way the export did', () => {
     assert.deepEqual(args, ['--size', '9:16', '--disable-plugin', 'chart', '--disable-plugin', 'map', '--default-plugins', 'none',
       '--css', '/w/x.css', '--packages', '/w/pk', '--no-split']);
   });
+  test('--allow-remote is forwarded: a remote image that loads can change what fits (checker on #3362)', () => {
+    assert.deepEqual(g.layoutArgs(['deck.md', '--allow-remote', '-q']), ['--allow-remote']);
+  });
+  test('a trial file left by a process that is gone is swept; one owned by a live process is kept', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fit-grace-stale-'));
+    const dead = 2 ** 22 + 7; // above Linux's default pid_max, so no process has it
+    const kept = [`.fit-grace-${process.ppid}-deck.md`, 'deck.md', '.fit-grace-notes.md'];
+    for (const f of [`.fit-grace-${dead}-deck.md`, `.fit-grace-${dead}-s2-claim-hero.fit.json`, `.fit-grace-${dead}-deck.html`, ...kept]) {
+      fs.writeFileSync(path.join(dir, f), '');
+    }
+    g.sweepStale(dir);
+    const left = fs.readdirSync(dir).sort();
+    fs.rmSync(dir, { recursive: true, force: true });
+    assert.deepEqual(left, [...kept].sort());
+  });
+  test('CI=false and CI=0 are not CI; any other non-empty CI is (owner\'s D3)', () => {
+    for (const v of [undefined, '', 'false', 'FALSE', '0', ' false ']) assert.equal(g.inCI({ CI: v }), false, `CI=${v}`);
+    for (const v of ['true', '1', 'yes', 'github']) assert.equal(g.inCI({ CI: v }), true, `CI=${v}`);
+  });
   test('the export\'s own verdict is used as given: nothing clipped there, nothing rendered here', () => {
     const p = g.plan('---\ntheme: indaco\n---\n\n# One\n', { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 1, overflow: [], clipped: [], footerOnly: [] } });
     assert.deepEqual(p.clipped, []);

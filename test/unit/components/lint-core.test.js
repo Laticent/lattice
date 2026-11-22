@@ -1292,6 +1292,10 @@ describe('lint-core: block-unsupported', () => {
     const noted = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n<!--\n> a quoted line in my notes\n-->\n', v)
       .filter((x) => x.rule === 'block-unsupported');
     assert.equal(noted.length, 0);
+    // …and a blockquote whose first line is a bare `>` still draws its takeaway on the slide (checker on #3362).
+    const bare = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n>\n> takeaway\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(bare.length, 1);
     const q = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n> A quotation.\n\n— Someone\n', { ...v, slotContract: v.slotContract })
       .filter((x) => x.rule === 'block-unsupported');
     assert.equal(q.length, 0);
@@ -1317,6 +1321,16 @@ describe('lint-core: block-unsupported', () => {
     // …and these ARE a second blockquote (red team on #3362): one indented a space, and two split by a list item.
     assert.deepEqual(run('## S\n\n> Held void.\n\n > Renegotiate.\n'), []);
     assert.deepEqual(run('## S\n\n> Held void.\n- item\n> Renegotiate.\n'), []);
+    // Two HTML blockquotes on consecutive lines are two blocks; the engine docks the second as the Key Insight.
+    assert.deepEqual(run('## S\n\n<blockquote>Held void.</blockquote>\n<blockquote>Renegotiate.</blockquote>\n'), []);
+  });
+
+  test('split-panel pullquote: insight-* is inert with one blockquote, since the panel takes it (checker on #3362)', () => {
+    const v = { ...bVocab, names: new Set([...bVocab.names, 'split-panel']), modifiers: new Set([...bVocab.modifiers, 'pullquote']) };
+    const run = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: split-panel pullquote insight-key -->\n\n${body}`, v)
+      .filter((f) => f.rule === 'block-unsupported' && f.classToken === 'insight-key');
+    assert.equal(run('## H\n\n- A\n  - a\n\n> Quote.\n\n— Jane\n').length, 1);
+    assert.deepEqual(run('## H\n\n> Quote.\n\n— Jane\n\n- A\n  - a\n\n> Takeaway.\n'), []);
   });
 
   test('quote: two paragraphs after the quotation warn that the second is a note (owner, D2 on #3362)', () => {
@@ -1330,6 +1344,10 @@ describe('lint-core: block-unsupported', () => {
     assert.deepEqual(q('> We bought it\nfor day one.\n\n— Jane Doe\n\n<!--\nsay this slowly\n-->\n'), []);
     // Trailing whitespace, a tab included, does not hide a sentence's full stop (checker on cde848e).
     assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nInterview conducted in March.\t\n'), []);
+    // The engine promotes the second paragraph only when it is the last block, and never under `no-note`.
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product\n\nShe said it in 2019.\n'), []);
+    const qn = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: quote no-note -->\n\n${body}`, v).filter((f) => f.rule === 'quote-note');
+    assert.deepEqual(qn('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product\n'), []);
     // The message quotes at most 40 characters of the paragraph, trimmed.
     const long = q('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product, Pilot Team 3, North America Region \n');
     assert.equal(long.length, 1);

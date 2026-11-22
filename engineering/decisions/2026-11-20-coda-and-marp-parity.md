@@ -353,8 +353,23 @@ note).
 deck-wide `claim: hero` (it drops the header and footer on every slide, and only the clipped slides were checked);
 `hero` stays a per-slide suggestion. D2: `quote` keeps "the second paragraph is the note", and `lint:deck` warns
 (`quote-note`) when that second paragraph reads as a role line (no sentence-ending mark), the shape of a two-line
-attribution; a sentence there is a note and stays silent. D3: the export skips grace when `CI` is set. D4: the last
+attribution; a sentence there is a note and stays silent. D3: the export skips grace when `CI` is set (to anything but `false` or `0`). D4: the last
 `present-emphasis` flake goes to its own branch from main, after checking with the flaky-test coordination session.
+
+**Review after the trio (2026-11-22, two checkers over `a820bd1..888cdc1`).** The trio saw none of the ten commits
+after it, so one checker graded the merge card and a second bug-hunted those commits. Fixed in this PR, each with a test
+that fails without it:
+- grace's Ctrl-C handling: a trial blocks the event loop (`spawnSync`), so the handler could not run and Node dropped
+  the queued signal; an interrupted export carried on and exited 0. Grace now installs no handler, so the export dies of
+  the signal as it did before grace, and each run sweeps trial files left by a dead process;
+- grace forwards `--allow-remote` to its trials, and reads `CI=false` or `CI=0` as not CI;
+- `quote-note`: the byte trim in `b783cc0` dropped the tab from its whitespace strip, and it warned where the engine
+  draws no note (a third paragraph, `no-note`);
+- `topBlocks`: a blockquote whose first line is a bare `>` hid its takeaway from the anchor rule, and two HTML
+  blockquotes on consecutive lines read as one;
+- the `insight-*` rule now reads a variant's anatomy (`split-panel pullquote` with one blockquote);
+- `big-number` and `quote` center their coda note and source line, as `stats` does (found in the owner's own check),
+  and a stray `#` heading on `topic` takes the display ink.
 
 **Budgets as built.** Fourteen components measured more room under a claim than their bare budget, and thirteen now
 declare it: agenda, cards-grid, cards-stack, checklist, inventory, list-steps, policy-recommendation, pricing, q-and-a,
