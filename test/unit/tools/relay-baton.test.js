@@ -246,6 +246,8 @@ describe('npm run baton', () => {
       api,
       now: T0,
       git: git || (() => ({ exists: true, head: { sha: TIP, session, actor: null } })),
+      // never the real checkout's branch: CI runs on a detached HEAD (#32)
+      branchNow: () => 'claude/x',
       out: (s) => lines.push(s),
       err: (s) => lines.push(s),
     });
@@ -318,6 +320,7 @@ describe('npm run baton', () => {
       env: { LATTICE_SESSION: ME },
       now: T0,
       git: () => ({ exists: true, head: { sha: TIP, session: THEM, actor: null } }),
+      branchNow: () => 'claude/x',
       api: () => {
         throw new relay.RelayError('gh api GET … failed');
       },
@@ -325,6 +328,12 @@ describe('npm run baton', () => {
       err: () => {},
     });
     assert.equal(code, 3);
+  });
+
+  test('no branch given: the current branch is used; a detached HEAD is a bad argument', () => {
+    assert.equal(go(['status']).code, 1);
+    const code = run(['status'], { env: { LATTICE_SESSION: ME }, now: T0, git: () => ({ exists: false, head: null }), api: () => [], branchNow: () => '', out: () => {}, err: () => {} });
+    assert.equal(code, 64);
   });
 
   test('bad arguments: exit 64, including a --now with no zone', () => {
