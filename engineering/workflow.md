@@ -77,8 +77,9 @@ cost the most (one session per branch, forever).
    sessions racing for a free baton exactly one wins. **A rejected push means someone else won**: fetch, run
    `npm run baton -- status`, and do not pull, merge or rebase your way past it. **Save what git rejected**:
    `npm run baton -- rescue` pushes your local commits, without force, to `relay-rescue/<branch>/<session>`,
-   so they outlive this sandbox. Name that ref in the living comment (or tell me, if you cannot edit it),
-   then stop. A rescue ref is a backup, not a line of work: no PR opens from it, the baton holder merges it
+   so they outlive this sandbox (the push runs the pre-push hook first, about a minute; a second rescue
+   that is not a fast-forward of the first stops and tells you to merge the earlier one in, never to
+   force). Name that ref in the living comment (or tell me, if you cannot edit it), then stop. A rescue ref is a backup, not a line of work: no PR opens from it, the baton holder merges it
    into the line, and it is deleted after.
 5. **While you hold it**: if the remote moved (a person pushed from GitHub's UI) or the branch conflicts with
    `main`, **merge** it in with your trailer; never rebase, amend a pushed commit or force-push a relay
@@ -154,36 +155,36 @@ environment change, approved in their account.
 
 ### Usage checkpoints — 25, 50, 75, 90% of the weekly limit
 
-Each account has its own weekly meter, and no session is known to read its percentage today (`get_session`
-shows only `allowed` / `allowed_warning`, which flips at about 25%; the status line's percentage is
-unverified in cloud sessions). So **the owner calls each level**: typing
-`usage 50` in the command center sends one line to every live session on that account. Each person's
-command center reaches only its own sessions. Decision: `2026-11-22-two-person-relay.md` §Usage
+Each account has its own weekly meter, and **each session reads it itself** at every checkpoint: the
+newest `rate_limit_event` in its own transcript (`list_events` on its own session id, `kinds:
+["rate_limit_event"]`) carries `…rate_limit_info.unifiedWindows.seven_day.utilization`, for example
+`0.30`. The field is undocumented, so a session that cannot read it treats the level as unknown and says
+so. (`get_session` drops the percentage and shows only `allowed_warning`, which flips at about 25%.) A
+command-center `usage N` broadcast is optional. Decision: `2026-11-22-two-person-relay.md` §Usage
 checkpoints.
 
 | Level | Every session |
 |---|---|
-| 25, 50, 75% | checkpoint now (push, edit the living comment), then continue |
-| **90% (mandatory)** | checkpoint, then `npm run baton -- release`, so the other person's session can take the branch at once |
+| 25, 50% | checkpoint now (push, edit the living comment), then continue |
+| **75%** | **pause**: checkpoint, `npm run baton -- release`, then write `paused at 75% (seven_day <pct>); I can't judge my own criticality` in the living comment and in its own chat |
+| **90% (mandatory)**, for a session kept past 75% | checkpoint, then `npm run baton -- release`, so the other person's session can take the branch at once |
 
-**Past 75%, only critical work continues.** The command center proposes keep or pause, one line per
-session with the reason; **nothing pauses until the owner replies**. Critical: release-gate work,
-red-on-main fixes (#33), work needed to reach a merge the owner already asked for. Not critical: census
-and cleanup, raise rounds nobody waits on, design competitions, new desks. A paused session checkpoints,
-releases, writes `paused at 75%, resume after <resetsAt as UTC>` in its living comment and goes idle; it
-resumes after the reset on the owner's word, unless the other person's session takes the baton first.
-**A pause is the owner's word in the session that pauses** (#31: a command-center message never stops a
-session's work): the session that receives a pause line checkpoints at once, then asks the owner in its
-own session and pauses on the yes. A checkpoint or the 90% release is not a stop, so those act on the
-broadcast alone.
+**A session never declares itself critical.** After pausing it checks `list_sessions` for a live session
+tagged `command-center` on its account: if there is one, it says the command center will propose which
+sessions resume; if not, it says only the owner can resume it. It resumes when the owner says `keep going`,
+in that session or as a keep list the owner approved in the command center and relayed. A relayed resume
+continues the session's own work, so #31 does not block it, and the pause is the session's own rule rather
+than another session's order, so it needs no second ask. Critical work for a keep list: release-gate work,
+red-on-main fixes (#33), work needed to reach a merge the owner already asked for. The owner accepted the
+cost: when 75% arrives with nobody awake, all work waits for an answer.
 
 **Spend past 75%:** the raise loop runs at most 1 round, no new multi-agent fan-out starts, and only the
-mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and
-work whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped.
-Either one is proposed to the owner as a pause, critical or not. The usage cap is a stop reason for the
-raise loop (§The raise loop): the card's `raised` row says so, e.g.
-`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round is proposed as a
-pause, not carded (`npm run card` refuses `0 rounds` below VERY HIGH).
+mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
+whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped. The
+usage cap is a stop reason for the raise loop (§The raise loop): the card's `raised` row says so, e.g.
+`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits, not carded
+(`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
+reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 
 ### What the baton does not do
 

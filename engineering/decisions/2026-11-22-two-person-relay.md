@@ -291,44 +291,55 @@ The owner answered the PR's ❓ card on 2026-11-22 (in the workflow desk's sessi
 
 ## Usage checkpoints (decided 2026-11-22)
 
-The owner added a requirement and answered a second `AskUserQuestion` round in the workflow desk's
-session (about 20:12 UTC): every running session hands off at 25, 50, 75 and 90% of the account's weekly
-usage, and past 75% only critical work continues.
+The owner added a requirement in the workflow desk's session: every running session hands off at 25, 50,
+75 and 90% of the account's weekly usage. Two `AskUserQuestion` rounds settled it (about 20:12 and 21:00
+UTC); the second, after the owner asked for a deeper look, replaced the first round's answers to U1 and
+U3.
 
-- **U1 Source: the owner calls each level.** The owner types, for example, `usage 50` in the command
-  center, which sends one line to each live session on that account. Measured facts:
-  - `get_session`'s `external_metadata.rate_limit_info` is `{status, rateLimitType: "seven_day",
-    resetsAt, isUsingOverage}`, with **no percentage**. `status` turned from `allowed` to
-    `allowed_warning` at about 25%, by the owner's reading, so it warns early and is not a near-limit
-    alarm.
-  - The installed CLI computes `rate_limits.seven_day.used_percentage` for the status line. **Whether a
-    cloud session can read it: UNVERIFIED.** The probe (a status-line command in an uncommitted
-    `.claude/settings.local.json` that copies its input to a file) did not run: this worker session's
-    permission check refused the settings write, and the worker did not work around it. If the owner
-    wants it tried, the probe runs in a session whose permissions allow it, and any committed status-line
-    change is its own question to the owner.
-- **U2 At a level.** At 25, 50 and 75%: checkpoint now (push, edit the living handoff comment), then
-  continue. At 90%: the same, then `npm run baton -- release`, so a session on the other person's account
-  (a separate weekly limit) can take the branch at once. **90% is mandatory.**
-- **U3 Past 75%.** The command center proposes keep or pause, one line per session, with the reason.
-  - Critical: release-gate work (meta, Segno), red-on-main fixes (#33), and work needed to reach a merge
-    the owner already asked for.
-  - Not critical: census and cleanup, raise rounds nobody waits on, design competitions, new desks.
-  - **Nothing pauses until the owner replies.** Pausing is: checkpoint, `npm run baton -- release`, the
-    line `paused at 75%, resume after <resetsAt as UTC>` in the living comment, then idle. A paused
-    session resumes after the reset on the owner's word; the other person's session may take the baton
-    sooner.
-  - As built: a pause stops a session's work, which #31 says no command-center message can authorize, so
-    the receiving session checkpoints at once and pauses on the owner's yes in its own session.
-    Checkpoints and the 90% release are not stops and act on the broadcast alone. A scoped exception to
-    #31 for pause lines is the owner's call (the PR's ❓ card).
+**How a session reads the level (verified 2026-11-22).** Every session's transcript carries
+`rate_limit_event` entries: Claude Code writes one each time the account's rounded weekly percentage
+moves. A session reads its own:
+
+```
+list_events(session_id=<own id>, kinds=["rate_limit_event"], limit=100)   # no cursor: newest last
+→ rate_limit_event.internal_anthropic_catchall.rate_limit_info.unifiedWindows.seven_day.utilization
+```
+
+The desk's session read 0.27, 0.28, 0.29 and 0.30 this way (the top-level `utilization` matched). No
+command center, settings change or hook is needed, so the status-line probe is dropped. Caveats: the field
+sits under `internal_anthropic_catchall` and is undocumented, so it can change; when it cannot be read, the
+session treats the level as unknown and says so. `get_session`'s `rate_limit_info` drops `utilization`
+(only `status`, which flips to `allowed_warning` at about 25%), which is why the percentage first looked
+missing. At the limit itself, the CLI injects: "Usage limit reached — grace window active. Wrap up: finish
+or checkpoint; don't start subagents or long work."
+
+- **U1 (revised) Source: each session reads its own level** at every checkpoint (the 30-minute floor and
+  each cadence step), as above. At 25 and 50%: checkpoint, then continue. The command center's
+  `usage N` broadcast is optional, not the mechanism. *The owner's last recorded answer was "command
+  center only", given before the investigation found this source; the self-read is confirmed at the
+  merge card.*
+- **U3 (revised) At 75%, every session pauses by default** (the owner's answer: "Everyone pauses").
+  It checkpoints, runs `npm run baton -- release`, and writes, in the living comment AND in its own chat,
+  `paused at 75% (seven_day <pct>); I can't judge my own criticality`. A session never declares itself
+  critical. It then checks `list_sessions` for a live session tagged `command-center` on its account: if
+  there is one, it says the command center will propose which sessions resume; if not, it says only the
+  owner can resume it. It resumes when the owner says `keep going`, typed in that session or as a keep
+  list the owner approved in the command center, relayed. Resuming continues the session's own work, so a
+  relayed resume is not on #31's list (stopping, dropping, reverting, pulling). The pause is the
+  session's own rule, not another session's order, so D4's second ask is moot and #31 needs no exception.
+  Critical work for a keep list is still release-gate work (meta, Segno), red-on-main fixes (#33), and
+  work needed to reach a merge the owner already asked for.
+- **U2 At 90%, for a session kept past 75%:** checkpoint, then `npm run baton -- release`, so a session on
+  the other person's account (a separate weekly limit) can take the branch at once. Mandatory.
 - **U4 Spend past 75%.** The raise loop is capped at 1 round; no new multi-agent fan-outs; only the
   mandated card checker runs. Work that needs the adversarial trio is **not started** past 75%: it waits
-  for the reset, and the trio is never skipped; work whose trio stage falls past 75% stops at a
-  checkpoint before it and is proposed as a pause. A card that could not be raised says so in its
-  `raised` row, and the usage cap is a stop reason for the raise loop.
+  for the reset, and the trio is never skipped; work whose trio stage falls past 75% stops at a checkpoint
+  before it. A card that could not be raised says so in its `raised` row, and the usage cap is a stop
+  reason for the raise loop.
+- **The cost the owner accepted:** when 75% arrives with nobody awake, all work stops until someone
+  answers, and up to 25% of the week can go unused.
 - **Accounts.** Each account's meter is separate, and Kirk's sessions are invisible to Picard's command
-  center, so each person's command center broadcasts to its own sessions only.
+  center, so each person's command center reaches its own sessions only.
 
 These are workflow rules in `engineering/workflow.md` §Relay; no tool, hook or CI step changes.
 
