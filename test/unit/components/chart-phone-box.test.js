@@ -1,4 +1,3 @@
-'use strict';
 /**
  * A portrait chart's box on a phone page (engineering/decisions/2026-11-22-tall-canvas-retired.md).
  *
