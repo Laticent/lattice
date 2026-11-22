@@ -968,8 +968,10 @@ and the rest) stop being read by the engine.
   complete enabled for these. and compose needs to incorporate support for changing meta in the layout editor."
 
 **Decks from outside the repo** (Studio storage, an import, a `.lattice` file, a Marp deck) are converted by the lint fix
-and the Studio's fix button, not when they are opened, unless the owner says otherwise. A deck is never rewritten behind
-the author's back; the fix is one click, and the lint error names it.
+and the Studio's fix button, or `lattice migrate meta`, and never when they are opened or imported. The owner settled it
+(2026-11-22, relayed by the meta desk), verbatim: "we are not ga. the only decks that exist are mine that i used for
+testing". So there is no conversion on open. A deck is never rewritten behind the author's back; the fix is one click,
+and the lint error names it.
 
 ### 15.1 Where `main` stands (census, 2026-11-22, `7789cce`)
 
