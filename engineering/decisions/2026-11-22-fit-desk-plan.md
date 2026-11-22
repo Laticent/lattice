@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   The fit desk's split of "fit everywhere" into a base track (Fluid, the fit spine, split and carousel policy,
   venues, text-room breakpoints, the harness and the viewers) and a component track (per-layout responsive
@@ -8,11 +8,11 @@ summary: >
 
 # The fit desk plan: base track and component track (2026-11-22)
 
-**Status: proposed.** The owner set up a fit desk on 2026-11-22 to own "fit everywhere" (total
+**Status: accepted (owner, 2026-11-22).** The owner set up a fit desk on 2026-11-22 to own "fit everywhere" (total
 responsive) until it is finished, and asked for the work to be split into **base** work and
-**component** work. This note is that split. The order and the worker count below are the
-desk's recommendation; the owner confirms them on the desk's ❓ card, and this note is updated
-with the answers.
+**component** work. This note is that split. The owner accepted the split, chose to land #2988 as one PR, approved the
+phone venue in the fit nightly, and asked for an order in which each finished slice stacks: it
+lands on its own and unblocks the next.
 
 Why a separate note: PR #2988 appends §13–§25 to `2026-10-28-fit-everywhere-model.md`. A new
 section written on `main` would collide with that tail. Once #2988 lands, the model doc gets a
@@ -54,6 +54,11 @@ base slice that creates it is on `main`. Today that means most component work wa
 - Owner answers on its Nov 17 card (relayed 2026-11-22): D1 yes (a lede longer than a phone
   page continues at a sentence break), D2 yes (a 3-column table cut off at a phone's edge
   becomes cards), W1 keeps its default.
+- Ship bar for #2988 (owner, 2026-11-22): CI green on the head; the adversarial trio has run
+  (HARD RULE #25); the harness corpus and the fit nightly show no regression against main (no
+  new clips, no lost content, readability held, jank no worse); the owner signs off exported
+  bytes dark and light; a checker grades the 🚦 card VERY HIGH, or HIGH when the only gap is a
+  real-device surface no runner reaches, named on the card.
 
 ## 3. Base track
 
@@ -102,9 +107,12 @@ changes (#9).
    needs a base attribute #2988 creates or edits one of its 94 component files.
 2. After B0: B1 and C1 in parallel, then B2 with C2, then B3/B5 with C4–C6.
 3. B4 and B6 last, each with the adversarial trio and the owner's export sign-off.
+4. After the tracks: a jank, polish and fix sweep over everything the tracks touched, routed
+   through `check:jank` and the 10/10 visual review (`engineering/visual-review.md`).
 
-Two worker sessions at a time while #2988 is open, three after it lands. The desk asks before
-starting a fourth.
+The owner set a ceiling of 15–20 agents and sessions in total for this lane, not a target: the
+desk spends the fewest that finish the job and reports a running count. In practice that is two
+workers at a time while #2988 is open and three after it lands.
 
 ## 6. Coordination
 
