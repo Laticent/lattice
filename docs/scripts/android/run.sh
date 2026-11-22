@@ -72,6 +72,7 @@ done
 "$ADB" root >/dev/null; timeout 60 "$ADB" wait-for-device
 "$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
 "$ADB" shell am set-debug-app --persistent com.android.chrome
+"$ADB" shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS || true  # no "Chrome notifications" prompt
 "$ADB" shell am force-stop com.android.chrome
 "$ADB" shell settings put global window_animation_scale 0
 "$ADB" shell settings put global transition_animation_scale 0

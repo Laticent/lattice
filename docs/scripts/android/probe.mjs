@@ -37,7 +37,7 @@ function nodes() {
 		const a = (k) => (m[0].match(new RegExp(`\\b${k}="([^"]*)"`)) || [])[1] || '';
 		const b = a('bounds').match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
 		if (!b) continue;
-		out.push({ text: a('text'), desc: a('content-desc'), cls: a('class'), pkg: a('package'), x: (Number(b[1]) + Number(b[3])) >> 1, y: (Number(b[2]) + Number(b[4])) >> 1 });
+		out.push({ text: a('text'), desc: a('content-desc'), cls: a('class'), pkg: a('package'), id: a('resource-id'), x: (Number(b[1]) + Number(b[3])) >> 1, y: (Number(b[2]) + Number(b[4])) >> 1 });
 	}
 	return { xml, out };
 }
@@ -50,6 +50,14 @@ async function until(re, ms, what) {
 		const last = nodes();
 		const hit = last.out.find((n) => re.test(n.text) || re.test(n.desc));
 		if (hit) return hit;
+		// Chrome's own prompts (notifications, sign-in, a tip) sit over the page and come and go by version: dismiss them.
+		// Only Chrome's native buttons carry a com.android.chrome:id/ resource id; a button inside the page has none, so this
+		// can never tap the Studio's own UI.
+		const prompt = last.out.find((n) => n.id.startsWith('com.android.chrome:id/') && /^(no,? thanks|not now|got it|dismiss|skip)$/i.test(n.text));
+		if (prompt) {
+			console.log(`  (dismissed Chrome's "${prompt.text}" prompt)`);
+			tap(prompt);
+		}
 		if (Date.now() - t0 > ms) {
 			fs.writeFileSync(path.join(OUT, `timeout-${++shot}.xml`), last.xml);
 			throw new Error(`timed out after ${ms} ms waiting for ${what}`);
