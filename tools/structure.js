@@ -69,6 +69,7 @@ const PARTS = [
   { part: 'lib/adaptive', layer: 0, match: 'lib/adaptive/', about: 'The four box families (structural breakpoints) a component reflows across.' },
   { part: 'lib/fonts', layer: 0, match: 'lib/fonts/', about: 'Self-hosted fonts: the text, emoji and icon font faces every render path loads, and the subsetter that cuts a color font down to the glyphs a deck uses.' },
   { part: 'lib/finishes', layer: 0, match: 'lib/finishes/', about: 'Finish packages (layered, palette-blind backdrops) and the generator that turns a recipe into finish CSS.' },
+  { part: 'lib/presets', layer: 0, match: 'lib/presets/', about: 'Deck presets: one folder each (a preset.json naming the registers it sets, an optional stylesheet for its class), and the generated table lib/core/front-matter-key.js reads.' },
   { part: 'lib/exemplars', layer: 0, match: 'lib/exemplars/', about: 'Trims a worked example deck to a tier: short, standard or full.' },
   { part: 'lib/typography', layer: 0, match: 'lib/typography/', about: 'The `--fs-*` type scale: the coefficient sets and the math that sizes them.' },
   { part: 'lib/motion', layer: 0, match: 'lib/motion/', about: 'Motion packages: the Anima scenes (art, poster, scene spec) an animated slide plays.' },

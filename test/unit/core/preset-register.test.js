@@ -49,6 +49,7 @@ const { COLOR_MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-color-mod
 const { MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-mode.js'));
 const { parseMarks, MARKS_DEFAULT } = require(path.join(ROOT, 'lib/core/resolve-marks.js'));
 const { parseBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
+const { COVER_REGISTER } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
 const fs = require('node:fs');
 const clean = (p) => p.unknown.length === 0 && p.duplicate.length === 0;
 const ACCEPTS = {
@@ -61,6 +62,8 @@ const ACCEPTS = {
   spectrum: (v) => v !== '' && clean(SPECTRUM_REGISTER.parse(v)),
   'card-spectrum': (v) => v !== '' && clean(CARD_SPECTRUM_REGISTER.parse(v)),
   'trim-spectrum': (v) => v !== '' && clean(TRIM_SPECTRUM_REGISTER.parse(v)),
+  // `cover:` takes a surface and a composition (lib/core/resolve-cover.js).
+  cover: (v) => v !== '' && clean(COVER_REGISTER.parse(v)),
 };
 
 test('every value a preset sets is one its register accepts, and every default is too', () => {

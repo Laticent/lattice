@@ -1,0 +1,15 @@
+{
+  "name": "editorial",
+  "label": "Editorial",
+  "desc": "Left-aligned, a ruled ledger backdrop with a rail, a short rule and lifted cards.",
+  "order": 2,
+  "values": {
+    "finish": "ledger",
+    "headline": "left",
+    "rule": "short",
+    "eyebrow": "bar",
+    "trim-spectrum": "mono",
+    "lift": "on",
+    "typography": "ledger"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "classic",
+  "label": "Classic",
+  "desc": "The house default — centered title, rainbow bar, a hairline rule, flat cards.",
+  "order": 1,
+  "values": {}
+}

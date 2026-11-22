@@ -1,6 +1,6 @@
 /**
  * PRESET PLUMBING (P0) — the keys a preset RECOMMENDS (`theme`, `color-mode`, `mode`, `marks`,
- * `backdrop`) and the preset TOKENS, wired through every path before any preset sets them.
+ * `backdrop`) and the preset CLASS, wired through every path before any preset sets them.
  * engineering/decisions/2026-11-20-deck-preset-study.md §5 D1 and D10, §8 Phase 0.
  *
  * No shipped preset sets these keys yet (they arrive in the later waves), so every arm runs on a
@@ -18,8 +18,8 @@ const { JSDOM } = require('jsdom');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const fmk = require(path.join(ROOT, 'lib/core/front-matter-key.js'));
-const { topLevelRegisterValue, frontMatterValue, withPresetTable, PRESETS } = fmk;
-const { presetTokenClass, presetTokenClassFromFrontMatter, presetTokensCss, presetTokenProblem } = require(path.join(ROOT, 'lib/core/resolve-preset.js'));
+const { topLevelRegisterValue, frontMatterValue, withPresetTable, PRESETS, PRESET_NAMES } = fmk;
+const { presetClass, presetClassFromFrontMatter, isPresetClass } = require(path.join(ROOT, 'lib/core/resolve-preset.js'));
 const { resolvePalette } = require(path.join(ROOT, 'lib/core/resolve-palette.js'));
 const { deckColorModeToken, readFrontMatterColorMode } = require(path.join(ROOT, 'lib/core/resolve-color-mode.js'));
 const { backdropClassesFromFrontMatter, readBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
@@ -28,12 +28,11 @@ const { withBundleFrontMatter } = require(path.join(ROOT, 'lib/export/bundle-fro
 const { readTheme } = require(path.join(ROOT, 'tools/export-marp.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 
-/** The probe: every recommendation key, a multi-word value on both multi-word keys, and one token. */
+/** The probe: every recommendation key, and a multi-word value on both multi-word keys. */
 const PROBE = {
   label: 'Probe',
   desc: 'test only',
   values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', marks: 'etch vivid', backdrop: '40 clear', rule: 'short' },
-  tokens: { '--rule-w': '2px' },
 };
 const TABLE = { ...PRESETS, probe: PROBE };
 const withProbe = (fn) => withPresetTable(TABLE, fn);
@@ -119,31 +118,103 @@ test('lint: a recommended theme is not reported as a line the deck wrote', () =>
   });
 });
 
-/* ── Preset tokens (D10) ────────────────────────────────────────────────────────────────── */
+/* ── The preset class and its stylesheet (D10) ────────────────────────────────────────── */
 
-test('tokens: only a preset that sets tokens stamps a class and emits CSS', () => {
-  for (const name of Object.keys(PRESETS)) assert.equal(presetTokenClass(name), '', `${name} sets no tokens and stamps nothing`);
-  assert.equal(presetTokensCss(), '', 'no shipped preset emits CSS, so the bundle is unchanged');
+test('class: every preset but classic stamps preset-<name>; classic and an unknown name stamp nothing', () => {
+  for (const name of Object.keys(PRESETS)) {
+    assert.equal(presetClass(name), name === 'classic' ? '' : `preset-${name}`, name);
+  }
+  assert.equal(presetClass('Editorial '), 'preset-editorial', 'case and spaces, like every preset read');
+  assert.equal(presetClass('nope'), '');
+  assert.deepEqual(presetClassFromFrontMatter('preset: editorial'), ['preset-editorial']);
+  assert.deepEqual(presetClassFromFrontMatter('pptx:\n  preset: editorial'), [], 'top-level only');
+  assert.ok(isPresetClass('preset-editorial') && !isPresetClass('preset-classic') && !isPresetClass('preset-nope'));
   withProbe(() => {
-    assert.equal(presetTokenClass('Probe'), 'preset-probe');
-    assert.deepEqual(presetTokenClassFromFrontMatter('preset: probe'), ['preset-probe']);
-    assert.deepEqual(presetTokenClassFromFrontMatter('pptx:\n  preset: probe'), [], 'top-level only');
-    assert.equal(presetTokensCss(), 'section.preset-probe {\n  --rule-w: 2px;\n}');
-    assert.ok(isSurfaceRegisterToken('preset-probe'), 'the token rides a split page like every deck register');
+    assert.deepEqual(presetClassFromFrontMatter('preset: probe'), ['preset-probe']);
+    assert.ok(isSurfaceRegisterToken('preset-probe'), 'the class rides a split page like every deck register');
   });
-  assert.ok(!isSurfaceRegisterToken('preset-probe'), 'control: outside the probe, no such token');
+  assert.ok(!isSurfaceRegisterToken('preset-probe'), 'control: outside the probe, no such class');
 });
 
-test('tokens: a value that breaks a house rule fails the build, not a slide', () => {
-  assert.equal(presetTokenProblem('--rule-w', '2px'), null);
-  assert.equal(presetTokenProblem('--rail-w', 'calc(var(--sp-card-w) * 2)'), null);
-  assert.match(presetTokenProblem('rule-w', '2px'), /custom-property/);
-  assert.match(presetTokenProblem('--fs-title', '40px'), /HARD RULE #4/);
-  assert.match(presetTokenProblem('--rule-color', '#ff0000'), /hex/, 'HARD RULE #3');
-  for (const bad of ['red}section{color:red', '1px; color: red', '1px</style><script>', '2px !important', '/* x */ 1px']) {
-    assert.ok(presetTokenProblem('--rule-w', bad), `refused: ${bad}`);
+/**
+ * Each preset's stylesheet is CSS, never generated (decision S8): lib/presets/<name>/<name>.css holds
+ * only bare `section.preset-<name>` rules for ITS OWN preset, declaring only the preset hooks and the
+ * eyebrow voice (lib/presets/README.md lists them), with no type size, no hex literal, no !important.
+ */
+const PRESETS_DIR = path.join(ROOT, 'lib/presets');
+const PRESET_HOOKS = new Set(['--rule-w', '--rule-style', '--rule-mark', '--rail-w', '--radius-card',
+  '--eyebrow-case', '--eyebrow-tracking', '--eyebrow-style', '--eyebrow-weight']);
+
+function presetsCssProblems(css, own) {
+  const problems = [];
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...body.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+  const rest = body.replace(/([^{}]+)\{([^{}]*)\}/g, '').trim();
+  if (rest) problems.push(`not a plain rule: ${rest.slice(0, 60)}`);
+  for (const [, sel, decls] of rules) {
+    const m = sel.trim().match(/^section\.preset-([a-z][a-z0-9-]*)$/);
+    if (!m) { problems.push(`selector \`${sel.trim()}\` is not section.preset-<name>`); continue; }
+    if (!isPresetClass(`preset-${m[1]}`)) problems.push(`\`${sel.trim()}\` names no shipped preset (classic stamps nothing)`);
+    else if (own && m[1] !== own) problems.push(`\`${sel.trim()}\` styles another preset; lib/presets/${own}/ styles preset-${own} only`);
+    for (const d of decls.split(';').map((x) => x.trim()).filter(Boolean)) {
+      const [prop, ...v] = d.split(':');
+      const value = v.join(':').trim();
+      if (!PRESET_HOOKS.has(prop.trim())) problems.push(`\`${prop.trim()}\` in ${sel.trim()} is not a preset hook`);
+      if (/#[0-9a-f]{3,8}\b/i.test(value)) problems.push(`\`${d}\` carries a hex literal (HARD RULE #3)`);
+      if (/!important/i.test(value)) problems.push(`\`${d}\` is !important`);
+    }
   }
-  assert.throws(() => presetTokensCss({ bad: { values: {}, tokens: { '--x': '#fff' } } }), /preset bad/);
+  return problems;
+}
+
+test('folders: every lib/presets/<name>/ is a table entry, and every entry is a folder', () => {
+  const folders = fs.readdirSync(PRESETS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  assert.deepEqual(folders, [...PRESET_NAMES].sort());
+  for (const name of folders) {
+    const json = JSON.parse(fs.readFileSync(path.join(PRESETS_DIR, name, `${name}.preset.json`), 'utf8'));
+    assert.deepEqual({ label: json.label, desc: json.desc, values: json.values }, { ...PRESETS[name], values: { ...PRESETS[name].values } }, `${name}: the generated table matches its folder (run \`node tools/build-packages-index.js\`)`);
+  }
+});
+
+test('stylesheet: each lib/presets/<name>/<name>.css styles only its own preset, with preset hooks only', () => {
+  const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
+  for (const name of PRESET_NAMES) {
+    const file = path.join(PRESETS_DIR, name, `${name}.css`);
+    if (!fs.existsSync(file)) continue;
+    assert.deepEqual(presetsCssProblems(fs.readFileSync(file, 'utf8'), name), [], file);
+    assert.ok(bundle.includes(`/* === lib/presets/${name}/${name}.css === */`), `the bundle carries ${name}.css (run \`npm run build\`)`);
+  }
+});
+
+test('stylesheet: the checker refuses each shape it exists to catch', () => {
+  assert.deepEqual(presetsCssProblems('section.preset-editorial { --rule-w: 4px; --rule-mark: var(--text-heading); }', 'editorial'), []);
+  for (const [css, why] of [
+    ['section.preset-nope { --rule-w: 2px; }', /no shipped preset/],
+    ['section.preset-classic { --rule-w: 2px; }', /no shipped preset/],
+    ['section.preset-brand { --rule-w: 2px; }', /another preset/],
+    ['section.preset-editorial h2 { --rule-w: 2px; }', /not section\.preset/],
+    ['section.preset-editorial { --fs-h2: 40px; }', /not a preset hook/],
+    ['section.preset-editorial { color: red; }', /not a preset hook/],
+    ['section.preset-editorial { --rule-mark: #ff0000; }', /hex literal/],
+    ['section.preset-editorial { --rule-w: 2px !important; }', /!important/],
+    ['@media print { section.preset-editorial { --rule-w: 2px; } }', /not|selector/],
+  ]) assert.match(presetsCssProblems(css, 'editorial').join('; '), why, css);
+});
+
+test('cover: a preset fills each cover axis the deck leaves empty, in both render paths', () => {
+  const { coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
+  const table = { ...PRESETS, probe: { ...PROBE, values: { cover: 'light column' } } };
+  withPresetTable(table, () => {
+    assert.deepEqual(coverClassesFromFrontMatter('preset: probe'), ['cover-light', 'cover-column']);
+    assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: inverse'), ['cover-column'], 'the deck keeps its surface, the preset its composition');
+    assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: plain'), ['cover-light'], 'the deck keeps its composition');
+    assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: inverse plain'), [], 'both axes the deck\'s');
+    const engine = latticeEngine.createEngine();
+    const title = (md) => classesOf(engine.render(md.replace('# Cover', '<!-- _class: title -->\n\n# Cover')).html)[0];
+    assert.ok(title(deck(['preset: probe'])).includes('cover-column'), 'the engine stamps the preset cover');
+  });
+  // Control: outside the stand-in table no preset says anything about the cover.
+  assert.deepEqual(coverClassesFromFrontMatter('preset: probe'), []);
 });
 
 /* ── The engine (lib/engine + lib/integrations/markdown-it/plugins.js) ─────────────────── */
@@ -182,9 +253,10 @@ test('engine: the preset stamps its color mode, hand, marks, backdrop and token 
       assert.ok(cls.includes('light') && !cls.includes('dark'), cls.join(' '));
     }
   });
-  // Control: the shipped presets stamp none of it.
+  // Control: a shipped preset stamps its own class and none of the probe's recommendations.
   for (const cls of classesOf(engine.render(deck(['preset: editorial'])).html)) {
-    assert.ok(!cls.some((t) => t.startsWith('preset-') || t === 'dark' || t === 'sketch' || t.startsWith('backdrop-')), cls.join(' '));
+    assert.ok(cls.includes('preset-editorial'), cls.join(' '));
+    assert.ok(!cls.some((t) => t === 'preset-probe' || t === 'dark' || t === 'sketch' || t.startsWith('backdrop-')), cls.join(' '));
   }
 });
 
@@ -229,12 +301,12 @@ function runtimeWithProbe(deckSource, markup) {
   return new Promise((r) => setTimeout(() => r(dom.window.document), 1000));
 }
 
-test('runtime: stamps the preset color mode, backdrop and token class from a baked block', async () => {
+test('runtime: stamps the preset color mode, backdrop and preset class from a baked block', async () => {
   const markup = '<section class="content"><h2>One</h2></section>';
   const on = await runtimeWithProbe(deck(['preset: probe']), markup);
   const cls = on.querySelector('section').className.split(/\s+/);
   for (const t of ['dark', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'rule-short']) assert.ok(cls.includes(t), `${t} in ${cls.join(' ')}`);
   const off = await runtimeWithProbe(deck(['preset: editorial']), markup);
   const offCls = off.querySelector('section').className;
-  assert.ok(!/\b(dark|preset-|backdrop-)/.test(offCls), `control: ${offCls}`);
+  assert.ok(/\bpreset-editorial\b/.test(offCls) && !/\b(dark|preset-probe|backdrop-)/.test(offCls), `control: ${offCls}`);
 });

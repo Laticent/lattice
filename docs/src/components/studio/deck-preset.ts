@@ -46,9 +46,9 @@ export const PRESET_KEYS: readonly string[] = ENGINE.PRESET_KEYS;
 export const AUTHOR_KEYS: readonly string[] = ['theme', 'color-mode'];
 
 /** Keys the engine reads at COLUMN 0 only (`topLevelRegisterValue`): an indented line is someone else's key. */
-const TOP_LEVEL_KEYS = new Set(['theme', 'color-mode', 'backdrop']);
+const TOP_LEVEL_KEYS = new Set(['theme', 'color-mode', 'backdrop', 'cover']);
 /** Keys whose value is more than one word (`marks: etch vivid`, `backdrop: 40 clear`): read whole, not as a bare name. */
-const MULTI_WORD_KEYS = new Set(['marks', 'backdrop', 'spectrum', 'card-spectrum', 'trim-spectrum']);
+const MULTI_WORD_KEYS = new Set(['marks', 'backdrop', 'spectrum', 'card-spectrum', 'trim-spectrum', 'cover']);
 /** Keys read case-sensitively: a saved palette is matched by its name as written. */
 const CASE_KEPT_KEYS = new Set(['theme']);
 export const PRESET_NAMES: readonly string[] = ENGINE.PRESET_NAMES;

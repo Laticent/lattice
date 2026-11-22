@@ -1,0 +1,17 @@
+{
+  "name": "brand",
+  "label": "Brand-forward",
+  "desc": "Centered, the accent everywhere — solid bar, card rails, full trim, corner marks.",
+  "order": 3,
+  "values": {
+    "finish": "strata",
+    "headline": "center",
+    "spectrum": "solid",
+    "card-spectrum": "solid",
+    "trim-spectrum": "solid",
+    "rule": "accent",
+    "eyebrow": "dot",
+    "lift": "on",
+    "typography": "poster"
+  }
+}

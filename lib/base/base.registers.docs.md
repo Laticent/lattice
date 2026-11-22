@@ -108,7 +108,7 @@ reader answers with the preset's value, and `preset:` itself is read top-level o
 and the Studio agree by construction.
 
 **A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
-hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+hand), `marks:`, `backdrop:` and `cover:`. None of the four shipped presets does yet; the presets that
 use them arrive with the deck-preset work
 (`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
 anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
@@ -118,11 +118,18 @@ follows the preset's recommendation and says so (`Auto — Cuoio (preset)`); pic
 override it. Export to Marp writes a recommended
 palette into the bundle as its `theme:` line, because Marp picks the theme.
 
+**A multi-word key is filled one axis at a time.** For `spectrum:`, `card-spectrum:`,
+`trim-spectrum:` and `cover:`, the deck's word on an axis wins and an axis it leaves empty takes the
+preset's word: on a preset whose cover is `light column`, `cover: inverse` keeps the column on the
+dark panel.
+
 **A preset may carry internal tokens.** A preset can set design tokens no author key exposes
-(a rule weight, a rail weight) through a `tokens` map in its table entry. A deck on such a
-preset gets a `preset-<name>` class on every slide, and the build generates the matching
-`section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
-of all four today. The class is the engine's to stamp; don't write it in `_class:`.
+(a rule weight, a rail weight, a card corner) in its own stylesheet. Every preset is a folder,
+`lib/presets/<name>/` (`<name>.preset.json` plus an optional `<name>.css`; contract in
+`lib/presets/README.md`). A deck on any preset but `classic` gets a `preset-<name>` class on every
+slide, and that stylesheet styles it; a preset with no stylesheet stamps a class nothing reads,
+which is true of all four today. No script writes a preset's CSS. The class is the engine's to
+stamp; don't write it in `_class:`.
 
 A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown
 name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
