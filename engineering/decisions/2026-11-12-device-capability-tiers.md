@@ -287,7 +287,7 @@ as an argument with that read as the default, so its tests pass the tier in and 
 | Picture encoders (every export) | cores − 1, at most 2 | 1 | `poolSize` in `picture-encoder-pool.js` |
 | Narration packers | cores − 1, at most 4 | 1 | `packPoolSize` in `narration-pack-pool.js` |
 | PDF and PowerPoint photo lanes | 2 slides queued on the worker | 1 | `exportInFlight` in `device-lite.js`, read by `deck-export.js` |
-| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win) | `tierSlotCaps` in `preview-pool.tsx` |
+| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win), plus one spare frame in a grid that mixes tile shapes | `tierSlotCaps`, `slotRoom` in `preview-pool.tsx` |
 | Idle prefetch | Compose, Present, reading view, KaTeX, diagrams, Fabricate, fonts | the clip notice and Hide/Show only | `startStudioWarmUp` in `studio-warm.ts` |
 | On-device voice (Kokoro) | offered on a desktop | unsupported, as on a phone; never filled as the default voice; hosted voices only | `kokoroSupported` in `voice-model.js`, `canRunKokoro` in `model-selection.js` |
 | On-device chat (WebLLM, Transformers.js) | offered | shown, disabled, with the reason | `OnDeviceTier.tsx` |
@@ -299,6 +299,15 @@ as an argument with that read as the default, so its tests pass the tier in and 
   their frames there. A bigger grid on a LITE device starves its least-recently-seen tiles; that is the trade. A pool
   watches the attribute, so a drop to LITE mid-session re-renders it and its next pass gives back the free frames above
   12, from the end of its list (a slot's place is its React identity), as tiles leave.
+- **One spare frame past the ceiling, in a mixed grid (owner, 2026-11-22).** A pool holds one frame more than its
+  ceiling (`SHAPE_SPARE` in `preview-pool.tsx`) while it holds tiles of more than one shape: a Mermaid tile needs a
+  document with the diagram runtime, a plain tile does not, and moving a frame between the two is a full `srcdoc` write.
+  The Add slide gallery puts 12 plain tiles on screen at 1440×900 and holds one Mermaid tile. At a ceiling of exactly 12
+  the twelfth plain tile took the Mermaid frame, and the Mermaid tile rewrote a plain one, on every reopen, with no bound
+  (MR-3 under `?tier=lite`: 31 steals in 12 runs, about two documents per reopen, each permanent on WebKit). With the
+  spare: 0 steals, and the document count flat across reopens in 12 of 12 runs. The spare is not one more tile on
+  screen: the pool's reported `capacity` stays the ceiling, and a one-shape grid never uses it. It applies to a host's
+  own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
 - **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
   yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
   earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a

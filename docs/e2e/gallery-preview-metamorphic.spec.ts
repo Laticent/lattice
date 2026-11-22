@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { countDocuments, documentsMade } from './preview-documents';
+import { countDocuments, documentsMade, rewritesMade } from './preview-documents';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // METAMORPHIC oracles for the add-slide gallery's live-preview window.
@@ -367,71 +367,84 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		agree(byJump, byFlick, 'visible previews at 55% depth, reached by jump vs by flick');
 	});
 
-	test('@crosswidth MR-3 · opening and closing the gallery is idempotent', async ({ page }, testInfo) => {
-		test.setTimeout(210_000);
-		const compact = testInfo.project.name === 'mobile';
-		await countDocuments(page);
-		await gotoStudio(page);
+	// BOTH device tiers, each pinned. The tier decides the pool's ceiling (28 on FULL, 12 on LITE), and an unpinned run
+	// takes whichever tier the machine's load measures: under 4-way load the sandbox reads LITE, and only there did the
+	// gallery's twelve plain tiles fill the ceiling and push the Mermaid tile out of its frame on every reopen (2 of 24
+	// runs red). A pass that depends on load is #32's defect; a pass on one tier says nothing about the other.
+	for (const tier of ['full', 'lite'] as const) {
+		test(`@crosswidth MR-3 · opening and closing the gallery is idempotent (${tier})`, async ({ page }, testInfo) => {
+			test.setTimeout(210_000);
+			const compact = testInfo.project.name === 'mobile';
+			await countDocuments(page);
+			await gotoStudio(page, { query: `?tier=${tier}` });
 
-		const opened: number[] = [];
-		const closed: number[] = [];
-		const made: number[] = [];
-		for (let cycle = 0; cycle < 3; cycle++) {
-			if (cycle === 0) await openAddSlide(page, compact);
-			else await reopen(page, compact);
-			await firstBandPainted(page);
-			// PRIME THE POOL before the first count, so (c) compares against a pool at its high-water
-			// mark. The pool makes a slot for a tile SHAPE (a Mermaid tile, a local component's CSS)
-			// only when one of its 220ms passes runs while that tile is in band, and a flick crosses
-			// rows faster than that: which shapes a flick catches depends on where its passes happen
-			// to fall. Measured at 1440x900 under 8-way load, 5 runs in 8 failed (c) with 5 to 9
-			// documents, and every one was a NEW slot (`createElement('iframe')` and its first
-			// `srcdoc`) for a tile the first flick had crossed between passes; no kept frame was
-			// rewritten, and all eight runs ended at the same total. A stepped walk rests on every
-			// row, so every shape gets its slot before close #1 is counted.
-			if (cycle === 0) {
-				const bottom = await page.evaluate((sel) => {
-					const el = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
-					return el ? el.scrollHeight - el.clientHeight : 0;
-				}, SCROLLER);
-				await stepTo(page, bottom);
-				await jumpTo(page, 0);
+			const opened: number[] = [];
+			const closed: number[] = [];
+			const made: number[] = [];
+			const rewrites: number[] = [];
+			for (let cycle = 0; cycle < 3; cycle++) {
+				if (cycle === 0) await openAddSlide(page, compact);
+				else await reopen(page, compact);
+				await firstBandPainted(page);
+				// PRIME THE POOL before the first count, so (c) compares against a pool at its high-water
+				// mark. The pool makes a slot for a tile SHAPE (a Mermaid tile, a local component's CSS)
+				// only when one of its 220ms passes runs while that tile is in band, and a flick crosses
+				// rows faster than that: which shapes a flick catches depends on where its passes happen
+				// to fall. Measured at 1440x900 under 8-way load, 5 runs in 8 failed (c) with 5 to 9
+				// documents, and every one was a NEW slot (`createElement('iframe')` and its first
+				// `srcdoc`) for a tile the first flick had crossed between passes; no kept frame was
+				// rewritten, and all eight runs ended at the same total. A stepped walk rests on every
+				// row, so every shape gets its slot before close #1 is counted.
+				if (cycle === 0) {
+					const bottom = await page.evaluate((sel) => {
+						const el = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
+						return el ? el.scrollHeight - el.clientHeight : 0;
+					}, SCROLLER);
+					await stepTo(page, bottom);
+					await jumpTo(page, 0);
+					await quiesced(page);
+				}
+				await flick(page, true);
 				await quiesced(page);
+				opened.push(await mounted(page));
+
+				await page.keyboard.press('Escape');
+				await expect.poll(() => galleryShown(page), { timeout: 20_000, message: 'the gallery stayed on screen after close' }).toBe(false);
+				await quiesced(page);
+				closed.push(await liveFrames(page));
+				made.push(await documentsMade(page));
+				rewrites.push(await rewritesMade(page));
 			}
-			await flick(page, true);
-			await quiesced(page);
-			opened.push(await mounted(page));
 
-			await page.keyboard.press('Escape');
-			await expect.poll(() => galleryShown(page), { timeout: 20_000, message: 'the gallery stayed on screen after close' }).toBe(false);
-			await quiesced(page);
-			closed.push(await liveFrames(page));
-			made.push(await documentsMade(page));
-		}
-
-		// THE RELATION, three times over.
-		// (a) Closing leaves NO PER-OPEN RESIDUE. This is the one that matters most to a user,
-		//     because they open this gallery once per slide they add — a per-open residue is the
-		//     shape that ends a session in a tab discard. It used to read "closing releases every
-		//     preview document" (≤ 2 left, the Studio's own preview). The gallery now stays mounted
-		//     and KEEPS its frames, hidden, so the next open re-points them: WebKit never frees a
-		//     destroyed one. So the relation is stated as what it always guarded — the count after
-		//     every close is the same, within SLACK for MR-1's reason (a later traversal can settle a
-		//     frame or two higher than the first).
-		for (const [i, n] of closed.entries()) {
-			expect(n, `close #${i + 1} left ${n} live preview documents against ${closed[0]} after close #1 — a per-open residue`).toBeLessThanOrEqual(closed[0] + SLACK);
-			// And an absolute ceiling: the pool's HARD_MAX_SLOTS (28, preview-pool.tsx) plus the
-			// Studio's own preview and one spare. A level count at a runaway height is not a pass.
-			expect(n, `close #${i + 1} holds ${n} live preview documents, past the pool's hard ceiling`).toBeLessThanOrEqual(30);
-		}
-		// (c) A reopen MAKES no documents. Element counts cannot see a frame rebuilt in place or a
-		//     full `srcdoc` rewrite into a kept one (./preview-documents), and each is a document
-		//     WebKit never frees.
-		expect(made[2] - made[0], `reopens #2 and #3 made ${made[2] - made[0]} preview documents`).toBeLessThanOrEqual(SLACK);
-		// (b) Opening is the SAME each time. Cycle 3 must look like cycle 1 — a window carrying
-		//     state across opens climbs here even when each individual close looks clean.
-		agree(opened[0], opened[opened.length - 1], `mounted previews after a full scroll, open #1 vs open #${opened.length}`);
-	});
+			// THE RELATION, three times over.
+			// (a) Closing leaves NO PER-OPEN RESIDUE. This is the one that matters most to a user,
+			//     because they open this gallery once per slide they add — a per-open residue is the
+			//     shape that ends a session in a tab discard. It used to read "closing releases every
+			//     preview document" (≤ 2 left, the Studio's own preview). The gallery now stays mounted
+			//     and KEEPS its frames, hidden, so the next open re-points them: WebKit never frees a
+			//     destroyed one. So the relation is stated as what it always guarded — the count after
+			//     every close is the same, within SLACK for MR-1's reason (a later traversal can settle a
+			//     frame or two higher than the first).
+			for (const [i, n] of closed.entries()) {
+				expect(n, `close #${i + 1} left ${n} live preview documents against ${closed[0]} after close #1 — a per-open residue`).toBeLessThanOrEqual(closed[0] + SLACK);
+				// And an absolute ceiling: the pool's HARD_MAX_SLOTS (28, preview-pool.tsx) plus the
+				// Studio's own preview and one spare. A level count at a runaway height is not a pass.
+				expect(n, `close #${i + 1} holds ${n} live preview documents, past the pool's hard ceiling`).toBeLessThanOrEqual(30);
+			}
+			// (c) A reopen MAKES no documents. Element counts cannot see a frame rebuilt in place or a
+			//     full `srcdoc` rewrite into a kept one (./preview-documents), and each is a document
+			//     WebKit never frees.
+			expect(made[2] - made[0], `reopens #2 and #3 made ${made[2] - made[0]} preview documents`).toBeLessThanOrEqual(SLACK);
+			// (d) A reopen REWRITES no kept frame, with no slack at all. (c) has to allow a pool that grows on a later traversal;
+			//     a frame thrown away and rebuilt in place is never growth. Under LITE (ceiling 12) the twelve plain tiles on
+			//     screen took the one Mermaid frame and the Mermaid tile rewrote a plain one, two rewrites on every reopen,
+			//     which (c)'s slack hid in most runs (preview-pool.tsx, SHAPE_SPARE).
+			expect(rewrites[2] - rewrites[0], `reopens #2 and #3 rewrote ${rewrites[2] - rewrites[0]} kept preview frames`).toBe(0);
+			// (b) Opening is the SAME each time. Cycle 3 must look like cycle 1 — a window carrying
+			//     state across opens climbs here even when each individual close looks clean.
+			agree(opened[0], opened[opened.length - 1], `mounted previews after a full scroll, open #1 vs open #${opened.length}`);
+		});
+	}
 
 	test('@crosswidth MR-4 · a filter round-trip leaves the gallery where it found it', async ({ page }, testInfo) => {
 		test.setTimeout(150_000);

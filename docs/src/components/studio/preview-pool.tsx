@@ -314,6 +314,16 @@ export const BASE_SLOTS = 10;
  *  is a visible defect rather than an invisible one. */
 export const HARD_MAX_SLOTS = 28;
 
+/** One frame a pool may hold past its ceiling, and only while it mixes tile shapes, so a shape never has to rewrite
+ *  another shape's frame to show a tile (the slot pass below has the measurements). */
+export const SHAPE_SPARE = 1;
+
+/** How many frames a pool may hold: its ceiling, plus `SHAPE_SPARE` when `mixed` (shapes compete for the frames), never
+ *  past HARD_MAX_SLOTS. PURE. */
+export function slotRoom(ceiling: number, mixed: boolean): number {
+	return Math.min(HARD_MAX_SLOTS, ceiling + (mixed ? SHAPE_SPARE : 0));
+}
+
 /**
  * A LITE device (device-capability-tiers §4) holds fewer frames: a floor of 6 and a ceiling of 12, where each frame is a
  * whole document in memory. 12 still covers the biggest grid measured above (12 tiles at 1920x1200), so the "never cap
@@ -325,10 +335,11 @@ export function tierSlotCaps(baseSlots: number, maxSlots: number, lite: boolean)
 }
 
 /**
- * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
- * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
+ * What a pool tells its host after it mounts and after every pass. `capacity` is the most tiles it will
+ * show at once (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
  * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
- * high-water mark because a pool never releases one; `held` is how many of them show a tile.
+ * high-water mark because a pool never releases one, and can sit `SHAPE_SPARE` above `capacity` in a grid
+ * that mixes tile shapes; `held` is how many of them show a tile.
  */
 export interface PoolReport {
 	capacity: number;
@@ -605,17 +616,23 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				// render patches instead of rewriting. Never a slot of another identity, whatever the
 				// pressure: that one is not a cost, it is a wrong answer.
 				//
-				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER — under the ceiling, and one past it
-				// for a shape the pool holds no slot of at all. Taking the other shape's slot is a full
+				// A NEW SLOT OF THIS SHAPE BEATS A FREE ONE OF ANOTHER, whenever no free slot of this shape
+				// is left — not only when the pool holds none at all. Taking the other shape's slot is a full
 				// rewrite now and another when a tile of that shape wants it back: two fresh documents, on
 				// WebKit two permanent ones, on every traversal. Measured on the Add slide gallery, which is
-				// kept mounted between opens and fills the ceiling at 1440 px: its one Mermaid tile cost two
-				// `srcdoc` writes on every reopen. One slot of its own shape, once, costs less. Still bounded
-				// by HARD_MAX_SLOTS.
+				// kept mounted between opens: with 15 plain tiles on screen and 15 slots, the 15th plain tile
+				// took the one Mermaid slot (its own slots were all held), and the Mermaid tile then rewrote
+				// a plain one. The old test only grew the pool for a shape with NO slot, so it missed this.
+				//
+				// AND ONE PAST THE CEILING (`SHAPE_SPARE`) while that is the only way to avoid the steal. A
+				// LITE pool's ceiling is 12, and the same gallery puts 12 plain tiles on screen at 1440x900:
+				// at the ceiling the steal is forced, and it cost about two documents on every reopen, with no
+				// bound (MR-3 under `?tier=lite`: 31 steals in 12 runs). With one spare frame: 0 steals, the
+				// document count flat across reopens in 12 of 12 runs. Owner's call, 2026-11-22
+				// (2026-11-12-device-capability-tiers.md §4.2). Still bounded by HARD_MAX_SLOTS.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
 				let slot = free.find((s) => s.key === k);
-				const shapeless = !next.some((s) => s.key === k && s.id === idk);
-				if (!slot && (next.length < cap || (shapeless && next.length < ceilingRef.current))) {
+				if (!slot && next.length < slotRoom(ceilingRef.current, free.length > 0)) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
@@ -643,8 +660,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			}
 			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
 			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
-			// tile leaves, since the cap above already keeps `want` within the ceiling.
-			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) next.pop();
+			// tile leaves, since the cap above already keeps `want` within the ceiling. A pool that holds more than one shape keeps
+			// its SHAPE_SPARE: trimming it would hand the steal straight back on the next traversal.
+			const mixed = new Set(next.map((x) => `${x.id}\u0000${x.key}`)).size > 1;
+			while (next.length > slotRoom(ceilingRef.current, mixed) && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot

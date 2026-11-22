@@ -115,4 +115,7 @@ fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, wit
               the sandbox, not a test defect.
             - compose-note-motion.spec.ts:260 (gecko) reproduced (8 of 24); #3291 fixed it at its cause on main (it waits
               for the deletion's own save). gallery-preview-metamorphic.spec.ts:370 reproduced (2 of 24) and is a product
-              leak, fixed in the same PR as this entry: a reopen rewrote kept frames' srcdoc.
+              leak, fixed in the same PR as this entry. Under load the sandbox reads as a LITE device (pool ceiling 12),
+              the gallery's twelve plain tiles on screen took its one Mermaid frame, and the Mermaid tile rewrote a plain
+              one on every reopen. The pool now adds a frame instead (one spare past a LITE ceiling, owner 2026-11-22),
+              and MR-3 runs pinned at both tiers with a zero-slack check on rewritten frames.

@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, SHAPE_SPARE, slotRoom, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -910,6 +910,55 @@ describe('PreviewPool — a tile of another shape', () => {
 		settle();
 		expect(showing(container)).toContain(samples[BASE_SLOTS]);
 		expect(reshapes, 'a full pool rewrote a plain slot for the one Mermaid tile').toBe(0);
+	});
+
+	it('never rewrites the one Mermaid frame for a plain tile whose own frames are all busy, even at the ceiling', () => {
+		// The Add slide gallery under LITE (ceiling 12) put 12 plain tiles on screen at 1440x900. The 12th took the one free
+		// Mermaid frame, and the Mermaid tile then rewrote a plain one: about two documents on every reopen, with no bound
+		// (MR-3 under ?tier=lite, 31 steals in 12 runs). The same steal happened on FULL whenever the pool sat at its on-screen
+		// cap. A ceiling of 4 here stands in for both: 3 plain + 1 Mermaid fill it, then 4 plain tiles want frames at once.
+		reshapes = 0;
+		const MER = '```mermaid\ngraph TD\n```';
+		const samples = ['# 0', '# 1', '# 2', '# 3', MER];
+		const reports: PoolReport[] = [];
+		const { container } = render(
+			<PreviewPool maxSlots={4} onSettle={(r) => reports.push(r)}>
+				{samples.map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>,
+		);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		show([0, 1, 2, 4], []);
+		settle();
+		show([3], [4]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(showing(container)).toEqual(expect.arrayContaining(['# 0', '# 1', '# 2', '# 3']));
+		// And back: the Mermaid tile finds its own frame still built for it.
+		show([4], [3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(showing(container)).toContain(MER);
+		expect(reshapes, 'a frame was rewritten across the Mermaid boundary').toBe(0);
+		const last = reports[reports.length - 1];
+		expect(last.slots, 'one spare frame past the ceiling, and no more').toBe(4 + SHAPE_SPARE);
+		expect(last.capacity, 'the spare is not more tiles on screen').toBe(4);
+	});
+
+	it('gives the spare back when the grid holds one shape again, and never passes HARD_MAX_SLOTS', () => {
+		expect(slotRoom(12, false)).toBe(12);
+		expect(slotRoom(12, true)).toBe(12 + SHAPE_SPARE);
+		expect(slotRoom(HARD_MAX_SLOTS, true)).toBe(HARD_MAX_SLOTS);
 	});
 });
 
