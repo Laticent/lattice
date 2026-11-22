@@ -224,17 +224,27 @@ describe('readLibraryReference — a reference file stays one, and gains "Open a
 		expect(r.doc).toMatchObject({ name: 'brief.md', kind: 'text', text: '# Brief\n\nThree points.' });
 		expect(r.deck).toBeNull();
 		expect(r.sourceExact).toBe(true);
-		// A byte-order mark is dropped when the text is read, so the text is no longer the file: a copy of the file is kept
-		// instead, so it still opens as a deck (never turn down a deck).
-		const bomBytes = new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0x41]);
-		const bom = await readLibraryReference(file(bomBytes, 'bom.md', 'text/markdown'));
+		// A byte-order mark is dropped when the text is read, so the text is no longer the file. A deck (it has a slide
+		// break) keeps a copy of the file, so it still opens as a deck (never turn down a deck); notes do not.
+		const bomDeck = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('# A\n\n---\n\n# B')]);
+		const bom = await readLibraryReference(file(bomDeck, 'bom.md', 'text/markdown'));
 		expect(bom.sourceExact).toBeUndefined();
-		expect(new Uint8Array(await (bom.deck as Blob).arrayBuffer())).toEqual(bomBytes);
-		// The same when the text was cut at the reference cap: a long Markdown deck keeps its whole file for "Open as deck".
-		const longSrc = `# Long\n\n${'x'.repeat(41_000)}`;
+		expect(new Uint8Array(await (bom.deck as Blob).arrayBuffer())).toEqual(bomDeck);
+		const bomNotes = await readLibraryReference(file(new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0x41]), 'bom-notes.md', 'text/markdown'));
+		expect(bomNotes.deck).toBeNull();
+		expect(bomNotes.sourceExact).toBeUndefined();
+		// The same when the text was cut at the reference cap: a long Markdown deck, by its slide break or its front
+		// matter, keeps its whole file for "Open as deck"; a long notes file is one copy with no DECK badge (#3356).
+		const longSrc = `# Long\n\n${'x'.repeat(41_000)}\n\n---\n\n# End`;
 		const long = await readLibraryReference(file(longSrc, 'long.md', 'text/markdown'));
 		expect(long.sourceExact).toBeUndefined();
 		expect(await (long.deck as Blob).text()).toBe(longSrc);
+		const fmSrc = `---\ntheme: cuoio\n---\n\n# One slide\n\n${'x'.repeat(41_000)}`;
+		expect(await ((await readLibraryReference(file(fmSrc, 'fm.md', 'text/markdown'))).deck as Blob).text()).toBe(fmSrc);
+		const notes = await readLibraryReference(file(`# Notes\n\n${'x'.repeat(41_000)}`, 'notes.md', 'text/markdown'));
+		expect(notes.doc.kind).toBe('text');
+		expect(notes.deck).toBeNull();
+		expect(notes.sourceExact).toBeUndefined();
 	});
 
 	it('keeps a .txt as plain reference, with no deck', async () => {

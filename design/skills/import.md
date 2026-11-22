@@ -101,7 +101,9 @@ does not read. `lint:deck` names each one.
   refused with a pointer to "Import deck…". A `.md` stays a plain reference
   file and gets "Open as deck": rebuilt from its stored text when that text is
   the file byte for byte, else from a copy of the file the Library keeps (a long
-  deck cut at the reference cap, CRLF, a BOM). A plain PDF, and a PowerPoint made
+  deck cut at the reference cap, a BOM), and only when the file has slides:
+  front matter or a `---` break. A long notes `.md` stays one copy with no DECK
+  badge. A plain PDF, and a PowerPoint made
   elsewhere, land as reference only; a PowerPoint's pictures and audio never
   count toward the limit, since only its slides and notes are read.
 - **CLI**: `npx @laticent/lattice deck.md deck.pdf` reads a Markdown file and strips a

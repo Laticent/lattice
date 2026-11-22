@@ -197,7 +197,9 @@ export async function readDeckReference(file: File): Promise<LibraryReference> {
  *   attachment in a compressed object stream, so there is no cheap marker: it is parsed, within the deck cap).
  * - A Markdown file stays plain reference, as before: no second copy, no DECK badge, when its stored text is byte for
  *   byte the file (`sourceExact`): its card offers "Open as deck", rebuilding the file from that text. When the text is
- *   not the file (cut at the reference cap, CRLF, a BOM), a copy of the file is kept instead, so it still opens. A `.txt` stays plain reference: it is notes far more often than a deck.
+ *   not the file (cut at the reference cap, a BOM, bytes that are not UTF-8), a copy of the file is kept, with the DECK
+ *   badge, only when the file has slides (front matter or a `---` break), so a long deck still opens; a long notes file
+ *   stays one copy with its own badge. A `.txt` stays plain reference: it is notes far more often than a deck.
  * - A ZIP (a `.lattice`, a PowerPoint) is a deck or nothing: it goes to `readDeckReference`, which keeps it for "Open
  *   as deck" or says why it cannot. The Library sorts zips out by their bytes before it calls here (`routeByBytes`),
  *   but the chat's paperclip (reference-doc-ui.tsx `addOne`) sends every file it is handed, so a `.lattice` attached
@@ -219,10 +221,20 @@ export async function readLibraryReference(file: File): Promise<LibraryReference
 	const doc = await readReferenceDoc(file);
 	const md = ext === '.md' || ext === '.markdown';
 	const exact = md && doc.kind === 'text' && sameBytes(new TextEncoder().encode(doc.text ?? ''), new Uint8Array(await file.arrayBuffer()));
-	// A Markdown file whose stored text is not the file (cut at the reference text cap, CRLF, a BOM) keeps a copy of the
-	// file instead, within the deck cap, so a long Markdown deck still opens as a deck. Never turn down a deck.
-	if (md && !exact && doc.kind === 'text' && file.size <= MAX_DECK_REF_BYTES) return { doc, deck: new Blob([await file.arrayBuffer()], { type: file.type || 'text/markdown' }) };
+	// A Markdown DECK whose stored text is not the file (cut at the reference text cap, a BOM, bytes that are not UTF-8)
+	// keeps a copy of the file instead, within the deck cap, so a long Markdown deck still opens as a deck. A Markdown
+	// file with no slides is notes: one copy, its own badge, never DECK (owner's call on #3356).
+	if (md && !exact && doc.kind === 'text' && file.size <= MAX_DECK_REF_BYTES && (await hasSlides(await file.text()))) return { doc, deck: new Blob([await file.arrayBuffer()], { type: file.type || 'text/markdown' }) };
 	return { doc, deck: null, ...(exact ? { sourceExact: true } : {}) };
+}
+
+/** A Markdown file is a deck when it has front matter or a slide break (`---`), read with the rail's own splitter. */
+async function hasSlides(text: string): Promise<boolean> {
+	const src = text.replace(/^\uFEFF/, '');
+	const body = stripFrontMatter(src);
+	if (body !== src) return true;
+	const { splitSlides } = await import('@/lib/deck-lint');
+	return splitSlides(body).length > 1;
 }
 
 const isPdfHead = (b: Uint8Array) => String.fromCharCode(...b) === '%PDF-';
