@@ -185,6 +185,14 @@ function engines() {
  */
 const AT_ONCE = 4;
 
+/**
+ * One deadline for a whole run, shared by every wait in it: 120 s, the worst case of the old single wait (the control
+ * and the witness each waited up to `until`'s 60 s). Waiting 60 s per vector instead would let an engine that fires
+ * nothing take 4 batches × 60 s per run and hit the test TIMEOUT, which reports a bare timeout instead of the
+ * "witness never heard" message that names the vectors.
+ */
+const RUN_DEADLINE = 120000;
+
 /** Open `file` in a fresh page of `browser`, run vector `name` against `log`, and return whether it RAN. */
 async function attempt(browser, file, log, name) {
   const page = await browser.newPage();
@@ -221,15 +229,20 @@ async function pool(items, limit, work) {
  *     old wait.
  * Every WALLED page stays open until the last witness has heard, never closed at its own witness: a walled leak that
  * is slower than the control for the same vector (a fallback through a fresh frame, say) then still has the rest of
- * the run to land, so only the vectors that finish last get as little as their own witness's time. A vector this
- * engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and gets the whole run. Then the browser
- * closes and the listener is drained, so an attempt already on the wire is counted.
+ * the run to land. The vectors that finish last would get only their own witness's time, so once every pair is done
+ * the run witnesses its SLOWEST vector once more: every walled page has then been open at least as long as the
+ * slowest witness took, which is what the old wait (every walled page open until all 20 witnesses had heard) gave
+ * it. A vector this engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and gets the whole run.
+ * Then the browser closes and the listener is drained, so an attempt already on the wire is counted.
  */
 async function reached(eng, file, { witness = null } = {}) {
   main.reset();
   const names = Object.keys(vectors());
   const fireable = (v) => !MAY_MISS[eng.name].includes(v);
-  const heard = (log, v) => log.until((h) => vectorsHit(h).includes(v));
+  const end = Date.now() + RUN_DEADLINE;
+  const heard = (log, v) => log.until((h) => vectorsHit(h).includes(v), { timeout: Math.max(1, end - Date.now()) });
+  // How long each witness took to be heard, so the closing sweep can repeat the slowest.
+  const took = new Map();
   // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
   // idle socket in its pool after the page that opened it has closed.
   const browser = await eng.launch();
@@ -243,8 +256,10 @@ async function reached(eng, file, { witness = null } = {}) {
       const walled = await attempt(browser, file, main, name);
       if (!fireable(name)) return walled;
       if (w) {
+        const t0 = Date.now();
         const control = await attempt(browser, witness, w, name);
-        if (!(await heard(w, name))) missed.push(`${name} (witness ran: ${control.ran}, loaded: ${control.loaded}, url: ${control.page.url().slice(0, 60)})`);
+        if (await heard(w, name)) took.set(name, Date.now() - t0);
+        else missed.push(`${name} (witness ran: ${control.ran}, loaded: ${control.loaded}, url: ${control.page.url().slice(0, 60)})`);
         await control.page.close().catch(() => {});
       } else {
         // A vector the control cannot fire leaves the wait at its deadline; the harness test names it. The control
@@ -254,6 +269,13 @@ async function reached(eng, file, { witness = null } = {}) {
       }
       return walled;
     });
+    if (w && missed.length === 0 && took.size) {
+      // The closing sweep: the slowest vector's witness, once more, with every walled page still open.
+      const slowest = [...took].sort((a, b) => b[1] - a[1])[0][0];
+      w.reset();
+      const sweep = await attempt(browser, witness, w, slowest);
+      if (!(await heard(w, slowest))) missed.push(`${slowest} on the closing sweep (witness ran: ${sweep.ran}, loaded: ${sweep.loaded})`);
+    }
     assert.deepEqual(missed, [], `the witness never heard ${missed.join(' ')}, so the walled run's zero proves nothing`);
   } finally {
     await browser.close();
@@ -265,8 +287,10 @@ async function reached(eng, file, { witness = null } = {}) {
   // throws is not a wall, plugin code can fetch the original from a fresh frame). Only a vector that
   // navigates the page away may lose its answer.
   // A SecurityError is the engine enforcing a policy synchronously (WebKit's SecurityError, Firefox's NS_ERROR_CONTENT_BLOCKED, and Firefox's blank error for a form post that `form-action 'none'` refuses), which is a wall.
+  // A page that did not load ran its vector in about:blank, outside the export's policy, so its result means nothing.
+  const unloaded = pages.filter((p) => p.loaded !== true).map((p) => `${p.name}:${p.loaded}`);
   const unrun = pages.filter((p) => p.ran !== true && !/^threw:(SecurityError|NS_ERROR_CONTENT_BLOCKED)$/.test(p.ran) && !(p.name === 'form' && p.ran === 'threw:') && !(p.ran === 'navigated' && NAVIGATES.includes(p.name))).map((p) => `${p.name}:${p.ran}`);
-  return { got, unrun };
+  return { got, unrun: [...unloaded, ...unrun] };
 }
 
 /**
