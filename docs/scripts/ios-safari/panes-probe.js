@@ -153,7 +153,10 @@ async function latticePanesProbe() {
 			`finished: ${(() => {
 				try {
 					const done = performance.getEntriesByType('resource').map((e) => e.name);
-					return ['esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : 'NO'}`).join(', ');
+					// The browser's resource list holds 250 entries by default: a file missing from a FULL list is unknown, not
+					// unfetched (the checker on #3368).
+					const absent = done.length >= 250 ? 'not seen (the list holds only 250)' : 'NO';
+					return ['esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : absent}`).join(', ');
 				} catch {
 					return 'unreadable';
 				}

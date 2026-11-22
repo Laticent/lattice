@@ -55,14 +55,32 @@ export function tapHold(log) {
  * @returns {boolean}
  */
 export function pressSelected(log) {
+	return pressSelectedWord(log) || pressMovedOut(log);
+}
+
+/** The touch's events after its touchstart, or null when the log has no touchstart. */
+function afterTouch(log) {
 	const events = log?.events || [];
 	const start = events.findIndex((e) => e.type === 'touchstart');
-	if (start < 0) return false;
-	const after = events.slice(start + 1);
-	if (after.some((e) => e.type === 'selectionchange' && e.collapsed === false && !!e.text)) return true;
-	// OR, after the lift, Safari moved the selection out of every editor: the long press's release moving it to the text above
+	return start < 0 ? null : events.slice(start + 1);
+}
+
+/** `pressSelected`'s first clause: the press selected a word (a range with text). */
+export function pressSelectedWord(log) {
+	const after = afterTouch(log);
+	return !!after && after.some((e) => e.type === 'selectionchange' && e.collapsed === false && !!e.text);
+}
+
+/**
+ * `pressSelected`'s second clause, alone: the release-jump. Exported so the forced long press in run.mjs can say whether this
+ * clause by itself would have re-sent it, which gives the clause a real-simulator artifact (the checker on #3368).
+ */
+export function pressMovedOut(log) {
+	const after = afterTouch(log);
+	if (!after) return false;
+	// After the lift, Safari moved the selection out of every editor: the long press's release moving it to the text above
 	// and left of the finger, which in the Studio is the hidden legend or heading (nightly 44744978068 put a CARET there, so
-	// the clause above missed it, #3241). A stalled tap leaves its caret in the editor, so this never reads one as a press.
+	// `pressSelectedWord` missed it, #3241). A stalled tap leaves its caret in the editor, so this never reads one as a press.
 	const end = after.findIndex((e) => e.type === 'touchend' || e.type === 'touchcancel');
 	// NOT when the page moved FOCUS out of the editor: that is a product's doing (an overlay or field that takes the first tap),
 	// and a long press moving the selection into hidden text moves no focus. The undo doorbell's own ring is excluded: it takes

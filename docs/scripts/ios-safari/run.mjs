@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
-import { inEditorOf, LONG_PRESS_MS, pressSelected, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
+import { inEditorOf, LONG_PRESS_MS, pressMovedOut, pressSelected, pressSelectedWord, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -585,7 +585,12 @@ async function composeTouchTap(id) {
 				await new Promise((r) => setTimeout(r, 1000));
 				recovered = await deliver('control-2');
 			}
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
+			// when the word clause catches the press first, plus where the selection sat after the lift (the checker on #3368).
+			const flog = forced.seen.log;
+			const lifted = (flog?.events || []).filter((e) => e.type === 'selectionchange').at(-1);
+			const clauses = `word clause ${pressSelectedWord(flog) ? 'yes' : 'no'}, release-jump clause ${pressMovedOut(flog) ? 'yes' : 'no'}, last selection inEditor ${lifted ? String(lifted.inEditor) : 'none'}`;
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}

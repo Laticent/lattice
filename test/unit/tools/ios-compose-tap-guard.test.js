@@ -208,3 +208,24 @@ test('inEditorOf: inside an editor, outside every editor, and no node at all', a
   const log = { events: [{ type: 'touchstart', t: 0 }, { type: 'touchend', t: 900 }, { type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: inEditorOf(null) }] };
   assert.equal(pressSelected(log), false);
 });
+
+test('pressSelected is exactly its two clauses: the word one and the release-jump one, each callable alone', async () => {
+	// run.mjs's forced long press reports each clause on its own, so the release-jump clause (#3241) gets a real-simulator
+	// artifact even when the word clause catches the press first (the checker on #3368).
+	const { pressSelected, pressSelectedWord, pressMovedOut } = await load();
+	// The nightly: a caret after the lift, in the hidden legend. Only the release-jump clause sees it.
+	assert.equal(pressSelectedWord(nightlyLog), false);
+	assert.equal(pressMovedOut(nightlyLog), true);
+	assert.equal(pressSelected(nightlyLog), true);
+	// A word selected during the press, and no move after the lift: only the word clause.
+	assert.equal(pressSelectedWord(pressLog), true);
+	assert.equal(pressMovedOut(pressLog), false);
+	assert.equal(pressSelected(pressLog), true);
+	// A stall: neither.
+	assert.equal(pressSelectedWord(stallLog), false);
+	assert.equal(pressMovedOut(stallLog), false);
+	assert.equal(pressSelected(stallLog), false);
+	// No touch at all: neither, and no throw.
+	assert.equal(pressSelectedWord({ events: [] }), false);
+	assert.equal(pressMovedOut(null), false);
+});

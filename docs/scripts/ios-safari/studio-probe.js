@@ -131,7 +131,9 @@ async function latticeStudioProbe() {
 			let finished = 'unreadable';
 			try {
 				const done = performance.getEntriesByType('resource').map((r) => r.name);
-				finished = `${done.length} resources; ${['/_astro/', 'esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : 'NO'}`).join(', ')}`;
+				// A file missing from a FULL resource list (250 entries by default) is unknown, not unfetched (the checker on #3368).
+				const absent = done.length >= 250 ? 'not seen (the list holds only 250)' : 'NO';
+				finished = `${done.length} resources; ${['/_astro/', 'esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : absent}`).join(', ')}`;
 			} catch {}
 			const sw = navigator.serviceWorker?.controller;
 			throw new Error(`${e.message} (page ${document.readyState}; ${previewState()}; engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}; finished: ${finished}; controlled ${sw ? sw.state : 'no'})`);
