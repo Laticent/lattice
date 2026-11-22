@@ -286,10 +286,17 @@ let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
 let firstSpotClassFn: ((source: string) => string) | null = null;
 let classReaderLoad: Promise<void> | null = null;
 export function loadClassReader(): Promise<void> {
-	classReaderLoad ||= import('./first-spot-class.mjs').then((m) => {
-		firstSpotClassFn = m.firstSpotClass;
-		classMemo = { src: '\u0000', value: '' };
-	});
+	classReaderLoad ||= import('./first-spot-class.mjs').then(
+		(m) => {
+			firstSpotClassFn = m.firstSpotClass;
+			classMemo = { src: '\u0000', value: '' };
+		},
+		(err) => {
+			// Not cached: the next call tries the import again (offline, or a chunk gone after a deploy).
+			classReaderLoad = null;
+			throw err;
+		},
+	);
 	return classReaderLoad;
 }
 

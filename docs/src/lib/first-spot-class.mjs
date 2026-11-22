@@ -27,8 +27,16 @@ const mayHoldClass = (line) => line.includes('<!--') && (line.includes('class') 
 export function firstSpotClass(source) {
   const src = String(source ?? '');
   const lines = src.split('\n');
+  // Front matter first: a comment inside the YAML is no slide setting, and a prefix cut inside the open block would read
+  // its `---` as a slide break and the comment as a class (the second checker on #3426). No closing line: read it all.
+  let start = 0;
+  if (/^\uFEFF?---[ \t]*\r?$/.test(lines[0] ?? '')) {
+    const close = lines.findIndex((l, k) => k > 0 && /^(?:---|\.\.\.)[ \t]*\r?$/.test(l));
+    if (close < 0) return classEntries(src).find((e) => e.spot)?.value ?? '';
+    start = close + 1;
+  }
   let tries = 0;
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = start; i < lines.length; i++) {
     if (!mayHoldClass(lines[i])) continue;
     if (++tries > 3) break;
     let end = i;

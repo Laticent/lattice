@@ -1431,12 +1431,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			lastClassLineRef.current = line;
 		}
 	}, [catalog, getSource]);
-	// The class reader loads on demand (playground-controller.ts `loadClassReader`): sync once more when it is here.
+	// The class reader loads on demand (playground-controller.ts `loadClassReader`): sync once more when it is here. Until it
+	// is, the picker stays `pending` (it shows nothing) rather than "<name> (draft differs)", a claim made on no information
+	// (#1563's rule). A failed load (offline, a chunk gone after a deploy) is logged and leaves the picker pending; the next
+	// mount or Reset tries again, because a rejected load is not cached.
+	const [classReaderReady, setClassReaderReady] = React.useState(false);
 	React.useEffect(() => {
 		let live = true;
-		loadClassReader().then(() => {
-			if (live) syncPickers();
-		});
+		loadClassReader().then(
+			() => {
+				if (!live) return;
+				setClassReaderReady(true);
+				syncPickers();
+			},
+			(err) => console.warn('playground: the class reader did not load; the component picker stays empty', err),
+		);
 		return () => {
 			live = false;
 		};
@@ -1759,7 +1768,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// (exactly the state the honest clear case creates) it falls back to the
 	// persisted pointer — named in the confirm, never a dead button (decision §4).
 	const resetTarget = draftComponent || readerComponent;
-	const onResetExample = React.useCallback(() => {
+	const onResetExample = React.useCallback(async () => {
+		// The draft's own component needs the class reader; without it the reset would fall back to the stored pointer.
+		await loadClassReader().catch(() => {});
 		const name = detectComponent(catalog, getSource())?.name || readerComponent;
 		if (!(name && catalog[name])) {
 			setStatusLine('Pick a component first.', true);
@@ -3186,7 +3197,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							components={components}
 							lenses={lenses}
 							current={currentName}
-							pending={!hydrated}
+							pending={!hydrated || !classReaderReady}
 							detached={!draftComponent}
 							query={pickerQuery}
 							onQueryChange={onPickerQuery}

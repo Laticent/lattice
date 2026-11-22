@@ -3,7 +3,7 @@
 // fallback, the startup-mode precedence rule, and the variant-sync
 // discriminator. DOM-free by design; the React layer only wires these.
 
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
 import {
 	adjacentComponent,
 	type Catalog,
@@ -381,3 +381,17 @@ describe('readingSlideIndex — the slide the reader is actually on', () => {
 	});
 });
 
+describe('loadClassReader — a failed load is not cached', () => {
+	test('the next call tries again, and then the picker reads the class', async () => {
+		vi.resetModules();
+		vi.doMock('./first-spot-class.mjs', () => {
+			throw new Error('offline');
+		});
+		const m = await import('./playground-controller');
+		await expect(m.loadClassReader()).rejects.toThrow();
+		expect(m.classTokenLine('<!-- @meta{layout=kpi} -->')).toBe('');
+		vi.doUnmock('./first-spot-class.mjs');
+		await m.loadClassReader();
+		expect(m.classTokenLine('<!-- @meta{layout=kpi} -->')).toBe('kpi');
+	});
+});
