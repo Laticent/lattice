@@ -68,6 +68,10 @@ function sourceFiles() {
 
 /** An `.astro` page's code, line for line: its front-matter script and its `<script>` blocks, every other line blank, so
  *  a line number still points into the page. Template `{…}` expressions are not read (a stated gap). */
+/** Any case and any spacing HTML allows: `<SCRIPT type=module>`, `</script >`. */
+const SCRIPT_OPEN = /<script\b[^>]*>/i;
+const SCRIPT_CLOSE = /<\/script\b[^>]*>/i;
+
 function astroCode(text) {
   const lines = text.split('\n');
   const out = [];
@@ -77,8 +81,8 @@ function astroCode(text) {
     let keep = false;
     if (fm === 1 && i > 0 && line.trim() === '---') fm = 2;
     else if (fm === 1 && i > 0) keep = true;
-    else if (!script && /<script\b[^>]*>/.test(line) && !/<\/script>/.test(line)) script = true;
-    else if (script && /<\/script>/.test(line)) script = false;
+    else if (!script && SCRIPT_OPEN.test(line) && !SCRIPT_CLOSE.test(line)) script = true;
+    else if (script && SCRIPT_CLOSE.test(line)) script = false;
     else keep = script;
     out.push(keep ? line : '');
   });
