@@ -255,18 +255,20 @@ uploaded to the Release, never committed.
 6. `gh pr merge --auto --squash`, so the queue lands it once `ci` is green.
 
 **`.github/workflows/release-publish.yml` — Release (publish)** (`push` to
-`main` touching `package.json`, plus `workflow_dispatch` for recovery):
+`main` touching `packages/lattice/package.json`, plus `workflow_dispatch` for recovery):
 
 1. `checkout` with full history + tags.
-2. **Gate:** read `package.json`'s version; if `v<version>` is already tagged,
-   every remaining step is skipped. A dependency bump touches `package.json`
-   too, so this must be a quiet no-op rather than a failure.
+2. **Gate:** read `packages/lattice/package.json`'s version; if `v<version>` is
+   already tagged, every remaining step is skipped. A dependency bump touches that
+   manifest too, so this must be a quiet no-op rather than a failure.
 3. `node tools/release.js --publish --push` — `build:check`, rederive
    `release/notes-v<version>.md` from the changelog's `## <version>` section,
    tag `HEAD`, build the zip, push the tag.
 4. `gh release create v<version>` with `--notes-file` and the
    `release/lattice-v<version>.zip` asset (`--verify-tag`).
-5. `npm publish --access public --provenance`, if `NPM_TOKEN` is set.
+5. `npm publish --workspace @laticent/lattice --access public --provenance`, if
+   `NPM_TOKEN` is set. The root is private, so the publish runs in the engine's
+   folder, whose `prepack` builds and stages the files.
 
 Prerequisites:
 

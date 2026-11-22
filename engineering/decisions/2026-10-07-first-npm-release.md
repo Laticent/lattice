@@ -243,7 +243,16 @@ scratch package from the engine manifest instead.
 **One constraint found.** The root's `"$puppeteer"` override must name a root dependency, so the
 root keeps `puppeteer` as a devDependency at the engine's range. A unit test holds the two equal.
 
-**Not changed here (owner gates).** The release workflows read the root `package.json` and publish
-from the root; see the PR for the options put to the owner. `.github/dependabot.yml` already covers
-workspaces from `/`, so it needs no change. Slice C (Changesets, the fragment archive, the gate, the
+**Workflows (owner's ruling, 2026-11-22: change them in the same PR).** `release-publish.yml` now
+triggers on `packages/lattice/package.json`, reads the version there and runs `npm publish
+--workspace @laticent/lattice`; left alone, the first release after the move would have pushed a tag
+and then failed (a root version of `undefined`, a private root that refuses `npm publish`). The
+`code` paths filter in `ci.yml` and the render-slice glob in `lefthook.yml` also match the engine
+manifest, so a PR that edits only `exports` or `files` runs the code tier. `.github/dependabot.yml`
+already covers workspaces from `/`, so it needs no change.
+
+**Dead-code ratchet.** knip reads `packages/lattice` as a workspace whose code is elsewhere, so it
+called the engine's dependencies unused (28) and the root's imports of them unlisted (400).
+`tools/quality-assessment.js` `foldEngineManifest` credits one to the other; an import nobody declares
+and an engine dependency nothing loads still count. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
