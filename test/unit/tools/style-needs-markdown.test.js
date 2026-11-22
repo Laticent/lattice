@@ -29,6 +29,8 @@ describe('scanMarkdown', () => {
     const { scanMarkdown } = await load();
     const { c } = scanMarkdown('```\n<!-- @meta{layout=secret} -->\n```\n\n<!-- @meta{layout=kpi, class="attention lead"} --> trailing\n');
     for (const w of ['kpi', 'attention', 'lead']) assert.ok(c.has(w), w);
+    const reg = scanMarkdown('<!-- @meta{layout=cards, finish=ledger} -->\n').c;
+    for (const w of ['cards', 'finish', 'finish-ledger']) assert.ok(reg.has(w), `a register's class word: ${w}`);
     assert.ok(!c.has('secret'));
     assert.ok(!c.has('trailing'));
   });

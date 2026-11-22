@@ -111,7 +111,7 @@ function narrationText(source) {
     .replace(/<!--\s*_class\s*:[^<>]*\b(?:columns|rows)\b[^<>]*-->/g, ' ')
     // The same in a slide record (`<!-- @meta{pane=list} -->`, `<!-- @meta{layout=columns} -->`), so a deck reads the same
     // in either spelling; a record's other text stays, as a comment's does.
-    .replace(/<!--\s*(?:@meta)?\{[^<>]*\b(?:panes?\s*=|columns|rows)\b[^<>]*-->/g, ' ');
+    .replace(/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:panes?\s*=|columns|rows)\b(?:(?!-->)[\s\S])*?-->/g, ' ');
 }
 
 function expandArgs(patterns) {

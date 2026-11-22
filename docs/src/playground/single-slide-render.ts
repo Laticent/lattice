@@ -531,7 +531,7 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
  *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
  *  and a miss would preview a wrong slide. */
 function recordHasWord(text: string, word: string): boolean {
-	return new RegExp(`<!--\\s*(?:@meta)?\\{[^>]*\\b${word}\\b`).test(text);
+	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
 }
 
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
@@ -613,7 +613,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
 		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{[^>]*\bcarry\b/],
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
 	},
 
 	{
@@ -670,7 +670,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
-			/<!--\s*(?:@meta)?\{[^>]*\b(?:proof|capstone)\b/, // slide record
+			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
 	},

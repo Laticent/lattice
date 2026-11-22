@@ -13,6 +13,7 @@
 // <DeckPreview> bridge (src/components/DeckPreview.tsx → src/playground/single-slide-render.ts)
 // — it never reimplements the engine render.
 // See engineering/decisions/2026-06-09-shadcn-migration.md §0.
+import { readMetaField } from '../../../lib/core/meta-edit.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -74,14 +75,15 @@ const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '')
 // board decision authored for the home page (room-decks.ts HERO_SLIDE), not a
 // manifest sample: a sample describes its own layout, and the hero is the first
 // slide every visitor sees (positioning audit §12).
-const heroClass = HERO_SLIDE.match(/_class:\s*([\w-]+)/)[1];
+// The layout through the shared reader, so the hero reads the same written as a `_class` comment or a `@meta{…}` record.
+const heroClass = readMetaField(HERO_SLIDE, 'class').value.trim().split(/\s+/)[0];
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const heroSource = HERO_SLIDE.trim();
 const heroCodeHtml = heroSource
 	.split('\n')
 	.map((line) => {
 		let cls = 'ln-dim';
-		if (/^<!--\s*_class/.test(line)) cls = 'ln-class';
+		if (/^<!--\s*(?:_class|@meta\{)/.test(line)) cls = 'ln-class';
 		else if (/^#{1,6}\s/.test(line)) cls = 'ln-h';
 		return `<span class="${cls}">${escapeHtml(line) || ' '}</span>`;
 	})

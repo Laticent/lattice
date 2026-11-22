@@ -542,6 +542,8 @@ describe('deck-derived fact registry', () => {
 	it('a slide record trips the same facts as the comment it replaces', () => {
 		const pairs: [string, string, string][] = [
 			['running-global directive', '<!-- class: dark -->', '<!-- @meta{class=dark, carry} -->'],
+			['running-global directive', '<!-- class: dark -->', '<!-- @meta{footer="Q3 > Q2", class=dark, carry} -->'],
+			['auto-filled agenda', '<!-- _class: agenda -->', '<!-- @meta{footer="a > b", layout=agenda} -->'],
 			['split-panel proof run', '<!-- _class: split-panel proof -->', '<!-- @meta{layout=split-panel, class=proof} -->'],
 			['auto-filled agenda', '<!-- _class: agenda -->', '<!-- @meta{layout=agenda} -->'],
 		];

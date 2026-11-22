@@ -431,7 +431,6 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/(\\S)[ \\t]{2,}/g": "safe",
-    "/(\\b(?:layout|variant|class|universal|modifiers)\\s*=\\s*)(\"[^\"]*\"|[^,}\\s]+)/g": "safe",
     "/(\\bdata-lattice-pagination=\")(\\d+)(\")/": "safe",
     "/(\\bdata-lattice-slide=\")(\\d+)(\")/": "safe",
     "/(\\d),(?=\\d{3})/g": "safe",
@@ -2398,6 +2397,7 @@
     "/^\\s*(?:header|footer)\\s*:/": "safe",
     "/^\\s*(?:if|for|while|until|case|function)\\b/": "safe",
     "/^\\s*(?:import|export)\\b/m": "polynomial",
+    "/^\\s*(?:layout|variant|class|universal|modifiers)\\s*=/": "safe",
     "/^\\s*(?:relative|absolute)\\s*$/": "safe",
     "/^\\s*(?:set|export|local|readonly|declare|typeset|source|shift|trap)\\s+\\S/": "safe",
     "/^\\s*([-*+]|\\d+[.)])\\s/": "safe",

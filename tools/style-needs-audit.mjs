@@ -90,6 +90,9 @@ function markdownTokens(md) {
   const classes = new Set();
   // Every class the deck sets, a comment or a record (`@meta{layout=…}`): the shared reader.
   for (const e of classEntries(md)) for (const x of e.value.split(/\s+/)) if (x) classes.add(x.replace(/['"]/g, '').toLowerCase());
+  // The deck-wide `class:` in front matter, which the comment regex this replaced also matched.
+  const deckClass = md.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1].match(/^class:[ \t]*(.*)$/m)?.[1] ?? '';
+  for (const x of deckClass.split(/\s+/)) if (x) classes.add(x.replace(/['"]/g, '').toLowerCase());
   for (const m of md.matchAll(/(?<![\w-])class="([^"]+)"/g)) for (const x of m[1].split(/\s+/)) classes.add(x.toLowerCase());
   return classes;
 }

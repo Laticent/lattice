@@ -17,7 +17,7 @@
  * or a file that no longer matches, is a stale entry, and fails too, so the list only shrinks.
  *
  * The reasons sort into five kinds, and a new entry names one:
- *   guard     refuses or detects a shape for safety or routing, and must over-match (a record arm sits beside it)
+ *   guard     refuses, detects, strips or carries a shape, and over-matches on purpose; its record arm sits beside it
  *   cursor    completion or a hover reading the unclosed comment the cursor is in; slice B owns completion
  *   writer    rewrites or emits the comment form; slice C owns what writers write
  *   internal  runs after the engine's door (lib/core/meta-door.mjs, `lattice_meta_expand`) or on the Marp bundle after
@@ -25,8 +25,9 @@
  *   grammar   the shared reader or marker grammar itself, or a line it already holds
  *   research  a dated research script that reproduces a recorded measurement and ships nothing
  *
- * What it does not catch, stated: a reader written without a regex (`line.startsWith('<!-- _class:')`), and a regex
- * built from pieces in variables. The census in meta-readers-census.test.js covers the files the note named.
+ * What it does not catch, stated: a reader written without a regex (`line.startsWith('<!-- _class:')`), a regex
+ * built from pieces in variables, and a regex inside an `.astro` page's template `{…}` expression (its front-matter
+ * script and `<script>` blocks are read). The census in meta-readers-census.test.js covers the files the note named.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -48,21 +49,45 @@ const OPEN = new RegExp(String.raw`_(?:\\?\?|\?)?(?:\(\?:|\()?(?:\[A-Za-z|\[\\w|
 const GLOBAL = new RegExp(String.raw`<!--.{0,12}(?:\(\?:)?(?:${KEYS})(?:\)\??)?(?:\\s\*|\[ \\t\]\*)?:`);
 /** A lookahead on the underscore right after `<!--`: `<!--\s*(?!_)…:`, `<!--\s*_(?!class\b)…`. */
 const NEG = /<!--\\s\*\(\?!_|<!--\\s\*_\(\?!/;
+/** After `<!--`: an underscore that opens a generic key (`_(\w+)`, `_[^>]*`, `_\S+`) or ends the pattern (`^<!--\s*_`). */
+const OPEN_ANY = /<!--(?:\\s[*+?]|\[ \\t\][*+?]|[ ]?)*_\??(?:$|\(|\[|\\[wS])/;
+/** A key named whole, with or without its colon: `\b_class\b`, `_?class:\s*(…)\s*-->` (both the spot and the global form). */
+const NAMED = new RegExp(String.raw`(?:\\b|^|[^A-Za-z\\])_(?:${KEYS})\\b|(?:^|[^A-Za-z-])(?:class|pane)(?:\\s\*)?:.*-->`);
 function readsDirective(src) {
-  if (SPOT.test(src) || GLOBAL.test(src) || NEG.test(src)) return true;
+  if (SPOT.test(src) || GLOBAL.test(src) || NEG.test(src) || OPEN_ANY.test(src) || NAMED.test(src)) return true;
   const at = src.indexOf('<!--');
   return at >= 0 && OPEN.test(src.slice(at));
 }
 
 const SKIP = /(^|\/)(node_modules|dist|vendor)\/|\.generated\.|\.min\.js$|^test\/|^docs\/e2e\/|\.test\.|\.spec\.|^\.scratch\//;
 function sourceFiles() {
-  return execFileSync('git', ['ls-files', '*.js', '*.mjs', '*.cjs', '*.ts', '*.tsx'], { cwd: ROOT, encoding: 'utf8' })
+  return execFileSync('git', ['ls-files', '*.js', '*.mjs', '*.cjs', '*.ts', '*.tsx', '*.astro'], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
     .filter((f) => f && !SKIP.test(f));
 }
 
+/** An `.astro` page's code, line for line: its front-matter script and its `<script>` blocks, every other line blank, so
+ *  a line number still points into the page. Template `{…}` expressions are not read (a stated gap). */
+function astroCode(text) {
+  const lines = text.split('\n');
+  const out = [];
+  let fm = lines[0]?.trim() === '---' ? 1 : 0; // 1 inside the front-matter script, 2 past it
+  let script = false;
+  lines.forEach((line, i) => {
+    let keep = false;
+    if (fm === 1 && i > 0 && line.trim() === '---') fm = 2;
+    else if (fm === 1 && i > 0) keep = true;
+    else if (!script && /<script\b[^>]*>/.test(line) && !/<\/script>/.test(line)) script = true;
+    else if (script && /<\/script>/.test(line)) script = false;
+    else keep = script;
+    out.push(keep ? line : '');
+  });
+  return out.join('\n');
+}
+
 /** Every directive-reading regex in a file: `[line, source]`. */
-function readersIn(file, text) {
+function readersIn(file, rawText) {
+  const text = file.endsWith('.astro') ? astroCode(rawText) : rawText;
   const kind = file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
   const out = [];
@@ -87,10 +112,12 @@ const ALLOWED = [
   ['docs/src/lib/compose/comment-block.ts', 2, 'guard', "Compose's security guard: refuses any pasted `_name`, `{` or `@meta{` comment, a strict pane marker excepted; slice C owns Compose and its pane marker form"],
   ['docs/src/lib/compose/deck-doc.ts', 1, 'guard', "a shape check that a directive line joined into the source cannot open a boundary or a front-matter fence; it reads no value"],
   ['docs/src/lib/compose/deck-source.ts', 2, 'grammar', "Compose's directive-line finder (records included) and the global-scope test of a comment the walk already parsed through meta-edit `commentReadings`"],
-  ['docs/src/lib/compose/image-objects.ts', 1, 'writer', "Compose rewrites a slide's class comment when a picture is placed, only when the comment holds the class alone; slice C moves Compose's writers to the record"],
+  ['docs/src/lib/compose/image-objects.ts', 2, 'writer', "Compose rewrites a slide's class comment when a picture is placed (only when the comment holds the class alone), and skips `_` comments when it reads a running global class; slice C moves Compose's writers to the record"],
   ['docs/src/lib/compose/markdown-clipboard.ts', 1, 'guard', "a paste heuristic, 'does this text look like Markdown': a directive or an `@name{` comment is one signal among many; it reads no value"],
   ['docs/src/lib/compose/pane-model.ts', 1, 'writer', "tells a directive line from a pane pill in a component skeleton when Compose builds a pane; slice C writes the skeletons and decides their record form"],
   ['docs/src/lib/compose/raw-block.ts', 1, 'guard', "a security guard: a foreign page's raw block may not set slide attributes with a `_` directive comment (comment-block.ts refuses records)"],
+  ['docs/src/pages/index.astro', 1, 'guard', "a syntax-highlight hint on the home page's hero source: it colors the class line, a `_class` comment or a `@meta{` record; the hero's class itself is read through meta-edit `readMetaField`"],
+  ['docs/src/pages/libraries/lente/index.astro', 1, 'grammar', "Lente's demo page reads the class of its own inline demo deck, the string literals written just above it; it reads no author's deck"],
   ['docs/src/playground/context-sources.js', 1, 'cursor', "value completion for the directive key typed on the cursor's line, inside an unclosed comment; slice B owns completion (record values: `recordCompletion`)"],
   ['docs/src/playground/single-slide-render.ts', 4, 'guard', "raw, over-matching probes that decide whether a preview needs the whole deck; each has its record arm (`recordHasWord`, the `carry` probe), pinned by single-slide-render.deck-context.test.ts"],
   ['docs/src/playground/slide-context.js', 4, 'cursor', "completion triggers on the line before the cursor, inside an unclosed `_class:`, `_focusStyle:` or `_focus:` comment; slice B owns completion (records: `recordCompletion`)"],
@@ -115,12 +142,13 @@ const ALLOWED = [
   ['lib/plugins/image/shared/image-migrate.js', 1, 'writer', "the `![bg]` migration's class-comment rewrite (`classLineWith`); slices B and C move lint fixes to the record"],
   ['tools/build-component-docs.js', 4, 'writer', "composes doc specimens by appending a modifier, a stress marker or a footer to a manifest sample's class comment; slice C writes the samples and moves this"],
   ['tools/build-galleries.js', 1, 'writer', "`injectDark` appends `dark` to each class comment of a generated gallery; slice C owns the generators"],
-  ['tools/check-jank.js', 1, 'writer', "carries a manifest sample's non-class directive lines into the jank sweep's deck; slice C decides the record form of manifest samples"],
+  ['tools/check-jank.js', 1, 'guard', "the `_key:` comment arm of `carriesSetting`, which carries a manifest sample's non-class settings into the sweep; its record arm reads through meta-door `recordParts` and `readRecord` beside it"],
   ['tools/conformance-render.js', 1, 'writer', "writes a `_header` before each slide's class, a comment or a record; slice C owns what writers write"],
   ['tools/lib/calibrate-panel.js', 1, 'writer', "rewrites the class comment a calibration deck builder (`gradedDeck`) just wrote; it reads its own output"],
   ['tools/lib/calibrate-points.js', 1, 'writer', "merges two class comments a calibration deck builder (`gradedDeck`) just wrote; it reads its own output"],
   ['tools/lib/calibrate-rows.js', 1, 'writer', "merges two class comments a calibration deck builder (`gradedDeck`) just wrote; it reads its own output"],
   ['tools/lint-deck.js', 2, 'guard', "strips pane comments from the narration approximation for acronym discovery; a record is stripped whole beside them"],
+  ['tools/measure-pane-fit.js', 1, 'guard', "strips every settings line from the probe body: the `_key:` comment arm, with the record arm beside it through meta-door `isRecordOpener`"],
   ['tools/migrate-state-chart-v1.js', 1, 'writer', "a one-shot codemod for state-chart v1 decks, which predate records; it reads the form those decks were written in"],
   ['tools/parser-bakeoff/list-text.mjs', 1, 'research', "the parser bake-off's frozen text sampler; it reproduces a dated measurement on the corpus as it stood and ships nothing"],
 ];
@@ -142,7 +170,7 @@ function census() {
 
 describe('no new hand-rolled directive reader (meta-record §15, slice A)', () => {
   test('the detector reads a directive regex and leaves the rest', () => {
-    for (const src of [String.raw`<!--\s*_class:\s*([^>]*?)\s*-->`, String.raw`<!--\s*_?class\s*:`, String.raw`<!--\s*_?(?:build|focusSteps)\b`, String.raw`^<!--\s*_[A-Za-z][\w-]*:`, String.raw`<!--\s*pane:\s*([a-z]+)`, String.raw`<!--\s*(?!_)[a-zA-Z][\w-]*\s*:`, String.raw`^\s*_hide\s*:\s*(\S*)\s*$`, String.raw`(^|\n|<!--)([ \t]*)_?(?:header|footer)[ \t]*:`]) {
+    for (const src of [String.raw`<!--\s*_class:\s*([^>]*?)\s*-->`, String.raw`<!--\s*_?class\s*:`, String.raw`<!--\s*_?(?:build|focusSteps)\b`, String.raw`^<!--\s*_[A-Za-z][\w-]*:`, String.raw`class:\s*([^>]*?)\s*-->`, String.raw`<!--\s*_(\w+)\s*:`, String.raw`<!--\s*_?(\w+):`, String.raw`\b_class\b`, String.raw`^<!--\s*_`, String.raw`<!--\s*_[^>]*-->`, String.raw`<!--\s*_\S+:`, String.raw`<!--\s*pane:\s*([a-z]+)`, String.raw`<!--\s*(?!_)[a-zA-Z][\w-]*\s*:`, String.raw`^\s*_hide\s*:\s*(\S*)\s*$`, String.raw`(^|\n|<!--)([ \t]*)_?(?:header|footer)[ \t]*:`]) {
       assert.ok(readsDirective(src), src);
     }
     for (const src of [String.raw`class\s*=\s*"([^"]*)"`, String.raw`<!--[\s\S]*?-->`, String.raw`(^|[^\p{L}\p{N}_])_(?=\S)([\s\S]*?\S)_(?![\p{L}\p{N}_])`, String.raw`<!--\s*(?:@meta)?\{`, String.raw`^\s*class\s*:[^\n]*\bproof\b`]) {

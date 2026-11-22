@@ -33,6 +33,7 @@
  */
 const fs = require('node:fs');
 const { readMetaField } = require('../lib/core/meta-edit.mjs');
+const { isRecordOpener } = require('../lib/core/meta-door.mjs');
 const path = require('node:path');
 const components = require('../lib/components');
 const { BUILDERS, BODY_WRAP, renderProbe } = require('./lib/calibrate-core.js');
@@ -125,7 +126,8 @@ function galleryBody(name) {
   slides.push(cur.join('\n'));
   const slide = slides.find((s) => readMetaField(s, 'class').value.trim().split(/\s+/)[0] === name); // comment or record
   if (!slide) return null;
-  return slide.split('\n').filter((l) => !/^<!--\s*_/.test(l.trim())).join('\n').replace(/^#{1,2} .*$/m, '').trim();
+  // Every settings line comes out of the probe body: a `_key:` comment and a slide record (`@meta{pane=…}`) alike.
+  return slide.split('\n').filter((l) => !/^<!--\s*_/.test(l.trim()) && !(l.trim().startsWith('<!--') && isRecordOpener(l.trim().slice(4)))).join('\n').replace(/^#{1,2} .*$/m, '').trim();
 }
 
 /** Cut a markdown body to its first `n` top-level list items, or `n` table rows. */

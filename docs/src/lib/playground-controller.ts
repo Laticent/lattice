@@ -281,8 +281,31 @@ export function classTokenLine(src: string): string {
 let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
 function firstSpotClass(src: string): string {
 	const s = src || '';
-	if (classMemo.src !== s) classMemo = { src: s, value: classEntries(s).find((e) => e.spot)?.value ?? '' };
+	if (classMemo.src !== s) classMemo = { src: s, value: readFirstSpotClass(s) };
 	return classMemo.value;
+}
+
+/** A line that could hold a class setting: a `_class`/`class` comment or a record opener. A cheap superset. */
+const mayHoldClass = (line: string): boolean => line.includes('<!--') && (line.includes('class') || line.includes('{'));
+
+/** The first spot class, reading only the PREFIX of the source through the first line that sets one (and on to that
+ *  comment's `-->`, for a record that wraps). Exact, not a guess: a line's block role, and so every boundary above it,
+ *  is decided by the lines above it (the contract `classDirectiveAt` rests on). On a 120-slide deck the picker sync ran a
+ *  whole-deck scan per keystroke; a class on the first slide now costs a few lines. After three candidates that set
+ *  nothing (fenced examples, plain comments) it reads the whole source once. */
+function readFirstSpotClass(src: string): string {
+	const lines = src.split('\n');
+	let tries = 0;
+	for (let i = 0; i < lines.length; i++) {
+		if (!mayHoldClass(lines[i])) continue;
+		if (++tries > 3) break;
+		let end = i;
+		while (end < lines.length - 1 && !lines[end].includes('-->')) end++;
+		const hit = classEntries(lines.slice(0, end + 1).join('\n')).find((e) => e.spot);
+		if (hit) return hit.value;
+		i = end;
+	}
+	return classEntries(src).find((e) => e.spot)?.value ?? '';
 }
 
 /**

@@ -24,6 +24,11 @@ test('renames a whole class token in a comment and in a record, nothing else', (
   ].join('\n'));
 });
 
+test('a class-shaped word inside another field\'s quoted text is text', () => {
+  const md = '<!-- @meta{layout=kpi, footer="see class=kpi, layout=kpi here"} -->';
+  assert.equal(renameClassDirectives(md, 'kpi', 'x'), '<!-- @meta{layout=x, footer="see class=kpi, layout=kpi here"} -->');
+});
+
 test('a token that only shares a prefix is left alone', () => {
   assert.equal(renameClassDirectives('<!-- @meta{layout=kpi-row} -->', 'kpi', 'x'), '<!-- @meta{layout=kpi-row} -->');
 });
