@@ -23,6 +23,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
 const { fixAllDetailed } = require('../lib/authoring/lint-core');
+const { LEGACY_META_RULES } = require('../lib/authoring/legacy-meta-rules');
 // review-core carries the advisory presentation suggestions (brevity / density /
 // verbose chrome). Wiring it here means a CLI / agent author SEES density budgets
 // too — not just the browser Drawing Board panel (2026-06-30 red-team fix). It is
@@ -196,6 +197,8 @@ async function main(argv) {
   const suggestions = [];
   let errors = 0;
   let warnings = 0;
+  // File → count of old-spelling findings (`LEGACY_META_RULES`), reported apart; see the loop below.
+  const legacy = new Map();
 
   for (const file of files) {
     // LINE ENDINGS: normalize at the READ, like `lattice.js` does, because a deck on
@@ -269,6 +272,14 @@ async function main(argv) {
       }
     }
     for (const f of findings) {
+      // The old spellings (`<!-- _class: … -->`, a bare `<!-- {…} -->` record) are WARNINGS with a whole-deck fix, and
+      // the committed decks are full of them until the sweep (record note §15, slice D). Counted per file and named in
+      // one line each, never one line per comment, and NOT counted under `--strict`, so the pre-commit hook and
+      // `lint:deck:all` do not block every deck edit before the sweep. The sweep deletes this branch.
+      if (LEGACY_META_RULES.includes(f.rule)) {
+        legacy.set(file, (legacy.get(file) || 0) + 1);
+        continue;
+      }
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
       // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
       // not a defect. Route them to the never-blocking suggestions channel, so `--strict`
@@ -334,7 +345,7 @@ async function main(argv) {
   }
 
   if (asJson) {
-    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, findings: report, reviewFindings: suggestions }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, oldSpellings: Object.fromEntries(legacy), findings: report, reviewFindings: suggestions }, null, 2)}\n`);
     return errors > 0 || (strict && warnings > 0) ? 1 : 0;
   }
 
@@ -360,8 +371,14 @@ async function main(argv) {
     }
     process.stderr.write('\n');
   }
+  if (legacy.size) {
+    const total = [...legacy.values()].reduce((a, n) => a + n, 0);
+    process.stderr.write(`Old comment spellings — ${total} in ${legacy.size} file(s); \`lint:deck --fix\` or \`lattice migrate meta\` rewrites them as <!-- @meta{…} --> records (warnings, not counted under --strict until the sweep):\n`);
+    for (const [f, n] of legacy) process.stderr.write(`⚠ ${f} · ${n} old comment${n === 1 ? '' : 's'}\n`);
+    process.stderr.write('\n');
+  }
   if (!report.length && !suggestions.length) {
-    process.stdout.write(`lint:deck — ${files.length} file(s) clean.\n`);
+    process.stdout.write(`lint:deck — ${files.length} file(s) clean${legacy.size ? ' apart from the old comment spellings above' : ''}.\n`);
     return 0;
   }
   const tail = suggestions.length ? `, ${suggestions.length} suggestion(s)` : '';

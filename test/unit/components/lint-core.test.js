@@ -304,7 +304,7 @@ describe('lint-core: note-malformed', () => {
 
 describe('lint-core: lintTextWith rules', () => {
   test('returns an array and skips front matter (slide 0)', () => {
-    const out = core.lintTextWith(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - b\n`, vocab);
+    const out = core.lintTextWith(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - b\n`, vocab);
     assert.ok(Array.isArray(out));
     assert.equal(out.length, 0);
   });
@@ -472,7 +472,7 @@ describe('lint-core: lintTextWith rules', () => {
   });
 
   test('a clean card-style deck yields no findings', () => {
-    assert.equal(core.lintTextWith(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- First\n  - body\n- Second\n  - body\n`, vocab).length, 0);
+    assert.equal(core.lintTextWith(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- First\n  - body\n- Second\n  - body\n`, vocab).length, 0);
   });
 });
 
@@ -693,7 +693,9 @@ describe('lint-core: auto-fix', () => {
     const fixed = core.applyFix(src, f);
     assert.ok(fixed.includes('<!-- _class: kpi -->'));
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'unknown-class'), false);
-    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- _class: kpi -->'));
+    // Fix all also migrates the old comment (`legacy-directive-comment`). The migration runs after every line fix, so
+    // the typo is fixed first and `kpi`, now a component, is written as the typed `layout`.
+    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- @meta{layout=kpi} -->'));
   });
 
   test('a typo\'d front-matter REGISTER value is one-click fixable too', () => {
@@ -739,7 +741,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('applyAllFixes is a no-op on a clean deck', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - one\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - one\n`;
     assert.equal(core.applyAllFixes(src, vocab), src);
   });
 
@@ -2602,7 +2604,7 @@ describe('lint-core: an empty box is not a finding', () => {
       ['pricing', '- Starter `$0`\n  - [ ] Audit log\n  - For one team.'],
       ['obligation-matrix', '| Regime | A |\n| --- | :-: |\n| GDPR | [ ] |'],
     ]) {
-      const src = `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+      const src = `${FM}<!-- @meta{layout=${cls}} -->\n\n## Heading\n\n${body}\n`;
       assert.equal(core.lintTextWith(src, vocab).find((f) => /empty-box/.test(f.rule)), undefined, cls);
       assert.equal(core.applyAllFixes(src, vocab), src, cls);
     }
@@ -2617,7 +2619,7 @@ describe('lint-core: the CLI `--fix` writes the file in its own encoding', () =>
   const path = require('node:path');
   const { spawnSync } = require('node:child_process');
   const CLI = path.resolve(__dirname, '../../../tools/lint-deck.js');
-  const deck = `${FM}<!-- _class: gantt -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1->Q2\`\n  - Build \`Q2..Q3\`\n`;
+  const deck = `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1->Q2\`\n  - Build \`Q2..Q3\`\n`;
   const run = (src) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-fix-'));
     const file = path.join(dir, 'deck.md');
@@ -2826,7 +2828,7 @@ describe('lint-core: list-modifier-inert reads the list the renderer reads', () 
 // slide one. A fix there must still land on its line, and a later fix must still apply.
 describe('--fix on a deck whose body opens with a separator', () => {
   const FM = '---\ntheme: indaco\n---\n\n';
-  const gantt = (t) => `<!-- _class: gantt -->\n\n## ${t}\n\n- Phase\n  - ${t}X \`Q1->Q2\`\n`;
+  const gantt = (t) => `<!-- @meta{layout=gantt} -->\n\n## ${t}\n\n- Phase\n  - ${t}X \`Q1->Q2\`\n`;
   for (const sep of ['---', '***', '___']) {
     for (const [label, head] of [['with front matter', FM], ['without front matter', '']]) {
       test(`\`${sep}\` ${label}: the line is rewritten`, () => {

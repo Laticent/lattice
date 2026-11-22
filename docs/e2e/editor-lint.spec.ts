@@ -121,6 +121,35 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
+// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, and a bare `<!-- {…} -->` record is a
+// `meta-bare-record` warning whose fix writes `@meta`. One press of "Fix all" converts the deck, the same text
+// `lattice migrate meta` writes, and the slides render as before.
+const LEGACY_DECK = [
+	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
+	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+].join('\n');
+
+test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {
+	await setEditorContent(page, LEGACY_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	// The evidence shot: the deck before, with its warnings underlined.
+	await page.screenshot({ path: info.outputPath('meta-fix-before.png') });
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=cards-grid, footer=\\"Board, Q3\\"} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @meta{layout=title} -->');
+	expect(src).toContain('<!-- @meta{layout=kpi} -->');
+	expect(src).not.toMatch(/<!-- _(class|footer):/);
+	expect(src).not.toContain('<!-- {');
+	// Every line keeps its place: the merged record leaves a blank line where the footer comment was.
+	expect(src.split('\n')).toHaveLength(LEGACY_DECK.split('\n').length);
+	await expect(fixAll(page)).toBeDisabled();
+	await page.screenshot({ path: info.outputPath('meta-fix-after.png') });
+});
+
 // A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
 // a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).

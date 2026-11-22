@@ -73,6 +73,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
+const { LEGACY_META_RULES } = require('../lib/authoring/legacy-meta-rules');
 const { reviewText, isLabelHeading } = require('../lib/authoring/review-core');
 const { splitTopLevel } = require('../lib/authoring/slide-split');
 const { scoreDeck, CRAFT_WEIGHTS, STYLE_WEIGHTS } = require('../lib/authoring/scorecard');
@@ -157,7 +158,9 @@ function makeScorer() {
     const lintFindings = lintText(source, { vocab }).filter(
       (f) => (f.severity === 'error' || f.severity === 'warning')
         && !(f.rule === 'typed-shape-glyph' && exempt)
-        && !isSubjectFinding(rel, f.rule),
+        && !isSubjectFinding(rel, f.rule)
+        // The old comment spellings, which `--strict` does not count until the sweep (lib/authoring/legacy-meta-rules.js).
+        && !LEGACY_META_RULES.includes(f.rule),
     );
     const reviewFindings = [...reviewText(source, { bucketOf, densityOf })];
     return { deck: scoreDeck({ source, lintFindings, reviewFindings }), lintFindings, reviewFindings };
