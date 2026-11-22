@@ -1,7 +1,6 @@
 {
   "name": "@laticent/lastra",
   "version": "0.1.0",
-  "private": true,
   "description": "One image library: read a picture's format, size, alpha hint and EXIF orientation from its header; strip its metadata by an allow-list of blocks; resize RGBA pixels with Lanczos-3; encode JPEG and PNG; decode PNG and JPEG to RGBA; and decide whether a re-encode is worth it from thresholds the caller passes. Bytes in, bytes out, the same in Node, a browser and a worker: no DOM, no dependencies.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
@@ -13,6 +12,9 @@
   "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/lastra#readme",
   "bugs": {
     "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "sideEffects": false,

@@ -106,15 +106,20 @@ describe('nav model', () => {
 		// and nothing asked the nav to list it. Each workspace's own package.json names the package.
 		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 		const workspaces: string[] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).workspaces;
-		// A `private` package is not published, so it has no page yet (@laticent/markup, until its publish is approved).
+		// A `private` package is not published, so it has no page.
 		// The engine is a workspace too (packages/lattice, its publish folder), but it is the product, not a library page.
 		const published = workspaces
 			.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')))
 			.filter((p) => !p.private && p.name !== '@laticent/lattice')
 			.map((p) => p.name);
+		// Published WITHOUT a page: plumbing @laticent/lattice depends on, published so a clean
+		// `npm i @laticent/lattice` resolves (owner ruling 2026-11-22, first-npm-release §9), not a
+		// product the hub pitches yet. Each must be published, so an entry cannot outlive its package.
+		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-markdown'];
+		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
 		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
 		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
-		expect([...listed].sort()).toEqual(published.sort());
+		expect([...listed].sort()).toEqual(published.filter((p) => !unlisted.includes(p)).sort());
 	});
 
 	it('points every library at its own demo page, which marks it current', () => {

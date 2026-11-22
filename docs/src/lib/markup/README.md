@@ -24,6 +24,14 @@ lives, so the plugin and the engine agree without the plugin importing the engin
 | `findMatchingClose(html, tag, from)` | The offset of the close tag that balances an open one |
 | `removeTags(s)` · `stripTags(s)` · `plainText(s)` | Tags off (to a fixed point); and `&nbsp;` folded and trimmed; and entities decoded. Not a security boundary |
 
+## Install
+
+```sh
+npm i @laticent/markup
+```
+
+## Use
+
 ```js
 import { splitCodeLines } from '@laticent/markup';
 
@@ -31,18 +39,13 @@ splitCodeLines('<span class="hljs-string">"a\nb"</span>\nnext');
 // ['<span class="hljs-string">"a</span>', '<span class="hljs-string">b"</span>', 'next']
 ```
 
-Design: `engineering/decisions/2026-11-01-plugin-contract-hollywood.md` §5 (a shared package is named for its job
+Design: [`engineering/decisions/2026-11-01-plugin-contract-hollywood.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-11-01-plugin-contract-hollywood.md) §5 (a shared package is named for its job
 and holds only what has use beyond one plugin).
 
 ## Build
 
 `npm run markup-lib:build` writes `dist/` (ESM + CJS + `.d.ts`); `npm run markup-lib:check` fails if it is stale.
 Tests: `cd docs && npx vitest run src/lib/markup`.
-
-## Status
-
-Private for now: the package is not published to npm until its publish is approved, so it has no page on the
-docs site yet. Lattice resolves it as a workspace package.
 
 ## License
 

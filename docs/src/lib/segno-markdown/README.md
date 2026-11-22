@@ -5,7 +5,7 @@ are, where each slide boundary falls, the front matter, every HTML-comment direc
 leaf of inline text. Zero dependencies, no DOM, no Node.
 
 It is stages S0 and S1 of the Segno deck pipeline
-(`engineering/decisions/2026-10-22-segno-deck-pipeline.md`):
+([`engineering/decisions/2026-10-22-segno-deck-pipeline.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-22-segno-deck-pipeline.md)):
 
 - **S0, ingest.** Strip a leading BOM and fold `\r\n` and a lone `\r` to `\n`. Nothing else, and no later
   stage normalizes again.
@@ -14,6 +14,14 @@ It is stages S0 and S1 of the Segno deck pipeline
   markdown-it token for token (type, level, nesting, line map, `hidden`), which is the fidelity bar the owner
   set (D3): the corpus, a fuzz over CommonMark's rule surface and the 652 CommonMark 0.31.2 spec examples
   agree with markdown-it on every token.
+
+## Install
+
+```sh
+npm i @laticent/segno-markdown
+```
+
+## Use
 
 ```js
 import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-markdown';
@@ -60,4 +68,7 @@ containers. The tests hold each rule to a hostile ladder, about 10x time for 10x
 fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`, and
 `node --test test/unit/core/deck-model.test.js` for the differential against markdown-it.
 
-Ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin).
+## License
+
+AGPL-3.0-only. The block rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
+Kocharin); its license text ships beside this file as `LICENSE.markdown-it.md`.
