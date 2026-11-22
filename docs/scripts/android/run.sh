@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# The Android platform suite (#3356): Chrome on an Android emulator, on a GitHub Linux runner (ubuntu-24.04, which exposes
+# KVM). It serves the docs site, boots an emulator, opens the Studio in Chrome and runs probe.mjs, which taps Library →
+# Import and reads what Android's file chooser offers. Evidence (XML dumps, screenshots, result.json) goes to
+# platform-suite-artifacts/android. Run from the repo root after `npm ci` and `npm run build`.
+#
+# The emulator reaches the runner as 10.0.2.2. The system image is Google APIs x86_64 (it ships Chrome and allows `adb
+# root`, which the first-run flags below need). Every wait is bounded: the boot by BOOT_LIMIT, the whole probe by the
+# job's own timeout.
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+OUT="$ROOT/platform-suite-artifacts/android"
+mkdir -p "$OUT"
+PORT=4321
+API=${ANDROID_API:-34}
+IMAGE="system-images;android-$API;google_apis;x86_64"
+BOOT_LIMIT=${BOOT_LIMIT:-420}
+
+# KVM: the runner has it, but only root can open it until a udev rule says otherwise (GitHub's documented step).
+echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+sudo udevadm control --reload-rules
+sudo udevadm trigger --name-match=kvm
+ls -l /dev/kvm
+
+SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+AVDMANAGER="$SDK/cmdline-tools/latest/bin/avdmanager"
+yes | "$SDKMANAGER" --licenses >/dev/null || true
+"$SDKMANAGER" --install emulator platform-tools "$IMAGE" >/dev/null
+ADB="$SDK/platform-tools/adb"
+echo no | "$AVDMANAGER" create avd --force -n probe -k "$IMAGE" -d pixel_6 >/dev/null
+
+# The docs site, as the iOS suite serves it, plus the probe's control page: one input that accepts only `.pdf`.
+if [ -f docs/dist/.prebuilt ]; then
+  echo "using the prebuilt docs site ($(cat docs/dist/.prebuilt))"
+  (cd docs && npm ci)
+else
+  (cd docs && npm ci && npm run build:e2e)
+fi
+cat > docs/dist/__chooser-control.html <<'HTML'
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chooser control</title>
+<input type="file" accept=".pdf" aria-label="Pick a PDF" style="display:block;width:80vw;height:30vh;margin:10vh auto">
+HTML
+(cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+server=$!
+
+"$SDK/emulator/emulator" -avd probe -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+  -camera-back emulated -camera-front emulated > "$OUT/emulator.log" 2>&1 &
+emu=$!
+trap 'kill "$server" "$emu" 2>/dev/null || true' EXIT
+
+for _ in $(seq 1 120); do curl -sf "http://localhost:$PORT/studio/" >/dev/null && break; sleep 1; done
+curl -sf "http://localhost:$PORT/studio/" >/dev/null
+
+"$ADB" wait-for-device
+booted=0
+for _ in $(seq 1 "$BOOT_LIMIT"); do
+  if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then booted=1; break; fi
+  sleep 1
+done
+[ "$booted" = 1 ] || { echo "the emulator did not finish booting within ${BOOT_LIMIT} s" >&2; exit 3; }
+"$ADB" shell pm list packages com.android.chrome | grep -q com.android.chrome || { echo "this system image has no Chrome" >&2; exit 3; }
+
+# Chrome's first-run screens would sit over the page: skip them with Chrome's own command-line file (needs root).
+"$ADB" root >/dev/null; "$ADB" wait-for-device
+"$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
+"$ADB" shell am set-debug-app --persistent com.android.chrome
+"$ADB" shell am force-stop com.android.chrome
+"$ADB" shell settings put global window_animation_scale 0
+"$ADB" shell settings put global transition_animation_scale 0
+"$ADB" shell settings put global animator_duration_scale 0
+echo "Android $("$ADB" shell getprop ro.build.version.release | tr -d '\r'), Chrome $("$ADB" shell dumpsys package com.android.chrome | grep -m1 versionName | tr -d '\r ')"
+
+ADB="$ADB" BASE="http://10.0.2.2:$PORT" OUT="$OUT" node docs/scripts/android/probe.mjs

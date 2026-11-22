@@ -9826,7 +9826,9 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
-const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025'];
+// `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
+// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml.
+const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
 // A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening

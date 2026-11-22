@@ -541,6 +541,20 @@
       "run": "cd docs && npm ci && npx playwright install chromium firefox && E2E_PREBUILT=1 E2E_RECORD=off npx playwright test e2e/scrollbar-width.spec.ts e2e/wheel-sideways.spec.ts --project=desktop --project=gecko --trace off",
       "why": "Windows draws CLASSIC scrollbars that take layout space, which is where the owner saw inner panes keep the thick OS default (15-17px) because `scrollbar-width` is not inherited (#3345). scrollbar-width.spec.ts measures the Compose pane's bar against an `auto` control in Chromium and in a HEADED Firefox (Playwright's headless Firefox reports `scrollbar-width: none` for every element; Linux has no display for it, and its GTK bars are overlay anyway) and writes the widths to platform-suite-artifacts/. wheel-sideways.spec.ts checks a mouse wheel scrolls the slide pills and the slide map sideways, the owner's Windows report. Added at the owner's request (2026-11-21, \"raise it\") to verify on the platform the bug was reported on. It serves the docs site built on Linux by the workflow's docs-site job (E2E_PREBUILT=1): the site does not build on Windows (bake-newcomer-frame: `module is not defined` in lib/core/content-policy.js, run 44853144110; followups.d/3345-p3-docs-build-on-windows.md).",
       "docs_site": true
+    },
+    {
+      "name": "android-chrome-chooser",
+      "os": [
+        "ubuntu-24.04"
+      ],
+      "paths": [
+        "docs/scripts/android/run.sh",
+        "docs/scripts/android/probe.mjs",
+        "docs/src/components/studio/Library.tsx"
+      ],
+      "run": "bash docs/scripts/android/run.sh",
+      "why": "What Chrome on Android offers when the Studio's Library Import is tapped (#3356). That input names no `accept` so iOS does not gray out a `.lattice`; on an iPhone the owner's screenshot showed Photo Library, Take Photo or Video and Choose Files still offered. This suite answers the same for Android: it boots an Android emulator (Google APIs x86_64, API 34) on a Linux runner with KVM, opens the Studio in Chrome, taps Menu, Library, Import files, and reads the chooser through `uiautomator dump`. It fails when the camera or a way to choose files is missing. A control page whose input accepts only `.pdf` must show files and no camera, so the probe can see an option go missing. Evidence: the XML dumps and a screenshot of each chooser. No real device: an emulator's chooser is Android's own, but a phone maker can replace it.",
+      "on_pull_request": false
     }
   ]
 }
