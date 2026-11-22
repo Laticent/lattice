@@ -160,7 +160,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'plugin-bench' ? await runPluginBenchProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -730,6 +730,57 @@ async function runPhotoMemory(id) {
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, arms, steps };
 }
+/** The D1 bench (PROBE=plugin-bench): set up bench-bars once, then per arm reload the Studio and read wait.ts `benchRecorder`. */
+async function runPluginBenchProbe(id) {
+	const { default: JSZip } = await import('jszip');
+	const dir = path.join(here, '../bench/bench-bars');
+	const zip = new JSZip();
+	const { BENCH_MANIFEST } = await import('../bench/bench-bars-manifest.mjs');
+	zip.file('bench-bars/bench-bars.manifest.json', JSON.stringify(BENCH_MANIFEST));
+	for (const f of fs.readdirSync(dir)) zip.file(`bench-bars/${f}`, fs.readFileSync(path.join(dir, f)));
+	const b64 = (await zip.generateAsync({ type: 'nodebuffer' })).toString('base64');
+	const setFlags = (arm) => wd('POST', `/session/${id}/execute/sync`, { script: `${fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8')}\ntry { localStorage.setItem('lattice-d1-arm', arguments[0]); localStorage.setItem('lattice-d1-bench', '1'); } catch {}`, args: [arm] });
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	await setFlags('cplus');
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+	const setup = withEditorHelper(fs.readFileSync(path.join(here, 'plugin-bench-setup.js'), 'utf8'));
+	const ready = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${setup}\nconst done = arguments[arguments.length - 1];\nlatticeBenchSetup(arguments[0]).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		args: [b64],
+	});
+	const steps = [...(ready.steps || [])];
+	if (!ready.ok) return { ok: false, error: `setup: ${ready.error}`, steps };
+	const WRONG = new Set(['source', 'bare', 'off']);
+	const reloads = Number(process.env.BENCH_RELOADS || 10);
+	const arms = {};
+	for (const arm of ['shipped']) {
+		await setFlags(arm);
+		const runs = [];
+		for (let i = 0; i < reloads; i++) {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			const rows = await wd('POST', `/session/${id}/execute/async`, {
+				script: `const done = arguments[arguments.length - 1]; const t0 = Date.now(); (function poll() { const b = window.__waitBench; if (b && b.done) done(b.rows); else if (Date.now() - t0 > 30000) done(b ? b.rows : null); else setTimeout(poll, 100); })();`,
+				args: [],
+			});
+			if (!Array.isArray(rows)) continue;
+			const first = rows.findIndex((r) => r[1] === 'drawn');
+			const before = first < 0 ? rows : rows.slice(0, first);
+			const visible = rows.find((r) => r[1] !== 'blank');
+			const final = first < 0 ? null : rows[rows.length - 1];
+			const shift = (k) => (final?.[k] ? Math.max(0, ...rows.filter((r) => r[k] && r[1] !== 'blank').map((r) => Math.max(...r[k].map((v, j) => Math.abs(v - final[k][j]))))) : null);
+			runs.push({ wrong: before.filter((r) => WRONG.has(r[1])).length, blank: before.filter((r) => r[1] === 'blank').length, wait: before.filter((r) => ['box', 'skeleton', 'afterimage'].includes(r[1])).length, visibleMs: visible ? visible[0] : null, drawnMs: first < 0 ? null : rows[first][0], block: shift(2), coda: shift(3), seq: rows.reduce((a, r) => (a[a.length - 1] === r[1] ? a : [...a, r[1]]), []).join('>') });
+		}
+		const med = (k) => {
+			const v = runs.map((r) => r[k]).filter((x) => x !== null).sort((a, b) => a - b);
+			return v.length ? v[v.length >> 1] : null;
+		};
+		const mean = (k) => (runs.length ? (runs.reduce((s, r) => s + (r[k] ?? 0), 0) / runs.length).toFixed(1) : '-');
+		arms[arm] = runs;
+		steps.push({ name: `arm ${arm}`, pass: runs.length > 0, detail: `n=${runs.length} wrong runs=${runs.filter((r) => r.wrong).length} wrong mean=${mean('wrong')} wait mean=${mean('wait')} visible med=${med('visibleMs')}ms drawn med=${med('drawnMs')}ms block shift med=${med('block')}px coda shift med=${med('coda')}px; ${[...new Set(runs.map((r) => r.seq))].join(' | ')}` });
+	}
+	return { ok: steps.every((s) => s.pass), steps, arms };
+}
+
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
 }

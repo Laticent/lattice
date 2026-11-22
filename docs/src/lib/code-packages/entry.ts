@@ -94,3 +94,8 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// preview only, so an export taken before the door loads never prints a wait.
 	return PG.render(waits && preview ? waits.withWaits(source) : source, theme, engineOpts) as R;
 }
+
+// THROWAWAY (probe/d1-ios-shipped): the D1 recorder, off unless localStorage lattice-d1-bench is set.
+import { benchRecorder } from './bench-recorder';
+
+if (typeof window !== 'undefined') benchRecorder('bench-bars');
