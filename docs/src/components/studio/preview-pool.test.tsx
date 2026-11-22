@@ -955,10 +955,78 @@ describe('PreviewPool — a tile of another shape', () => {
 		expect(last.capacity, 'the spare is not more tiles on screen').toBe(4);
 	});
 
-	it('gives the spare back when the grid holds one shape again, and never passes HARD_MAX_SLOTS', () => {
+	it('gives the spare back once the grid holds one shape again, and never passes HARD_MAX_SLOTS', () => {
+		const MER = '```mermaid\ngraph TD\n```';
+		const reports: PoolReport[] = [];
+		const Pool = ({ withMer }: { withMer: boolean }) => (
+			<PreviewPool maxSlots={4} onSettle={(r) => reports.push(r)}>
+				{['# 0', '# 1', '# 2', '# 3', ...(withMer ? [MER] : [])].map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool withMer />);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		show([0, 1, 2, 4], []);
+		settle();
+		show([3], [4]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(reports[reports.length - 1].slots).toBe(4 + SHAPE_SPARE);
+		// The Mermaid tile leaves the grid: its frame is now stale, and the pool trims back to the ceiling.
+		rerender(<Pool withMer={false} />);
+		show([], [0, 1, 2, 3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		expect(reports[reports.length - 1].slots, 'the spare outlived the grid that needed it').toBe(4);
 		expect(slotRoom(12, false)).toBe(12);
 		expect(slotRoom(12, true)).toBe(12 + SHAPE_SPARE);
 		expect(slotRoom(HARD_MAX_SLOTS, true)).toBe(HARD_MAX_SLOTS);
+	});
+
+	it('reuses the frames a palette change left stale instead of growing past them', () => {
+		// A one-shape grid, its frames free while the reader is away (the Add slide gallery stays mounted, closed), then a
+		// palette change. Every free frame is keyed to the old palette and matches no tile. Growing past them doubled the
+		// pool on FULL (10 frames became 20); reusing them costs the same writes and keeps 10.
+		const reports: PoolReport[] = [];
+		const Pool = ({ palette }: { palette: string }) => (
+			<PreviewPool onSettle={(r) => reports.push(r)}>
+				{Array.from({ length: BASE_SLOTS }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} paletteOverride={palette} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool palette="a" />);
+		const all = Array.from({ length: BASE_SLOTS }, (_, i) => i);
+		const set = (on: boolean) => {
+			for (const i of all) {
+				(on ? onScreen : offScreen)(face(container, i));
+				intersect(face(container, i), on);
+			}
+		};
+		set(true);
+		settle();
+		expect(reports[reports.length - 1].slots).toBe(BASE_SLOTS);
+		set(false);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		rerender(<Pool palette="b" />);
+		set(true);
+		settle();
+		const last = reports[reports.length - 1];
+		expect(last.held).toBe(BASE_SLOTS);
+		expect(last.slots, 'a palette change grew the pool past its stale frames').toBe(BASE_SLOTS);
 	});
 });
 

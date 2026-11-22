@@ -298,7 +298,7 @@ as an argument with that read as the default, so its tests pass the tier in and 
 - **The preview ceiling of 12** still covers the biggest grid measured (12 tiles at 1920×1200), so tiles on screen keep
   their frames there. A bigger grid on a LITE device starves its least-recently-seen tiles; that is the trade. A pool
   watches the attribute, so a drop to LITE mid-session re-renders it and its next pass gives back the free frames above
-  12, from the end of its list (a slot's place is its React identity), as tiles leave.
+  12 (13 while its grid mixes tile shapes, below), from the end of its list (a slot's place is its React identity), as tiles leave.
 - **One spare frame past the ceiling, in a mixed grid (owner, 2026-11-22).** A pool holds one frame more than its
   ceiling (`SHAPE_SPARE` in `preview-pool.tsx`) while it holds tiles of more than one shape: a Mermaid tile needs a
   document with the diagram runtime, a plain tile does not, and moving a frame between the two is a full `srcdoc` write.
@@ -306,8 +306,11 @@ as an argument with that read as the default, so its tests pass the tier in and 
   the twelfth plain tile took the Mermaid frame, and the Mermaid tile rewrote a plain one, on every reopen, with no bound
   (MR-3 under `?tier=lite`: 31 steals in 12 runs, about two documents per reopen, each permanent on WebKit). With the
   spare: 0 steals, and the document count flat across reopens in 12 of 12 runs. The spare is not one more tile on
-  screen: the pool's reported `capacity` stays the ceiling, and a one-shape grid never uses it. It applies to a host's
-  own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
+  screen: the pool's reported `capacity` stays the ceiling. "Mixes" is read from the TILES in the grid, never from the
+  frames: a palette, mode or theme change leaves every free frame keyed to a shape no tile has now, and the pool reuses
+  those stale frames before it grows (growing past them doubled a one-shape grid on FULL, 10 frames to 20, the
+  checker's find). So a one-shape grid never uses the spare, and a grid the Mermaid tile leaves trims back to the
+  ceiling. It applies on every tier and to a host's own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
 - **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
   yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
   earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a

@@ -577,6 +577,12 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				.map((x) => x.t);
 			const next = slotsRef.current.map((s) => ({ ...s }));
 			const held = new Set<number>();
+			// The shapes the GRID holds now, as opposed to the shapes its frames were built for. A palette, mode or theme
+			// change leaves every free frame keyed to a shape no tile has any more: such a frame is STALE, the first to
+			// reuse, and never a reason to grow (the SHAPE_SPARE rule below would otherwise double a one-shape grid's
+			// frames on every palette change). `mixed` is the grid mixing shapes, the only case the spare is for.
+			const live = new Set([...tiles.current.values()].map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`));
+			const mixed = live.size > 1;
 			// 1. A tile keeps the slot it already has — but ONLY if it survived the cap above.
 			//
 			//    Testing `holding()` here instead was a real bug and a visible one: a tile that had
@@ -630,9 +636,12 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				// bound (MR-3 under `?tier=lite`: 31 steals in 12 runs). With one spare frame: 0 steals, the
 				// document count flat across reopens in 12 of 12 runs. Owner's call, 2026-11-22
 				// (2026-11-12-device-capability-tiers.md §4.2). Still bounded by HARD_MAX_SLOTS.
+				//
+				// A STALE frame (built for a shape no tile has now, see `live`) goes before any new one: its document is
+				// lost to this grid either way, so reusing it costs the same write and keeps the frame count where it was.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot = free.find((s) => s.key === k);
-				if (!slot && next.length < slotRoom(ceilingRef.current, free.length > 0)) {
+				let slot = free.find((s) => s.key === k) ?? free.find((s) => !live.has(`${s.id}\u0000${s.key}`));
+				if (!slot && next.length < slotRoom(ceilingRef.current, mixed)) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
@@ -661,8 +670,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
 			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
 			// tile leaves, since the cap above already keeps `want` within the ceiling. A pool that holds more than one shape keeps
-			// its SHAPE_SPARE: trimming it would hand the steal straight back on the next traversal.
-			const mixed = new Set(next.map((x) => `${x.id}\u0000${x.key}`)).size > 1;
+			// its SHAPE_SPARE while its TILES mix shapes: trimming it would hand the steal straight back on the next traversal.
+			// Once the grid holds one shape again (the Mermaid tile left it), the spare goes back with the rest.
 			while (next.length > slotRoom(ceilingRef.current, mixed) && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
