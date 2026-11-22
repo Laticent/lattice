@@ -99,16 +99,37 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-a
 section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
- * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
- * has space for two header pills but a narrow column does not:
+ * ride the same row. Placement is keyed to the card SHAPE:
  *   · ROW cards (hierarchy/bands/preemption — full-width): citation pill LEFT (right after
- *     the label), status pill RIGHT (margin-left:auto) — both on the header line.
+ *     the label), status pill RIGHT — both on the header line when they fit.
  *   · COLUMN cards (the 3-rail default — narrow): the lone citation pill anchors RIGHT
- *     (top-right corner); the status pill drops to the card foot (bottom-left, below) so the
- *     two never collide and wrap in the tight rail. */
+ *     (top-right corner); the status pill drops to the card foot (bottom-left, below).
+ *
+ * A LINE OF TEXT THAT WRAPS, NOT A FLEX ROW. The header flows inline: the label, then the
+ * citation pill, and the trailing pill (the row cards' status pill, the default card's lone
+ * citation) floats to the line's end. A float sits at the right end of whichever line it lands
+ * on, so when the header is too wide for the card the trailing pill drops to the next line and
+ * stays at the right; it can never overlap the label.
+ *
+ * WHY NOT THE OTHER FOUR SHAPES, each built and measured on a story box at a hall venue:
+ *   · the old pin (`position:absolute; right:0`) kept no room for the pill, so it landed on the
+ *     label and the citation: "FEDERAL" and `15 U.S.C. §6501` under "In effect since 2000";
+ *   · a flex row with `justify-content:space-between` sends a pill that wraps ALONE to the
+ *     line's start, opposite the corner this layout promises;
+ *   · a flex row with a zero-basis `::after` spacer: the spacer is its own flex item and costs
+ *     one `gap`, so a wrap can part it from the pill. Three consecutive pages of one split put
+ *     the wrapped status pill right, right, then left;
+ *   · `margin-inline-start:auto` travels with the pill and works, but it is a margin (HARD RULE
+ *     #20) and the sanctioned list is capped.
+ * The fix for a narrow header used to sit behind `@container lat-cards (width < 24em)`, which
+ * base.card-reflow.css declares on wide and square decks only, so no portrait or story deck got
+ * it. This needs no query: it wraps on every box.
+ *
+ * `--lh-base` spaces wrapped lines. A pill is taller than that line, so a header that fits on one
+ * line is exactly as tall as before. */
 section.statute-stack > .cell-stage > ul > li > strong:first-child,
 section.statute-stack > .cell-stage > ol > li > strong:first-child {
-  display:flex; align-items:baseline; gap:var(--sp-sm);
+  display:flow-root; line-height:var(--lh-base);
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
@@ -124,34 +145,26 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .l
   --lat-pill-case:none;
   --lat-pill-cap:1;
 }
-/* COLUMN cards (default) — the lone citation pill anchors to the header's right corner.
- * Two-child header row (label + lone pill) → space-between pushes the pill to the right
- * edge WITHOUT a left-auto margin (auto margins sit outside the flex content box and break
- * the virtual-list height measurement). */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child {
-  justify-content:space-between;
+/* The pill's own inline margin is its breathing room in running text, which this header is.
+ * The citation that follows the label takes none: the space after the label separates them, a
+ * wrapped citation opens its line flush left, and its trailing margin would count against the
+ * line even when the status pill has floated to the next one (measured: it pushed STATE and
+ * `Cal. Civ. §1798.120` onto two lines of a portrait card at hall, and the card 70px over). The
+ * trailing pill keeps its leading margin as its gap from the citation, and ends flush right. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:first-of-type:not(:last-child) {
+  margin-inline:0;
 }
-/* ROW cards — the citation stays left after the label; the trailing status pill (the second
- * header code) anchors to the right edge on the same line and takes the jurisdiction hue (the
- * signal color). A lone citation in a row card simply stays left.
- *
- * Right-anchoring is margin-free (an auto margin sits outside the flex content box and breaks
- * the virtual-list height measurement): the status pill is taken out of flow and pinned to the
- * header's right edge with absolute positioning, so the label + citation stay packed left at
- * their natural widths. (A flex:1 spacer can't be used here — the citation is a chrome-bearing
- * pill, so growing it would stretch its visible box rather than open up clean space.) */
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child {
-  position:relative;
-}
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child,
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
-  position:absolute; right:0; top:50%; transform:translateY(-50%);
-  /* Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
-   * every other categorical label here. Missed in the first pass because the pill's ink
-   * is a SECOND alias hop (ink <- --jur-accent <- --cat-N-mark) and the sweep
-   * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
-   * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
-   * exists to retire. (#1263) */
+  float:inline-end; margin-inline-end:0;
 }
+/* The status pill takes the jurisdiction hue (the signal color).
+ * Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
+ * every other categorical label here. Missed in the first pass because the pill's ink
+ * is a SECOND alias hop (ink <- --jur-accent <- --cat-N-mark) and the sweep
+ * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
+ * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
+ * exists to retire. (#1263) */
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
@@ -225,7 +238,7 @@ section.statute-stack.hierarchy > .cell-stage > :is(ul, ol) > li:nth-child(3) { 
 section.statute-stack.hierarchy > .cell-stage > ul > li,
 section.statute-stack.hierarchy > .cell-stage > ol > li {
   border-top:1px solid var(--border);
-  border-left:4px solid var(--jur-accent, var(--accent));
+  border-inline-start:4px solid var(--jur-accent, var(--accent));
 }
 
 /* .bands — the shared jurisdiction card, stacked full-width with EQUAL heights: an
@@ -238,7 +251,7 @@ section.statute-stack.bands > .cell-stage > ol {
 section.statute-stack.bands > .cell-stage > ul > li,
 section.statute-stack.bands > .cell-stage > ol > li {
   border-top:1px solid var(--border);
-  border-left:4px solid var(--jur-accent, var(--accent));
+  border-inline-start:4px solid var(--jur-accent, var(--accent));
 }
 
 /* .preemption — vertical stack with arrows between cards. */
@@ -269,7 +282,7 @@ section.statute-stack.preemption > .cell-stage > ul > li,
 section.statute-stack.preemption > .cell-stage > ol > li {
   flex:0 0 auto;
   border:1px solid var(--border);
-  border-left:4px solid var(--jur-accent, var(--accent));
+  border-inline-start:4px solid var(--jur-accent, var(--accent));
   border-top:1px solid var(--border);
   position:relative;
 }
@@ -285,7 +298,7 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-chil
    * would move the mark. `font-size` stays as the `em` BASIS for the box. */
   content:'';
   position:absolute;
-  left:50%; top:100%;
+  inset-inline-start:50%; top:100%;
   transform:translate(-50%, calc(var(--sp-md) / 2 - 50%)) rotate(90deg);
   font-size:var(--fs-h3);
   line-height:1;
@@ -335,7 +348,7 @@ section.statute-stack.lane thead th {
   text-transform:uppercase;
   color:var(--text-label);
   padding:0.625cqi var(--sp-sm);
-  text-align:left;
+  text-align:start;
 }
 section.statute-stack.lane td {
   padding:var(--sp-sm) var(--sp-sm);
@@ -367,11 +380,11 @@ section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mar
 section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink, var(--cat-6-mark)); }
 section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 section.statute-stack.lane tbody tr > td:first-child {
-  border-left:3px solid var(--lane-jur, var(--accent));
-  padding-left:var(--sp-md);
+  border-inline-start:3px solid var(--lane-jur, var(--accent));
+  padding-inline-start:var(--sp-md);
 }
 section.statute-stack.lane td:last-child {
-  text-align:right;
+  text-align:end;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   letter-spacing:0.04em;
@@ -435,28 +448,12 @@ section.statute-stack > .cell-stage {
 /* ── Width reflow (lib/base/base.card-reflow.css). The default rails sit side by side at
  * `flex: 1` and never wrap, so a narrow box squeezed each rail until its text clipped. Below
  * 36em of the content area (a rail under about 11.5em) the rails stack, the form a tall deck
- * gets. In the ROW variants the status pill is pinned to the header's right edge with no space
- * reserved for it, so in a narrow card it landed on the label and the citation: below 24em the
- * header wraps and the pill takes its place in the flow. */
+ * gets. The header's own narrow form needs no query: it wraps on every box (above). */
 @container lat-cards (width < 36em) {
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
     flex: var(--cards-grow) 0 auto;
-  }
-}
-/* A column card's header holds the label and the citation pill on one line, the pill pushed
- * right; in a narrow card the pill ran past the card's edge. Below 24em the header wraps, so
- * the citation drops under the label, still at the right. */
-@container lat-cards (width < 24em) {
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child {
-    flex-wrap: wrap; row-gap: var(--sp-2xs);
-  }
-}
-@container lat-cards (width < 24em) {
-  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child { flex-wrap: wrap; row-gap: var(--sp-2xs); }
-  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
-    position: static; transform: none;
   }
 }
