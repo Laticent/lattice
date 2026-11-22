@@ -22,7 +22,7 @@ export const commentClassReader: SlideClassReader = (src) => findDirectiveCommen
 
 /** The component name of a slide: the first class word, or `text` for bare markdown or a word that is not a name. */
 function nameOf(src: string, read: SlideClassReader): string {
-	const first = String(read(src) ?? '').trim().split(/\s+/)[0] ?? '';
+	const first = String(read(src) ?? '').trim().split(/[ \t]+/)[0] ?? ''; // spaces and tabs only, as before: HTML splits class names on ASCII whitespace
 	return NAME_RE.test(first) ? first : 'text';
 }
 

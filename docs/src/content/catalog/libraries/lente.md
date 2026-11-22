@@ -97,7 +97,7 @@ lens(slides).registry(registry).pick('brief').project();
 | `readerLenses(slides, registry)` | Every lens a reader may open right now |
 | `approvalHash(slides, registry, id)` | The fingerprint to store when a person approves |
 | `lensSlides(slides, registry, id)` | The author's preview, ignoring approval — never show it to readers |
-| `suggestMembership(slides, registry, catalog)` | Proposals for which slides fit which lens |
+| `suggestMembership(slides, registry, catalog, classOf?)` | Proposals for which slides fit which lens. `classOf` reads a slide's class; the default reads `_class` comments, and a host with the engine passes its own reader |
 
 ## Where else it fits
 

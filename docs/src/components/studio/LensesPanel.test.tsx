@@ -79,6 +79,15 @@ describe('LensesPanel — suggest + membership', () => {
 		for (const c of changes) expect(c).toMatchObject({ lensId: 'brief', member: true, base: 'none' });
 	});
 
+	it('reads a slide written as a @meta record the same as a _class comment (the engine\'s own class reader)', async () => {
+		const user = userEvent.setup();
+		const records = slides.map((s) => s.replace(/<!-- _class: ([a-z-]+) -->/, '<!-- @meta{layout=$1} -->'));
+		const { onTag } = setup('lenses:\n  brief: { label: "Bottom line", base: none }', { slides: records });
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		await user.click(screen.getByRole('button', { name: 'Accept all' }));
+		const [, changes] = onTag.mock.calls[0];
+		expect(changes.map((c: { index: number }) => c.index).sort()).toEqual([0, 1, 3]); // title, kpi, closing
+	});
 	it('a base:all lens (evidence) proposes DROPS with base all + member false', async () => {
 		const user = userEvent.setup();
 		const { onTag } = setup('lenses:\n  evidence: { label: "The evidence", base: all }');
