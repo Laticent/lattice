@@ -513,7 +513,7 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options: PACE_OPTIONS, validFor: /^[\w-]*$/ };
 		}
 
-		// 1f. Any other fixed-vocabulary register VALUE — `guards:`, `cards:`, `claim:`, the
+		// 1f. Any other fixed-vocabulary register VALUE — `fit:`, `cards:`, `claim:`, the
 		// spectrum family, … Top-level keys only (column 0): an indented `key:` is an entry
 		// inside a nested map such as `lexicon:`, where the word is data, not a register.
 		const reg = /^([\w-]+):[ \t]*[\w-]*$/.exec(before);

@@ -160,12 +160,16 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 
-**The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
-`trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
-wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
+**The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
+(`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
+says `guards:` gets the default, `heal`, and `lint:deck` reports the line as an error
+(`guards-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
+`guards: loose`, which was the default. A typo (`fit: reprot`) resolves to the default and
+is flagged as `unknown-fit`.
 
-**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
-`guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
+**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim`. The old
+`guards-strict` / `guards-loose` classes do nothing now; `lint:deck --fix` rewrites them to
+`fit-trim` / `fit-heal`. The per-slide token **evicts** the deck token rather
 than stacking on it, so a slide's own choice always wins.
 
 **Two invariants, not settings.** No level changes the type size, and no level changes
@@ -210,9 +214,9 @@ cause overflow are largely the ones it refuses to touch. See
 **The overflow signals stay on.** `strict` does not silence the ring, the "Content
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
-but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
-key), including one carrying a trailing `#` comment.
+but not a removal. A typo (`fit: trimm`) resolves to the baseline and is
+caught by `npm run lint:deck` as `unknown-fit`, including one carrying a trailing `#`
+comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
@@ -271,7 +275,7 @@ layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
 swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
-`spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
+`spectrum*` register, `corners:`, `fit:`, `rule:`, `eyebrow:`, `inline-code:`,
 `headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in

@@ -341,18 +341,36 @@ describe('the fit: register in lint', () => {
     assert.equal(f?.severity, 'warning');
   });
 
-  test('the old guards: spelling is named, pointing at the new value', () => {
-    const f = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strict')).find((x) => x.rule === 'guards-renamed');
-    assert.equal(f?.severity, 'info');
+  test('the old guards: spelling is an error, and the fix keeps what the deck rendered', () => {
+    const src = deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strict  # board pack');
+    const f = rules(src).find((x) => x.rule === 'guards-renamed');
+    assert.equal(f?.severity, 'error');
     assert.match(f.fix, /fit: trim/);
+    assert.equal(f.replaceLine, 'fit: trim  # board pack', '`strict` was TRIM, so the line becomes `fit: trim` and keeps its comment');
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed.includes('\nfit: trim  # board pack\n') && !fixed.includes('guards:'), fixed);
+    assert.equal(rules(fixed).filter((x) => x.rule === 'guards-renamed').length, 0);
   });
 
-  test('an unknown old guards: value is one guards-renamed warning (unknown-guards was folded in)', () => {
-    const out = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strct'));
-    assert.deepEqual(out.filter((x) => /guards/.test(x.rule)).map((x) => [x.rule, x.severity]), [['guards-renamed', 'warning']]);
-    // With `fit:` present, `fit:` decides, so the old line is only a note.
-    const both = rules(deck(null, '## x\n').replace('marp: true', 'marp: true\nfit: trim\nguards: strct'));
-    assert.equal(both.find((x) => x.rule === 'guards-renamed')?.severity, 'info');
+  test('guards: loose, an unknown value, or guards: beside fit: is an error whose fix deletes the line', () => {
+    for (const fm of ['guards: loose', 'guards: strct', 'fit: report\nguards: strict']) {
+      const src = deck(null, '## x\n').replace('marp: true', `marp: true\n${fm}`);
+      const out = rules(src).filter((x) => /guards/.test(x.rule));
+      assert.deepEqual(out.map((x) => [x.rule, x.severity]), [['guards-renamed', 'error']], fm);
+      assert.equal(out[0].replaceLine, '', `${fm}: the line goes`);
+      const fixed = core.applyFix(src, out[0]);
+      assert.ok(!fixed.includes('guards:'), fixed);
+      assert.ok(fixed.includes('fit: report') === fm.includes('fit: report'), `${fm}: a fit: line is left alone`);
+    }
+  });
+
+  test('the retired guards-strict / guards-loose classes name fit-trim / fit-heal, and --fix rewrites them', () => {
+    const { lintText, buildVocab } = require('../../../lib/authoring/lint');
+    const src = deck(null, '## x\n').replace('## x', '<!-- _class: content guards-strict -->\n\n## x\n\n---\n\n<!-- _class: content guards-loose -->\n\n## y');
+    const found = lintText(src).filter((x) => x.classToken === 'guards-strict' || x.classToken === 'guards-loose');
+    assert.deepEqual(found.map((x) => [x.classToken, x.rule, x.replace?.to]), [['guards-strict', 'unknown-class', 'fit-trim'], ['guards-loose', 'unknown-class', 'fit-heal']]);
+    const fixed = core.applyAllFixes(src, buildVocab());
+    assert.ok(fixed.includes('<!-- _class: content fit-trim -->') && fixed.includes('<!-- _class: content fit-heal -->'), fixed);
   });
 
   test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {

@@ -26,7 +26,7 @@ const { STAMP_STYLE_TOKENS } = require('../../../lib/core/resolve-stamp');
 const { TONE_STYLE_TOKENS } = require('../../../lib/core/resolve-tone-style');
 const spectrum = require('../../../lib/core/resolve-spectrum');
 const { CORNERS_TOKENS } = require('../../../lib/core/resolve-corners');
-const { GUARDS_TOKENS } = require('../../../lib/core/resolve-guards');
+const { FIT_TOKENS } = require('../../../lib/core/resolve-fit');
 const { RULE_TOKENS } = require('../../../lib/core/resolve-rule');
 const { EYEBROW_TOKENS } = require('../../../lib/core/resolve-eyebrow');
 const { INLINE_CODE_TOKENS } = require('../../../lib/core/resolve-inline-code');
@@ -46,7 +46,7 @@ describe('core: which registers ride a split page', () => {
   const riding = {
     mode: MODE_TOKENS, stamp: STAMP_STYLE_TOKENS, tone: TONE_STYLE_TOKENS,
     spectrum: spectrum.SPECTRUM_REGISTER.TOKENS, 'card-spectrum': spectrum.CARD_SPECTRUM_REGISTER.TOKENS,
-    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, guards: GUARDS_TOKENS,
+    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, fit: FIT_TOKENS,
     rule: RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
     headline: HEADLINE_TOKENS, lift: LIFT_TOKENS,
     tag: require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,

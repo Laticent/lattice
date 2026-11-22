@@ -264,7 +264,7 @@ distinct, stable ID.
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
 | `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
-| `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
+| `guards-renamed` | error | ✓ | `guards:`, the old name of `fit:`, which the engine no longer reads. The fix keeps what the deck rendered: `guards: strict` becomes `fit: trim`; `guards: loose`, an unknown value, or any `guards:` line in a deck that also sets `fit:` is deleted. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
@@ -517,7 +517,8 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 ## 7. Change log
 
 - **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
-  (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2).
+  (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2). `guards-renamed`
+  becomes an error with a fix, because the engine no longer reads `guards:`.
   §3.1 adds `agenda-empty` and `agenda-retired-style`
   (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
