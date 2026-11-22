@@ -5,7 +5,7 @@ recorded: 2026-11-22
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-17-meta-record.md §15
-deferred: off-path — `readMetaField` and the two callers below already disagreed with the engine on main; every reader #3426 touched now reads the class through `slideClassValue`, which agrees, and changing the editor primitive's reading belongs to the writers slice (C)
+deferred: off-path — `readMetaField` and the two callers below already disagreed with the engine on main; every reader #3426 touched now reads the class through `slideClassValue`, which agrees, and changing the editor primitive's reading belongs to the writers slice (C), which the meta desk has told
 source: https://github.com/Laticent/lattice/pull/3426
 ---
 
