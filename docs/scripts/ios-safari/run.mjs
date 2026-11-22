@@ -245,9 +245,15 @@ async function runStudioProbe(id) {
 	// Last, because it opens a tab: an engine sub-file that fails to load, and whether the preview's way back works in real
 	// Safari (engine-retry.mjs, PR #3385). Its own origin, so nothing the probes above stored reaches it.
 	// Twice: a dropped connection, then a 503. Browsers recover from the two differently (engine-retry.mjs).
+	// ONLY ON A MANUAL DISPATCH (or ENGINE_RETRY=1 by hand). It costs minutes, and the iPad suite already ends near its
+	// 30-minute job cap on a slow runner: on run 44966439518 Safari's launch took 207 s and the cap stopped the job inside
+	// this probe. A nightly or pull-request run skips it, so their time is unchanged; a regular home for it would be its
+	// own suite, which is a CI job and the owner's call (PR #3385).
+	const wantEngine = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.ENGINE_RETRY === '1';
 	const engineRun = (mode) => runEngineRetryProbe(wd, id, BASE, mode).catch((e) => ({ ok: false, error: String(e), steps: [] }));
-	const drop = await shotIfFailed('engine-retry-drop', await engineRun('drop'));
-	const http503 = await shotIfFailed('engine-retry-503', await engineRun('503'));
+	const skipped = { ok: true, steps: [{ name: 'skipped: runs on a manual dispatch only (job time)', pass: true }] };
+	const drop = wantEngine ? await shotIfFailed('engine-retry-drop', await engineRun('drop')) : skipped;
+	const http503 = wantEngine ? await shotIfFailed('engine-retry-503', await engineRun('503')) : { ok: true, steps: [] };
 	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
