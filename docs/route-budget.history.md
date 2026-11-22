@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — the owner raised one ceiling by hand, for PR 3304: studio eagerJsGz to 622.7 KB
+
+Owner OK 2026-11-22, in PR 3304's raise session: "Raise 1 KB in #3304", over raising 2 KB, a separate raise PR merged first, or making more of PR 3304's Studio code lazy (a product change that would void the owner's real-iPhone check at 9144a3a7 for 0.7 KB). PR 3304 passed at 29ca71b; by 5167f7c `main` had grown to about 0.1 KB under the 636,636 B ceiling, and CI measured the PR at 622.4 KB, about 0.6 KB past it. The PR's own bytes did not change between the two: +783 B against `main` (single-slide-render +557, screen-canvas +282, venue -112, StudioIsland +56), declared in `docs/route-budget.d/3304-one-drawn-frame.md`. The ceiling rises 636636 -> 637660 (622.7 KB), about 0.3 KB over the PR's measurement. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 637660 |
+
 ### 2026-11-21 — the owner raised one ceiling by hand, for PR 3351: studio lintCoreGz to 165.9 KB
 
 Owner OK 2026-11-21, in PR 3351's session, in two steps. First "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`. Then "Raise to 1KB total", after PR 3330 (one list contract) grew `main`'s own lint chunk by about 400 B while PR 3351 was open, over raising by exactly what it needed (0 B left), trimming the three rules' messages, or holding the PR.
