@@ -219,6 +219,58 @@ describe('restoreWorkspace — a deck kept as reference', () => {
 		expect(summary.refused.map((r) => r.name).sort()).toEqual(['deck file of escape.lattice', 'deck file of gone.lattice', 'deck file of huge.lattice']);
 	});
 
+	it('stops a deck entry that understates its size at one deck\'s cap, and names a damaged one, without ending the restore', async () => {
+		const deck = Buffer.from(seededBytes(2048));
+		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0)).arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<Record<string, unknown>>;
+		const q3 = rows.find((r) => r.name === 'q3.lattice') as Record<string, unknown>;
+		// d8: one deck's cap plus a megabyte of real bytes, whose headers claim 1 KB. Under the restore's whole deck budget
+		// (1 GB) it would pass; only the entry's own budget stops it. d6: a small entry whose headers overstate its size.
+		zip.file('refdoc-decks/d8.bin', new Uint8Array(MAX_DECK_REF_BYTES + 1_048_576), { compression: 'DEFLATE' });
+		zip.file('refdoc-decks/d6.bin', seededBytes(4096), { compression: 'STORE' });
+		zip.file('refdocs.json', JSON.stringify([...rows, { ...q3, name: 'liar.lattice', deckFile: 'refdoc-decks/d8.bin' }, { ...q3, name: 'broken.lattice', deckFile: 'refdoc-decks/d6.bin' }]));
+		const bytes = await zip.generateAsync({ type: 'uint8array' });
+		const at = (name: string, sig: number, back: number) => {
+			const needle = Buffer.from(name);
+			const out: number[] = [];
+			for (let i = Buffer.from(bytes.buffer).indexOf(needle); i >= 0; i = Buffer.from(bytes.buffer).indexOf(needle, i + 1)) {
+				if (new DataView(bytes.buffer).getUint32(i - back, true) === sig) out.push(i - back);
+			}
+			return out;
+		};
+		const view = new DataView(bytes.buffer);
+		// The uncompressed size sits at +22 in a local header (back 30 from its name) and +24 in a central one (back 46).
+		const local = at('refdoc-decks/d8.bin', 0x04034b50, 30);
+		const central = at('refdoc-decks/d8.bin', 0x02014b50, 46);
+		expect([local.length, central.length]).toEqual([1, 1]);
+		view.setUint32(local[0] + 22, 1024, true);
+		view.setUint32(central[0] + 24, 1024, true);
+		// d6 claims twice the bytes it holds: JSZip's "uncompressed data size mismatch". (JSZip skips CRC checks by default,
+		// so a flipped CRC alone is not a damage this read can see; the deck reader meets it at "Open as deck".)
+		const [l6] = at('refdoc-decks/d6.bin', 0x04034b50, 30);
+		const [c6] = at('refdoc-decks/d6.bin', 0x02014b50, 46);
+		view.setUint32(l6 + 22, 8192, true);
+		view.setUint32(c6 + 24, 8192, true);
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(bytes as unknown as Blob, T0 + 2);
+		expect(summary.refdocs).toBe(3);
+		const why = Object.fromEntries(summary.refused.map((r) => [r.name, r.why]));
+		expect(why).toEqual({
+			'deck file of liar.lattice': `over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`,
+			'deck file of broken.lattice': 'the file in the backup is damaged',
+		});
+		// Both rows keep their text, and the good deck after them still comes back.
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((d) => d.name === n) as NonNullable<(typeof back)[number]>;
+		for (const n of ['liar.lattice', 'broken.lattice']) {
+			expect(named(n).text).toBe('Slide 1\nRetention held');
+			expect(refDocDeckFile(named(n))).toBeNull();
+		}
+		expect(Buffer.from(await (refDocDeckFile(named('q3.lattice')) as File).arrayBuffer()).equals(deck)).toBe(true);
+	}, 120_000);
+
 	it('several maximum-size decks no longer crowd the other reference docs out of a restore', async () => {
 		// Four 50 MB decks. As base64 inside refdocs.json they made about 270 MiB of JSON, over the lane's 256 MiB, and the
 		// restore dropped the WHOLE lane: every reference doc, not only the decks.

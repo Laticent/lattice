@@ -342,7 +342,7 @@ async function readDeckEntry(zip: { file: (path: string) => object | null }, dec
 		}
 		return new Blob([bytes]);
 	} catch (e) {
-		const why = (e as Error).message;
+		const why = e instanceof Error ? e.message : String(e);
 		// The budget's own refusal reads as it is; anything else (JSZip's "uncompressed data size mismatch") is a damaged entry.
 		refuse(why === perDeck ? why : 'the file in the backup is damaged');
 		return null;
