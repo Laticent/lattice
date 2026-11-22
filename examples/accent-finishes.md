@@ -40,7 +40,7 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ## Three tiers on the structure — quiet by default
 
-By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow repeated on every line. `trim-spectrum:` dials the presence up in three tiers; this slide runs `restrained`, so the panel strip below is a quiet single-hue ramp.
+`trim-spectrum:` dials the structure up in three tiers. By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow on every line. This slide runs `restrained`: the panel strip below is a quiet single-hue ramp.
 
 ```js
 // trim-spectrum: quiet      gives a quiet accent-tint hairline (the default)
@@ -67,7 +67,7 @@ The edge word on `spectrum:` places the section-edge ribbon on the top (default)
 
 ## A bottom rail reads as a baseline
 
-The same edge word on the **bottom** edge (`spectrum: bottom`). Use `spectrum: off` to drop the bar entirely while keeping the deck's other accents intact.
+The same edge word on the **bottom** edge. Use `spectrum: off` to drop the bar entirely while keeping the deck's other accents intact.
 
 ---
 
@@ -113,7 +113,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 ## Opt a spectrum rail onto card surfaces
 
 - Deck-wide or per slide
-  - `card-spectrum: match` rails every card; `_class: with-card-spectrum` opts in one slide.
+  - `card-spectrum: match` rails every card. One slide opts in with `with-card-spectrum`.
 - Follows the bar by default
   - `match` inherits the deck's `duo` — no per-card edit.
 - Off by default
