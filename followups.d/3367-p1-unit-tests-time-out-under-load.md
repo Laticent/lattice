@@ -5,7 +5,7 @@ recorded: 2026-11-21
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: blocked — what is left (G1, and G4 with it) waits on the owner's decision about the docs vitest pool or worker count, a change to the test contract (CLAUDE.md, decisions the owner makes, row 2)
+deferred: blocked — what is left (G1) waits on the owner's decision about the docs vitest pool or worker count, a change to the test contract (CLAUDE.md, decisions the owner makes, row 2)
 source: https://github.com/Laticent/lattice/pull/3398#issuecomment-7074021849
 ---
 
@@ -25,14 +25,13 @@ why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) pas
               exists short of less coverage or a bigger timeout, and the flake desk ruled out the bigger timeout.
               `engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md` already measured that the work cannot be
               cheaply cut.
-            - G4, OPEN, found by #3398's reproduction runs: a handful of Studio assertions are tied to the wall clock and
-              miss under the same load, with the page fully rendered (so not G2). `studio.editor-hold`'s desktop test
-              (both loaded runs) waits 3 s for an editor that a 6 s real-time backstop (`FIRST_SLIDE_BACKSTOP_MS`) would
-              also build, and its phone test sees the backstop fire before its check. Others varied by run:
-              `studio.findings-fix` (a "Fix" button or "1 to address" not found), a `StudioShell` tablet tour row,
-              `studio.controls`' before/after door. Root fix: fake timers or a signal in place of the real backstop,
-              test by test (HARD RULE #32). They only fail when the box is shared, so G1's answer decides whether they
-              are in scope; HARD RULE #33 would otherwise ask for them to be fixed now.
+            - G4, fixed (#3398): two Studio test files raced a product timer. `studio.editor-hold` raced the 6 s
+              first-slide backstop (`FIRST_SLIDE_BACKSTOP_MS`); `studio.controls` read the strip note (6 s) and the New
+              slide door's note (1.8 s) after the timer could clear them. Each file now drops exactly those timers (by
+              delay and caller) and checks a signal. Two tests first counted here are G1, not G4: `studio.findings-fix`
+              ("1 to address") and the `StudioShell` tablet tour row wait on no product timer (a 400 ms debounce and
+              mocked work; a tour that starts in 827 ms alone), so under load they overrun Testing Library's 3 s budget
+              the way G1 overruns the 20 s one.
 measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `docs-test` (`npm test -- --maxWorkers=4`, alone on
             its runner) failed 3 times, none of them G1: run 43376276820 (a persistent-surface focus assertion) and runs
             43994458532 and 43999565415 (a real scoped-resync assertion). So G1 is local-only.
@@ -42,9 +41,10 @@ measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `doc
             tests, so read 13731 as doubtful). On #3398's final guard (`17b9c09`): alone 499 s, 13,663 passed; a run that
             accidentally shared the box with a preview server and a Playwright run took 2,989 s with 64 failed: 56 Studio
             timeouts, 5 corpus-wide timeouts (`rendered-index` x3 at its 240 s limit, `payload-elision.oracle`,
-            `deck-render.hole`) and 3 G4 misses. Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
+            `deck-render.hole`) and 3 assertion misses (`editor-hold` x2, G4, now fixed; `findings-fix`, G1). Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
 where     — `docs/vitest.config.ts` (`testTimeout`, pool, workers); the heaviest files are `studio.controls`, `StudioShell`,
-            `studio.theme-depth` and `studio.fuzz`; under heavy load the corpus-wide `rendered-index`, `payload-elision.oracle`
+            `studio.theme-depth` and `studio.fuzz`, plus `studio.findings-fix` and the `StudioShell` tour row on Testing
+            Library's 3 s budget; under heavy load the corpus-wide `rendered-index`, `payload-elision.oracle`
             and `deck-render.hole` time out too.
 done when — the owner has picked a config (or "accept: unit tests do not share the box with a browser run") from the full
             table, and the chosen change is in with the suite green alone and under the same load.
