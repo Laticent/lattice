@@ -1991,7 +1991,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const composeRef = React.useRef<ComposeHandle>(null);
 	/** The start grid's fallback for a touch tap whose click never comes (the grid's `onPointerUp`). */
 	const startGridTapTimer = React.useRef(0);
-	React.useEffect(() => () => window.clearTimeout(startGridTapTimer.current), []);
+	const cancelStartGridFallback = React.useRef<() => void>(() => {});
+	/** Arm it: put the caret after START_GRID_CLICK_WAIT_MS unless the click comes first, or the person presses anywhere
+	 *  else first (a menu, the top bar, another deck), which must not have its focus taken by a timer (the checker on
+	 *  #3436). Once per tap; a new arm replaces the old. */
+	const armStartGridFallback = React.useCallback(() => {
+		cancelStartGridFallback.current();
+		const cancel = () => {
+			window.clearTimeout(startGridTapTimer.current);
+			document.removeEventListener('pointerdown', cancel, true);
+			cancelStartGridFallback.current = () => {};
+		};
+		startGridTapTimer.current = window.setTimeout(() => {
+			cancel();
+			composeRef.current?.focusEmptyLine();
+		}, START_GRID_CLICK_WAIT_MS);
+		// Added after this tap's own pointerdown has passed, so only the NEXT press cancels it.
+		document.addEventListener('pointerdown', cancel, true);
+		cancelStartGridFallback.current = cancel;
+	}, []);
+	React.useEffect(() => () => cancelStartGridFallback.current(), []);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
 	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
@@ -5895,6 +5914,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
 	const [startGridMounted, setStartGridMounted] = React.useState(false);
 	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// The grid went away (a letter typed, Source, Read, another deck): a tap's pending fallback has nothing left to do.
+	React.useEffect(() => {
+		if (!startGridShown) cancelStartGridFallback.current();
+	}, [startGridShown]);
 	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
 	// editor pane that hosts the grid.
 	const editPaneRef = React.useRef<HTMLElement>(null);
@@ -7796,11 +7819,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// took the focus away, iPhone simulator on PR #3436.)
 					onPointerUp={(e) => {
 						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
-						window.clearTimeout(startGridTapTimer.current);
-						startGridTapTimer.current = window.setTimeout(() => composeRef.current?.focusEmptyLine(), START_GRID_CLICK_WAIT_MS);
+						armStartGridFallback();
 					}}
 					onClick={(e) => {
-						window.clearTimeout(startGridTapTimer.current);
+						cancelStartGridFallback.current();
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
 						composeRef.current?.focusEmptyLine();
 					}}
