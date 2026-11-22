@@ -22,9 +22,9 @@ one-line pointer here.
 
 - **Base** is the shared engine and runtime every layout rides on: Fluid (the runtime
   post-processor, `2026-10-27-fluid-layout-library.md`), the fit spine and measurement
-  (`lib/core/fit-measure.js`), the split and carousel policy, the venue type scale, the
-  text-room box breakpoints (the `container: lattice` query box), the fit harness and the
-  nightly fit ratchet, and the viewers (Playground, player, Studio).
+  (`lib/core/fit-measure.js`, which arrives with #2988), the split and carousel policy, the
+  venue type scale, the text-room box breakpoints (the `container: lattice` query box), the
+  fit harness and the nightly fit ratchet, and the viewers (Playground, player, Studio).
 - **Component** is each layout's own responsive behavior on top of base: tables to cards,
   chart labels and chart kernels, diagrams, the catalog moving onto markup seams, and
   per-component fit lint.
@@ -48,9 +48,10 @@ base slice that creates it is on `main`. Today that means most component work wa
   `TEXT_ROOM_REFLOW`, a rung rule and one math sanction.
 - It changes exported bytes (PDF text layer, the CLI's measured split, the webpage export), so
   it owes the owner's dark and light sign-off on a demo deck. It ships 10 demo decks.
-- Seams: the PDF hyphen fix, math wrapping and the `pack.ts` packer stand alone. Unified
-  `align:` is tangled with the split code (`auto-split.js`, `split-envelope.js`, `panes.js`
-  stamp `data-align`), so a clean base/component cut of #2988 needs hunk-level surgery.
+- Seams: the PDF hyphen fix, math wrapping and the `pack.ts` packer (which arrives with #2988)
+  stand alone. Unified `align:` is tangled with the split code (`auto-split.js`,
+  `split-envelope.js`, `panes.js` stamp `data-align`), so a clean base/component cut of #2988
+  needs hunk-level surgery.
 - Owner answers on its Nov 17 card (relayed 2026-11-22): D1 yes (a lede longer than a phone
   page continues at a sentence break), D2 yes (a 3-column table cut off at a phone's edge
   becomes cards), W1 keeps its default.
