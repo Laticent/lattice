@@ -8,7 +8,7 @@ summary: The owner's naming rules and rename decisions for deck front-matter key
 **Decided.** The owner answered each naming question in the command-center session
 (`session_015KSkL7uv5r7CPSaDnS9F2c`), through its question dialogs between 23:30 and 23:42 UTC, and
 said "go renames" at 23:49 UTC on 2026-11-21. Two later answers came the same way at 00:09 UTC on
-2026-11-22 (the Q4 key name, Q7 still open), and one in the naming session itself (§4 step 1). This note
+2026-11-22 (the Q4 key name, Q7 still open), and one, §4 step 1, in both sessions. This note
 records those answers so each rename PR can point here instead of at a chat transcript. Nothing in
 this note is built yet; each rename ships as its own PR (§4).
 
@@ -148,7 +148,8 @@ Each PR:
 1. Renames the key or token in the engine and removes the old spelling (rule 5). It also renames
    the internal names that carry the old word (a resolver file such as `resolve-lift.js`, a vocab
    field such as `liftNames`, a constant such as `MODE_REGISTER`), so the code reads the way
-   authors write (rule 3; owner, 2026-11-22).
+   authors write (rule 3). The owner agreed twice on 2026-11-22: "i'm aligned" in the naming session
+   (about 00:10 UTC), then "yes, rename internals too" in the command center (00:27 UTC).
 2. Adds a lint rule in `lib/authoring/lint-core.js` (HARD RULE #7): the old name is an error that
    names the new one, with a `--fix` rewrite. The `deck-settings.js` row for the old key becomes
    `kind: 'retired'` pointing at that rule, the pattern `guards-renamed` and `fonts-renamed` use.
