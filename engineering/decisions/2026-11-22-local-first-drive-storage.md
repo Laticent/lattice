@@ -329,6 +329,44 @@ queue is empty, the token is valid, and the engine has polled since the tab last
 compares the `permissionId` from `about.get` on every new token with the stored one. A mismatch pauses sync and shows
 the ask-before-upload prompt.
 
+**Quotas and cost.** Storage is the user's: every file counts against their own Drive plan, and a full Drive is the
+`storageQuotaExceeded` state above. API calls are Lattice's: Google counts them against the Cloud project that owns
+the client ID, summed over every user. Google's usage-limits page (read 2026-11-22) says:
+
+| Limit | Value |
+|---|---|
+| Per minute, per project | 1,000,000 quota units |
+| Per minute, per user | 325,000 quota units |
+| Daily billing threshold, per project | 400,000,000 quota units |
+| Daily egress, per project, "before charges apply" | 1 TB |
+| One file / uploads per user per day | 5 TB / 750 GB |
+
+A call costs 50 units to write (`files.create`, `files.update`), 100 to list (`changes.list`), 5 to read metadata
+and 200 to download content. Use is free today; the page says exceeding quota "is planned to incur charges … later
+in 2026", with at least 90 days' notice and no prices yet. At this design's rates (a 100-unit poll a minute per
+visible tab, at most one 50-unit update file a minute per device), an active user spends roughly 150 to 400 units a
+minute. The per-minute project limit then allows about 3,000 to 6,000 users active at once, and the daily threshold
+about 4,000 users editing all day. The limit large media could reach first is the 1 TB of egress: about 10,000
+downloads of a 100 MB video. These are estimates from the design's rates, not measurements; slice 0 measures them.
+
+**Required in slice 6, so usage stays low before Google ever refuses** (the owner's ruling, 2026-11-22):
+
+- **Idle polling slows down.** The engine polls every 60 s only while the tab is visible and was used in the last
+  5 minutes. After that it polls every 5 minutes, and a hidden tab does not poll. Focus and a local write still
+  trigger an immediate poll.
+- **Large media downloads on open.** On a second device, an image or video over 5 MB arrives as its metadata and a
+  thumbnail. The engine downloads the bytes when someone opens or plays it, or when a deck being presented uses it.
+- **Content-hash deduplication** stays: the same bytes never upload twice (the assets row below).
+- **Backoff on 403 and 429** stays: truncated exponential backoff, seeded jitter, capped at 64 s, as in the journal
+  paragraph above.
+- **A measured budget.** Slice 6's proof counts the quota units an hour of editing spends, on the fake Drive server,
+  and reports it in the PR.
+
+The owner's side is two Cloud-console guardrails, tracked as follow-ups: keep the project's billing account unlinked,
+so going over quota throttles sync instead of charging
+(`followups.d/3432-p1-drive-project-billing-off.md`), and alert on quota use before a limit is near
+(`followups.d/3432-p2-drive-quota-alerts.md`).
+
 **Conflicts:**
 
 | Kind | Rule |
@@ -491,7 +529,7 @@ Google. Publishing the Google app "In production" is a gate before slice 9 or sl
 | 3 | **Decks into the vault, in their final form:** text plus the per-device update files, so there is no second migration. The pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
 | 4 | **The Library, local, with the Track 4 layout** (§7). Includes icon-only pills and the mask tokens added to the Studio sheet; shipping seven labeled pills first would wrap at 320 px. Takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
 | 5 | **Auth.** GIS token client, the `getAccessToken()` seam, Connect and Disconnect in the Library, the privacy page. **Gated on both §9.2 requirements** | The adversarial trio; e2e against a stubbed GIS; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23) |
-| 6 | **Sync v1, plus the review and every failure state, behind a flag.** Push and pull; changes polling; journal; retries; per-device update files and compaction; outside-edit adoption; the per-slide review; the copy rewrite (§9.1). The hold and its way out ship together | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a seeded property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
+| 6 | **Sync v1, plus the review and every failure state, behind a flag.** Push and pull; changes polling; journal; retries; per-device update files and compaction; outside-edit adoption; the per-slide review; the copy rewrite (§9.1); the quota guardrails (§6.3, Quotas and cost). The hold and its way out ship together | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a seeded property test of the merge; the quota units an hour of editing spends; real Drive on a test account, otherwise UNVERIFIED |
 | 8 | **Chats and roaming settings sync**, after #3147 | Two-context e2e; Yjs merge test |
 | 9 | **Broker.** The stateless Worker (§4.2); a gate before sync goes public | The adversarial trio; e2e against a stubbed Google token endpoint; a real renewal on a test account, otherwise UNVERIFIED |
 | 10 | **Desktop:** the file-system vault plus loopback PKCE and the keychain. Waits on #2354 landing (5 weeks quiet, no merge base) | The desktop app under Xvfb: a deck edited on disk shows in the app, and the reverse |
@@ -532,6 +570,10 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
     run on the browser token model until then (§4.2). This supersedes ruling 1's "optional later upgrade".
 12. **Undo and versions:** Filo owns the deck's undo and versions. Yjs is only the format that carries changes between
     devices (§6.4). This supersedes the "Yjs snapshots" versions of the first rulings.
+13. **Quota guardrails:** slower idle polling, large media downloaded on open, deduplication and backoff are REQUIRED
+    in slice 6 (§6.3, Quotas and cost). The Cloud-console guardrails (billing left unlinked, quota alerts that are not
+    email) are the owner's, tracked in `followups.d/3432-p1-drive-project-billing-off.md` and
+    `followups.d/3432-p2-drive-quota-alerts.md`.
 
 ## 12. What was not checked
 
@@ -543,8 +585,8 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
 - Whether WebKit (iOS Safari) supports `FileSystemWritableFileStream` today was not tested; the design writes through
   `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`
   (Linux WebKit); iOS stays UNVERIFIED until the iOS Simulator suite or a real device covers it.
-- Drive API quotas were not measured. Polling at 60 s per visible tab is far below Google's published per-user
-  defaults, which slice 6 confirms.
+- Drive API quotas were not measured. §6.3 (Quotas and cost) estimates them from Google's published limits and the
+  design's rates; slice 0 measures them on a test project, and slice 6 counts the units an hour of editing spends.
 - Where `lattice.style`'s DNS is hosted was not checked (§4.3).
 - The adversarial trio ran on the picked Library design on 2026-11-22. Its findings are folded into §4.2, §6.3, §6.4,
   §9.2 and §10.
