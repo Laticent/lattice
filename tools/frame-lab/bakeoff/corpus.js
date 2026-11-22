@@ -14,6 +14,7 @@
  */
 
 const fs = require('node:fs');
+const { classDirectiveAt } = require('../../../lib/core/class-directive-scan.mjs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
@@ -36,12 +37,8 @@ for (const f of files) {
     const rows = [lines[i]];
     let j = i + 2;
     while (j < lines.length && /^\s*\|.*\|\s*$/.test(lines[j])) rows.push(lines[j++]);
-    let cls = '';
-    for (let k = i; k >= Math.max(0, i - 40); k--) {
-      const m = lines[k].match(/_class:\s*([^>]*?)\s*-->/);
-      if (m) { cls = m[1]; break; }
-      if (/^---\s*$/.test(lines[k])) break;
-    }
+    // The class in force on the table's slide, a comment or a record (`@meta{layout=…}`): the shared reader.
+    const cls = classDirectiveAt((n) => lines[n - 1], i + 1)?.payload ?? '';
     const t = { file: f, line: i + 1, cls, head: cells(rows[0]), body: rows.slice(1).map(cells) };
     const key = JSON.stringify([t.head, t.body]);
     if (t.body.length && KEEP.has(cls.split(/\s+/)[0] || '') && !seen.has(key)) { seen.add(key); out.push(t); }

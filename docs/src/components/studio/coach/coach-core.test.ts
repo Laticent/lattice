@@ -16,6 +16,7 @@ describe('hasContent — the empty-deck guard (K1: never fabricate a grade)', ()
 	});
 	it('is true only with a classed slide and more than one chunk', () => {
 		expect(hasContent('<!-- _class: title -->\n# Hi\n\n---\n\n<!-- _class: statement -->\n## Point')).toBe(true);
+		expect(hasContent('<!-- @meta{layout=title} -->\n# Hi\n\n---\n\n<!-- @meta{layout=statement} -->\n## Point')).toBe(true);
 	});
 });
 
@@ -74,5 +75,12 @@ describe('rankFindings + chips', () => {
 		const card = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve');
 		expect(card.body[0]).toContain('Opening');
 		expect(card.body).toHaveLength(3);
+	});
+	it('a deck written in slide records gets the same ask and structure as its comment twin', async () => {
+		expect((await theAsk('<!-- @meta{layout=decision} -->\n# Approve X')).body[0]).toContain('You have a decision slide');
+		const comments = await structureCheck('<!-- _class: title -->\n# Open\n\n---\n\n<!-- _class: decision -->\n# Approve\n\n---\n\n<!-- _class: closing -->\n# End');
+		const records = await structureCheck('<!-- @meta{layout=title} -->\n# Open\n\n---\n\n<!-- @meta{layout=decision} -->\n# Approve\n\n---\n\n<!-- @meta{layout=closing} -->\n# End');
+		expect(records.body).toEqual(comments.body);
+		expect(records.body.every((l) => l.startsWith('✓'))).toBe(true);
 	});
 });

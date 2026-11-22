@@ -243,15 +243,11 @@ export type AssetChoice = { name: string; scope: string; width: number; height: 
 
 export { altFromAssetName };
 
-/** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
- *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */
+/** Is the slide the cursor line sits on a `collage`? Asks the shared reader for the class in force on the cursor's
+ *  slide (`slideClassAt`, a `_class` comment or a record's `layout`), the one the class completion reads. A collage's
+ *  body is a list of photos, so a bare list item there is a photo. */
 export function inCollageSlide(lineText: (n: number) => string, lineNumber: number): boolean {
-	for (let n = lineNumber - 1; n >= 1; n--) {
-		const t = lineText(n);
-		if (/^---\s*$/.test(t)) return false;
-		if (/<!--\s*_class:[^>]*\bcollage\b/.test(t)) return true;
-	}
-	return false;
+	return /\bcollage\b/.test(slideClassAt(lineText, lineNumber)?.tokens.join(' ') ?? '');
 }
 
 /** What may come next in a spark, a pill or a check — lint-core's `inlineCodeCompletions()` shape. */

@@ -46,6 +46,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execSync, spawnSync } = require('node:child_process');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -163,13 +164,14 @@ function gitChangedFiles() {
 }
 
 function decksUsingComponent(componentName) {
-  const re = new RegExp(`<!--\\s*_class:[^>]*\\b${componentName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`);
+  // The words of every spot class the engine reads, comment or record (`@meta{layout=…}`): one shared reader.
+  const word = new RegExp(`\\b${componentName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`);
   const hits = [];
   for (const deck of ALL_DECKS) {
     const src = path.join(ROOT, 'examples', `${deck}.md`);
     if (!fs.existsSync(src)) continue;
     const text = fs.readFileSync(src, 'utf8');
-    if (re.test(text)) hits.push(deck);
+    if (classEntries(text).some((e) => e.spot && word.test(e.value))) hits.push(deck);
   }
   return hits;
 }

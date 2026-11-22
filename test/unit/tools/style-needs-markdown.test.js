@@ -25,6 +25,14 @@ describe('scanMarkdown', () => {
     assert.ok(!c.has('trailing'));
   });
 
+  test('a slide record reads like the comment it replaces (`@meta{…}`), fenced ones skipped', async () => {
+    const { scanMarkdown } = await load();
+    const { c } = scanMarkdown('```\n<!-- @meta{layout=secret} -->\n```\n\n<!-- @meta{layout=kpi, class="attention lead"} --> trailing\n');
+    for (const w of ['kpi', 'attention', 'lead']) assert.ok(c.has(w), w);
+    assert.ok(!c.has('secret'));
+    assert.ok(!c.has('trailing'));
+  });
+
   // Work, not milliseconds (HARD RULE #32). Two guards keep a hostile source cheap: a line longer than 4,000 characters is
   // skipped, so no per-line regex ever sees more than that, and every other line is read on its own. The count covers
   // each string search and regex exec; a reader that looks ahead through the rest of the text from every line fails it.

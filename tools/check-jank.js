@@ -138,6 +138,7 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 const {
   SIZE_ALIAS, FAMILIES, BUILDERS, words, cap, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
@@ -432,7 +433,7 @@ if (!(MAX > 1)) die('--max must be at least 2 — a sweep of one step measures n
 function headingSweep() {
   const skeleton = manifest.skeleton || manifest.sample;
   if (!skeleton) die(`'${COMP}' has no skeleton or sample in its manifest to sweep.`);
-  const lines = skeleton.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l));
+  const lines = skeleton.split('\n').filter((l) => !classEntries(l).length); // the class line, a comment or a record
   const at = lines.findIndex((l) => /^#{1,6}\s+\S/.test(l));
   if (at < 0) {
     die(`'${COMP}'s skeleton has no heading line, so there is nothing to grow on the heading `

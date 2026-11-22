@@ -32,6 +32,7 @@
  * into the manifests, because a pane can pass the probes and still read badly.
  */
 const fs = require('node:fs');
+const { readMetaField } = require('../lib/core/meta-edit.mjs');
 const path = require('node:path');
 const components = require('../lib/components');
 const { BUILDERS, BODY_WRAP, renderProbe } = require('./lib/calibrate-core.js');
@@ -122,7 +123,7 @@ function galleryBody(name) {
     cur.push(line);
   }
   slides.push(cur.join('\n'));
-  const slide = slides.find((s) => new RegExp(`_class:\\s*${name}(\\s|-->)`).test(s));
+  const slide = slides.find((s) => readMetaField(s, 'class').value.trim().split(/\s+/)[0] === name); // comment or record
   if (!slide) return null;
   return slide.split('\n').filter((l) => !/^<!--\s*_/.test(l.trim())).join('\n').replace(/^#{1,2} .*$/m, '').trim();
 }

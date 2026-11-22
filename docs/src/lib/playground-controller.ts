@@ -6,6 +6,8 @@
 // the React layer through window.LatticePlayground / window.LatticeDeckPreview —
 // those irreducible, scar-tissued pieces are WRAPPED, never reimplemented.
 
+import { classEntries } from '../../../lib/core/class-entries.mjs';
+
 export type VariantDoc = { key: string; label: string; caption: string; sample: string };
 export type CatalogEntry = { skeleton: string; sample: string; variants: VariantDoc[] };
 export type Catalog = Record<string, CatalogEntry>;
@@ -270,8 +272,17 @@ export function slideTranscript(md: string): string {
  * actually edited the class line), never on every keystroke elsewhere.
  */
 export function classTokenLine(src: string): string {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');
-	return m ? m[1].trim().replace(/\s+/g, ' ') : '';
+	return firstSpotClass(src).trim().replace(/\s+/g, ' ');
+}
+
+/** The words of the first spot class the engine reads, from a `_class` comment or a record (`@meta{layout=cards}`),
+ *  through the shared reader (lib/core/class-entries.mjs). One entry of memo: both callers ask about the same
+ *  source on a keystroke. */
+let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
+function firstSpotClass(src: string): string {
+	const s = src || '';
+	if (classMemo.src !== s) classMemo = { src: s, value: classEntries(s).find((e) => e.spot)?.value ?? '' };
+	return classMemo.value;
 }
 
 /**
@@ -283,9 +294,8 @@ export function classTokenLine(src: string): string {
  * recognized. Faithful port of the inline `detectComponent`.
  */
 export function detectComponent(catalog: Catalog, src: string): { name: string; variant: string } | null {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');
-	if (!m) return null;
-	const tokens = m[1].trim().split(/\s+/).filter(Boolean);
+	const tokens = firstSpotClass(src).trim().split(/\s+/).filter(Boolean);
+	if (!tokens.length) return null;
 	let name: string | null = null;
 	for (const tok of tokens) {
 		if (catalog[tok]) {

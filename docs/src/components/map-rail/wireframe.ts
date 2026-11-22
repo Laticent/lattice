@@ -8,12 +8,14 @@
 // The sketch is read from the SOURCE on purpose. The rendered slide is what the live tier shows; this
 // tier exists for the units that have no render yet, so it must not need one.
 
+import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
+
 export type Block = 'text' | 'list' | 'table' | 'image' | 'code' | 'quote';
 
 export interface Wire {
 	/** The first heading, as plain text; empty when the slide has none. */
 	title: string;
-	/** The `_class` directive's first token, or ''. */
+	/** The first word of the slide's class (a `_class` comment or a record's `layout`), or ''. */
 	kind: string;
 	/** The body, top to bottom, at most `MAX_BLOCKS`. */
 	blocks: readonly Block[];
@@ -24,7 +26,6 @@ export const MAX_BLOCKS = 5;
 const CACHE_CAP = 4096;
 const cache = new Map<string, Wire>();
 
-const CLASS_DIRECTIVE = /<!--\s*_?class:\s*([^\s>-][^>]*?)\s*-->/i;
 const FENCE = /^\s*(```|~~~)/;
 
 function plain(heading: string): string {
@@ -42,7 +43,6 @@ export function wireOf(markdown: string): Wire {
 	const hit = cache.get(markdown);
 	if (hit) return hit;
 	let title = '';
-	let kind = '';
 	const blocks: Block[] = [];
 	const push = (b: Block) => {
 		// A run of the same block is one block: five bullets are one list, three lines one paragraph.
@@ -58,11 +58,7 @@ export function wireOf(markdown: string): Wire {
 		if (inFence) continue;
 		const trimmed = line.trim();
 		if (!trimmed) continue;
-		if (trimmed.startsWith('<!--')) {
-			const m = CLASS_DIRECTIVE.exec(trimmed);
-			if (m && !kind) kind = m[1].trim().split(/\s+/)[0];
-			continue;
-		}
+		if (trimmed.startsWith('<!--')) continue;
 		if (/^#{1,6}\s/.test(trimmed)) {
 			if (!title) title = plain(trimmed);
 			else push('text');
@@ -75,6 +71,8 @@ export function wireOf(markdown: string): Wire {
 		else if (/^`[^`]*`$/.test(trimmed) && !title) continue; // an eyebrow line above the title
 		else push('text');
 	}
+	// The layout is the first word of the class the engine applies, comment or record (`@meta{layout=cards}`).
+	const kind = readMetaField(markdown, 'class').value.trim().split(/\s+/)[0] || '';
 	const wire: Wire = { title, kind, blocks };
 	if (cache.size >= CACHE_CAP) cache.clear();
 	cache.set(markdown, wire);

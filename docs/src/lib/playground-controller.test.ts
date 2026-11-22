@@ -120,6 +120,11 @@ describe('classTokenLine — the variant-sync discriminator', () => {
 		expect(classTokenLine('<!-- _class:  kpi   spotlight -->\n\nbody')).toBe('kpi spotlight');
 	});
 
+	test('a slide record reads as the comment it replaces (`@meta{layout=kpi, class=spotlight}`)', () => {
+		expect(classTokenLine('<!-- @meta{layout=kpi, class=spotlight} -->\n\nbody')).toBe('kpi spotlight');
+		expect(detectComponent(CATALOG, '<!-- @meta{layout=kpi, class=spotlight} -->')).toEqual({ name: 'kpi', variant: 'spotlight' });
+	});
+
 	test('no class line reads as empty (the detached state)', () => {
 		expect(classTokenLine('# just markdown')).toBe('');
 	});

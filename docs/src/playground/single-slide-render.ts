@@ -527,6 +527,13 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
+/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
+ *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
+ *  and a miss would preview a wrong slide. */
+function recordHasWord(text: string, word: string): boolean {
+	return new RegExp(`<!--\\s*(?:@meta)?\\{[^>]*\\b${word}\\b`).test(text);
+}
+
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
 // The deck-context render exists to get three things right, and EVERY ONE of them requires the
 // deck to actually carry deck-scoped state:
@@ -605,7 +612,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{[^>]*\bcarry\b/],
 	},
 
 	{
@@ -622,7 +630,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'ambiguous divider count',
 		why: 'a `_class: divider` inside code makes the raw and code-stripped counts disagree, so a supplied section could paint the wrong rail',
 		probes: [],
-		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
+		test: (deck) => (recordHasWord(deck, 'divider') || /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck)) && deckSectionFor(deck, 0) === undefined,
 	},
 	{
 		// An agenda with a heading and no list fills itself from EVERY divider in the deck, and a
@@ -636,7 +644,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		// code sample does not read as the agenda's list (it did, and the preview showed an empty agenda).
 		test: (deck) =>
 			deck.split(/^\s*---\s*$/m).some((chunk) => {
-				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
+				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk) && !recordHasWord(chunk, 'agenda')) return false;
 				const prose = withoutComments(chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, ''));
 				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
 			}),
@@ -662,6 +670,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
+			/<!--\s*(?:@meta)?\{[^>]*\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
 	},

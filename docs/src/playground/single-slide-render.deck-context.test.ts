@@ -26,7 +26,7 @@ vi.mock('../lib/theme-fetch', () => ({
 vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from '../lib/render-engine';
-import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, DECK_DERIVED_FACTS, deckDerivedFactsFor } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -537,6 +537,21 @@ describe('deck-derived fact registry', () => {
 		}
 	});
 
+	// The record spelling (`<!-- @meta{…} -->`, engineering/decisions/2026-10-17-meta-record.md §15) trips the same facts
+	// its comment does: a deck swept to records must not lose the whole-deck render it needs.
+	it('a slide record trips the same facts as the comment it replaces', () => {
+		const pairs: [string, string, string][] = [
+			['running-global directive', '<!-- class: dark -->', '<!-- @meta{class=dark, carry} -->'],
+			['split-panel proof run', '<!-- _class: split-panel proof -->', '<!-- @meta{layout=split-panel, class=proof} -->'],
+			['auto-filled agenda', '<!-- _class: agenda -->', '<!-- @meta{layout=agenda} -->'],
+		];
+		for (const [fact, comment, record] of pairs) {
+			const deck = (dir: string) => `# A\n\n---\n\n${dir}\n\n## Agenda\n`;
+			expect(deckDerivedFactsFor(deck(comment)), comment).toContain(fact);
+			expect(deckDerivedFactsFor(deck(record)), record).toContain(fact);
+		}
+	});
+
 	it('names are unique, so a duplicate entry is visible', () => {
 		const names = DECK_DERIVED_FACTS.map((f) => f.fact);
 		expect(new Set(names).size).toBe(names.length);
@@ -574,6 +589,8 @@ describe('deck-derived fact registry', () => {
 			'<!-- _class: split-panel proof -->\n\nbody',
 			'<!-- _class: split-panel capstone -->\n\nbody',
 			'---\nclass: split-panel proof\n---\n\nbody',
+			'<!-- @meta{class=dark, carry} -->\n\nbody',
+			'<!-- @meta{layout=split-panel, class=proof} -->\n\nbody',
 		];
 		for (const f of DECK_DERIVED_FACTS) {
 			if (!f.probes.length) continue; // predicate-only facts are covered behaviorally

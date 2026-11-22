@@ -22,6 +22,7 @@ import { deckPluginsOff } from '@/lib/plugin-admission';
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
+import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -143,9 +144,9 @@ export function slideWords(slide: string): number {
 	return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%$€£-]*/gu) || []).length;
 }
 
+/** The class the engine applies to this slide, from a `_class` comment or a record (`@meta{layout=cards}`). */
 function slideClass(slide: string): string {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(slide);
-	return m ? m[1].trim() : '';
+	return readMetaField(slide, 'class').value.trim();
 }
 
 function slideTitle(slide: string): string {
@@ -422,7 +423,8 @@ export function createToolbox(opts: {
 	};
 
 	async function readComponent(nameRaw: unknown, section?: unknown): Promise<string> {
-		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*_class:\s*/, '').split(/\s+/)[0].toLowerCase();
+		// The model may paste a whole directive (`<!-- _class: cards -->`, `<!-- @meta{layout=cards} -->`): take its first word.
+		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*(?:_?class:|@meta\{\s*layout\s*=\s*"?)\s*/, '').split(/[\s,"}]+/)[0].toLowerCase();
 		const entry = byName.get(name);
 		if (!entry) {
 			const near = [...byName.keys()].filter((k) => k.includes(name) || name.includes(k)).slice(0, 6);

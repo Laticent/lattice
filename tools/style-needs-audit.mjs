@@ -29,6 +29,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { classEntries } from '../lib/core/class-entries.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -87,7 +88,8 @@ const sum = (flags) => flags.reduce((a, f, i) => a + (f ? bytes[i] : 0), 0);
 // ---- the Markdown scanner: what hints alone know -------------------------------------------------
 function markdownTokens(md) {
   const classes = new Set();
-  for (const m of md.matchAll(/(?:^|[\s<!-])_?class:\s*([^\n]*?)\s*(?:-->|\n|$)/g)) for (const x of m[1].split(/\s+/)) if (x) classes.add(x.replace(/['"]/g, '').toLowerCase());
+  // Every class the deck sets, a comment or a record (`@meta{layout=…}`): the shared reader.
+  for (const e of classEntries(md)) for (const x of e.value.split(/\s+/)) if (x) classes.add(x.replace(/['"]/g, '').toLowerCase());
   for (const m of md.matchAll(/(?<![\w-])class="([^"]+)"/g)) for (const x of m[1].split(/\s+/)) classes.add(x.toLowerCase());
   return classes;
 }

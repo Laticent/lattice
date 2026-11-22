@@ -48,6 +48,8 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classEntries } from '../lib/core/class-entries.mjs';
+import { readMetaField } from '../lib/core/meta-edit.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -110,7 +112,7 @@ function corpus() {
   const manifests = [];
   for (const f of walk(join(ROOT, 'lib/plugins/chart-family/kinds'), (p) => p.endsWith('.manifest.json')).sort()) {
     const visit = (v, key) => {
-      if (typeof v === 'string') { if (/_class:/.test(v)) manifests.push({ file: `${relative(ROOT, f)}#${key}`, kind: 'manifest', source: v }); return; }
+      if (typeof v === 'string') { if (classEntries(v).length) manifests.push({ file: `${relative(ROOT, f)}#${key}`, kind: 'manifest', source: v }); return; }
       if (Array.isArray(v)) v.forEach((x, i) => { visit(x, `${key}[${i}]`); });
       else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visit(x, key ? `${key}.${k}` : k);
     };
@@ -123,8 +125,9 @@ function corpus() {
 const FRONT = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 const deckClass = (src) => (src.match(FRONT)?.[1].match(/^class:\s*(.+)$/m)?.[1] ?? '').replace(/["']/g, '').trim();
 function slideClass(src, fallback) {
-  const m = [...src.matchAll(/<!--\s*_?class:\s*([^>]*?)\s*-->/g)].pop();
-  return (m ? m[1] : fallback).replace(/["']/g, '').split(/\s+/).filter(Boolean);
+  // The class in force, a comment or a record (`@meta{layout=…}`), last one winning as in the engine: the shared reader.
+  const cls = readMetaField(src, 'class');
+  return (cls.present ? cls.value : fallback).replace(/["']/g, '').split(/\s+/).filter(Boolean);
 }
 
 /** What a code span is, by its text. */
