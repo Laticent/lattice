@@ -2859,14 +2859,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
 	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
 	// baseline ''.
-	// The value carries one word per axis (`tone vivid`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
+	// The value carries one word per axis (`tone vivid ink`), so it is read by axis, and choosing a finish keeps the
+	// deck's intensity, and tone's source while the finish stays tone. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
 	// (the old line goes, so the deck never carries both).
 	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
 	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
 	const setMarks = (value: string) =>
 		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
-			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity) || null), 'chart-finish', null),
+			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity, parseMarksValue(marksOf(s)).source) || null), 'chart-finish', null),
 		);
 	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
 	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.

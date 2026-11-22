@@ -6,6 +6,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	MARKS_AXES as ENGINE_AXES,
 	MARKS_INTENSITIES as ENGINE_INTENSITIES,
+	MARKS_SOURCE_FINISH as ENGINE_SOURCE_FINISH,
+	MARKS_SOURCE_TOKENS as ENGINE_SOURCE_TOKENS,
+	MARKS_SOURCES as ENGINE_SOURCES,
 	MARKS_TOKENS as ENGINE_TOKENS,
 	MARKS_DEFAULT,
 	MARKS_INTENSITY_DEFAULT,
@@ -16,6 +19,9 @@ import {
 	DEFAULT_MARKS_INTENSITY,
 	MARKS_AXES,
 	MARKS_INTENSITIES,
+	MARKS_SOURCE_FINISH,
+	MARKS_SOURCE_TOKENS,
+	MARKS_SOURCES,
 	MARKS_TOKENS,
 	MARKS_NAMES as WORD_NAMES,
 } from '../../lib/marks-words';
@@ -23,6 +29,7 @@ import {
 	activeMarks,
 	DEFAULT_MARKS,
 	MARKS_FINISHES,
+	MARKS_SOURCE_ENTRIES,
 } from './marks-catalog';
 import { marksValue, parseMarksValue } from './marks-value';
 
@@ -55,16 +62,20 @@ describe('marks-catalog ↔ MARKS_NAMES', () => {
 		expect([...WORD_NAMES]).toEqual([...MARKS_NAMES]);
 		expect(MARKS_TOKENS).toEqual([...ENGINE_TOKENS]);
 		expect([...MARKS_INTENSITIES]).toEqual([...ENGINE_INTENSITIES]);
+		expect([...MARKS_SOURCES]).toEqual([...ENGINE_SOURCES]);
+		expect(MARKS_SOURCE_TOKENS).toEqual([...ENGINE_SOURCE_TOKENS]);
+		expect(MARKS_SOURCE_FINISH).toBe(ENGINE_SOURCE_FINISH);
+		expect(MARKS_SOURCE_ENTRIES.map((e) => e.name)).toEqual([...ENGINE_SOURCES]);
 		expect(MARKS_AXES.map((a) => [...a])).toEqual(ENGINE_AXES.map((a: readonly string[]) => [...a]));
 	});
 
 	it('reads a deck value by axis exactly as the engine does', () => {
 		expect(DEFAULT_MARKS_INTENSITY).toBe(MARKS_INTENSITY_DEFAULT);
-		for (const raw of ['tone vivid', 'vivid tone', 'Pigment  VIVID', '[etch, vivid]', 'vivid', 'tone', 'muted etch', 'etch tone', 'wibble vivid', '']) {
+		for (const raw of ['tone vivid', 'vivid tone', 'Pigment  VIVID', '[etch, vivid]', 'vivid', 'tone', 'muted etch', 'etch tone', 'wibble vivid', '', 'tone ink', 'accent tone vivid', 'tone ink accent', 'ink']) {
 			const engine = parseMarks(raw);
-			expect(parseMarksValue(raw), raw).toEqual({ finish: engine.finish, intensity: engine.intensity });
+			expect(parseMarksValue(raw), raw).toEqual({ finish: engine.finish, intensity: engine.intensity, source: engine.source });
 		}
-		expect(parseMarksValue('tone vivid # house')).toEqual({ finish: 'tone', intensity: 'vivid' });
+		expect(parseMarksValue('tone vivid # house')).toEqual({ finish: 'tone', intensity: 'vivid', source: '' });
 	});
 
 	it('writes a finish without dropping the deck\'s intensity, and removes the line at the defaults', () => {
@@ -74,5 +85,12 @@ describe('marks-catalog ↔ MARKS_NAMES', () => {
 		expect(marksValue('tone', 'muted')).toBe('tone');
 		expect(marksValue('pigment', 'muted')).toBe('');
 		expect(marksValue('pigment', '')).toBe('');
+	});
+
+	it('keeps tone\'s source while the finish stays tone, and drops it under a finish it means nothing to', () => {
+		expect(marksValue('tone', '', 'ink')).toBe('tone ink');
+		expect(marksValue('tone', 'vivid', 'accent')).toBe('tone vivid accent');
+		expect(marksValue('etch', '', 'ink')).toBe('etch');
+		expect(marksValue('pigment', 'muted', 'accent')).toBe('');
 	});
 });
