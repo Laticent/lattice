@@ -1,6 +1,7 @@
-import { configure } from '@testing-library/react';
+import { configure, getConfig } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { claimForCurrentTest, orphanedFrom, stopIfOrphaned } from './src/test/orphan-guard';
 
 // Segno's fast record read is checked against the full bind on every read these tests make
 // (followups.d/2669-p3). Set before any test file loads the library, which reads it once.
@@ -48,6 +49,41 @@ import { afterEach } from 'vitest';
 //
 // See engineering/decisions/2026-08-24-testing-library-async-budget.md.
 configure({ asyncUtilTimeout: 3_000 });
+
+// A TIMED-OUT TEST STOPS AT ITS NEXT TESTING LIBRARY CALL (src/test/orphan-guard.ts). Every test owns the work its body
+// starts; a `user.*` action, `fireEvent`, `findBy…` or `waitFor` from a test vitest has already moved past throws
+// instead of acting on the next test's page. React's own wrappers are kept and called inside.
+beforeEach((ctx) => claimForCurrentTest(ctx.task));
+{
+	const { asyncWrapper, eventWrapper } = getConfig();
+	configure({
+		asyncWrapper: (cb) => {
+			stopIfOrphaned();
+			return asyncWrapper(cb);
+		},
+		eventWrapper: (cb) => {
+			stopIfOrphaned();
+			return eventWrapper(cb);
+		},
+	});
+}
+
+// …and so do `render` and `cleanup`. A late `render` throws; a late `cleanup()` does nothing, because vitest's own
+// after-test cleanup already removed that test's page, and running it now would remove the next test's.
+vi.mock('@testing-library/react', async (importOriginal) => {
+	const rtl = await importOriginal<typeof import('@testing-library/react')>();
+	return {
+		...rtl,
+		render: ((...args: Parameters<typeof rtl.render>) => {
+			stopIfOrphaned();
+			return rtl.render(...args);
+		}) as typeof rtl.render,
+		cleanup: () => {
+			if (orphanedFrom()) return;
+			rtl.cleanup();
+		},
+	};
+});
 
 // The Studio persists decks + settings to localStorage; without a reset between
 // tests, created/renamed decks bleed across cases and break "starts on deck 0"
