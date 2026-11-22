@@ -701,7 +701,7 @@ async function emptyDeckTap(id) {
 					return window.__withheldClicks;`,
 			});
 			const w = held.seen;
-			step('a tap whose click Safari withholds still puts the caret in the empty line (the release fallback)', clicks === 0 && w.focused && w.inLine && w.caret, clicks === 0 ? `no click came; active: ${w.active}; in ${w.where}; hold ${held.hold ?? 'no touch'} ms` : `the click came anyway (${clicks}), so the cancelled touchend did not withhold it here`);
+			step('a tap whose click Safari withholds still puts the caret in the empty line (the release fallback)', clicks === 0 && w.focused && w.inLine && w.caret, clicks === 0 ? `no click came; active: ${w.active}; in ${w.where}; hold ${held.hold ?? 'no touch'} ms` : `the click came anyway (${clicks}), so the canceled touchend did not withhold it here`);
 		}
 	} catch (e) {
 		step('the empty deck tap ran', false, String(e.message || e).slice(0, 300));
