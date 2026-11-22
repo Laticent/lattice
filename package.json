@@ -226,6 +226,7 @@
     "codemap:check": "node tools/build-codemap.js --check",
     "queue:precheck": "bash tools/queue-precheck.sh",
     "regex:census": "node tools/regex-census.js",
+    "baton": "node tools/baton.js",
     "branch:owner": "bash tools/branch-owner.sh",
     "pr:park": "node tools/pr-draft.mjs park",
     "pr:ready": "node tools/pr-draft.mjs ready",
