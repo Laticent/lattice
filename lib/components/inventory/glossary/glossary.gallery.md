@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · glossary"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # glossary
 
@@ -16,7 +16,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 ---
 
 <!-- _class: glossary -->
-<!-- _footer: "Default · glossary" -->
+<!-- @meta{footer=Default · glossary} -->
 
 ## Glossary
 
@@ -33,8 +33,8 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 ---
 
 <!-- _class: glossary -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · glossary — Eight terms at the definition ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · glossary — Eight terms at the definition ceiling."} -->
 
 ## Glossary, at capacity
 
@@ -58,8 +58,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: glossary dark -->
-<!-- _footer: "Composition: dark · glossary dark" -->
+<!-- @meta{layout=glossary, class=dark, footer=Composition: dark · glossary dark} -->
 
 ## Glossary
 
@@ -75,8 +74,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: glossary compact -->
-<!-- _footer: "Composition: compact · glossary compact" -->
+<!-- @meta{layout=glossary, class=compact, footer=Composition: compact · glossary compact} -->
 
 ## Glossary
 
@@ -92,8 +90,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: glossary accent -->
-<!-- _footer: "Composition: accent · glossary accent" -->
+<!-- @meta{layout=glossary, class=accent, footer=Composition: accent · glossary accent} -->
 
 ## Glossary
 
@@ -109,8 +106,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · glossary" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · glossary} -->
 
 ## When NOT to reach for glossary.
 
@@ -123,7 +119,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

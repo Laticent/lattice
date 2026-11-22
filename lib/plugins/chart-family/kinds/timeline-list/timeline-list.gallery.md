@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · timeline-list"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # timeline-list
 
@@ -16,7 +16,7 @@ Date-stamped event list rendered as a horizontal spine — a dot per event with 
 ---
 
 <!-- _class: timeline-list -->
-<!-- _footer: "Default · timeline-list" -->
+<!-- @meta{footer=Default · timeline-list} -->
 
 `chart · timeline-list`
 
@@ -37,8 +37,8 @@ Four milestones show the shape; the date chips carry the when.
 ---
 
 <!-- _class: timeline-list -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · timeline-list — Six milestones at the word ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · timeline-list — Six milestones at the word ceiling."} -->
 
 `timeline-list · stress`
 
@@ -60,8 +60,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: timeline-list dark -->
-<!-- _footer: "Composition: dark · timeline-list dark" -->
+<!-- @meta{layout=timeline-list, class=dark, footer=Composition: dark · timeline-list dark} -->
 
 `chart · timeline-list`
 
@@ -81,8 +80,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: timeline-list compact -->
-<!-- _footer: "Composition: compact · timeline-list compact" -->
+<!-- @meta{layout=timeline-list, class=compact, footer=Composition: compact · timeline-list compact} -->
 
 `chart · timeline-list`
 
@@ -102,8 +100,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: timeline-list accent -->
-<!-- _footer: "Composition: accent · timeline-list accent" -->
+<!-- @meta{layout=timeline-list, class=accent, footer=Composition: accent · timeline-list accent} -->
 
 `chart · timeline-list`
 
@@ -123,8 +120,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · timeline-list" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · timeline-list} -->
 
 ## When NOT to reach for timeline-list.
 
@@ -137,7 +133,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

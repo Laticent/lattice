@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · bar"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # bar
 
@@ -16,7 +16,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: bar -->
-<!-- _footer: "Default · bar" -->
+<!-- @meta{footer=Default · bar} -->
 
 `Revenue · FY26`
 
@@ -32,7 +32,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: bar row -->
-<!-- _footer: "row · bar row — Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous." -->
+<!-- @meta{footer="row · bar row — Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous."} -->
 
 ## Support load sits with two teams.
 
@@ -46,7 +46,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: bar grouped -->
-<!-- _footer: "grouped · bar grouped — Two to four series side by side in each category, selected by nesting numeric children under each category." -->
+<!-- @meta{footer="grouped · bar grouped — Two to four series side by side in each category, selected by nesting numeric children under each category."} -->
 
 ## We beat plan everywhere but APAC.
 
@@ -64,7 +64,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: bar diverging row -->
-<!-- _footer: "diverging · bar diverging — Signed values off a centered zero rule, both sides on one scale — the variance and tornado form." -->
+<!-- @meta{footer="diverging · bar diverging — Signed values off a centered zero rule, both sides on one scale — the variance and tornado form."} -->
 
 ## What moves the forecast, and which way.
 
@@ -79,8 +79,8 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: bar row -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · bar — Eight business units with full-length names — the case that forces the row form." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · bar — Eight business units with full-length names — the case that forces the row form."} -->
 
 ## Every unit named in full, nothing abbreviated.
 
@@ -96,8 +96,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar dark -->
-<!-- _footer: "Composition: dark · bar dark" -->
+<!-- @meta{layout=bar, class=dark, footer=Composition: dark · bar dark} -->
 
 `Revenue · FY26`
 
@@ -112,8 +111,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar compact -->
-<!-- _footer: "Composition: compact · bar compact" -->
+<!-- @meta{layout=bar, class=compact, footer=Composition: compact · bar compact} -->
 
 `Revenue · FY26`
 
@@ -128,8 +126,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: bar accent -->
-<!-- _footer: "Composition: accent · bar accent" -->
+<!-- @meta{layout=bar, class=accent, footer=Composition: accent · bar accent} -->
 
 `Revenue · FY26`
 
@@ -144,8 +141,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · bar · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · bar · 1 of 2} -->
 
 ## When NOT to reach for bar.
 
@@ -156,8 +152,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · bar · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · bar · 2 of 2} -->
 
 ## When NOT to reach for bar.
 
@@ -168,7 +163,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

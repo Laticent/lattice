@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · cards-stack"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # cards-stack
 
@@ -16,7 +16,7 @@ Parallel items stacked vertically, full-width cards.
 ---
 
 <!-- _class: cards-stack -->
-<!-- _footer: "Default · cards-stack" -->
+<!-- @meta{footer=Default · cards-stack} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -31,7 +31,7 @@ Parallel items stacked vertically, full-width cards.
 ---
 
 <!-- _class: cards-stack horizontal -->
-<!-- _footer: "Horizontal cards · cards-stack horizontal — The stack pivots sideways." -->
+<!-- @meta{footer="Horizontal cards · cards-stack horizontal — The stack pivots sideways."} -->
 
 ## horizontal lays the stack on its side.
 
@@ -46,7 +46,7 @@ Parallel items stacked vertically, full-width cards.
 ---
 
 <!-- _class: cards-stack -->
-<!-- _footer: "Numbered stack · cards-stack numbered — Corner numbers make rank explicit." -->
+<!-- @meta{footer="Numbered stack · cards-stack numbered — Corner numbers make rank explicit."} -->
 
 ## An ordered list makes the ranking explicit.
 
@@ -61,8 +61,8 @@ Parallel items stacked vertically, full-width cards.
 ---
 
 <!-- _class: cards-stack -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · cards-stack — Four rows with pills — the limit." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · cards-stack — Four rows with pills — the limit."} -->
 
 ## Four rows with pills is the stack's ceiling.
 
@@ -78,8 +78,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack dark -->
-<!-- _footer: "Composition: dark · cards-stack dark" -->
+<!-- @meta{layout=cards-stack, class=dark, footer=Composition: dark · cards-stack dark} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -93,8 +92,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack compact -->
-<!-- _footer: "Composition: compact · cards-stack compact" -->
+<!-- @meta{layout=cards-stack, class=compact, footer=Composition: compact · cards-stack compact} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -108,8 +106,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack accent -->
-<!-- _footer: "Composition: accent · cards-stack accent" -->
+<!-- @meta{layout=cards-stack, class=accent, footer=Composition: accent · cards-stack accent} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -123,8 +120,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · cards-stack" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · cards-stack} -->
 
 ## When NOT to reach for cards-stack.
 
@@ -137,7 +133,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

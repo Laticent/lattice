@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · bullet"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # bullet
 
@@ -16,7 +16,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 ---
 
 <!-- _class: bullet -->
-<!-- _footer: "Default · bullet" -->
+<!-- @meta{footer=Default · bullet} -->
 
 `Q3 2026 · commercial plan`
 
@@ -32,7 +32,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 ---
 
 <!-- _class: bullet shared-axis -->
-<!-- _footer: "shared-axis · bullet shared-axis — Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length." -->
+<!-- @meta{footer="shared-axis · bullet shared-axis — Forces one value axis across every row, even where the kernel would have chosen per-row scales. Use only when the rows really are the same ruler and you want the bars comparable by length."} -->
 
 ## shared-axis puts every row on one ruler.
 
@@ -44,7 +44,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 ---
 
 <!-- _class: bullet own-axis -->
-<!-- _footer: "own-axis · bullet own-axis — Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit." -->
+<!-- @meta{footer="own-axis · bullet own-axis — Forces per-row scales, so every target tick lands on one x and the bars are read against the plan line rather than against each other. Use when the rows are different measures that happen to share a unit."} -->
 
 ## own-axis lines the plan up and lets each row keep its scale.
 
@@ -56,8 +56,8 @@ Actual against target inside a qualitative band — one dense row per KPI.
 ---
 
 <!-- _class: bullet -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · bullet — Seven rows at the ceiling — the longest realistic KPI name, one measure far past every zone, one at zero, and one range authored by hand." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · bullet — Seven rows at the ceiling — the longest realistic KPI name, one measure far past every zone, one at zero, and one range authored by hand."} -->
 
 ## Stress test — seven rows, one runaway, one at zero.
 
@@ -74,8 +74,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: bullet dark -->
-<!-- _footer: "Composition: dark · bullet dark" -->
+<!-- @meta{layout=bullet, class=dark, footer=Composition: dark · bullet dark} -->
 
 `Q3 2026 · commercial plan`
 
@@ -90,8 +89,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: bullet compact -->
-<!-- _footer: "Composition: compact · bullet compact" -->
+<!-- @meta{layout=bullet, class=compact, footer=Composition: compact · bullet compact} -->
 
 `Q3 2026 · commercial plan`
 
@@ -106,8 +104,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: bullet accent -->
-<!-- _footer: "Composition: accent · bullet accent" -->
+<!-- @meta{layout=bullet, class=accent, footer=Composition: accent · bullet accent} -->
 
 `Q3 2026 · commercial plan`
 
@@ -122,8 +119,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · bullet · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · bullet · 1 of 2} -->
 
 ## When NOT to reach for bullet.
 
@@ -134,8 +130,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · bullet · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · bullet · 2 of 2} -->
 
 ## When NOT to reach for bullet.
 
@@ -146,7 +141,7 @@ Actual against target inside a qualitative band — one dense row per KPI.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

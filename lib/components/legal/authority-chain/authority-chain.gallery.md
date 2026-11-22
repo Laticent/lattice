@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · authority-chain"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # authority-chain
 
@@ -16,7 +16,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain -->
-<!-- _footer: "Default · authority-chain" -->
+<!-- @meta{footer=Default · authority-chain} -->
 
 ## The chain descends from statute to practice.
 
@@ -37,7 +37,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain branching -->
-<!-- _footer: "branching · authority-chain branching — The chain forks." -->
+<!-- @meta{footer="branching · authority-chain branching — The chain forks."} -->
 
 ## branching forks the chain where authority splits.
 
@@ -52,7 +52,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain trail -->
-<!-- _footer: "trail · authority-chain trail — A breadcrumb walk." -->
+<!-- @meta{footer="trail · authority-chain trail — A breadcrumb walk."} -->
 
 ## trail walks the chain as a breadcrumb.
 
@@ -73,7 +73,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain pyramid -->
-<!-- _footer: "pyramid · authority-chain pyramid — Tiers weighted by force." -->
+<!-- @meta{footer="pyramid · authority-chain pyramid — Tiers weighted by force."} -->
 
 ## pyramid weights the tiers by force.
 
@@ -94,7 +94,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain bracket -->
-<!-- _footer: "bracket · authority-chain bracket — Tiers grouped by actor." -->
+<!-- @meta{footer="bracket · authority-chain bracket — Tiers grouped by actor."} -->
 
 ## bracket groups the tiers by actor.
 
@@ -115,8 +115,8 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · authority-chain — Six tiers — the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · authority-chain — Six tiers — the ceiling."} -->
 
 ## Six tiers is the chain's ceiling.
 
@@ -136,8 +136,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain dark -->
-<!-- _footer: "Composition: dark · authority-chain dark" -->
+<!-- @meta{layout=authority-chain, class=dark, footer=Composition: dark · authority-chain dark} -->
 
 ## The chain descends from statute to practice.
 
@@ -157,8 +156,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain compact -->
-<!-- _footer: "Composition: compact · authority-chain compact" -->
+<!-- @meta{layout=authority-chain, class=compact, footer=Composition: compact · authority-chain compact} -->
 
 ## The chain descends from statute to practice.
 
@@ -178,8 +176,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain accent -->
-<!-- _footer: "Composition: accent · authority-chain accent" -->
+<!-- @meta{layout=authority-chain, class=accent, footer=Composition: accent · authority-chain accent} -->
 
 ## The chain descends from statute to practice.
 
@@ -199,8 +196,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · authority-chain" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · authority-chain} -->
 
 ## When NOT to reach for authority-chain.
 
@@ -213,7 +209,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

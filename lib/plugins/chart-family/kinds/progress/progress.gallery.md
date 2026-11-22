@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · progress"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # progress
 
@@ -16,7 +16,7 @@ Horizontal progress bars — one row per item, percentage filled.
 ---
 
 <!-- _class: progress -->
-<!-- _footer: "Default · progress" -->
+<!-- @meta{footer=Default · progress} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -34,8 +34,8 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 ---
 
 <!-- _class: progress -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · progress — A full wall of tracks — the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · progress — A full wall of tracks — the ceiling."} -->
 
 ## Stress test — eight workstreams, full status range, one honest pill.
 
@@ -51,8 +51,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: progress dark -->
-<!-- _footer: "Composition: dark · progress dark" -->
+<!-- @meta{layout=progress, class=dark, footer=Composition: dark · progress dark} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -69,8 +68,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: progress compact -->
-<!-- _footer: "Composition: compact · progress compact" -->
+<!-- @meta{layout=progress, class=compact, footer=Composition: compact · progress compact} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -87,8 +85,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: progress accent -->
-<!-- _footer: "Composition: accent · progress accent" -->
+<!-- @meta{layout=progress, class=accent, footer=Composition: accent · progress accent} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -105,8 +102,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · progress" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · progress} -->
 
 ## When NOT to reach for progress.
 
@@ -119,7 +115,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

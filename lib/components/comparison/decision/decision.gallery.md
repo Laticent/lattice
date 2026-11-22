@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · decision"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # decision
 
@@ -16,7 +16,7 @@ The verdict slide — one chosen path, named explicitly.
 ---
 
 <!-- _class: decision -->
-<!-- _footer: "Default · decision" -->
+<!-- @meta{footer=Default · decision} -->
 
 ## The decision slide names the chosen path.
 
@@ -29,7 +29,7 @@ The verdict slide — one chosen path, named explicitly.
 ---
 
 <!-- _class: decision tag-band -->
-<!-- _footer: "tag-band · decision tag-band — Headlines each card with its camp." -->
+<!-- @meta{footer="tag-band · decision tag-band — Headlines each card with its camp."} -->
 
 ## tag-band headlines each card with its camp.
 
@@ -42,8 +42,8 @@ The verdict slide — one chosen path, named explicitly.
 ---
 
 <!-- _class: decision -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · decision — Two full arguments, no more." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · decision — Two full arguments, no more."} -->
 
 ## A verdict can carry two full arguments, no more.
 
@@ -55,8 +55,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision dark -->
-<!-- _footer: "Composition: dark · decision dark" -->
+<!-- @meta{layout=decision, class=dark, footer=Composition: dark · decision dark} -->
 
 ## The decision slide names the chosen path.
 
@@ -68,8 +67,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision compact -->
-<!-- _footer: "Composition: compact · decision compact" -->
+<!-- @meta{layout=decision, class=compact, footer=Composition: compact · decision compact} -->
 
 ## The decision slide names the chosen path.
 
@@ -81,8 +79,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: decision accent -->
-<!-- _footer: "Composition: accent · decision accent" -->
+<!-- @meta{layout=decision, class=accent, footer=Composition: accent · decision accent} -->
 
 ## The decision slide names the chosen path.
 
@@ -94,8 +91,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · decision" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · decision} -->
 
 ## When NOT to reach for decision.
 
@@ -108,7 +104,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

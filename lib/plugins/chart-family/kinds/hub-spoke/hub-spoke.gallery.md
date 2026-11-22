@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · hub-spoke"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # hub-spoke
 
@@ -16,7 +16,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke -->
-<!-- _footer: "Default · hub-spoke" -->
+<!-- @meta{footer=Default · hub-spoke} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -37,7 +37,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke sized -->
-<!-- _footer: "sized · hub-spoke sized — Disc area carries each value." -->
+<!-- @meta{footer="sized · hub-spoke sized — Disc area carries each value."} -->
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -55,7 +55,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke flow-out -->
-<!-- _footer: "flow-out · hub-spoke flow-out — Arrowheads and stepped connector weight." -->
+<!-- @meta{footer="flow-out · hub-spoke flow-out — Arrowheads and stepped connector weight."} -->
 
 `Memphis distribution center · Pallets per week`
 
@@ -73,7 +73,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke flow-in -->
-<!-- _footer: "flow-in · hub-spoke flow-in — Heads point at the hub." -->
+<!-- @meta{footer="flow-in · hub-spoke flow-in — Heads point at the hub."} -->
 
 `Data platform · Records ingested per day`
 
@@ -90,7 +90,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke flow-both -->
-<!-- _footer: "flow-both · hub-spoke flow-both — Two-way flow on every spoke." -->
+<!-- @meta{footer="flow-both · hub-spoke flow-both — Two-way flow on every spoke."} -->
 
 `Shared services · Tickets per month`
 
@@ -107,7 +107,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke tiered -->
-<!-- _footer: "tiered · hub-spoke tiered — Branches, with leaves off each one." -->
+<!-- @meta{footer="tiered · hub-spoke tiered — Branches, with leaves off each one."} -->
 
 `Platform organization · Service ownership · 2026`
 
@@ -134,8 +134,8 @@ Hub and spoke — one center, its satellites, and what flows between them.
 ---
 
 <!-- _class: hub-spoke -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · hub-spoke — Twelve satellites in four groups — the cap." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · hub-spoke — Twelve satellites in four groups — the cap."} -->
 
 `Partner ecosystem · By capability`
 
@@ -158,8 +158,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke dark -->
-<!-- _footer: "Composition: dark · hub-spoke dark" -->
+<!-- @meta{layout=hub-spoke, class=dark, footer=Composition: dark · hub-spoke dark} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -179,8 +178,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke compact -->
-<!-- _footer: "Composition: compact · hub-spoke compact" -->
+<!-- @meta{layout=hub-spoke, class=compact, footer=Composition: compact · hub-spoke compact} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -200,8 +198,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke accent -->
-<!-- _footer: "Composition: accent · hub-spoke accent" -->
+<!-- @meta{layout=hub-spoke, class=accent, footer=Composition: accent · hub-spoke accent} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -221,8 +218,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · hub-spoke · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · hub-spoke · 1 of 2} -->
 
 ## When NOT to reach for hub-spoke.
 
@@ -233,8 +229,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · hub-spoke · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · hub-spoke · 2 of 2} -->
 
 ## When NOT to reach for hub-spoke.
 
@@ -245,7 +240,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

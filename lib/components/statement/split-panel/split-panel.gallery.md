@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · split-panel"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # split-panel
 
@@ -16,7 +16,7 @@ Featured left panel + supporting right zone — one prominent claim beside the p
 ---
 
 <!-- _class: split-panel -->
-<!-- _footer: "Default · split-panel" -->
+<!-- @meta{footer=Default · split-panel} -->
 
 `statement · split-panel`
 
@@ -35,7 +35,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 ---
 
 <!-- _class: split-panel metric -->
-<!-- _footer: "metric · split-panel metric — Light panel behind one hero number." -->
+<!-- @meta{footer="metric · split-panel metric — Light panel behind one hero number."} -->
 
 `split-panel metric`
 
@@ -52,7 +52,7 @@ Words per item — the budget this layout holds its supporting column to.
 ---
 
 <!-- _class: split-panel pullquote -->
-<!-- _footer: "pullquote · split-panel pullquote — Half the slide to one quotation." -->
+<!-- @meta{footer="pullquote · split-panel pullquote — Half the slide to one quotation."} -->
 
 > pullquote gives half the slide to one voice, and the other half to what it means.
 
@@ -67,7 +67,7 @@ Words per item — the budget this layout holds its supporting column to.
 ---
 
 <!-- _class: split-panel steps -->
-<!-- _footer: "steps · split-panel steps — The panel anchors a numbered phase." -->
+<!-- @meta{footer="steps · split-panel steps — The panel anchors a numbered phase."} -->
 
 `02`
 
@@ -86,7 +86,7 @@ The left panel anchors a phase; the column numbers its moves.
 ---
 
 <!-- _class: split-panel watermark -->
-<!-- _footer: "watermark · split-panel watermark — Accent panel, letterform, h3 rubric." -->
+<!-- @meta{footer="watermark · split-panel watermark — Accent panel, letterform, h3 rubric."} -->
 
 ## Watermark
 
@@ -103,7 +103,7 @@ The left panel anchors a phase; the column numbers its moves.
 ---
 
 <!-- _class: split-panel proof -->
-<!-- _footer: "proof · split-panel proof — Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list." -->
+<!-- @meta{footer="proof · split-panel proof — Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list."} -->
 
 `Level 1 · Remembering`
 
@@ -122,7 +122,7 @@ The left panel anchors a phase; the column numbers its moves.
 ---
 
 <!-- _class: split-panel capstone -->
-<!-- _footer: "capstone · split-panel capstone — Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry." -->
+<!-- @meta{footer="capstone · split-panel capstone — Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry."} -->
 
 `Level 6 · Creating`
 
@@ -141,7 +141,7 @@ The left panel anchors a phase; the column numbers its moves.
 ---
 
 <!-- _class: split-panel mirror -->
-<!-- _footer: "mirror · split-panel mirror — Featured panel moves right." -->
+<!-- @meta{footer="mirror · split-panel mirror — Featured panel moves right."} -->
 
 `split-panel mirror`
 
@@ -158,7 +158,7 @@ Same anatomy, flipped — for when the deck's rhythm wants the claim to land lat
 ---
 
 <!-- _class: split-panel qr -->
-<!-- _footer: "qr · split-panel qr — Payload bullet becomes a code." -->
+<!-- @meta{footer="qr · split-panel qr — Payload bullet becomes a code."} -->
 
 `split-panel qr`
 
@@ -173,7 +173,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-1 -->
-<!-- _footer: "cat-1 · split-panel cat-1 — Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-1 · split-panel cat-1 — Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 1 of 8`
 
@@ -188,7 +188,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-2 -->
-<!-- _footer: "cat-2 · split-panel cat-2 — Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-2 · split-panel cat-2 — Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 2 of 8`
 
@@ -203,7 +203,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-3 -->
-<!-- _footer: "cat-3 · split-panel cat-3 — Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-3 · split-panel cat-3 — Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 3 of 8`
 
@@ -218,7 +218,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-4 -->
-<!-- _footer: "cat-4 · split-panel cat-4 — Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-4 · split-panel cat-4 — Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 4 of 8`
 
@@ -233,7 +233,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-5 -->
-<!-- _footer: "cat-5 · split-panel cat-5 — Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-5 · split-panel cat-5 — Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 5 of 8`
 
@@ -248,7 +248,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-6 -->
-<!-- _footer: "cat-6 · split-panel cat-6 — Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-6 · split-panel cat-6 — Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 6 of 8`
 
@@ -263,7 +263,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-7 -->
-<!-- _footer: "cat-7 · split-panel cat-7 — Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-7 · split-panel cat-7 — Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 7 of 8`
 
@@ -278,7 +278,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-8 -->
-<!-- _footer: "cat-8 · split-panel cat-8 — Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+<!-- @meta{footer="cat-8 · split-panel cat-8 — Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order."} -->
 
 `Stage 8 of 8`
 
@@ -293,8 +293,8 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · split-panel — Three items at full budget." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · split-panel — Three items at full budget."} -->
 
 `split-panel · stress`
 
@@ -312,8 +312,7 @@ The framing paragraph can run two lines when every item below uses its whole bud
 
 ---
 
-<!-- _class: split-panel dark -->
-<!-- _footer: "Composition: dark · split-panel dark" -->
+<!-- @meta{layout=split-panel, class=dark, footer=Composition: dark · split-panel dark} -->
 
 `statement · split-panel`
 
@@ -331,8 +330,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: split-panel compact -->
-<!-- _footer: "Composition: compact · split-panel compact" -->
+<!-- @meta{layout=split-panel, class=compact, footer=Composition: compact · split-panel compact} -->
 
 `statement · split-panel`
 
@@ -350,8 +348,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: split-panel accent -->
-<!-- _footer: "Composition: accent · split-panel accent" -->
+<!-- @meta{layout=split-panel, class=accent, footer=Composition: accent · split-panel accent} -->
 
 `statement · split-panel`
 
@@ -369,8 +366,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · split-panel" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · split-panel} -->
 
 ## When NOT to reach for split-panel.
 
@@ -383,7 +379,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

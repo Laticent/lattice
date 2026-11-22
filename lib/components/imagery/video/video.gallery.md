@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · video"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # video
 
@@ -16,7 +16,7 @@ A video as a static, PDF-safe embed: a poster that links to the clip, a play bad
 ---
 
 <!-- _class: video companion -->
-<!-- _footer: "Default · video" -->
+<!-- @meta{footer=Default · video} -->
 
 ## The video card plays beside its context.
 
@@ -28,7 +28,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video companion -->
-<!-- _footer: "companion · video companion — The player beside the claim it proves." -->
+<!-- @meta{footer="companion · video companion — The player beside the claim it proves."} -->
 
 ## companion seats the player beside its pitch.
 
@@ -40,7 +40,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video gallery -->
-<!-- _footer: "gallery · video gallery — A contained, matted exhibit." -->
+<!-- @meta{footer="gallery · video gallery — A contained, matted exhibit."} -->
 
 ## gallery mats the player like an exhibit.
 
@@ -50,7 +50,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video companion qr -->
-<!-- _footer: "qr · video qr — Adds a scannable code; combines with any look." -->
+<!-- @meta{footer="qr · video qr — Adds a scannable code; combines with any look."} -->
 
 ## qr hands the video to the room’s phones.
 
@@ -61,8 +61,7 @@ The full 90-second tour — scan to open it on your phone.
 
 ---
 
-<!-- _class: video companion dark -->
-<!-- _footer: "Composition: dark · video dark" -->
+<!-- @meta{layout=video, class=companion dark, footer=Composition: dark · video dark} -->
 
 ## The video card plays beside its context.
 
@@ -73,8 +72,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: video companion compact -->
-<!-- _footer: "Composition: compact · video compact" -->
+<!-- @meta{layout=video, class=companion compact, footer=Composition: compact · video compact} -->
 
 ## The video card plays beside its context.
 
@@ -85,8 +83,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: video companion accent -->
-<!-- _footer: "Composition: accent · video accent" -->
+<!-- @meta{layout=video, class=companion accent, footer=Composition: accent · video accent} -->
 
 ## The video card plays beside its context.
 
@@ -97,8 +94,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · video" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · video} -->
 
 ## When NOT to reach for video.
 
@@ -111,7 +107,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

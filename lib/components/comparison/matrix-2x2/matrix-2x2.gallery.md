@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · matrix-2x2"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # matrix-2x2
 
@@ -16,7 +16,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- _footer: "Default · matrix-2x2" -->
+<!-- @meta{footer=Default · matrix-2x2} -->
 
 ## The matrix places items on two named axes.
 
@@ -37,8 +37,8 @@ Static 2×2 quadrant grid with author-placed items per cell.
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · matrix-2x2 — Three items per cell — the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · matrix-2x2 — Three items per cell — the ceiling."} -->
 
 ## Three items per cell is the matrix ceiling.
 
@@ -62,8 +62,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: matrix-2x2 dark -->
-<!-- _footer: "Composition: dark · matrix-2x2 dark" -->
+<!-- @meta{layout=matrix-2x2, class=dark, footer=Composition: dark · matrix-2x2 dark} -->
 
 ## The matrix places items on two named axes.
 
@@ -83,8 +82,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: matrix-2x2 compact -->
-<!-- _footer: "Composition: compact · matrix-2x2 compact" -->
+<!-- @meta{layout=matrix-2x2, class=compact, footer=Composition: compact · matrix-2x2 compact} -->
 
 ## The matrix places items on two named axes.
 
@@ -104,8 +102,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: matrix-2x2 accent -->
-<!-- _footer: "Composition: accent · matrix-2x2 accent" -->
+<!-- @meta{layout=matrix-2x2, class=accent, footer=Composition: accent · matrix-2x2 accent} -->
 
 ## The matrix places items on two named axes.
 
@@ -125,8 +122,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · matrix-2x2" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · matrix-2x2} -->
 
 ## When NOT to reach for matrix-2x2.
 
@@ -139,7 +135,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

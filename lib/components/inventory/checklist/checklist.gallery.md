@@ -5,7 +5,7 @@ paginate: true
 header: "Lattice · checklist"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # checklist
 
@@ -16,7 +16,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 ---
 
 <!-- _class: checklist -->
-<!-- _footer: "Default · checklist" -->
+<!-- @meta{footer=Default · checklist} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -31,8 +31,8 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 ---
 
 <!-- _class: checklist -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · checklist — Nine rows, all six answers — the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · checklist — Nine rows, all six answers — the ceiling."} -->
 
 ## Nine rows is where the checklist overflows.
 
@@ -49,8 +49,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: checklist dark -->
-<!-- _footer: "Composition: dark · checklist dark" -->
+<!-- @meta{layout=checklist, class=dark, footer=Composition: dark · checklist dark} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -64,8 +63,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: checklist compact -->
-<!-- _footer: "Composition: compact · checklist compact" -->
+<!-- @meta{layout=checklist, class=compact, footer=Composition: compact · checklist compact} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -79,8 +77,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: checklist accent -->
-<!-- _footer: "Composition: accent · checklist accent" -->
+<!-- @meta{layout=checklist, class=accent, footer=Composition: accent · checklist accent} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -94,8 +91,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · checklist" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · checklist} -->
 
 ## When NOT to reach for checklist.
 
@@ -108,7 +104,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 
