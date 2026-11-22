@@ -175,13 +175,14 @@ function engines() {
 }
 
 /**
- * How many vectors run at once in one browser. A walled run keeps every walled page open to its end (see `reached`),
- * so it holds at most 20 walled pages plus this many witness pages (plus a popup per opened window), and it LOADS at
- * most this many pages at a time. Opening all 20 vectors at once, walled and witness together, put 40 pages in one
- * browser; WebKit starts a web process per page, so four
- * runs at once on a 4-CPU sandbox reached 151 web processes and a load average of 150 to 181, the kernel killed
- * processes for memory, and the witness gave up before hearing vectors (measured 2026-11-22, WebKit 2388: 4 of 4
- * runs red). The bound is on load, not on time: each vector's wait keeps `until`'s 60 s deadline.
+ * How many vectors run at once in one browser. Each lane holds one walled page and at most one witness page at a
+ * time (plus a popup per opened window, and the MAY_MISS pages, which stay open), so a run keeps about 2 × this many
+ * pages. Two layouts failed under 4 runs at once on a 4-CPU sandbox (measured 2026-11-22, WebKit 2388):
+ *   - all 20 vectors at once, walled and witness together: 40 pages in one browser, 151 web processes, a load
+ *     average of 150 to 181, and 4 of 4 runs red;
+ *   - every walled page held open to the end of the run: about 24 pages a run, and the kernel's memory limit killed
+ *     WebKit web processes (about 180 MB each), so a page never finished loading.
+ * The bound is on pages, not on time: the run's waits share RUN_DEADLINE.
  */
 const AT_ONCE = 4;
 
@@ -220,28 +221,29 @@ async function pool(items, limit, work) {
 }
 
 /**
- * Run every vector in `file`, each in its own page, and return the vectors that reached the listener. Waits on
- * signals, never on a quiet period (HARD RULE #32; test/helpers/request-log.js). Vectors run AT_ONCE at a time:
- *   - the CONTROL (`witness` unset) waits until the listener has heard the vector, when this engine can fire it;
+ * Run every vector in `file`, each in its own page, and return the vectors that reached the listener and, for the
+ * control, which vector its listener was slowest to hear. Waits on signals, never on a quiet period (HARD RULE #32;
+ * test/helpers/request-log.js). Vectors run AT_ONCE at a time:
+ *   - the CONTROL (`witness` unset) waits until the listener has heard the vector, when this engine can fire it, and
+ *     times how long that took;
  *   - a walled run makes the vector's attempt first and only then runs its WITNESS, the same vector in the control
- *     file against a second listener. Once the witness has heard it, the walled attempt has had at least that long
- *     to land, and the witness page closes. A quiet period of 2 s, repeated until the count stopped moving, was the
- *     old wait.
- * Every WALLED page stays open until the last witness has heard, never closed at its own witness: a walled leak that
- * is slower than the control for the same vector (a fallback through a fresh frame, say) then still has the rest of
- * the run to land. The vectors that finish last would get only their own witness's time, so once every pair is done
- * the run witnesses its SLOWEST vector once more: every walled page has then been open at least as long as the
- * slowest witness took, which is what the old wait (every walled page open until all 20 witnesses had heard) gave
- * it. A vector this engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and gets the whole run.
- * Then the browser closes and the listener is drained, so an attempt already on the wire is counted.
+ *     file against a second listener. Once the witness has heard it, the walled attempt has had at least that long to
+ *     land. Then it witnesses the control's SLOWEST vector once more, against a listener of its own, and only then
+ *     closes the walled page. So every walled page stays open at least as long as the slowest witness takes, which
+ *     is what the old wait gave it (all 20 walled pages open until all 20 witnesses had heard), and a walled leak
+ *     somewhat slower than its own control still lands. A leak held back for longer than that needs its own signal,
+ *     as request-log.js says; neither wait covers it (a 3 s setTimeout leak is missed by both).
+ * A vector this engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and its page stays open to
+ * the end of the run. Then the browser closes and the listener is drained, so an attempt already on the wire is
+ * counted.
  */
-async function reached(eng, file, { witness = null } = {}) {
+async function reached(eng, file, { witness = null, slowest = null } = {}) {
   main.reset();
   const names = Object.keys(vectors());
   const fireable = (v) => !MAY_MISS[eng.name].includes(v);
   const end = Date.now() + RUN_DEADLINE;
   const heard = (log, v) => log.until((h) => vectorsHit(h).includes(v), { timeout: Math.max(1, end - Date.now()) });
-  // How long each witness took to be heard, so the closing sweep can repeat the slowest.
+  // The control times each vector, so the walled run knows which witness to repeat.
   const took = new Map();
   // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
   // idle socket in its pool after the page that opened it has closed.
@@ -253,29 +255,31 @@ async function reached(eng, file, { witness = null } = {}) {
     // The vectors with no signal go first, so the rest of the run is the time they get.
     const order = [...names.filter((v) => !fireable(v)), ...names.filter(fireable)];
     pages = await pool(order, AT_ONCE, async (name) => {
+      const t0 = Date.now();
       const walled = await attempt(browser, file, main, name);
       if (!fireable(name)) return walled;
       if (w) {
-        const t0 = Date.now();
-        const control = await attempt(browser, witness, w, name);
-        if (await heard(w, name)) took.set(name, Date.now() - t0);
-        else missed.push(`${name} (witness ran: ${control.ran}, loaded: ${control.loaded}, url: ${control.page.url().slice(0, 60)})`);
-        await control.page.close().catch(() => {});
+        const own = await attempt(browser, witness, w, name);
+        if (!(await heard(w, name))) missed.push(`${name} (witness ran: ${own.ran}, loaded: ${own.loaded}, url: ${own.page.url().slice(0, 60)})`);
+        await own.page.close().catch(() => {});
+        if (slowest && slowest !== name) {
+          const sl = await listener();
+          try {
+            const again = await attempt(browser, witness, sl, slowest);
+            if (!(await heard(sl, slowest))) missed.push(`${slowest}, witnessed again for ${name} (ran: ${again.ran}, loaded: ${again.loaded})`);
+            await again.page.close().catch(() => {});
+          } finally {
+            await sl.close();
+          }
+        }
       } else {
         // A vector the control cannot fire leaves the wait at its deadline; the harness test names it. The control
         // makes no absence claim, so its page may close once heard.
-        await heard(main, name);
-        await walled.page.close().catch(() => {});
+        if (await heard(main, name)) took.set(name, Date.now() - t0);
       }
+      await walled.page.close().catch(() => {});
       return walled;
     });
-    if (w && missed.length === 0 && took.size) {
-      // The closing sweep: the slowest vector's witness, once more, with every walled page still open.
-      const slowest = [...took].sort((a, b) => b[1] - a[1])[0][0];
-      w.reset();
-      const sweep = await attempt(browser, witness, w, slowest);
-      if (!(await heard(w, slowest))) missed.push(`${slowest} on the closing sweep (witness ran: ${sweep.ran}, loaded: ${sweep.loaded})`);
-    }
     assert.deepEqual(missed, [], `the witness never heard ${missed.join(' ')}, so the walled run's zero proves nothing`);
   } finally {
     await browser.close();
@@ -290,7 +294,8 @@ async function reached(eng, file, { witness = null } = {}) {
   // A page that did not load ran its vector in about:blank, outside the export's policy, so its result means nothing.
   const unloaded = pages.filter((p) => p.loaded !== true).map((p) => `${p.name}:${p.loaded}`);
   const unrun = pages.filter((p) => p.ran !== true && !/^threw:(SecurityError|NS_ERROR_CONTENT_BLOCKED)$/.test(p.ran) && !(p.name === 'form' && p.ran === 'threw:') && !(p.ran === 'navigated' && NAVIGATES.includes(p.name))).map((p) => `${p.name}:${p.ran}`);
-  return { got, unrun: [...unloaded, ...unrun] };
+  const slow = [...took].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null;
+  return { got, unrun: [...unloaded, ...unrun], slowest: slow };
 }
 
 /**
@@ -306,7 +311,7 @@ function cell(eng, kind) {
       (async () => {
         if (eng.needs) throw new Error(`UNVERIFIED: ${eng.name} is not reachable (${eng.needs})`);
         const control = await reached(eng, built[kind].control);
-        const real = await reached(eng, built[kind].file, { witness: built[kind].control });
+        const real = await reached(eng, built[kind].file, { witness: built[kind].control, slowest: control.slowest });
         return { control, real };
       })(),
     );
