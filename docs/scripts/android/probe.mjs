@@ -108,7 +108,7 @@ let error = '';
 try {
 	// THE CONTROL: an input that accepts only `.pdf`.
 	open(`${BASE}/__chooser-control.html`);
-	tap(await until(/^Pick a PDF$/, 60_000, 'the control page'));
+	tap(await until(/^Pick a PDF\b/, 60_000, 'the control page'));
 	const control = await chooser('control');
 	step('control: a .pdf-only input offers files', files(control.all), control.options.join(' · '));
 	step('control: a .pdf-only input offers no camera (so this probe can see one missing)', !camera(control.all), control.options.join(' · '));
@@ -117,7 +117,7 @@ try {
 	open(`${BASE}/studio/`);
 	tap(await until(/^Menu$/, 150_000, "the Studio's Menu button"));
 	tap(await until(/^Library/, 30_000, 'the Library row'));
-	tap(await until(/^Import files$/, 30_000, "the Library's Import button"));
+	tap(await until(/^Import files\b/, 30_000, "the Library's Import button"));
 	const studio = await chooser('studio');
 	step("Library Import: Android offers the camera", camera(studio.all), studio.options.join(' · '));
 	step('Library Import: Android offers a way to choose files (photos and videos among them)', files(studio.all), studio.options.join(' · '));
