@@ -1520,43 +1520,72 @@ async function runChatStorageProbe(id) {
  * THE PLAYGROUND SCROLL PROBE (PROBE=playground-scroll, playground-scroll-probe.js): a real finger drags the Playground's
  * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
  * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
- * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 5),
- * each with three upward drags, so the drag crosses at least one window move. A trial fails the suite.
+ * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 6,
+ * odd ones quiet and even ones with the burner), each with three upward drags, so the drag crosses at least one window move.
+ * A trial fails the suite.
  */
 async function runPlaygroundScrollProbe(id) {
 	const probe = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
 	const burn = Number(process.env.PLAYGROUND_SCROLL_BURN_MS ?? 150);
-	const trials = Number(process.env.PLAYGROUND_SCROLL_TRIALS ?? 5);
-	const call = (expr) =>
-		wd('POST', `/session/${id}/execute/async`, {
-			script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`,
-			args: [],
-		});
+	const trials = Number(process.env.PLAYGROUND_SCROLL_TRIALS ?? 6);
+	// EVERY CALL HAS A DEADLINE. The first harness run (#3428, run 45065714489) hung after psPrepare on both devices for
+	// 16 minutes until the connection failed, and named nothing. Now a stuck step fails as itself, and the log says which.
+	const t0 = Date.now();
+	const step = (what) => console.log(`${LABEL}: +${Math.round((Date.now() - t0) / 1000)}s ${what}`);
+	const call = (expr, timeoutMs) =>
+		wd(
+			'POST',
+			`/session/${id}/execute/async`,
+			{
+				script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`,
+				args: [],
+			},
+			{ timeoutMs },
+		);
 	const drag = async (x, y1, y2) => {
-		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-		await wd('POST', `/session/${id}/actions`, {
-			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x, y: y2 }, { type: 'pointerUp', button: 0 }] }],
-		});
-		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
+		await wd(
+			'POST',
+			`/session/${id}/actions`,
+			{ actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x, y: y2 }, { type: 'pointerUp', button: 0 }] }] },
+			{ timeoutMs: 60000 },
+		);
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
 	};
 	const result = { ua: '', width: 0, burn, steps: [], trials: [], ok: false };
+	let doing = 'reading the user agent';
 	try {
-		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] }, { timeoutMs: 30000 });
 		for (let i = 1; i <= trials; i++) {
-			await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?c=kpi&view=read&t=${i}` });
-			const ready = await call(`psPrepare(${burn})`);
-			if (ready?.error) throw new Error(`trial ${i}: ${ready.error}`);
+			// Odd trials on a quiet page, even ones with the burner: a step that only sticks under load names itself.
+			const ms = i % 2 === 0 ? burn : 0;
+			doing = `trial ${i} (burn ${ms} ms): loading the Playground`;
+			step(doing);
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?c=kpi&view=read&t=${i}` }, { timeoutMs: 120000 });
+			doing = `trial ${i} (burn ${ms} ms): psPrepare`;
+			step(doing);
+			const ready = await call(`psPrepare(${ms})`, 240000);
+			if (ready?.error) throw new Error(`${doing}: ${ready.error}`);
 			result.width = ready.width;
-			for (let d = 0; d < 3; d++) await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
-			const after = await call('psAfter()');
-			if (after?.error) throw new Error(`trial ${i}: ${after.error}`);
-			result.trials.push({ trial: i, start: ready.start, y: after.y, pane: after.pane, rail: after.rail, bar: after.bar, inView: after.inView, drops: after.drops, ok: after.ok });
-			console.log(`${LABEL}: trial ${i}: ${after.ok ? 'ok' : 'FAIL'} scrollY ${after.y} (pane ${after.pane}), rail ${after.rail + 1}, bar ${after.bar}, in view ${after.inView}, swaps that dropped the scroll: ${after.drops.length ? after.drops.join(' ') : 'none'}`);
+			for (let d = 1; d <= 3; d++) {
+				doing = `trial ${i} (burn ${ms} ms): drag ${d} of 3`;
+				step(doing);
+				await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
+			}
+			doing = `trial ${i} (burn ${ms} ms): psAfter`;
+			step(doing);
+			const after = await call('psAfter()', 90000);
+			if (after?.error) throw new Error(`${doing}: ${after.error}`);
+			result.trials.push({ trial: i, burn: ms, start: ready.start, y: after.y, pane: after.pane, rail: after.rail, bar: after.bar, inView: after.inView, drops: after.drops, ok: after.ok });
+			console.log(`${LABEL}: trial ${i} (burn ${ms} ms): ${after.ok ? 'ok' : 'FAIL'} scrollY ${after.y} (pane ${after.pane}), rail ${after.rail + 1}, bar ${after.bar}, in view ${after.inView}, swaps that dropped the scroll: ${after.drops.length ? after.drops.join(' ') : 'none'}`);
 			for (const s of after.steps) result.steps.push({ ...s, name: `trial ${i}: ${s.name}` });
 		}
 		result.ok = result.trials.length === trials && result.trials.every((t) => t.ok);
 	} catch (e) {
-		result.error = String(e);
+		result.error = `stuck or failed while ${doing}: ${e.name === 'TimeoutError' ? 'no answer before its deadline' : String(e)}`;
+		step(result.error);
+		// Stop a burner left running, so the screenshot and the next session see a page that answers.
+		await wd('POST', `/session/${id}/execute/sync`, { script: 'clearInterval(window.__psBurner)', args: [] }, { timeoutMs: 15000 }).catch(() => {});
 	}
 	return result;
 }
