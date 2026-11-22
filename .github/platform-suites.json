@@ -265,6 +265,33 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-present-narration",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/present-narration.mjs",
+        "docs/scripts/ios-safari/present-narration-probe.js",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/read-aloud.ts",
+        "docs/src/playground/voice-model.js",
+        "docs/src/lib/suono/stage.ts",
+        "docs/src/lib/suono/sequence.ts",
+        "lib/core/speech-pcm.mjs",
+        "docs/src/lib/suono/encode.ts",
+        "lib/core/reopenable.js",
+        "lib/core/note-grammar.mjs"
+      ],
+      "run": "PROBE=present-narration bash docs/scripts/ios-safari/run.sh",
+      "why": "What Present with narration costs real Mobile Safari, in an iPhone iOS Simulator. The owner's iPhone reloaded the tab when Present played a 4K deck with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a 30-slide 4K deck with an @say note on every slide (about ten minutes of narration); the probe imports it, installs a stand-in for the owner's voice, Gemini 3.1 Flash TTS through OpenRouter (the reload happens with it and not with Kokoro), answered in the page as OpenRouter answers it: headerless PCM of a sentence's length (no key spent, HARD RULE #24; NARRATION_VOICE picks Kokoro or Gemini's own API instead), and opens Present with Guide on. On the simulator no WebDriver press reaches the page, so only a script click starts Present and iOS keeps audio suspended; the probe therefore walks the deck with Next every 10 s, as a presenter would, so each slide's narration is still requested and cached: voice on until Present reaches slide 15 (judged on that work, with 10 minutes only as a ceiling); a voice-off arm runs only when NARRATION_SILENT_S is set. Every 30 s it reads the slide, the narration audio the page has decoded, and the simulator's WebKit footprint with vmmap. It fails when the voice arm stops before slide 15 or asks for under four sentences a slide, the page reloads, no audio was decoded or the decoded audio passes NARRATION_AUDIO_CAP_MB (40), the footprint reader reads under 50 MB before Present, or the footprint grows past NARRATION_MEMORY_CAP_MB (300). A simulator has no memory limit, so it shows the cost, not the reload.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
       "name": "ios-safari-present-keepalive",
       "os": [
         "macos-26"
