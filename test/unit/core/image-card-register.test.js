@@ -224,7 +224,7 @@ test('lint image-card-renamed: beside a tint, `at-*` is a warning whose fix adds
 test('lint image-card-renamed: `compact` on a card slide is a warning whose fix keeps the card tight', () => {
   const [f] = renamed(deck([], [SLIDE('image spotlight compact')]));
   assert.equal(f.severity, 'warning');
-  assert.match(f.message, /image-card-compact/);
+  assert.match(f.fix, /image-card-compact/);
   assert.deepEqual(renamed(deck([], [SLIDE('image spotlight compact image-card-compact')])), []);
   assert.deepEqual(renamed(deck([], [SLIDE('content compact')])), []);
   assert.deepEqual(renamed(deck([], [SLIDE('image clean compact')])), [], 'a clean slide sets its words beside the photo: no card');
