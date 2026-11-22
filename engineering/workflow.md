@@ -2899,6 +2899,17 @@ all four hold, and names the failing check for every session that stays:
 3. **Nothing unpushed.** The session reports a clean tree and no local commits ahead
    of its remote (`git status -sb`), answered in its own reply, not inferred from an
    old status line. No answer, or changes, means it stays.
+   **When the machine is likely gone** (idle for weeks, or its branch deleted or merged
+   on origin), a clean GitHub check passes check 3 instead, if all three hold: every PR
+   it opened is merged or closed; its branch is gone from origin, or has no commits
+   beyond a merged PR (`git rev-list`); and every leftover its summary names is in
+   `followups.d/` on `main` or in an open issue. Waking an old session costs a full
+   uncached reload of its context (often 250k to 750k tokens), and on a replaced machine
+   it can only answer "can't tell"; work it never pushed is lost with the machine either
+   way. A branch with commits no PR carries still fails (the 2026-11-22 census found
+   three: `calco-card-primitive` +6, the test-harness branch +3, playground styles +2),
+   and live or recent sessions still answer for themselves. First use: 18 A25a sessions
+   archived on 2026-11-22 on that evidence (owner's decision in the command center).
 4. **No live desk or scheduled task depends on it.** The command center, a desk
    session (both tagged `ui:pinned`), a session that is working now, and a session a
    scheduled task wakes (`list_triggers`, `persistent_session_id`) stay.
