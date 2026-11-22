@@ -16,6 +16,7 @@
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
+ *   PROBE=playground-scroll [ENGINE=chromium] [TRIALS=10] node scripts/ios-safari/probe.selftest.mjs   # the preview keeps a scroll across a window move
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -231,6 +232,70 @@ if (process.env.PROBE === 'present-narration') {
 	process.exit(failed ? 1 : 0);
 }
 
+if (process.env.PROBE === 'playground-scroll') {
+	// The Playground scroll probe, as run.mjs runs it, with a WHEEL where run.mjs drags a finger: Playwright has no touch
+	// drag. The page side (psPrepare, psAfter) is the same file. ENGINE=chromium runs it where the drop was first measured,
+	// which is how this probe shows it can fail: against a build without the guard in `applyWindow`, Chromium trials go red.
+	const PS = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
+	const engine = process.env.ENGINE === 'chromium' ? (await import('@playwright/test')).chromium : webkit;
+	const own = engine === webkit ? browser : await engine.launch();
+	const trials = Number(process.env.TRIALS ?? 5);
+	for (const { label, options } of [shapes[0], shapes.at(-1)]) {
+		const steps = [];
+		for (let i = 1; i <= trials; i++) {
+			// Chromium refuses WebKit's device descriptor, so it gets the viewport alone.
+			const context = await own.newContext(engine === webkit ? options : { viewport: options.viewport });
+			const page = await context.newPage();
+			const call = (expr) => page.evaluate(`${PS}\n${expr}`);
+			try {
+				await page.goto(`${BASE}/playground/?c=kpi&view=read`, { waitUntil: 'domcontentloaded' });
+				// ARM=drop plays the browser's move, as the unit test does: the first swap after the scroll puts the frame back
+				// where it started. Installed on the frame's prototype BEFORE psPrepare, so psPrepare's own hook wraps it and
+				// counts the drop. Green only where `applyWindow` writes the scroll back.
+				if (process.env.ARM === 'drop') {
+					await page.waitForFunction(() => document.getElementById('preview')?.contentDocument?.querySelector('.lattice'), null, { timeout: 150000 });
+					await page.evaluate(() => {
+						const win = document.getElementById('preview').contentWindow;
+						const native = win.Node.prototype.replaceChild;
+						win.Node.prototype.replaceChild = function (fresh, old) {
+							const y0 = win.scrollY;
+							const out = native.call(this, fresh, old);
+							if (window.__armDrop && win.scrollY > y0 - 1 && window.__armDrop.from < y0) {
+								window.__armWhere = `parent ${this.className || this.tagName}, old ${old.tagName}${old.hasAttribute?.('data-lv-ph') ? ' ph' : ''} lfT=${!!old.__lfT}, fresh lfT=${!!fresh.__lfT}`;
+								win.scrollTo({ top: window.__armDrop.from, behavior: 'instant' });
+								window.__armDrop = null;
+							}
+							return out;
+						};
+					});
+				}
+				const ready = await call(`psPrepare(${Number(process.env.BURN ?? 150)})`);
+				if (process.env.ARM === 'drop') await page.evaluate((from) => (window.__armDrop = { from }), ready.start.y);
+				// Mobile WebKit in Playwright takes no wheel: there a script scrolls the frame, which checks the page side only. A
+				// script's scroll carries no reader input, so the walk's re-land after the map opens rightly outranks it (the e2e
+				// spec's wheel note says the same); it waits for that land, where run.mjs's real finger drag need not.
+				if (engine === webkit && options.isMobile) {
+					await page.waitForFunction(() => document.documentElement.dataset.pgLand === 'done', null, { timeout: 30000 });
+					await page.evaluate((dy) => document.getElementById('preview').contentWindow.scrollBy(0, dy), 3 * ready.pane);
+				}
+				else {
+					await page.mouse.move(ready.drag.x, ready.drag.bottom);
+					await page.mouse.wheel(0, 3 * ready.pane);
+				}
+				const after = await call('psAfter()');
+				const where = await page.evaluate(() => window.__armWhere ?? '');
+				for (const s of after.steps) steps.push({ ...s, name: `trial ${i}: ${s.name}`, detail: `${s.detail}; drops ${after.drops.join(' ') || 'none'}${where ? `; arm hit ${where}` : ''}` });
+			} catch (e) {
+				steps.push({ name: `trial ${i}: the probe ran to the end`, pass: false, detail: String(e.message || e).split('\n')[0].slice(0, 300) });
+			}
+			await context.close();
+		}
+		report(`${label} (${engine === webkit ? 'webkit' : 'chromium'})`, 'playground-scroll-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: options.viewport?.width ?? '', steps });
+	}
+	if (own !== browser) await own.close();
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'present-keepalive') {
 	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
 	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.

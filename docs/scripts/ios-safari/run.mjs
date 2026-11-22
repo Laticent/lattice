@@ -4,7 +4,8 @@
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
- * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
+ * (PROBE=focus-sync), playground-scroll-probe.js, a finger drag over the Playground's preview across a window move
+ * (PROBE=playground-scroll), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
@@ -161,7 +162,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -1515,6 +1516,51 @@ async function runChatStorageProbe(id) {
  * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
  * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
  */
+/**
+ * THE PLAYGROUND SCROLL PROBE (PROBE=playground-scroll, playground-scroll-probe.js): a real finger drags the Playground's
+ * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
+ * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
+ * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 5),
+ * each with three upward drags, so the drag crosses at least one window move. A trial fails the suite.
+ */
+async function runPlaygroundScrollProbe(id) {
+	const probe = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
+	const burn = Number(process.env.PLAYGROUND_SCROLL_BURN_MS ?? 150);
+	const trials = Number(process.env.PLAYGROUND_SCROLL_TRIALS ?? 5);
+	const call = (expr) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`,
+			args: [],
+		});
+	const drag = async (x, y1, y2) => {
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x, y: y2 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+	};
+	const result = { ua: '', width: 0, burn, steps: [], trials: [], ok: false };
+	try {
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
+		for (let i = 1; i <= trials; i++) {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?c=kpi&view=read&t=${i}` });
+			const ready = await call(`psPrepare(${burn})`);
+			if (ready?.error) throw new Error(`trial ${i}: ${ready.error}`);
+			result.width = ready.width;
+			for (let d = 0; d < 3; d++) await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
+			const after = await call('psAfter()');
+			if (after?.error) throw new Error(`trial ${i}: ${after.error}`);
+			result.trials.push({ trial: i, start: ready.start, y: after.y, pane: after.pane, rail: after.rail, bar: after.bar, inView: after.inView, drops: after.drops, ok: after.ok });
+			console.log(`${LABEL}: trial ${i}: ${after.ok ? 'ok' : 'FAIL'} scrollY ${after.y} (pane ${after.pane}), rail ${after.rail + 1}, bar ${after.bar}, in view ${after.inView}, swaps that dropped the scroll: ${after.drops.length ? after.drops.join(' ') : 'none'}`);
+			for (const s of after.steps) result.steps.push({ ...s, name: `trial ${i}: ${s.name}` });
+		}
+		result.ok = result.trials.length === trials && result.trials.every((t) => t.ok);
+	} catch (e) {
+		result.error = String(e);
+	}
+	return result;
+}
+
 async function runFocusSyncProbe(id) {
 	const probe = fs.readFileSync(path.join(here, 'focus-sync-probe.js'), 'utf8');
 	const burn = Number(process.env.FOCUS_SYNC_BURN_MS ?? 150);
