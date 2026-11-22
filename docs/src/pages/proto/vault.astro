@@ -63,7 +63,7 @@
 				journal: async () => (await ready).journal(),
 				deviceId: async () => (await ready).deviceId(),
 				recovery: async () => (await ready).recovery,
-				writePaths: async () => [...(await ready).writePaths],
+				writePaths: async () => ({ ...(await ready).writePaths }),
 				probe: async () => (await ready).probeWritePath(),
 				settled: async () => (await ready).settled(),
 			};

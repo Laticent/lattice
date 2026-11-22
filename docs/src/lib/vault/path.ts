@@ -2,13 +2,17 @@ import { normalizeSourceText } from '../normalize-source-text';
 import { type Kind, VaultError } from './types';
 
 const MAX_PATH = 1024;
-// C0 controls, DEL and a backslash: a path that holds one cannot round-trip through Drive and a desktop file system alike.
+// Characters a Windows, macOS or Linux folder (and Drive) cannot all hold: C0 controls, DEL, `\` and `<>:"|?*`.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control range is exactly what this rejects
-const BAD_CHAR = /[\u0000-\u001f\u007f\\]/;
+const BAD_CHAR = /[\u0000-\u001f\u007f\\<>:"|?*]/;
+// Windows reserves these names with any extension (`NUL.md`), case-insensitively.
+const RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)/i;
 
 /**
  * The one spelling of a vault path: `/`-separated, no leading or trailing slash, NFC, no empty, `.` or `..`
- * segment. The root directory is `''`. Throws `invalid-path`.
+ * segment, and only names every desktop file system can hold. The root directory is `''`. Throws
+ * `invalid-path`. NOT checked yet: two paths that differ only in case (`Q3.md`, `q3.md`), which collide on
+ * macOS and Windows; the desktop host (slice 10) owns that rule.
  */
 export function normalizePath(path: string, { dir = false }: { dir?: boolean } = {}): string {
 	if (typeof path !== 'string') throw new VaultError('invalid-path', 'vault: a path is a string');
@@ -21,6 +25,8 @@ export function normalizePath(path: string, { dir = false }: { dir?: boolean } =
 	if (BAD_CHAR.test(p)) throw new VaultError('invalid-path', `vault: ${JSON.stringify(path)} holds a control character or a backslash`);
 	for (const seg of p.split('/')) {
 		if (seg === '' || seg === '.' || seg === '..') throw new VaultError('invalid-path', `vault: ${JSON.stringify(path)} has an empty, "." or ".." segment`);
+		if (RESERVED.test(seg)) throw new VaultError('invalid-path', `vault: ${JSON.stringify(seg)} is a name Windows reserves`);
+		if (/[. ]$/.test(seg)) throw new VaultError('invalid-path', `vault: ${JSON.stringify(seg)} ends in a dot or a space, which Windows drops`);
 	}
 	return p;
 }
@@ -69,7 +75,7 @@ export function kindOf(path: string): Kind {
 
 /** Extensions whose bytes are author text, so they cross the boundary normalized. SVG is markup an editor
  *  saves too, but it is an image the vault stores byte for byte. */
-const TEXT_EXT = new Set(['md', 'markdown', 'txt', 'csv', 'yaml', 'yml', 'css', 'json']);
+const TEXT_EXT = new Set(['md', 'markdown', 'txt', 'csv', 'tsv', 'yaml', 'yml', 'css', 'json']);
 
 export function isTextPath(path: string): boolean {
 	return TEXT_EXT.has(ext(path));
@@ -79,12 +85,13 @@ const encoder = new TextEncoder();
 
 /**
  * The bytes a write stores. THE VAULT IS A MARKDOWN INGEST
- * (engineering/decisions/2026-08-04-line-endings-lf-boundaries.md): a string, or the bytes of a text
- * path, is stored with LF line endings and no leading BOM, through the shared `normalizeSourceText`.
- * Bytes that are not valid UTF-8 are stored as given; any other path is stored byte for byte.
+ * (engineering/decisions/2026-08-04-line-endings-lf-boundaries.md): a text path's content, given as a
+ * string or as bytes, is stored with LF line endings and no leading BOM, through the shared
+ * `normalizeSourceText`. Bytes that are not valid UTF-8 are stored as given. Any other path is stored as
+ * given (a string as its UTF-8), so a string and its bytes always store as the same blob.
  */
 export async function toBytes(path: string, data: Blob | string | Uint8Array | ArrayBuffer): Promise<Uint8Array> {
-	if (typeof data === 'string') return encoder.encode(normalizeSourceText(data));
+	if (typeof data === 'string') return encoder.encode(isTextPath(path) ? normalizeSourceText(data) : data);
 	let bytes: Uint8Array;
 	if (data instanceof Uint8Array) bytes = new Uint8Array(data);
 	else if (data instanceof ArrayBuffer) bytes = new Uint8Array(data.slice(0));

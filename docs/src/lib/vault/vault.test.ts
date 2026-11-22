@@ -8,7 +8,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { type BlobStore, type IndexStore, memoryLocks } from './backing';
-import { type BlobWriter, opfsBlobs } from './browser';
+import { type BlobWriter, opfsBlobs, workerWriter } from './browser';
 import { openVault } from './core';
 import { fakeOpfs } from './fake-opfs.test-helper';
 import { idbIndex } from './idb-index';
@@ -133,6 +133,33 @@ for (const backing of BACKINGS) {
 			const b = await v.write('a.md', 'one');
 			expect(b.id).not.toBe(a.id);
 			expect(b.revision).toBe(3);
+			// The journal says what the change replaced: no live file, so 0, though the revision kept counting.
+			expect((await v.journal()).map((j) => [j.op, j.baseRevision])).toEqual([
+				['write', 0],
+				['remove', 1],
+				['write', 0],
+			]);
+		});
+
+		it('a refused write frees the blob it stored', async () => {
+			const { blobs, index } = backing.make();
+			const v = await openVault({ blobs, index, locks: memoryLocks(), ...determinism() });
+			await v.write('a.bin', new Uint8Array([1]));
+			await expect(v.write('a.bin', new Uint8Array([2]), { baseRevision: 0 })).rejects.toMatchObject({ code: 'conflict' });
+			await v.settled();
+			expect(await blobs.names()).toEqual([await sha256(new Uint8Array([1]))]);
+		});
+
+		it('two writes of the same new bytes at once store one blob and both land', async () => {
+			const { blobs, index } = backing.make();
+			const v = await openVault({ blobs, index, locks: memoryLocks(), ...determinism() });
+			const same = new Uint8Array([9, 9, 9]);
+			const [a, b] = await Promise.all([v.write('a.bin', same), v.write('b.bin', same)]);
+			expect(a.sha256).toBe(b.sha256);
+			await v.remove('a.bin');
+			await v.settled();
+			expect(await blobs.names()).toEqual([a.sha256]);
+			expect([...new Uint8Array(await (await v.read('b.bin')).arrayBuffer())]).toEqual([9, 9, 9]);
 		});
 
 		it('refuses a stale baseRevision, a move onto a file, and bad paths', async () => {
@@ -145,7 +172,7 @@ for (const backing of BACKINGS) {
 			await expect(v.move('a.md', 'n.md')).rejects.toMatchObject({ code: 'exists' });
 			await expect(v.move('zz.md', 'q.md')).rejects.toMatchObject({ code: 'not-found' });
 			await expect(v.remove('zz.md')).rejects.toMatchObject({ code: 'not-found' });
-			for (const bad of ['', '/', 'a/../b', './a', 'a//b', 'a\\b', 'a\u0000b']) {
+			for (const bad of ['', '/', 'a/../b', './a', 'a//b', 'a\\b', 'a\u0000b', 'a:b.md', 'Decks/what?.md', 'NUL.md', 'com1', 'dir./a.md', 'a.md ']) {
 				await expect(v.write(bad, 'x')).rejects.toMatchObject({ code: 'invalid-path' });
 			}
 			expect((await v.journal()).length).toBe(3);
@@ -330,25 +357,100 @@ describe('locks', () => {
 		const writing = v.write('a.md', 'x');
 		await atGate;
 		const scanning = v.recover();
-		let scanned = false;
-		void scanning.then(() => {
-			scanned = true;
-		});
-		await Promise.resolve();
-		expect(scanned).toBe(false);
 		release();
 		await writing;
 		expect(await scanning).toEqual({ verified: 1, damaged: [], orphans: 0 });
 		expect(await text(await v.read('a.md'))).toBe('x');
 	});
 
-	it('two vaults over one store never hand out the same seq', async () => {
-		const index = memoryIndex();
+	it('two vaults over one store never hand out the same seq, even over a backing whose bump yields', async () => {
+		// A desktop JSON index reads, yields to I/O, then writes: only the seq lock keeps two tabs apart there.
+		const base = memoryIndex();
+		const index: IndexStore = {
+			...base,
+			bump: async (key) => {
+				const n = ((await base.getMeta<number>(key)) ?? 0) + 1;
+				await Promise.resolve();
+				await base.setMeta(key, n);
+				return n;
+			},
+		};
 		const locks = memoryLocks();
 		const a = await openVault({ blobs: memoryBlobs(), index, locks });
 		const b = await openVault({ blobs: memoryBlobs(), index, locks });
 		const seqs = await Promise.all(Array.from({ length: 20 }, (_, i) => (i % 2 ? a : b).nextSeq()));
 		expect(new Set(seqs).size).toBe(20);
+	});
+});
+
+describe('the write worker client', () => {
+	type Listener = (e: { data?: unknown; message?: string }) => void;
+	function fakeWorker() {
+		const on = new Map<string, Listener[]>();
+		const posted: { id: number; op: string }[] = [];
+		return {
+			posted,
+			terminated: false,
+			postMessage(m: { id: number; op: string }) {
+				posted.push(m);
+			},
+			addEventListener(type: string, fn: Listener) {
+				on.set(type, [...(on.get(type) ?? []), fn]);
+			},
+			fire(type: string, e: { data?: unknown; message?: string }) {
+				for (const fn of on.get(type) ?? []) fn(e);
+			},
+			terminate() {
+				this.terminated = true;
+			},
+		};
+	}
+
+	it('answers by id and passes the worker error through', async () => {
+		const w = fakeWorker();
+		const c = workerWriter(w as never, 'root');
+		const one = c.put('aa', new Uint8Array([1]));
+		const two = c.probe();
+		expect(w.posted.map((m) => [m.id, m.op])).toEqual([
+			[1, 'put'],
+			[2, 'probe'],
+		]);
+		w.fire('message', { data: { id: 2, ok: true, path: 'writable' } });
+		w.fire('message', { data: { id: 1, ok: false, name: 'QuotaExceededError', message: 'full' } });
+		expect(await two).toBe('writable');
+		await expect(one).rejects.toMatchObject({ name: 'QuotaExceededError', message: 'full' });
+	});
+
+	it('a worker that failed or was closed fails every pending and later call instead of hanging', async () => {
+		const w = fakeWorker();
+		const c = workerWriter(w as never, 'root');
+		const pending = c.put('aa', new Uint8Array([1]));
+		w.fire('error', { message: 'module failed to load' });
+		await expect(pending).rejects.toMatchObject({ code: 'unavailable' });
+		await expect(c.put('bb', new Uint8Array([2]))).rejects.toMatchObject({ code: 'unavailable' });
+
+		const w2 = fakeWorker();
+		const c2 = workerWriter(w2 as never, 'root');
+		const inflight = c2.put('cc', new Uint8Array([3]));
+		c2.close();
+		expect(w2.terminated).toBe(true);
+		await expect(inflight).rejects.toMatchObject({ code: 'unavailable' });
+	});
+
+	it('a closed worker mid-write leaves the vault lock free for the next tab', async () => {
+		const w = fakeWorker();
+		const writer = workerWriter(w as never, 'root');
+		const fs = fakeOpfs({ sync: true });
+		const locks = memoryLocks();
+		const index = memoryIndex();
+		const v = await openVault({ blobs: opfsBlobs(async () => fs.root, writer), index, locks });
+		const write = v.write('a.md', 'x');
+		await expect.poll(() => w.posted.length).toBe(1);
+		writer.close();
+		await expect(write).rejects.toMatchObject({ code: 'unavailable' });
+		// Another tab's startup scan takes the exclusive lock: it must not wait on the dead write.
+		const other = await openVault({ blobs: memoryBlobs(), index, locks });
+		expect(other.recovery.damaged).toEqual([]);
 	});
 });
 

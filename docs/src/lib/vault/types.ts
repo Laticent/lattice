@@ -23,21 +23,23 @@ export interface Entry {
 	readonly revision: number;
 	/** Only in a `list(…, { tombstones: true })` result: the path was removed or moved away. */
 	readonly deleted?: true;
+	/** The startup scan found this file's bytes missing or different from its record; a read refuses it. */
+	readonly damaged?: true;
 }
 
 /** The index's record for a path: an entry, a tombstone, or an entry the startup scan found damaged. */
-export interface Rec extends Entry {
-	// `deleted` (from Entry) marks a tombstone: kept so sync can carry the delete.
-	/** The startup scan found the bytes missing or different from the journaled sha256. */
-	readonly damaged?: true;
-}
+/** The index's record. `deleted` marks a tombstone, kept so sync can carry the delete; `damaged` is set by the scan. */
+export type Rec = Entry;
 
 export type Op = 'write' | 'move' | 'remove';
 
 /**
- * One line of the sync journal (§6.4). `seq` is the store's own order. `baseRevision` is the path's
- * revision the change was made against (0 for a new path). `sha256` is null for a remove. A move
- * carries `from`; its `path` is the destination.
+ * One line of the sync journal (§6.4). `seq` is the store's own order. `sha256` is null for a remove.
+ * A move carries `from`; its `path` is the destination.
+ *
+ * `baseRevision` is the revision of the live file the change replaced: for a write or a remove, the
+ * file at `path` (0 when there was none, including a path whose last record is a tombstone); for a
+ * move, the file at `from`. It is what `Meta.baseRevision` is checked against.
  */
 export interface JournalRecord {
 	readonly seq: number;
@@ -76,6 +78,11 @@ export interface ListOptions {
 /** The interface every host backs (§6.2). */
 export interface Vault {
 	list(dir: string, options?: ListOptions): Promise<Entry[]>;
+	/**
+	 * The bytes. In the browser this is a file-backed Blob read lazily: read it (or copy it) before the
+	 * path is rewritten or removed, because the old bytes are freed then and a later read of the Blob
+	 * fails with the engine's NotReadableError.
+	 */
 	read(path: string): Promise<Blob>;
 	write(path: string, data: Blob | string | Uint8Array | ArrayBuffer, meta?: Meta): Promise<Entry>;
 	move(from: string, to: string): Promise<Entry>;
@@ -103,7 +110,9 @@ export interface VaultHandle extends Vault {
 	recover(): Promise<RecoveryReport>;
 	/** Journal records after `seq`, oldest first. */
 	journal(afterSeq?: number): Promise<JournalRecord[]>;
-	/** Drop journal records up to and including `seq` (the sync engine calls this once they are pushed). */
+	/** Drop journal records up to and including `seq` (the sync engine calls this once they are pushed).
+	 *  A trimmed record is no longer re-hashed by the next startup scan, so call `recover()` first when the
+	 *  records may be newer than the last scan. */
 	trimJournal(throughSeq: number): Promise<void>;
 	/** This device's id. Stored apart from every file, so a backup built from `list` + `read` never holds it. */
 	deviceId(): Promise<string>;

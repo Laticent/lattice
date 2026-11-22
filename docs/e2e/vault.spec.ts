@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import { type BrowserContext, test as base, expect, type Page } from '@playwright/test';
 
 // The storage vault on real engines (slice 1, engineering/decisions/2026-11-22-local-first-drive-storage.md §10).
@@ -17,7 +18,8 @@ import { type BrowserContext, test as base, expect, type Page } from '@playwrigh
 const test = base.extend<{ profile: BrowserContext }>({
 	profile: async ({ playwright, browserName, baseURL }, use, testInfo) => {
 		const u = testInfo.project.use;
-		const ctx = await playwright[browserName].launchPersistentContext(testInfo.outputPath('profile'), {
+		const dir = testInfo.outputPath('profile');
+		const ctx = await playwright[browserName].launchPersistentContext(dir, {
 			baseURL,
 			viewport: u.viewport,
 			userAgent: u.userAgent,
@@ -27,6 +29,8 @@ const test = base.extend<{ profile: BrowserContext }>({
 		});
 		await use(ctx);
 		await ctx.close();
+		// A profile is ~15 MB with lock symlinks; leaving it races any tool that walks the tree.
+		await rm(dir, { recursive: true, force: true });
 	},
 });
 
@@ -45,7 +49,7 @@ type Harness = {
 	journal(): Promise<{ op: string; path: string }[]>;
 	deviceId(): Promise<string>;
 	recovery(): Promise<{ verified: number; damaged: string[]; orphans: number }>;
-	writePaths(): Promise<string[]>;
+	writePaths(): Promise<Record<string, number>>;
 	probe(): Promise<string>;
 	settled(): Promise<void>;
 };
@@ -77,8 +81,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 			return window.vaultHarness.writePaths();
 		});
 		// 1 deck + 1 MB image + 100 notes, each blob written once, each by the worker's sync handle.
-		expect(smalls).toHaveLength(102);
-		expect(new Set(smalls)).toEqual(new Set(['sync-access-handle']));
+		expect(smalls).toEqual({ 'sync-access-handle': 102, writable: 0 });
 		const deviceId = await page.evaluate(() => window.vaultHarness.deviceId());
 
 		await page.reload();
@@ -95,7 +98,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 				deviceId: await h.deviceId(),
 				recovery: await h.recovery(),
 				// Nothing was written this load: the reads came from OPFS, not from a worker round trip.
-				writes: (await h.writePaths()).length,
+				writes: await h.writePaths(),
 			};
 		});
 		expect(after.deck, browserName).toBe('---\ntheme: cuoio\n---\n# Q3 review\n');
@@ -107,7 +110,7 @@ test.describe('storage vault @crosswidth @webkit-phone @gecko', () => {
 		expect(after.deviceId).toBe(deviceId);
 		// The first load after the writes hashes every journaled blob against its last journaled sha256.
 		expect(after.recovery).toEqual({ verified: 102, damaged: [], orphans: 0 });
-		expect(after.writes).toBe(0);
+		expect(after.writes).toEqual({ 'sync-access-handle': 0, writable: 0 });
 		expect(big.bytes).toBe(1024 * 1024);
 	});
 

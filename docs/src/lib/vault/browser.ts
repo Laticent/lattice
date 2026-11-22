@@ -25,6 +25,7 @@ interface WorkerLike {
 	postMessage(m: unknown, transfer?: Transferable[]): void;
 	addEventListener(type: 'message', fn: (e: MessageEvent) => void): void;
 	addEventListener(type: 'error', fn: (e: ErrorEvent) => void): void;
+	addEventListener(type: 'messageerror', fn: (e: MessageEvent) => void): void;
 	terminate(): void;
 }
 
@@ -32,6 +33,14 @@ interface WorkerLike {
 export function workerWriter(worker: WorkerLike, root: string = VAULT_ROOT): BlobWriter {
 	let next = 0;
 	const pending = new Map<number, { resolve: (p: WritePath) => void; reject: (e: Error) => void }>();
+	// A worker that failed or was closed never answers again. Every pending and later call must fail
+	// rather than hang: a write that never settles holds the vault lock, and that wedges every tab.
+	let dead: VaultError | null = null;
+	const die = (err: VaultError) => {
+		dead ??= err;
+		for (const p of pending.values()) p.reject(dead);
+		pending.clear();
+	};
 	worker.addEventListener('message', (e: MessageEvent) => {
 		const d = e.data as { id: number; ok: boolean; path?: WritePath; name?: string; message?: string };
 		const p = pending.get(d.id);
@@ -40,13 +49,14 @@ export function workerWriter(worker: WorkerLike, root: string = VAULT_ROOT): Blo
 		if (d.ok && d.path) p.resolve(d.path);
 		else p.reject(Object.assign(new Error(d.message ?? 'vault: the worker write failed'), { name: d.name ?? 'Error' }));
 	});
-	worker.addEventListener('error', (e: ErrorEvent) => {
-		const err = new VaultError('unavailable', `vault: the write worker failed: ${e.message}`);
-		for (const p of pending.values()) p.reject(err);
-		pending.clear();
-	});
+	worker.addEventListener('error', (e: ErrorEvent) => die(new VaultError('unavailable', `vault: the write worker failed: ${e.message}`)));
+	worker.addEventListener('messageerror', () => die(new VaultError('unavailable', 'vault: the write worker sent a message that could not be read')));
 	const call = (msg: Record<string, unknown>, transfer: Transferable[] = []) =>
 		new Promise<WritePath>((resolve, reject) => {
+			if (dead) {
+				reject(dead);
+				return;
+			}
 			const id = ++next;
 			pending.set(id, { resolve, reject });
 			worker.postMessage({ ...msg, id, root }, transfer);
@@ -58,23 +68,26 @@ export function workerWriter(worker: WorkerLike, root: string = VAULT_ROOT): Blo
 			return call({ op: 'put', sha, bytes: own }, [own.buffer]);
 		},
 		probe: () => call({ op: 'probe' }),
-		close: () => worker.terminate(),
+		close: () => {
+			worker.terminate();
+			die(new VaultError('unavailable', 'vault: the write worker is closed'));
+		},
 	};
 }
 
 export interface OpfsBlobStore extends BlobStore {
-	/** The write path each `put` took, in order: what the e2e reads to prove the worker path per engine. */
-	readonly paths: WritePath[];
+	/** How many `put`s took each write path: what the e2e reads to prove the worker path per engine. */
+	readonly paths: Record<WritePath, number>;
 }
 
 /** Blobs in OPFS under `root`: written by `writer`, read and listed from this thread. */
 export function opfsBlobs(root: () => Promise<FileSystemDirectoryHandle>, writer: BlobWriter): OpfsBlobStore {
-	const paths: WritePath[] = [];
+	const paths: Record<WritePath, number> = { 'sync-access-handle': 0, writable: 0 };
 	const isMissing = (err: unknown) => (err as Error)?.name === 'NotFoundError';
 	return {
 		paths,
 		async put(sha, bytes) {
-			paths.push(await writer.put(sha, bytes));
+			paths[await writer.put(sha, bytes)]++;
 		},
 		async get(sha) {
 			try {
@@ -122,8 +135,8 @@ export function browserVaultSupported(): boolean {
 }
 
 export interface BrowserVault extends VaultHandle {
-	/** The OPFS write path each blob write took this session. */
-	readonly writePaths: readonly WritePath[];
+	/** How many blob writes took each OPFS write path this session. */
+	readonly writePaths: Readonly<Record<WritePath, number>>;
 	/** Ask the worker which write path this engine offers. */
 	probeWritePath(): Promise<WritePath>;
 }
@@ -149,16 +162,26 @@ export async function openBrowserVault(opts: Partial<OpenOptions> & { dbName?: s
 	const worker = new Worker(new URL('./opfs.worker.ts', import.meta.url), { type: 'module', name: 'lattice-vault' });
 	const writer = workerWriter(worker, rootName);
 	const blobs = opfsBlobs(root, writer);
-	const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel(opts.dbName ?? VAULT_DB) : null;
-	const vault = await openVault({
-		blobs,
-		index: idbIndex(opts.dbName ?? VAULT_DB),
-		channel,
-		...opts,
-		onClose: () => {
-			writer.close();
-			opts.onClose?.();
-		},
-	});
+	const channel = opts.channel !== undefined ? opts.channel : typeof BroadcastChannel === 'function' ? new BroadcastChannel(opts.dbName ?? VAULT_DB) : null;
+	const index = opts.index ?? idbIndex(opts.dbName ?? VAULT_DB);
+	let vault: VaultHandle;
+	try {
+		vault = await openVault({
+			blobs,
+			...opts,
+			index,
+			channel,
+			onClose: () => {
+				writer.close();
+				opts.onClose?.();
+			},
+		});
+	} catch (err) {
+		// The startup scan failed: nothing will call close(), so release what this call opened.
+		writer.close();
+		channel?.close();
+		index.close();
+		throw err;
+	}
 	return Object.assign(vault, { writePaths: blobs.paths, probeWritePath: () => writer.probe() });
 }

@@ -42,7 +42,8 @@ export interface OpenOptions {
 }
 
 function toEntry(r: Rec): Entry {
-	return { path: r.path, id: r.id, kind: r.kind, bytes: r.bytes, sha256: r.sha256, mtime: r.mtime, revision: r.revision };
+	const e: Entry = { path: r.path, id: r.id, kind: r.kind, bytes: r.bytes, sha256: r.sha256, mtime: r.mtime, revision: r.revision };
+	return r.damaged ? { ...e, damaged: true } : e;
 }
 
 const isLive = (r: Rec | undefined): r is Rec & { deleted?: undefined } => !!r && !r.deleted;
@@ -190,13 +191,15 @@ export async function openVault(opts: OpenOptions): Promise<VaultHandle> {
 				await store(sha, bytes);
 				try {
 					return await index.apply([p], ([cur]): Plan<{ rec: Rec; old: Rec | undefined; changed: boolean }> => {
+						// `revision` keeps counting through a tombstone; `liveBase` is what the change replaced (0: no live file).
 						const base = cur?.revision ?? 0;
-						if (meta.baseRevision !== undefined && (isLive(cur) ? base : 0) !== meta.baseRevision) {
-							throw new VaultError('conflict', `vault: ${p} is at revision ${isLive(cur) ? base : 0}, not ${meta.baseRevision}`);
+						const liveBase = isLive(cur) ? base : 0;
+						if (meta.baseRevision !== undefined && liveBase !== meta.baseRevision) {
+							throw new VaultError('conflict', `vault: ${p} is at revision ${liveBase}, not ${meta.baseRevision}`);
 						}
 						if (isLive(cur) && !cur.damaged && cur.sha256 === sha && cur.kind === kind) return { puts: [], journal: [], result: { rec: cur, old: cur, changed: false } };
 						const rec: Rec = { path: p, id: isLive(cur) ? cur.id : randomId(), kind, bytes: bytes.byteLength, sha256: sha, mtime: now(), revision: base + 1 };
-						return { puts: [rec], journal: [{ path: p, id: rec.id, op: 'write', baseRevision: base, sha256: sha }], result: { rec, old: cur, changed: true } };
+						return { puts: [rec], journal: [{ path: p, id: rec.id, op: 'write', baseRevision: liveBase, sha256: sha }], result: { rec, old: cur, changed: true } };
 					});
 				} catch (err) {
 					release([sha]);
