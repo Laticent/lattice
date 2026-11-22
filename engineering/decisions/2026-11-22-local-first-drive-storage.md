@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Local-first storage with Google Drive sync, decided by the owner on 2026-11-22. The Studio's data moves into one local "vault" shaped like a folder (OPFS plus an IndexedDB index in the browser, the real file system in the desktop app), and a sync engine mirrors that folder to a Lattice/ folder in the user's Drive. v1 signs in with Google Identity Services' browser token model, so there is no server and no client secret, and Route B stands. Scope is drive.file. A deck is a readable Markdown file plus per-device Yjs update files, so two devices never conflict. There is no migration machinery: the Studio moves local data into the vault once, behind one automatic backup, and connecting Drive runs a first sync. The Library is extended, and a design-competition run picks its layout.
+summary: Local-first storage with Google Drive sync, decided by the owner on 2026-11-22. The Studio's data moves into one local "vault" shaped like a folder (OPFS plus an IndexedDB index in the browser, the real file system in the desktop app), and a sync engine mirrors that folder to a Lattice/ folder in the user's Drive. Development and testing sign in with Google Identity Services' browser token model; a stateless Worker broker is required before sync is offered to the public. Scope is drive.file. A deck is a readable Markdown file plus per-device Yjs update files, so two devices never conflict; Filo stays the one undo history and owns versions. There is no migration machinery: the Studio moves local data into the vault once, behind one automatic backup, and connecting Drive runs a first sync. The Library is extended with the layout of design-competition Track 4, which the owner picked and the adversarial trio hardened.
 ---
 
 # Local-first storage, synced to Google Drive
@@ -35,15 +35,16 @@ summary: Local-first storage with Google Drive sync, decided by the owner on 202
    as-is. Beside it, each device writes its own small Yjs update files, and every device merges all of them, so two
    devices never conflict (§6.4). Assets never conflict, because a file never changes after it is written. Chats sync
    as Yjs documents (#3147), which merge by design.
-4. **Auth: Google Identity Services in the browser.** v1 uses Google Identity Services' token model. There is no
-   server, and the client secret is not used anywhere, because this flow never needs it. Route B stands unchanged. The
-   access token lasts about an hour and lives in memory only. After it expires, the first user click renews it (a
-   Google popup flashes and closes), and sync catches up. Local saves never wait on this. A stateless broker on a
-   Cloudflare Worker stays a documented, optional upgrade for later, behind the same `getAccessToken()` seam (§4.2).
+4. **Auth: Google Identity Services now, the broker before launch.** Development and testing use Google Identity
+   Services' token model, which needs no server and no client secret. The access token lasts about an hour and lives
+   in memory only, inside an isolated context (§9.2). Only a storage click renews it: the account chip, Resume, Sync
+   now, Add from Drive, Review, or opening the Library. An editor click never renews. Local saves never wait on this.
+   A stateless broker on a Cloudflare Worker, behind the same `getAccessToken()` seam, is **required before sync is
+   offered to the public** (§4.2).
 5. **Scope: `drive.file`.** Lattice sees only the files it created or the user opened with it. Google classes this
    scope as non-sensitive, so it needs brand verification only, not the restricted-scope security audit.
 6. **The Library becomes the front door.** It gains Decks, Fonts and Audio sections, a sync badge on every item, an
-   account chip with sync status, and a conflict sheet.
+   account chip with sync status, and a per-slide review for outside edits.
 
 ## 2. The audit: what exists (read 2026-11-22, main at `7660f9b`)
 
@@ -180,18 +181,25 @@ loopback redirect, PKCE, and the refresh token in the OS keychain (`2354-p2`). G
 "cannot keep secrets confidential", so the desktop client's secret ships in the app by design. That needs a second
 OAuth client, of the Desktop type, which the owner creates when the desktop slice starts.
 
-### 4.2 Decision: (a) for v1; (c) optional later
+### 4.2 Decision: (a) for development and testing; (c) required before public launch
 
-**v1 ships (a).** The Studio asks Google Identity Services for an access token on the user's Connect click and keeps
-it in memory. When the token expires, sync pauses and the Library shows "Resume sync". The next click renews the token
-(a Google popup flashes and closes) and sync catches up. Local saves never wait on a token, so nothing local is lost.
-This needs no server and no client secret, and Route B stands unchanged.
+**Development and testing run on (a).** The Studio asks Google Identity Services for an access token on the user's
+Connect click and keeps it in memory. When the token expires, sync pauses. **Only a storage click renews it**: the
+account chip, Resume, Sync now, Add from Drive, Review, or opening the Library. An editor click never renews, so a
+Google popup never interrupts writing. When the user asks for a different Google account, the Studio asks before it
+uploads anything (§6.3, Account). Local saves never wait on a token, so nothing local is lost.
 
-**(c) is the upgrade path.** If a click after every hour proves too much friction, (c) renews in the background:
-after a reload, while a tab sits open overnight, on a phone. It keeps every property Route B protected: no accounts,
-no database, no user data on any server. It ships behind the same `getAccessToken()` seam, so no caller changes.
+**While sync is paused, the warning grows with time.**
 
-**What the broker would do** (`auth.lattice.style`, a Cloudflare Worker, about 100 lines):
+- The calm status dot turns into the loud sync row once edits have waited a set number of hours, and sooner on iOS.
+- A `beforeunload` guard warns when the tab closes with changes waiting and no valid token.
+- On iOS, a backup nudge appears when `navigator.storage.persisted()` is false and changes are waiting.
+
+**(c) is required before sync is offered to the public.** It renews in the background: after a reload, while a tab
+sits open overnight, on a phone. It keeps every property Route B protected: no accounts, no database, no user data on
+any server. It ships behind the same `getAccessToken()` seam, so no caller changes.
+
+**What the broker does** (`auth.lattice.style`, a Cloudflare Worker, about 100 lines):
 
 1. `/auth/callback` on `lattice.style` is a static page. Google redirects there with `?code=…&state=…`. The page checks
    `state` against the one it stored, then POSTs the code and its PKCE verifier to `auth.lattice.style/exchange`. PKCE
@@ -223,6 +231,7 @@ cross-site, so the cookie becomes a third-party cookie that Safari blocks, and (
     `https//`. The popup flow does not use the redirect; it stays for the later broker or an iOS redirect fallback.
 - **Before public launch:** verify `lattice.style` in Search Console, give the consent screen a home page and a
   privacy policy on `lattice.style` (slice 5 writes the policy page), then **publish the app to "In production"**.
+  Publishing "In production" is a gate before slice 9 (the broker) or slice 10 (desktop).
 
 ## 5. Scope (axis B)
 
@@ -251,20 +260,20 @@ Lattice/
     Images/  Videos/  Audio/  Fonts/  Documents/
     Themes/  Components/  Finishes/  Motion/
   .lattice/                             Lattice's own records; safe to ignore
-    index.json                          stable ids ↔ paths, titles, kinds, content hashes
+    index/<device-id>.json              stable ids ↔ paths, titles, kinds, content hashes; one file per device
     chats/<deck-id>.yjs                 after #3147
-    decks/<deck-id>/                    base.yjs, updates/, and named versions as Yjs snapshots (§6.4)
+    decks/<deck-id>/                    base-<sha256>.yjs, updates/, and the state-vector sidecar (§6.4)
     settings.json                       settings that roam (not per-device ones)
 ```
 
 - **Stable ids, human names.** A file's name is what a person reads, and a rename moves the file. Identity lives in
-  `index.json` and in Drive's `appProperties` (`latticeId`, `sha256`), so a rename on one device is not a delete plus
+  the per-device index files and in Drive's `appProperties` (`latticeId`, `sha256`), so a rename on one device is not a delete plus
   an add on the other.
 - **Plugins stay local in v1.** Plugin code runs on the device, and today it never leaves the browser
   (`S/plugin-library.ts`). Syncing code from Drive to another device is a trust decision of its own, so v1 does not
   make it.
-- **Undo history (Filo) and autosave versions stay local.** Drive keeps its own revision history of every file. Named
-  versions sync.
+- **Filo owns undo and versions.** Filo's undo history and autosave versions stay local. Named versions (Filo marks)
+  sync. Drive also keeps its own revision history of every file.
 - **Desktop:** the same tree lives at `~/Documents/Lattice/` (a user can choose another folder). If the user already
   runs Google Drive for desktop, they can point it at that folder, and the app's own sync can stay off.
 
@@ -307,6 +316,19 @@ IndexedDB journal. A worker drains the journal when online and a token is availa
 exponential backoff and jitter, honors `Retry-After` on 429 and `403 rateLimitExceeded`, and stops on a full Drive
 (`storageQuotaExceeded`), which the Library shows as a sync state, not a toast.
 
+**An honest "Synced".** The Library says "Synced" only when all of these hold: the journal is empty, the download
+queue is empty, the token is valid, and the engine has polled since the tab last gained focus.
+
+- **A startup scan** compares each local sha256 with the last-synced sha256. That catches a write that never reached
+  the journal.
+- **The `Lattice/` root** is chosen deterministically (the oldest folder the app created), and its id is stored.
+- **"Lattice/ folder missing or in trash"** is a sync state of its own.
+- **A deck edited offline after another device deleted it** comes back, or the Library asks.
+
+**Account.** Renewal passes the expected account (`login_hint` / `hint`). Before any upload or download, the engine
+compares the `permissionId` from `about.get` on every new token with the stored one. A mismatch pauses sync and shows
+the ask-before-upload prompt.
+
 **Conflicts:**
 
 | Kind | Rule |
@@ -315,7 +337,7 @@ exponential backoff and jitter, honors `Retry-After` on 429 and `403 rateLimitEx
 | Decks | **Yjs.** Each device writes only its own update files, and every device merges all of them, so a sync conflict cannot happen (§6.4). The **three-way merge** applies only to an outside edit of `deck.md`: Lattice diffs it against the last copy it wrote and applies the difference as a Yjs edit. Nothing is ever overwritten, the backup's rule |
 | Chats | Yjs: apply the remote update to the local doc, write the result. Merges by design |
 | Settings | Last writer wins per key, with a timestamp per key |
-| Deletes | A tombstone in `index.json`. Drive moves the file to the trash, so it stays recoverable for 30 days |
+| Deletes | A tombstone in the device's index file. Drive moves the file to the trash, so it stays recoverable for 30 days |
 
 **Writing to Drive safely.** Drive's v3 API has no compare-and-swap on file content. Before an upload, the engine reads
 the file's `headRevisionId`. If it is not the base, the engine merges first. A race between that check and the upload
@@ -350,15 +372,43 @@ Lattice/
 
 - **No sync conflict can happen.** Each device writes only its own update files, and every device merges all of
   them. Drive cannot append to a file, so the engine adds small files instead. An edit costs a few hundred bytes.
-- **Versions are Yjs snapshots.** Named versions become snapshots of the doc instead of full copies. The doc keeps
-  deleted text (`gc: false`), so any kept version can be restored.
-- **Compaction.** Periodically, a device folds the update files into `base.yjs` and trims history older than the oldest
-  kept version.
+- **Filo stays the one undo history and owns named versions (marks).** Yjs is only the format that carries changes
+  between devices. An incoming merge enters Filo as ONE step through the existing commit path, so the normal Undo
+  reverts it. The Studio runs no Yjs UndoManager (the `UNDO_STACK_RE` gate stays as it is), and there are no Yjs
+  snapshot versions.
+- **Local saves diff against the tab's base.** A local save reaches the shared doc as a diff against the base text
+  that tab last loaded (a three-way diff), never against the doc's current text. A stale tab, a checkpoint restore or
+  an AI apply therefore cannot delete newer text.
+- **Minimal line diffs.** The engine applies minimal line diffs, never delete-all plus insert, so history stays small.
 - **`deck.md` follows the doc.** Any device rewrites `deck.md` from the merged doc.
-- **Outside edits.** When `deck.md` has a Drive revision Lattice did not write, the engine diffs it against the last
-  copy Lattice wrote and applies the difference as a Yjs edit.
-- **Overlap with Filo.** Filo's undo history and Filo slice 6 (versions into marks) cover some of the same ground.
-  The sync-engine slice reconciles them.
+
+**Compaction and files:**
+
+- **Bases are immutable**, named by content hash: `base-<sha256>.yjs`.
+- **One device compacts**, elected by a lease.
+- **An update file is deleted only after** a base that contains it has been read back.
+- **Merging is lossless only** (`Y.mergeUpdates`); nothing trims history. A device holding updates from an older base
+  applies them as a text diff.
+- **At most one update file per journal drain**, and no more than one a minute.
+- **`seq` is assigned under a Web Lock**, so two tabs never write the same `<device-id>-<seq>`. A backup never includes
+  the device id.
+- **`index.json` becomes per-device files** (§6.1).
+- **If `.lattice/` is deleted in Drive**, the engine re-uploads it, and the delete never spreads to the decks.
+
+**Outside edits.** When `deck.md` has a Drive revision Lattice did not write, the engine adopts it as a Yjs edit:
+
+- **The stamp.** `appProperties` holds the sha256 of the normalized text plus the sha256 of the state vector, not the
+  vector itself: Drive limits each property to about 124 bytes. The full vector lives in a sidecar file under
+  `.lattice/decks/<id>/`.
+- **Normalized text.** Text is normalized (LF line endings, no BOM, per `2026-08-04-line-endings-lf-boundaries.md`)
+  before hashing and diffing.
+- **Idempotent adoption.** The diff is applied as a synthetic Yjs client whose id is derived from the Drive revision
+  id, so two devices adopting the same edit produce the same items and the text appears once. A claim decides only
+  which device shows the review.
+- **A chained base.** Each adoption's diff base is the previous one, so a second outside edit does not re-apply the
+  first. The engine walks every revision since the last known head, not just the head.
+- **The review's safety version.** The "Drive edit" version saved before a review is pinned (it never falls out of
+  the 25-version cap) and written into the vault, so it syncs.
 
 `.lattice` stays the format for **sharing one deck as one file**.
 
@@ -367,27 +417,23 @@ Lattice/
 **Sections:** All · **Decks** (new; takes over `3356-p1`) · Design (Themes, Components, Finishes, Motion) · Media
 (Images, Videos, **Audio**) · **Fonts** (new; files a deck can embed) · Files · Plugins (local only).
 
-**Sync state everywhere, quietly:**
+**The layout is Track 4.** The owner picked Track 4 of the `design-competition` run after seeing all five tracks built
+as real Studio prototypes; the judge's grafts are part of the pick. Real-Studio prototypes of all five tracks were
+shown to the owner on 2026-11-22 (owner-only evidence). The adversarial trio then hardened the pick (HARD RULE #25).
 
-- **The header** carries an account chip. Before connecting: "On this device" plus Connect. Once connected: the
-  avatar, then "Synced", "Syncing 3", "Offline, 2 waiting" or "Needs attention".
-- **Each item** carries a small badge drawn with the `--mark-*` masks (HARD RULE #29, no typed glyphs): on this device
-  only, synced, uploading, waiting, conflict. A badge appears only when the state is not "synced", so a calm Library
-  looks calm.
-- **Conflict sheet:** both versions side by side as rendered slides, with the merged text where a merge was possible,
-  and three choices: keep mine, keep theirs, keep both.
+- **`SyncChip`** in the top bar and the Library header, plus a sync row that shows only when needed.
+- **Icon-only `PillTabs`** in the dock (280–480 px) and on the phone, labeled in the 720 px sheet.
+- **Seven sections**, as listed above.
+- **One card column** in the dock and below 640 px.
+- **Per-item badges** drawn with the `--mark-*` masks (HARD RULE #29, no typed glyphs), shown only when an item is not
+  synced, so a calm Library looks calm.
+- **A per-slide review** for outside edits: typed rows, Lattice's side as the default, "Apply N choices", and Undo
+  through Filo.
 - **"Add from Drive…"**, the Picker (§5).
-- **Backup and restore move here** from the Workspace sheet, beside Import. They stay the escape hatch.
+- **Backup and Restore in a Dialog.** They stay the escape hatch.
+- **On the phone**, the sync state shows on the Menu button.
 
-**Widths.** At 1440 px: a section rail on the left, a grid, and a details pane on the right. At 820 px: the rail
-becomes a row of pills, and details open in a sheet. At 390 px: pills scroll sideways, the grid has two columns,
-details open in a bottom sheet, and the account chip shrinks to its avatar and a status dot. This extends the shadcn
-primitives and the existing `Library.tsx` (HARD RULE #15). It is not a new surface.
-
-**The layout comes from `design-competition`.** The owner chose to extend `Library.tsx` and to run
-`design-competition` on it. The section model above stays. A run of 5 tracks (about 17 agents, approved by the owner)
-proposes the layout: the sections, the badges, the account chip, the conflict sheet and the three widths. Its
-candidates go to the owner, and the adversarial trio hardens only the winner (HARD RULE #25).
+This extends the shadcn primitives and the existing `Library.tsx` (HARD RULE #15). It is not a new surface.
 
 ## 8. Migration (axis G)
 
@@ -408,24 +454,26 @@ The pre-paint deck list (localStorage) is rebuilt from the vault after the move,
 The promise changes from "nothing leaves this device" to **"your files live on your devices and, if you connect it,
 in your own Google Drive. Lattice has no server that stores them."** Every string in §2.5 is rewritten in the slice
 that ships Drive, not after it (HARD RULE #18: shipping sync while the copy says "sends nothing anywhere" would be a
-false claim we created). If the optional broker (§4.2) ever ships, the copy names it honestly: "a small Lattice service
+false claim we created). When the broker (§4.2) ships, the copy names it honestly: "a small Lattice service
 renews your Google sign-in; it never sees your files." Slice 5 adds a privacy-policy page, which Google's consent screen requires anyway.
 
 ### 9.2 Threat model (detail stays with the owner and the security desk)
 
-- **The token never touches storage.** The access token lives in page memory for up to an hour and is never
-  written to storage.
-- **Script injection (XSS) still matters.** A script running on `lattice.style` could read that token and use it for
-  up to an hour. The token reaches only the files Lattice created (`drive.file`). The defenses are the existing
-  sanitizers (HARD RULE #22); the preview frame's CSP, which already closes `connect-src`; and a site CSP added as a
-  `<meta>` tag with `connect-src` limited to the Google APIs. The preview frame is same-origin (#3421), so the frame's
-  CSP is the line that matters, and slice 5's trio tests it.
+- **The token never touches storage.** The access token lives in memory for up to an hour and is never written to
+  storage.
+- **Requirement: an isolated context for the token.** The Drive access token and every Drive call live in an isolated
+  context that page script and preview frames cannot reach (a dedicated worker, or a cross-origin sandboxed frame).
+  The page talks to it through a narrow message API.
+- **Requirement: a site CSP on the Studio.** The Studio page gets a site CSP (`followups.d/3277-p1-csp-frame-pages.md`,
+  or a Studio-specific policy) that restricts `connect-src`, `img-src`, `media-src` and `frame-src`. The existing
+  sanitizers (HARD RULE #22) stay.
+- **Both requirements are prerequisites of slice 5.** Detail is held by the owner and the security desk.
 - **Revocation.** Revoking access from the Google account page makes the next Drive call fail. The Library shows
   "Reconnect", and local work continues.
 - **Sign-out** calls `google.accounts.oauth2.revoke`, drops the in-memory token and the Drive page token, and leaves
   local files in place. Local data has its own action, "Remove this device's data".
-- **Only if (c) ships:** the refresh token would live in an httpOnly cookie on the broker's host, which no script can
-  read, and the broker's exact-origin check would guard `/token`.
+- **Once (c) ships:** the refresh token lives in an httpOnly cookie on the broker's host, which no script can
+  read, and the broker's exact-origin check guards `/token`.
 - **Backups never carry tokens**, as they already never carry the OpenRouter key.
 - Slice 5 (auth) gets the adversarial trio (HARD RULE #25). Any finding goes to the owner, not to a
   public write-up.
@@ -433,20 +481,30 @@ renews your Google sign-in; it never sees your files." Slice 5 adds a privacy-po
 ## 10. Slices, in an order that stacks
 
 Each slice is its own branch from `main` and its own merge gate. The local-first slices (1–4) need nothing from
-Google, so the owner's infrastructure answers block nothing until slice 5.
+Google. Publishing the Google app "In production" is a gate before slice 9 or slice 10.
 
 | # | Slice | Proof |
 |---|---|---|
-| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko`, including WebKit's worker write path; the HARD RULE #34 arms |
-| 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; copy-verify-switch; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
-| 3 | **Decks into the vault.** Deck text and index leave localStorage; the pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
-| 4 | **The Library, local.** Decks, Fonts and Audio sections; backup moves in; the sync-state slot reads "On this device"; takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
-| 4b | **Library layout from the design-competition winner** (§7) | The owner's pick; the adversarial trio on the winner; `tools/screenshot.js` at 1440, 820 and 390 |
-| 5 | **Auth.** GIS token client, the `getAccessToken()` seam, Connect and Disconnect in the Library, the privacy page and the copy rewrite (§9.1) | The adversarial trio; e2e against a stubbed GIS; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23) |
-| 6 | **Sync v1.** Push and pull for Decks and Library; changes polling; journal; retries; per-device Yjs update files and compaction; three-way merge of outside `deck.md` edits | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
-| 7 | **Conflict sheet and per-item badges** | e2e of every state; screenshots at three widths |
-| 8 | **Chats, named versions and roaming settings sync**, after #3147 | Two-context e2e; Yjs merge test |
-| 9 | **Desktop:** the file-system vault plus loopback PKCE and the keychain. Waits on #2354 landing (5 weeks quiet, no merge base) | The desktop app under Xvfb: a deck edited on disk shows in the app, and the reverse |
+| 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder |
+| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko`, including WebKit's worker write path |
+| 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
+| 3 | **Decks into the vault, in their final form:** text plus the per-device update files, so there is no second migration. The pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
+| 4 | **The Library, local, with the Track 4 layout** (§7). Includes icon-only pills and the mask tokens added to the Studio sheet; shipping seven labeled pills first would wrap at 320 px. Takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
+| 5 | **Auth.** GIS token client, the `getAccessToken()` seam, Connect and Disconnect in the Library, the privacy page. **Gated on both §9.2 requirements** | The adversarial trio; e2e against a stubbed GIS; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23) |
+| 6 | **Sync v1, plus the review and every failure state, behind a flag.** Push and pull; changes polling; journal; retries; per-device update files and compaction; outside-edit adoption; the per-slide review; the copy rewrite (§9.1). The hold and its way out ship together | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a seeded property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
+| 8 | **Chats and roaming settings sync**, after #3147 | Two-context e2e; Yjs merge test |
+| 9 | **Broker.** The stateless Worker (§4.2); a gate before sync goes public | The adversarial trio; e2e against a stubbed Google token endpoint; a real renewal on a test account, otherwise UNVERIFIED |
+| 10 | **Desktop:** the file-system vault plus loopback PKCE and the keychain. Waits on #2354 landing (5 weeks quiet, no merge base) | The desktop app under Xvfb: a deck edited on disk shows in the app, and the reverse |
+
+Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
+
+**Proof rules for every slice** (HARD RULES #23, #32, #34):
+
+- **`webkit-phone` is Linux WebKit, not iOS.** iOS stays UNVERIFIED until the iOS Simulator suite or a real device
+  covers it.
+- **Polling and debounce tests run on a controlled clock.**
+- **The backoff jitter and the merge property test are seeded**, and the seed is printed.
+- **Every slice lists its failing arm, repeat-green and load-green.**
 
 ## 11. Owner rulings (2026-11-22)
 
@@ -463,13 +521,30 @@ Google, so the owner's infrastructure answers block nothing until slice 5.
    deployed Worker, but they cannot run code on GitHub Pages, so a static site still cannot hold the secret. The owner
    then chose the browser library, which needs no secret.
 
+**Second rulings (2026-11-22):**
+
+8. **Library:** the owner picked Track 4 after seeing all five built as real Studio prototypes. The judge's grafts are
+   part of the pick (§7).
+9. **Renewal:** only storage clicks renew sign-in (the account chip, Resume, Sync now, Add from Drive, Review, opening
+   the Library). An editor click never renews (§4.2).
+10. **Account mismatch:** a different Google account asks before uploading (§6.3).
+11. **Broker:** the stateless Worker broker (option c) is REQUIRED before sync is offered to the public. Build and test
+    run on the browser token model until then (§4.2). This supersedes ruling 1's "optional later upgrade".
+12. **Undo and versions:** Filo owns the deck's undo and versions. Yjs is only the format that carries changes between
+    devices (§6.4). This supersedes the "Yjs snapshots" versions of the first rulings.
+
 ## 12. What was not checked
 
 - No call reached Google: the session holds no client ID, and the secret must never reach a session. The Google facts
   above come from Google's guides (the token model, the installed-app flow, Drive scopes) and from community reports
-  (the web client's secret requirement, the 7-day Testing expiry). Slice 5 checks each against a real test account.
+  (the web client's secret requirement, the 7-day Testing expiry). The spike (slice 0) checks each against a real
+  test account, together with the Picker API key and app id, folder grants under `drive.file`, the size limit of
+  `appProperties`, and uploads into a trashed folder.
 - Whether WebKit (iOS Safari) supports `FileSystemWritableFileStream` today was not tested; the design writes through
-  `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`.
+  `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`
+  (Linux WebKit); iOS stays UNVERIFIED until the iOS Simulator suite or a real device covers it.
 - Drive API quotas were not measured. Polling at 60 s per visible tab is far below Google's published per-user
   defaults, which slice 6 confirms.
 - Where `lattice.style`'s DNS is hosted was not checked (§4.3).
+- The adversarial trio ran on the picked Library design on 2026-11-22. Its findings are folded into §4.2, §6.3, §6.4,
+  §9.2 and §10.
