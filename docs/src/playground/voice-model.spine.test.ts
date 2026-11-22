@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { healSelections } from '../lib/model-retired.js';
-import { readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
+import { readVoiceSelection, selectChat, selectVoice, UNSET_VOICE, VOICE_SELECTION_KEY } from '../lib/model-selection.js';
 import { createVoiceModel, listGeminiVoiceCatalog } from './voice-model.js';
 
 // The model spine, voice half: the Studio's voice is the stored VOICE selection, resolved and
@@ -99,6 +99,22 @@ describe('model spine — voice', () => {
 		expect(await made.v.prepareSelectedVoice()).toBe(true);
 		expect(openKey).toHaveBeenCalledWith('openrouter');
 		expect(made.v.rung()).toBe('openrouter-tts');
+	});
+
+	it('with no voice chosen, preparing resolves false instead of asking the key store about no provider', async () => {
+		// The real store (openrouter-key.js `slot`) throws on a provider it does not know, and '' is one. read-aloud.ts
+		// awaits this before it starts the read-along, so a throw here left Present on its first cue on every phone.
+		const keyState = vi.fn((p: string) => {
+			if (!p) throw new Error(`unknown key provider: ${p}`);
+			return 'ready';
+		});
+		// Unset, as a phone reads it: the Studio's migration fills in on-device Kokoro only where it can run, and a touch
+		// device cannot (voice-model.js `kokoroSupported`), so a phone that never picked a voice stays here.
+		localStorage.setItem(VOICE_SELECTION_KEY, JSON.stringify(UNSET_VOICE));
+		const v = createVoiceModel({ getOpenRouterKey: () => '', keyPrefix: 'studio', selection: { read: readVoiceSelection, select: selectVoice, keyState, openKey: async () => {} } }) as unknown as V;
+		expect(readVoiceSelection().provider).toBe('');
+		await expect(v.prepareSelectedVoice()).resolves.toBe(false);
+		expect(keyState).not.toHaveBeenCalled();
 	});
 
 	it('a cloud voice with no key reads needs-key', () => {
