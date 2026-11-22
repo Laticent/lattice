@@ -1048,12 +1048,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   let audioCacheBytes = 0;
   function cacheSet(key, blob) {
     const had = audioCache.get(key);
-    // A Map keeps a re-set key in its old place, so a clip stored again would stay the OLDEST and stop the loop below
-    // with the cache still over budget. Delete it first: a clip stored again is the newest.
-    if (had) {
-      audioCacheBytes -= had.size || 0;
-      audioCache.delete(key);
-    }
+    if (had) audioCacheBytes -= had.size || 0;
     audioCache.set(key, blob);
     audioCacheBytes += blob?.size || 0;
     // Oldest first, until under BOTH the count and the byte budget, never the clip just stored.
