@@ -61,9 +61,13 @@ async function until(re, ms, what) {
 		}
 		// Chrome is not on screen at all (the third dispatch found the home screen in front, just after boot): send the same
 		// URL again, at most twice, and say so. It changes no verdict; a crash is in logcat, which run.sh keeps.
-		if (opened && reopen < 2 && last.out.length && !last.out.some((n) => n.pkg === 'com.android.chrome')) {
+		// Or Chrome is on screen but not on the URL (the seventh dispatch found its New Tab page): after 10 s with no address
+		// bar showing it, send it again too.
+		const chromeUp = last.out.some((n) => n.pkg === 'com.android.chrome');
+		const onUrl = last.out.some((n) => n.id === 'com.android.chrome:id/url_bar' && opened.replace(/^https?:\/\//, '').startsWith(n.text.replace(/\/$/, '')) && n.text);
+		if (opened && reopen < 2 && last.out.length && (!chromeUp || (!onUrl && Date.now() - openedAt > 10_000))) {
 			reopen++;
-			console.log(`  (Chrome is not on screen: ${[...new Set(last.out.map((n) => n.pkg))].join(', ')}; opening ${opened} again)`);
+			console.log(`  (${chromeUp ? "Chrome's address bar does not show it" : `Chrome is not on screen: ${[...new Set(last.out.map((n) => n.pkg))].join(', ')}`}; opening ${opened} again)`);
 			open(opened);
 		}
 		if (Date.now() - t0 > ms) {
@@ -76,8 +80,10 @@ async function until(re, ms, what) {
 const tap = (n) => adb('shell', 'input', 'tap', String(n.x), String(n.y));
 let opened = '';
 /** Open a URL in Chrome and wait (-W) until Android says the activity launched; print what it said. */
+let openedAt = 0;
 function open(url) {
 	opened = url;
+	openedAt = Date.now();
 	const said = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-n', 'com.android.chrome/com.google.android.apps.chrome.Main', '-d', url);
 	console.log(`  open ${url}: ${said.match(/Status: \S+/)?.[0] || said.trim().split('\n').pop()}`);
 }
