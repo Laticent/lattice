@@ -28,7 +28,7 @@ yesterday's at a glance. Skip the call when the title already reads that.
 | `/fleet 🔴` or `/fleet loud` | only the 🔴 and 🟠 cards, for a quick check |
 | `/fleet <name or #PR>` | one card for that line of work, with its transcript read |
 | `/fleet go A1 A3` | carry out those actions from the last board, nothing else |
-| `/fleet desk <lane>` | start a desk session (`flaky`, `merge`, `stale`, `deps-nightly`, `backlog`, `security`, `optimize`, `jank`, `polish`, `a11y`, `docs`, `devices`, `release`, `feedback`) running `/desk-<lane>`, or message the one already running |
+| `/fleet desk <lane>` | start a desk session (`flaky`, `merge`, `stale`, `deps-nightly`, `backlog`, `security`, `optimize`, `jank`, `polish`, `a11y`, `docs`, `devices`, `release`, `feedback`, `stress`) running `/desk-<lane>`, or message the one already running |
 
 Anything else after `/fleet` is a question about the fleet: answer it from the
 same sources.

@@ -3,3 +3,4 @@
 - New `/desk-jank` and `/desk-polish` desks own layout motion and the 10/10 bar on shipped surfaces.
 - Every desk now reads its lane's follow-ups, issues, claims and gotcha file before its first pass, and writes fixes, traps and leftovers back when done (`engineering/workflow.md` §Desks).
 - Five more desks for launch: `/desk-a11y`, `/desk-docs`, `/desk-devices`, `/desk-release` (never cuts a release) and `/desk-feedback` (drafts every reply for the owner).
+- New `/desk-stress` breaks authoring and the Studio on purpose; it stresses model features against a fake model and spends on a real call only with the owner's word.
