@@ -85,9 +85,9 @@ const CHARTS = [
 ];
 
 const section = (c, extra = '') => `## Title\n\n${c.body}\n\n${extra}`;
-const render = (c, extra, { cls = c.cls, orientation, aspect, fixedCanvas } = {}) => {
+const render = (c, extra, { cls = c.cls, orientation, aspect } = {}) => {
   resetRenderIds('');
-  return transformChartSection(md.render(section(c, extra)), cls, orientation, undefined, null, aspect, { fixedCanvas });
+  return transformChartSection(md.render(section(c, extra)), cls, orientation, undefined, null, aspect);
 };
 const two = (c) => `\`@callout{[{First note, for=${c.a[0]}}, {Second note, for=${c.b[0]}, detail="Because of the launch"}]}\``;
 const lane = (d) => d.querySelector('g.legend--anchored');
@@ -165,11 +165,8 @@ for (const c of CHARTS) {
         return key ? (h * ptPx(13)) / Number(key[1]) : h;
       };
       for (const shape of [{ orientation: undefined, aspect: undefined }, { orientation: 'portrait', aspect: 0.56 }]) {
-        // On a tall slide a chart whose notes outgrow the box's shape takes the fixed canvas (chart-frame.js
-        // `keepsTallShape`), so the notes are compared with the bare chart on that same canvas.
         const noted = height(render(c, two(c), shape).html);
-        const bareTall = height(render(c, '', shape).html);
-        const bare = c.cls === 'tower' ? bareTall : Math.min(bareTall, height(render(c, '', { ...shape, fixedCanvas: true }).html));
+        const bare = height(render(c, '', shape).html);
         if (c.cls.startsWith('pie')) continue;
         // ON THE LADDER the drawing is fitted to the chart box (chart-family.dispatch.js): a chart with room under it
         // grows into that room to hold its notes, and one that already fills the box gives them its plot's height.
@@ -179,15 +176,7 @@ for (const c of CHARTS) {
           assert.ok(noted <= Math.max(bare, box) * 1.02, `${c.cls} at ${shape.aspect}: ${noted.toFixed(0)}px fits the ${box.toFixed(0)}px box (bare ${bare.toFixed(0)}px)`);
           continue;
         }
-        // A portrait tower keeps the BOX's shape (cartesian.js fitViewToBox): its bands give up the notes'
-        // height, so the drawing does not grow taller and shrink every label to fit. Its notes still sit
-        // under the figure, which the placement tests pin; here, the drawing is no taller than the bare one.
-        if (c.cls === 'tower' && shape.aspect) {
-          // The box's shape at 9:16 on a 320-wide canvas (chart-box.js: BOX_FILL 0.88 over the 0.67 chart box).
-          const boxH = Math.round((320 * 0.88) / 0.67);
-          assert.ok(noted <= Math.max(bare, boxH) + 1, `${c.cls} at ${shape.aspect}: ${noted} keeps the box's shape (${boxH}; bare ${bare})`);
-          continue;
-        }
+        assert.ok(!shape.aspect, `${c.cls} at ${shape.aspect}: a portrait chart is drawn on the phone ladder`);
         assert.ok(noted > bare, `${c.cls} at ${shape.aspect ?? '16:9'}: ${noted} is taller than ${bare}`);
       }
     });

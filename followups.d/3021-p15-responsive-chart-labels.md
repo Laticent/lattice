@@ -29,7 +29,7 @@ decided   — the owner, 2026-11-09, on #3088:
                 label drops), then split across slides. A dense chart never prints smaller.
             (4) NEXT PR after #3088, design note first.
 where     — the spine #3088 built: lib/plugins/chart-family/shared/chart-box.js (box shape),
-            cartesian.js `viewFor` / `fitViewToBox`, svg-legend.js `pickKeyLayout`; the per-kind label sizes
+            cartesian.js `viewFor` (`fitViewToBox` retired 2026-11-22), svg-legend.js `pickKeyLayout`; the per-kind label sizes
             in each `<kind>.styles.css` and the FS mirrors in each transform; lib/runtime/chart-redraw.js
             `canvasFor` (the phone redraw already sizes its canvas from the slide's body text, the same rule);
             the TYPE FLOOR export warning.

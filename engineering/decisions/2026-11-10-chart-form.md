@@ -238,8 +238,8 @@ the bare list (`lib/runtime/chart-redraw.js` `verified`), and the bare list has 
 is estimated from. A drawing the kernel laid out carries its box in page px (`data-form-box="972 1474"`), and the check
 draws in that box (`transformChartSection`'s `opts.formBoxPx`). #3088's rule that a portrait chart under a taller header
 keeps the fixed 320 x 300 canvas (`fitsMeasuredBox`) reached only kinds that are on the kernel now, which take that
-header off their box instead; `test/unit/components/tall-canvas-guard.test.js` pins the kernel's version and keeps the
-rule's invariant (no smaller type than the fixed canvas) for every kind it covered.
+header off their box instead. The tall canvas itself turned out unreachable on a phone page and was deleted
+(`2026-11-22-tall-canvas-retired.md`); `test/unit/components/chart-phone-box.test.js` pins the kernel's version.
 
 **No box shorter than a chart.** The estimate never goes under a third of the body's width (340px). A page whose blocks
 leave less (that deck's p8 at 4:5, a long source line at hall: 72px of body) draws the chart whole at that height and the

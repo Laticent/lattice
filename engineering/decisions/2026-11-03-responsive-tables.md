@@ -899,6 +899,11 @@ approves, not a better estimate.
 
 ### § 31 — one layout spine: the canvas is the box's shape, the key is chosen in the box
 
+> **Superseded in part (2026-11-22).** The chart form kernel (`2026-11-10-chart-form.md`) draws every portrait chart
+> that read the tall canvas, so `canvasAspect`, `tallCanvasH`, `fitViewToBox`, `tallGeom`, `fitsMeasuredBox` and
+> `printsAsLarge` never changed a byte and were deleted: `2026-11-22-tall-canvas-retired.md`. The key layout below
+> (`pickKeyLayout`, the column key) still stands.
+
 The owner's next look (2026-11-09) asked for one shared spine for chart layout, no smaller type, and
 charts that fill the space they have. Measured on `examples/fluid-chart-redraw.md` at 1080px wide
 (the share of the chart box each drawing fills, and its smallest text):
