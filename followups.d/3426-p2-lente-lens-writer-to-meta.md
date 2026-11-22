@@ -16,7 +16,7 @@ why now   — slice A (#3426) moved every reader of slide settings outside the e
             `<!-- _lens: … -->` comments, and the readers paired with it parse that comment shape directly. After the cut
             (slice E) the engine stops reading authored directive comments, so a lens tag written in the old form would
             stop applying. #3426 gave Lente's suggester an injected class reader (`suggestMembership`'s `classOf`), and
-            the Studio passes the engine's `readMetaField`, so a record counts there; the `_lens` writer and the `_lens`
+            the Studio passes `slideClassValue` (the class as the engine resolves it), so a record counts there; the `_lens` writer and the `_lens`
             reader paired with it stay, for the reason in `deferred`. Slice D, the sweep, owns it (§15.3); it runs after A, B and C and before the cut.
 where     — docs/src/lib/lente/tags.ts (the `_lens` writer and reader; a published zero-dependency package, so it cannot
             import lib/core. Do not re-implement the record grammar inside it: a hand-rolled copy tried in #3426 invented

@@ -29,7 +29,7 @@ export const SPEAK_WPM = 135; // boardroom delivery pace, pauses folded in
 import { slideClassValue } from '../../../../../lib/core/class-entries.mjs';
 import { frontMatterBlockOf, splitSlideChunks } from '../../../../../lib/core/slide-boundaries.mjs';
 
-// The slide's class is read through the shared reader (lib/core/meta-edit.mjs `readMetaField`), so a slide written as a
+// The slide's class is read as the engine resolves it (lib/core/class-entries.mjs `slideClassValue`), so a slide written as a
 // record (`<!-- @meta{layout=decision} -->`) gets the same ROLE as its `_class` comment. It reads one chunk, so a running
 // global `<!-- class: … -->` on an earlier slide is still not carried here (#1383): the planner's chunks drop front
 // matter and empties, while the deck-wide reader indexes the way `splitTopLevel` does. The cost is bounded: a mid-deck
