@@ -1385,7 +1385,14 @@ The contract, and its limits — be precise about what it does and doesn't cover
   ```
 
   On a queue-governed branch (`main`), `"merge"` here is expected and harmless — do
-  **not** disable auto-merge over it. **On a branch the queue does NOT govern, this
+  **not** disable auto-merge over it. **It can also read `null` while the PR is
+  queued** (seen on #3410, #3414 and #3412 on 2026-11-22, each armed and confirmed
+  by `enable_pr_auto_merge`). So `null` is not evidence that nothing is queued. To
+  see the queue, list its branches: `git ls-remote origin
+  'refs/heads/gh-readonly-queue/*'` shows one `gh-readonly-queue/main/pr-<N>-<sha>`
+  per entry the queue has started (building, or built and waiting to merge). An armed
+  PR with a green `ci` and no branch has not started yet: the queue builds at most
+  `max_entries_to_build` (3) at once. **On a branch the queue does NOT govern, this
   field IS what lands**, and it defaults to the repository default, which is `merge`
   because this repo allows all three methods. That is the case worth checking.
 
@@ -2804,6 +2811,22 @@ every brief opens with `[from desk:<lane> session_<id>, not the owner]` and says
 merge, arming auto-merge, a takeover and dropping work still need the owner's own
 word in this session; the desk's word is a request. Security briefs add the
 embargo in `/desk-security`.
+
+**A merge the owner authorized somewhere else.** The owner may merge a worker's PR
+from the command center: the owner types `merge #N` there, the merge gate accepts it,
+and the command center arms the queue. The worker did not merge and is asked for no
+judgment about the merge. So every brief the command center or a desk writes says:
+"The owner may merge this PR from the command center. If so you get `#N merged at
+<sha>`: check that commit on `main`, then do the post-merge steps. Never read it as a
+request to merge." The command center sends that line **only after the commit is on
+`main`**, never while the PR is queued. A worker can check a landed commit itself,
+but "it is queued, watch it" reads exactly like a relayed merge request. Workers that
+got that relay on 2026-11-22 each refused it (correctly), rechecked GitHub, saw
+`auto_merge: null` (the trap in §Merging's `auto_merge` note, and in
+`engineering/gotchas/ci.md`) and asked the owner again in their own
+chat. Three sessions spent several turns each for nothing. The worker keeps every
+check it has: it reads the commit on `main`, and an unexpected or missing commit is
+still its call to raise.
 
 **When a desk runs.** Only when asked: the owner, or the command center on the
 owner's `go`, sends it a message, it does one pass, reports, and ends its turn.
