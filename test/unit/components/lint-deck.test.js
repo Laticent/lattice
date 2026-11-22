@@ -295,7 +295,8 @@ describe('deck linter', () => {
     const fixed = applyAllFixes(src, vocab);
     assert.equal(fixed, [
       '---', 'theme: indaco', 'spectrum: rainbow left # brand', 'card-spectrum: rainbow top',
-      'trim-spectrum: mono', '---', '', '<!-- _class: cards-grid spectrum-top no-card-spectrum trim-spectrum-rainbow -->', '', '## H.', '',
+      // Fix all also writes the old comment as a `@meta` record (`legacy-directive-comment`, last, after the class fix).
+      'trim-spectrum: mono', '---', '', '<!-- @meta{layout=cards-grid, class=spectrum-top no-card-spectrum trim-spectrum-rainbow} -->', '', '## H.', '',
     ].join('\n'));
     assert.deepEqual(lintText(fixed, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule)), [], 'no spectrum finding is left');
   });
