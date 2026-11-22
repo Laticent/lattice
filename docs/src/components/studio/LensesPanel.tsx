@@ -20,6 +20,7 @@ import {
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
 import { slideClass } from '../../lib/deck-lint';
 import { LensIcon, PreviewIcon } from './icons';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
@@ -107,6 +108,10 @@ function slideTitle(slideSrc: string): string {
 	return slideClass(slideSrc);
 }
 
+/** The suggester reads each slide's class through the engine's own reader, so a `@meta{layout=…}` record counts
+ *  exactly as a `_class` comment does (Lente itself is zero-dependency and reads only `_class`). */
+const studioClassOf = (slideSrc: string): string => readMetaField(slideSrc, 'class').value;
+
 export function LensesPanel({
 	slides,
 	registry,
@@ -166,7 +171,7 @@ export function LensesPanel({
 
 	// The suggester runs over the WHOLE registry; slice per-lens as each row asks for it. Pure + no AI.
 	// It reads the component catalog — with none injected it can't classify anything (honest empty state).
-	const suggestions = React.useMemo(() => suggestMembership(slides, registry, catalog), [slides, registry, catalog]);
+	const suggestions = React.useMemo(() => suggestMembership(slides, registry, catalog, studioClassOf), [slides, registry, catalog]);
 	const catalogReady = catalog.size > 0;
 
 	// Add a reader view: append the archetype's definition to the registry (Lente re-serializes it). It

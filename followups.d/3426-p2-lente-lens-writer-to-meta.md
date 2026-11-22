@@ -15,11 +15,12 @@ why now   — slice A (#3426) moved every reader of slide settings outside the e
             (#3433) moves the writers. Lente's `_lens` tags were left out of both: its writer still emits
             `<!-- _lens: … -->` comments, and the readers paired with it parse that comment shape directly. After the cut
             (slice E) the engine stops reading authored directive comments, so a lens tag written in the old form would
-            stop applying. #3426 moved Lente's CLASS read onto both forms (`slideClassSite` in tags.ts, held equal to the
-            engine's `readRecord` by tags.test.ts); the `_lens` writer and the `_lens` reader paired with it stay, for the
-            reason in `deferred`. The meta desk proposed slice D, the sweep, which runs after A, B and C and before the cut.
+            stop applying. #3426 gave Lente's suggester an injected class reader (`suggestMembership`'s `classOf`), and
+            the Studio passes the engine's `readMetaField`, so a record counts there; the `_lens` writer and the `_lens`
+            reader paired with it stay, for the reason in `deferred`. The meta desk proposed slice D, the sweep, which runs after A, B and C and before the cut.
 where     — docs/src/lib/lente/tags.ts (the `_lens` writer and reader; a published zero-dependency package, so it cannot
-            import lib/core: `recordClassWords` there is the pattern, a strict own read held equal to `readRecord`), docs/src/pages/libraries/lente/index.astro
+            import lib/core. Do not re-implement the record grammar inside it: a hand-rolled copy tried in #3426 invented
+            classes the engine rejects. Inject the host's reader and writer instead, as `classOf` does), docs/src/pages/libraries/lente/index.astro
             (the demo page's inline deck and its class read, allowlisted in test/unit/core/directive-regex-readers.test.js
             as reading its own literals).
 done when — Lente writes the lens tag in the record form the cut keeps, its readers read it, and the demo page's deck is

@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { catalogFromComponents, suggestMembership } from './suggest';
+import { catalogFromComponents, commentClassReader, suggestMembership } from './suggest';
 import type { LensRegistry } from './types';
 
 // A small slice of the real dist/docs/components.json classifications.
@@ -42,10 +42,14 @@ describe('suggestMembership — the deterministic, no-AI heuristics', () => {
 		// title(0) closing(7) frame; content(1) statement; kpi(2) metric. wifi(3) is statement BUT connect → excluded.
 		expect(members(s, 'brief').sort((a, b) => a - b)).toEqual([0, 1, 2, 7]);
 	});
-	it('reads a @meta record\'s layout the same as a _class comment', () => {
+	it('reads each slide through the host\'s class reader when one is passed', () => {
 		const rec = (name: string) => `<!-- @meta{layout=${name}} -->\n# ${name}`;
-		const r = suggestMembership(['title', 'content', 'kpi', 'wifi', 'list-steps', 'chart', 'divider', 'closing'].map(rec), REG, CATALOG);
-		expect(r).toEqual(s);
+		const recDeck = ['title', 'content', 'kpi', 'wifi', 'list-steps', 'chart', 'divider', 'closing'].map(rec);
+		// The default reads only `_class`, so a record deck is bare markdown to it.
+		expect(suggestMembership(recDeck, REG, CATALOG)).toEqual([]);
+		const fromRecord = (src: string) => /layout=([a-z-]+)/.exec(src)?.[1] ?? '';
+		expect(suggestMembership(recDeck, REG, CATALOG, fromRecord)).toEqual(s);
+		expect(suggestMembership(deck, REG, CATALOG, commentClassReader)).toEqual(s);
 	});
 	it('ask picks exactly one slide — the last closing', () => {
 		expect(members(s, 'ask')).toEqual([7]);
