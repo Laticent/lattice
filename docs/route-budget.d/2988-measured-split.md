@@ -1,5 +1,5 @@
-studio: +1260
-playground: +360
+studio: +1300
+playground: +480
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
@@ -28,3 +28,8 @@ Merged onto `main` at 8ba6b6b, CI on 9083917 measured +1229 B gz on studio (+408
 logo-finish, the chunk that now carries the align catalog, +306 single-slide-render, +177
 StudioIsland, +16 DeckPreview): `main`'s own chunk changes moved 10 B into this PR's count. Declared
 +1260 for gzip variation.
+Merged onto `main` again at 42edd95 (190 commits), CI measured +1266 B gz on studio (+406 venue.ts,
++307 progress-rail, the chunk that now carries the align catalog, +204 StudioIsland, +187
+single-slide-render, +104 front-matter-fence) and +447 on playground. Declared +1300 and +480 for
+gzip variation. That merge also took the Studio past its eagerJsGz ceiling by 1,147 B; the owner
+raised that ceiling by 2 KB (route-budget.history.md, 2026-11-22).

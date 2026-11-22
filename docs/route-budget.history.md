@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — the owner raised one ceiling by hand, for PR 2988: studio eagerJsGz to 623.7 KB
+
+Owner OK 2026-11-22, in PR 2988's session: "Raise ceiling 2 KB", chosen over finding 1.1 KB to make lazy in Studio code other PRs own, and over dropping the venue picker's new Phone, Tablet and Pack icons (about 0.6 KB, not enough alone).
+
+Measured with a fresh docs build at 3210fec8 merged with `main`: the Studio's eager JS is 637,783 B, 1,147 B over the 636,636 B ceiling. The growth is the PR's own Studio controls: the phone and tablet venue picker (`venue.ts`, +406 B), the two-axis `align:` controls and their icons, and the split hooks in `single-slide-render.ts`. `main` had left about 0.3 KB of room. The soft target is unchanged; the ceiling moves 2,048 B, so 901 B of room remains.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 638684 |
+
 ### 2026-11-22 — restore the owner's hand-set studio lintCoreGz ceiling (171,974 B), undoing #3386's lint raise
 
 #3386 merged from the merge queue at a head that still carried a standard 10% lintCoreGz rebaseline (soft 169910, ceiling 186901). That raise was meant to be dropped before merge: #3397 had already set this ceiling by hand to 171974, and the owner chose that over the same +17 KB rebaseline so the gate keeps catching lint-core growth. #3386's row below justifies keeping it with "PR 3349 (+~2 KB)"; that is wrong, as PR 3349 adds 146 B (see #3397's row). The fix was committed but the branch was locked in the queue, so the old head merged. This row puts back #3397's numbers. PR 3362 measures 166.8 KB, 1.2 KB under 171974, so it still fits.
