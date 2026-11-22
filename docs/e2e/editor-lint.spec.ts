@@ -90,7 +90,8 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi -->');
+	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
