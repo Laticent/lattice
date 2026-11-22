@@ -98,7 +98,7 @@ describe('Fix all through the Squadra driver', () => {
     for (const pause of [undefined, true]) {
       const res = await fixDeck(src, d, pause);
       assert.match(res.text, /<!-- @meta\{layout=title\} -->/, `the migration ran (pause: ${pause})`);
-      assert.ok(res.skipped.some((x) => x.rule === 'fake-stuck'), 'the stuck fix is still named');
+      assert.equal(res.skipped.filter((x) => x.rule === 'fake-stuck').length, 1, 'the stuck fix is named once, not once per run');
     }
   });
 

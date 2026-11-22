@@ -277,7 +277,11 @@ async function main(argv) {
       // one line each, never one line per comment, and NOT counted under `--strict`, so the pre-commit hook and
       // `lint:deck:all` do not block every deck edit before the sweep. The sweep deletes this branch.
       if (LEGACY_META_RULES.includes(f.rule)) {
-        legacy.set(file, (legacy.get(file) || 0) + 1);
+        const seen = legacy.get(file) || { count: 0, byHand: [] };
+        seen.count += 1;
+        // A comment the migration keeps as written (in a list or quote, sharing its line, spanning lines) is moved by hand.
+        if (!f.autofixable) seen.byHand.push({ slide: f.slide, line: f.line, fix: f.fix });
+        legacy.set(file, seen);
         continue;
       }
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
@@ -345,7 +349,7 @@ async function main(argv) {
   }
 
   if (asJson) {
-    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, oldSpellings: Object.fromEntries(legacy), findings: report, reviewFindings: suggestions }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, oldSpellings: Object.fromEntries([...legacy].map(([f, v]) => [f, { count: v.count, byHand: v.byHand }])), findings: report, reviewFindings: suggestions }, null, 2)}\n`);
     return errors > 0 || (strict && warnings > 0) ? 1 : 0;
   }
 
@@ -372,9 +376,12 @@ async function main(argv) {
     process.stderr.write('\n');
   }
   if (legacy.size) {
-    const total = [...legacy.values()].reduce((a, n) => a + n, 0);
-    process.stderr.write(`Old comment spellings — ${total} in ${legacy.size} file(s); \`lint:deck --fix\` or \`lattice migrate meta\` rewrites them as <!-- @meta{…} --> records (warnings, not counted under --strict until the sweep):\n`);
-    for (const [f, n] of legacy) process.stderr.write(`⚠ ${f} · ${n} old comment${n === 1 ? '' : 's'}\n`);
+    const total = [...legacy.values()].reduce((a, v) => a + v.count, 0);
+    process.stderr.write(`Old comment spellings — ${total} in ${legacy.size} file(s); \`lint:deck --fix\` or \`lattice migrate meta\` rewrites them as <!-- @meta{…} --> records, except those named below to move by hand (warnings, not counted under --strict until the sweep):\n`);
+    for (const [f, v] of legacy) {
+      process.stderr.write(`⚠ ${f} · ${v.count} old comment${v.count === 1 ? '' : 's'}${v.byHand.length ? `, ${v.byHand.length} to move by hand` : ''}\n`);
+      for (const h of v.byHand) process.stderr.write(`    slide ${h.slide} · ${h.line} · ${h.fix}\n`);
+    }
     process.stderr.write('\n');
   }
   if (!report.length && !suggestions.length) {

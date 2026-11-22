@@ -51,6 +51,17 @@ test('a value that runs onto a second line is kept as written, and named', async
   assert.deepEqual(r.kept.map((k) => k.why), ['its value runs onto a second line; write one comment per directive']);
 });
 
+test('a pane marker whose value runs onto a second line is kept as written (its record form lost the panes)', async () => {
+  const { migrateMetaSource, raw } = await load();
+  const src = `${FM}<!-- _class: columns -->\n\n<!-- _pane: list\nextra -->\n\n- a\n\n<!-- _pane: list -->\n\n- b\n`;
+  const r = migrateMetaSource(src);
+  assert.match(r.source, /<!-- _pane: list\nextra -->/);
+  assert.match(r.source, /<!-- @meta\{pane=list\} -->/);
+  assert.equal(r.kept.length, 1);
+  assert.equal(raw.recordForComment(' _pane: list\nextra '), null, 'the public reader answers null, never a Symbol');
+  assert.equal(raw.recordForComment(' _pane: list '), '{pane=list}');
+});
+
 test('a bare record is respelled only where it is a comment block: never in indented code, prose or second on a line', async () => {
   const { migrateMetaSource } = await load();
   const src = `${FM}## A\n\n    <!-- {class=dark} -->\n\ntext <!-- {class=dark} --> more\n\n<!-- @note{x} --> <!-- {class=dark} -->\n`;

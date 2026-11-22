@@ -139,6 +139,21 @@ test('legacy-directive-comment offers no machine fix where the migration keeps t
   assert.match(fixed, /- item\n {2}<!-- _class: invert -->/, 'the kept comment is as written');
 });
 
+test('legacy-directive-comment offers no machine fix on a comment that shares its line (the migration skips it)', () => {
+  for (const line of ['<!-- _class: kpi --><!-- _footer: q -->', '<!-- _footer: a --> -->']) {
+    const f = core.lintTextWith(deck(`${line}\n\n# One`), VOCAB).filter((x) => x.rule === 'legacy-directive-comment');
+    assert.ok(f.length >= 1, line);
+    assert.ok(f.every((x) => !x.autofixable), `${line}: no fix button that changes nothing`);
+  }
+});
+
+test('the quick fix writes the typed layout from the vocab it is given, whatever was linted last', () => {
+  const src = deck('<!-- _class: kpi dark -->\n\n# One');
+  const f = core.lintTextWith(src, VOCAB).find((x) => x.rule === 'legacy-directive-comment');
+  core.lintTextWith(deck('# Other'), { names: new Set(['dark']), modifiers: new Set() });
+  assert.match(core.applyFix(src, f, VOCAB), /<!-- @meta\{layout=kpi, class=dark\} -->/);
+});
+
 test('legacy-directive-comment near misses: a speaker note, a marker, a fenced example, a record', () => {
   const src = deck('# One\n\n<!-- Remember the Q3 number. -->\n\n<!-- stress-slide -->\n\n```md\n<!-- _class: kpi -->\n```', '<!-- @meta{layout=kpi} -->\n\n# Two');
   assert.deepEqual(rules(src), []);

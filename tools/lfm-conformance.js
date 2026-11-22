@@ -213,8 +213,8 @@ function runCase(c) {
     const key = (f) => `${f.rule}|${f.severity}|${f.slide}`;
     const want = (L2.findings || []).map(key).sort();
     // The shared cases are written in LFM 1.x's `<!-- _class: … -->` spelling, which the reference implementation now
-    // warns on (the clean break to `@meta`, record note §15). Until the sweep (slice D) rewrites the cases, those two
-    // rules are set aside here, as `lint:deck --strict` sets them aside (lib/authoring/legacy-meta-rules.js).
+    // warns on (the clean break to `@meta`, record note §15). Until the sweep (slice D) rewrites the cases, that rule
+    // is set aside here, as `lint:deck --strict` sets them aside (lib/authoring/legacy-meta-rules.js).
     const have = got.filter((f) => !LEGACY_META_RULES.includes(f.rule)).map(key).sort();
     if (!sameJson(want, have)) fails.push(`L2: findings ${JSON.stringify(have)}, expected ${JSON.stringify(want)}`);
   }
