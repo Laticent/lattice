@@ -191,7 +191,9 @@ async function waitSettled(page, diagrams) {
 async function step(ctx, label) {
 	const frame = await waitSettled(ctx.page, ctx.diagrams);
 	const result = ctx.probe ? await ctx.probe({ page: ctx.page, frame, sleep, label }) : {};
-	const state = await runtimeState(frame);
+	// VS Code can re-create the preview frame while a probe waits (measured at `strict`, during the runtime-off notice's
+	// 1.5 s fade-in, PR 3362), so read the state from the live frame when this one is gone.
+	const state = await runtimeState(frame).catch(async () => runtimeState(await previewFrame(ctx.page)));
 	// A HOLLOW PASS GUARD. VS Code's built-in Mermaid extension draws a fence too, with its own
 	// click handling, so drawn SVGs prove nothing on their own. Every expected diagram must be a
 	// fence OUR runtime settled, or the step fails however well the probe did. (Measured: with

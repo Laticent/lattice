@@ -304,6 +304,19 @@ catches the regression it was written for. One difference from the 2026-10-16 ru
 code-server now matched desktop (the tooltip and the second gantt's link alive, the first gantt's
 links gone) rather than being dead outright.
 
+**The runtime-off notice, 2026-11-22 (PR 3362), desktop host, VS Code 1.142.0, marp-vscode 3.6.1.**
+`decks/runtime-off-notice.md` with `probes/runtime-off-notice.mjs` (the command is in the probe's header).
+At `--level strict` the notice drew across the top of the preview, opacity 1, `Mark` on `MarkText`, 127px,
+with the runtime absent: 3 of 3 runs passed. With the runtime allowed (`--level disable`) the notice was gone and
+the runtime drew 6 coda cells with 4 key insights: 2 of 2, and 3 of 3 earlier. Two traps, both met on the way:
+- **The deck needs the kit's `<link rel="stylesheet" href="lattice-vscode-min.css">` line.** The tool appends the
+  kit's scripts but not that line, and the kit registers theme stubs only (§ the theme, on every keystroke, below), so
+  a deck without it renders with no Lattice CSS at all, notice included. That run is also the probe's failing arm:
+  without the line, strict exits 1 with no notice.
+- **The notice fades in 1.5 s after load, and VS Code re-created the preview frame during that wait.** The probe waits
+  for opacity 1 and re-finds the live frame for each read; the tool's state read after the probe now does the same
+  (`step()` in the tool). Before that, the screenshot caught the band empty and the state read threw on a detached frame.
+
 ## `markdown.marp.html` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
 - **Symptom:** The last slide of a deck (or an Export-to-Marp bundle) shows a
