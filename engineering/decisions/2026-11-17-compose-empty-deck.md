@@ -118,13 +118,14 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   side padding, held still five frames), reads that the editor has the focus with a caret in the empty line and the grid
   still up, then puts the deck back. `PROBE=empty-deck node scripts/ios-safari/probe.selftest.mjs` runs the same probe on
   Playwright's WebKit at the iPad, iPad-Safari and iPhone sizes. Making the canvas click a no-op turned all three red.
-  **The caret now comes from the touch's release, not its click.** On three simulator runs during PR 3385
-  (twice on the iPhone, once on the iPad) Safari delivered the tap's `pointerdown`, `touchstart`, `pointerup` and
-  `touchend` to the grid, then no `mousedown` and no `click`, with listener lag of up to +288 ms; the editor never took
-  the focus. The grid now puts the caret on a primary touch `pointerup` off its controls (a scroll ends in
-  `pointercancel`, so that release is a tap). When the tap's mouse events do follow, they are the same tap: the grid
-  cancels their `mousedown`, which on this plain div moved the focus off the editor (iPhone simulator, focus at
-  `pointerup` and lost to `mousedown` 136 ms later), and skips their `click`, both within 800 ms.
+  **A touch release stands in when the tap's click never comes.** On three simulator runs during PR 3385 (twice on
+  the iPhone, once on the iPad) Safari delivered the tap's `pointerdown`, `touchstart`, `pointerup` and `touchend` to
+  the grid, then no `mousedown` and no `click`, with listener lag of up to +288 ms; the editor never took the focus.
+  The click still puts the caret, so a tap whose click comes behaves as before and raises the keyboard as before. A
+  primary touch `pointerup` off the grid's controls also arms a fallback that puts the caret if no click has come
+  within 500 ms (`START_GRID_CLICK_WAIT_MS`; the simulator's click came 142 ms after the release). A scroll ends in
+  `pointercancel` and arms nothing. Putting the caret on the release itself was tried first and failed on the iPhone
+  simulator: the tap's later `mousedown` on the grid, a plain div, took the focus away.
   `compose-empty-deck.spec.ts` checks both: a tap whose click is withheld (it cancels `touchend`) and a plain tap.
   WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
   by the empty rule.

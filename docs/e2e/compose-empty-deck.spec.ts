@@ -81,7 +81,7 @@ test('@crosswidth @webkit-phone @gecko typing starts a content slide, and one Un
 test('@parity @webkit-phone a touch tap on the grid canvas puts the caret even when the browser withholds its click', async ({ page }) => {
 	// iOS Safari sometimes delivers a tap's pointer and touch events and then no mouse events and no click (three simulator
 	// runs: jobs 137060162549, 137066156788, 137285553830). Cancelling touchend is the same withheld click on every engine:
-	// the browser then synthesizes no mousedown and no click for the tap.
+	// the browser then synthesizes no mousedown and no click for the tap, and the grid's fallback puts the caret.
 	await openEmptyDeck(page);
 	await expect(editor(page)).not.toBeFocused();
 	await page.evaluate(() => {
@@ -99,9 +99,9 @@ test('@parity @webkit-phone a touch tap on the grid canvas puts the caret even w
 });
 
 test('@parity @webkit-phone a plain touch tap on the grid canvas leaves the caret on the empty line', async ({ page }) => {
-	// The other half: when the browser DOES send the tap's mouse events, they arrive after the release that put the caret.
-	// A mousedown on the grid (a plain div) would move the focus off the editor, so the grid cancels that tap's mousedown.
-	// iPhone simulator, PR 3436's first head: focus came at pointerup, then mousedown 136 ms later took it away.
+	// The other half: when the browser DOES send the tap's mouse events, the click puts the caret, as it always did, and
+	// nothing after it takes the focus away. PR 3436's first head put the caret on the release, and the tap's later
+	// mousedown on the grid (a plain div) took the focus away on the iPhone simulator; this test catches that shape.
 	await openEmptyDeck(page);
 	const box = await page.locator('[data-start-grid]').boundingBox();
 	if (!box) throw new Error('the start grid has no box');

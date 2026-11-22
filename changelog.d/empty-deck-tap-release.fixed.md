@@ -1,1 +1,1 @@
-- In Compose, a tap on an empty deck's canvas now puts the caret on the empty line even when iOS Safari sends the tap without a click; before, the editor sometimes did not take the focus and the keyboard did not come up.
+- In Compose, a tap on an empty deck's canvas now puts the caret on the empty line even when iOS Safari sends the tap without a click: if no click comes within half a second, the release puts the caret. Before, the editor sometimes did not take the focus.
