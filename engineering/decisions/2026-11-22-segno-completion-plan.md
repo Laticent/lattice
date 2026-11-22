@@ -51,7 +51,9 @@ to find them.
 - **Set on 2026-11-22:** P7 is in the release gate. The lane's budget is 15 to 20 agents in total, counted fresh from
   2026-11-22 ("be efficient and effective"). The owner types `merge #N` for every merge; this replaces the old rule
   that the coordinator merges at VERY HIGH. #3278 is finished, not closed: its two product fixes are not on `main`.
-  The Segno desk coordinates every session on Segno or related work, as partners who own their own work.
+  The Segno desk coordinates every session on Segno or related work, as partners who own their own work. Source: the
+  owner's reply to the desk's ❓ card, in the desk's session at 16:54 UTC ("D1 yes D2 15-20 but be efficient and
+  effective. D3 direct it as if it is your own and finish it"). The `merge #N` rule is the desk's standing order.
 
 ## The slices, in the order they stack
 
@@ -70,6 +72,8 @@ next never comes. Two tracks run side by side; P7 starts once P4 has merged.
 | 8 | **P7c: flip the switch and remove markdown-it** from `package.json`, the engine and every shipped bundle | C | 4 and 7 | 4 (trio + grader) | identity at 0; goldens unchanged; route and engine bytes measured (they should fall); **the adversarial trio** on the switch |
 
 The eight PRs use 19 agents in total, inside the lane's budget of 15 to 20. That count includes each PR's card grader.
+The desk, not the owner, packed the eleven slices into these eight PRs and placed the trio on PRs 6 and 8, to fit
+that budget; the owner can veto either.
 
 P4b and P5 run side by side because they touch different code (the editors and the CSS readers). P7a+b follows
 P4 rather than P4b because the engine path does not read the editors. P4b removes Compose's markdown-it, which P7c
