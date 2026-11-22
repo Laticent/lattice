@@ -54,17 +54,20 @@ const mark = (name: string) => {
 };
 const OPEN_MS = 30_000;
 /**
- * OFFLINE, ON A PAGE WITH A POLICY, the frame opens only if the browser can load the sandbox shell, a navigation. Chromium
- * answers it from the service worker; Firefox sends a sandboxed frame's navigation past the worker to the network, so a
- * shell it never fetched online cannot load, and the frame fires no `load` either (measured 2026-11-21, followups.d/3277
- * OFFLINE). A shell that loads says hello as it runs, within milliseconds from the worker, so offline a frame with no hello
+ * OFFLINE, ON A PAGE WITH A POLICY, the frame opens only if the browser can load the sandbox shell, a navigation that the
+ * service worker does not answer for a sandboxed frame. Firefox loads it from its HTTP cache once the page was seen online;
+ * Chrome 153 does not load it offline at all, even cached as immutable; and a failed load fires no `load` event (measured
+ * 2026-11-21/22, followups.d/3277 OFFLINE). A shell that loads says hello as it runs, within milliseconds from the worker, so offline a frame with no hello
  * in OFFLINE_HELLO_MS has failed. Failing then, not at OPEN_MS, keeps inside the slide's own budgets (function-plot's
  * draw: 4 s; Mermaid's render: 20 s), lets Mermaid draw from the page's own copy, and tells the visitor what happened and
  * what to do (the owner's condition for shipping the gap).
  */
 const OFFLINE_HELLO_MS = 2_000;
-/** Browser-neutral: Firefox is the browser measured to do this, but the check is the signal, not the browser's name. */
-export const OFFLINE_SHELL_MESSAGE = "Offline, this browser can't open this diagram until you have viewed it online once. Reconnect and reload this page to draw it.";
+/**
+ * Browser-neutral, and no promise a browser does not keep: Firefox opens the shell offline once the page was seen online, but
+ * Chrome 153 does not open it offline at all, cached or not (measured 2026-11-22). Reconnecting is the one fix true everywhere.
+ */
+export const OFFLINE_SHELL_MESSAGE = "Offline, this browser can't open this diagram. Reconnect to draw it.";
 let helloChecks = 0;
 /** A draw that never reached its frame because the frame was closed first (an earlier draw overran): it is safe to send again to a fresh one. */
 class NotSent extends Error {}

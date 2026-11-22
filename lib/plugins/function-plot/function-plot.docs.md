@@ -56,12 +56,11 @@ S-shaped, with asymptotes at 0 and 1.
   `functionplot error: <message>` in the error ink, and the placeholder settles `error`.
 - **The library never arrives** (offline, blocked): the slide shows the config itself, settled
   `unavailable`. If the library turns up later, the next pass draws.
-- **Offline in Firefox, on a docs-site page you never opened online:** the plot's sandboxed frame
-  cannot load there, so the slide says so: *Offline, this browser can't open this diagram until you
-  have viewed it online once. Reconnect and reload this page to draw it.* Reconnect and reload once;
-  the page then draws offline too. Chromium and decks you export are unaffected. On a network that
-  is connected but reaches nothing (a captive Wi-Fi), the browser does not know it is offline: the
-  plot shows its config, as when the library never arrives.
+- **Offline, on a docs-site page:** the plot's sandboxed frame cannot load there (Chrome never
+  opens it offline; Firefox does once the page was seen online), so the slide says so: *Offline,
+  this browser can't open this diagram. Reconnect to draw it.* Decks you export are unaffected. On
+  a network that is connected but reaches nothing (a captive Wi-Fi), the browser does not know it
+  is offline: the plot shows its config, as when the library never arrives.
 - **A capture runs out of time** — 4 s for one plot's draw (`hydrate.budgetMs`), and the CLI
   waits up to 5 s in all (the longest draw plus a second for the library): the plot is closed
   `final` with its config shown, and the CLI says so. Nothing draws over a closed plot afterwards.

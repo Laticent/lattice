@@ -5,7 +5,7 @@ recorded: 2026-11-17
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-17-site-discovery.md §2
-deferred: large — four separate changes, each its own measurement: the Studio export's capture and prune frames, the font subsetter in a worker, the voice runtimes' hosts, and a shell Firefox can open offline (the owner accepted that gap for #3307 on 2026-11-21, on the condition that the visitor is told; see OFFLINE)
+deferred: large — four separate changes, each its own measurement: the Studio export's capture and prune frames, the font subsetter in a worker, the voice runtimes' hosts, and a sandbox that opens offline (the owner accepted that gap for #3307 on 2026-11-21 and 2026-11-22, on the condition that the visitor is told; see OFFLINE)
 source: https://github.com/Laticent/lattice/pull/3277
 ---
 
@@ -24,17 +24,15 @@ why now   — stage 2 put the strict policy on 199 of 204 routes: every preview 
             NETWORK (/libraries/cadenza/, /libraries/suono/): voice-model.js imports kokoro-js from
             esm.run, which redirects to jsDelivr and then fetches its model and wasm from hosts no
             scan of our bundle can list (OPEN_ORIGINS).
-            OFFLINE (Firefox; every policy page that opens a draw frame): the frame loads the sandbox
-            shell, a navigation. Chromium serves it from the service worker; Firefox sends it past the
-            worker to the network, so offline a shell it never fetched online cannot load (measured
-            2026-11-21 against main: /plugins/mermaid/ and /plugins/function-plot/, cold, offline).
-            The owner accepted the gap for #3307 on condition the visitor is told. draw-host.ts fails
-            a shell with no hello in 2 s offline: Mermaid then draws from the page's own copy, and
-            function-plot, whose fallback the policy refuses (it compiles code), shows "Offline, this
-            browser can't open this diagram until you have viewed it online once. Reconnect and
-            reload this page to draw it." (browser-neutral: the check is the signal, and Safari's
-            offline behavior is unmeasured). Reconnecting and reloading draws it, and it then draws
-            offline too (measured). Not covered: a network that is connected but reaches nothing
+            OFFLINE (every policy page that opens a draw frame): the frame loads the sandbox shell, a
+            navigation the service worker does not answer for a sandboxed frame. Firefox loads it
+            from its HTTP cache once the page was seen online; Chrome 153 does not load it offline at
+            all, even served immutable (measured 2026-11-22 against main, which drew it). The owner
+            accepted the gap for #3307 on condition the visitor is told. draw-host.ts fails a shell
+            with no hello in 2 s offline: in Firefox, Mermaid then draws from the page's own copy;
+            function-plot, whose fallback the policy refuses (it compiles code), shows "Offline,
+            this browser can't open this diagram. Reconnect to draw it." (Mermaid offline in Chrome
+            153 fails on main too.) Not covered: a network that is connected but reaches nothing
             (navigator.onLine stays true), where the old 30 s wait applies. Pages without a policy
             keep srcdoc and are unaffected.
 where     — docs/src/components/studio/export/deck-export.js and
@@ -47,9 +45,8 @@ done when — FRAME: the player's runtime is a same-origin file in the capture a
             `new Function` runs in Chromium, WebKit and Gecko). NETWORK: the hosts kokoro-js and
             the Studio's on-device models reach are measured on a real load and named in
             ORIGIN_DIRECTIVES, and esm.run leaves OPEN_ORIGINS.
-            OFFLINE: Firefox opens a function-plot frame offline on a page it never drew online (the
-            shell is reachable where a navigation can use it, or the sandbox needs no navigation), and
-            OFFLINE_SHELL_MESSAGE goes.
+            OFFLINE: a function-plot frame opens offline in Chrome and Firefox (the sandbox needs no
+            navigation, or one the browser serves offline), and OFFLINE_SHELL_MESSAGE goes.
             Then csp.mjs exempts nothing and MIN_POLICY_PAGES is 204.
 known     — four limits the stage-2 review lenses found (PR #3307), each for the stage that
 limits      meets it:
