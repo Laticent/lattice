@@ -27,7 +27,10 @@ const ENTRY = '**/esm/engine.js*';
 const SUB_FILES = '**/esm/chunk-*.js';
 
 const card = (page: Page) => page.locator('[aria-label="Live deck preview"] .nacre-failed').first();
-const engineLoaded = (page: Page) => page.evaluate(() => !!(window as { LatticePlayground?: unknown }).LatticePlayground);
+// `false` while a navigation is in flight: Reload replaces the document, and an evaluate that straddles the swap throws
+// "Execution context was destroyed" (1 run in 20 on webkit-phone). A poll's next turn reads the new document.
+const engineLoaded = (page: Page) =>
+	page.evaluate(() => !!(window as { LatticePlayground?: unknown }).LatticePlayground).catch(() => false);
 
 /** Open the Studio and wait for the failure card's text; show the preview pane on a phone. */
 async function openToCard(page: Page): Promise<void> {
