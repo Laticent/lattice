@@ -29,7 +29,12 @@ AVDMANAGER="$SDK/cmdline-tools/latest/bin/avdmanager"
 yes | "$SDKMANAGER" --licenses >/dev/null || true
 "$SDKMANAGER" --install emulator platform-tools "$IMAGE" >/dev/null
 ADB="$SDK/platform-tools/adb"
-echo no | "$AVDMANAGER" create avd --force -n probe -k "$IMAGE" -d pixel_6 >/dev/null
+# One AVD folder for both tools: avdmanager and the emulator otherwise disagree about where an AVD lives (the first run's
+# emulator said "Unknown AVD name [probe]" after avdmanager had made it somewhere else).
+export ANDROID_AVD_HOME="${RUNNER_TEMP:-$HOME}/android-avd"
+mkdir -p "$ANDROID_AVD_HOME"
+echo no | "$AVDMANAGER" create avd --force -n probe -k "$IMAGE" -d pixel_6
+"$SDK/emulator/emulator" -list-avds | grep -qx probe || { echo "avdmanager did not make the 'probe' AVD in $ANDROID_AVD_HOME" >&2; exit 3; }
 
 # The docs site, as the iOS suite serves it, plus the probe's control page: one input that accepts only `.pdf`.
 if [ -f docs/dist/.prebuilt ]; then
@@ -53,9 +58,10 @@ trap 'kill "$server" "$emu" 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -sf "http://localhost:$PORT/studio/" >/dev/null && break; sleep 1; done
 curl -sf "http://localhost:$PORT/studio/" >/dev/null
 
-"$ADB" wait-for-device
+# Bounded: an emulator that exits (a bad AVD, no KVM) must fail the suite at once, not hang it until the job is cancelled.
 booted=0
 for _ in $(seq 1 "$BOOT_LIMIT"); do
+  kill -0 "$emu" 2>/dev/null || { echo "the emulator exited:" >&2; tail -20 "$OUT/emulator.log" >&2; exit 3; }
   if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then booted=1; break; fi
   sleep 1
 done
@@ -63,7 +69,7 @@ done
 "$ADB" shell pm list packages com.android.chrome | grep -q com.android.chrome || { echo "this system image has no Chrome" >&2; exit 3; }
 
 # Chrome's first-run screens would sit over the page: skip them with Chrome's own command-line file (needs root).
-"$ADB" root >/dev/null; "$ADB" wait-for-device
+"$ADB" root >/dev/null; timeout 60 "$ADB" wait-for-device
 "$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
 "$ADB" shell am set-debug-app --persistent com.android.chrome
 "$ADB" shell am force-stop com.android.chrome
