@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const dispatcher = require('../../../lib/core/inline-code-directives.js');
-const { migrateBgLine, classLineWith } = require('../../../lib/plugins/image/shared/image-migrate.js');
+const { migrateBgLine } = require('../../../lib/plugins/image/shared/image-migrate.js');
+const { classLineWith } = require('../../../lib/core/meta-class-line.mjs');
 const { withImageMarkdown: translate } = require('../../../lib/plugins/image/shared/image-marp-export.js');
 const { picturePlacement } = require('../../../lib/export/picture-placement.js');
 // The translation as the bundle calls it (lib/export/marp-bundle.js): with the export host's reading of where pictures are placed.
@@ -90,9 +91,14 @@ describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 d
   });
 
   test('the class line gains the word once', () => {
-    assert.equal(classLineWith('<!-- _class: image -->', 'mirror'), '<!-- _class: image mirror -->');
+    // Written as a record (the one spelling Lattice writes, record note §15): an old class comment moves into one.
+    assert.equal(classLineWith('<!-- _class: image -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('<!-- _class: image mirror -->', 'mirror'), '<!-- _class: image mirror -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image, class=dark, footer=Q3} -->', 'mirror'), '<!-- @meta{layout=image, class=dark mirror, footer=Q3} -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image, class=mirror} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('Not a comment', 'mirror'), null);
+    assert.equal(classLineWith('<!-- class: image -->', 'mirror'), null, 'a running class is not the slide\'s own');
   });
 
 });
@@ -141,6 +147,14 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
     assert.match(out, /^!\[The lake\]\(photo\.jpg\)$/m);
     assert.match(html(out), /class="lattice-bg /);
     assert.equal(keyword(out).length, 0);
+  });
+
+  test('a slide whose class is a record gains the word IN the record, never a second class', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=dark} -->\n\n## T\n\n![bg](photo.jpg "The lake")\n';
+    const out = fixed(md);
+    assert.match(out, /<!-- @meta\{layout=content, class=dark bleed\} -->/);
+    assert.equal((out.match(/<!--/g) || []).length, 1, 'one settings comment, not two');
+    assert.match(html(out), /class="lattice-bg /);
   });
 
   test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {
