@@ -1257,6 +1257,13 @@ jobs:
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
             exit 1
           fi
+          # The render tier runs in the merge queue only (D2, 2026-11-21), so the queue is the one
+          # place it can run at all. There, `code` is forced true and nothing may skip it: a skipped
+          # integration in merge_group would mean the tier silently dropped out, so it fails here.
+          if [ "${{ github.event_name }}" = "merge_group" ] && [ "${{ needs.integration.result }}" = "skipped" ]; then
+            echo "::error::integration was skipped in the merge queue, the only place the render tier runs"
+            exit 1
+          fi
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
                       "docs-test=${{ needs.docs-test.result }}" "player-webkit=${{ needs.player-webkit.result }}"; do

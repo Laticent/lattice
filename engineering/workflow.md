@@ -1535,7 +1535,9 @@ it passes, that exact tree becomes `main`.
   `code` paths runs the slice locally**, with the venue conformance ratchet that rode on
   its shard 4: `npm run evidence` lists both as "the PR render slice", and §The raise
   loop runs every `local` row. Skip it and a render break
-  first shows as a queue ejection, which re-tests every entry behind it.
+  first shows as a queue ejection, which re-tests every entry behind it. In the queue
+  the `ci` gate fails a run whose `integration` was skipped, so the tier cannot drop
+  out of the one place it still runs.
 
 ## Automation vs. the main ruleset
 
