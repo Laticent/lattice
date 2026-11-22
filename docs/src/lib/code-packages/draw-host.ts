@@ -63,7 +63,9 @@ const OPEN_MS = 30_000;
  * what to do (the owner's condition for shipping the gap).
  */
 const OFFLINE_HELLO_MS = 2_000;
-export const OFFLINE_SHELL_MESSAGE = "Offline, Firefox can't open this diagram until you have viewed it online once. Reconnect and reload this page to draw it.";
+/** Browser-neutral: Firefox is the browser measured to do this, but the check is the signal, not the browser's name. */
+export const OFFLINE_SHELL_MESSAGE = "Offline, this browser can't open this diagram until you have viewed it online once. Reconnect and reload this page to draw it.";
+let helloChecks = 0;
 /** A draw that never reached its frame because the frame was closed first (an earlier draw overran): it is safe to send again to a fresh one. */
 class NotSent extends Error {}
 
@@ -222,9 +224,20 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		try {
 			await new Promise<void>((resolve, reject) => {
 				const timer = setTimeout(() => reject(new Error(`the ${kind} draw frame did not open within ${OPEN_MS} ms`)), OPEN_MS);
+				// The deadline decides only after every message already queued: a page busy past it would otherwise run this timer
+				// before a hello the shell sent in time. A message posted now is delivered after the frame's earlier one.
 				const helloTimer = offlineShell
 					? setTimeout(() => {
-							if (!shellSaidHello) reject(new Error(OFFLINE_SHELL_MESSAGE));
+							if (shellSaidHello) return;
+							const id = ++helloChecks;
+							const onCheck = (e: MessageEvent) => {
+								const d = e.data as { t?: unknown; id?: unknown } | null;
+								if (d?.t !== 'lattice-draw-hello-check' || d.id !== id) return;
+								view.removeEventListener('message', onCheck);
+								if (!shellSaidHello) reject(new Error(OFFLINE_SHELL_MESSAGE));
+							};
+							view.addEventListener('message', onCheck);
+							view.postMessage({ t: 'lattice-draw-hello-check', id }, '*');
 						}, OFFLINE_HELLO_MS)
 					: undefined;
 				onReady = () => {

@@ -30,10 +30,13 @@ why now   — stage 2 put the strict policy on 199 of 204 routes: every preview 
             2026-11-21 against main: /plugins/mermaid/ and /plugins/function-plot/, cold, offline).
             The owner accepted the gap for #3307 on condition the visitor is told. draw-host.ts fails
             a shell with no hello in 2 s offline: Mermaid then draws from the page's own copy, and
-            function-plot, whose fallback the policy refuses (it compiles code), shows "Offline,
-            Firefox can't open this diagram until you have viewed it online once. Reconnect and
-            reload this page to draw it." Reconnecting and reloading draws it, and it then draws
-            offline too (measured). Pages without a policy keep srcdoc and are unaffected.
+            function-plot, whose fallback the policy refuses (it compiles code), shows "Offline, this
+            browser can't open this diagram until you have viewed it online once. Reconnect and
+            reload this page to draw it." (browser-neutral: the check is the signal, and Safari's
+            offline behavior is unmeasured). Reconnecting and reloading draws it, and it then draws
+            offline too (measured). Not covered: a network that is connected but reaches nothing
+            (navigator.onLine stays true), where the old 30 s wait applies. Pages without a policy
+            keep srcdoc and are unaffected.
 where     — docs/src/components/studio/export/deck-export.js and
             docs/src/components/studio/player-prune-browser.ts (frame);
             lib/core/pdf-compose/font-subset.mjs and docs/src/components/studio/export/calco-font-host.js

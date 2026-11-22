@@ -60,6 +60,12 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 /** Wait until frame `i` is open and has been sent `n` draws: the host's own signal, where the test used to sleep and hope. */
 const sent = (frames: Fake[], i: number, n: number) => vi.waitFor(() => expect(frames[i]?.posted.length ?? 0).toBe(n), { timeout: 10_000, interval: 1 });
 
+/** Pass the offline hello deadline: the 2 s timer, then the message it posts to decide after queued messages (jsdom delivers a posted message on a short timer of its own, which the fake clock drives). */
+const passHelloDeadline = async () => {
+	await vi.advanceTimersByTimeAsync(2_000);
+	await vi.advanceTimersByTimeAsync(10);
+};
+
 /** Wait (on real turns of the event loop, which the library's hashing needs) until the host has made its frame: its open timer is set in the same step. */
 const frameCreated = async (frames: Fake[]) => {
 	while (!frames.length) await new Promise((r) => setImmediate(r));
@@ -159,7 +165,7 @@ describe('the draw host', () => {
 			const draw = host.draw(JOB);
 			await frameCreated(frames);
 			const failed = expect(draw).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
-			await vi.advanceTimersByTimeAsync(2_000);
+			await passHelloDeadline();
 			await failed;
 			// function-plot compiles code, which the page's policy refuses, so it is NOT left to the page: the figure shows this message.
 			await expect(draw.catch((e) => (e as { drawUnavailable?: boolean }).drawUnavailable)).resolves.toBeUndefined();
@@ -178,7 +184,7 @@ describe('the draw host', () => {
 		const first = host.draw(JOB);
 		await frameCreated(frames);
 		const failed = expect(first).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
-		await vi.advanceTimersByTimeAsync(2_000);
+		await passHelloDeadline();
 		await failed;
 		// Still offline: no second frame, no second wait.
 		await expect(host.draw(JOB)).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
@@ -192,7 +198,7 @@ describe('the draw host', () => {
 		opened.push(host.close);
 		const draw = host.draw(JOB);
 		await sent(frames, 0, 1);
-		await vi.advanceTimersByTimeAsync(2_000);
+		await passHelloDeadline();
 		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await expect(draw).resolves.toBe('<svg/>');
 	});
@@ -205,11 +211,26 @@ describe('the draw host', () => {
 		const first = host.draw(JOB);
 		await frameCreated(frames);
 		const failed = expect(first).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
-		await vi.advanceTimersByTimeAsync(2_000);
+		await passHelloDeadline();
 		await failed;
 		onLine.mockReturnValue(true);
 		void host.draw(JOB).catch(() => {});
 		await vi.waitFor(() => expect(frames).toHaveLength(2), { timeout: 5_000, interval: 1 });
+	});
+
+	it('offline, a hello queued behind a busy page still opens the frame: the deadline decides after queued messages', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false });
+		opened.push(host.close);
+		const draw = host.draw(JOB);
+		await frameCreated(frames);
+		await vi.advanceTimersByTimeAsync(2_000); // the deadline fires and posts its check…
+		frames[0].reply({ t: SHELL_READY }); // …but the shell's hello was already queued ahead of it
+		await vi.advanceTimersByTimeAsync(10);
+		await sent(frames, 0, 1);
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(draw).resolves.toBe('<svg/>');
 	});
 
 	it('offline, a kind the page can draw itself is left to the page', async () => {
@@ -221,7 +242,7 @@ describe('the draw host', () => {
 		const draw = host.draw({ kind: 'plain' } as unknown as DrawJob);
 		await frameCreated(frames);
 		const failed = expect(draw).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
-		await vi.advanceTimersByTimeAsync(2_000);
+		await passHelloDeadline();
 		await failed;
 		await expect(draw.catch((e) => (e as { drawUnavailable?: boolean }).drawUnavailable)).resolves.toBe(true);
 	});
