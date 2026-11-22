@@ -209,6 +209,17 @@ function SheetContent({
     },
     [callerRef]
   )
+  // KNOWN LIMITS of the scrim path, found in review (#3418); no caller in the tree meets either today:
+  //  - The close below is a real click on the hidden Close, and React bubbles it through this sheet's
+  //    React parents. A parent `onClick` around a <Sheet> hears it, and in a real browser it can also
+  //    hear the browser's own click on the fading scrim: two clicks for one tap. Do not toggle on a
+  //    click from a sheet's parent; use `onOpenChange`.
+  //  - When a caller keeps the sheet open (preventDefault) and no click follows (iOS, or the gap before
+  //    Radix listens), `decided` stays set until the next scrim press or the next open, so ONE later
+  //    outside event that does not start on the scrim is swallowed. And the synthetic event has no
+  //    `target` and carries a `pointerup` in `detail.originalEvent`: a caller must not read either.
+  //  Stopping the click's propagation would fix the first, but it would also keep the click from the
+  //  document, where Radix's one-shot touch listener waits: not worth it without a caller that needs it.
   const onScrimPointerUp = (e: React.PointerEvent) => {
     if (!scrimPointerUp(e)) return
     if (contentRef.current?.getAttribute("data-state") !== "open") return
