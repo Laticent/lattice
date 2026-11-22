@@ -7,7 +7,7 @@ description: >
   added the listener that never left. Every confession goes to the lane that owns the code.
   Model features run against a FAKE model. Use when this session is told to be the torture
   desk, or the owner asks what makes the Studio crash, leak or slow down over time.
-argument-hint: "[compose | palette | present | live | chat | export | ios | followups]"
+argument-hint: "[compose | typing | palette | present | deckswitch2 | readaloud | mixed | followups]"
 ---
 
 # 🔥 Torture desk
@@ -31,7 +31,11 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    sessions; the memory-profiling gotchas; and anything the stress desk handed over.
 2. **Torture one cycle** on a local build of `main` (`cd docs && npm run build`, never a
    published build): `npm run torture -- --scenario studio --cycle <actions> --k 40 --cpu 4`.
-   Start with the cycles a real author repeats all day: compose, palette, Present, Live, export.
+   Use only cycles `tools/perf-torture/scenarios/studio.mjs` defines (an unknown name throws):
+   start with what an author repeats all day: `typing`, `compose`, `palette`, `present`,
+   `deckswitch2`, `insert`, `mixed`. Live, export and chat have no cycle yet: adding one is
+   a new scenario cycle in a fix session, written against a local stand-in (the Live e2e
+   harness, `docs/e2e/live-panel-harness/`, and a fake model), before it can be tortured.
    `--cpu 4` approximates a slow device; a crash that only a real iPhone shows goes to the
    devices desk.
 3. **Make it confess.** A metric that rises: re-run with `--snapshot` for the constructor that

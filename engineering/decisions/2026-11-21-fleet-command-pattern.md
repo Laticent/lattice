@@ -184,7 +184,7 @@ list and budget as the others. Adding one changes a canonical doc's contract, so
 | 🚀 Frontier | new product work run as **missions**: a multi-PR feature with a goal, waves and a definition of done (the Studio presets work is today's example) | the presets coordinator's plan-then-waves shape; the `design-competition` workflow for wide design forks | write each live mission's plan as a note, give every wave an owner, report progress on the board |
 | ✨ Polish | the 10/10 boardroom bar on what already ships: the gallery, themes, the docs site at three widths | CLAUDE.md QUALITY BAR, `engineering/visual-review.md`, `tools/pixel-check.js`, `tools/screenshot.js` | sweep one surface, file each shortfall with a screenshot, start fix sessions for the worst |
 | 〰️ Jank | layouts that move when content grows: drift, collision, crowding | `engineering/jank.md`, `npm run check:jank` | run it across the catalog, rank by how often a real deck hits it, own each fix |
-| 🔥 Torture (built, below, beside a separate stress desk) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | stress one Studio area per pass and route each break to its lane |
+| 🔥 Torture (built, below, beside a separate stress desk) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | torture one Studio cycle per pass and route each break to its lane |
 
 **The owner's answers (2026-11-21).** Jank and polish first. Both now exist as `/desk-jank` and `/desk-polish`,
 with rows in `workflow.md` §Desks. Frontier stays proposed; torture was built beside a separate stress desk (below).
@@ -215,10 +215,10 @@ intent:
 
 | | 📈 Stress (`/desk-stress`) | 🔥 Torture (`/desk-torture`) |
 |---|---|---|
-| Goal | the upper limit of what still PASSES | failure on purpose, and a confession |
+| Goal | the upper limit of what still PASSES, including on malformed input | failure on purpose, and a confession |
 | Stops at | the last size that passes the bar | a crash, a leak, memory that will not come back |
 | Output | a limits table; a limit that drops is a regression | the leaking action, the rise per cycle, and the retainer chain or listener add-site that names the culprit |
-| Tools | the CLI render, the fit gates, Playwright, `npm run bench` | `npm run torture` (`tools/perf-torture/`: `--snapshot`, `--retainers`, `--listeners`) |
+| Tools | the CLI render, the fit gates, the fuzz helpers, Playwright, `npm run bench` (engine and CLI only) | `npm run torture` (`tools/perf-torture/`: `--snapshot`, `--retainers`, `--listeners`) |
 
 A crash the stress desk meets on its way up goes to the torture desk. Both run the model features against a fake
 model (Playwright `page.route`), because Studio chat and the model features cost money; a real call is at most a

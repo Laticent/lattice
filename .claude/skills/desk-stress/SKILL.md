@@ -27,17 +27,19 @@ desk.
 **What "passes" means**, per area: the deck renders and fits (the fit gates and `lint:deck`
 clean), the export completes, and the Studio stays usable: typing echoes, panes switch, Present
 advances. Each area's bar is a count or a yes/no where it can be (slides rendered, findings,
-pages exported). A time is measured with `npm run bench` and reported as a number, never
-asserted in a test.
+pages exported). A time is reported as a number, never asserted in a test: `npm run bench`
+for the engine and the CLI, and a Playwright measurement for the Studio (`bench` does not
+drive the Studio).
 
 ## Rotation: one area per pass
 
 | Area | Climb | Tools |
 |---|---|---|
 | Deck authoring | slides per deck, components per slide, words per slot, images, chart data points, Mermaid nodes | the CLI render, `npm run lint:deck`, the fit gates, the fuzz helpers (`test/helpers/web-ref-fuzz.js`) |
-| Editors | document length and paste size in ProseMirror and CodeMirror before typing stops feeling instant | Playwright on the built Studio, `npm run bench` |
+| Malformed input | what still passes, or fails with a clear message, on CRLF and BOM, pasted or imported junk, half-typed front matter, hostile paste | the fuzz helpers, `npm run lint:deck`, the CLI render, Playwright paste |
+| Editors | document length and paste size in ProseMirror and CodeMirror before typing stops feeling instant | Playwright on the built Studio (timings reported, never asserted) |
 | Settings, library, lenses | decks in the library, lenses per deck, storage used | Playwright |
-| Coach, Present, Live | findings the coach shows, slides Present plays through, Live viewers and reconnects | Playwright |
+| Coach, Present, Live | findings the coach shows, slides Present plays through, Live viewers (up to its cap of 4) and reconnects | Playwright; Live only through the local harness `docs/e2e/live-panel-harness/`, never Live's public connection servers |
 | Chat and model features | reply length, conversation length, tool calls per turn, all against a FAKE model (below) | Playwright `page.route` |
 | Export | the largest deck that exports in every theme and format | the CLI and the Studio export path |
 
