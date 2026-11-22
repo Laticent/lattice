@@ -69,17 +69,17 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).not.toContain('image-card:');
 	});
 
-	test(`slide settings: the backing slider writes a card-o class, and Auto follows the deck${tag}`, async ({ page }) => {
+	test(`slide settings: the backing slider writes an image-card level class, and Auto follows the deck${tag}`, async ({ page }) => {
 		await setEditorContent(page, `---\ntitle: Photos\nimage-card: sheer\n---\n\n${SLIDE}`);
 		await openSlideImageTab(page);
 		await expect(chip(page, 'Auto: Sheer — 55%')).toBeChecked();
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
 		await chip(page, 'Clear, 0%').click();
-		await expect.poll(() => persistedSource(page)).toContain('card-clear');
-		await expect.poll(() => persistedSource(page)).not.toContain('card-o35');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-clear');
+		await expect.poll(() => persistedSource(page)).not.toContain('image-card-35');
 		await chip(page, 'Auto: Sheer — 55%').click();
-		await expect.poll(() => persistedSource(page)).not.toContain('card-clear');
+		await expect.poll(() => persistedSource(page)).not.toContain('image-card-clear');
 	});
 
 	// The photo is read in the real preview frame: the slide's `.lattice-bg` url, the card's real box, a
@@ -87,9 +87,9 @@ for (const tag of ['', ' @webkit-tablet']) {
 	test(`slide settings: thinning a spotlight card picks an ink from the photo${tag}`, async ({ page }) => {
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page), { message: 'the slider wrote no ink from the photo' }).toContain('card-o35');
+		await expect.poll(() => persistedSource(page), { message: 'the slider wrote no ink from the photo' }).toContain('image-card-35');
 		await expect.poll(() => persistedSource(page), { message: 'a thin card with no ink should pick one from the photo' }).toMatch(/ink-(light|dark)/);
-		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		// The pick is a plain class the author can change: Card ink Auto removes it again.
 		await choose(page, 'Slide card ink', 'Auto — Layout\'s own');
 		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
@@ -104,8 +104,8 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page), { message: 'a pale photo behind a thin card should pick ink-dark' }).toContain('ink-dark');
-		expect(await persistedSource(page)).not.toContain('ink-light');
+		await expect.poll(() => persistedSource(page), { message: 'a pale photo behind a thin card should pick image-card-dark' }).toContain('image-card-dark');
+		expect(await persistedSource(page)).not.toContain('image-card-light');
 	});
 
 	// The drag path: thin, then thick again. An ink the Studio picked for a thin card is taken back out
@@ -114,9 +114,9 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page), { message: 'thin: an ink should be picked' }).toContain('ink-light');
+		await expect.poll(() => persistedSource(page), { message: 'thin: an ink should be picked' }).toContain('image-card-light');
 		await slider(page, 'Slide card backing').fill('70');
-		await expect.poll(() => persistedSource(page), { message: 'thick again: the picked ink should go' }).toContain('card-o70');
+		await expect.poll(() => persistedSource(page), { message: 'thick again: the picked ink should go' }).toContain('image-card-70');
 		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
 	});
 
@@ -126,10 +126,10 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page)).toContain('card-o35');
-		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo', exact: true }).click();
-		await expect.poll(() => persistedSource(page), { message: 'one Undo should take the backing AND the ink back' }).not.toContain('card-o35');
+		await expect.poll(() => persistedSource(page), { message: 'one Undo should take the backing AND the ink back' }).not.toContain('image-card-35');
 		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
 	});
 
@@ -137,23 +137,23 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await setEditorContent(page, `---\ntitle: Photos\nimage-card: dark\n---\n\n${SLIDE}`);
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
 		// The photo may still be read, but `slideNeedsInk` gates every ink write and is false with a deck ink
 		// named, so the source the backing write produced is final. card-ink-pick.test.ts pins the gate.
 		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
 	});
 
 	test(`slide settings: an ink the slide names is left alone${tag}`, async ({ page }) => {
-		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight ink-dark')}`);
+		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight image-card-dark')}`);
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
-		await expect.poll(() => persistedSource(page)).toContain('card-o35');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
 		// The photo may still be read (the read-ahead always runs), but `slideNeedsInk` gates every ink write
 		// and is false here, so the source the backing write produced is final. card-ink-pick.test.ts pins
 		// that no path writes an ink past that gate.
 		const src = await persistedSource(page);
-		expect(src).toContain('ink-dark');
-		expect(src).not.toContain('ink-light');
+		expect(src).toContain('image-card-dark');
+		expect(src).not.toContain('image-card-light');
 	});
 
 	test(`slide settings: the Image tab writes the card classes, and Auto follows the deck${tag}`, async ({ page }) => {
@@ -161,11 +161,11 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true }).first()).toContainText('Top right');
 		await choose(page, 'Slide card placement', 'Bottom center');
-		await expect.poll(() => persistedSource(page)).toContain('image spotlight at-bottom');
+		await expect.poll(() => persistedSource(page)).toContain('image spotlight image-card-bottom');
 		await choose(page, 'Slide card ink', 'Light words');
-		await expect.poll(() => persistedSource(page)).toContain('ink-light');
+		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		await choose(page, 'Slide card placement', 'Auto — Top right');
-		await expect.poll(() => persistedSource(page)).not.toContain('at-bottom');
+		await expect.poll(() => persistedSource(page)).not.toContain('image-card-bottom');
 	});
 
 	test(`slide settings: no Image tab on a slide that is not an image slide${tag}`, async ({ page }) => {
@@ -241,7 +241,7 @@ for (const [label, width, height] of [
 	});
 
 	test(`@crosswidth the slide Image tab at ${label} (${width}px)`, async ({ page }, info) => {
-		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight card-sm')}`);
+		await setEditorContent(page, `---\ntitle: Photos\nimage-card: top-right soft\n---\n\n${SLIDE.replace('image spotlight', 'image spotlight image-card-sm')}`);
 		await page.setViewportSize({ width, height });
 		await openSlideImageTab(page);
 		const size = page.getByRole('combobox', { name: 'Slide card size' }).filter({ visible: true }).first();

@@ -263,7 +263,8 @@ distinct, stable ID.
 | `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
-| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `image-card-light` or `image-card-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `image-card-renamed` | error / warning / info | ✓ | An image card's old per-slide class. `card-*` (`card-soft`, `card-o65`, `card-sm`, `card-regular`, `card-float`) and `ink-light` / `ink-dark` are an error on any slide; `at-*` and `band` are an error on an `image` slide with no `tint-corner` or `tint-edge`, where `at-*` would be a tint's placement. Each names its `image-card-<word>` class, and the fix rewrites it. `compact` on an `image` slide without `image-card-compact` still tightens the slide's spacing but no longer the card: a warning on a slide that names `spotlight` or `statement`, info on one that names no composition (the engine picks it from the photo, which lint cannot see), and nothing on `clean`, `split` or `gallery`, which have no card. The fix adds `image-card-compact` so the slide renders as before. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
@@ -524,7 +525,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
-- **Unreleased.** §3.1 adds `agenda-empty` and `agenda-retired-style`
+- **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
+  (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2).
+  §3.1 adds `agenda-empty` and `agenda-retired-style`
   (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and

@@ -8,12 +8,12 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 	const slide = (cls: string) => `<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![A lake](sample:photo-wide.svg)\n`;
 
 	it('asks for an ink only for a thin card with none, from the slide or the deck', () => {
-		expect(slideNeedsInk(slide('image spotlight card-o35'), deck(''))).toBe(true);
-		expect(slideNeedsInk(slide('image spotlight card-o35 ink-dark'), deck(''))).toBe(false);
-		expect(slideNeedsInk(slide('image spotlight card-o65'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image spotlight image-card-35'), deck(''))).toBe(true);
+		expect(slideNeedsInk(slide('image spotlight image-card-35 image-card-dark'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image spotlight image-card-65'), deck(''))).toBe(false);
 		expect(slideNeedsInk(slide('image spotlight'), deck('image-card: 35%\n'))).toBe(true);
 		expect(slideNeedsInk(slide('image spotlight'), deck('image-card: 35% dark\n'))).toBe(false);
-		expect(slideHasInk(slide('image spotlight ink-light'))).toBe(true);
+		expect(slideHasInk(slide('image spotlight image-card-light'))).toBe(true);
 		expect(slideHasInk(slide('image spotlight'))).toBe(false);
 	});
 
@@ -27,18 +27,18 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 
 	it('a thin step writes the backing AND the ink the photo needs, in one edit', () => {
 		const edit = applyBacking(slide('image spotlight'), deck(''), '35%', DARK, null);
-		expect(getClassTokens(edit.chunk)).toEqual(expect.arrayContaining(['card-o35', 'ink-light']));
+		expect(getClassTokens(edit.chunk)).toEqual(expect.arrayContaining(['image-card-35', 'image-card-light']));
 		expect(edit.picked).toBe('light');
 		const pale = applyBacking(slide('image spotlight'), deck(''), '35%', PALE, null);
 		expect(pale.picked).toBe('dark');
-		expect(getClassTokens(pale.chunk)).toContain('ink-dark');
+		expect(getClassTokens(pale.chunk)).toContain('image-card-dark');
 	});
 
 	it('writes no ink without the photo, for a thick step, or when an ink is already named', () => {
 		expect(applyBacking(slide('image spotlight'), deck(''), '35%', null, null).picked).toBeNull();
-		expect(getClassTokens(applyBacking(slide('image spotlight'), deck(''), '35%', null, null).chunk)).not.toContain('ink-light');
+		expect(getClassTokens(applyBacking(slide('image spotlight'), deck(''), '35%', null, null).chunk)).not.toContain('image-card-light');
 		expect(applyBacking(slide('image spotlight'), deck(''), '65%', DARK, null).picked).toBeNull();
-		expect(applyBacking(slide('image spotlight ink-dark'), deck(''), '35%', DARK, null).picked).toBeNull();
+		expect(applyBacking(slide('image spotlight image-card-dark'), deck(''), '35%', DARK, null).picked).toBeNull();
 		expect(applyBacking(slide('image spotlight'), deck('image-card: light\n'), '35%', DARK, null).picked).toBeNull();
 	});
 
@@ -46,22 +46,22 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		const thin = applyBacking(slide('image spotlight'), deck(''), '35%', DARK, null);
 		const thick = applyBacking(thin.chunk, deck(''), '70%', DARK, 'light');
 		expect(thick.removed).toBe(true);
-		expect(getClassTokens(thick.chunk)).toContain('card-o70');
-		expect(getClassTokens(thick.chunk)).not.toContain('ink-light');
+		expect(getClassTokens(thick.chunk)).toContain('image-card-70');
+		expect(getClassTokens(thick.chunk)).not.toContain('image-card-light');
 		// Still thin at 50%: the ink stays.
 		expect(applyBacking(thin.chunk, deck(''), '50%', DARK, 'light').removed).toBe(false);
 		// An ink the author set is not the session's pick, so it survives going thick.
-		const own = applyBacking(slide('image spotlight card-o35 ink-dark'), deck(''), '70%', DARK, 'light');
+		const own = applyBacking(slide('image spotlight image-card-35 image-card-dark'), deck(''), '70%', DARK, 'light');
 		expect(own.removed).toBe(false);
-		expect(getClassTokens(own.chunk)).toContain('ink-dark');
+		expect(getClassTokens(own.chunk)).toContain('image-card-dark');
 		// And with no pick on record nothing is removed.
-		expect(applyBacking(slide('image spotlight card-o35 ink-light'), deck(''), '70%', DARK, null).removed).toBe(false);
+		expect(applyBacking(slide('image spotlight image-card-35 image-card-light'), deck(''), '70%', DARK, null).removed).toBe(false);
 	});
 
 	it('a late read is judged against the slide as it is NOW', () => {
-		expect(applyLateRead(slide('image spotlight card-o35'), deck(''), DARK).picked).toBe('light');
-		expect(applyLateRead(slide('image spotlight card-o70'), deck(''), DARK).picked).toBeNull();
-		const named = slide('image spotlight card-o35 ink-dark');
+		expect(applyLateRead(slide('image spotlight image-card-35'), deck(''), DARK).picked).toBe('light');
+		expect(applyLateRead(slide('image spotlight image-card-70'), deck(''), DARK).picked).toBeNull();
+		const named = slide('image spotlight image-card-35 image-card-dark');
 		expect(applyLateRead(named, deck(''), DARK).chunk).toBe(named);
 	});
 
@@ -77,16 +77,16 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		const engine = await import('../../../../lib/core/image-aspect.js');
 		const lists = [
 			['image', 'spotlight'], ['image', 'statement'], ['image', 'statement', 'spotlight'], ['image', 'spotlight', 'statement'],
-			['image', 'full'], ['image', 'contain'], ['image', 'full', 'statement'], ['image', 'clean', 'card-o35'], ['image'], ['content'],
+			['image', 'full'], ['image', 'contain'], ['image', 'full', 'statement'], ['image', 'clean', 'image-card-35'], ['image'], ['content'],
 		];
 		for (const tokens of lists) expect(compositionOf(tokens), tokens.join(' ')).toBe(engine.compositionFromClass(tokens.join(' ')));
-		expect(slideNeedsInk(slide('image statement card-o35'), deck(''))).toBe(false);
-		expect(slideNeedsInk(slide('image clean card-o35'), deck(''))).toBe(false);
-		expect(slideNeedsInk(slide('image full card-o35'), deck(''))).toBe(true);
-		expect(slideNeedsInk(slide('image card-o35'), deck(''))).toBe(true); // unnamed: the sampler decides
+		expect(slideNeedsInk(slide('image statement image-card-35'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image clean image-card-35'), deck(''))).toBe(false);
+		expect(slideNeedsInk(slide('image full image-card-35'), deck(''))).toBe(true);
+		expect(slideNeedsInk(slide('image image-card-35'), deck(''))).toBe(true); // unnamed: the sampler decides
 		const edit = applyBacking(slide('image statement'), deck(''), '35%', DARK, null);
 		expect(edit.picked).toBeNull();
-		expect(getClassTokens(edit.chunk)).not.toContain('ink-light');
+		expect(getClassTokens(edit.chunk)).not.toContain('image-card-light');
 	});
 
 	it('keeps re-picking its own ink as the card thins further, and leaves an author ink alone', () => {
@@ -97,12 +97,12 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		expect(at55.picked).toBe('light');
 		const at5 = applyBacking(at55.chunk, deck(''), '5%', MID, 'light');
 		expect(at5.picked).toBe('dark');
-		expect(getClassTokens(at5.chunk)).toContain('ink-dark');
-		expect(getClassTokens(at5.chunk)).not.toContain('ink-light');
+		expect(getClassTokens(at5.chunk)).toContain('image-card-dark');
+		expect(getClassTokens(at5.chunk)).not.toContain('image-card-light');
 		// An ink the author set is not ours to change, however thin.
-		const own = applyBacking(slide('image spotlight card-sheer ink-light'), deck(''), '5%', MID, null);
+		const own = applyBacking(slide('image spotlight image-card-sheer image-card-light'), deck(''), '5%', MID, null);
 		expect(own.picked).toBeNull();
-		expect(getClassTokens(own.chunk)).toContain('ink-light');
+		expect(getClassTokens(own.chunk)).toContain('image-card-light');
 	});
 
 	it('photo reference: the slide\'s photo as written', () => {
@@ -169,7 +169,7 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		const second = applyBacking(fresher, deck(''), '70%', DARK, 'light');
 		expect(first.removed).toBe(true);
 		expect(second.removed).toBe(true);
-		expect(getClassTokens(second.chunk)).not.toContain('ink-light');
+		expect(getClassTokens(second.chunk)).not.toContain('image-card-light');
 	});
 });
 

@@ -5,14 +5,14 @@ import { CHROME, expect, gotoStudio, persistedSource, test, typeDeck } from './s
 // On a thin card lint flags, the fix is the card ink (it clears lint's warning too); elsewhere a pin comes first. The
 // verdict is measured from the painted page, so this drives the real Studio preview. Nothing changes until a click.
 
-// `card-clear` drops the card's backing, so the theme's own (dark, in light mode) ink sits on a dark photo.
+// `image-card-clear` drops the card's backing, so the theme's own (dark, in light mode) ink sits on a dark photo.
 // A heading alone, so the pin's verdict is the heading's: the theme's muted body ink is a second text the pin must also clear.
-const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
+const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
 // With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered: the card ink is.
-const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![A harbor](sample:photo-wide.svg)\n';
+const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![A harbor](sample:photo-wide.svg)\n';
 // The mirror case: a bright photo under light ink (a dark deck), where the fix is to pin the slide light.
 const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
-const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](${BRIGHT_PHOTO})\n`;
+const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](${BRIGHT_PHOTO})\n`;
 // A solid card carries the theme's own contrast, whatever the photo is.
 const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class=spotlight} -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![A harbor](sample:photo-wide.svg)\n';
 
@@ -68,7 +68,7 @@ for (const { mode, deck, ink } of CASES) {
 			expect(await persistedSource(page)).not.toMatch(/@meta\{[^\n]*\bink-/);
 
 			await page.getByRole('button', { name: `Set card ink ${ink}` }).filter({ visible: true }).first().click();
-			await expect.poll(() => persistedSource(page)).toMatch(new RegExp(`layout=image, class=spotlight card-clear ink-${ink}\\}`));
+			await expect.poll(() => persistedSource(page)).toMatch(new RegExp(`layout=image, class=spotlight image-card-clear image-card-${ink}\\}`));
 			await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 			await page.screenshot({ path: info.outputPath(`fixed-${mode}-${width}.png`) });
 		});
@@ -104,7 +104,7 @@ for (const width of [1440, 390]) {
 		await page.screenshot({ path: info.outputPath(`ink-offered-${width}.png`) });
 
 		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
-		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight card-clear ink-light\}/);
+		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight image-card-clear image-card-light\}/);
 		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 		await page.screenshot({ path: info.outputPath(`ink-set-${width}.png`) });
 	});
@@ -124,7 +124,7 @@ for (const width of [1440, 390]) {
 		await expect(page.locator('.cm-diagnosticAction', { hasText: 'Set card ink light' })).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('.cm-diagnosticAction', { hasText: 'Set card ink dark' })).toHaveCount(0);
 		await page.locator('.cm-diagnosticAction', { hasText: 'Set card ink light' }).click();
-		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight card-clear ink-light\}/);
+		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight image-card-clear image-card-light\}/);
 		await expect(page.locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 	});
 }
@@ -151,7 +151,7 @@ test('a statement slide over a bright photo is not flagged', async ({ page }) =>
 	await openCoach(page);
 	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
 	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
-	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight card-clear"', 'class=statement'));
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class=statement'));
 	await readSettled(page, 'layout=image, class=statement}');
 	await expect(warning).toHaveCount(0);
 });
@@ -165,19 +165,19 @@ test('a statement list row takes the card ink and is not flagged @webkit-tablet 
 	await openCoach(page);
 	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
 	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
-	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight card-clear"', 'class=statement').replace('## A quiet harbor.\n', '## A quiet harbor.\n\n- The margins hold\n- The plan ships\n'));
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class=statement').replace('## A quiet harbor.\n', '## A quiet harbor.\n\n- The margins hold\n- The plan ships\n'));
 	await readSettled(page, 'layout=image, class=statement}');
 	await expect(warning).toHaveCount(0);
 });
 
-// With `card-clear` the scrim paints nothing, so the statement's fixed white ink sits straight on the bright photo. No slide
+// With `image-card-clear` the scrim paints nothing, so the statement's fixed white ink sits straight on the bright photo. No slide
 // pin changes that ink, so the finding offers the dark card ink, which flips the ink and the scrim together.
 for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`a statement with its scrim cleared over a bright photo is flagged, and the dark ink fixes it (${width}px)${engines}`, async ({ page }, info) => {
 		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
 		await gotoStudio(page);
-		await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight card-clear"', 'class="statement card-clear"'));
+		await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class="statement image-card-clear"'));
 		await openCoach(page);
 		const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
 		await expect(warning).toContainText('Setting the card ink dark', { timeout: 20_000 });
@@ -188,18 +188,18 @@ for (const width of [1440, 390]) {
 		await page.screenshot({ path: info.outputPath(`statement-flagged-${width}.png`) });
 
 		await page.getByRole('button', { name: 'Set card ink dark' }).filter({ visible: true }).first().click();
-		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement card-clear ink-dark\}/);
+		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear ink-dark\}/);
 		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 		await page.screenshot({ path: info.outputPath(`statement-fixed-${width}.png`) });
 	});
 }
 
-// A thin scrim (`card-o10`) still paints, so the ratio is judged against the scrim at its strongest: a ceiling, and the
+// A thin scrim (`image-card-10`) still paints, so the ratio is judged against the scrim at its strongest: a ceiling, and the
 // message says "at most". White on this bright photo fails even there, so the slide is flagged.
 test('a statement under a thin scrim is flagged with an "at most" ratio', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight card-clear"', 'class="statement card-o10"'));
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class="statement card-o10"'));
 	await openCoach(page);
 	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
 	await expect(warning).toContainText('reads at most', { timeout: 20_000 });
@@ -227,7 +227,7 @@ test('a deck-level image-card register change clears the finding without touchin
 
 // The preview follows the caret even where it is parked (the phone's Source tab): crossing to a slide draws it once, and the
 // editor re-lints after, so the tooltip for the slide the caret is on reads ITS photo and offers the single ink.
-const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n\n## Slide ${n}\n\n![A harbor](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
+const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n\n## Slide ${n}\n\n![A harbor](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
 for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`moving the caret to another slide gives that slide's tooltip the single ink (${width}px)${engines}`, async ({ page }) => {
@@ -425,7 +425,7 @@ for (const width of [1440, 390]) {
 test('a statement the Coach flags is underlined in the editor too, and the editor button fixes it', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight card-clear"', 'class="statement card-clear"'));
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class="statement image-card-clear"'));
 	await openCoach(page);
 	const finding = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
 	await expect(finding).toContainText('Setting the card ink dark', { timeout: 20_000 });
@@ -437,7 +437,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	const tip = page.locator('.cm-tooltip-lint');
 	await expect(tip).toContainText(said);
 	await tip.locator('.cm-diagnosticAction', { hasText: 'Set card ink dark' }).click();
-	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement card-clear ink-dark\}/);
+	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear ink-dark\}/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 	await expect(page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 });
@@ -456,7 +456,7 @@ test('a Coach fix on the first slide keeps the preview on that slide', async ({ 
 	await page.getByRole('button', { name: 'Previous slide' }).filter({ visible: true }).first().click();
 	await expect(label).toContainText('Slide 1 / 2');
 	await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click({ timeout: 20_000 });
-	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight card-clear ink-light\}/);
+	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight image-card-clear image-card-light\}/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 	await expect(label).toContainText('Slide 1 / 2');
 });
@@ -543,7 +543,7 @@ async function deckText(page: import('@playwright/test').Page): Promise<string> 
 	}
 }
 const SPLIT_DECK =
-	'---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n\n<!-- @meta{layout=image, class="spotlight card-clear"} -->\n## A second harbor.\n\n![Another harbor](sample:photo-wide.svg)\n';
+	'---\ntitle: Photos\n---\n\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n\n<!-- @meta{layout=image, class="spotlight image-card-clear"} -->\n## A second harbor.\n\n![Another harbor](sample:photo-wide.svg)\n';
 for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @gecko @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`a slide split on its headings: each part's photo is checked, and the fix is that part's (${width}px)${engines}`, async ({ page }) => {
@@ -555,8 +555,8 @@ for (const width of [1440, 390]) {
 		const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
 		await expect(warning).toBeVisible({ timeout: 20_000 });
 		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
-		await expect.poll(() => deckText(page)).toMatch(/<!-- @meta\{layout=image, class=spotlight card-clear ink-light\} -->\n## A second harbor\./);
-		expect((await deckText(page)).match(/ink-light/g)).toHaveLength(1);
+		await expect.poll(() => deckText(page)).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\n## A second harbor\./);
+		expect((await deckText(page)).match(/image-card-light/g)).toHaveLength(1);
 
 		// Back to the first part, whose photo is still unread by any fix.
 		// A phone shows the Coach as a sheet over the editor: close it, then open the source.
@@ -569,7 +569,7 @@ for (const width of [1440, 390]) {
 		if (!(await page.getByText('Deck read').filter({ visible: true }).count())) await openCoach(page);
 		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
 		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
-		await expect.poll(() => deckText(page)).toMatch(/<!-- @meta\{layout=image, class=spotlight card-clear ink-light\} -->\n\n## A quiet harbor\./);
-		expect((await deckText(page)).match(/ink-light/g)).toHaveLength(2);
+		await expect.poll(() => deckText(page)).toMatch(/<!-- @meta\{layout=image, class=spotlight image-card-clear image-card-light\} -->\n\n## A quiet harbor\./);
+		expect((await deckText(page)).match(/image-card-light/g)).toHaveLength(2);
 	});
 }

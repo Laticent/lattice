@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes placement (`at-*`), backing (`card-solid`/`soft`/`sheer`/`clear`, or any 5% step such as `card-o65`), ink (`ink-light`/`dark`), size (`card-sm`/`md`/`lg`), shape (`band` stretches the card across the top or bottom edge) and `compact`; the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
+Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. On `spotlight` and `statement`, the text card takes its own `image-card-*` classes: placement (`image-card-top-right` and six more), backing (`image-card-solid`/`soft`/`sheer`/`clear`, or any 5% step such as `image-card-65`), ink (`image-card-light`/`dark`), size (`image-card-sm`/`md`/`lg`), density (`image-card-compact`) and shape (`image-card-band` stretches the card across the top or bottom edge); the deck front-matter `image-card:` sets them for every image slide in one line. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
 
 ## Agent contract
 
@@ -28,17 +28,17 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 - **`gallery`.** The asset is a diagram or screenshot where whitespace and containment are the point — mats it whole on a matte with a placard, zero crop.
 - **`statement`.** You want an editorial scrim-and-title hero treatment — a deliberate full-bleed gamble rather than the safe legible default.
 - **`mirror`.** The composition is right but the deck's rhythm wants the image on the left instead of the right — flips the side without changing the composition.
-- **`at-tl`.** On `spotlight` or `statement`, the photo's subject sits where the card would land — move the card to the quiet part of the frame with one of `at-tl` · `at-top` · `at-tr` · `at-center` · `at-bl` · `at-bottom` · `at-br`.
-- **`card-soft`.** On `spotlight` or `statement`, the backing hides too much photo — thin it with `card-soft` (80%) or `card-sheer` (55%), set an exact level with a 5% step (`card-o65` is 65%; the deck line writes `65%`), or drop it with `card-clear` when the photo is calm where the words land. A thin spotlight card (under 60%) needs a matching `ink-light` or `ink-dark`, or the theme's own ink is read against the photo; lint warns (`thin-card-no-ink`), and in the Studio the Card backing slider picks one from the photo for you.
-- **`ink-dark`.** On `spotlight` or `statement`, the photo is bright where the words land — `ink-dark` sets dark words on a light backing; `ink-light` sets white words on a dark one.
-- **`card-sm`.** On `spotlight` or `statement`, the card competes with the photo — `card-sm` shrinks the card and its type so the photo carries the slide; `card-lg` does the opposite. Add `compact` to tighten the card's padding and pull it closer to the slide edge at any size.
-- **`band`.** On `spotlight` or `statement`, the card covers something you want to see above or below it — add `band` to `at-top` or `at-bottom` to stretch the card across the slide in one short strip (heading left, text right) and leave the middle of the photo clear, with a hairline in the gap between the two columns. On a corner or center placement `band` does nothing; `card-float` steps one slide out of a deck-wide `band`.
+- **`image-card-top-left`.** On `spotlight` or `statement`, the photo's subject sits where the card would land — move the card to the quiet part of the frame with one of `image-card-top-left` · `image-card-top` · `image-card-top-right` · `image-card-center` · `image-card-bottom-left` · `image-card-bottom` · `image-card-bottom-right`.
+- **`image-card-soft`.** On `spotlight` or `statement`, the backing hides too much photo — thin it with `image-card-soft` (80%) or `image-card-sheer` (55%), set an exact level with a 5% step (`image-card-65` is 65%; the deck line writes `65%`), or drop it with `image-card-clear` when the photo is calm where the words land. A thin spotlight card (under 60%) needs a matching `image-card-light` or `image-card-dark`, or the theme's own ink is read against the photo; lint warns (`thin-card-no-ink`), and in the Studio the Card backing slider picks one from the photo for you.
+- **`image-card-dark`.** On `spotlight` or `statement`, the photo is bright where the words land — `image-card-dark` sets dark words on a light backing; `image-card-light` sets white words on a dark one.
+- **`image-card-sm`.** On `spotlight` or `statement`, the card competes with the photo — `image-card-sm` shrinks the card and its type so the photo carries the slide; `image-card-lg` does the opposite. Add `image-card-compact` to tighten the card's padding and pull it closer to the slide edge at any size.
+- **`image-card-band`.** On `spotlight` or `statement`, the card covers something you want to see above or below it — add `image-card-band` to `image-card-top` or `image-card-bottom` to stretch the card across the slide in one short strip (heading left, text right) and leave the middle of the photo clear, with a hairline in the gap between the two columns. On a corner or center placement `image-card-band` does nothing; `image-card-float` steps one slide out of a deck-wide band.
 
 ### Common mistakes
 
 - **Giving the photo a second lone picture, or putting Marp's side keywords in its alt (`![bg left](path)`).** The photo is the slide's ONE lone picture: `![A name](path "A longer description")` alone on its line, or `@image{path, title="…"}`. The slide places it on its panel, and `mirror` moves it to the left. A second lone picture, or a `![bg]` or record already on the slide, keeps the other picture in the text, and an `http:` address is not placed (use `https:`). `lint:deck --fix` rewrites an old `![bg …]` line into the picture and the slide's class.
 - **Naming a composition class (`image spotlight`, `image gallery`, …) reflexively instead of leaving it unset.** The composition RESOLVES from the photo's own aspect ratio plus the deck orientation — an explicit class always wins over the resolver, so naming one out of habit can force a crop (e.g. `spotlight`'s full-bleed cover) that the auto-picked `clean`/`split` composition would have avoided.
-- **Adding a card control (`at-*`, `card-*`, `ink-*`) to a `clean`, `split` or `gallery` slide.** Those compositions set the text beside the photo, not over it, so there is no card to move. The card controls act only on `spotlight` and `statement` — name one of those first: `image spotlight at-tr card-sm`.
+- **Adding a card control (`image-card-*`) to a `clean`, `split` or `gallery` slide.** Those compositions set the text beside the photo, not over it, so there is no card to move. The card controls act only on `spotlight` and `statement` — name one of those first: `image spotlight image-card-top-right image-card-sm`.
 
 ## When to use
 
@@ -166,266 +166,280 @@ Text leads from the right; image anchors from the left.
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-tl` — Top left
+### `image-card-top-left` — Top left
 
 The text card sits in the top-left corner.
 
 ```markdown
-<!-- _class: image spotlight at-tl -->
+<!-- _class: image spotlight image-card-top-left -->
 
-## at-tl lifts the card to the top left.
+## image-card-top-left lifts the card to the top left.
 
 Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-top` — Top center
+### `image-card-top` — Top center
 
 The text card sits centered along the top.
 
 ```markdown
-<!-- _class: image statement at-top -->
+<!-- _class: image statement image-card-top -->
 
-## at-top centers the title up high.
+## image-card-top centers the title up high.
 
 The scrim follows the words to the top edge.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-tr` — Top right
+### `image-card-top-right` — Top right
 
 The text card sits in the top-right corner.
 
 ```markdown
-<!-- _class: image spotlight at-tr -->
+<!-- _class: image spotlight image-card-top-right -->
 
-## at-tr parks the card top right.
+## image-card-top-right parks the card top right.
 
 The subject sits low and left, so the words take the open sky.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-center` — Center
+### `image-card-center` — Center
 
 The text card sits in the middle of the slide.
 
 ```markdown
-<!-- _class: image statement at-center -->
+<!-- _class: image statement image-card-center -->
 
-## at-center puts the title dead center.
+## image-card-center puts the title dead center.
 
 A radial scrim darkens only the middle.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-bl` — Bottom left
+### `image-card-bottom-left` — Bottom left
 
 The text card sits in the bottom-left corner — the default.
 
 ```markdown
-<!-- _class: image spotlight at-bl -->
+<!-- _class: image spotlight image-card-bottom-left -->
 
-## at-bl is the default corner.
+## image-card-bottom-left is the default corner.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-bottom` — Bottom center
+### `image-card-bottom` — Bottom center
 
 The text card sits centered along the bottom.
 
 ```markdown
-<!-- _class: image spotlight at-bottom -->
+<!-- _class: image spotlight image-card-bottom -->
 
-## at-bottom centers the card low.
+## image-card-bottom centers the card low.
 
 A caption band under the subject, centered on the slide.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `at-br` — Bottom right
+### `image-card-bottom-right` — Bottom right
 
 The text card sits in the bottom-right corner.
 
 ```markdown
-<!-- _class: image statement at-br -->
+<!-- _class: image statement image-card-bottom-right -->
 
-## at-br anchors the title bottom right.
+## image-card-bottom-right anchors the title bottom right.
 
 The scrim flips to darken the right side.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-solid` — Solid backing
+### `image-card-solid` — Solid backing
 
 The card or scrim at full strength — the default.
 
 ```markdown
-<!-- _class: image spotlight card-solid -->
+<!-- _class: image spotlight image-card-solid -->
 
-## card-solid keeps the card opaque.
+## image-card-solid keeps the card opaque.
 
 Full legibility over any photo. This is the default.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-soft` — Soft backing
+### `image-card-soft` — Soft backing
 
 The card or scrim at 80%, so the photo glows through.
 
 ```markdown
-<!-- _class: image spotlight card-soft -->
+<!-- _class: image spotlight image-card-soft -->
 
-## card-soft lets the photo glow through.
+## image-card-soft lets the photo glow through.
 
 The panel drops to 80% and loses its lift shadow.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-sheer` — Sheer backing
+### `image-card-sheer` — Sheer backing
 
 The card or scrim at 55%, a tint more than a panel.
 
 ```markdown
-<!-- _class: image spotlight card-sheer ink-light -->
+<!-- _class: image spotlight image-card-sheer image-card-light -->
 
-## card-sheer turns the card into a tint.
+## image-card-sheer turns the card into a tint.
 
 At 55% the photo reads through; pair it with an ink that suits the photo.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-clear` — Clear backing
+### `image-card-clear` — Clear backing
 
 No card and no scrim: the words ride the photo.
 
 ```markdown
-<!-- _class: image statement card-clear -->
+<!-- _class: image statement image-card-clear -->
 
-## card-clear drops the scrim.
+## image-card-clear drops the scrim.
 
 Only for a photo with a calm, dark patch where the words land.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `ink-light` — Light ink
+### `image-card-light` — Light ink
 
 White words on a dark backing.
 
 ```markdown
-<!-- _class: image spotlight ink-light -->
+<!-- _class: image spotlight image-card-light -->
 
-## ink-light sets white words on a dark card.
+## image-card-light sets white words on a dark card.
 
 The card turns dark to match, whatever the deck palette.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `ink-dark` — Dark ink
+### `image-card-dark` — Dark ink
 
 Near-black words on a light backing.
 
 ```markdown
-<!-- _class: image statement ink-dark -->
+<!-- _class: image statement image-card-dark -->
 
-## ink-dark sets dark words on a light scrim.
+## image-card-dark sets dark words on a light scrim.
 
 For a bright photo: the scrim turns light and the title goes dark.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-sm` — Small card
+### `image-card-sm` — Small card
 
 A narrower card with smaller type, so the photo breathes.
 
 ```markdown
-<!-- _class: image spotlight card-sm at-tr -->
+<!-- _class: image spotlight image-card-sm image-card-top-right -->
 
-## card-sm keeps the card discreet.
+## image-card-sm keeps the card discreet.
 
 Smaller type and a narrower card leave the photo the slide.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-md` — Medium card
+### `image-card-md` — Medium card
 
 The default card width and type.
 
 ```markdown
-<!-- _class: image spotlight card-md -->
+<!-- _class: image spotlight image-card-md -->
 
-## card-md is the default size.
+## image-card-md is the default size.
 
 Name it to return a slide to the default inside a deck that resized it.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-lg` — Large card
+### `image-card-lg` — Large card
 
 A wider card with larger type, for a message that leads.
 
 ```markdown
-<!-- _class: image spotlight card-lg -->
+<!-- _class: image spotlight image-card-lg -->
 
-## card-lg lets the message lead.
+## image-card-lg lets the message lead.
 
 Wider card, bigger heading, room for a longer line.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-regular` — Regular density
+### `image-card-regular` — Regular density
 
 The default card spacing, so one slide can step out of a deck-wide compact.
 
 ```markdown
-<!-- _class: image spotlight card-regular -->
+<!-- _class: image spotlight image-card-regular -->
 
-## card-regular keeps the default spacing.
+## image-card-regular keeps the default spacing.
 
 In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `band` — Full-width band
+### `image-card-compact` — Compact card
+
+Tightens the card's padding and pulls it closer to the slide edge, at any size.
+
+```markdown
+<!-- _class: image spotlight image-card-compact -->
+
+## image-card-compact tightens the card.
+
+Less padding and a smaller inset from the edge, so the photo keeps more of the frame.
+
+![A figure by a lake under a low sun](sample:photo-wide.svg)
+```
+
+### `image-card-band` — Full-width band
 
 Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear.
 
 ```markdown
-<!-- _class: image spotlight at-bottom band -->
+<!-- _class: image spotlight image-card-bottom image-card-band -->
 
-## band keeps the middle of the photo clear.
+## image-card-band keeps the middle of the photo clear.
 
 The heading takes the left column and the text the right, in one short strip along the edge.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
-### `card-float` — Floating card
+### `image-card-float` — Floating card
 
 The default floating card, so one slide can step out of a deck-wide band.
 
 ```markdown
-<!-- _class: image spotlight at-bottom card-float -->
+<!-- _class: image spotlight image-card-bottom image-card-float -->
 
-## card-float keeps the card a card.
+## image-card-float keeps the card a card.
 
 In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
 
