@@ -4,7 +4,7 @@ priority: P6
 recorded: 2026-10-18
 area: infra
 severity: low
-swimlane: engineering/workflow.md §Session branch ownership
+swimlane: engineering/workflow.md §Relay
 source: https://github.com/Laticent/lattice/pull/2780
 ---
 

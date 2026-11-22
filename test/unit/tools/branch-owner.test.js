@@ -1,5 +1,5 @@
 /**
- * Unit: tools/branch-owner.sh — the check behind HARD RULE #31 (one session, one branch).
+ * Unit: tools/branch-owner.sh — who has commits on a branch (HARD RULE #31; the push question is `npm run baton`).
  *
  * The dangerous direction is a false "safe" (exit 0) while another session's commits are on the
  * branch, so most cases here are ways the script could wrongly pass. Each runs against a throwaway
