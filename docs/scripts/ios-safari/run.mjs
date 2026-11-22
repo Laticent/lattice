@@ -1512,11 +1512,6 @@ async function runChatStorageProbe(id) {
 }
 
 /**
- * The Playground's click-a-line check (docs/e2e/playground-focus-sync.spec.ts) on real Mobile Safari. Each tap is a real
- * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
- * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
- */
-/**
  * THE PLAYGROUND SCROLL PROBE (PROBE=playground-scroll, playground-scroll-probe.js): a real finger drags the Playground's
  * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
  * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
@@ -1597,6 +1592,11 @@ async function runPlaygroundScrollProbe(id) {
 	return result;
 }
 
+/**
+ * The Playground's click-a-line check (docs/e2e/playground-focus-sync.spec.ts) on real Mobile Safari. Each tap is a real
+ * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
+ * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
+ */
 async function runFocusSyncProbe(id) {
 	const probe = fs.readFileSync(path.join(here, 'focus-sync-probe.js'), 'utf8');
 	const burn = Number(process.env.FOCUS_SYNC_BURN_MS ?? 150);

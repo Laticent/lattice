@@ -5,7 +5,7 @@ recorded: 2026-11-22
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-09-28-playground-virtual-filmstrip.md §1
-deferred: blocked — on the hosted iOS Simulator, safaridriver stops answering after one WebDriver touch drag over the Playground's preview frame, so no on-device run can finish
+deferred: blocked — the WebDriver touch-drag route is blocked: on the hosted iOS Simulator safaridriver stops answering after one touch drag over the preview frame. The other routes (the Mac's own Safari, a drag from outside the frame, a simctl or XCUITest gesture) are untried; the raise loop's three rounds were spent finding the block
 source: https://github.com/Laticent/lattice/pull/3428
 ---
 
