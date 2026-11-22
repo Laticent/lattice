@@ -687,7 +687,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `present-narration-probe.js` imports it, then, AFTER boot, installs a stand-in cloud voice: a selection, a stored key, and the
   speech call answered inside the page with silent WAV of the sentence's length. `NARRATION_VOICE=openrouter-gemini` (the
   default, the owner's: the reload happens with Gemini 3.1 Flash TTS through OpenRouter and not with Kokoro) is asked for
-  `pcm` and answers headerless PCM, which the page holds as a `wavLike` ArrayBuffer rather than a `Blob`; `openrouter`
+  `pcm` and answers headerless PCM, which the page wraps as a WAV `Blob` (`wavLike`); `openrouter`
   (Kokoro, WAV) and `gemini` (Gemini's own API, JSON with base64 WAV inside) cover the other cloud paths. After boot
   because boot checks a stored key with OpenRouter, and from the simulator that real call would reject a stand-in; no key
   is spent (HARD RULE #24). Present opens with Guide on; the probe presses Play (a WebDriver element click, then a touch tap, a mouse
@@ -696,14 +696,18 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   gesture). So the probe walks the deck with Next every `NARRATION_STEP_S` (10), as a presenter would: each slide's
   narration is still requested, fetched and cached, which is the memory under test, though walking interrupts each
   reading so little is decoded. Voice on until Present reaches slide `NARRATION_TARGET_SLIDE` (15), judged on that work and
-  never on how far a fixed time got it (`NARRATION_PLAY_S`, 600, is only a ceiling for a hung arm); voice off for
-  `NARRATION_SILENT_S` (90, reported only); every 30 s it reads the slide, the audio state, the narration audio the page has
-  decoded and still holds (a `decodeAudioData` wrapper and a `FinalizationRegistry`: bytes, not time), and the footprint.
-  It fails when the voice arm stops before slide 15 or asks for under four sentences a slide, the page reloads, the held audio passes `NARRATION_AUDIO_CAP_MB`
-  (40) or the footprint grows past `NARRATION_MEMORY_CAP_MB` (300). `PROBE=present-narration node
-  docs/scripts/ios-safari/probe.selftest.mjs` runs the steps in Playwright's WebKit at iPhone size (120 s and 30 s arms), walking the deck the same way. The first before/after pair
-  (44025172449 without the 24 MB audio-cache cap, 44024954648 with it) peaked at +157 MB and +175 MB: the cap is not
-  what grows; real playback's decoded audio, which the simulator cannot reach, is the open question.
+  never on how far a fixed time got it (`NARRATION_PLAY_S`, 600, is only a ceiling for a hung arm); a voice-off arm runs only when
+  `NARRATION_SILENT_S` is set (reported, never judged); every 30 s it reads the slide, the audio state, the narration audio the page has
+  decoded (a `decodeAudioData` wrapper; a `FinalizationRegistry` subtracts what the page lets go, but on the simulator it
+  has never fired, so the number reads as all audio decoded), and the footprint.
+  It fails when the voice arm stops before slide 15 or asks for under four sentences a slide, the page reloads, no audio was decoded or the decoded audio passes
+  `NARRATION_AUDIO_CAP_MB` (40), the footprint reader reads under 50 MB before Present (it is not reading Safari), or the
+  footprint grows past `NARRATION_MEMORY_CAP_MB` (300). `PROBE=present-narration node
+  docs/scripts/ios-safari/probe.selftest.mjs` runs the steps in Playwright's WebKit at iPhone size (the voice arm walks to slide 15, with 300 s only a ceiling), walking the deck the same way. The first before/after pair
+  (44025172449 without the 24 MB audio-cache cap, 44024954648 with it) peaked at +157 MB and +175 MB, but both runs likely held under 24 MB of clips,
+  so the cap probably never fired in either; `docs/e2e/voice-cache-budget.spec.ts` is what shows the cap bounding the
+  cache, in real engines with real Blobs. The owner's iPhone reload was Guide on a 4K deck (#3304), which the simulator
+  cannot show because its audio never plays, so Guide never moves.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
   `ios-safari-player-charts-ipad` and `ios-safari-player-charts-iphone` run it with `PROBE=player-charts` (#3259): chart

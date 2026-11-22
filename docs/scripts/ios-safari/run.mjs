@@ -870,8 +870,8 @@ async function runPresentMemoryProbe(id) {
  * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens
  * Present on slide 1 with Guide on and presses Play: on the simulator only a script click reaches the page, so audio stays
  * suspended and the probe walks the deck with Next (see the loop below). Two arms on one fresh Studio each: voice ON for
- * slide NARRATION_TARGET_SLIDE (15, judged on that work; NARRATION_PLAY_S is only a ceiling), then voice OFF for
- * NARRATION_SILENT_S (reported, so the difference is the narration's).
+ * slide NARRATION_TARGET_SLIDE (15, judged on that work; NARRATION_PLAY_S is only a ceiling). A voice OFF arm runs
+ * only when NARRATION_SILENT_S is set (reported, never judged).
  * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
  * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
  * (HARD RULE #32). A simulator has no memory limit, so it shows the cost an iPhone weighs, not the reload itself.
@@ -886,7 +886,9 @@ async function runPresentNarrationProbe(id) {
 	// is only the ceiling a hung arm stops at.
 	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
 	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 600);
-	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 90);
+	// The voice-off arm is reported and never judged, and it cost about 4 of the job's 30 minutes (run 45048900320 ended
+	// 19 s inside the limit). Opt in with NARRATION_SILENT_S for a comparison run.
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 0);
 	const SAMPLE_S = 30;
 	const STEP_S = Number(process.env.NARRATION_STEP_S || 10);
 	// The owner's voice by default: Gemini 3.1 Flash TTS through OpenRouter, where the reload happens; not with Kokoro.
@@ -942,7 +944,8 @@ async function runPresentNarrationProbe(id) {
 				['touch tap', pointer('touch', [{ type: 'pause', duration: 80 }])],
 				['mouse click', pointer('mouse', [{ type: 'pause', duration: 50 }])],
 				// Last: a scripted click, which run 43993979079 showed DOES start Present. iOS does not count it as a gesture,
-				// so audio stays suspended, and the 'played with audio running' check says so instead of passing on silence.
+				// so audio stays suspended (each sample logs `audio suspended`); the probe then walks the deck with Next, and judges
+				// the narration fetched per slide, not what was played.
 				['script click', async () => failIf(await call('latticeNarrationScriptClick()'), 'the scripted click')],
 			];
 			let started = null;
@@ -1002,8 +1005,8 @@ async function runPresentNarrationProbe(id) {
 		}
 		return out;
 	};
-	const arms = [await arm(true, PLAY_S, TARGET_SLIDE), await arm(false, SILENT_S)];
-	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac });
+	const arms = [await arm(true, PLAY_S, TARGET_SLIDE), ...(SILENT_S > 0 ? [await arm(false, SILENT_S)] : [])];
+	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac, targetSlide: TARGET_SLIDE });
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, voice: VOICE, deckBytes: deck.bytes.length, arms, steps };
 }

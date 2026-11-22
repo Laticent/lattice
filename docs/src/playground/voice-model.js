@@ -367,14 +367,12 @@ export function isPcmOnlyModel(model) {
 // "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
 // quirk, not a universal constant. Browser twin of generate-voice-samples.mjs's
 // pcmToWav()/parsePcmContentType() (that one writes a Node Buffer to disk; this
-// one hands back a blob-LIKE object — {size, type, arrayBuffer()} — the consumer
-// (Suono) can decode directly, same header layout). Deliberately NOT a real `Blob`:
-// this codebase's own rung mocks (voice-model.test.ts) always use this exact duck-
-// typed shape rather than a real Blob, because jsdom's Blob has no `.arrayBuffer()`
-// method — matching that shape here keeps production and tests on one shape, and it
-// avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
-// already an ArrayBuffer). A real Blob works fine in every real browser target too,
-// if a future caller needs one — this just isn't that caller.
+// one hands back the clip the consumer (Suono) decodes directly, same header layout).
+// It is a real `Blob` in every browser (`wavLike`, 2026-11-17): a browser may keep a
+// Blob's bytes outside the page's memory, where an ArrayBuffer held in a cache always
+// counts, and these uncompressed clips are the large ones. jsdom's Blob has no
+// `.arrayBuffer()`, so under the unit tests `wavLike` falls back to the duck-typed
+// {size, type, arrayBuffer()} shape the rung mocks use.
 // The WAV wrap itself (and the one PCM-geometry parser every consumer shares) lives in voice-decode.js, so the
 // Gemini decode worker produces the same bytes as this main-thread path.
 function pcmBlobFromResponse(pcmBytes, contentType) {
@@ -572,8 +570,8 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
       // model-gone and billing latches stay here: they cost nothing measurable.
       const out = await decodeGeminiSpeechOffThread(await res.arrayBuffer());
       if ('error' in out) throw new Error(out.error);
-      // Gemini's own WAV stays a real Blob; a wrapped headerless L16 clip is the same duck-typed shape the
-      // OpenRouter PCM path returns.
+      // Gemini's own WAV stays a real Blob; a wrapped headerless L16 clip goes through `wavLike`, as the OpenRouter PCM
+      // path does: a real Blob in a browser, the duck-typed shape under jsdom.
       return out.wrapped ? wavLike(out.wav) : new Blob([out.wav], { type: 'audio/wav' });
     },
   };

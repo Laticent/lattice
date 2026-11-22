@@ -150,7 +150,7 @@ if (process.env.PROBE === 'player-charts') {
 if (process.env.PROBE === 'present-narration') {
 	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
 	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
-	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S (30 s) times the reported voice-off arm.
+	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S, when set, adds a reported voice-off arm.
 	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
 	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
 	const deck = await buildNarrationDeck();
@@ -191,8 +191,10 @@ if (process.env.PROBE === 'present-narration') {
 		await context.close();
 		return out;
 	};
-	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 300), Number(process.env.NARRATION_TARGET_SLIDE || 15)), await arm(false, Number(process.env.NARRATION_SILENT_S || 30))];
-	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false });
+	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 0);
+	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 300), TARGET_SLIDE), ...(SILENT_S > 0 ? [await arm(false, SILENT_S)] : [])];
+	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false, targetSlide: TARGET_SLIDE });
 	report('iPhone-sized', 'present-narration-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: arms[0].width, steps });
 	await browser.close();
 	process.exit(failed ? 1 : 0);

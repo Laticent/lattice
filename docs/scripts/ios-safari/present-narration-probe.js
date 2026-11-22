@@ -183,7 +183,10 @@ function latticeNarrationVoice(provider = 'openrouter-gemini') {
 		Tracked.__latticeTracked = true;
 		window[name] = Tracked;
 	}
-	for (const C of [window.AudioContext, window.webkitAudioContext]) {
+	// Count on the REAL AudioContext prototype: the loop above has already swapped window.AudioContext for its Tracked
+	// subclass, and patching that would miss every context made before this ran.
+	for (const W of [window.AudioContext, window.webkitAudioContext]) {
+		const C = W?.__latticeTracked ? Object.getPrototypeOf(W) : W;
 		if (!C || C.prototype.__latticeCounted) continue;
 		C.prototype.__latticeCounted = true;
 		const orig = C.prototype.decodeAudioData;

@@ -57,18 +57,21 @@ export async function buildNarrationDeck(n = NARRATION_SLIDES) {
  * did not reload, and the decoded narration the page still holds stays under `audioCapMB`. With `memory`, the voice arm
  * also adds at most `capMB` to the simulator's WebKit footprint. The times and the silent arm are reported, not judged.
  */
-export function narrationChecks(arms, { slides, capMB, audioCapMB, memory }) {
+export function narrationChecks(arms, { slides, capMB, audioCapMB, memory, targetSlide = 15 }) {
 	const on = arms.find((a) => a.voice) ?? { error: 'not run' };
 	const last = on.samples?.at(-1) ?? {};
 	const checks = [
 		{ name: 'the deck imported and Present counts all its slides', pass: !on.error && on.total === slides, detail: on.error || `${on.total} of ${slides} slides` },
-		// Narration requested across the deck: four sentences a slide, so at least 4 per slide walked. The arm walks to slide 15
-		// (run.mjs TARGET_SLIDE) and is judged on that work, never on how far a fixed time got it (HARD RULE #32).
-		{ name: 'the voice arm asked for narration across the deck', pass: (last.slide ?? 1) >= 15 && (last.speech ?? 0) >= 4 * ((last.slide ?? 1) - 1), detail: `${last.speech ?? 0} sentences asked for (${last.pcm ?? 0} as PCM), on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
+		// Narration requested across the deck: four sentences a slide (the deck's `say()`), so at least 4 per slide walked. The
+		// arm walks to `targetSlide` (run.mjs NARRATION_TARGET_SLIDE) and is judged on that work, never on how far a fixed
+		// time got it (HARD RULE #32).
+		{ name: 'the voice arm asked for narration across the deck', pass: (last.slide ?? 1) >= targetSlide && (last.speech ?? 0) >= 4 * ((last.slide ?? 1) - 1), detail: `${last.speech ?? 0} sentences asked for (${last.pcm ?? 0} as PCM), on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
 		{ name: 'the page did not reload while narration played', pass: on.alive === true, detail: on.alive ? '' : 'the mark Present left is gone' },
-		{ name: `the decoded narration the page holds stays under ${audioCapMB} MB`, pass: last.liveMB !== undefined && last.liveMB <= audioCapMB, detail: `${last.liveMB ?? '?'} MB held of ${last.decodedMB ?? '?'} MB decoded, ${last.clips ?? '?'} clips at ${last.sampleRate ?? '?'} Hz` },
+		{ name: `the narration audio decoded stays under ${audioCapMB} MB, and some was decoded`, pass: (last.clips ?? 0) > 0 && last.liveMB !== undefined && last.liveMB <= audioCapMB, detail: `${last.liveMB ?? '?'} MB counted of ${last.decodedMB ?? '?'} MB decoded, ${last.clips ?? '?'} clips at ${last.sampleRate ?? '?'} Hz` },
 	];
 	if (memory) {
+		// The reader reads Safari: an empty vmmap read sums to 0 and would pass the cap on nothing (present-memory.mjs).
+		checks.push({ name: 'the reader reads Safari (the Studio holds at least 50 MB before Present)', pass: (on.baseMB ?? 0) >= 50, detail: `${on.baseMB ?? '?'} MB` });
 		checks.push({ name: `Present with narration adds at most ${capMB} MB`, pass: on.peakGrewMB !== undefined && on.peakGrewMB <= capMB, detail: `peak ${on.peakGrewMB ?? '?'} MB above ${on.baseMB ?? '?'} MB` });
 	}
 	return checks;
