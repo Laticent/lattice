@@ -431,6 +431,68 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		}
 	});
 
+	it('a page the Reload button reloaded offers a NEW TAB when the engine fails again: real Mobile Safari keeps the failure past a reload', async () => {
+		// The iOS Simulator probe (engine-retry.mjs, PR #3385): in Mobile Safari, Retry and Reload both failed on a cut engine
+		// sub-file, and a new tab loaded it. So the reloaded page must not offer the same Reload again.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(getByText('New tab')).toBeTruthy());
+			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('still did not load after a reload; open the page in a new tab');
+			fireEvent.click(getByText('New tab'));
+			expect(open).toHaveBeenCalledWith(window.location.href, '_blank', 'noopener');
+			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBeNull();
+			// The engine arriving clears the state.
+			whenReady.mockImplementation(() => Promise.resolve());
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			open.mockRestore();
+			warn.mockRestore();
+		}
+	});
+
+	it('the Reload button marks the tab before it reloads, so the reloaded page knows', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			fireEvent.click(getByText('Reload'));
+			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBe('1');
+			expect(reload).toHaveBeenCalledTimes(1);
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
+	});
+
+	it('a host that is NOT reload-safe ignores a reloaded mark: it never offers a new tab', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, queryByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			expect(queryByText('New tab')).toBeNull();
+			// Its first failure reads as a first failure: the mark is the Studio deck's, not this host's.
+			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('check the connection, then Retry');
+		} finally {
+			sessionStorage.removeItem('lattice-preview-engine-reloaded');
+			warn.mockRestore();
+		}
+	});
+
 	it('a host that is NOT reload-safe never offers Reload: it keeps Retry and says to save first', async () => {
 		// The theme editor and the component lab hold unsaved work in React state alone, so a reload there would lose it
 		// (the checker on PR #3385). Only the Studio's deck preview, saved on pagehide, sets `reloadSafe`.

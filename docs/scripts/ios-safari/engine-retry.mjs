@@ -18,7 +18,8 @@
 //   1. Sub-files failing, open the Studio: the failure card must appear.
 //   2. Sub-files reachable again, press Retry: the engine loads, or the card offers Reload.
 //   3. If it offered Reload: reload the page (what the button does). The engine loads, or the card is back.
-//   4. If the reload did not recover it: open the Studio in a new tab. The engine must load there.
+//   4. If the reload did not recover it, the card's button now reads "New tab" (DeckPreview `reloaded`): press it, with
+//      a WebDriver element click (a real gesture, so Safari lets it open a tab), and the engine must load in that tab.
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
 
 import http from 'node:http';
@@ -84,7 +85,7 @@ const STATE_EXPR = `(() => {
 		return '';
 	}
 	const word = card.querySelector('.nacre-failed__retry')?.textContent.trim();
-	return word === 'Reload' ? 'reload' : 'card';
+	return word === 'Reload' ? 'reload' : word === 'New tab' ? 'newtab' : 'card';
 })()`;
 
 /**
@@ -124,22 +125,38 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 
 		const beforeReload = proxy.state.subFiles;
 		await wd('POST', `/session/${id}/refresh`, {});
-		const reloaded = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload'`, 150000);
-		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' ? 'failed' : 'none';
+		const reloaded = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab'`, 150000);
+		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'newtab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
 		if (r.afterReload === 'loaded') return finish();
 
+		// The reloaded page must now offer the new tab, not the same Reload again.
+		const offered = reloaded === 'newtab' ? 'newtab' : await waitFor(`last === 'newtab' || last === 'loaded'`, 30000);
+		step('after a failed reload, the card offers a new tab', offered === 'newtab', offered);
+		if (offered !== 'newtab') {
+			r.newTab = 'none';
+			return finish();
+		}
 		try {
-			const win = await wd('POST', `/session/${id}/window/new`, { type: 'tab' });
-			await wd('POST', `/session/${id}/window`, { handle: win.handle });
+			const before = await wd('GET', `/session/${id}/window/handles`);
+			const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: `${PREVIEW} .nacre-failed__retry` });
+			const ref = el[Object.keys(el)[0]];
 			const beforeTab = proxy.state.subFiles;
-			await wd('POST', `/session/${id}/url`, { url: `${proxy.origin}/studio/` });
-			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload'`, 150000);
-			r.newTab = tab === 'loaded' ? 'loaded' : tab === 'card' || tab === 'reload' ? 'failed' : 'none';
-			step('a new tab: the engine loads', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
+			await wd('POST', `/session/${id}/element/${ref}/click`, {});
+			let handle = null;
+			for (let i = 0; i < 40 && !handle; i++) {
+				const now = await wd('GET', `/session/${id}/window/handles`);
+				handle = now.find((h) => !before.includes(h)) ?? null;
+				if (!handle) await new Promise((z) => setTimeout(z, 250)); // flaky-ok: polls WebDriver for the new tab's handle, a signal with a 10 s bound
+			}
+			if (!handle) throw new Error('the button opened no tab (a popup blocker, or no gesture)');
+			await wd('POST', `/session/${id}/window`, { handle });
+			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab'`, 150000);
+			r.newTab = tab === 'loaded' ? 'loaded' : tab === 'none' ? 'none' : 'failed';
+			step('the New tab button: the engine loads there', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
 		} catch (e) {
 			r.newTab = 'unsupported';
-			step('a new tab: the engine loads', false, `could not open a tab: ${String(e).slice(0, 160)}`);
+			step('the New tab button: the engine loads there', false, String(e).slice(0, 200));
 		}
 		return finish();
 	} finally {

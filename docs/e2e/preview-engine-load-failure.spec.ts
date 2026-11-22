@@ -94,9 +94,32 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose sub-file f
 		await expectRecovered(page);
 		return;
 	}
-	// The card's other advice: a new tab loads it.
-	const fresh = await context.newPage();
-	await fresh.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	// A build that keeps the failure past a reload: the card's other advice, its New tab button, loads it.
+	const [fresh] = await Promise.all([context.waitForEvent('page'), card(page).getByRole('button', { name: 'New tab' }).click()]);
+	await fresh.waitForLoadState('domcontentloaded');
+	await expect.poll(() => engineLoaded(fresh)).toBe(true);
+	await expect(card(fresh)).toHaveCount(0);
+});
+
+// Real Mobile Safari keeps a failed sub-file failed past a reload too (the iOS Simulator probe, engine-retry.mjs: Retry and
+// Reload failed, a new tab loaded it). No Playwright 1.65 engine does, so this test makes the reload fail by keeping the
+// sub-files blocked through it: the reloaded page must then offer a NEW TAB, not the same Reload, and that tab loads it.
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a reload that does not help offers a new tab, and the new tab loads the engine', async ({ page, context }) => {
+	await page.route(SUB_FILES, (route) => route.abort());
+	await openToCard(page);
+	await card(page).getByRole('button', { name: 'Retry' }).click();
+	await card(page).getByRole('button', { name: 'Reload' }).click();
+	await page.waitForLoadState('domcontentloaded');
+	const newTab = card(page).getByRole('button', { name: 'New tab' });
+	await expect(newTab).toBeAttached();
+	await expect(card(page).locator('.nacre-failed__text')).toContainText(/still did not load after a reload/i);
+	expect(await engineLoaded(page)).toBe(false);
+	const previewTab = page.getByRole('button', { name: 'Preview', exact: true }).first();
+	if (!(await newTab.isVisible()) && (await previewTab.isVisible())) await previewTab.click();
+
+	await page.unroute(SUB_FILES);
+	const [fresh] = await Promise.all([context.waitForEvent('page'), newTab.click()]);
+	await fresh.waitForLoadState('domcontentloaded');
 	await expect.poll(() => engineLoaded(fresh)).toBe(true);
 	await expect(card(fresh)).toHaveCount(0);
 });
