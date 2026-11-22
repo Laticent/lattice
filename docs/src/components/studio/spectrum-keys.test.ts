@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import resolveSpectrum from '../../../../lib/core/resolve-spectrum.js';
-import { applyPreset, registerValue, writeSpectrumAxis } from './deck-preset';
+import { applyPreset, presetChanges, registerValue, writeSpectrumAxis } from './deck-preset';
 import { mergeSpectrum, parseSpectrum, SPECTRUM_KEY_AXES, SPECTRUM_KEYS, spectrumClass, spectrumWordOf, writeSpectrumWord } from './spectrum-keys';
 
 type Register = { key: string; AXES: { axis: string; names: string[]; tokens: string[] }[] };
@@ -57,5 +57,15 @@ describe('reading and writing one axis', () => {
 		src = writeSpectrumAxis(src, 'spectrum', 'edge', null);
 		src = writeSpectrumAxis(src, 'spectrum', 'weight', null);
 		expect(src).not.toMatch(/^spectrum:/m);
+	});
+});
+
+describe('the preset change count', () => {
+	it('counts a spectrum key only when what it renders differs from the preset', () => {
+		const deck = (fm: string) => `---\n${fm}\n---\n\n## A\n`;
+		expect(presetChanges(deck('spectrum: top'))).toEqual([]);
+		expect(presetChanges(deck('preset: brand\nspectrum: solid top regular'))).toEqual([]);
+		expect(presetChanges(deck('preset: brand\nspectrum: left'))).toEqual(['spectrum']);
+		expect(presetChanges(deck('spectrum: band'))).toEqual(['spectrum']);
 	});
 });

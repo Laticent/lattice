@@ -2954,6 +2954,7 @@
     "/rgba\\(\\s*0,\\s*0,\\s*0,\\s*0\\s*\\)|transparent/": "safe",
     "/rotate\\(\\s*(-?[\\d.]+)/": "safe",
     "/s$/i": "safe",
+    "/spectrum/": "safe",
     "/split/i": "safe",
     "/src:url\\(\\s*(['\"]?)fonts\\/([^)'\"]+\\.woff2)\\1\\s*\\)\\s*format\\((['\"]?)woff2\\3\\)[^;}]*/g": {
       "verdict": "unknown",

@@ -21,7 +21,7 @@
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
 import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
-import { isSpectrumKey, mergeSpectrum, type SpectrumAxis, type SpectrumKey, writeSpectrumWord } from './spectrum-keys';
+import { isSpectrumKey, mergeSpectrum, type SpectrumAxis, type SpectrumKey, spectrumRenders, writeSpectrumWord } from './spectrum-keys';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {
@@ -199,9 +199,11 @@ export function writeSpectrumAxis(source: string, key: SpectrumKey, axis: Spectr
 /** The preset keys whose rendered value differs from what the preset alone would give. A key
  *  restated at the preset's own value is not a change, so it does not count. */
 export function presetChanges(source: string): string[] {
-	return PRESET_KEYS.filter(
-		(key) => !AUTHOR_KEYS.includes(key) && ownValue(source, key) !== undefined && registerValue(source, key) !== presetBaseline(source, key),
-	);
+	// A spectrum key compares what renders, axis by axis: `spectrum: top` restates a default and is no change.
+	const same = (key: string) => (isSpectrumKey(key)
+		? spectrumRenders(key, registerValue(source, key)) === spectrumRenders(key, presetBaseline(source, key))
+		: registerValue(source, key) === presetBaseline(source, key));
+	return PRESET_KEYS.filter((key) => !AUTHOR_KEYS.includes(key) && ownValue(source, key) !== undefined && !same(key));
 }
 
 /** Remove every preset key the deck writes, so the preset renders exactly as named — except the

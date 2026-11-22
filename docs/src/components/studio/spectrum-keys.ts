@@ -53,6 +53,9 @@ export function mergeSpectrum(key: SpectrumKey, own: string | undefined, recomme
 	return axisLineValue(SPECTRUM_KEY_AXES[key], { ...theirs, ...mine });
 }
 
+/** What a value renders, with every default word left out: `rainbow top` and `` both read '' for `spectrum`. */
+export const spectrumRenders = (key: SpectrumKey, value: string): string => axisLineValue(SPECTRUM_KEY_AXES[key], parseSpectrum(key, value), true);
+
 /**
  * The deck's OWN line after setting `axis` to `word` (null clears the axis), with every word the deck does not
  * need left out: a word equal to what the preset already gives on that axis, or, where the preset says nothing,

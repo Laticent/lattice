@@ -296,6 +296,23 @@ describe('deck linter', () => {
     assert.deepEqual(lintText(fixed, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule)), [], 'no spectrum finding is left');
   });
 
+  test('the retired-spectrum fix keeps the look: an edge-off stays off, a typo stays for the author, a comment survives', () => {
+    const { applyAllFixes } = require('../../../lib/authoring/lint-core');
+    const deck = (...lines) => ['---', 'theme: indaco', ...lines, '---', '', '## H.', ''].join('\n');
+    // `spectrum-edge: off` dropped the stripe; keeping `spectrum: solid` would turn it back on.
+    assert.equal(applyAllFixes(deck('spectrum: solid', 'spectrum-edge: off'), vocab), deck('spectrum: off'));
+    const [merge] = lintText(deck('spectrum: solid', 'spectrum-edge: off'), { vocab }).filter((f) => f.rule === 'retired-spectrum-key');
+    assert.match(merge.fix, /drops the `solid` style/);
+    // A word the old key never had is not deleted silently.
+    assert.equal(applyAllFixes(deck('spectrum-edge: sideways'), vocab), deck('spectrum-edge: sideways'));
+    assert.match(lintText(deck('spectrum-edge: sideways'), { vocab }).find((f) => f.rule === 'retired-spectrum-key').fix, /never a `spectrum-edge:` value/);
+    // An old line's comment moves onto the new line.
+    assert.equal(applyAllFixes(deck('spectrum-edge: left # move it'), vocab), deck('spectrum: left # move it'));
+    // Every retired spectrum class is an error, the old switch spellings included.
+    const classes = lintText(deck('class: spectrum-edge-off spectrum-trim no-spectrum-edge'), { vocab }).filter((f) => f.rule === 'unknown-class');
+    assert.deepEqual(classes.map((f) => f.severity), ['error', 'error', 'error']);
+  });
+
   test('a retired key whose word was the default migrates to nothing; a word the new key already has wins', () => {
     const { applyAllFixes } = require('../../../lib/authoring/lint-core');
     const deck = (...lines) => ['---', ...lines, '---', '', '## H.', ''].join('\n');
