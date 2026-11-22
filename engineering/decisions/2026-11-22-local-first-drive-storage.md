@@ -303,6 +303,12 @@ interface Vault {
 - **Quota and eviction.** OPFS shares the origin's quota and its eviction rules with IndexedDB. The Studio already
   calls `navigator.storage.persist()`. With sync on, eviction becomes a re-download. Without sync, the backup nudge
   stays.
+- **Where OPFS is refused** (measured in spike #3443). Linux WebKit refuses OPFS in an ephemeral context:
+  `getDirectory()` throws `UnknownError`. In a persistent context, all three write paths pass (main-thread
+  `createWritable`, worker `createSyncAccessHandle`, worker `createWritable`), as they do in Chromium and Firefox in
+  both contexts. Safari Private Browsing probably behaves like the ephemeral context; that is untested. The vault fails
+  visibly with `VaultError('unavailable')` (slice 1, #3442). What it falls back to is slice 2's decision (D1 on
+  #3442), and e2e tests run in persistent profiles.
 
 ### 6.3 Sync
 
@@ -428,6 +434,11 @@ Lattice/
   that tab last loaded (a three-way diff), never against the doc's current text. A stale tab, a checkpoint restore or
   an AI apply therefore cannot delete newer text.
 - **Minimal line diffs.** The engine applies minimal line diffs, never delete-all plus insert, so history stays small.
+- **History size, measured** (spike #3443; Node 22, yjs 13.6.33, seed 20261122). The state vector grows about 4.4 B per
+  session, linearly (2,000 sessions: 8.8 KB). A heavily edited deck over a simulated year, 250 days of 20 edits and 2
+  AI applies touching 10% of lines, gave an 11 KB `deck.md`, a 727 KB compacted `gc:false` base and 1,500 update files
+  totaling 854 KB. Delete-all plus insert is 5.9 times bigger than minimal line diffs. Keeping all history costs about
+  0.7 MB per heavily edited deck per year.
 - **`deck.md` follows the doc.** Any device rewrites `deck.md` from the merged doc.
 
 **Compaction and files:**
@@ -435,8 +446,12 @@ Lattice/
 - **Bases are immutable**, named by content hash: `base-<sha256>.yjs`.
 - **One device compacts**, elected by a lease.
 - **An update file is deleted only after** a base that contains it has been read back.
-- **Merging is lossless only** (`Y.mergeUpdates`); nothing trims history. A device holding updates from an older base
-  applies them as a text diff.
+- **Merging is lossless only** (`Y.mergeUpdates`); nothing trims history. An update made against an older base still
+  applies raw while every base comes from `mergeUpdates` (measured in spike #3443).
+- **A rebuilt base is detected, not assumed.** After every `applyUpdate`, the engine checks `store.pendingStructs` and
+  `pendingDs`. An update made against a base with new history (for example, `.lattice/` rebuilt from `deck.md`) sits
+  pending without an error and without changing the text. When anything is left pending, the engine falls back to
+  the three-way text merge, which recovered every edit in the spike.
 - **At most one update file per journal drain**, and no more than one a minute.
 - **`seq` is assigned under a Web Lock**, so two tabs never write the same `<device-id>-<seq>`. A backup never includes
   the device id.
@@ -454,7 +469,13 @@ Lattice/
   id, so two devices adopting the same edit produce the same items and the text appears once. A claim decides only
   which device shows the review.
 - **A chained base.** Each adoption's diff base is the previous one, so a second outside edit does not re-apply the
-  first. The engine walks every revision since the last known head, not just the head.
+  first. The engine keeps the chained base's Yjs state, not just its text, and walks every revision since the last
+  known head, not just the head.
+- **Adoption runs on a fork.** The engine forks a doc at the chained base's Yjs state, applies the diff there as the
+  synthetic client, and merges the fork's delta into the live doc. Measured in spike #3443 (Node 22, yjs 13.6.33,
+  seed 20261122): applying the diff straight to a live doc that had unsynced local edits diverged permanently in 11 of
+  200 trials, with no error, because both devices create the same item ids with different origins. The fork passed
+  200 of 200: no divergence, no duplicates, no lost local edits.
 - **The review's safety version.** The "Drive edit" version saved before a review is pinned (it never falls out of
   the 25-version cap) and written into the vault, so it syncs.
 
@@ -534,7 +555,7 @@ Google. Publishing the Google app "In production" is a gate before slice 9 or sl
 | # | Slice | Proof |
 |---|---|---|
 | 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder, and the quota units each call costs (§6.3) |
-| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko`, including WebKit's worker write path |
+| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko` in persistent profiles, including WebKit's worker write path; a visible `VaultError('unavailable')` where OPFS is refused (#3442) |
 | 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
 | 3 | **Decks into the vault, in their final form:** text plus the per-device update files, so there is no second migration. The pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
 | 4 | **The Library, local, with the Track 4 layout** (§7). Includes icon-only pills and the mask tokens added to the Studio sheet; shipping seven labeled pills first would wrap at 320 px. Takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
@@ -592,9 +613,12 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
   (the web client's secret requirement, the 7-day Testing expiry). The spike (slice 0) checks each against a real
   test account, together with the Picker API key and app id, folder grants under `drive.file`, the size limit of
   `appProperties`, and uploads into a trashed folder.
-- Whether WebKit (iOS Safari) supports `FileSystemWritableFileStream` today was not tested; the design writes through
-  `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`
-  (Linux WebKit); iOS stays UNVERIFIED until the iOS Simulator suite or a real device covers it.
+- **Measured in spike #3443 (Part A, this sandbox):** OPFS write → reload → read in Chromium, Firefox and Linux
+  WebKit (WebKit refuses ephemeral contexts, §6.2); per-device update files merging in any order; an older-base update
+  on a lossless base; the silent pending update on a rebuilt base (§6.4); idempotent adoption, and the divergence that
+  makes it run on a fork; the three-way save from a stale tab; state-vector growth and a year of history. iOS Safari
+  and Safari Private Browsing stay UNVERIFIED: Linux WebKit is not iOS.
+- **Still pending the owner's run (spike #3443, Part B):** every real-Google fact above.
 - Drive API quotas were not measured. §6.3 (Quotas and cost) estimates them from Google's published limits and the
   design's rates; slice 0 measures what each call costs on a test project, and slice 6 counts the units an hour of
   editing spends.
