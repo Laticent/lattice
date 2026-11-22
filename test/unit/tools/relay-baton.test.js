@@ -221,11 +221,24 @@ describe('readHead (real git, throwaway origin)', () => {
     const lines = [];
     const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
     assert.equal(code, 0, lines.join('\n'));
-    assert.match(lines.join('\n'), /pushed 1 commit to relay-rescue\/claude\/relay\/session_ME01/);
+    assert.match(lines.join('\n'), /pushed HEAD \(1 commit beyond origin\/claude\/relay\) to relay-rescue\/claude\/relay\/session_ME01/);
     const remote = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
     assert.equal(remote.split('\t')[0], git('rev-parse', 'HEAD').trim());
     // the line of work itself is untouched
     assert.notEqual(git('rev-parse', 'origin/claude/relay').trim(), git('rev-parse', 'HEAD').trim());
+  });
+
+  test('a rescue ref that already holds other commits: exit 3 with how to keep both, never forced', () => {
+    // rewrite local history so the next rescue is not a fast-forward of the ref pushed above
+    git('reset', '-q', '--hard', 'origin/claude/relay');
+    commit(`wip: different work\n\n${trailer(ME)}`);
+    const before = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
+    const lines = [];
+    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    assert.equal(code, 3);
+    assert.match(lines.join('\n'), /already holds other commits.*git merge FETCH_HEAD/s);
+    const after = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
+    assert.equal(after, before, 'the earlier rescue is never overwritten');
   });
 });
 
@@ -253,6 +266,13 @@ describe('npm run baton -- rescue', () => {
     const pushes = r.calls.filter((c) => c[0] === 'push');
     assert.deepEqual(pushes, [['push', 'origin', 'HEAD:refs/heads/relay-rescue/claude/x/session_ME01']]);
     assert.ok(!r.calls.flat().some((a) => /^(-f|--force)/.test(a)));
+  });
+
+  test('fetches the line before counting; --no-fetch skips the fetch', () => {
+    const fetched = go(['rescue']).calls.filter((c) => c[0] === 'fetch');
+    assert.equal(fetched.length, 1);
+    assert.match(fetched[0].join(' '), /refs\/heads\/claude\/x:refs\/remotes\/origin\/claude\/x/);
+    assert.equal(go(['rescue', '--no-fetch']).calls.filter((c) => c[0] === 'fetch').length, 0);
   });
 
   test('nothing ahead of the remote: no push, exit 0', () => {

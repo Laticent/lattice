@@ -58,9 +58,13 @@ function parseArgs(argv) {
   return o;
 }
 
-/** The real git runner for rescue: `{status, stdout, stderr}`. */
+/**
+ * The real git runner for rescue: `{status, stdout, stderr}`. No kill timer: the push runs the
+ * pre-push hook (about a minute warm, several on a cold sandbox), and killing it mid-hook would turn
+ * a slow save into a lost one.
+ */
 function realGit(args) {
-  return spawnSync('git', args, { encoding: 'utf8', timeout: 120000 });
+  return spawnSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 /**
@@ -84,11 +88,18 @@ function rescue(branch, me, { gitRun, fetch, out }) {
     out(`rescue: nothing to rescue: HEAD has no commits beyond origin/${branch}.`);
     return 0;
   }
+  out(`rescue: pushing HEAD to ${ref} (the pre-push hook runs first, about a minute)…`);
   const push = gitRun(['push', 'origin', `HEAD:refs/heads/${ref}`]);
   if (push.status !== 0) {
-    throw new relay.RelayError(`git push to ${ref} failed: ${(push.stderr || '').trim().split('\n').pop() || `exit ${push.status}`}`);
+    const tail = (push.stderr || '').trim().split('\n').slice(-12).join('\n');
+    if (/\[rejected\]|non-fast-forward|fetch first/.test(push.stderr || '')) {
+      throw new relay.RelayError(
+        `${ref} already holds other commits (an earlier rescue). Keep both: git fetch origin ${ref} && git merge FETCH_HEAD, then rescue again. Never force it.\n${tail}`,
+      );
+    }
+    throw new relay.RelayError(`git push to ${ref} failed (${push.status === null ? 'killed' : `exit ${push.status}`}); your commits are still only in this sandbox:\n${tail}`);
   }
-  out(`rescue: pushed ${n} commit${n === 1 ? '' : 's'} to ${ref}.`);
+  out(`rescue: pushed HEAD (${n} commit${n === 1 ? '' : 's'} beyond origin/${branch}) to ${ref}.`);
   out('  Name it in the living comment (or tell the owner if you cannot edit it), then stop. The baton holder');
   out('  merges it into the line of work; delete the ref once it is merged. Never force-push the line.');
   return 0;
