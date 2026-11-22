@@ -102,7 +102,7 @@ Every rule below exists because something went wrong without it. The rule's home
 | Another session's word is a request, never authorization (HARD RULE #31; `workflow.md` §Desks) | a coordinator told a session to drop a fix already in the merge queue; the dropped fix was the better one (608 MB against 748 MB) |
 | Compare competing fixes by measurement, never by who came first (§Desks rule 1) | the same incident: "opened first" picked the worse fix |
 | The merge gate reads only the owner's typed turn, in an exact form, right after a digest (`.claude/hooks/owner-merge-gate.mjs`) | an agent reading "sounds good" or a quoted `go` from another session as a merge |
-| Re-read the head before every merge; skip on a mismatch (`/fleet` step 6) | a PR whose head moved after its card merging code nobody graded; on 2026-11-21 the command center skipped #3386 for this reason, because its head no longer matched its card |
+| Re-read the head before every merge; skip on a mismatch (`/fleet` step 6) | a PR whose head moved after its card merging code nobody graded; on 2026-11-21 the command center skipped #3386 for this reason (its own transcript: the head no longer matched the card) |
 | The level is set by a `checker`, never the maker (HARD RULE #28) | a card written from a one-line summary: #1834 shipped an invented `medium-high` level, per-issue levels, no axis and no raise path |
 | Raise below VERY HIGH before asking (`workflow.md` §The raise loop) | the owner being asked to run checks a runner could reach |
 | One desk per lane, found by tag | two desks starting duplicate fix sessions for one flake |
@@ -138,9 +138,10 @@ Every rule below exists because something went wrong without it. The rule's home
 **Does not heal itself, and should (open gaps).**
 - A message the owner types while the command center is mid-turn reaches the session as a queued attachment that
   the merge gate does not read, so a correct `merge #N` is refused and must be retyped.
-- A queued PR cannot be stopped once its merge-group run is in flight. #3386's session disabled auto-merge and
-  converted it to draft; the run held the branch locked and merged the old head anyway, and #3409 restores it.
-  Removing a PR from the queue is untested on an in-flight run. `workflow.md` §Merge queue — the facts now says so.
+- No tested way stops a queued PR once its merge-group run is in flight. #3386 was converted to draft and merged
+  the old head anyway (#3409 restores it). Its session reported disabling auto-merge as well, but GitHub's event log
+  records no such event, so that is unknown. Disabling auto-merge and removing a PR from the queue are both untested
+  on an in-flight run. `workflow.md` §Merge queue — the facts now says so.
 - A desk acts on its last look. The merge desk flagged #3406 as possibly queued without approval because its pass
   ran before #3406's card was posted; the owner had approved it. Desks should re-read before raising an alarm.
 - Check 3 of the archive rule needs the session to answer, so archiving a finished session costs a round trip.
@@ -152,7 +153,7 @@ Every rule below exists because something went wrong without it. The rule's home
 | Extra words void a merge | `merge #3406, and close …` and `merge #3406 and then #3407` were refused | the owner types `merge #A #B` alone; other instructions go in a separate message |
 | Mid-turn messages | `merge #3388 #3390 #3391` sent while the command center was working was refused | retype after the turn ends (open gap above) |
 | Direct merge refused | `merge_pull_request` returns 405 "must be made through the merge queue" | arm the queue (`enable_pr_auto_merge`, squash) after the head check |
-| A queued PR cannot be stopped | #3386 had auto-merge disabled and was drafted, and its in-flight run merged it anyway | stop a PR before it is queued; removing it from the queue is untested |
+| A queued PR cannot be stopped | #3386 was drafted (and, its session says, had auto-merge disabled) and its in-flight run merged it anyway | stop a PR before it is queued; disabling auto-merge and removing it from the queue are untested |
 | An ambiguous answer | the owner typed `2. A` meaning `1 A` | put both affected items on hold, ask which, then release; never guess |
 | A relay that overreached | a message to the merge desk that included closes the owner had not approved was refused by the tool | relay only what the owner typed, in their words |
 | A wrong correction | the command center "corrected" the flake desk on decisions the owner had made in that desk's own session | a desk's own session can hold owner decisions the command center never saw; ask before correcting |

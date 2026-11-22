@@ -1512,13 +1512,15 @@ it passes, that exact tree becomes `main`.
   warns. A rebase is still right on a real conflict, when you need a specific commit
   from `main` (name it in the commit message), or after a queue ejection. GitHub's
   "Update branch" costs the same CI run.
-- **Neither drafting nor disabling auto-merge stops a merge-group run already in
-  flight.** On 2026-11-21 #3386's session disabled its auto-merge and converted it to
-  draft while its queue run was running; that run held the branch locked, so the fix
-  could not be pushed, and it merged the old head anyway (#3409 restores it). Removing
-  the PR from the queue on the PR page is the remaining option and is **UNVERIFIED**:
-  nobody has tried it on an in-flight run. Until it is tested, stop a PR BEFORE it is
-  queued; once queued, plan for it to land and prepare the follow-up fix.
+- **Drafting does not stop a merge-group run already in flight.** On 2026-11-21
+  #3386 was converted to draft while its queue run was running; that run held the
+  branch locked, so the fix could not be pushed, and it merged the old head anyway
+  (#3409 restores it). Its session reported disabling auto-merge too (#3409), but
+  GitHub's event log for #3386 records no auto-merge or dequeue event before the merge,
+  so whether that took effect is unknown. **Disabling auto-merge and removing the PR
+  from the queue are both UNVERIFIED** as ways to stop an in-flight run. Until one is
+  tested, stop a PR BEFORE it is queued; once queued, plan for it to land and prepare
+  the follow-up fix.
 - **Direct merges are refused.** `merge_pull_request` returns 405 "Changes must be
   made through the merge queue". After the owner's typed approval and the head
   check, arm the queue (`enable_pr_auto_merge`, squash) instead.
