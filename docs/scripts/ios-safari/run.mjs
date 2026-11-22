@@ -1521,7 +1521,8 @@ async function runChatStorageProbe(id) {
  * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
  * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
  * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 6,
- * odd ones quiet and even ones with the burner), each with three upward drags, so the drag crosses at least one window move.
+ * odd ones quiet and even ones with the burner), each with one finger drag and a script scroll after it (safaridriver stops answering after a second drag over
+ * the frame), so the walk crosses at least one window move.
  * A trial fails the suite.
  */
 async function runPlaygroundScrollProbe(id) {
@@ -1567,11 +1568,17 @@ async function runPlaygroundScrollProbe(id) {
 			const ready = await call(`psPrepare(${ms})`, 240000);
 			if (ready?.error) throw new Error(`${doing}: ${ready.error}`);
 			result.width = ready.width;
-			for (let d = 1; d <= 3; d++) {
-				doing = `trial ${i} (burn ${ms} ms): drag ${d} of 3`;
-				step(doing);
-				await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
-			}
+			// ONE real finger drag, then a script scroll the rest of the way. On the hosted simulator safaridriver stopped
+			// answering after the first touch drag over the preview frame (harness run 45073632825: drag 1 took 32 s, and the
+			// next call got no answer at all, burner off), so a second drag ends the session. The script scroll waits for the
+			// walk's land, as a scroll with no reader input must (probe.selftest.mjs says why), and crosses a window move.
+			doing = `trial ${i} (burn ${ms} ms): the finger drag`;
+			step(doing);
+			await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
+			doing = `trial ${i} (burn ${ms} ms): the script scroll`;
+			step(doing);
+			const scrolled = await call('psScrollRest()', 60000);
+			if (scrolled?.error) throw new Error(`${doing}: ${scrolled.error}`);
 			doing = `trial ${i} (burn ${ms} ms): psAfter`;
 			step(doing);
 			const after = await call('psAfter()', 90000);

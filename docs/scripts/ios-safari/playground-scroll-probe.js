@@ -96,6 +96,18 @@ async function psPrepare(burnMs) {
 	return { width: innerWidth, pane: win.innerHeight, start, drag: { x: Math.round(r.left + r.width / 2), top: Math.round(r.top + r.height * 0.2), bottom: Math.round(r.top + r.height * 0.8) } };
 }
 
+/** After the finger drag: wait for the walk's land, then scroll the frame by script to two and a half panes past where
+ *  the drag left it, so the walk crosses a window move. A script scroll carries no reader input, so it waits for the land
+ *  that a real drag would have outranked. Returns where the drag left the frame. */
+// biome-ignore lint/correctness/noUnusedVariables: called by run.mjs through WebDriver
+async function psScrollRest() {
+	await psUntil(() => document.documentElement.dataset.pgLand === 'done', 30000, 'the walk to land');
+	const win = psFrame().contentWindow;
+	const dragged = Math.round(win.scrollY);
+	win.scrollBy(0, 2.5 * win.innerHeight);
+	return { dragged };
+}
+
 // biome-ignore lint/correctness/noUnusedVariables: called by run.mjs through WebDriver
 async function psAfter() {
 	const win = psFrame().contentWindow;
