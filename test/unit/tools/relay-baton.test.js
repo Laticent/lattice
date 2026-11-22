@@ -215,6 +215,60 @@ describe('readHead (real git, throwaway origin)', () => {
   test('an invalid branch name: bad argument (64)', () => {
     assert.throws(() => relay.readHead('bad..name', { fetch: false }), (e) => e.code === 64);
   });
+
+  test('rescue pushes commits the remote does not have to relay-rescue/<branch>/<session>, without force', () => {
+    commit(`wip: rejected work\n\n${trailer(ME)}`);
+    const lines = [];
+    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    assert.equal(code, 0, lines.join('\n'));
+    assert.match(lines.join('\n'), /pushed 1 commit to relay-rescue\/claude\/relay\/session_ME01/);
+    const remote = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
+    assert.equal(remote.split('\t')[0], git('rev-parse', 'HEAD').trim());
+    // the line of work itself is untouched
+    assert.notEqual(git('rev-parse', 'origin/claude/relay').trim(), git('rev-parse', 'HEAD').trim());
+  });
+});
+
+describe('npm run baton -- rescue', () => {
+  const fakeGit = ({ ahead = '2', push = 0 } = {}) => {
+    const calls = [];
+    const gitRun = (args) => {
+      calls.push(args);
+      if (args[0] === 'rev-list') return { status: 0, stdout: `${ahead}\n`, stderr: '' };
+      if (args[0] === 'push') return { status: push, stdout: '', stderr: push ? 'error: failed to push some refs' : '' };
+      return { status: 0, stdout: '', stderr: '' };
+    };
+    return { gitRun, calls };
+  };
+  const go = (argv, { env = { LATTICE_SESSION: ME }, ...g } = {}) => {
+    const { gitRun, calls } = fakeGit(g);
+    const lines = [];
+    const code = run(argv, { env, gitRun, branchNow: () => 'claude/x', api: () => { throw new Error('rescue must not call GitHub'); }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    return { code, calls, text: lines.join('\n') };
+  };
+
+  test('commits ahead: one push of HEAD to the rescue ref, never forced', () => {
+    const r = go(['rescue']);
+    assert.equal(r.code, 0, r.text);
+    const pushes = r.calls.filter((c) => c[0] === 'push');
+    assert.deepEqual(pushes, [['push', 'origin', 'HEAD:refs/heads/relay-rescue/claude/x/session_ME01']]);
+    assert.ok(!r.calls.flat().some((a) => /^(-f|--force)/.test(a)));
+  });
+
+  test('nothing ahead of the remote: no push, exit 0', () => {
+    const r = go(['rescue'], { ahead: '0' });
+    assert.equal(r.code, 0);
+    assert.equal(r.calls.filter((c) => c[0] === 'push').length, 0);
+    assert.match(r.text, /nothing to rescue/);
+  });
+
+  test('the push fails: exit 3, never a false success', () => {
+    const r = go(['rescue'], { push: 1 });
+    assert.equal(r.code, 3);
+    assert.doesNotMatch(r.text, /pushed/);
+  });
+
+  test('no session id: exit 64', () => assert.equal(go(['rescue'], { env: {} }).code, 64));
 });
 
 describe('npm run baton', () => {

@@ -15,6 +15,8 @@
  *   npm run baton -- status  [branch] [--pr N]          who holds it, and the lease left
  *   npm run baton -- take    [branch] [--pr N] [--override]   check it is free, then push to take it
  *   npm run baton -- release [branch] [--pr N]          write `baton: released` in the living comment
+ *   npm run baton -- rescue  [branch]                   after a lost race: push your rejected commits to
+ *                                                       `relay-rescue/<branch>/<session>` so they outlive the sandbox
  * Options: --no-fetch (trust local origin/<branch>), --now <ISO time> (for a dry run of the lease).
  * branch defaults to the current branch. Your session id comes from LATTICE_SESSION or the cloud
  * harness's CLAUDE_CODE_REMOTE_SESSION_ID.
@@ -24,12 +26,13 @@
  *   1  held by another session (release: not released, because you do not hold it or the PR has
  *      no living comment to write it in)
  *   3  could not check (remote, fetch, git log or GitHub failed)
- *  64  bad arguments, or no session id for take/release
+ *  64  bad arguments, or no session id for take/release/rescue
+ * rescue: 0 pushed (or nothing to rescue), 3 the push or a git read failed.
  */
 const { spawnSync } = require('node:child_process');
 const relay = require('./relay-core');
 
-const VERBS = new Set(['status', 'take', 'release']);
+const VERBS = new Set(['status', 'take', 'release', 'rescue']);
 
 function parseArgs(argv) {
   const o = { verb: null, branch: null, pr: null, fetch: true, now: null, override: false };
@@ -50,9 +53,45 @@ function parseArgs(argv) {
     else if (!o.branch) o.branch = a;
     else throw new relay.RelayError(`unexpected argument ${a}`, 64);
   }
-  if (!VERBS.has(o.verb)) throw new relay.RelayError('give a verb: status, take or release', 64);
+  if (!VERBS.has(o.verb)) throw new relay.RelayError('give a verb: status, take, release or rescue', 64);
   if (o.override && o.verb !== 'take') throw new relay.RelayError('--override goes with take only', 64);
   return o;
+}
+
+/** The real git runner for rescue: `{status, stdout, stderr}`. */
+function realGit(args) {
+  return spawnSync('git', args, { encoding: 'utf8', timeout: 120000 });
+}
+
+/**
+ * After a lost race (decision D1 of the owner's ❓ round, 2026-11-22): the commits git rejected
+ * exist only in this sandbox, which can be wiped. Push them, without force, to
+ * `relay-rescue/<branch>/<session>`. That ref is a backup, not a line of work: no PR opens from it,
+ * the baton holder merges it into the line, and it is deleted after.
+ * @returns {number} exit code
+ */
+function rescue(branch, me, { gitRun, fetch, out }) {
+  const ref = relay.rescueRef(branch, me);
+  if (gitRun(['check-ref-format', `refs/heads/${ref}`]).status !== 0) throw new relay.RelayError(`'${ref}' is not a valid ref name`, 64);
+  if (fetch) {
+    const f = gitRun(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`]);
+    if (f.status !== 0) throw new relay.RelayError(`git fetch origin ${branch} failed`);
+  }
+  const ahead = gitRun(['rev-list', '--count', `origin/${branch}..HEAD`]);
+  if (ahead.status !== 0) throw new relay.RelayError(`git rev-list origin/${branch}..HEAD failed`);
+  const n = Number(ahead.stdout.trim());
+  if (!n) {
+    out(`rescue: nothing to rescue: HEAD has no commits beyond origin/${branch}.`);
+    return 0;
+  }
+  const push = gitRun(['push', 'origin', `HEAD:refs/heads/${ref}`]);
+  if (push.status !== 0) {
+    throw new relay.RelayError(`git push to ${ref} failed: ${(push.stderr || '').trim().split('\n').pop() || `exit ${push.status}`}`);
+  }
+  out(`rescue: pushed ${n} commit${n === 1 ? '' : 's'} to ${ref}.`);
+  out('  Name it in the living comment (or tell the owner if you cannot edit it), then stop. The baton holder');
+  out('  merges it into the line of work; delete the ref once it is merged. Never force-push the line.');
+  return 0;
 }
 
 function currentBranch() {
@@ -64,7 +103,7 @@ function currentBranch() {
  * The whole command, with every outside dependency injected so tests need no network or clock.
  * @returns {number} exit code
  */
-function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi, now = Date.now(), branchNow = currentBranch, out = console.log, err = console.error } = {}) {
+function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, api = relay.ghApi, now = Date.now(), branchNow = currentBranch, out = console.log, err = console.error } = {}) {
   try {
     const o = parseArgs(argv);
     const branch = (o.branch || branchNow() || '').replace(/^(refs\/heads\/|refs\/remotes\/|remotes\/)?(origin\/)?/, '');
@@ -72,6 +111,7 @@ function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi,
     const me = relay.sessionId(env);
     if (!me && o.verb !== 'status') throw new relay.RelayError(`${o.verb} needs your session id: set LATTICE_SESSION=session_<id>`, 64);
     const at = o.now ?? now;
+    if (o.verb === 'rescue') return rescue(branch, me, { gitRun, fetch: o.fetch, out });
 
     const { head, pr, comment, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, now: at, override: o.override, fetch: o.fetch, api, git });
     const where = `${branch}${pr ? ` (PR #${pr})` : ''}`;

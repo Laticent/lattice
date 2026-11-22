@@ -275,9 +275,19 @@ would be a CI-contract change), checkpoint before any wait on a person, and a ta
 file's 16,500-token ceiling, and #31 gained one clause: on a relay branch, merging a conflicting `main` in
 overrides #16's rebase.
 
-Open for the owner (the PR's ❓ card): what a session does with commits git rejected after a lost race
-(today: keep them in the sandbox and tell the owner), and whether a commit-msg hook should add
-`Relay-Actor:` and a SessionStart line should warn when `LATTICE_ACTOR` is unset.
+The owner answered the PR's ❓ card on 2026-11-22 (in the workflow desk's session):
+
+- **Rescue refs (D1: B).** A session that loses the race pushes its rejected commits, without force, to
+  `relay-rescue/<branch>/<session>` with `npm run baton -- rescue`; the holder merges it into the line and
+  deletes it. Built in this PR.
+- **Automatic signatures (D2, D3: yes to both).** A commit-msg step writes `Relay-Actor:` from
+  `LATTICE_ACTOR`, and SessionStart warns when it is unset. Both are hook changes, so they are the next
+  PR in this line of work after this one merges, with the adversarial trio and the card grader:
+  `followups.d/3427-p1-relay-actor-commit-msg-hook.md` and
+  `followups.d/3427-p2-session-start-actor-warning.md`.
+- **Usage pauses (D4: A).** Each paused session asks the owner again in its own chat; #31 gets no
+  exception.
+- The three vetoes stand (merge-not-rebase on relay branches, the compressed rule text, §As built).
 
 ## Usage checkpoints (decided 2026-11-22)
 

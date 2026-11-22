@@ -75,9 +75,11 @@ cost the most (one session per branch, forever).
 4. **Taking it is pushing.** Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
    `Claude-Session:` trailers and push without `--force`. Git lands a push only if it fast-forwards, so of two
    sessions racing for a free baton exactly one wins. **A rejected push means someone else won**: fetch, run
-   `npm run baton -- status`, and do not pull, merge or rebase your way past it. If you hold commits git
-   rejected, list them (`git log --oneline origin/<branch>..HEAD`), keep this session alive, and tell me: they
-   exist only in this sandbox.
+   `npm run baton -- status`, and do not pull, merge or rebase your way past it. **Save what git rejected**:
+   `npm run baton -- rescue` pushes your local commits, without force, to `relay-rescue/<branch>/<session>`,
+   so they outlive this sandbox. Name that ref in the living comment (or tell me, if you cannot edit it),
+   then stop. A rescue ref is a backup, not a line of work: no PR opens from it, the baton holder merges it
+   into the line, and it is deleted after.
 5. **While you hold it**: if the remote moved (a person pushed from GitHub's UI) or the branch conflicts with
    `main`, **merge** it in with your trailer; never rebase, amend a pushed commit or force-push a relay
    branch. This overrides #16's rebase on a relay branch: a rebase rewrites commits another session may

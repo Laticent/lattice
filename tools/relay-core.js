@@ -191,6 +191,11 @@ function livingHeader({ baton, holder, since, checkpoint, head, next }) {
   ].join('\n');
 }
 
+/** The backup ref a race loser pushes to (owner's D1, 2026-11-22): `relay-rescue/<branch>/<session>`. */
+function rescueRef(branch, session) {
+  return `relay-rescue/${branch}/${session}`;
+}
+
 /** "42 min" / "0 min" for a lease. */
 function minutes(ms) {
   return `${Math.ceil(ms / 60000)} min`;
@@ -381,7 +386,7 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
 
 module.exports = {
   ROSTER_PATH, loadRoster, resolveActor, sessionId, signature, HOW_TO_SET,
-  LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes,
+  LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes, rescueRef,
   ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton,
   FOOTER, nextStep, buildLivingBody, postLiving,
 };
