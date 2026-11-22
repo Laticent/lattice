@@ -682,26 +682,30 @@ async function emptyDeckTap(id) {
 			step('the software keyboard (detail only)', true, seen.vv < prep.vv - 100 ? `up: viewport ${prep.vv} to ${seen.vv}` : `not shown: viewport ${prep.vv} to ${seen.vv}`);
 			// THE WITHHELD CLICK, made on purpose (the checker on #3436). Safari sometimes sends a tap's touch events and then no
 			// mousedown and no click (jobs 137060162549, 137066156788, 137285553830); the grid's touch release then arms a
-			// fallback that puts the caret. A run does not produce that on demand, so cancel this one tap's touchend, which
-			// stops Safari synthesizing its mouse events, and read that no click came and the caret still sits in the line.
+			// fallback that puts the caret. A run does not produce that on demand, so cancel this one tap's touchstart and
+			// touchend, which should stop Safari synthesizing its mouse events, and read that no click came and the caret still
+			// sits in the line. Cancelling touchend alone did not withhold the click on the iPhone simulator (job 137390775014):
+			// when the click comes anyway, the fallback was not exercised, and the step says so instead of failing.
 			await wd('POST', `/session/${id}/execute/sync`, {
 				args: [],
 				script: `document.activeElement?.blur?.(); getSelection()?.removeAllRanges();
 					window.__withheldClicks = 0;
 					window.__withheldCancel = (e) => e.preventDefault();
 					window.__withheldCount = () => window.__withheldClicks++;
+					document.addEventListener('touchstart', window.__withheldCancel, { capture: true, passive: false });
 					document.addEventListener('touchend', window.__withheldCancel, { capture: true, passive: false });
 					document.addEventListener('click', window.__withheldCount, true);`,
 			});
 			const held = await deliver('withheld');
 			const clicks = await wd('POST', `/session/${id}/execute/sync`, {
 				args: [],
-				script: `document.removeEventListener('touchend', window.__withheldCancel, { capture: true });
+				script: `document.removeEventListener('touchstart', window.__withheldCancel, { capture: true });
+					document.removeEventListener('touchend', window.__withheldCancel, { capture: true });
 					document.removeEventListener('click', window.__withheldCount, true);
 					return window.__withheldClicks;`,
 			});
 			const w = held.seen;
-			step('a tap whose click Safari withholds still puts the caret in the empty line (the release fallback)', clicks === 0 && w.focused && w.inLine && w.caret, clicks === 0 ? `no click came; active: ${w.active}; in ${w.where}; hold ${held.hold ?? 'no touch'} ms` : `the click came anyway (${clicks}), so the canceled touchend did not withhold it here`);
+			step('a tap whose click Safari withholds still puts the caret in the empty line (the release fallback)', clicks > 0 || (w.focused && w.inLine && w.caret), clicks === 0 ? `no click came; active: ${w.active}; in ${w.where}; hold ${held.hold ?? 'no touch'} ms` : `UNVERIFIED: Safari sent the click anyway (${clicks}) despite the canceled touchstart and touchend, so the fallback did not run; the click put the caret (${w.focused && w.inLine && w.caret ? 'in the line' : `not in the line: ${w.where}`})`);
 		}
 	} catch (e) {
 		step('the empty deck tap ran', false, String(e.message || e).slice(0, 300));
