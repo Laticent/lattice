@@ -50,13 +50,16 @@ import { claimForCurrentTest, orphanedFrom, releaseTest, stopIfOrphaned } from '
 // See engineering/decisions/2026-08-24-testing-library-async-budget.md.
 configure({ asyncUtilTimeout: 3_000 });
 
-// A TIMED-OUT TEST STOPS AT ITS NEXT TESTING LIBRARY CALL (src/test/orphan-guard.ts). Every test owns the work its body
-// starts; a `user.*` action, `fireEvent`, `findBy…` or `waitFor` from a test vitest has already moved past throws instead of acting
-// on the next test's page. React's own wrappers are kept and called inside. This file's hooks register first, so with
-// vitest's default `sequence.hooks: 'stack'` the claim runs before every other `beforeEach` and the release after every
-// other `afterEach`: a test's own hooks count as the test.
-beforeEach((ctx) => claimForCurrentTest(ctx.task));
-afterEach((ctx) => releaseTest(ctx.task));
+// A TIMED-OUT TEST STOPS AT ITS NEXT TESTING LIBRARY CALL (src/test/orphan-guard.ts). Every test attempt owns the work
+// it starts; a `user.*` action, `fireEvent`, `findBy…` or `waitFor` from an attempt that has finished throws instead of
+// acting on the next test's page. React's own wrappers are kept and called inside. This file's `beforeEach` registers
+// first, so the claim runs before every other `beforeEach`; the release rides `onTestFinished`, which vitest runs after
+// every `afterEach` and `beforeEach` teardown, even when one of them throws or times out. So a test's own hooks count
+// as the test.
+beforeEach((ctx) => {
+	const token = claimForCurrentTest(ctx.task);
+	ctx.onTestFinished(() => releaseTest(token));
+});
 {
 	const { asyncWrapper, eventWrapper } = getConfig();
 	configure({
@@ -72,7 +75,7 @@ afterEach((ctx) => releaseTest(ctx.task));
 }
 
 // …and so do `render`, `renderHook` and `cleanup`, which do not pass through those wrappers. A late `render` or
-// `renderHook` throws; a late `cleanup()` does nothing, because vitest's own after-test cleanup
+// `renderHook` throws; a late `cleanup()` does nothing, because Testing Library's own after-test cleanup
 // already removed that test's page, and running it now would remove the next test's. Not covered: a stale
 // `rerender`/`unmount` from an old render result, and a bare `act`.
 vi.mock('@testing-library/react', async (importOriginal) => {

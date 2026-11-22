@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { OrphanedTestError } from './orphan-guard';
+import { beforeAll, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
+import { OrphanedTestError, orphanedFrom } from './orphan-guard';
 
 // A test's leftover work must not reach the next test's page (orphan-guard.ts). A timed-out test leaves its body
 // running; here each "first" test leaves work behind on purpose, parked on a promise, and the next test releases it.
@@ -175,5 +175,46 @@ describe('concurrent tests', () => {
 	it.concurrent('C2 renders after C1 has started', async ({ expect }) => {
 		await meet();
 		expect(() => render(<p>c2</p>)).not.toThrow();
+	});
+});
+
+// A test's own late hooks still count as the test: a `beforeEach` teardown and `onTestFinished` run after every
+// `afterEach`, so the release waits for them. (Testing Library's own cleanup has removed the page by then, so these
+// check the guard's verdict, not the page.)
+describe('late hooks of a test are still that test', () => {
+	const verdicts: Array<string | null> = [];
+	beforeEach(() => () => {
+		verdicts.push(orphanedFrom());
+	});
+
+	it('records the verdict in its teardown and its onTestFinished', () => {
+		onTestFinished(() => {
+			verdicts.push(orphanedFrom());
+		});
+	});
+
+	it('neither late hook was judged an orphan', () => {
+		expect(verdicts).toEqual([null, null]);
+	});
+});
+
+// `retry` runs the same task again: the first attempt's leftover is still an orphan during the second.
+describe('a retried test', () => {
+	let leftover: Promise<unknown> | undefined;
+	const gate = parked();
+
+	it('the first attempt leaves a render behind and fails; the second attempt is not touched by it', { retry: 1 }, async () => {
+		if (!leftover) {
+			leftover = (async () => {
+				await gate.at;
+				render(<p>stray</p>);
+			})();
+			leftover.catch(() => {});
+			throw new Error('first attempt fails on purpose, so vitest retries');
+		}
+		render(<p>mine</p>);
+		gate.release();
+		await expect(leftover).rejects.toBeInstanceOf(OrphanedTestError);
+		expect(screen.queryByText('stray')).toBeNull();
 	});
 });
