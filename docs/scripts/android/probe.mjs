@@ -46,7 +46,12 @@ let fresh = false; // true from an open() until the first element it waited for 
 const DUMP = '/data/local/tmp/ui.xml';
 function nodes() {
 	adb('shell', 'rm', '-f', DUMP);
-	const said = adb('shell', 'uiautomator', 'dump', DUMP);
+	let said;
+	try {
+		said = adb('shell', 'uiautomator', 'dump', DUMP);
+	} catch (e) {
+		said = `ERROR: ${String(e.message).slice(0, 200)}`; // Android 17 can exit non-zero on a failed dump: still "no read"
+	}
 	if (/ERROR/.test(said)) return { xml: `<!-- uiautomator: ${said.trim()} -->`, out: [] };
 	let xml;
 	try {
