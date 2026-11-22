@@ -36,7 +36,10 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    `deckswitch2`, `insert`, `mixed`. Live, export and chat have no cycle yet
    (`followups.d/3411-p1-torture-cycles-live-export-chat.md`, the desk's first job): adding one is
    a new scenario cycle in a fix session, written against a local stand-in (for Live, the in-process
-   relay `docs/e2e/live-relay.ts` with two browser contexts; for chat, a fake model), before it can be tortured.
+   relay `docs/e2e/live-relay.ts` with two browser contexts; for chat, a fake model)
+   `live-relay.ts` is Playwright-only, and perf-torture is Puppeteer with one page per cycle,
+   so the `live` cycle first ports the relay (a local `ws` server, or a Puppeteer request handler)
+   and adds a second page to the engine, before it can be tortured.
    `--cpu 4` approximates a slow device; a crash that only a real iPhone shows goes to the
    devices desk.
 3. **Make it confess.** A metric that rises: re-run with `--snapshot` for the constructor that
