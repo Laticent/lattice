@@ -63,7 +63,17 @@ test('an un-paginated proof run tints each slide by deck order in Present', asyn
 	const seen: Array<{ cat: string; fill: string }> = [];
 	for (let slide = first; slide <= total; slide++) {
 		await expect(counter).toHaveText(`${slide} / ${total}`);
-		const panel = page.frameLocator('[aria-label="Presented slide"] iframe.live').locator('.panel-left').first();
+		// READ THE SLIDE THE COUNTER NAMES, not whatever the frame holds. The counter moves on the click, and the frame
+		// repaints when its render lands (Present's preview coalesces renders), so under load the read after Next found
+		// the PREVIOUS slide still painted and recorded its slot twice: `cat-1, cat-1` (red 1 time in a full desktop run).
+		// The panel is taken from the section whose heading is this slide's, so the read waits for that slide's paint.
+		const frame = page.frameLocator('[aria-label="Presented slide"] iframe.live');
+		const level = slide - first + 1;
+		const panel = frame
+			.locator('section')
+			.filter({ has: frame.getByRole('heading', { name: `Claim number ${level}.`, exact: true }) })
+			.locator('.panel-left')
+			.first();
 		await expect(panel).toBeVisible();
 		seen.push(
 			await panel.evaluate((el) => ({
