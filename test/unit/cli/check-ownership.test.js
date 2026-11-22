@@ -1535,6 +1535,12 @@ describe('check-ownership', () => {
       assert.deepEqual(probe({ suites: [good] }), []);
     });
 
+    test('ubuntu-24.04 is admitted only for the Android emulator suite', () => {
+      assert.deepEqual(probe({ suites: [{ ...good, os: ['ubuntu-24.04'], run: 'bash docs/scripts/android/run.sh' }] }), []);
+      const e = probe({ suites: [{ ...good, os: ['ubuntu-24.04'] }] });
+      assert.ok(e.some((m) => /Android emulator suite only/.test(m)), e.join('\n'));
+    });
+
     test('failing arms: bad JSON, no suites, bad name, duplicate, bad os, no paths, no why, no run', () => {
       assert.match(probe('{nope').join(), /not valid JSON/);
       assert.match(probe({ suites: [] }).join(), /non-empty `suites`/);

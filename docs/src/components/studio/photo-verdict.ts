@@ -6,9 +6,9 @@ import { slidePlacingAt, unitPartStarts } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { headingOf, photoRefOf } from './card-ink-pick';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from './card-ink-sampler';
+import { deckImageCardClasses, setImageCard } from './deck-axes';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
-import { deckImageCardClasses, setImageCard } from './slide-provenance';
 
 // THE PHOTO VERDICT: the one answer the Coach and the editor show for the text on a slide's photo. Both views render
 // the object `readVerdict` returns, with its message and its one fix button, so they cannot disagree (owner, 2026-10-28:

@@ -187,13 +187,13 @@ const VARIANT_DECL_IGNORE = new Map([
   // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
   // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
   ['checklist', new Set(['heat'])],
-  // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
-  // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
+  // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
+  // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
   // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'with-spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -9839,7 +9839,10 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
-const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025'];
+// `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
+// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
+// checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
+const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
 // A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening
@@ -10072,6 +10075,9 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     seen.add(s.name);
     if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
       errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
+    }
+    if (Array.isArray(s.os) && s.os.includes('ubuntu-24.04') && !/(^|\s)(bash\s+)?docs\/scripts\/android\//.test(String(s.run || ''))) {
+      errors.push(`${at}: \`ubuntu-24.04\` is for the Android emulator suite only (a \`run\` under docs/scripts/android/); a Linux check that needs no emulator belongs in ci.yml.`);
     }
     if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
       errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
@@ -14636,7 +14642,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
   { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
   { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
-  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
   { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 

@@ -24,14 +24,10 @@ import {
 	setMotionSpeed,
 	setMotionStyle,
 	setRule,
-	setSpectrum,
-	setSpectrumCardEdge,
-	setSpectrumEdge,
+	setSpectrumAxis,
 	setStampStyle,
 	setToneStyle,
-	spectrumCardEdgeProvenance,
-	spectrumEdgeProvenance,
-	spectrumProvenance,
+	spectrumAxisProvenance,
 	stampStyleProvenance,
 	toneStyleProvenance,
 } from './slide-provenance';
@@ -196,21 +192,47 @@ describe('tone-style provenance + override', () => {
 	});
 });
 
-describe('spectrum provenance + override (brand bar)', () => {
-	it('off (rainbow default) when neither slide nor deck sets a brand bar', () => {
+// The three spectrum keys, read and written one axis at a time.
+const spectrumProvenance = (chunk: string, src: string) => spectrumAxisProvenance(chunk, src, 'spectrum', 'style');
+const setSpectrum = (chunk: string, v: string | null) => setSpectrumAxis(chunk, 'spectrum', 'style', v);
+const spectrumEdgeProvenance = (chunk: string, src: string) => spectrumAxisProvenance(chunk, src, 'spectrum', 'edge');
+const setSpectrumEdge = (chunk: string, v: string | null) => setSpectrumAxis(chunk, 'spectrum', 'edge', v);
+const spectrumWeightProvenance = (chunk: string, src: string) => spectrumAxisProvenance(chunk, src, 'spectrum', 'weight');
+const setSpectrumWeight = (chunk: string, v: string | null) => setSpectrumAxis(chunk, 'spectrum', 'weight', v);
+const cardEdgeProvenance = (chunk: string, src: string) => spectrumAxisProvenance(chunk, src, 'card-spectrum', 'edge');
+const setCardEdge = (chunk: string, v: string | null) => setSpectrumAxis(chunk, 'card-spectrum', 'edge', v);
+
+describe('spectrum provenance + override (the stripe on the slide edge)', () => {
+	it('off (rainbow default) when neither slide nor deck sets a style', () => {
 		expect(spectrumProvenance('<!-- _class: kpi -->', '# deck').state).toBe('off');
 	});
-	it('inherited from the deck `spectrum:` register (off / solid)', () => {
-		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
+	it('inherited from the deck `spectrum:` style word, whatever else the line says', () => {
+		const src = deck('spectrum: left solid band', '<!-- _class: kpi -->');
 		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'solid', deckValue: 'solid', inheritable: true });
+		expect(spectrumEdgeProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'left' });
+		expect(spectrumWeightProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'band' });
 	});
-	it('a deck `spectrum: on` is the rainbow default, not an inherited override', () => {
-		const src = deck('spectrum: on', '<!-- _class: kpi -->');
-		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'off', inheritable: false });
+	it('a deck `spectrum: rainbow` is the default, not an inherited override; the old `on` is no word at all', () => {
+		for (const v of ['rainbow', 'on']) {
+			const src = deck(`spectrum: ${v}`, '<!-- _class: kpi -->');
+			expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'off', inheritable: false });
+		}
 	});
-	it('on when the slide overrides with its own spectrum-* token', () => {
+	it('a preset\'s word counts as the deck\'s, per axis', () => {
+		const src = deck('preset: brand\nspectrum: left', '<!-- _class: kpi -->');
+		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'solid' });
+		expect(spectrumEdgeProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'left' });
+	});
+	it('on when the slide overrides with its own class', () => {
 		const src = deck('spectrum: solid', '<!-- _class: kpi no-spectrum -->');
 		expect(spectrumProvenance('<!-- _class: kpi no-spectrum -->', src)).toMatchObject({ state: 'on', value: 'off', deckValue: 'solid' });
+	});
+	it('a slide axis leaves the other axes alone', () => {
+		let chunk = '<!-- _class: kpi spectrum-solid spectrum-left -->';
+		chunk = setSpectrumWeight(chunk, 'band');
+		expect(getClassTokens(chunk)).toEqual(['kpi', 'spectrum-solid', 'spectrum-left', 'spectrum-band']);
+		chunk = setSpectrumEdge(chunk, null);
+		expect(getClassTokens(chunk)).toEqual(['kpi', 'spectrum-solid', 'spectrum-band']);
 	});
 	it('setSpectrum writes off/solid, never stacks, and null clears to inherit/rainbow', () => {
 		let chunk = '<!-- _class: kpi spectrum-solid -->';
@@ -220,19 +242,20 @@ describe('spectrum provenance + override (brand bar)', () => {
 	});
 	it('setSpectrum writes the restore token `with-spectrum`, which reads back as this slide\'s own choice', () => {
 		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
-		const chunk = setSpectrum('<!-- _class: kpi spectrum-solid -->', 'on');
+		const chunk = setSpectrum('<!-- _class: kpi spectrum-solid -->', 'rainbow');
 		expect(getClassTokens(chunk).filter((t) => /spectrum/.test(t))).toEqual(['with-spectrum']);
-		expect(spectrumProvenance(chunk, src)).toMatchObject({ state: 'on', value: 'on', deckValue: 'solid' });
+		expect(spectrumProvenance(chunk, src)).toMatchObject({ state: 'on', value: 'rainbow', deckValue: 'solid' });
 	});
 });
 
 describe('restore tokens (each register default as a per-slide choice)', () => {
 	const cases = [
-		['spectrum-edge: left', setSpectrumEdge, spectrumEdgeProvenance, 'top', 'spectrum-edge-top'],
+		['spectrum: left', setSpectrumEdge, spectrumEdgeProvenance, 'top', 'spectrum-top'],
+		['spectrum: band', setSpectrumWeight, spectrumWeightProvenance, 'regular', 'spectrum-regular'],
 		['rule: accent', setRule, ruleProvenance, 'auto', 'rule-auto'],
 		['eyebrow: dot', setEyebrow, eyebrowProvenance, 'plain', 'eyebrow-plain'],
 		['headline: center', setHeadline, headlineProvenance, 'auto', 'head-auto'],
-		['spectrum-card-edge: top', setSpectrumCardEdge, spectrumCardEdgeProvenance, 'left', 'spectrum-card-edge-left'],
+		['card-spectrum: rainbow top', setCardEdge, cardEdgeProvenance, 'left', 'card-spectrum-left'],
 	] as const;
 	for (const [fm, set, read, name, token] of cases) {
 		it(`${fm}: the default \`${name}\` writes \`${token}\` and reads back as the slide's own value`, () => {
