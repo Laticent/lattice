@@ -361,7 +361,8 @@ after it, so one checker graded the merge card and a second bug-hunted those com
 that fails without it:
 - grace's Ctrl-C handling: a trial blocks the event loop (`spawnSync`), so the handler could not run and Node dropped
   the queued signal; an interrupted export carried on and exited 0. Grace now installs no handler, so the export dies of
-  the signal as it did before grace, and each run sweeps trial files left by a dead process;
+  the signal as it did before grace, each trial render exits when its export dies (a third checker found the orphan),
+  and each run sweeps trial files left by a dead process;
 - grace forwards `--allow-remote` to its trials, and reads `CI=false` or `CI=0` as not CI;
 - `quote-note`: the byte trim in `b783cc0` dropped the tab from its whitespace strip, and it warned where the engine
   draws no note (a third paragraph, `no-note`);

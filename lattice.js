@@ -41,6 +41,8 @@ const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 const { pkgRootFrom } = require('./lib/core/pkg-root');
 const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MODES } = require('./lib/cli/options.js');
+// A grace trial render (lib/cli/fit-grace.js) ends when the export that started it dies.
+require('./lib/cli/fit-grace.js').watchParent(process.env);
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
 // The logo-marks transform emits `<span class="logo-mark" … style="--logo-mask:
