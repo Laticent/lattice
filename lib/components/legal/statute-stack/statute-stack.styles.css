@@ -164,11 +164,13 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .l
  * line even when the status pill has floated to the next one (measured: it pushed STATE and
  * `Cal. Civ. §1798.120` onto two lines of a portrait card at hall, and the card 70px over). The
  * trailing pill keeps its leading margin as its gap from the citation, and ends flush right. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:first-of-type:not(:last-child) {
+/* Pills are matched against pills only (`~ .lat-pill`), never by element position, so another
+ * element in the header (an icon, a styled run) cannot shift which pill is the citation. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:has(~ .lat-pill) {
   margin-inline:0;
 }
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child,
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not(:has(~ .lat-pill)),
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill ~ .lat-pill:not(:has(~ .lat-pill)) {
   float:inline-end; margin-inline-end:0;
 }
 /* The status pill takes the jurisdiction hue (the signal color).
@@ -178,7 +180,7 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
  * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
  * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
  * exists to retire. (#1263) */
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill ~ .lat-pill:not([data-c]):not(:has(~ .lat-pill)) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
 }
