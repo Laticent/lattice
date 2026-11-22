@@ -1529,6 +1529,15 @@ it passes, that exact tree becomes `main`.
   alone. In 999 PR runs the node 24 leg caught nothing node 22 did not, so a
   Node-24-only break now shows as a queue ejection, not a red PR. The per-job
   evidence is `decisions/2026-10-29-ci-job-tiers.md`.
+- **`integration` (the render slice) runs only in the queue** since 2026-11-21 (the
+  owner's D2, `decisions/2026-11-21-ci-load-plan.md`). It was 40% of PR job-minutes, and
+  the queue already ran it in full. **So before the merge ask, a PR that touches the
+  `code` paths runs the slice locally**, with the venue conformance ratchet that rode on
+  its shard 4: `npm run evidence` lists both as "the PR render slice", and §The raise
+  loop runs every `local` row. Skip it and a render break
+  first shows as a queue ejection, which re-tests every entry behind it. In the queue
+  the `ci` gate fails a run whose `integration` was skipped, so the tier cannot drop
+  out of the one place it still runs.
 
 ## Automation vs. the main ruleset
 
@@ -2224,7 +2233,8 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
 1. **Plan the surfaces.** Run `npm run evidence`. It reads the diff and prints every real
    surface the change reaches and the command for each: the Playwright engines
    (Chromium at three widths, `webkit-phone`, `webkit-tablet`, `gecko`), the
-   integration tier, and a `workflow_dispatch` of the matching macOS / Windows / iOS
+   PR render slice (`test:integration:pr`, which PR CI no longer runs: §Merge queue — the
+   facts), and a `workflow_dispatch` of the matching macOS / Windows / iOS
    Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
    "Not installed" is not a stop (#23).
    When a platform suite needs more than one round, use the **warm harness** rather
