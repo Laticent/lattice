@@ -8,7 +8,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test } from './stud
 //      changes to left.
 
 const SPLIT = (edge: string) =>
-	`---\ntitle: Bar\n---\n\n<!-- _class: split-panel spectrum-edge-${edge} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
+	`---\ntitle: Bar\n---\n\n<!-- _class: split-panel spectrum-${edge} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 const CONTENT = (edge: string) =>
 	`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 
