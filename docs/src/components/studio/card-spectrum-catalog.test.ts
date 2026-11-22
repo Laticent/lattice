@@ -29,7 +29,8 @@ describe('card-spectrum-catalog ↔ SPECTRUM_CARD_NAMES', () => {
 	it('activeCardSpectrum falls back to the off default for unknown / empty', () => {
 		expect(activeCardSpectrum('nonsense').name).toBe('off');
 		expect(activeCardSpectrum('').name).toBe('off');
-		expect(activeCardSpectrum('match').name).toBe('match');
+		expect(activeCardSpectrum('mono').name).toBe('mono');
+		expect(activeCardSpectrum('match').name).toBe('off');
 		expect(activeCardSpectrum('auto').name, 'the retired word is not a style').toBe('off');
 		expect(activeCardSpectrum('duo').name).toBe('duo');
 		// `on` was never shipped — it is now unknown and falls back to the off default.

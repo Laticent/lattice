@@ -644,11 +644,11 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
 	// Trim spectrum — a three-tier axis (Quiet / Restrained / Full) with an explicit opt-out.
 	// Auto follows the deck; every catalog value is an explicit per-slide choice.
-	const trimProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'trim-spectrum', 'tier'), [chunk, source]);
+	const trimProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'trim-spectrum', 'style'), [chunk, source]);
 	const trimInherits = activeTrimSpectrum(trimProv.inheritable ? trimProv.deckValue : 'quiet').name;
 	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('trim-spectrum-quiet') ? 'quiet' : null, trimInherits);
 	const trimGroups = inheritGroups([{ options: catalogOptions(TRIM_SPECTRA) }], { value: trimInherits });
-	const onTrim = (v: string) => onMutate((c) => setSpectrumAxis(c, 'trim-spectrum', 'tier', v === '__inherit__' ? null : v));
+	const onTrim = (v: string) => onMutate((c) => setSpectrumAxis(c, 'trim-spectrum', 'style', v === '__inherit__' ? null : v));
 
 	// Motion — three axes for a chart on THIS slide, each overriding the matching deck default.
 	// PLAY (Auto / On / Off), STYLE (Auto / Build / Together / Rise), SPEED (Auto / Slow / …).

@@ -3,10 +3,10 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · Spectrum keys"
-footer: "spectrum: solid left band · card-spectrum: match band · trim-spectrum: restrained"
+footer: "spectrum: solid left band · card-spectrum: solid band · trim-spectrum: mono"
 spectrum: solid left band
-card-spectrum: match band
-trim-spectrum: restrained
+card-spectrum: solid band
+trim-spectrum: mono
 ---
 
 <!-- _class: title -->
@@ -51,12 +51,12 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 <!-- _class: cards-grid three -->
 
-`card-spectrum: match band`
+`card-spectrum: solid band`
 
-## Each card carries a stripe that matches the slide edge
+## Each card carries a stripe of its own
 
-- Match
-  - The card stripe follows the slide edge's solid style.
+- Solid
+  - The deck pins the card stripe solid; it never copies the edge.
 - Band
   - The weight word makes it a heavy band, ten pixels at this size.
 - Left
@@ -64,14 +64,14 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: cards-grid three card-spectrum-rainbow card-spectrum-top card-spectrum-hairline -->
+<!-- _class: cards-grid three with-card-spectrum card-spectrum-top card-spectrum-hairline -->
 
-`_class: card-spectrum-rainbow card-spectrum-top card-spectrum-hairline`
+`_class: with-card-spectrum card-spectrum-top card-spectrum-hairline`
 
 ## The card stripe keeps its own three parts
 
 - Rainbow
-  - Pinned to the theme's full ribbon, while the slide edge stays solid.
+  - The theme's full ribbon, while the slide edge stays solid.
 - Top
   - Moved to the top edge of each card.
 - Hairline
@@ -81,7 +81,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 <!-- _class: table -->
 
-`trim-spectrum: restrained`
+`trim-spectrum: mono`
 
 ## The trim carries a quiet single-hue ramp
 

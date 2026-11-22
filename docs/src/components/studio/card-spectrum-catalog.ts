@@ -1,12 +1,12 @@
 // The Studio card-spectrum catalog — DISPLAY metadata for the style axis of `card-spectrum:` (the
-// card stripe's STYLE: off / match / rainbow / solid / duo / mono — an INDEPENDENT accent on card
-// surfaces, tunable apart from the slide edge's `spectrum:`). Sibling of spectrum-catalog.ts and
+// card stripe's STYLE: off / rainbow / solid / duo / mono — its own accent on card surfaces, never
+// copied from the slide edge's `spectrum:`). Sibling of spectrum-catalog.ts and
 // card-spectrum-edge-catalog.ts (the stripe's EDGE). The engine's single source of truth is
 // CARD_SPECTRUM_AXES.style (lib/core/resolve-spectrum.js). THIS file adds only the human layer the
 // picker needs; the rot-guard is card-spectrum-catalog.test.ts.
 //
 // Authored deck-wide as the style word on `card-spectrum:`, or per slide `_class: with-card-spectrum`
-// (match) / `card-spectrum-solid` / `no-card-spectrum` etc.
+// (rainbow) / `card-spectrum-solid` / `no-card-spectrum` etc.
 
 export type CardSpectrumEntry = {
 	/** the `card-spectrum:` style word (a member of the engine's CARD_SPECTRUM_AXES.style) */
@@ -31,29 +31,24 @@ export const CARD_SPECTRA: CardSpectrumEntry[] = [
 		swatch: { background: 'var(--bg-alt, var(--bg))' },
 	},
 	{
-		name: 'match', label: 'Match',
-		blurb: 'A stripe that follows the slide edge’s spectrum style — the on-brand choice when enabled.',
+		name: 'rainbow', label: 'Rainbow',
+		blurb: 'The theme’s full rainbow ribbon on each card — the style a card stripe takes when it names none.',
 		swatch: { background: RAIL('var(--spectrum-vertical, var(--spectrum, linear-gradient(var(--accent), var(--accent))))') },
 	},
 	{
 		name: 'solid', label: 'Solid',
-		blurb: 'Pin the rail to the theme’s distinctive solid accent, independent of the slide edge.',
+		blurb: 'The theme’s distinctive solid accent on each card.',
 		swatch: { background: RAIL('linear-gradient(var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)))') },
 	},
 	{
 		name: 'duo', label: 'Duo',
-		blurb: 'Pin the rail to a two-tone gradient — the accent into the theme’s spectrum endpoint.',
+		blurb: 'A two-tone gradient — the accent into the theme’s spectrum endpoint.',
 		swatch: { background: RAIL('linear-gradient(var(--accent), var(--spectrum-end, var(--accent)))') },
 	},
 	{
 		name: 'mono', label: 'Mono',
-		blurb: 'Pin the rail to a quiet accent tint ramp — the most restrained fill.',
+		blurb: 'A quiet accent tint ramp — the most restrained fill.',
 		swatch: { background: RAIL('linear-gradient(var(--accent), color-mix(in oklab, var(--accent) 35%, var(--bg)))') },
-	},
-	{
-		name: 'rainbow', label: 'Rainbow',
-		blurb: 'Pin the rail to the theme’s full rainbow ribbon, even when the slide edge is quieter.',
-		swatch: { background: RAIL('var(--spectrum-vertical, var(--spectrum, linear-gradient(var(--accent), var(--accent))))') },
 	},
 ];
 

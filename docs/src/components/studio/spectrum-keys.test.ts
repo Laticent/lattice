@@ -37,6 +37,15 @@ describe('reading and writing one axis', () => {
 		expect(mergeSpectrum('spectrum', undefined, null)).toBe('');
 	});
 
+	it('a card line with an edge or a weight but no style renders the rainbow, exactly as the engine stamps it', () => {
+		for (const [own, want] of [['top band', 'rainbow top band'], ['off top', 'off top'], ['solid', 'solid'], ['', '']] as const) {
+			expect(mergeSpectrum('card-spectrum', own, null)).toBe(want);
+			const engine = resolveSpectrum.spectrumDeckTokens(own ? `card-spectrum: ${own}` : '');
+			const studio = resolveSpectrum.CARD_SPECTRUM_REGISTER.classes(want).filter((t: string) => !['no-card-spectrum', 'card-spectrum-left', 'card-spectrum-regular'].includes(t));
+			expect(engine).toEqual(studio);
+		}
+	});
+
 	it('writes only what the deck needs: a word the preset or the default gives goes', () => {
 		expect(writeSpectrumWord('spectrum', 'solid', null, 'edge', 'left')).toBe('solid left');
 		expect(writeSpectrumWord('spectrum', 'solid left', null, 'edge', 'top'), 'top is the default').toBe('solid');

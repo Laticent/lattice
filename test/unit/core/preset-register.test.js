@@ -115,10 +115,10 @@ test('the engine stamps a preset on every slide, and an explicit key overrides i
   assert.equal(brand.length, 2);
   for (const cls of none) {
     // THE CONTROL: none of these tokens ships on a deck with no preset.
-    for (const t of ['spectrum-solid', 'trim-spectrum-full', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
   }
   for (const cls of brand) {
-    for (const t of ['spectrum-solid', 'trim-spectrum-full', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
   }
   for (const cls of override) {
     assert.ok(cls.has('no-heading-rule'));

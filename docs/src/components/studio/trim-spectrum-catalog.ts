@@ -1,42 +1,51 @@
-// The Studio trim-spectrum catalog — DISPLAY metadata for `trim-spectrum:` (how much the deck's
-// spectrum flows onto the STRUCTURAL accents: table-header rails, the list-steps timeline spine,
-// code-panel strips, the `hr` rule, split-card underlines). Quiet by default — those accents render a
-// quiet neutral hairline so a default deck stays elegant, and the spectrum lives on the slide edge
-// alone. Sibling of spectrum-catalog.ts / card-spectrum-catalog.ts. The engine's single source of
-// truth is TRIM_SPECTRUM_AXES.tier (lib/core/resolve-spectrum.js); the rot-guard is
+// The Studio trim-spectrum catalog — DISPLAY metadata for `trim-spectrum:` (the STYLE of the
+// structural accents: table-header rails, the list-steps timeline spine, code-panel strips, the `hr`
+// rule, split-card underlines). Quiet by default — those accents render a quiet accent-tinted hairline
+// so a default deck stays elegant. Each other word names the trim's own fill; none copies the slide
+// edge's `spectrum:`. Sibling of spectrum-catalog.ts / card-spectrum-catalog.ts. The engine's single
+// source of truth is TRIM_SPECTRUM_AXES.style (lib/core/resolve-spectrum.js); the rot-guard is
 // trim-spectrum-catalog.test.ts.
 //
-// Authored deck-wide via `trim-spectrum:` or per slide via `_class: trim-spectrum-full` /
-// `trim-spectrum-restrained` / `trim-spectrum-quiet`.
+// Authored deck-wide via `trim-spectrum:` or per slide via `_class: trim-spectrum-<style>`.
 
 export type TrimSpectrumEntry = {
-	/** the `trim-spectrum:` word (a member of the engine's TRIM_SPECTRUM_AXES.tier) */
+	/** the `trim-spectrum:` word (a member of the engine's TRIM_SPECTRUM_AXES.style) */
 	name: string;
 	label: string;
 	blurb: string;
-	/** CSS for the preview chip — a horizontal rule over the canvas, quiet or spectrum */
+	/** CSS for the preview chip — a horizontal rule over the canvas */
 	swatch: { background: string; backgroundSize?: string };
 };
 
 // A centered horizontal rule chip, mirroring the structural accents (a table/hr rule).
 const RULE = (fill: string) => `${fill} center / 70% 2px no-repeat, var(--bg)`;
 
-// Ordered as the picker shows them. `quiet` is the baseline (a quiet neutral; the default).
+// Ordered as the picker shows them. `quiet` is the baseline (the default).
 export const TRIM_SPECTRA: TrimSpectrumEntry[] = [
 	{
 		name: 'quiet', label: 'Quiet',
-		blurb: 'Structural accents stay a quiet accent-tinted hairline — the default. The full spectrum lives on the slide edge alone.',
+		blurb: 'Structural accents stay a quiet accent-tinted hairline — the default.',
 		swatch: { background: RULE('linear-gradient(color-mix(in oklab, var(--accent) 60%, var(--border)), color-mix(in oklab, var(--accent) 60%, var(--border)))') },
 	},
 	{
-		name: 'restrained', label: 'Restrained',
-		blurb: 'A single-hue accent ramp on the structure — present but quiet, held constant regardless of the bar (a two-tier look that never clashes).',
-		swatch: { background: RULE('linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 35%, var(--bg)))') },
+		name: 'rainbow', label: 'Rainbow',
+		blurb: 'The theme’s full rainbow ribbon on table rails, the timeline spine, code strips and rules.',
+		swatch: { background: RULE('var(--spectrum, linear-gradient(var(--accent), var(--accent)))') },
 	},
 	{
-		name: 'full', label: 'Full',
-		blurb: 'Flow the deck’s full spectrum onto the structural accents — table rails, the timeline spine, code strips, and hr.',
-		swatch: { background: RULE('var(--spectrum, linear-gradient(var(--accent), var(--accent)))') },
+		name: 'solid', label: 'Solid',
+		blurb: 'The theme’s distinctive solid accent on the structure.',
+		swatch: { background: RULE('linear-gradient(var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)))') },
+	},
+	{
+		name: 'duo', label: 'Duo',
+		blurb: 'A two-tone gradient — the accent into the theme’s spectrum endpoint.',
+		swatch: { background: RULE('linear-gradient(90deg, var(--accent), var(--spectrum-end, var(--accent)))') },
+	},
+	{
+		name: 'mono', label: 'Mono',
+		blurb: 'A single-hue accent ramp — present but quiet, and it never clashes with the slide edge.',
+		swatch: { background: RULE('linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 35%, var(--bg)))') },
 	},
 ];
 

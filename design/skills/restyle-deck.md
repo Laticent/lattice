@@ -62,7 +62,7 @@ palette.
 
 **A preset is a starting point; an explicit key beats it.** `preset: editorial`
 sets `finish: ledger`, `headline: left`, `rule: short`, `eyebrow: bar`,
-`trim-spectrum: restrained` and `lift: on`. Write `rule: none` beside it and you
+`trim-spectrum: mono` and `lift: on`. Write `rule: none` beside it and you
 get everything from Editorial except the heading rule.
 
 **Per-slide tokens win over deck keys.** `<!-- _class: content light -->` puts

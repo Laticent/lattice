@@ -49,7 +49,7 @@ test('retired spellings map to their replacement, and the map has no entry that 
     'callout-off': 'no-callout', 'callout-on': 'with-callout', 'motion-off': 'no-motion', 'motion-on': 'with-motion',
     'spectrum-off': 'no-spectrum', 'spectrum-on': 'with-spectrum', 'spectrum-edge-off': 'no-spectrum',
     'spectrum-card-off': 'no-card-spectrum', 'spectrum-card': 'with-card-spectrum', 'spectrum-trim-off': 'trim-spectrum-quiet',
-    'spectrum-trim': 'trim-spectrum-full', 'row-label': 'with-row-label', 'no-rule': 'no-spine', 'rule-none': 'no-heading-rule',
+    'spectrum-trim': 'trim-spectrum-rainbow', 'row-label': 'with-row-label', 'no-rule': 'no-spine', 'rule-none': 'no-heading-rule',
     'treatment-none': 'no-treatment', 'finish-none': 'no-finish', 'backdrop-none': 'no-backdrop', 'tag-none': 'tag-bare',
   });
   assert.equal(retiredSwitch('callout-off'), 'no-callout');
@@ -68,7 +68,7 @@ test('a setting\'s off / on word stamps the switch class; every other word keeps
   assert.equal(registerToken('spectrum', 'mono'), 'spectrum-mono');
   assert.equal(registerToken('rule', 'none'), 'no-heading-rule');
   assert.equal(registerToken('rule', 'full'), 'rule-full');
-  assert.equal(registerToken('card-spectrum', 'match'), 'with-card-spectrum');
+  assert.equal(registerToken('card-spectrum', 'rainbow'), 'with-card-spectrum');
   assert.equal(registerToken('card-spectrum', 'off'), 'no-card-spectrum');
   assert.equal(registerToken('headline', 'left', 'head-'), 'head-left', 'a setting with no switch keeps its prefix');
   assert.equal(registerValue('spectrum', 'no-spectrum', ['rainbow', 'solid', 'off']), 'off');

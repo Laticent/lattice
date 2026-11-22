@@ -74,7 +74,7 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: divider trim-spectrum-full -->
+<!-- _class: divider trim-spectrum-rainbow -->
 
 `Section 02`
 

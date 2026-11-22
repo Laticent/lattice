@@ -5,9 +5,9 @@
  "rows": [
   { "name": "spectrum: one word per axis, in any order", "source": "---\nspectrum: band left solid\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "spectrum: an unknown word", "source": "---\nspectrum: plaid\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum", "severity": "warning", "slide": 0 }] } },
-  { "name": "card-spectrum: one word per axis", "source": "---\ncard-spectrum: match top hairline\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "card-spectrum: one word per axis", "source": "---\ncard-spectrum: solid top hairline\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "card-spectrum: an unknown word", "source": "---\ncard-spectrum: middle\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-card-spectrum", "severity": "warning", "slide": 0 }] } },
-  { "name": "trim-spectrum: a listed value", "source": "---\ntrim-spectrum: restrained\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "trim-spectrum: a listed value", "source": "---\ntrim-spectrum: mono\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "trim-spectrum: an unknown value", "source": "---\ntrim-spectrum: heavy\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-trim-spectrum", "severity": "warning", "slide": 0 }] } },
   { "name": "a retired spectrum key is reported", "source": "---\nspectrum-trim: on\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "retired-spectrum-key", "severity": "error", "slide": 0 }] } },
   { "name": "avatar: one word per axis", "source": "---\navatar: rounded bare\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },

@@ -266,7 +266,7 @@ describe('deck linter', () => {
     const fm = (line) => `---\ntheme: indaco\n${line}\n---\n\n## H.\n`;
     const rules = (line) => lintText(fm(line), { vocab }).filter((x) => /spectrum/.test(x.rule));
     for (const line of ['spectrum: solid left band', 'spectrum: band LEFT duo', 'spectrum: off', 'spectrum: rainbow top regular',
-      'card-spectrum: match top hairline', 'card-spectrum: off', 'trim-spectrum: restrained', 'trim-spectrum: full']) {
+      'card-spectrum: rainbow top hairline', 'card-spectrum: off', 'trim-spectrum: mono', 'trim-spectrum: rainbow']) {
       assert.deepEqual(rules(line), [], line);
     }
     const [bad] = rules('spectrum: sideways');
@@ -290,8 +290,8 @@ describe('deck linter', () => {
     assert.ok(!found.some((f) => f.rule === 'unknown-spectrum'), '`spectrum: on` is reported once, as retired');
     const fixed = applyAllFixes(src, vocab);
     assert.equal(fixed, [
-      '---', 'theme: indaco', 'spectrum: rainbow left # brand', 'card-spectrum: match top',
-      'trim-spectrum: restrained', '---', '', '<!-- _class: cards-grid spectrum-top no-card-spectrum trim-spectrum-full -->', '', '## H.', '',
+      '---', 'theme: indaco', 'spectrum: rainbow left # brand', 'card-spectrum: rainbow top',
+      'trim-spectrum: mono', '---', '', '<!-- _class: cards-grid spectrum-top no-card-spectrum trim-spectrum-rainbow -->', '', '## H.', '',
     ].join('\n'));
     assert.deepEqual(lintText(fixed, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule)), [], 'no spectrum finding is left');
   });
@@ -301,8 +301,14 @@ describe('deck linter', () => {
     const deck = (...lines) => ['---', 'theme: indaco', ...lines, '---', '', '## H.', ''].join('\n');
     // `spectrum-edge: off` dropped the stripe; keeping `spectrum: solid` would turn it back on.
     assert.equal(applyAllFixes(deck('spectrum: solid', 'spectrum-edge: off'), vocab), deck('spectrum: off'));
-    const [merge] = lintText(deck('spectrum: solid', 'spectrum-edge: off'), { vocab }).filter((f) => f.rule === 'retired-spectrum-key');
-    assert.match(merge.fix, /drops the `solid` style/);
+    // The old card `auto` and trim `on` copied the slide edge; nothing copies it now, so the fix writes the style the
+    // deck was showing, read before the edge-off turns it off: the cards and the trim stay solid.
+    assert.equal(
+      applyAllFixes(deck('spectrum: solid', 'spectrum-edge: off', 'spectrum-card: auto', 'spectrum-trim: on'), vocab),
+      deck('spectrum: off', 'card-spectrum: solid', 'trim-spectrum: solid'),
+    );
+    // With no style on the deck, the copied style was the rainbow; `restrained` was the single-hue ramp, `mono`.
+    assert.equal(applyAllFixes(deck('spectrum-card: auto', 'spectrum-trim: restrained'), vocab), deck('card-spectrum: rainbow', 'trim-spectrum: mono'));
     // A word the old key never had is not deleted silently.
     assert.equal(applyAllFixes(deck('spectrum-edge: sideways'), vocab), deck('spectrum-edge: sideways'));
     assert.match(lintText(deck('spectrum-edge: sideways'), { vocab }).find((f) => f.rule === 'retired-spectrum-key').fix, /never a `spectrum-edge:` value/);
@@ -319,7 +325,7 @@ describe('deck linter', () => {
     assert.equal(applyAllFixes(deck('theme: indaco', 'spectrum-edge: top', 'spectrum-trim: off'), vocab), deck('theme: indaco'));
     assert.equal(applyAllFixes(deck('spectrum: duo right', 'spectrum-edge: left'), vocab), deck('spectrum: duo right'));
     assert.equal(applyAllFixes(deck('spectrum-edge: off'), vocab), deck('spectrum: off'));
-    assert.equal(applyAllFixes(deck('spectrum-trim: on'), vocab), deck('trim-spectrum: full'));
+    assert.equal(applyAllFixes(deck('spectrum-trim: on'), vocab), deck('trim-spectrum: rainbow'));
     assert.equal(applyAllFixes(deck('class: spectrum-edge-left'), vocab), deck('class: spectrum-left'));
   });
 
@@ -344,7 +350,7 @@ describe('deck linter', () => {
   });
 
   test('per-slide accent tokens (spectrum-*, card-spectrum-*, trim-spectrum-*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-full', 'trim-spectrum-restrained', 'trim-spectrum-quiet', 'rule-short', 'eyebrow-dot']) {
+    for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-rainbow', 'trim-spectrum-mono', 'trim-spectrum-quiet', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

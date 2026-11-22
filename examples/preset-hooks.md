@@ -4,7 +4,7 @@ theme: indaco
 paginate: true
 header: "Lattice · Preset hooks"
 meta: "Preset hooks · rule weight, rail weight, card corner"
-card-spectrum: match
+card-spectrum: rainbow
 style: |
   /* `rule-auto` restores the default heading rule, a no-op in a deck with no `rule:` key, so it
      marks the slides that set the hooks without adding a class of the deck's own. */

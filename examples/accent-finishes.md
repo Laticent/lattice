@@ -34,19 +34,19 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ---
 
-<!-- _class: code trim-spectrum-restrained -->
+<!-- _class: code trim-spectrum-mono -->
 
 `Spectrum · trim`
 
-## Three tiers on the structure — quiet by default
+## The structure keeps its own style — quiet by default
 
-`trim-spectrum:` sets three tiers. By default the code strip, table rails and rules stay a quiet accent-tint hairline. This slide runs `restrained`: the strip below is a single-hue ramp.
+`trim-spectrum:` sets the style. By default the code strip, table rails and rules stay a quiet accent-tint hairline. This slide runs `mono`: the strip below is a single-hue ramp.
 
 ```js
-// trim-spectrum: quiet      gives a quiet accent-tint hairline (the default)
-//                restrained gives a single-hue accent ramp (this slide)
-//                full       flows the deck's full spectrum onto the structure
-const tiers = ['quiet', 'restrained', 'full'];
+// trim-spectrum: quiet    gives a quiet accent-tint hairline (the default)
+//                mono     gives a single-hue accent ramp (this slide)
+//                rainbow  solid · duo — the theme's own fills, never the bar's
+const styles = ['quiet', 'mono', 'rainbow', 'solid', 'duo'];
 ```
 
 ---
@@ -106,16 +106,16 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid with-card-spectrum -->
+<!-- _class: cards-grid card-spectrum-duo -->
 
 `Spectrum · cards`
 
 ## Opt a spectrum rail onto card surfaces
 
 - Deck-wide or per slide
-  - `card-spectrum: match` rails every card. One slide opts in with `with-card-spectrum`.
-- Follows the bar by default
-  - `match` inherits the deck's `duo` — no per-card edit.
+  - `card-spectrum: duo` rails every card. One slide opts in with `card-spectrum-duo`.
+- Its own style
+  - The rail never copies the bar; this slide pins `duo` to sit beside it.
 - Off by default
   - No card gets a rail unless you ask — restraint over a stripe on everything.
 - Palette-blind
@@ -140,7 +140,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid card-spectrum-rainbow card-spectrum-top -->
+<!-- _class: cards-grid with-card-spectrum card-spectrum-top -->
 
 `Spectrum · cards`
 

@@ -118,9 +118,9 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 
 | Register (human) | Key | What it sets |
 |---|---|---|
-| **Spectrum** | `spectrum:` | the stripe on the slide edge, one word per axis: style (`rainbow`/`solid`/`duo`/`mono`/`off`), edge (`top`/`left`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) — the style also drives the structure under `trim-spectrum: full` |
-| **Card spectrum** | `card-spectrum:` | an INDEPENDENT stripe on card surfaces, one word per axis: style (`off`/`match`/`rainbow`/`solid`/`duo`/`mono`), edge (`left`/`top`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
-| **Trim spectrum** | `trim-spectrum:` | how much the structural accents carry the spectrum (`quiet`/`restrained`/`full`) — quiet = an accent-tint hairline by default |
+| **Spectrum** | `spectrum:` | the stripe on the slide edge, one word per axis: style (`rainbow`/`solid`/`duo`/`mono`/`off`), edge (`top`/`left`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
+| **Card spectrum** | `card-spectrum:` | a stripe on card surfaces with its own style, never the slide edge's, one word per axis: style (`off`/`rainbow`/`solid`/`duo`/`mono`), edge (`left`/`top`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
+| **Trim spectrum** | `trim-spectrum:` | the style of the structural accents (`quiet`/`rainbow`/`solid`/`duo`/`mono`), never the slide edge's — quiet = an accent-tint hairline by default |
 | **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the kicker's mark (`plain`/`dot`/`bar`/`arrow`/`underline`); its face comes from `typography:` |

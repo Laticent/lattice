@@ -84,8 +84,8 @@ are its overrides.
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: match` · `trim-spectrum: full` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
@@ -453,12 +453,14 @@ The SPECTRUM is the accent gradient. Three keys set where it shows, each named f
 
 ```yaml
 spectrum: solid left band        # the stripe on the slide edge
-card-spectrum: match top         # the stripe on each card
-trim-spectrum: restrained        # the accent on tables, timelines and --- rules
+card-spectrum: solid top         # the stripe on each card
+trim-spectrum: mono              # the accent on tables, timelines and --- rules
 ```
 
 The first two take **one word per axis, in any order**: a style, an edge and a weight. Leave an axis
-out and it keeps its default. Every key reaches every slide and is overridable per slide, one axis at a
+out and it keeps its default. **No key follows another.** Each has its own default (the slide edge
+rainbow, the cards off, the trim quiet), and each style word names its own fill: a `solid` slide edge
+leaves the cards and the trim as they were until they say `solid` too. Every key reaches every slide and is overridable per slide, one axis at a
 time: `_class: spectrum-left` moves one slide's stripe and keeps the deck's style and weight. A typo, or
 two words on one axis, is caught as `unknown-spectrum` / `unknown-card-spectrum` / `unknown-trim-spectrum`.
 Deck settings label them **Spectrum**, **Card spectrum** and **Trim spectrum**.
@@ -466,22 +468,23 @@ Deck settings label them **Spectrum**, **Card spectrum** and **Trim spectrum**.
 By default the spectrum paints the **slide edge only** — the section edge, the `section.dark` top line
 and the divider's left rail. The in-content structural accents (table-header rails, the `list-steps`
 timeline spine, code-panel strips, an author's `---` rule, split-card underlines) render a **quiet
-accent-tinted hairline**, so a no-config deck stays elegant and low-noise. `trim-spectrum: full` flows
-the spectrum onto that structure too.
+accent-tinted hairline**, so a no-config deck stays elegant and low-noise. A `trim-spectrum:` style
+(`rainbow`, `solid`, `duo`, `mono`) colors that structure too.
 
 **The old names are gone.** `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:`,
 `spectrum: on` and the old classes (`spectrum-edge-left`, `with-spectrum-card`, `with-spectrum-trim`, …)
 no longer render. `lint:deck` reports each as an error (`retired-spectrum-key`, or `unknown-class` for a
 class) and `lint:deck --fix` rewrites it: `spectrum: duo` plus `spectrum-edge: left` becomes
-`spectrum: duo left`.
+`spectrum: duo left`. The old card `auto` and trim `on` copied the slide edge; the fix writes the style the
+deck was showing (`spectrum: duo` plus `spectrum-card: auto` becomes `card-spectrum: duo`).
 
 ### `spectrum:` — the stripe on the slide edge
 
 **Style** — the gradient identity. Sets `--spectrum-style` at the section level, and the stripe reads
-`--spectrum-bar` (the style when one is set, else the theme's ribbon). It always drives the slide edge;
-with `trim-spectrum: full` it drives the structural accents too. `--spectrum` itself stays the theme's
-own ribbon on every element, which is what lets `card-spectrum: rainbow` pin that ribbon on a `solid`
-deck in every host. Custom CSS that wants the slide's stripe should read `var(--spectrum-bar)`;
+`--spectrum-bar` (the style when one is set, else the theme's ribbon). It drives the slide edge and
+nothing else: the cards and the trim read the theme's fills for their own style words. `--spectrum` itself
+stays the theme's own ribbon on every element, which is what lets `card-spectrum: rainbow` show that
+ribbon on a `solid` deck in every host. Custom CSS that wants the slide's stripe should read `var(--spectrum-bar)`;
 `var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and
 set the theme's `--accent` to their brand.
 
@@ -549,14 +552,14 @@ can shift content by half a pixel on a canvas whose bar is not a whole number of
 
 ### `card-spectrum:` — the stripe on each card
 
-An INDEPENDENT stripe on card surfaces (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
-`pricing` / `verdict-grid` tiles), off by default. It has the same three axes as `spectrum:`, because
-every spectrum variant is on-brand: `match` follows the slide edge, or pin `solid` / `duo` / `mono` /
-`rainbow` regardless of what the slide edge shows.
+A stripe on card surfaces (the `cards-grid` / `cards-stack` `.card`, and the `stats` / `pricing` /
+`verdict-grid` tiles), off by default. It has the same three axes as `spectrum:` and its own style: it
+never copies the slide edge. A line that names an edge or a weight but no style turns the stripe on in
+rainbow (`card-spectrum: top band`), since a placed stripe that stayed off would draw nothing.
 
 | Axis | Words (default first) | Class on a slide |
 |---|---|---|
-| Style | `off`, `match`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum`, `card-spectrum-rainbow`, `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
+| Style | `off`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum` (rainbow), `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
 | Edge | `left`, `top`, `right`, `bottom` | `card-spectrum-left` (restore), `card-spectrum-top`, `card-spectrum-right`, `card-spectrum-bottom` |
 | Weight | `regular`, `hairline`, `band` | `card-spectrum-regular` (restore), `card-spectrum-hairline`, `card-spectrum-band` |
 
@@ -566,25 +569,27 @@ default would be the ransom-note look — turn it on where it earns its place.
 
 ### `trim-spectrum:` — the accent on the structure
 
-How much the in-content structural accents (table-header rails, the `list-steps` timeline spine,
-code-panel strips, the `hr` rule, split-card underlines) carry the spectrum.
+The style of the in-content structural accents (table-header rails, the `list-steps` timeline spine,
+code-panel strips, the `hr` rule, split-card underlines). Like the cards, it never copies the slide edge.
 
 | Word | Class on a slide | Effect |
 |---|---|---|
 | `quiet` | *(none)*; per slide `trim-spectrum-quiet` | A quiet accent-tint hairline (`--spectrum-quiet`). **The default**. |
-| `restrained` | `trim-spectrum-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the slide edge (a two-tier look that never clashes). |
-| `full` | `trim-spectrum-full` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` style). |
+| `rainbow` | `trim-spectrum-rainbow` | The theme's full ribbon (`--sp-fill-rainbow-h`). |
+| `solid` | `trim-spectrum-solid` | The theme's solid accent. |
+| `duo` | `trim-spectrum-duo` | Two-tone: accent → the theme's duotone partner. |
+| `mono` | `trim-spectrum-mono` | A single-hue accent ramp: present but quiet, and it never clashes with the slide edge. |
 
-The keys compose: `spectrum: duo left` is a two-tone rail on the left; add `trim-spectrum: full` to flow
-that duo onto the table rails and rules too, and `card-spectrum: match` to extend it into a stripe on
-each card — or `card-spectrum: rainbow` to override the cards to the full ribbon while the slide edge
+The keys compose by naming each style: `spectrum: duo left` is a two-tone rail on the left; add
+`trim-spectrum: duo` to put that duo on the table rails and rules too, and `card-spectrum: duo` for a
+stripe on each card, or `card-spectrum: rainbow` for the full ribbon on the cards while the slide edge
 stays duo. `spectrum:` also composes with `accent` / `tone: edge` (per-slide stripe recolors), which win
 over the deck key where they apply. On a dark bookend a dark client accent reads faint — pick a theme
 accent that reads on dark, or `spectrum: off` there. *(History: `spectrum:` started as a narrow
 bar-only white-label toggle (`2026-07-03-spectrum-register-white-label.md`), then `solid`/`duo`/`mono`
 were consolidated to drive every accent (`2026-07-15-accent-finish-consolidation.md`); the default was
 pulled back to the slide edge alone, with a structure opt-in (`2026-07-16-spectrum-structure-default.md`);
-the five keys became three, with a weight axis (`2026-11-21-spectrum-keys.md`).)*
+the five keys became three, with a weight axis, and no key follows another (`2026-11-21-spectrum-keys.md`).)*
 
 ## The `rule:` front-matter register (heading underline)
 

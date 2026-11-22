@@ -348,7 +348,7 @@ The stripe on each card: style, edge, weight.
 
 Acts on: card-rail.
 
-- one of `no-card-spectrum` · `with-card-spectrum` · `card-spectrum-rainbow` · `card-spectrum-solid` · `card-spectrum-duo` · `card-spectrum-mono`
+- one of `no-card-spectrum` · `with-card-spectrum` · `card-spectrum-solid` · `card-spectrum-duo` · `card-spectrum-mono`
 - one of `card-spectrum-left` · `card-spectrum-top` · `card-spectrum-right` · `card-spectrum-bottom`
 - one of `card-spectrum-regular` · `card-spectrum-hairline` · `card-spectrum-band`
 
@@ -368,7 +368,7 @@ The accent on tables, timelines and rules.
 
 Acts on: the slide.
 
-- one of `trim-spectrum-quiet` · `trim-spectrum-restrained` · `trim-spectrum-full`
+- one of `trim-spectrum-quiet` · `trim-spectrum-rainbow` · `trim-spectrum-solid` · `trim-spectrum-duo` · `trim-spectrum-mono`
 
 ### Decoration — `decoration`
 

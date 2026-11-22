@@ -247,9 +247,8 @@ section {
    value surviving only on `html`, where nothing renders. This comment used to invite the
    override — "a theme may override `--spectrum-quiet`" — and a theme author who accepted the
    invitation got silence, not an error (#1546). A theme that wants a different structural
-   hairline moves `--accent`/`--border`, which this derives from. The opt-in `trim-spectrum: full`
-   register (→ section.trim-spectrum-full) points --spectrum-structure at --spectrum-bar to flow the deck's
-   full gradient onto the structure too. Design-trio treatment refinement — see
+   hairline moves `--accent`/`--border`, which this derives from. The opt-in `trim-spectrum:` styles
+   (→ section.trim-spectrum-<style>) point --spectrum-structure at one of the theme's fills. Design-trio treatment refinement — see
    2026-07-16-spectrum-structure-default.md.
    `:root` too, for content that sits OUTSIDE any slide: a chart re-hosted as a figure in Read ·
    Article has no `section` above it, so its header rail read an undefined token and painted
@@ -261,15 +260,14 @@ section {
   --spectrum-structure: linear-gradient(var(--spectrum-quiet), var(--spectrum-quiet));
 }
 
-/* TRIM — three tiers of structural presence above the quiet default.
-   `on` (`trim-spectrum-full`) flows the deck's full spectrum STYLE onto the structure (reads
-   --spectrum-bar, so it follows whatever `spectrum:` resolved to). `restrained`
-   (`trim-spectrum-restrained`) holds a single-hue accent ramp (--sp-fill-mono-h) regardless of
-   the bar's STYLE — the "two-tier" middle: present but quiet, and it never clashes with a
-   rainbow/duo bar. A per-slide `trim-spectrum-quiet` needs no rule: dropping the class leaves the
-   quiet tint default above. */
-section.trim-spectrum-full { --spectrum-structure: var(--spectrum-bar); }
-section.trim-spectrum-restrained { --spectrum-structure: var(--sp-fill-mono-h); }
+/* TRIM — `trim-spectrum:` names the structure's own style, above the quiet default. Each style reads
+   the theme's fill directly and never the slide edge's: no key follows another (2026-11-21-spectrum-keys.md,
+   S9). `mono` is the single-hue accent ramp, present but quiet, that never clashes with a rainbow or duo
+   edge. A per-slide `trim-spectrum-quiet` needs no rule: dropping the class leaves the quiet tint above. */
+section.trim-spectrum-rainbow { --spectrum-structure: var(--sp-fill-rainbow-h); }
+section.trim-spectrum-solid { --spectrum-structure: var(--sp-fill-solid-h); }
+section.trim-spectrum-duo { --spectrum-structure: var(--sp-fill-duo-h); }
+section.trim-spectrum-mono { --spectrum-structure: var(--sp-fill-mono-h); }
 
 /* STYLE — the slide's chosen fill, and the BAR every accent draws with.
    A STYLE sets `--spectrum-style`; it does NOT redefine `--spectrum`, which stays the THEME's own
@@ -314,7 +312,7 @@ section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.sp
 
 /* off — the white-label control: drop the prominent section-edge / divider bar. It touches
    ONLY the bar (it does NOT redefine --spectrum). The structural accents read
-   --spectrum-structure — quiet by default, or the deck's spectrum under `trim-spectrum: full` —
+   --spectrum-structure — quiet by default, or the trim's own style under `trim-spectrum:` —
    so `off` neither adds nor removes a structural rule; the two axes are independent
    (2026-07-03-spectrum-register-white-label.md, 2026-07-16-spectrum-structure-default.md). */
 section.no-spectrum { border-top: none; --_edge-t: 1; --_bar-t: 0px; }

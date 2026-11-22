@@ -24,14 +24,14 @@ const RESTORES = [
   ['card-spectrum-left', 'card-spectrum-top'],
   ['spectrum-regular', 'spectrum-band'],
   ['card-spectrum-regular', 'card-spectrum-hairline'],
-  ['trim-spectrum-quiet', 'trim-spectrum-restrained'],
+  ['trim-spectrum-quiet', 'trim-spectrum-mono'],
   ['rule-auto', 'rule-accent'],
   ['eyebrow-plain', 'eyebrow-dot'],
   ['head-auto', 'head-center'],
 ];
 const DECK = [
   '---', 'theme: indaco',
-  'spectrum: solid left band', 'card-spectrum: match top hairline', 'trim-spectrum: restrained',
+  'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
   'rule: accent', 'eyebrow: dot', 'headline: center',
   '---', '', '## Follows the deck',
   ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, '', `## ${own}`]),

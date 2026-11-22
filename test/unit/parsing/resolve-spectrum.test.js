@@ -3,7 +3,7 @@
  *
  *   spectrum: <style> <edge> <weight>        the stripe on the slide edge
  *   card-spectrum: <style> <edge> <weight>   the stripe on each card
- *   trim-spectrum: <tier>                    the accent on tables, timelines and rules
+ *   trim-spectrum: <style>                   the accent on tables, timelines and rules
  *
  * One word per axis, in any order; a default word stamps nothing deck-wide and is the restore token on a
  * slide; an off is `no-X` and the way back on is `with-X`. The old keys, values and classes are gone.
@@ -35,8 +35,8 @@ const SPECTRUM_TOKENS = SPECTRUM_REGISTER.AXES[0].tokens;
 describe('resolve-spectrum — the vocabulary', () => {
   test('each key lists its axes, default first', () => {
     assert.deepEqual(SPECTRUM_AXES, { style: ['rainbow', 'solid', 'duo', 'mono', 'off'], edge: ['top', 'left', 'right', 'bottom'], weight: ['regular', 'hairline', 'band'] });
-    assert.deepEqual(CARD_SPECTRUM_AXES, { style: ['off', 'match', 'rainbow', 'solid', 'duo', 'mono'], edge: ['left', 'top', 'right', 'bottom'], weight: ['regular', 'hairline', 'band'] });
-    assert.deepEqual(TRIM_SPECTRUM_AXES, { tier: ['quiet', 'restrained', 'full'] });
+    assert.deepEqual(CARD_SPECTRUM_AXES, { style: ['off', 'rainbow', 'solid', 'duo', 'mono'], edge: ['left', 'top', 'right', 'bottom'], weight: ['regular', 'hairline', 'band'] });
+    assert.deepEqual(TRIM_SPECTRUM_AXES, { style: ['quiet', 'rainbow', 'solid', 'duo', 'mono'] });
   });
 
   test('the classes follow the keys and the switch rule (no-X off, with-X back on)', () => {
@@ -46,11 +46,11 @@ describe('resolve-spectrum — the vocabulary', () => {
       'spectrum-regular', 'spectrum-hairline', 'spectrum-band',
     ]);
     assert.deepEqual([...CARD_SPECTRUM_REGISTER.TOKENS], [
-      'no-card-spectrum', 'with-card-spectrum', 'card-spectrum-rainbow', 'card-spectrum-solid', 'card-spectrum-duo', 'card-spectrum-mono',
+      'no-card-spectrum', 'with-card-spectrum', 'card-spectrum-solid', 'card-spectrum-duo', 'card-spectrum-mono',
       'card-spectrum-left', 'card-spectrum-top', 'card-spectrum-right', 'card-spectrum-bottom',
       'card-spectrum-regular', 'card-spectrum-hairline', 'card-spectrum-band',
     ]);
-    assert.deepEqual([...TRIM_SPECTRUM_REGISTER.TOKENS], ['trim-spectrum-quiet', 'trim-spectrum-restrained', 'trim-spectrum-full']);
+    assert.deepEqual([...TRIM_SPECTRUM_REGISTER.TOKENS], ['trim-spectrum-quiet', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono']);
     assert.ok(!SPECTRUM_KEY_TOKENS.some((t) => /-(off|on)$/.test(t)), 'no X-off / X-on class');
   });
 
@@ -62,14 +62,14 @@ describe('resolve-spectrum — the vocabulary', () => {
     }
     assert.equal(spectrumTokenAxis('spectrum-left'), 'spectrum:edge');
     assert.equal(spectrumTokenAxis('card-spectrum-band'), 'card-spectrum:weight');
-    assert.equal(spectrumTokenAxis('trim-spectrum-full'), 'trim-spectrum:tier');
+    assert.equal(spectrumTokenAxis('trim-spectrum-mono'), 'trim-spectrum:style');
     assert.equal(spectrumTokenAxis('with-card-spectrum'), 'card-spectrum:style');
     for (const t of ['spectrum-edge-left', 'spectrum-card-solid', 'with-spectrum-trim', 'cards-grid', '']) assert.equal(spectrumTokenAxis(t), '', `${t} is no spectrum class`);
   });
 
   test('isSpectrumStyleToken and spectrumStyleClass read the style axis of spectrum: only', () => {
     for (const t of SPECTRUM_TOKENS) assert.ok(isSpectrumStyleToken(t), t);
-    for (const t of ['spectrum-left', 'spectrum-band', 'card-spectrum-solid', 'trim-spectrum-full']) assert.ok(!isSpectrumStyleToken(t), t);
+    for (const t of ['spectrum-left', 'spectrum-band', 'card-spectrum-solid', 'trim-spectrum-solid']) assert.ok(!isSpectrumStyleToken(t), t);
     assert.equal(spectrumStyleClass('solid'), 'spectrum-solid');
     assert.equal(spectrumStyleClass(' Mono '), 'spectrum-mono');
     assert.equal(spectrumStyleClass('off'), 'no-spectrum');
@@ -86,11 +86,18 @@ describe('resolve-spectrum — deck tokens', () => {
     assert.deepEqual(tokens('spectrum: band left solid'), ['spectrum-solid', 'spectrum-left', 'spectrum-band']);
     assert.deepEqual(tokens('spectrum: rainbow top regular'), []);
     assert.deepEqual(tokens('spectrum: off'), ['no-spectrum']);
-    assert.deepEqual(tokens('card-spectrum: match top hairline'), ['with-card-spectrum', 'card-spectrum-top', 'card-spectrum-hairline']);
+    assert.deepEqual(tokens('card-spectrum: rainbow top hairline'), ['with-card-spectrum', 'card-spectrum-top', 'card-spectrum-hairline']);
     assert.deepEqual(tokens('card-spectrum: off left regular'), []);
-    assert.deepEqual(tokens('trim-spectrum: full'), ['trim-spectrum-full']);
+    assert.deepEqual(tokens('trim-spectrum: rainbow'), ['trim-spectrum-rainbow']);
     assert.deepEqual(tokens('trim-spectrum: quiet'), []);
-    assert.deepEqual(tokens('spectrum: duo\ncard-spectrum: solid\ntrim-spectrum: restrained'), ['spectrum-duo', 'card-spectrum-solid', 'trim-spectrum-restrained']);
+    assert.deepEqual(tokens('spectrum: duo\ncard-spectrum: solid\ntrim-spectrum: mono'), ['spectrum-duo', 'card-spectrum-solid', 'trim-spectrum-mono']);
+  });
+
+  test('no key follows another: a card line that names only an edge or a weight turns the stripe on in rainbow', () => {
+    assert.deepEqual(tokens('card-spectrum: top band'), ['with-card-spectrum', 'card-spectrum-top', 'card-spectrum-band']);
+    assert.deepEqual(tokens('spectrum: solid\ncard-spectrum: top'), ['spectrum-solid', 'with-card-spectrum', 'card-spectrum-top'], 'rainbow, not the edge\'s solid');
+    assert.deepEqual(tokens('card-spectrum: off top'), ['card-spectrum-top'], 'an explicit off stays off');
+    assert.deepEqual(tokens('spectrum: solid\ntrim-spectrum: quiet'), ['spectrum-solid'], 'the trim never takes the edge style');
   });
 
   test('case, quotes, a trailing comment and an unknown word', () => {
@@ -104,14 +111,15 @@ describe('resolve-spectrum — deck tokens', () => {
     assert.deepEqual(tokens('spectrum-edge: left\nspectrum-card: auto\nspectrum-card-edge: top\nspectrum-trim: on'), []);
     assert.deepEqual(tokens('spectrum: on'), []);
     assert.deepEqual(tokens('card-spectrum: auto'), []);
+    assert.deepEqual(tokens('card-spectrum: match\ntrim-spectrum: full'), [], 'the words that copied the slide edge are gone too');
   });
 
   test('a preset fills only the axes the deck leaves empty', () => {
-    // brand: spectrum solid, card-spectrum match, trim-spectrum full.
+    // brand: spectrum solid, card-spectrum solid, trim-spectrum solid.
     assert.equal(mergedSpectrumValue('preset: brand', 'spectrum'), 'solid');
     assert.equal(mergedSpectrumValue('preset: brand\nspectrum: left', 'spectrum'), 'solid left', 'the deck moved the stripe and kept the preset style');
     assert.equal(mergedSpectrumValue('preset: brand\nspectrum: duo band', 'spectrum'), 'duo band', 'the deck style wins');
-    assert.deepEqual(tokens('preset: brand\nspectrum: left'), ['spectrum-solid', 'spectrum-left', 'with-card-spectrum', 'trim-spectrum-full']);
+    assert.deepEqual(tokens('preset: brand\nspectrum: left'), ['spectrum-solid', 'spectrum-left', 'card-spectrum-solid', 'trim-spectrum-solid']);
     assert.deepEqual(tokens('preset: minimal'), ['no-spectrum']);
     assert.deepEqual(tokens('preset: minimal\nspectrum: solid'), ['spectrum-solid']);
     // Control: no preset, the deck alone.
@@ -125,19 +133,20 @@ describe('resolve-spectrum — deck tokens', () => {
 
 describe('resolve-spectrum — trim CSS contract', () => {
 
-  test('CSS contract — the restrained tier holds a single-hue accent ramp (--sp-fill-mono-h)', () => {
+  test('CSS contract — each trim style reads its own theme fill, never the slide edge (--spectrum-bar)', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    assert.match(variants, /section\.trim-spectrum-full\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
-    assert.match(variants, /section\.trim-spectrum-restrained\s*\{\s*--spectrum-structure:\s*var\(--sp-fill-mono-h\)/);
+    for (const style of ['rainbow', 'solid', 'duo', 'mono']) {
+      assert.match(variants, new RegExp(`section\\.trim-spectrum-${style}\\s*\\{\\s*--spectrum-structure:\\s*var\\(--sp-fill-${style}-h\\)`), style);
+    }
+    assert.doesNotMatch(variants, /section\.trim-spectrum-[a-z]+\s*\{[^}]*--spectrum-bar/);
   });
 
-  test('CSS contract — structural accents read --spectrum-structure; the opt-in flows the bar', () => {
+  test('CSS contract — structural accents read --spectrum-structure; the bar reads its own', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
     // The token defaults to a quiet ACCENT-TINT hairline (--spectrum-quiet, a low-intensity blend
-    // of --accent + --border), NOT flat neutral; the opt-in points it at the full --spectrum.
+    // of --accent + --border), NOT flat neutral; a trim style points it at a theme fill.
     assert.match(variants, /--spectrum-quiet:\s*color-mix\(in oklab, var\(--accent\) \d+%, var\(--border\)\)/);
     assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--spectrum-quiet\), var\(--spectrum-quiet\)\)/);
-    assert.match(variants, /section\.trim-spectrum-full\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
     // A representative structural site now reads the STRUCTURE token, not --spectrum directly.
     const elements = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.elements.css'), 'utf8');
     assert.match(elements, /section hr \{[^}]*background:var\(--spectrum-structure\)/);
@@ -181,11 +190,11 @@ describe('resolve-spectrum — CARD CSS contract (base.accent-finish.css)', () =
   });
 
   test('every CARD STYLE value has a fill mapping (auto follows the bar; the rest pin a fill)', () => {
-    assert.match(block, /section\.with-card-spectrum\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-bar-vertical/);
+    assert.match(block, /section\.with-card-spectrum\s*\{[^}]*--sp-fill-rainbow-v/);
+    assert.doesNotMatch(block, /section\.(with-card-spectrum|card-spectrum-[a-z]+)\s*\{[^}]*--spectrum-bar/, 'no card style copies the slide edge');
     assert.match(block, /section\.card-spectrum-solid\s*\{[^}]*--sp-fill-solid-v/);
     assert.match(block, /section\.card-spectrum-duo\s*\{[^}]*--sp-fill-duo-v/);
     assert.match(block, /section\.card-spectrum-mono\s*\{[^}]*--sp-fill-mono-v/);
-    assert.match(block, /section\.card-spectrum-rainbow\s*\{[^}]*--sp-fill-rainbow-v/);
   });
 
   test('every CARD EDGE placement sets the geometry tokens', () => {

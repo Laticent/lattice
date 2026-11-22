@@ -4,7 +4,7 @@ theme: indaco
 paginate: true
 header: "Lattice · Restore tokens"
 spectrum: solid left
-card-spectrum: match top
+card-spectrum: solid top
 rule: accent
 eyebrow: dot
 headline: center
@@ -78,8 +78,8 @@ The deck centers every heading with `headline: center`. `head-auto` hands this s
 
 - Top rail
   - Every card in this deck carries its rail across the top.
-- Follows the bar
-  - The rail follows the deck's solid style (`card-spectrum: match`).
+- Solid, like the bar
+  - The deck pins the rail solid (`card-spectrum: solid`).
 - No token here
   - This slide writes no token, so it shows the deck's choice.
 

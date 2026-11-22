@@ -2,11 +2,12 @@
 //
 //   spectrum: <style> <edge> <weight>        the stripe on the slide edge
 //   card-spectrum: <style> <edge> <weight>   the stripe on each card
-//   trim-spectrum: <tier>                    the accent on tables, timelines and rules
+//   trim-spectrum: <style>                   the accent on tables, timelines and rules
 //
 // One line per key, up to one word per axis (axis-line.ts), the way `logo-finish:` and `progress-rail:`
 // work. A preset fills only the axes the deck leaves empty, exactly as the engine's `mergedValue` does,
-// so a deck that moves the stripe on a `preset: brand` deck keeps the preset's solid style.
+// so a deck that moves the stripe on a `preset: brand` deck keeps the preset's solid style. No key follows another:
+// a `card-spectrum:` line that names an edge or a weight but no style turns the stripe on in rainbow, as the engine does.
 // This MIRRORS the kernel, which the docs build cannot import by name; spectrum-keys.test.ts pins every
 // word, its order and each class to the engine's registers, so the two cannot drift.
 // Decision: engineering/decisions/2026-11-21-spectrum-keys.md.
@@ -14,7 +15,7 @@
 import { type AxisTable, axisLineValue, parseAxisLine } from './axis-line';
 
 export type SpectrumKey = 'spectrum' | 'card-spectrum' | 'trim-spectrum';
-export type SpectrumAxis = 'style' | 'edge' | 'weight' | 'tier';
+export type SpectrumAxis = 'style' | 'edge' | 'weight';
 
 export const SPECTRUM_KEY_AXES: Record<SpectrumKey, AxisTable<SpectrumAxis>> = {
 	spectrum: [
@@ -23,11 +24,11 @@ export const SPECTRUM_KEY_AXES: Record<SpectrumKey, AxisTable<SpectrumAxis>> = {
 		{ axis: 'weight', names: ['regular', 'hairline', 'band'] },
 	],
 	'card-spectrum': [
-		{ axis: 'style', names: ['off', 'match', 'rainbow', 'solid', 'duo', 'mono'] },
+		{ axis: 'style', names: ['off', 'rainbow', 'solid', 'duo', 'mono'] },
 		{ axis: 'edge', names: ['left', 'top', 'right', 'bottom'] },
 		{ axis: 'weight', names: ['regular', 'hairline', 'band'] },
 	],
-	'trim-spectrum': [{ axis: 'tier', names: ['quiet', 'restrained', 'full'] }],
+	'trim-spectrum': [{ axis: 'style', names: ['quiet', 'rainbow', 'solid', 'duo', 'mono'] }],
 };
 
 export const SPECTRUM_KEYS: readonly SpectrumKey[] = ['spectrum', 'card-spectrum', 'trim-spectrum'];
@@ -50,7 +51,9 @@ export const parseSpectrum = (key: SpectrumKey, value: string) => parseAxisLine(
 export function mergeSpectrum(key: SpectrumKey, own: string | undefined, recommended: string | undefined | null): string {
 	const mine = parseSpectrum(key, own ?? '');
 	const theirs = parseSpectrum(key, recommended ?? '');
-	return axisLineValue(SPECTRUM_KEY_AXES[key], { ...theirs, ...mine });
+	const merged: Partial<Record<SpectrumAxis, string>> = { ...theirs, ...mine };
+	if (key === 'card-spectrum' && !merged.style && (merged.edge || merged.weight)) merged.style = 'rainbow';
+	return axisLineValue(SPECTRUM_KEY_AXES[key], merged);
 }
 
 /** What a value renders, with every default word left out: `rainbow top` and `` both read '' for `spectrum`. */
@@ -74,11 +77,11 @@ export function writeSpectrumWord(key: SpectrumKey, own: string | undefined, rec
 }
 
 /** The class a slide carries for `word` on `key`'s `axis` — the engine's `register-factory` spelling, with the
- *  switch rule for the style axes (`off` → `no-<key>`, `rainbow` / `match` → `with-<key>`). */
+ *  switch rule for the two stripes' style axes (`off` → `no-<key>`, `rainbow` → `with-<key>`). */
 export function spectrumClass(key: SpectrumKey, axis: SpectrumAxis, word: string): string {
-	if (axis === 'style') {
+	if (axis === 'style' && key !== 'trim-spectrum') {
 		if (word === 'off') return `no-${key}`;
-		if ((key === 'spectrum' && word === 'rainbow') || (key === 'card-spectrum' && word === 'match')) return `with-${key}`;
+		if (word === 'rainbow') return `with-${key}`;
 	}
 	return `${key}-${word}`;
 }
@@ -89,10 +92,10 @@ export function spectrumWordOf(key: SpectrumKey, axis: SpectrumAxis, token: stri
 }
 
 const LABELS: Record<string, string> = {
-	rainbow: 'Rainbow', solid: 'Solid accent', duo: 'Duo', mono: 'Mono', off: 'None', match: 'Match',
+	rainbow: 'Rainbow', solid: 'Solid accent', duo: 'Duo', mono: 'Mono', off: 'None',
 	top: 'Top', left: 'Left', right: 'Right', bottom: 'Bottom',
 	regular: 'Regular', hairline: 'Hairline', band: 'Band',
-	quiet: 'Quiet', restrained: 'Restrained', full: 'Full',
+	quiet: 'Quiet',
 };
 export const spectrumLabel = (word: string): string => LABELS[word] ?? word;
 

@@ -59,7 +59,7 @@ number and rail off together. Any one comes back with its own `with-X`:
 | Switch | Off | Back on | Notes |
 |---|---|---|---|
 | Spectrum | `no-spectrum` | `with-spectrum` | Also `spectrum: off` for the deck. `with-spectrum` is the rainbow default. |
-| Card spectrum | `no-card-spectrum` | `with-card-spectrum` | `card-spectrum: match` stamps `with-card-spectrum`. |
+| Card spectrum | `no-card-spectrum` | `with-card-spectrum` | `card-spectrum: rainbow` stamps `with-card-spectrum`. |
 | Heading rule | `no-heading-rule` | `with-heading-rule` | Also `rule: none` for the deck. |
 | Finish | `no-finish` | `with-finish` | Also `finish: none` for the deck. |
 | Finish backdrop | `no-backdrop` | `with-backdrop` | Keeps the finish, drops its backdrop. |
@@ -90,9 +90,9 @@ the same fix.
 | `spectrum-off` · `spectrum-on` | `no-spectrum` · `with-spectrum` |
 | `spectrum-edge-off` | `no-spectrum` |
 | `spectrum-card-off` · `spectrum-card` | `no-card-spectrum` · `with-card-spectrum` |
-| `spectrum-trim-off` · `spectrum-trim` | `trim-spectrum-quiet` · `trim-spectrum-full` |
+| `spectrum-trim-off` · `spectrum-trim` | `trim-spectrum-quiet` · `trim-spectrum-rainbow` |
 
-The spectrum classes were renamed again on 2026-11-21, to follow the keys `spectrum:`, `card-spectrum:` and `trim-spectrum:` (`spectrum-edge-left` → `spectrum-left`, `with-spectrum-card` → `with-card-spectrum`, `with-spectrum-trim` → `trim-spectrum-full`). Trim is no longer a switch: its three words are tiers. The full map is in `lib/base/base.registers.docs.md`.
+The spectrum classes were renamed again on 2026-11-21, to follow the keys `spectrum:`, `card-spectrum:` and `trim-spectrum:` (`spectrum-edge-left` → `spectrum-left`, `with-spectrum-card` → `with-card-spectrum`, `with-spectrum-trim` → `trim-spectrum-rainbow`). Trim is no longer a switch: its words are styles (`quiet`, `rainbow`, `solid`, `duo`, `mono`), and no key copies another's style. The full map is in `lib/base/base.registers.docs.md`.
 | `row-label` | `with-row-label` |
 | `no-rule` (pane spine) | `no-spine` |
 | `rule-none` (heading rule) | `no-heading-rule` |

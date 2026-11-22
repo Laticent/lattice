@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: The spectrum settings had up to four names for one thing (front-matter key, deck-settings label, value and class) and five keys for two stripes. The owner settled them as three keys, read as plain English with the thing first. `spectrum:` (style, edge, weight) is the stripe on the slide edge, `card-spectrum:` (style, edge, weight) is the stripe on each card, and `trim-spectrum:` is the accent on tables, timelines and rules. A new weight axis (`hairline`, `regular`, `band`) is what deck presets need for a heavy edge. Old names are removed, not aliased; lint flags each as an error and fixes it, and the same PR migrates every repo deck.
+summary: The spectrum settings had up to four names for one thing (front-matter key, deck-settings label, value and class) and five keys for two stripes. The owner settled them as three keys, read as plain English with the thing first, and no key follows another. `spectrum:` (style, edge, weight) is the stripe on the slide edge, `card-spectrum:` (style, edge, weight) is the stripe on each card, and `trim-spectrum:` is the accent on tables, timelines and rules. A new weight axis (`hairline`, `regular`, `band`) is what deck presets need for a heavy edge. Old names are removed, not aliased; lint flags each as an error and fixes it, and the same PR migrates every repo deck.
 companion:
   - ./2026-07-03-spectrum-register-white-label.md
   - ./2026-07-15-accent-finish-consolidation.md
@@ -17,8 +17,8 @@ companion:
 
 ```yaml
 spectrum: solid left band        # the stripe on the slide edge
-card-spectrum: match left band   # the stripe on each card
-trim-spectrum: restrained        # the accent on tables, timelines and --- rules
+card-spectrum: solid left band   # the stripe on each card
+trim-spectrum: mono              # the accent on tables, timelines and --- rules
 ```
 
 Deck settings label them **Spectrum**, **Card spectrum** and **Trim spectrum**: the label is the key.
@@ -56,6 +56,7 @@ with bar charts. The owner: *"we need to standardize before GA."*
 | S6 | `_class:` names follow the keys, within the switch rule (§3) | Keeping the old class names |
 | S7 | **Old names are removed, not aliased.** The owner: *"old names don't stay, they go. we have the linter flag them and suggest fixes and fix them."* The engine carries no translation. A deck with an old spelling renders the default until fixed, and lint reports it as an error | Rendering old names as aliases |
 | S8 | Preset styling lives in per-preset stylesheets (`lib/presets/<name>/`); no script writes CSS. Recorded here because it was settled in the same session; it ships with the preset wave, not this change | A generated `section.preset-<name>` rule from a JavaScript table |
+| S9 | **No key follows another** (2026-11-22). Each key has its own default (the slide edge `rainbow`, the cards `off`, the trim `quiet`) and each style word names its own fill. The owner: *"no more inheritance. spectrum and card-spectrum and trim-spectrum get their own sensible default. rainbow should be the default"*, then, asked which default the cards and the trim take, the two shown: off and quiet, so no existing deck changes. `match` (cards copying the slide edge) and `full` (trim copying it) are gone; trim's words become the same styles as the stripes, with `restrained` as `mono`. It also closes the one gap the rename left: "no edge stripe, keep the brand style on the cards" is `spectrum: off` plus `card-spectrum: solid` | Cards and trim that follow the slide edge (`match`, `full`); a rainbow default on the cards and the trim, which would have restyled every deck with cards, tables or rules |
 
 ## 3. The vocabulary
 
@@ -74,13 +75,17 @@ with bar charts. The owner: *"we need to standardize before GA."*
 
 | Axis | Words (default first) | Class on a slide |
 |---|---|---|
-| Style | `off`, `match`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum` (on, matching the slide edge), `card-spectrum-rainbow`, `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
+| Style | `off`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum` (back on, the rainbow), `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
 | Edge | `left`, `top`, `right`, `bottom` | `card-spectrum-left`, `card-spectrum-top`, `card-spectrum-right`, `card-spectrum-bottom` |
 | Weight | `regular`, `hairline`, `band` | `card-spectrum-regular`, `card-spectrum-hairline`, `card-spectrum-band` |
 
-**`trim-spectrum:`** — `quiet` (default), `restrained`, `full`; classes `trim-spectrum-quiet`,
-`trim-spectrum-restrained`, `trim-spectrum-full`. None of the three is an off, so trim is no longer a
-switch.
+**`trim-spectrum:`** — `quiet` (default), `rainbow`, `solid`, `duo`, `mono`; classes `trim-spectrum-quiet`,
+`trim-spectrum-rainbow`, `trim-spectrum-solid`, `trim-spectrum-duo`, `trim-spectrum-mono`. None is an off,
+so trim is no longer a switch.
+
+**No key follows another (S9).** Each style reads the theme's own fill (`--sp-fill-<style>-h|-v`), never the
+slide edge's `--spectrum-bar`. A `card-spectrum:` line that names an edge or a weight and no style turns the
+stripe on in rainbow, so `card-spectrum: top band` draws a stripe rather than nothing.
 
 A deck value that is the default stamps nothing. On a slide, the default's class is the restore token:
 it returns one slide to the default inside a deck that set something else.
@@ -97,20 +102,22 @@ and `hairline` is the quiet one. The widths live in CSS (`lib/base/base.accent-f
 | `spectrum: on` | `spectrum: rainbow` (or omit) |
 | `spectrum-edge: <edge>` | the edge word on `spectrum:` |
 | `spectrum-edge: off` | `spectrum: off` |
-| `spectrum-card: <style>` | the style word on `card-spectrum:`; `auto` becomes `match` |
+| `spectrum-card: <style>` | the style word on `card-spectrum:`; `auto`, which copied the slide edge, becomes the deck's `spectrum:` style (`rainbow` when it names none) |
 | `spectrum-card-edge: <edge>` | the edge word on `card-spectrum:` |
-| `spectrum-trim: off \| restrained \| on` | `trim-spectrum: quiet \| restrained \| full` |
+| `spectrum-trim: off \| restrained \| on` | `trim-spectrum: quiet \| mono \|` the deck's `spectrum:` style |
 | `spectrum-edge-<edge>` | `spectrum-<edge>` |
 | `no-spectrum-edge`, `with-spectrum-edge` | `no-spectrum`, `with-spectrum` |
-| `no-spectrum-card`, `with-spectrum-card` | `no-card-spectrum`, `with-card-spectrum` |
-| `spectrum-card-<style>` | `card-spectrum-<style>` |
+| `no-spectrum-card`, `with-spectrum-card`, `spectrum-card-rainbow` | `no-card-spectrum`, `with-card-spectrum`, `with-card-spectrum` |
+| `spectrum-card-<style>` (solid, duo, mono) | `card-spectrum-<style>` |
 | `spectrum-card-edge-<edge>` | `card-spectrum-<edge>` |
-| `no-spectrum-trim`, `spectrum-trim-restrained`, `with-spectrum-trim` | `trim-spectrum-quiet`, `trim-spectrum-restrained`, `trim-spectrum-full` |
+| `no-spectrum-trim`, `spectrum-trim-restrained`, `with-spectrum-trim` | `trim-spectrum-quiet`, `trim-spectrum-mono`, `trim-spectrum-rainbow` |
 
 `with-spectrum`, `no-spectrum` and `spectrum-solid|duo|mono` keep their names: they already follow
 the rule. The fixer merges several old keys into one new line in a fixed order (style, edge, weight),
 so `spectrum: duo` plus `spectrum-edge: left` becomes `spectrum: duo left`. The old classes join
-`RETIRED_SWITCHES`' sibling table, which lint already uses to report a retired class and rewrite it.
+`RETIRED_SWITCHES`' sibling table, which lint already uses to report a retired class and rewrite it. A class
+cannot see the deck, so `with-spectrum-card` and `with-spectrum-trim`, which copied the slide edge, become the
+rainbow, and the fix names the `-solid` / `-duo` / `-mono` class that keeps another style.
 
 ## 5. Scope, measured
 

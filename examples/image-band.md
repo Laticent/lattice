@@ -73,11 +73,11 @@ On a corner it does nothing, so this card stays a corner card.
 
 ---
 
-<!-- _class: image spotlight at-bottom band card-o65 ink-light trim-spectrum-full -->
+<!-- _class: image spotlight at-bottom band card-o65 ink-light trim-spectrum-rainbow -->
 
 ## A band, 65% dark, spectrum trim on.
 
-The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `trim-spectrum-full`.
+The divider takes the trim's style: a quiet accent tint by default, the theme's rainbow with `trim-spectrum-rainbow`.
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 

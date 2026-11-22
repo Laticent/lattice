@@ -255,7 +255,7 @@ describe('restore tokens (each register default as a per-slide choice)', () => {
 		['rule: accent', setRule, ruleProvenance, 'auto', 'rule-auto'],
 		['eyebrow: dot', setEyebrow, eyebrowProvenance, 'plain', 'eyebrow-plain'],
 		['headline: center', setHeadline, headlineProvenance, 'auto', 'head-auto'],
-		['card-spectrum: match top', setCardEdge, cardEdgeProvenance, 'left', 'card-spectrum-left'],
+		['card-spectrum: rainbow top', setCardEdge, cardEdgeProvenance, 'left', 'card-spectrum-left'],
 	] as const;
 	for (const [fm, set, read, name, token] of cases) {
 		it(`${fm}: the default \`${name}\` writes \`${token}\` and reads back as the slide's own value`, () => {

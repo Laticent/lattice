@@ -402,7 +402,7 @@ describe('front-matter registers — keys and values', () => {
 		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
 		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
 		expect(done('---\nclaim: ')).toContain('bleed');
-		expect(done('---\ntrim-spectrum: ')).toContain('restrained');
+		expect(done('---\ntrim-spectrum: ')).toContain('mono');
 	});
 
 	it('the spectrum keys complete one word per axis, and only the new words', () => {
@@ -413,9 +413,10 @@ describe('front-matter registers — keys and values', () => {
 		expect(next).not.toContain('duo'); // the style axis is filled
 		expect(next).toContain('left');
 		expect(next).toContain('band');
-		expect(done('---\ncard-spectrum: ')).toContain('match');
+		expect(done('---\ncard-spectrum: ')).toContain('rainbow');
 		expect(done('---\ncard-spectrum: ')).not.toContain('auto');
-		expect(done('---\ntrim-spectrum: ')).toEqual(expect.arrayContaining(['quiet', 'restrained', 'full']));
+		expect(done('---\ncard-spectrum: ')).not.toContain('match');
+		expect(done('---\ntrim-spectrum: ')).toEqual(expect.arrayContaining(['quiet', 'rainbow', 'solid', 'duo', 'mono']));
 		// The retired keys are not offered as keys.
 		const keys = done('---\nspec');
 		expect(keys).not.toContain('spectrum-edge');
