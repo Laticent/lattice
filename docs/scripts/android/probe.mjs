@@ -12,9 +12,11 @@
  *     first. A probe that passes its control can fail. (With the permission, this image's Chrome 113 offers Camera on
  *     every file input, a PDF-only one included, so the control cannot run with it.)
  *   - THE STUDIO: Library, Import. It must offer the camera (set by the permission this probe grants, so it guards the
- *     chooser, not Library.tsx), and a .lattice pushed to Downloads must be REACHABLE: the probe follows the files row
- *     (one named for files, else the last non-camera row) and waits for the deck on screen. A row's name proves nothing:
- *     on this image "Media" is the photo and video picker.
+ *     chooser, not Library.tsx), and a .lattice pushed to Downloads must be LISTED where its files row leads: the probe
+ *     follows that row (one named for files, else the last non-camera row) and waits for the deck on screen. LISTED, not
+ *     PICKABLE: Files lists the deck for the PDF-only control too, with the same enabled and clickable flags, so the dump
+ *     cannot say whether picking it would hand the file to the page. That stays unverified here. A row's name proves nothing:
+ *     on this image the chooser's only non-camera row is "Media", and it opens Files (run 45036251111).
  * Each step waits for a signal (an element on screen) with a deadline, never a fixed sleep (HARD RULE #32). Every screen
  * read is kept under OUT: the XML dumps and a screenshot of each chooser.
  *
@@ -210,8 +212,9 @@ const step = (name, pass, detail = '') => {
 	console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`);
 };
 const camera = (labels) => labels.some((l) => /camera|take (a )?photo|camcorder/i.test(l));
-// A row NAMED for files. Not "Media": on this image Files itself lists "Media" as another app under "Browse files in other
-// apps" (control-chooser.xml, run 44982376181), so a row with that name is the photo and video picker, not the files picker.
+// A row NAMED for files. Not "Media": the name does not say whether it leads to files or only to photos and videos. On this
+// image it opens Files (run 45036251111), but Files also lists a "Media" app of its own, and other images and Chrome versions
+// differ, so the name is never the proof.
 // Whether a deck can be reached at all is the tap-through step below, which judges what opens, not what a row is called.
 const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose files|\[the Files app is open\]/i.test(l));
 const DECK = 'chooser-probe.lattice';
@@ -259,7 +262,7 @@ try {
 	// THE TAP-THROUGH: open the row that should lead to files (one named for files, else the chooser's last non-camera row)
 	// and look for the deck pushed above. This is the half that depends on the input Library.tsx renders.
 	const reached = await reachDeck(studio);
-	step(`Library Import: a .lattice in Downloads can be reached (${DECK})`, reached.ok, reached.detail);
+	step(`Library Import: the files route lists a .lattice from Downloads (${DECK})`, reached.ok, reached.detail);
 } catch (e) {
 	error = String(e.message || e).slice(0, 300);
 	step('the probe ran to the end', false, error);
