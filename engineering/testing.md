@@ -321,6 +321,24 @@ touch-event log (the touchstart-to-touchend interval) rather than on WebDriver's
 fix is tracked in `followups.d/3223-p1-ipad-compose-tap-lands-off-point.md`, written before this
 measurement, whose coordinate theory these logs rule out.
 
+## A simulated long press moves its selection on release
+
+**Trap.** On the iOS Simulator, a WebDriver long press (`pointerDown`, a hold, `pointerUp`) selects the word under the
+finger, as a real one does. When the finger lifts, the selection then moves to text above and left of the finger. A test
+that reads the selection after the lift sees text the finger never touched, and the jump looks like a product defect.
+
+**Example.** In the Studio that text is the screen-reader-only legend "Workspace stop" on the iPad and the hidden
+"Lattice Studio" heading on the iPhone (nightly 44744978068, followups.d/3241-p1). It is not the Studio: on a bare page with
+no Studio code, the same long press on an editable paragraph ended on the whole plain paragraph above it (dispatch
+44856765533). A `pointerMove` back onto the point before the lift does not stop it (44850293408). Every logged `pointerup`
+reaches the page at 0,0, which may be why. Because the simulator also stretches a tap into a long press (the gotcha above),
+a slow tap can end with a caret in the legend.
+
+**Do instead.** Do not assert on a selection after a simulated long press. A tap's precondition is `tap-guard.mjs`: a
+gesture held 500 ms or more that left no caret in its target is re-delivered once when Safari acted on it, and a selection
+that moved out of every editor after the lift counts as acting on it. Whether a real finger does the same is unverified,
+and that check is tracked in `followups.d/3241-p1-compose-long-press-selects-sr-legend.md`.
+
 ## Testing Library's hidden 3 s clock and lazy panels
 
 **Trap.** Testing Library's `waitFor` and `findBy*` give up after `asyncUtilTimeout`, which

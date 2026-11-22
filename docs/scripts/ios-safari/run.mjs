@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
-import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
+import { inEditorOf, LONG_PRESS_MS, pressMovedOut, pressSelected, pressSelectedWord, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -247,6 +247,7 @@ async function runStudioProbe(id) {
 function tapLogInstall() {
 	return `
 	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const inEditorOf = ${inEditorOf.toString()};
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
 		window.__tapLogOn = true;
@@ -262,12 +263,22 @@ function tapLogInstall() {
 				L.events.push({ type, t: Math.round(at - L.t0), lag: Math.round(now - at), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
 			}, { capture: true, passive: true });
 		}
+		// Focus moves too: a selection that leaves the editor names whoever took the focus (the undo doorbell, #3241's legend).
+		for (const type of ['focusin', 'focusout']) {
+			window.addEventListener(type, (e) => {
+				const L = window.__tapLog;
+				const el = e.target && e.target.nodeType === 1 ? e.target : null;
+				const doorbell = !!(el && el.closest('[data-undo-doorbell]'));
+				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: inEditorOf(el), doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
+			}, { capture: true, passive: true });
+		}
 		document.addEventListener('selectionchange', () => {
 			const L = window.__tapLog;
 			if (!L) return;
 			const sel = getSelection();
 			const node = sel && sel.anchorNode;
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
+			const host = node && (node.nodeType === 3 ? node.parentElement : node);
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: inEditorOf(host), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
 		}, { capture: true, passive: true });
 	}`;
 }
@@ -282,7 +293,7 @@ function summarizeTapLog(log) {
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
+	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}`;
 }
 
 /**
@@ -337,17 +348,35 @@ async function probeTap(id, at) {
 		});
 		const hold = tapHold(seen.log);
 		const selected = pressSelected(seen.log);
-		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n });
+		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n, lag: tapLag(seen.log) });
 		tries.push({ n, tapMs, hold, seen, decision });
 		console.log(`${LABEL}: compose probe tap ${n} at ${at.x},${at.y} (${at.what}): gesture ${tapMs} ms; hold ${hold ?? 'none'} ms; ${decision}; page saw ${summarizeTapLog(seen.log)}`);
 		if (decision !== 'redeliver') break;
+		console.log(`${LABEL}: compose probe tap ${n} RE-DELIVERED: held ${hold} ms, ${redeliverWhy(seen.log)}`);
 	}
 	const last = tries.at(-1);
 	const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
-	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}`;
+	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}`;
 	if (last.decision === 'pass') return { ok: true, detail };
-	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}`;
+	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : last.decision === 'fail-sim-stall' ? simStall(last.seen.log) : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}${overBudget(last.hold)}`;
 	return { ok: false, detail: `${detail}; ${why}` };
+}
+
+/** Why a tap is delivered again (tap-guard.mjs `pressSelected`): where Safari put the selection, so the job log shows it. */
+function redeliverWhy(log) {
+	const ends = (log?.events || []).filter((e) => e.type === 'selectionchange' && (e.collapsed === false || e.inEditor === false));
+	const last = ends.at(-1);
+	return last ? `Safari acted on a long press: ${last.collapsed ? 'a caret' : `"${String(last.text).trim()}"`} in ${last.target}${last.inEditor === false ? ', outside every editor' : ''}` : 'Safari acted on a long press';
+}
+
+/** A failed tap the guard reads as a stall (tap-guard.mjs `fail-sim-stall`): the hold, the lag, the click. It names no culprit. */
+function simStall(log) {
+	return `a STALLED tap (still a failure): held ${tapHold(log)} ms with the page's touch listeners ${tapLag(log)} ms late, and ${tapClicked(log) ? 'a' : 'NO'} click after the lift; the simulator or a long task on the page held it up`;
+}
+
+/** Said beside a failed tap held past the tap budget, so the report names a long press instead of passing for a tap's result. */
+function overBudget(hold) {
+	return hold !== null && hold >= LONG_PRESS_MS ? `; held ${hold} ms, over the ${LONG_PRESS_MS} ms tap budget, so Safari may have read a long press` : '';
 }
 
 /**
@@ -357,7 +386,11 @@ async function probeTap(id, at) {
  */
 async function composeProbePage(id) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: "try { localStorage.removeItem('lattice-studio-settings'); } catch {}", args: [] });
+	// A FIRST VISIT, as the probe says: no settings AND no stored deck. It used to clear only the settings and open whatever deck
+	// the probe before it had saved, so a panes probe that timed out left it studio-probe.js's one-slide deck and a different
+	// probe (iPad run 44850293408, F7 in flaky-tests.md). probe.selftest.mjs gives each probe a fresh context, so it already
+	// ran this probe on the first-visit deck.
+	await wd('POST', `/session/${id}/execute/sync`, { script: "try { for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-')) localStorage.removeItem(k); } catch {}", args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'compose-probe.js'), 'utf8'));
 	await wd('POST', `/session/${id}/execute/sync`, {
@@ -511,7 +544,7 @@ async function composeTouchTap(id) {
 			const hold = tapHold(seen.log);
 			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
-			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? ', with a long-press selection' : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
+			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
 			return { seen, tapMs, hold, selected, landed };
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
@@ -519,19 +552,22 @@ async function composeTouchTap(id) {
 		// multi-tap window (a second tap inside it is a double tap, which selects a word: a duration by its nature). A short tap
 		// that misses the caret fails at once.
 		const tries = [await deliver(1)];
-		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
+		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1, lag: tapLag(tries[0].seen.log) });
 		if (decision === 'redeliver') {
+			console.log(`${LABEL}: compose tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 			await new Promise((r) => setTimeout(r, 1000));
 			tries.push(await deliver(2));
-			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
+			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 		}
 		const { seen, tapMs } = tries.at(-1);
 		const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
 		const why =
 			decision === 'fail-long-press'
 				? `, but the simulator delivered a long press, not a tap, on both deliveries (holds ${holds}; iOS reads ${LONG_PRESS_MS} ms or more as a long press)`
-				: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`;
-		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}${decision === 'pass' ? '' : why}`);
+				: decision === 'fail-sim-stall'
+					? `; ${simStall(tries.at(-1).seen.log)}`
+					: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}${overBudget(tries.at(-1).hold)}`;
+		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}${decision === 'pass' ? '' : why}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
@@ -549,7 +585,12 @@ async function composeTouchTap(id) {
 				await new Promise((r) => setTimeout(r, 1000));
 				recovered = await deliver('control-2');
 			}
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
+			// when the word clause catches the press first, plus where the selection sat after the lift (the checker on #3368).
+			const flog = forced.seen.log;
+			const lifted = (flog?.events || []).filter((e) => e.type === 'selectionchange').at(-1);
+			const clauses = `word clause ${pressSelectedWord(flog) ? 'yes' : 'no'}, release-jump clause ${pressMovedOut(flog) ? 'yes' : 'no'}, last selection inEditor ${lifted ? String(lifted.inEditor) : 'none'}`;
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
@@ -626,15 +667,16 @@ async function emptyDeckTap(id) {
 				return { seen, hold, selected: pressSelected(seen.log) };
 			};
 			const tries = [await deliver(1)];
-			let decision = tapVerdict({ caret: tries[0].seen.focused && tries[0].seen.inLine && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
+			let decision = tapVerdict({ caret: tries[0].seen.focused && tries[0].seen.inLine && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1, lag: tapLag(tries[0].seen.log) });
 			if (decision === 'redeliver') {
+				console.log(`${LABEL}: empty deck tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 				await new Promise((r) => setTimeout(r, 1000));
 				tries.push(await deliver(2));
-				decision = tapVerdict({ caret: tries[1].seen.focused && tries[1].seen.inLine && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
+				decision = tapVerdict({ caret: tries[1].seen.focused && tries[1].seen.inLine && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 			}
 			const { seen } = tries.at(-1);
 			const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
-			step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}; hold ${holds}${decision === 'fail-long-press' ? ` (a long press on both deliveries; iOS reads ${LONG_PRESS_MS} ms or more as one)` : ''}`);
+			step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}; hold ${holds}${decision === 'fail-long-press' ? ` (a long press on both deliveries; iOS reads ${LONG_PRESS_MS} ms or more as one)` : decision === 'fail-sim-stall' ? `; ${simStall(seen.log)}` : ''}`);
 			step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
 			step('the start grid stays until something is typed', seen.shown);
 			step('the software keyboard (detail only)', true, seen.vv < prep.vv - 100 ? `up: viewport ${prep.vv} to ${seen.vv}` : `not shown: viewport ${prep.vv} to ${seen.vv}`);
