@@ -331,7 +331,9 @@ the ask-before-upload prompt.
 
 **Quotas and cost.** Storage is the user's: every file counts against their own Drive plan, and a full Drive is the
 `storageQuotaExceeded` state above. API calls are Lattice's: Google counts them against the Cloud project that owns
-the client ID, summed over every user. Google's usage-limits page (read 2026-11-22) says:
+the client ID, summed over every user. Google's usage-limits page (read 2026-11-22) says the following. The page has
+no last-updated date, and it is not self-consistent: its daily per-project row reads "1 TB" in one table and
+400,000,000 quota units in the next, so both are listed here as it gives them.
 
 | Limit | Value |
 |---|---|
@@ -339,15 +341,23 @@ the client ID, summed over every user. Google's usage-limits page (read 2026-11-
 | Per minute, per user | 325,000 quota units |
 | Daily billing threshold, per project | 400,000,000 quota units |
 | Daily egress, per project, "before charges apply" | 1 TB |
-| One file / uploads per user per day | 5 TB / 750 GB |
+| One file / uploads per user per day | 5 TB / 750 GB (stated for Workspace users) |
 
 A call costs 50 units to write (`files.create`, `files.update`), 100 to list (`changes.list`), 5 to read metadata
 and 200 to download content. Use is free today; the page says exceeding quota "is planned to incur charges … later
-in 2026", with at least 90 days' notice and no prices yet. At this design's rates (a 100-unit poll a minute per
-visible tab, at most one 50-unit update file a minute per device), an active user spends roughly 150 to 400 units a
-minute. The per-minute project limit then allows about 3,000 to 6,000 users active at once, and the daily threshold
-about 4,000 users editing all day. The limit large media could reach first is the 1 TB of egress: about 10,000
-downloads of a 100 MB video. These are estimates from the design's rates, not measurements; slice 0 measures them.
+in 2026", with at least 90 days' notice and no prices yet.
+
+At this design's rates, one active tab spends 150 units a minute: a 100-unit poll and at most one 50-unit update
+file. A user with a second tab or device, the extra poll after each debounced write, and the occasional download
+spends up to about 400. From those two ends:
+
+- **Per minute:** 1,000,000 / 400 to 1,000,000 / 150 is about **2,500 to 6,700 users active at the same moment.**
+- **Per day:** an 8-hour working day costs 72,000 to 192,000 units a user, so 400,000,000 covers about **2,100 to
+  5,500 users editing a full working day.** Editing around the clock, 24 hours, it covers about 700 to 1,900.
+- **Egress:** 1 TB is about **10,000 downloads of a 100 MB video**, the limit large media could reach first.
+
+These are estimates from the design's rates, not measurements. Slice 0 measures what each call costs on a test
+project, and slice 6 counts the units an hour of editing spends.
 
 **Required in slice 6, so usage stays low before Google ever refuses** (the owner's ruling, 2026-11-22):
 
@@ -362,10 +372,10 @@ downloads of a 100 MB video. These are estimates from the design's rates, not me
 - **A measured budget.** Slice 6's proof counts the quota units an hour of editing spends, on the fake Drive server,
   and reports it in the PR.
 
-The owner's side is two Cloud-console guardrails, tracked as follow-ups: keep the project's billing account unlinked,
-so going over quota throttles sync instead of charging
-(`followups.d/3432-p1-drive-project-billing-off.md`), and alert on quota use before a limit is near
-(`followups.d/3432-p2-drive-quota-alerts.md`).
+The owner's side is two Cloud-console guardrails, tracked as follow-ups. The first keeps the project's billing account
+unlinked, so going over quota should throttle sync rather than charge. That is unconfirmed until Google publishes its
+billing terms, and the follow-up asks for the check (`followups.d/3432-p1-drive-project-billing-off.md`). The second
+alerts on quota use before a limit is near (`followups.d/3432-p2-drive-quota-alerts.md`).
 
 **Conflicts:**
 
@@ -523,7 +533,7 @@ Google. Publishing the Google app "In production" is a gate before slice 9 or sl
 
 | # | Slice | Proof |
 |---|---|---|
-| 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder |
+| 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder, and the quota units each call costs (§6.3) |
 | 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko`, including WebKit's worker write path |
 | 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
 | 3 | **Decks into the vault, in their final form:** text plus the per-device update files, so there is no second migration. The pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
@@ -586,7 +596,8 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
   `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`
   (Linux WebKit); iOS stays UNVERIFIED until the iOS Simulator suite or a real device covers it.
 - Drive API quotas were not measured. §6.3 (Quotas and cost) estimates them from Google's published limits and the
-  design's rates; slice 0 measures them on a test project, and slice 6 counts the units an hour of editing spends.
+  design's rates; slice 0 measures what each call costs on a test project, and slice 6 counts the units an hour of
+  editing spends.
 - Where `lattice.style`'s DNS is hosted was not checked (§4.3).
 - The adversarial trio ran on the picked Library design on 2026-11-22. Its findings are folded into §4.2, §6.3, §6.4,
   §9.2 and §10.
