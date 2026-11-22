@@ -561,10 +561,12 @@ are dropped, cancelled jobs are counted at their truncated duration (which flatt
 percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
 say what the new measured duration is — don't delete the line.
 
-## Platform suites (macOS and Windows)
+## Platform suites (macOS, Windows and Android)
 
 The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
 **platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
+One suite runs on Linux: `android-chrome-chooser` boots an Android emulator on `ubuntu-24.04`, the image that exposes KVM, and
+drives Chrome on it through adb (`docs/scripts/android/`). It is dispatch-only, like the iOS suites.
 The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
