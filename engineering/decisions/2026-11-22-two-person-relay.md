@@ -1,13 +1,20 @@
 ---
-status: proposed
-summary: Design for two people relaying work. A branch belongs to its line of work, not a session; a baton (newest commit trailers, freed on release or 60 minutes quiet) says who may push; one living handoff comment per PR is edited at every checkpoint; every PR body, comment and commit is signed from LATTICE_ACTOR. Awaiting the owner's answers.
+status: in-progress
+summary: Design for two people relaying work. A branch belongs to its line of work, not a session; a baton (newest commit trailers, freed on release or 60 minutes quiet) says who may push; one living handoff comment per PR is edited at every checkpoint; every PR body, comment and commit is signed from LATTICE_ACTOR. Decided 2026-11-22: the owner picked every recommendation.
 ---
 
 # Two-person relay: one branch per line of work, a baton, a living handoff, signed work
 
-**Status:** design, awaiting the owner's answers (one `AskUserQuestion` round, 2026-11-22). No
-rule, hook, tool or CI change lands until they are given. Written by the workflow desk
-(`session_01DPMMjHSgQqpuNVxFhptqgf`).
+**Status:** decided 2026-11-22 (the owner picked every recommendation in one `AskUserQuestion`
+round in the workflow desk's session; see §Decisions). The build lands in the same PR. Written by the
+workflow desk (`session_01DPMMjHSgQqpuNVxFhptqgf`).
+
+## Decisions
+
+- D1 Baton: 60-min lease, 30-min checkpoint floor (cadence as written in the note).
+- D2 Branches: one branch per line of work, for its whole life; continuing/handing off/taking over never creates a branch.
+- D3 Signature: LATTICE_ACTOR env var (picard / kirk) validated against a committed roster; unset → tools refuse to sign.
+- D4 Merge: either person may merge any PR (no gate change); build now, Kirk reviews on the PR when back (Nov 27) and objections get changed.
 
 ## The owner's words (2026-11-22)
 
