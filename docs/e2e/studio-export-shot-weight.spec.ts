@@ -69,6 +69,10 @@ test('the Studio PDF export carries only the fonts each slide draws in its pictu
 
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	await expect(page.getByRole('dialog')).toBeVisible();
+	// Count only the export's shots: anything the camera drew before this click (a thumbnail, a fit check) must not pad the count.
+	await page.evaluate(() => {
+		(window as unknown as { __shots: unknown[] }).__shots.length = 0;
+	});
 	const download = page.waitForEvent('download', { timeout: 180_000 });
 	const t0 = Date.now();
 	await shareExport(page, 'pdf');
@@ -80,8 +84,8 @@ test('the Studio PDF export carries only the fonts each slide draws in its pictu
 	const most = Math.max(0, ...shots.map((s) => s.faces));
 	console.log(`\nSTUDIO-EXPORT-SHOTS slides=${SLIDES} shots=${shots.length} maxFaces=${most} maxFaceBytes=${worst.faceBytes} maxShotBytes=${Math.max(0, ...shots.map((s) => s.bytes))} export=${seconds.toFixed(1)}s`);
 
-	// A harness that saw no shot proves nothing: the camera moved off `Blob`, and this spec must be moved with it.
-	expect(shots.length, 'no slide SVG passed through Blob: the camera no longer goes through the door this spec watches').toBeGreaterThanOrEqual(SLIDES);
+	// One shot per slide, all from the export. Zero means the camera moved off `Blob`, and this spec must be moved with it.
+	expect(shots.length, 'the export did not send exactly one SVG per slide through Blob: the camera no longer goes through the door this spec watches').toBe(SLIDES);
 	// A shot that carries no face at all would mean the slide draws with fallback fonts, which is a different defect.
 	expect(Math.min(...shots.map((s) => s.faces)), 'a shot carried no @font-face: its text would draw in a fallback font').toBeGreaterThan(0);
 	expect(most, `a slide's picture carried ${most} @font-face rules; the ceiling is ${MAX_FACES_PER_SHOT}. The camera is shipping faces the slide does not draw.`).toBeLessThanOrEqual(MAX_FACES_PER_SHOT);
