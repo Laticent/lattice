@@ -70,8 +70,9 @@ worth it once real callers exist.
 **No OPFS.** Playwright's default (ephemeral) WebKit context throws UnknownError from
 `navigator.storage.getDirectory()`, and the worker's does too, while IndexedDB works; a persistent profile has
 OPFS (measured 2026-11-22). A Safari private window may behave the same. `openBrowserVault()` probes first and
-throws `VaultError('unavailable')`; the e2e asserts it. Which fallback the Studio uses there is a decision for
-slice 2, put to the storage desk.
+throws `VaultError('unavailable')`; the e2e asserts it. The owner chose the fallback on 2026-11-22 (D1, answered in the storage desk's session and
+relayed to #3442): **B, an IndexedDB blob backing**, so the vault keeps one interface on every engine.
+Slice 2 builds it.
 
 ## Proof
 
@@ -92,5 +93,5 @@ slice 2, put to the storage desk.
 
 Journal compaction and trimming policy (slice 6 drains it; `trimJournal` past the last scan skips re-hashing,
 so the engine calls `recover()` first); the per-deck Yjs update files themselves (slice 3); quota handling and
-a full-disk notice (slice 3); the no-OPFS fallback and a read grace window, if wanted (slice 2); case-only path
+a full-disk notice (slice 3); the IndexedDB blob backing for hosts without OPFS (D1, decided) and a read grace window, if wanted (slice 2); case-only path
 collisions and the desktop host (slice 10).

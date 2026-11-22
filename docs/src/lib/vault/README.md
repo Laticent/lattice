@@ -80,8 +80,8 @@ the sync-access-handle path. iOS Safari is UNVERIFIED until the iOS Simulator su
 
 **No OPFS, no vault.** WebKit refuses OPFS in an ephemeral session (`getDirectory()` throws UnknownError
 in Playwright's default WebKit context; IndexedDB still works), and a private window may too.
-`openBrowserVault()` probes first and throws `VaultError('unavailable')`, so a host can fall back. What the
-Studio falls back to is open for slice 2.
+`openBrowserVault()` probes first and throws `VaultError('unavailable')`, so a host can fall back. The owner chose
+the fallback (D1, 2026-11-22): an IndexedDB blob backing, which slice 2 builds.
 
 ## Tests
 
