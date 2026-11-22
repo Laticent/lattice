@@ -14,7 +14,10 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 Tag this session `command-center` and `ui:pinned` (`set_session_tags`) the first
 time it builds a board: desks find it by the first tag, and the second pins it in
-the owner's sidebar.
+the owner's sidebar. On every `/fleet`, also set the title (`set_session_title`) to
+`🛰️ Command Center · YYYY-MM-DD`, today's date in US Eastern time
+(`TZ=America/New_York date +%F`), so the owner can tell today's command center from
+yesterday's at a glance. Skip the call when the title already reads that.
 
 ## Arguments — `/fleet <what>`
 
@@ -34,17 +37,33 @@ The contract is `engineering/workflow.md` §🛰️ Fleet board. Read that secti
 (`grep -n '🛰️ Fleet board' engineering/workflow.md`, then `sed` the range), not this
 summary.
 
-1. **Gather, cheapest first.** `list_sessions` (`mine: true`, `limit: 100`), then
-   `list_pull_requests` (`state: open`, `fields: [number, title, draft, head, updated_at]`).
-   Skip archived sessions and sessions done before the last board, unless they belong
-   in HINDSIGHT.
+1. **Gather, cheapest first.** `list_sessions` (`mine: true`, `limit: 40`: newest
+   first, and older sessions are archived or already on the last board), then
+   `list_pull_requests` (`state: open`, `sort: updated`, `direction: desc`,
+   `perPage: 30`, `fields: [number, updated_at]`). Skip archived sessions and sessions
+   done before the last board, unless they belong in HINDSIGHT. If the last board's
+   YAML is still in the scratchpad, start from it and change only the rows that moved.
 2. **Join** each session to its PR by head branch, or by a PR comment that names the
-   session ID. Read the newest comments (`pull_request_read` `get_comments`) only for
+   session ID. The last board already joins its rows; fetch `head` only for PRs that
+   are new since then, because every `head` repeats the repository's description,
+   about 400 characters per PR. New PRs are the newest created, so one
+   `list_pull_requests` call with `sort: created`, `direction: desc`,
+   `perPage: <how many open PR numbers are above the last board's highest>`,
+   `fields: [number, title, head]` returns
+   exactly them. No new PR: no call. A session still unjoined after that (its PR
+   was reopened, or is older than the last board and appears on it for the first
+   time) joins by its `origin:pr-<N>` session tag, then by the PR comment that names
+   it; failing both, put the session on the
+   board without a PR and say so in its `state`, rather than fetching `head` for
+   every PR again. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
 3. **Grade** each line of work with the five levels. Nest child sessions under their
    parent. Open a transcript (`list_events`, `kinds: [assistant, result]`) only for 🔴
-   and 🟠 rows, to fill `needs` and `why`.
+   and 🟠 rows, to fill `needs` and `why`. A ✅ or idle session goes into the board's
+   numbered actions as an archive candidate only when it passes all four checks in
+   `engineering/workflow.md` §Desks, "When a session can be archived". Name the
+   failing check for any that stays.
 4. **Write** the YAML in the scratchpad from `engineering/card-examples/fleet.yml`, run
    `npm run card -- <file>`, and paste the output verbatim. When the owner asks for
    the table, or a roster of every session, run `npm run card -- --table <file>`

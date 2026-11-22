@@ -101,6 +101,9 @@ type Ring = {
 	 * ring dropped. @codemirror/view's base theme paints `1px dotted #212121` on
 	 * `&.cm-focused`; replacing the suppression with the ring instead of adding to it
 	 * brought that back on every editor, painted wherever the host does not clip it.
+	 * The STYLE alone: an outline of style `none` never paints, and Chromium 159 (Playwright
+	 * 1.65.1) computes `outline-width` as specified (`3px`, `medium`) even then, where older
+	 * builds reported `0px`, so a style-and-width string failed on a ring that was not there.
 	 */
 	baseOutline: string;
 	/** The palette's `--accent`, so a reading can be judged without a second round-trip. */
@@ -147,7 +150,7 @@ const readRing = (page: import('@playwright/test').Page, scope = ''): Promise<Ri
 			// `clientWidth` rounds 647.547 to 648 and would fail a real ring.
 			box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
 			editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
-			baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+			baseOutline: own.outlineStyle,
 			accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
 		};
 	}, scope);
@@ -267,7 +270,7 @@ async function sweepPalettes(page: import('@playwright/test').Page): Promise<Rec
 					color: cs.borderTopColor,
 					box: [Number.parseFloat(cs.width), Number.parseFloat(cs.height)] as [number, number],
 					editorBox: [el.getBoundingClientRect().width, el.getBoundingClientRect().height] as [number, number],
-					baseOutline: `${own.outlineStyle} ${own.outlineWidth}`,
+					baseOutline: own.outlineStyle,
 					accent: root.getPropertyValue('--accent').trim(),
 				}))(
 					document.querySelector('.cm-editor') as HTMLElement,
@@ -369,7 +372,7 @@ for (const scheme of ['dark', 'light'] as const) {
 				// paints too — a palette-blind near-black that this change exists to remove,
 				// and which a first cut shipped by replacing the suppression instead of
 				// adding to it. Invisible on a clipped pane, visible on the Specimen.
-				expect(m.ring.baseOutline, `${at}: CodeMirror's base dotted outline is back beside our ring`).toBe('none 0px');
+				expect(m.ring.baseOutline, `${at}: CodeMirror's base dotted outline is back beside our ring`).toBe('none');
 				// WCAG 1.4.11 asks 3:1 of a focus indicator against ADJACENT colors, and the ring
 				// has two neighbors, not one: its inner side is over the editor canvas (`--bg`),
 				// its outer side IS the editor's edge, so what abuts it there is whatever the
@@ -481,7 +484,7 @@ test("every editor kills CodeMirror's dotted default, and only a full-pane edito
 
 		// THE SUPPRESSION IS UNCONDITIONAL. Declining our ring never means inheriting
 		// theirs — this is the arm that fails if the two channels are ever confused again.
-		expect(ring.baseOutline, `${s.name}: CodeMirror's base dotted outline paints here (${JSON.stringify(ring)})`).toBe('none 0px');
+		expect(ring.baseOutline, `${s.name}: CodeMirror's base dotted outline paints here (${JSON.stringify(ring)})`).toBe('none');
 
 		if (s.ring) {
 			expect(ring.content, `${s.name}: the focus ring's pseudo-element is not generated`).not.toBe('none');

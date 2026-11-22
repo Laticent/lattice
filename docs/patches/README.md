@@ -8,4 +8,9 @@ When the bumped package already contains the fix, delete the patch file.
 | Patch | What it fixes | Drop it when |
 |---|---|---|
 | `sonner+2.0.7.patch` | The `visibilitychange` listener is removed from `window` instead of `document`, so it leaks. | sonner ships the same fix. |
-| `playwright-core+1.56.1.patch` | `FrameManager.frameCommittedNewDocumentNavigation` reads a frame without checking it exists. Firefox reports a navigation for a frame Playwright already dropped when a page re-inserts an iframe (the preview does, `docs/src/lib/srcdoc-write.js`), and the `gecko` project crashed with `reading 'childFrames'`. The patch adds the same guard its same-document twin already has. Test-only: Playwright never ships to users. | Playwright ships the guard upstream (it is missing on `main` as of 2026-11-12). Record: `engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md` §7. |
+
+**Retired:** `playwright-core+1.56.1.patch` (2026-11-20). It guarded `FrameManager.frameCommittedNewDocumentNavigation`
+against a frame Firefox 142 reported after Playwright had dropped it. Playwright 1.65.1 still lacks the guard in source,
+but its Firefox 159 no longer sends that navigation: `studio-warm-offline` on gecko failed 5 of 10 unpatched on 1.56.1
+and passed 60 of 60 unpatched on 1.65.1. If the `reading 'childFrames'` crash comes back, re-add the guard against the
+installed version (`lib/coreBundle.js` now) and see `engineering/gotchas/browser-engine.md`.

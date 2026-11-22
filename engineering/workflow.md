@@ -1486,7 +1486,8 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 |---|---|---|
 | `merge_method` | `SQUASH` | Every queued PR lands as one squash commit, whatever `auto_merge.merge_method` says |
 | `grouping_strategy` | `ALLGREEN` | A group merges only if every PR in it is green; a red one is removed and the rest re-tested |
-| `max_entries_to_build` / `max_entries_to_merge` | 5 / 5 | Up to five PRs are tested together, each on top of the ones ahead |
+| `max_entries_to_build` ("Build concurrency") | 3 (lowered from 5 by the owner 2026-11-21, read from the settings page; `engineering/decisions/2026-11-21-ci-load-plan.md` D4) | Up to three queue entries run CI at once, each on top of the ones ahead. At about 15 jobs each that is about 45 of the Team plan's 60 Linux slots, which leaves room for PR pushes; when one entry fails, at most two behind it are thrown away and re-tested |
+| `min_entries_to_merge` / `max_entries_to_merge` ("Minimum / Maximum group size") | 1 / 3 (read 2026-11-21) | A group merges one to three PRs together |
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
 | `check_response_timeout_minutes` | 120 (raised from 60 by the owner 2026-10-29, after runner contention pushed queue runs past 60 minutes and ejected PRs that had only been waiting; `engineering/decisions/2026-10-30-ci-pipeline-stages.md`) | A `ci` run that has not reported in 120 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
@@ -2226,6 +2227,9 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    integration tier, and a `workflow_dispatch` of the matching macOS / Windows / iOS
    Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
    "Not installed" is not a stop (#23).
+   When a platform suite needs more than one round, use the **warm harness** rather
+   than re-dispatching: it builds once and takes `/harness` commands from the PR
+   (`engineering/development.md` §Platform suites).
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.
@@ -2712,6 +2716,29 @@ sidebar. No session archives itself or another on its own: `archive_session` is
 for after a human has said the session is done, and an archived desk cannot be
 messaged. The command center proposes archiving finished worker sessions as a
 numbered action; the owner's `go` is that acknowledgment.
+
+**When a session can be archived.** Archiving frees the session's machine: its
+transcript survives and the session can be unarchived, but any file it never pushed
+is gone for good. So the command center proposes a session for archiving only when
+all four hold, and names the failing check for every session that stays:
+
+1. **The work is done.** Its PRs merged or closed, or it never had one and its task
+   is finished. A session with an open PR, a pending card, or a question to the
+   owner stays.
+2. **Nothing lives only in chat.** Every leftover item, open question and "next we
+   should" in its briefs is logged durably: a `followups.d/` file on `main`, an open
+   issue, or a comment on a PR a desk tracks. A continuation brief in a transcript is
+   not durable. If an item is missing, ask the session to log it (one small PR) and
+   archive after that merges.
+3. **Nothing unpushed.** The session reports a clean tree and no local commits ahead
+   of its remote (`git status -sb`), answered in its own reply, not inferred from an
+   old status line. No answer, or changes, means it stays.
+4. **No live desk or scheduled task depends on it.** The command center, a desk
+   session (both tagged `ui:pinned`), a session that is working now, and a session a
+   scheduled task wakes (`list_triggers`, `persistent_session_id`) stay.
+
+The owner's `go` on the board's numbered action archives exactly the sessions that
+passed. The audit is read-only and can run as one subagent; it never archives.
 
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the newest live session with that tag. Before starting, a desk checks

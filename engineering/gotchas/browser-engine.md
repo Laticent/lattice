@@ -352,10 +352,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 - **Symptom:** a `gecko` run dies with `TypeError: Cannot read properties of undefined (reading 'childFrames')` at
   whatever Playwright call was pending, or a `contentFrame()` locator never finds an element the page plainly has.
-- **Cause:** `FrameManager.frameCommittedNewDocumentNavigation` in `playwright-core` (1.56.1, and upstream `main` on
-  2026-11-12) looks up the frame with no guard. Its same-document twin has one. When the page removes an iframe and puts it
+- **Cause:** `FrameManager.frameCommittedNewDocumentNavigation` in `playwright-core` (1.56.1, and still in 1.65.1,
+  where it lives in `lib/coreBundle.js`) looks up the frame with no guard. Its same-document twin has one. When the page removes an iframe and puts it
   back, Firefox can report a navigation for a frame Playwright has already dropped.
-- **Mitigation:** `docs/patches/playwright-core+1.56.1.patch` adds the missing guard (see `docs/patches/README.md`).
+- **Status:** seen with Firefox 142 (Playwright 1.56.1), not with Firefox 159 (1.65.1), which no longer sends that
+  navigation; the patch was retired on 2026-11-20 (`docs/patches/README.md`). If it returns, re-add the guard with
+  `npx patch-package playwright-core` against the installed version.
+- **Mitigation (1.56.1):** `docs/patches/playwright-core+1.56.1.patch` added the missing guard.
   Before it, `studio-warm-offline`'s offline diagram case passed 2 of 10 alone and 8 of 10 under load, every failure
   this crash; with it, 10 of 10 both ways. The driver still does not follow the re-inserted frame, so read its state
   through `page.evaluate` on its `contentDocument`, not through a `contentFrame()` locator.

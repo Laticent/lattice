@@ -34,8 +34,10 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    one list. `held` (built on a PR that must rebase first) stays out of the digest
    with its parent. `unordered` (a dependency cycle; the tool exits 1) and any
    `note:` line (a conflict a dependency overruled) go to the owner as a ❓ card,
-   never into the digest. It checks pairs only, so the queue still catches a
-   conflict that needs three PRs together.
+   never into the digest. An `unmeasured` PR (git could not size or check it, for
+   example no merge base in a shallow clone; exit 1) stays out too: check it by hand
+   or deepen the fetch, and list it under "left out". It checks pairs only, so the
+   queue still catches a conflict that needs three PRs together.
 4. **The digest IS the ask.** While you are live, each PR's session posts its 🚦 card
    on its PR and does not ask in chat (CLAUDE.md DEFAULT OPERATING MODE rule 7). You
    build the digest from those PR cards, as plain text: NOT in a code fence and NOT

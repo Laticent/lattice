@@ -203,7 +203,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE"
           # Fail loudly if the base is still missing: a diff error inside the `if` below would read as "no player files".
           git cat-file -e "$BASE^{commit}"
-          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$)'; then
+          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
             echo "player=true" >> "$GITHUB_OUTPUT"
           else
             echo "player=false" >> "$GITHUB_OUTPUT"
@@ -240,6 +240,9 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
+              # The composite actions these jobs run (puppeteer-chrome, apt-cached): an action-only
+              # change runs integration and golden-diff on its PR, not first in the queue.
+              - '.github/actions/**'
             docs:
               - 'docs/**'
               - 'assets/fonts/**' # same reason as `code` above — dist/** no longer matches
@@ -255,6 +258,9 @@ jobs:
               - 'lib/export/**'
               - 'test/integration/export/player-no-js.test.js'
               - '.github/workflows/ci.yml'
+              # player-webkit runs puppeteer-chrome and playwright-browsers, and the queue does not
+              # force this job on, so an action-only change would otherwise never run it before merge.
+              - '.github/actions/**'
 
   # ── Lint — ALWAYS runs (incl. docs-only) ───────────────────────────────
   # Node-agnostic and browser-free: source lint + author-facing deck lint.
@@ -585,6 +591,9 @@ jobs:
           packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
       # checkout does not have them and everything below that loads the engine
       # needs them on disk. ~16s, no browser.
@@ -729,6 +738,9 @@ jobs:
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
       # checkout does not have them and everything below that loads the engine
       # needs them on disk. ~16s, no browser.
@@ -1155,6 +1167,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       - name: Build the generated bundles
         run: npm run build
       - name: Install docs deps

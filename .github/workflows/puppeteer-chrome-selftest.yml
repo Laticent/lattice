@@ -1,0 +1,71 @@
+name: puppeteer-chrome self-test
+
+# PROVES .github/actions/puppeteer-chrome FAILS BY NAME ON A REAL RUNNER (PR #3275, owner's call 2026-11-21).
+#
+# The action exists to turn a failed Chrome download, which puppeteer's postinstall hides behind exit 0, into a red
+# step that names the cause. Every job that uses it shows the path where Chrome lands. This job shows the other path:
+# it points PUPPETEER_CACHE_DIR below a regular file, so the download cannot be written on any OS, runs the action,
+# and passes only if the action FAILED while puppeteer itself was installed. A pass means the step goes red on a
+# hosted runner of each OS; a fail means the action let a missing browser through, or broke for another reason.
+#
+# It runs when the action or this file changes, when package-lock.json changes (a puppeteer upgrade, Dependabot's
+# included, could stop `browsers install` exiting non-zero on a failed download, which the action relies on; owner's
+# call 2026-11-21), and on demand. It restores no puppeteer cache, so
+# test/unit/tools/puppeteer-chrome-step.test.js does not ask it for the install step.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/actions/puppeteer-chrome/**
+      - .github/workflows/puppeteer-chrome-selftest.yml
+      - package-lock.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: puppeteer-chrome-selftest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fails-by-name:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    # npm ci without scripts, then three failed tries with 10 s and 20 s waits: a few minutes.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # --ignore-scripts: no postinstall download and no `prepare` build. The action only needs the puppeteer CLI.
+      - run: npm ci --ignore-scripts
+      - name: Point puppeteer's cache below a regular file
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/not-a-folder"
+          echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/not-a-folder/cache" >> "$GITHUB_ENV"
+      - id: chrome
+        uses: ./.github/actions/puppeteer-chrome
+        continue-on-error: true
+        timeout-minutes: 5
+      - name: The action failed, and not because puppeteer was missing
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.chrome.outcome }}
+        run: |
+          set -euo pipefail
+          npx --no-install puppeteer --version
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "::error::puppeteer-chrome finished '$OUTCOME' with an unwritable cache; it must fail its step by name."
+            exit 1
+          fi
+          echo "puppeteer-chrome failed its step, as it must when Chrome cannot be downloaded."

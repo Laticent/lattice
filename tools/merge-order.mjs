@@ -24,8 +24,10 @@
  * (head and base are branch names) or GitHub's list_pull_requests shape (head and
  * base as objects with `ref`); a missing `changes` is measured from git:
  *   npm run merge:order -- [--no-fetch] [--json] < prs.json
- * Exit: 0 printed · 1 printed, but a PR is on a dependency cycle · 2 bad input ·
- * 3 a git check could not run. Every input PR appears in exactly one list.
+ * Exit: 0 printed · 1 printed, but a PR is on a dependency cycle or git could not
+ * measure it (no merge base in a shallow clone, a missing branch; listed under
+ * "unmeasured" and left out) · 2 bad input · 3 no PR could be measured, or a pair
+ * check failed. Every input PR appears in exactly one list.
  * Contract: .claude/skills/desk-merge/SKILL.md step 3; engineering/workflow.md §Desks.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -170,13 +172,30 @@ function main() {
   const ref = (head) => `origin/${head}`;
   try {
     if (fetch) execFileSync('git', ['fetch', '-q', 'origin', 'main', ...prs.map((p) => p.head)], { stdio: 'inherit' });
-    // A PR's size, when the input lacks it: lines added plus deleted since it left main.
+    // One PR git cannot measure (no merge base in a shallow clone, a deleted branch)
+    // is set apart with its reason; the rest are still ordered.
+    const unmeasured = [];
+    const measured = [];
+    const dirty = new Set();
     for (const p of prs) {
-      if (Number.isFinite(p.changes)) continue;
-      const stat = execFileSync('git', ['diff', '--shortstat', `origin/main...${ref(p.head)}`], { encoding: 'utf8' });
-      p.changes = [...stat.matchAll(/(\d+) (?:insertion|deletion)/g)].reduce((n, m) => n + Number(m[1]), 0);
+      try {
+        // A PR's size, when the input lacks it: lines added plus deleted since it left main.
+        if (!Number.isFinite(p.changes)) {
+          const stat = execFileSync('git', ['diff', '--shortstat', `origin/main...${ref(p.head)}`], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          p.changes = [...stat.matchAll(/(\d+) (?:insertion|deletion)/g)].reduce((n, m) => n + Number(m[1]), 0);
+        }
+        if (conflictFiles(ref(p.head), 'origin/main').length) dirty.add(p.number);
+        measured.push(p);
+      } catch (err) {
+        const why = (err.stderr ? String(err.stderr) : err.message).trim().split('\n')[0];
+        unmeasured.push({ number: p.number, why: why || 'git could not measure it' });
+      }
     }
-    const dirty = new Set(prs.filter((p) => conflictFiles(ref(p.head), 'origin/main').length).map((p) => p.number));
+    if (prs.length && !measured.length) throw new Error(`no PR could be measured; first: #${unmeasured[0].number} ${unmeasured[0].why}`);
+    prs = measured;
     const clean = prs.filter((p) => !dirty.has(p.number));
     const conflicts = [];
     for (let i = 0; i < clean.length; i++) {
@@ -185,8 +204,8 @@ function main() {
         if (files.length) conflicts.push({ a: clean[i].number, b: clean[j].number, files });
       }
     }
-    const result = orderMerges(prs, conflicts, dirty);
-    if (result.unordered.length) process.exitCode = 1;
+    const result = { ...orderMerges(prs, conflicts, dirty), unmeasured };
+    if (result.unordered.length || unmeasured.length) process.exitCode = 1;
     if (json) return console.log(JSON.stringify(result, null, 2));
     for (const [i, o] of result.order.entries()) console.log(`${i + 1}. #${o.number}  ${o.why.join('; ')}`);
     for (const n of result.dirty) console.log(`rebase first: #${n} conflicts with main`);
@@ -195,6 +214,7 @@ function main() {
       const what = result.onCycle.includes(n) ? 'is on a dependency cycle' : 'is built on a PR in a dependency cycle';
       console.log(`unordered: #${n} ${what}; order it by hand`);
     }
+    for (const u of unmeasured) console.log(`unmeasured: #${u.number} left out (${u.why}); check it by hand`);
     for (const p of prs.filter((x) => !x.created_at)) console.log(`warning: #${p.number} has no created_at; it sorts after every dated PR`);
     for (const d of result.dropped) console.log(`note: #${d.first} and #${d.second} conflict, but a dependency fixes their order`);
   } catch (err) {
