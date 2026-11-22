@@ -60,94 +60,6 @@ export function sheetBox(side: "top" | "right" | "bottom" | "left") {
   )
 }
 
-/**
- * WHICH POINTERS ARE DOWN ON A SCRIM, kept outside any one sheet: the scrim a finger touched can be replaced by the next
- * sheet's before the finger lifts (see `SheetContent`). A tap is exactly one pointer, down and up on a scrim, that did not
- * move past `TAP_SLOP` (read from its pointermoves) and was not held past `TAP_MAX_MS`. A second finger spoils it, a pointercancel (a scroll) ends it,
- * and every entry carries its event time, so a stale entry (a finger that lifted somewhere else) never matches a later
- * pointer that reuses its id: it is pruned at the next pointerdown. When the last OPEN scrim unmounts, the record is
- * cleared, unless another mounted in its place in the same commit (the swap a tap has to survive). Only open sheets are
- * counted (`ScrimMounted` lives inside the portal, which holds nothing while a sheet is closed); a count of every mounted
- * `SheetContent` never reached zero, because the site nav's sheet is always in the tree.
- */
-const scrimPointers = new Map<number, number>()
-let scrimTap: { id: number; x: number; y: number; t: number; moved: boolean } | null = null
-let scrimsMounted = 0
-/** How far a pointer may move between down and up and still be a tap, in CSS pixels. */
-const TAP_SLOP = 10
-/** How long a pointer may stay down and still be a tap, in ms; longer is a press, and older entries are pruned. */
-const TAP_MAX_MS = 1000
-
-function scrimPointerDown(e: React.PointerEvent): void {
-  for (const [id, t] of scrimPointers) if (e.timeStamp - t > TAP_MAX_MS) scrimPointers.delete(id)
-  scrimPointers.set(e.pointerId, e.timeStamp)
-  // The primary button only, and no ctrl-click: Radix's Dialog vetoes the rest as an outside press (a right-click on the
-  // scrim opens a context menu, it does not dismiss), so the scrim does too.
-  const primary = e.button === 0 && !e.ctrlKey
-  scrimTap = scrimPointers.size === 1 && primary ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, moved: false } : null
-}
-
-/** A pointer moving past `TAP_SLOP` from where it went down is a drag, not a tap. Read from the moves, never from the
- *  pointerup: Mobile Safari reports a touch's pointerup at clientX/clientY 0,0 (every iOS Simulator log), which read as
- *  a 200 px move and refused real taps (run 44046541702). */
-function scrimPointerMove(e: React.PointerEvent): void {
-  const tap = scrimTap
-  if (!tap || tap.id !== e.pointerId || tap.moved) return
-  if (Math.abs(e.clientX - tap.x) > TAP_SLOP || Math.abs(e.clientY - tap.y) > TAP_SLOP) tap.moved = true
-}
-
-/** Whether this pointerup completes a tap; it consumes the record either way. */
-function scrimPointerUp(e: React.PointerEvent): boolean {
-  scrimPointers.delete(e.pointerId)
-  const tap = scrimTap
-  if (!tap || tap.id !== e.pointerId) return false
-  scrimTap = null
-  if (scrimPointers.size > 0) return false
-  if (e.timeStamp - tap.t > TAP_MAX_MS) return false
-  return !tap.moved
-}
-
-function scrimPointerCancel(e: React.PointerEvent): void {
-  scrimPointers.delete(e.pointerId)
-  scrimTap = null
-}
-
-/**
- * A LAYER ABOVE THE SHEET OWNS THE TAP. When a modal menu or Select is open inside a sheet, Radix tells only the highest
- * layer that disables outside pointer events about a press outside it, and marks every layer below with an inline
- * `pointer-events: none` (@radix-ui/react-dismissable-layer). A tap on the scrim then closes the menu and must leave the
- * sheet open, as it does without this file's scrim path (maker-checker on PR #3278: Settings' Selects, the Library's
- * menu). So the sheet's own content reading `pointer-events: none` means the tap is not the sheet's.
- */
-function layerAbove(content: HTMLElement | null): boolean {
-  return content?.style.pointerEvents === "none"
-}
-
-/** A scrim mounted; the returned function is its unmount. */
-function scrimMounted(): () => void {
-  scrimsMounted++
-  return () => {
-    scrimsMounted--
-    queueMicrotask(() => {
-      if (scrimsMounted > 0) return
-      scrimPointers.clear()
-      scrimTap = null
-    })
-  }
-}
-
-/** Counts an open scrim for as long as it is in the page; rendered inside the portal next to the overlay. */
-function ScrimMounted() {
-  React.useEffect(() => scrimMounted(), [])
-  return null
-}
-
-/** For tests: forget every pointer, as a fresh page would. */
-export function resetScrimPointers(): void {
-  scrimPointers.clear()
-  scrimTap = null
-}
-
 function SheetContent({
   className,
   children,
@@ -177,64 +89,12 @@ function SheetContent({
   // `PersistentSurface` rule (persistent-surface.tsx, "only if nothing else took it meanwhile").
   // A caller that handles the close itself (calls preventDefault) keeps the last word; an opener
   // that is gone (a drawer row that launched this sheet) falls back to Radix's own behavior.
-  const { onOpenAutoFocus, onCloseAutoFocus, onPointerDownOutside, onInteractOutside } = props
+  const { onOpenAutoFocus, onCloseAutoFocus } = props
   const returnTo = React.useRef<HTMLElement | null>(null)
   const launcher = React.useRef<HTMLElement | null>(null)
-  // A TAP ON THE SCRIM IS AN OUTSIDE TAP FROM THE SHEET'S FIRST FRAME, AND IT IS READ FROM THE POINTER, NOT FROM A CLICK.
-  // Radix starts listening for a pointer down outside the dialog only a `setTimeout(0)` after it mounts
-  // (@radix-ui/react-dismissable-layer), and on touch it waits for the `click` that follows. A sheet that mounts already in
-  // place has no motion to hide that gap: a lazy panel's real sheet replaces its loading sheet with the enter animation off
-  // (`PanelLoader`), so the scrim a finger went down on is gone before the finger lifts. Mobile Safari then sends no `click`
-  // at all (the iOS Simulator logged pointerdown, touchstart, pointerup, touchend and nothing after, on every lost tap), and
-  // a phone's deck tap on a just-loaded Library did nothing (e2e/back-gesture.spec.ts:172; the iOS deck-tap probe).
-  // So the tap is the pointer's own sequence. A scrim's pointers are tracked OUTSIDE any one sheet (`scrimPointers`), so a
-  // pointerup on the scrim that replaced it completes the tap; a moved, held, canceled or second finger is not a tap.
-  // The tap is put through the SAME decision Radix would have made: the caller's `onPointerDownOutside` and
-  // `onInteractOutside` see an outside event, and the sheet closes through Radix's own Close only if neither prevented it.
-  // When Radix reports the tap first (a mouse, once it listens), it decides and the record is dropped; when it reports the
-  // same tap after this did (its touch path, on the click), its report is prevented and not passed on, so a caller hears
-  // each tap once and the sheet never closes twice.
-  const contentRef = React.useRef<HTMLDivElement | null>(null)
-  const closeRef = React.useRef<HTMLButtonElement | null>(null)
-  const decided = React.useRef(false)
-  type Outside = Parameters<NonNullable<typeof onPointerDownOutside>>[0]
-  // One ref callback for the sheet's life, not a new one each render (React 19 detaches and reattaches a new callback, and
-  // Radix's composed refs re-run). A caller's own ref (a prop in React 19) still gets the element.
-  const callerRef = (props as { ref?: React.Ref<HTMLDivElement> }).ref
-  const setContent = React.useCallback(
-    (el: HTMLDivElement | null) => {
-      contentRef.current = el
-      if (typeof callerRef === "function") callerRef(el)
-      else if (callerRef) (callerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
-    },
-    [callerRef]
-  )
-  const onScrimPointerUp = (e: React.PointerEvent) => {
-    if (!scrimPointerUp(e)) return
-    if (contentRef.current?.getAttribute("data-state") !== "open") return
-    if (layerAbove(contentRef.current)) return
-    const outside = new CustomEvent("dismissableLayer.pointerDownOutside", { bubbles: false, cancelable: true, detail: { originalEvent: e.nativeEvent } })
-    decided.current = true
-    onPointerDownOutside?.(outside as unknown as Outside)
-    onInteractOutside?.(outside as unknown as Outside)
-    if (!outside.defaultPrevented) closeRef.current?.click()
-  }
   return (
     <SheetPortal>
-      {overlay && <ScrimMounted />}
-      {overlay && (
-        <SheetOverlay
-          className={overlayClassName}
-          onPointerDown={(e) => {
-            decided.current = false
-            scrimPointerDown(e)
-            if (layerAbove(contentRef.current)) scrimTap = null
-          }}
-          onPointerMove={scrimPointerMove}
-          onPointerUp={onScrimPointerUp}
-          onPointerCancel={scrimPointerCancel}
-        />
-      )}
+      {overlay && <SheetOverlay className={overlayClassName} />}
       <SheetPrimitive.Content
         // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
         // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
@@ -252,28 +112,7 @@ function SheetContent({
           className
         )}
         {...props}
-        ref={setContent}
-        onPointerDownOutside={(e) => {
-          // This tap was already decided on the scrim's pointerup: Radix's later report of it changes nothing.
-          if (decided.current) {
-            e.preventDefault()
-            return
-          }
-          // Radix saw this tap first: it decides, and the scrim's record stands down.
-          scrimTap = null
-          onPointerDownOutside?.(e)
-        }}
-        onInteractOutside={(e) => {
-          if (decided.current) {
-            decided.current = false
-            e.preventDefault()
-            return
-          }
-          onInteractOutside?.(e)
-        }}
         onOpenAutoFocus={(e) => {
-          // A tap decided on the scrim that Radix never reported (no click came) is not carried into the next opening.
-          decided.current = false
           const active = document.activeElement
           returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null
           launcher.current = tappedLauncher()
@@ -301,8 +140,6 @@ function SheetContent({
         }}
       >
         {children}
-        {/* The scrim's close (above): Radix's own Close, so a close it makes is reported as Radix reports any. */}
-        <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden="true" />
         {/* DEVIATION from the vendored base, matching `dialog.tsx`: on a coarse
             pointer the close grows to a 44×44 target with the glyph left exactly
             where it was. See that file for the reasoning. (#1211)
