@@ -1512,9 +1512,13 @@ it passes, that exact tree becomes `main`.
   warns. A rebase is still right on a real conflict, when you need a specific commit
   from `main` (name it in the commit message), or after a queue ejection. GitHub's
   "Update branch" costs the same CI run.
-- **Converting a queued PR to draft does NOT take it out of the queue.** On
-  2026-11-21 #3386 was drafted to stop it and merged anyway. To stop a queued PR,
-  disable its auto-merge or remove it from the queue on the PR page.
+- **Neither drafting nor disabling auto-merge stops a merge-group run already in
+  flight.** On 2026-11-21 #3386's session disabled its auto-merge and converted it to
+  draft while its queue run was running; that run held the branch locked, so the fix
+  could not be pushed, and it merged the old head anyway (#3409 restores it). Removing
+  the PR from the queue on the PR page is the remaining option and is **UNVERIFIED**:
+  nobody has tried it on an in-flight run. Until it is tested, stop a PR BEFORE it is
+  queued; once queued, plan for it to land and prepare the follow-up fix.
 - **Direct merges are refused.** `merge_pull_request` returns 405 "Changes must be
   made through the merge queue". After the owner's typed approval and the head
   check, arm the queue (`enable_pr_auto_merge`, squash) instead.
@@ -2663,9 +2667,15 @@ first pass starts from the work already known in its lane, not only from live st
 
 When it finishes, it writes back: a fix PR deletes the follow-up file it closes, a new trap
 becomes a gotcha entry, and work it found but will not do becomes a `followups.d/` file
-(`deferred: large|blocked|off-path`). The backlog desk alone folds a follow-up into an issue
-or retires one that is done or stale; the other desks claim and fix. Before this rule,
-only the backlog desk read `followups.d/` (about 580 files), and no desk read the gotchas.
+(`deferred: large|blocked|off-path`). **A desk writes back through a session it starts**
+(`create_session`, counted in its budget) or through the fix PR that found the item, never by
+pushing itself: committing is not on the verb list below. Two exceptions: the flake desk
+never files a follow-up for a test (HARD RULE #33 closes that exit; a test gets an owner and
+a fix), and the security desk never writes an unfixed finding anywhere public, which
+includes `followups.d/` (its embargo in `/desk-security`). The backlog desk alone folds a
+follow-up into an issue or retires one that is done or stale; the other desks claim and fix.
+Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
+deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

@@ -40,9 +40,13 @@ lane that fixes them.
   (Playwright `page.route`, as `docs/e2e/model-spine.spec.ts` does). The fake can be slow,
   fail halfway, stream garbage, return 429 or send a huge reply. That covers what we own:
   the UI, retries, cancel, streaming, the cost display. It costs nothing.
-- **A real call is a sample, and the owner's call.** At most one prompt per feature, run on
-  demand with `OPENROUTER_ALLOW_SPEND=1` and `--limit 1`, its cost printed, under the per-key
-  cap set at OpenRouter. The desk proposes it to the owner as a numbered action with the
+- **A real call is a sample, and the owner's call.** Only through a route HARD RULE #24
+  already sanctions: a tool in `SANCTIONED_OPENROUTER_SPENDERS` (`tools/check-ownership.js`;
+  such as `tools/component-gen-eval.mjs`, run with `OPENROUTER_ALLOW_SPEND=1 --limit 1`, its
+  cost printed) or a workflow in `SANCTIONED_OPENROUTER_WORKFLOWS` (`studio-e2e-nightly.yml`, the
+  nightly Studio live-AI E2E, about 1 cent a night), under
+  the per-key cap set at OpenRouter. A feature with no sanctioned route gets none until the
+  owner sanctions one in a PR. The desk proposes it to the owner as a numbered action with the
   expected cost; it never starts it (HARD RULE #24: our key stays off the site and out of
   tests).
 - **Users pay for their own chat.** The Studio runs on the user's own key, so what matters is
@@ -53,7 +57,7 @@ lane that fixes them.
 1. **Read your lane first.** `npm run followups` and keep the items about load, memory,
    long sessions and limits; the open issues that mention them; `claim:` tags on live
    sessions; and the gotcha file for the area.
-2. **Stress one area** from the rotation, on a local `build:e2e` of `main` (never a published
+2. **Stress one area** from the rotation, on a local build of `main`, `cd docs && npm run build:e2e` (never a published
    build, CLAUDE.md). Record each break with its steps, its numbers and the build it ran on.
 3. **Confirm before routing:** a break must reproduce from its steps, and a memory rise must
    survive `memory-profiling.md`'s idle check (JIT warmup is not a leak).
@@ -63,7 +67,7 @@ lane that fixes them.
    flake; a device-only break to devices. A stress scenario worth keeping becomes a test or a
    `perf-torture` scenario in the fix PR, written to HARD RULES #32 and #34 (counts, not
    milliseconds; a failing arm).
-5. **Write back.** A new trap becomes a gotcha entry; a break not routed this pass becomes a
+5. **Write back** (through a session you start, counted in the budget). A new trap becomes a gotcha entry; a break not routed this pass becomes a
    `followups.d/` file with its steps.
 6. **Report** to the command center: the area stressed, each break and where it went, any
    proposed paid sample with its cost, and `budget: N/10 today`.

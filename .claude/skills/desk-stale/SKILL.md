@@ -15,7 +15,7 @@ Read first, by section: `engineering/workflow.md` §Desks, §Keeping an open PR 
 while it waits, §Session branch ownership and §The handoff issue. Tag this session
 `desk:stale` and `ui:pinned`.
 
-**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back.
+**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back through a session you start.
 
 ## The pass
 

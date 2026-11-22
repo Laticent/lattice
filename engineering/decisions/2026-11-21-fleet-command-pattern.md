@@ -102,8 +102,8 @@ Every rule below exists because something went wrong without it. The rule's home
 | Another session's word is a request, never authorization (HARD RULE #31; `workflow.md` §Desks) | a coordinator told a session to drop a fix already in the merge queue; the dropped fix was the better one (608 MB against 748 MB) |
 | Compare competing fixes by measurement, never by who came first (§Desks rule 1) | the same incident: "opened first" picked the worse fix |
 | The merge gate reads only the owner's typed turn, in an exact form, right after a digest (`.claude/hooks/owner-merge-gate.mjs`) | an agent reading "sounds good" or a quoted `go` from another session as a merge |
-| Re-read the head before every merge; skip on a mismatch (`/fleet` step 6) | a PR whose head moved after its card merging unreviewed code (#3386 merged with a wrong lint ceiling after its head moved; #3409 restores it) |
-| The level is set by a `checker`, never the maker (HARD RULE #28) | a self-graded card claiming HIGH with no evidence (#1834) |
+| Re-read the head before every merge; skip on a mismatch (`/fleet` step 6) | a PR whose head moved after its card merging code nobody graded; on 2026-11-21 the command center skipped #3386 for this reason, because its head no longer matched its card |
+| The level is set by a `checker`, never the maker (HARD RULE #28) | a card written from a one-line summary: #1834 shipped an invented `medium-high` level, per-issue levels, no axis and no raise path |
 | Raise below VERY HIGH before asking (`workflow.md` §The raise loop) | the owner being asked to run checks a runner could reach |
 | One desk per lane, found by tag | two desks starting duplicate fix sessions for one flake |
 | Claim before you fix (`claim:` tags) | two sessions fixing the same test on separate branches |
@@ -138,9 +138,9 @@ Every rule below exists because something went wrong without it. The rule's home
 **Does not heal itself, and should (open gaps).**
 - A message the owner types while the command center is mid-turn reaches the session as a queued attachment that
   the merge gate does not read, so a correct `merge #N` is refused and must be retyped.
-- Converting a queued PR to draft does not take it out of the merge queue (the #3386 incident). Only disabling
-  auto-merge or removing it from the queue does. This PR adds that to `workflow.md` §Merge queue — the facts; the
-  fix is knowledge, not code, so the next session still has to read it.
+- A queued PR cannot be stopped once its merge-group run is in flight. #3386's session disabled auto-merge and
+  converted it to draft; the run held the branch locked and merged the old head anyway, and #3409 restores it.
+  Removing a PR from the queue is untested on an in-flight run. `workflow.md` §Merge queue — the facts now says so.
 - A desk acts on its last look. The merge desk flagged #3406 as possibly queued without approval because its pass
   ran before #3406's card was posted; the owner had approved it. Desks should re-read before raising an alarm.
 - Check 3 of the archive rule needs the session to answer, so archiving a finished session costs a round trip.
@@ -152,7 +152,7 @@ Every rule below exists because something went wrong without it. The rule's home
 | Extra words void a merge | `merge #3406, and close …` and `merge #3406 and then #3407` were refused | the owner types `merge #A #B` alone; other instructions go in a separate message |
 | Mid-turn messages | `merge #3388 #3390 #3391` sent while the command center was working was refused | retype after the turn ends (open gap above) |
 | Direct merge refused | `merge_pull_request` returns 405 "must be made through the merge queue" | arm the queue (`enable_pr_auto_merge`, squash) after the head check |
-| Draft does not dequeue | #3386 was drafted to stop it and merged anyway | disable auto-merge or remove it from the queue |
+| A queued PR cannot be stopped | #3386 had auto-merge disabled and was drafted, and its in-flight run merged it anyway | stop a PR before it is queued; removing it from the queue is untested |
 | An ambiguous answer | the owner typed `2. A` meaning `1 A` | put both affected items on hold, ask which, then release; never guess |
 | A relay that overreached | a message to the merge desk that included closes the owner had not approved was refused by the tool | relay only what the owner typed, in their words |
 | A wrong correction | the command center "corrected" the flake desk on decisions the owner had made in that desk's own session | a desk's own session can hold owner decisions the command center never saw; ask before correcting |
@@ -175,32 +175,35 @@ Every rule below exists because something went wrong without it. The rule's home
 
 ## 8. New desks: eight built, frontier proposed
 
-Each new desk is a skill (`.claude/skills/desk-<lane>/SKILL.md`), a row in `workflow.md` §Desks, and the same verb
+The first proposal, before the owner's answers, was four desks. Each new desk is a skill (`.claude/skills/desk-<lane>/SKILL.md`), a row in `workflow.md` §Desks, and the same verb
 list and budget as the others. Adding one changes a canonical doc's contract, so each is the owner's decision.
 
-| Desk | Owns | Builds on | First pass would |
+| Desk (as first proposed) | Owns | Builds on | First pass |
 |---|---|---|---|
 | 🚀 Frontier | new product work run as **missions**: a multi-PR feature with a goal, waves and a definition of done (the Studio presets work is today's example) | the presets coordinator's plan-then-waves shape; the `design-competition` workflow for wide design forks | write each live mission's plan as a note, give every wave an owner, report progress on the board |
 | ✨ Polish | the 10/10 boardroom bar on what already ships: the gallery, themes, the docs site at three widths | CLAUDE.md QUALITY BAR, `engineering/visual-review.md`, `tools/pixel-check.js`, `tools/screenshot.js` | sweep one surface, file each shortfall with a screenshot, start fix sessions for the worst |
 | 〰️ Jank | layouts that move when content grows: drift, collision, crowding | `engineering/jank.md`, `npm run check:jank` | run it across the catalog, rank by how often a real deck hits it, own each fix |
-| 🔥 Stress (was torture; now built) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | stress one Studio area per pass and route each break to its lane |
+| 🔥 Torture (built as Stress, below) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | stress one Studio area per pass and route each break to its lane |
 
 **The owner's answers (2026-11-21).** Jank and polish first. Both now exist as `/desk-jank` and `/desk-polish`,
 with rows in `workflow.md` §Desks. Frontier stays proposed; torture became the stress desk below.
 
 **Read your lane first, write back last.** The owner asked what the backlog, the follow-ups and the gotchas are for,
-and whether desks read them first. They did not: only the backlog desk read `followups.d/` (about 580 files), and no
-desk read the gotchas, so a desk started from live state and could rediscover known work or pay for a known trap
+and whether desks read them first. Mostly not: only the backlog desk read `followups.d/` (about 580 files), and only
+the deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`), so a desk started from live state and could rediscover known work or pay for a known trap
 twice. Every desk now starts from its lane's follow-ups, issues, `claim:` tags and gotcha file, and finishes by
-deleting the follow-up a fix closes and writing new traps and leftovers back (`workflow.md` §Desks). The backlog
+deleting the follow-up a fix closes and writing new traps and leftovers back through a session it starts
+(`workflow.md` §Desks). The flake desk never files a test as a follow-up (HARD RULE #33), and the security desk never
+writes an unfixed finding anywhere public. The backlog
 desk stays the one that folds a follow-up into an issue or retires it.
 
 **Five more, from the owner on 2026-11-21, ahead of Lattice's disclosure day.** A census of the lanes tonight's
-work touched found three with no owner and two that matter at launch:
+work touched found three lanes with no owner (accessibility, docs, devices) and two that matter at launch
+(release, feedback):
 
 | Desk | Owns | Why |
 |---|---|---|
-| ♿ Accessibility (`/desk-a11y`) | who a deck or the Studio leaves out | polish looks; nobody checked a screen reader or a color-blind viewer |
+| ♿ Accessibility (`/desk-a11y`) | who a deck or the Studio leaves out | the polish desk checks how slides look to a sighted viewer; nobody checked a screen reader or a color-blind viewer |
 | 📚 Docs (`/desk-docs`) | docs that say what ships | the key renames will leave every doc that names an old key stale |
 | 📱 Devices (`/desk-devices`) | claims left UNVERIFIED on a real device; macOS runner time | tonight's PRs left real-device claims open, and nobody uses `/harness` yet |
 | 🚢 Release (`/desk-release`) | launch readiness, release notes, the dry run | disclosure day; it never cuts a release, the owner's dispatch does |
@@ -230,11 +233,11 @@ The owner noticed the fleet already reads like a starship. The analogy holds wel
 | Sickbay | the flake desk: triage, one doctor per patient, treat the cause |
 | Tactical / security | the security desk |
 | Operations | the merge desk: traffic, docking order, clearances |
-| The holodeck's safety protocols off | the torture desk: break it here so it does not break in the field |
+| The holodeck's safety protocols off | the stress desk: break it here so it does not break in the field |
 | The captain's log | the 📋 standup and 🎯 brief on each PR |
 | "Make it so" | `go A1`, `merge #N`: nothing moves without it |
 
-**Recommendation: use it as teaching flavor, not as names.** Desk and command names stay plain English (`frontier`,
-`polish`, `jank`, `torture`), because HARD RULE #30 and the house style ask for words a new contributor reads without
+**Recommendation: use it as teaching flavor, not as names.** Desk and command names stay plain English (`jank`,
+`polish`, `stress`, `frontier`, and the rest), because HARD RULE #30 and the house style ask for words a new contributor reads without
 a key, and the repository is public. The table can live in this note and in a docs-site explainer. Naming a desk or
 a command after a ship or a character is the owner's call.

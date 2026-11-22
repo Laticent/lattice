@@ -15,7 +15,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
 `engineering/decisions/2026-11-06-flaky-tests.md` §What a flaky test is and §HARD RULES
 #33 and #34. Tag this session `desk:flaky` and `ui:pinned` (`set_session_tags`).
 
-**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back.
+**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back through a session you start. A test never becomes a follow-up (HARD RULE #33): it gets an owner and a fix.
 
 ## The pass
 

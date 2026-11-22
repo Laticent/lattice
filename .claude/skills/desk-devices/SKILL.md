@@ -32,13 +32,14 @@ whose surface was never reached.
    macOS or Windows runners, the warm `/harness` runner on a PR, or a real device only the
    owner holds.
 3. **Use the runners well.** macOS has 5 slots and is the bottleneck. A PR's own session
-   drives `/harness` on its PR: tell it to (`send_message`) rather than re-dispatching a
-   suite. A suite dispatch is a workflow dispatch, outside the desk's verbs, so propose it to
+   dispatches the warm harness once (`platform-suites.yml` with `harness=<PR>`) and then
+   drives it with `/harness` comments on its PR, which reruns in minutes instead of a full
+   suite dispatch: tell it to (`send_message`). A suite dispatch is a workflow dispatch, outside the desk's verbs, so propose it to
    the owner as a numbered action with its expected minutes.
 4. **Bring the owner one short real-device list** when only the owner can check: each item
    one line, what to do on the device, and what a pass looks like. Record the owner's answer
-   in the follow-up and close it.
-5. **Write back.** A claim settled on a surface becomes evidence in its follow-up or PR; a
+   in the follow-up (through a session you start) and tell the backlog desk, which retires it.
+5. **Write back** (through a session you start, counted in the budget). A claim settled on a surface becomes evidence in its follow-up or PR; a
    new platform trap becomes a gotcha entry; a red suite goes to the flake desk.
 6. **Report** to the command center: open UNVERIFIED claims by surface, runner minutes used,
    the owner's device list if any, and `budget: N/10 today`.

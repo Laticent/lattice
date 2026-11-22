@@ -34,7 +34,7 @@ the docs, or a request?
 4. **Draft the replies.** Every reply to an outside person is a draft for the owner, in plain
    words, posted as a ❓ item. A comment on someone else's issue speaks for the owner
    (CLAUDE.md's SECOND FILTER, row 5).
-5. **Write back.** A reproduction becomes evidence on the issue's fix PR or follow-up.
+5. **Write back** (through a session you start, counted in the budget). A reproduction becomes evidence on the issue's fix PR or follow-up.
 6. **Report** to the command center: new reports by kind, what was reproduced, where each
    went, the reply drafts, and `budget: N/10 today`.
 

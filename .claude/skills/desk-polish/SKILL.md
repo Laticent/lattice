@@ -44,7 +44,7 @@ is the floor. A claim here names its surface and carries an artifact from it (HA
    slide changes (HARD RULE #9), `tools/pixel-check.js` before and after, and the PR deletes
    the follow-up file it fixes. A change to export bytes stops for the owner's sign-off
    (CLAUDE.md §QUALITY BAR).
-5. **Write back.** A trap becomes a gotcha entry in the topic file. A shortfall you will
+5. **Write back** (through a session you start, counted in the budget). A trap becomes a gotcha entry in the topic file. A shortfall you will
    not fix this pass becomes a `followups.d/` file with its artifact path and
    `deferred: large|blocked|off-path`.
 6. **Report** to the command center: the surface swept, the top items as fleet rows with

@@ -34,7 +34,7 @@ and what would embarrass us?
    item for the owner.
 4. **Dry run.** `npm run release:dry`, and report what it would publish against
    `RELEASE.md` §The distribution contract.
-5. **Write back.** A blocker found becomes a fleet row with an owner; anything deferred past
+5. **Write back** (through a session you start, counted in the budget). A blocker found becomes a fleet row with an owner; anything deferred past
    the release becomes a `followups.d/` file.
 6. **Report** to the command center: ready or not, the blocker list, the notes draft, and
    `budget: N/10 today`.

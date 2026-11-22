@@ -38,7 +38,7 @@ costs more than a missing one, because an agent reads it and acts on it.
    changes the MEANING of a canonical doc (CLAUDE.md, a HARD RULE, a `workflow.md` contract)
    goes to the owner as a ❓ item instead (CLAUDE.md's SECOND FILTER). The `prose-checker`
    agent reads a rewritten page before its PR.
-5. **Write back.** A finding you will not fix this pass becomes a `followups.d/` file. A doc
+5. **Write back** (through a session you start, counted in the budget). A finding you will not fix this pass becomes a `followups.d/` file. A doc
    that keeps drifting the same way is a sign a generated doc or a gate is missing: propose
    one to the optimize desk.
 6. **Report** to the command center: the surface audited, the top items, and

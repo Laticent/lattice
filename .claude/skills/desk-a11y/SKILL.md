@@ -41,7 +41,7 @@ ships (decks, themes, charts) and what the author uses (the Studio, the docs sit
    `origin:desk-a11y`, a `claim:`). Its brief carries the failing check as the baseline and
    says: the fix ships with that check passing and a failing arm (HARD RULE #34), a demo
    deck if a slide changes (#9), and the PR deletes the follow-up file it fixes.
-5. **Write back.** A new trap becomes a gotcha entry; a gap you will not fix this pass
+5. **Write back** (through a session you start, counted in the budget). A new trap becomes a gotcha entry; a gap you will not fix this pass
    becomes a `followups.d/` file (`deferred: large|blocked|off-path`).
 6. **Report** to the command center: the surface checked, the top items as fleet rows, what
    stayed UNVERIFIED and why, and `budget: N/10 today`.
