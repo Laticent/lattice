@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — raise the studio eagerJsGz ceiling by 2,000 B (636,636 → 638,636), by hand, at the owner's direction
+
+The owner chose a 2,000-byte ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too (571,778 → about 636,517) and put the ceiling 10% above it (about 700,170, +63.5 KB), so this entry is written by hand, as the 2026-11-22 lintCoreGz entry below is. Soft stays 571,778, so every byte above it is still declared in `docs/route-budget.d/`.
+
+Why: main measured 636,517 bytes, leaving 119 bytes under the old ceiling. PR #3385 (an engine that fails to load shows the failure card, not an endless skeleton) adds 564 bytes to DeckPreview, measured at 637,081, 445 over. Gzip already absorbs the card's repeated phrases: a de-duplicated message table measured 17 bytes larger. Giving the bytes back would have meant dropping the recovery real Mobile Safari needs (only a new tab recovers a failed engine sub-file).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 638636 |
+
 ### 2026-11-22 — restore the owner's hand-set studio lintCoreGz ceiling (171,974 B), undoing #3386's lint raise
 
 #3386 merged from the merge queue at a head that still carried a standard 10% lintCoreGz rebaseline (soft 169910, ceiling 186901). That raise was meant to be dropped before merge: #3397 had already set this ceiling by hand to 171974, and the owner chose that over the same +17 KB rebaseline so the gate keeps catching lint-core growth. #3386's row below justifies keeping it with "PR 3349 (+~2 KB)"; that is wrong, as PR 3349 adds 146 B (see #3397's row). The fix was committed but the branch was locked in the queue, so the old head merged. This row puts back #3397's numbers. PR 3362 measures 166.8 KB, 1.2 KB under 171974, so it still fits.
