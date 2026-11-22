@@ -5,7 +5,7 @@ recorded: 2026-11-22
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-17-meta-record.md §15
-deferred: blocked — the `_lens` reader is paired with Lente's `_lens` writer: reading a lens from a record before the writer writes one would leave two tags on a slide after one toggle, so both move together with the writers (meta slice D, as the meta desk proposed on 2026-11-22)
+deferred: blocked — an owner decision: which slice owns Lente's `_lens` writer and its paired reader (the meta desk proposed slice D; §15.3 names neither). They move together, because reading a lens from a record before the writer writes one would leave two tags on a slide after one toggle
 source: https://github.com/Laticent/lattice/pull/3426
 ---
 

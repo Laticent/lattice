@@ -122,14 +122,17 @@ describe('recordClassWords — equal to the engine\'s readRecord', () => {
 		' @meta{layout=kpi} ',
 		'_class: kpi',
 		'{layout=kpi}',
+		'{ layout=kpi}',
+		'{layout=table, footer=Q3}',
+		'@meta{layout=kpi wide, variant=wide}',
+		'@meta{layout=kpi, class=kpi dark}',
 	];
 	for (const body of cases) {
 		it(JSON.stringify(body), () => {
 			const rec = readRecord(body);
 			const engine = rec && rec.ok ? (rec.d.class ?? null) : null;
 			const ours = recordClassWords(body);
-			if (body.startsWith('{')) expect(ours).toBeNull(); // the bare form is retired: Lente reads only @meta
-			else expect(ours).toBe(engine);
+			expect(ours).toBe(engine);
 		});
 	}
 	it('leaves register words out, and they never come first in the engine either', () => {
@@ -143,6 +146,9 @@ describe('slideClassSite — the comment that names the class, in either form', 
 	it('reads a _class comment and a @meta record alike', () => {
 		expect(slideClassSite('<!-- _class: kpi -->\n# X')?.words).toBe('kpi');
 		expect(slideClassSite('<!-- @meta{layout=kpi, footer=Q3} -->\n# X')?.words).toBe('kpi');
+	});
+	it('reads the bare record form too, until the cut retires it (meta-record.md §15.2)', () => {
+		expect(slideClassSite('<!-- {layout=kpi} -->\n# X')?.words).toBe('kpi');
 	});
 	it('reads a running global class on the slide that declares it', () => {
 		expect(slideClassSite('<!-- class: diagram dark -->\n# X')?.words).toBe('diagram dark');

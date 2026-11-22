@@ -100,7 +100,8 @@ export function allDirectiveBodies(src: string, key: 'lens' | 'class'): string[]
 }
 
 // ── The slide's class, from a `_class` comment OR a `@meta{…}` record ──────────────────────────────────
-// A slide can name its layout two ways: `<!-- _class: kpi -->` or `<!-- @meta{layout=kpi} -->` (the record the engine
+// A slide can name its layout as `<!-- _class: kpi -->` or as a record, `<!-- @meta{layout=kpi} -->` or the bare
+// `<!-- {layout=kpi} -->` the cut retires (the record the engine
 // reads through lib/core/meta-door.mjs `readRecord`; engineering/decisions/2026-10-17-meta-record.md §15). This package
 // is zero-dependency and cannot import lib/core, so it carries its own STRICT read of the record's class words: it takes
 // the class only from a record the engine also reads, and gives up (null) on any shape it is unsure of, so it can miss
@@ -157,14 +158,17 @@ function recordItems(inside: string): string[] {
 
 const CLASS_FIELD_ORDER = ['layout', 'variant', 'universal', 'modifiers'];
 
-/** The class words a `@meta{…}` comment body carries, space-joined, or null when it is not a record, does not read,
+/** The class words a `@meta{…}` (or bare `{…}`) comment body carries, space-joined, or null when it is not a record, does not read,
  *  or names no class. Typed fields first (layout, variant, universal, modifiers), then `class`, as `readRecord` orders
  *  them; registers (`headline=`, `icon=`) are left out, and they never come first there either. */
 export function recordClassWords(inner: string): string | null {
 	const body = String(inner ?? '');
 	const lead = body.length - body.trimStart().length;
-	if (!body.startsWith('@meta{', lead)) return null;
-	const braces = recordBraces(body, lead + 5);
+	// `@meta{…}` and the bare `{…}` both, as every reader must until the cut (meta-record.md §15.2); nothing here
+	// depends on the bare one.
+	const open = body.startsWith('@meta{', lead) ? lead + 5 : body.startsWith('{', lead) ? lead : -1;
+	if (open < 0) return null;
+	const braces = recordBraces(body, open);
 	if (!braces) return null;
 	const inside = braces.slice(1, -1).replace(/\n[ \t]*/g, ' ');
 	if (!inside.length || inside[0] === ' ' || inside[0] === '\t') return null; // the engine's grammar refuses a lead space
@@ -191,11 +195,12 @@ export function recordClassWords(inner: string): string | null {
 	}
 	const words: string[] = [];
 	for (const f of CLASS_FIELD_ORDER) if (typed[f]) words.push(...typed[f].split(/[ \t]+/).filter(Boolean));
-	for (const w of cls) if (!words.includes(w)) words.push(w);
-	return words.length ? words.join(' ') : null;
+	words.push(...cls);
+	const unique = [...new Set(words)]; // a word repeated across fields is written once, as readRecord does
+	return unique.length ? unique.join(' ') : null;
 }
 
-/** The first non-fenced comment that names the slide's class, a `_class` or `class` comment or a `@meta{…}` record,
+/** The first non-fenced comment that names the slide's class, a `_class` or `class` comment or a record (`@meta{…}` or bare `{…}`),
  *  with its span and the class words. A record that names no class is skipped. */
 export function slideClassSite(src: string): { start: number; end: number; words: string } | null {
 	const text = String(src ?? '');
