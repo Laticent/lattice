@@ -206,6 +206,12 @@ section.topic > p:has(> code:only-child):not(:where([data-prose])) > code {
 section.topic > :is(p, blockquote) {
   color: var(--on-dark-secondary);
 }
+/* A `#` heading is not the topic name (that is `##`), but it still lands on the dark band, so it takes the
+ * same display ink and scheme pin as the `##` below rather than the canvas's dark heading ink. */
+section.topic > h1 {
+  color-scheme: dark;
+  color: var(--text-display);
+}
 
 /* ── the topic name ───────────────────────────────────────────────────────── */
 /* `--fs-h2`, one tier below `divider`'s `--fs-h1`: a topic is smaller than the

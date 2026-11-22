@@ -1328,6 +1328,12 @@ describe('lint-core: block-unsupported', () => {
     assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nInterview conducted in March.\n'), []);
     // A lazy second line of the quotation, a note in speaker notes, and code are not paragraphs after it.
     assert.deepEqual(q('> We bought it\nfor day one.\n\n— Jane Doe\n\n<!--\nsay this slowly\n-->\n'), []);
+    // Trailing whitespace, a tab included, does not hide a sentence's full stop (checker on cde848e).
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nInterview conducted in March.\t\n'), []);
+    // The message quotes at most 40 characters of the paragraph, trimmed.
+    const long = q('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product, Pilot Team 3, North America Region \n');
+    assert.equal(long.length, 1);
+    assert.match(long[0].message, /^"Head of Product, Pilot Team 3, North Ame" renders/);
   });
 
   test('says nothing about a correctly-authored quote carrying no modifier', () => {
