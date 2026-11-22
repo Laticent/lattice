@@ -144,7 +144,10 @@ Q4, then D3.
 
 Each PR:
 
-1. Renames the key or token in the engine and removes the old spelling (rule 5).
+1. Renames the key or token in the engine and removes the old spelling (rule 5). It also renames
+   the internal names that carry the old word (a resolver file such as `resolve-lift.js`, a vocab
+   field such as `liftNames`, a constant such as `MODE_REGISTER`), so the code reads the way
+   authors write (rule 3; owner, 2026-11-22).
 2. Adds a lint rule in `lib/authoring/lint-core.js` (HARD RULE #7): the old name is an error that
    names the new one, with a `--fix` rewrite. The `deck-settings.js` row for the old key becomes
    `kind: 'retired'` pointing at that rule, the pattern `guards-renamed` and `fonts-renamed` use.
