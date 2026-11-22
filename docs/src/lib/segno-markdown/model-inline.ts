@@ -29,7 +29,7 @@ export interface SlideDetail {
 	readonly line0: number;
 }
 
-const details = new WeakMap<object, SlideDetail>();
+const details = /* @__PURE__ */ new WeakMap<object, SlideDetail>();
 
 /**
  * A slide's detail, kept with its segment, so an update re-reads only the slides it re-parsed. A slide starts just after
@@ -317,7 +317,7 @@ export interface References {
 	readonly keys: string;
 }
 
-const referenceMemo = new WeakMap<DeckModel, References>();
+const referenceMemo = /* @__PURE__ */ new WeakMap<DeckModel, References>();
 
 function piecesText(m: DeckModel, a: Int32Array): string {
 	let out = '';
@@ -366,7 +366,7 @@ function readRef(m: DeckModel, r: RefRecord, dl: number): Reference {
 
 /** Kept tapes, per parser and per segment (by the leaf's index in it), valid while the deck's reference keys are `keys`. */
 type Kept = { keys: string; tapes: ({ tape: InlineTape; leaf: LeafText; off: number } | undefined)[] };
-const inlineMemo = new WeakMap<InlineParser, WeakMap<object, Kept>>();
+const inlineMemo = /* @__PURE__ */ new WeakMap<InlineParser, WeakMap<object, Kept>>();
 
 /**
  * S2 over the leaf at `token` (a global tape index of an `inline` token): its text and its inline tape. Parsed on

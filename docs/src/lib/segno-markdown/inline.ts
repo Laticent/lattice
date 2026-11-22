@@ -64,7 +64,10 @@ const I_LINK_OPEN = 12;
 const I_LINK_CLOSE = 13;
 const I_IMAGE = 14;
 
-export const IKIND = Object.freeze({
+// `/* @__PURE__ */` on every module-level construction here: a bundle that takes only the block pass (the lint core,
+// the slide-boundary reader) must drop the inline pass whole, and a bundler keeps a call or a filling loop it cannot
+// prove is free of side effects (the lint core carried these tables before the marks, about 0.3 KB gz).
+export const IKIND = /* @__PURE__ */ Object.freeze({
 	text: I_TEXT,
 	text_special: I_TEXT_SPECIAL,
 	softbreak: I_SOFTBREAK,
@@ -220,12 +223,17 @@ const MAX_NESTING = 20; // markdown-it's commonmark preset
 
 const isSpace = (c: number) => c === 0x09 || c === 0x20;
 
-// markdown-it's text rule stops on these, and only on these.
-const TERMINATOR = new Uint8Array(128);
-for (const c of '\n!#$%&*+-:<=>@[\\]^_`{}~') TERMINATOR[c.charCodeAt(0)] = 1;
+/** A byte table with 1 at each of `chars`' codes. PURE. */
+function charTable(size: number, chars: string): Uint8Array {
+	const t = new Uint8Array(size);
+	for (const c of chars) t[c.charCodeAt(0)] = 1;
+	return t;
+}
 
-const ESCAPABLE = new Uint8Array(256);
-for (const c of '\\!"#$%&\'()*+,./:;<=>?@[]^_`{|}~-') ESCAPABLE[c.charCodeAt(0)] = 1;
+// markdown-it's text rule stops on these, and only on these.
+const TERMINATOR = /* @__PURE__ */ charTable(128, '\n!#$%&*+-:<=>@[\\]^_`{}~');
+
+const ESCAPABLE = /* @__PURE__ */ charTable(256, '\\!"#$%&\'()*+,./:;<=>?@[]^_`{|}~-');
 /** Whether markdown-it's escape rule unescapes this character (its `ESCAPED` table). */
 export function isEscapable(c: number): boolean {
 	return c < 256 && ESCAPABLE[c] === 1;
@@ -402,9 +410,9 @@ class Handle implements InlineTokenHandle {
 }
 
 // Shared empty outputs: most leaves have no links, no images and no plugin tokens.
-const NO_LINKS = new Int32Array(0);
-const NO_CHILDREN: readonly InlineTape[] = Object.freeze([]);
-const NO_SIDE: ReadonlyMap<number, InlineSide> = new Map();
+const NO_LINKS = /* @__PURE__ */ new Int32Array(0);
+const NO_CHILDREN: readonly InlineTape[] = /* @__PURE__ */ Object.freeze([]);
+const NO_SIDE: ReadonlyMap<number, InlineSide> = /* @__PURE__ */ new Map();
 
 class State implements InlineState {
 	src = '';
@@ -1031,18 +1039,24 @@ function autolink(state: State, silent: boolean): boolean {
 	return true;
 }
 
-// markdown-it lib/common/html_re.mjs: an open or close tag.
-const attr_name = '[a-zA-Z_:][a-zA-Z0-9:._-]*';
-const unquoted = '[^"\'=<>`\\x00-\\x20]+';
-const single_quoted = "'[^']*'";
-const double_quoted = '"[^"]*"';
-const attr_value = `(?:${unquoted}|${single_quoted}|${double_quoted})`;
-const attribute = `(?:\\s+${attr_name}(?:\\s*=\\s*${attr_value})?)`;
-const open_tag = `<[A-Za-z][A-Za-z0-9\\-]*${attribute}*\\s*\\/?>`;
-const close_tag = '<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>';
-// Sticky (`y`) at `pos` instead of markdown-it's `src.slice(pos).match(/^…/)`: the same match, without reading the rest
-// of the leaf into a new string at every `<`.
-const HTML_OPEN_CLOSE_TAG_RE = new RegExp(`(?:${open_tag}|${close_tag})`, 'y');
+// markdown-it lib/common/html_re.mjs: an open or close tag. Sticky (`y`) at `pos` instead of markdown-it's
+// `src.slice(pos).match(/^…/)`: the same match, without reading the rest of the leaf into a new string at every `<`.
+// Built on first use, inside a function: a module-level template with substitutions is code a bundler cannot drop, so
+// a bundle of the block pass alone (the lint core) carried this regex and its pieces.
+let htmlTagRe: RegExp | null = null;
+function htmlOpenCloseTagRe(): RegExp {
+	if (htmlTagRe) return htmlTagRe;
+	const attr_name = '[a-zA-Z_:][a-zA-Z0-9:._-]*';
+	const unquoted = '[^"\'=<>`\\x00-\\x20]+';
+	const single_quoted = "'[^']*'";
+	const double_quoted = '"[^"]*"';
+	const attr_value = `(?:${unquoted}|${single_quoted}|${double_quoted})`;
+	const attribute = `(?:\\s+${attr_name}(?:\\s*=\\s*${attr_value})?)`;
+	const open_tag = `<[A-Za-z][A-Za-z0-9\\-]*${attribute}*\\s*\\/?>`;
+	const close_tag = '<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>';
+	htmlTagRe = new RegExp(`(?:${open_tag}|${close_tag})`, 'y');
+	return htmlTagRe;
+}
 
 const isLetter = (ch: number) => {
 	const lc = ch | 0x20;
@@ -1090,8 +1104,9 @@ function htmlInline(state: State, silent: boolean): boolean {
 	if (ch === 0x21 || ch === 0x3f) {
 		end = scanSpecial(state, pos);
 	} else if (ch === 0x2f || isLetter(ch)) {
-		HTML_OPEN_CLOSE_TAG_RE.lastIndex = pos;
-		const match = HTML_OPEN_CLOSE_TAG_RE.exec(src);
+		const re = htmlOpenCloseTagRe();
+		re.lastIndex = pos;
+		const match = re.exec(src);
 		end = match ? pos + match[0].length : -1;
 	} else {
 		return false;
