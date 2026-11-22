@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AUDIO_CACHE_MAX_BYTES, createVoiceModel } from './voice-model.js';
 
 // The audio cache is bounded by BYTES as well as by count (2026-11-17). The count alone (200) was sized for MP3; a
-// Gemini voice answers uncompressed PCM, about ten times the bytes a second, and 200 of those clips were enough, on top
-// of Present, for an iPhone to reload the tab (PROBE=present-narration on the iOS Simulator).
+// Gemini voice answers uncompressed PCM, about ten times the bytes a second, so 200 such clips is about 95 MB. A safety
+// limit, NOT the fix for the iPhone reload during narrated Present (that was Guide on a 4K deck, #3304). The same budget
+// in a real engine, with real Blobs: docs/e2e/voice-cache-budget.spec.ts.
 
 type V = {
 	synthOne: (o: { text: string }) => Promise<unknown>;
