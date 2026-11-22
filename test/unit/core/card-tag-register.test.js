@@ -183,15 +183,15 @@ test('css: every placement and alignment word has a rule on every tagged layout'
 
 test('css: list-steps capsule reads the card-tag pair and size, so the register reaches it', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/components/progression/list-steps/list-steps.styles.css'), 'utf8');
-  const pill = css.match(/section\.list-steps\.capsule ol > li::before\s*\{([^}]*)\}/);
+  const pill = css.match(/section\.list-steps\.capsule ol(?::where\(\.cell-stage > \*\))? > li::before\s*\{([^}]*)\}/);
   assert.ok(pill, 'the capsule pill rule exists');
   assert.match(pill[1], /background:\s*var\(--card-tag-fill/);
   assert.match(pill[1], /color:\s*var\(--card-tag-ink/);
   assert.match(pill[1], /font-size:\s*var\(--card-tag-fs\)/);
   // The categorical cycle sets the pair on the CARD (so a register word on the pill wins),
   // never on the pill itself.
-  assert.doesNotMatch(css, /capsule ol > li:nth-child\([^)]*\)::before\s*\{[^}]*background/);
-  assert.match(css, /capsule ol > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-mark\);\s*--card-tag-ink:\s*var\(--cat-on-mark\)/);
+  assert.doesNotMatch(css, /capsule ol(?::where\(\.cell-stage > \*\))? > li:nth-child\([^)]*\)::before\s*\{[^}]*background/);
+  assert.match(css, /capsule ol(?::where\(\.cell-stage > \*\))? > li:nth-child\(8n\+1\)\s*\{\s*--card-tag-fill:\s*var\(--cat-1-mark\);\s*--card-tag-ink:\s*var\(--cat-on-mark\)/);
   assert.doesNotMatch(css, /capsule[^{]*\{[^}]*--cat-\d-fill/, 'capsule is on the saturated tier (owner Q4)');
   // The pill is the kernel's inline chip: em padding with the equal-size shims, centered.
   assert.match(pill[1], /--card-tag-shim-x/);

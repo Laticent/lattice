@@ -32,24 +32,29 @@
   "excludes": [
     "accent"
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`."
     },
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not."
     },
     "logos": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`)."
     },
     "caption": {
       "selector": "ul > li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark. A captioned wall whose captions run past their columns, or whose rows run off the slide, drops to the columns its captions need, measured as it renders (on a phone, mostly)."
     }

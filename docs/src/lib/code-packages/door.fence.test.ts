@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
-import { approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setPlugins, studioPlugins, unapprovedIn } from './door';
+import { approvalsInStamp, approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setCodePackages, setPlugins, studioPlugins, unapprovedIn } from './door';
 
 /** The shared deck's plugin blocks, every one of them drawn: no slide is shadowed (spec/LPM.md §10). */
 const DRAWN = 3;
@@ -15,6 +15,13 @@ const DRAWN = 3;
 const require = createRequire(import.meta.url);
 const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string; pluginDigests: (code: string, fence: string) => string[] };
 const engine = require('../../../../lib/engine') as { createEngine: () => { render: (s: string, t: string, o?: Record<string, unknown>) => { html: string } } };
+
+// The host's slot fill, real unless a test sets `fill.overflow` to reach the past-the-limit branch without a 2M-character value.
+const fill = vi.hoisted(() => ({ overflow: false }));
+vi.mock('../../../../lib/packages/plugin-returns.mjs', async (importOriginal) => {
+	const real = (await importOriginal()) as { fillReturnSlots: (...a: unknown[]) => unknown };
+	return { ...real, fillReturnSlots: (...a: unknown[]) => (fill.overflow ? null : real.fillReturnSlots(...a)) };
+});
 
 // The frame the door opens: runs the renderer text in this realm. The real frame's walls are the browser's.
 const opened: { code: string; fence: boolean; ran: number; closed: boolean }[] = [];
@@ -537,6 +544,41 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 	});
 
+	it('a clash note is not reported for blocks the stamp-less render shows as the engine drew them (#3292)', async () => {
+		const TWO = '---\nplugins: [gantt-plugin]\n---\n\n## Two blocks\n\n```gantt\nA\n```\n\n```gantt\nB\n```\n';
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS, css: '.bar { color: red }' }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });
+		renderer = (f) => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>drawn</p>', data: { status: f.body.includes('A') ? 'ok' : 'late' } })}`;
+		const clashes = async (opts: Record<string, unknown>) => {
+			let status: { failed?: { name: string; why: string }[] } = {};
+			const off = onCodePackagesStatus((s) => {
+				status = s;
+			});
+			await renderWithCodePackages<{ html: string }>(PG, TWO, 'indaco', { codeStatus: true, ...opts });
+			off();
+			return (status.failed ?? []).filter((f) => /the first block's is kept/.test(f.why));
+		};
+		// Drawn (no CSS handed, or CSS with the stamp): the two blocks clash, and the strip says so.
+		expect(await clashes({})).toHaveLength(1);
+		// CSS with no stamp and no sheet: neither block is drawn in this render, so nothing is "kept" to speak of.
+		expect(await clashes({ codeApproval: '' })).toEqual([]);
+	});
+
+	it('host slots: the past-the-limit note stands under stamp-less CSS too, as in the export (#3292)', async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS, css: '.bar { color: red }' }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });
+		renderer = () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>${note}</p>', data: { status: 'ok', note: 'x' } })}`;
+		fill.overflow = true;
+		try {
+			const exported = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
+			expect(exported).toContain('when the host filled its slots');
+			// CSS with no stamp and no sheet: the override must not put the bare block where the door wrote its note.
+			expect((await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', { codeApproval: '' })).html).toBe(exported);
+		} finally {
+			fill.overflow = false;
+		}
+	});
+
 	it('host slots: a disabled plugin and a failed block keep what they had; no value reaches a note', async () => {
 		await install();
 		renderer = () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>${note}</p>', data: { status: 'evil', note: 'x' } })}`;
@@ -552,5 +594,152 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		const { html, failed } = await statusOf(DECK);
 		expect(html).toContain('it declares no return fields');
 		expect(failed.some((f) => /disabled for this render/.test(f.why))).toBe(true);
+	});
+});
+
+describe('a render draws by the stamp in the CSS it paints with (#3292)', () => {
+	const drawWith = async (css: string, status = false) => (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', { codeApproval: css, ...(status ? { codeStatus: true } : {}) })).html;
+	// The plugin has a stylesheet here: its sheet rides in the stamp, and a render without the stamp may lack it.
+	beforeEach(async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: red }' }]);
+	});
+
+	it('the stamp is read from the CSS, only a "+" counts, and CSS with none gives no stamp', async () => {
+		expect(approvalsInStamp('.a { color: red }')).toBeNull();
+		expect([...(approvalsInStamp(codePackagesStamp()) ?? ['x'])]).toEqual([]);
+		await approve();
+		expect([...(approvalsInStamp(`.a{}\n${codePackagesStamp()}`) ?? [])]).toEqual([`plugin/${PLUGIN.name}@${(await pluginDigest(code, PLUGIN.fence)).slice(0, 16)}`]);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a look-alike stamp in other CSS (a Library component, a finish) is not the stamp: it cannot narrow what draws', async () => {
+		await approve();
+		const forged = `/* lattice code packages: plugin/${PLUGIN.name}@0000000000000000- */\n/* lattice code packages zzzz: plugin/${PLUGIN.name}@0000000000000000- */\n.card{}`;
+		expect(approvalsInStamp(forged)).toBeNull();
+		const html = await drawWith(`${forged}\n${codePackagesStamp()}`);
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a render begun before the approval, with the stamp from before it, draws the placeholder and does not ask again', async () => {
+		const before = codePackagesStamp();
+		await approve();
+		let status: { unapproved: { name: string }[] } = { unapproved: [] };
+		const off = onCodePackagesStatus((s) => {
+			status = s;
+		});
+		const html = await drawWith(before, true);
+		off();
+		// Drawn as unapproved, matching the CSS it paints with, which has no sheet for the plugin yet.
+		expect(html).toContain('data-reason="unapproved"');
+		expect(opened).toEqual([]);
+		// And the notice is not told it is unapproved: the yes was given, so the question must not come back.
+		expect(status.unapproved.map((p) => p.name)).not.toContain('gantt-plugin');
+		// The render with the stamp the approval made draws it.
+		const after = await drawWith(codePackagesStamp());
+		expect(after).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stamp only narrows: a stale stamp that says approved does not run a plugin whose approval was withdrawn', async () => {
+		await approve();
+		const approving = codePackagesStamp();
+		revokePlugin(PLUGIN.name);
+		const html = await drawWith(approving);
+		expect(opened).toEqual([]);
+		expect(html).toContain('data-reason="unapproved"');
+	});
+
+	it('CSS with no stamp of this page and no sheet for the plugin shows its block as the engine drew it, and nothing asks', async () => {
+		await approve();
+		let status: { unapproved: { name: string }[] } = { unapproved: [{ name: 'unset' }] };
+		const off = onCodePackagesStatus((s) => {
+			status = s;
+		});
+		// A reload: the render began with the shell's CSS from before its stamp held the plugins (#3292).
+		const html = await drawWith('.card { color: red }', true);
+		off();
+		// The engine's own block, as with no plugin installed: no drawing without its colors, and no "approve" card.
+		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(status.unapproved).toEqual([]);
+		// The plugin ran, and its result is remembered: the render with the stamp draws without running it again.
+		const ran = opened.reduce((n, o) => n + o.ran, 0);
+		expect(ran).toBeGreaterThan(0);
+		const stamped = await drawWith(codePackagesStamp());
+		expect(stamped).toContain('data-lattice-plugin="gantt-plugin"');
+		expect(opened.reduce((n, o) => n + o.ran, 0)).toBe(ran);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('CSS that carries the plugin\'s sheet without this page\'s stamp (print options\' export CSS) draws by the live approval', async () => {
+		await approve();
+		// Export CSS as a file holds it: the stamp with its nonce taken out (share-export.ts `withoutStampNonce`), then the sheets.
+		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		expect(approvalsInStamp(exported)).toBeNull();
+		const html = await drawWith(`.card { color: red }\n${exported}`);
+		expect(html).toContain('data-lattice-plugin="gantt-plugin"');
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a plugin with no stylesheet needs no sheet: CSS with no stamp draws it by the live approval', async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code }]);
+		await approve();
+		const html = await drawWith('.card { color: red }');
+		expect(html).toContain('data-lattice-plugin="gantt-plugin"');
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('an unapproved or unlisted styled plugin keeps its placeholder under stamp-less CSS, as the export draws it', async () => {
+		// Unapproved: its sheet never rides in the stamp, so stamp-less CSS never carries it; the placeholder still stands.
+		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		const asExported = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
+		expect(asExported).toContain('data-reason="unapproved"');
+		for (const css of [`.card { color: red }\n${exported}`, '']) expect(await drawWith(css)).toBe(asExported);
+		// Unlisted: an approved plugin the deck's `plugins:` does not list draws the door's placeholder, here too.
+		await approve();
+		const unlisted = (await renderWithCodePackages<{ html: string }>(PG, DECK_UNLISTED, 'indaco', {})).html;
+		expect(unlisted).not.toBe(PG.render(DECK_UNLISTED, 'indaco', {}).html);
+		for (const css of [`.card { color: red }\n${exported}`, '']) expect((await renderWithCodePackages<{ html: string }>(PG, DECK_UNLISTED, 'indaco', { codeApproval: css })).html).toBe(unlisted);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stylesheet changed on re-import, code unchanged: CSS that carries the new sheet draws the plugin', async () => {
+		await approve();
+		const nonceFree = () => codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		expect(await drawWith(nonceFree())).toContain('data-lattice-plugin="gantt-plugin"');
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: blue }' }]);
+		expect(nonceFree()).toContain('blue');
+		expect(await drawWith(nonceFree())).toContain('data-lattice-plugin="gantt-plugin"');
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stamp that does not list the plugin at all (set before the plugins loaded) is not an "unapproved" for it', async () => {
+		// This page's stamp, listing nothing the plugins hold: the first stamp after a reload can be the packages' alone.
+		await setPlugins([]);
+		await setCodePackages([{ name: 'tally', code: 'function t(s){return s.html}\nexport { t as default };\n' }]);
+		const packagesOnly = codePackagesStamp();
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: red }' }]);
+		await approve();
+		const html = await drawWith(packagesOnly);
+		// No "approve" card for an approved plugin; its sheet is not in this CSS, so the engine's block stands for one render.
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
+		revokePlugin(PLUGIN.name);
+		await setCodePackages([]);
+	});
+
+	it('a render handed no CSS at all (an export, a scan) keeps the live approvals in charge', async () => {
+		await approve();
+		const html = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
 	});
 });

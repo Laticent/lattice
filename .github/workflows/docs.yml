@@ -31,7 +31,13 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
+      # Full history WITHOUT file contents (commits and trees only, ~19 MB, ~3 s): the sitemap's
+      # lastmod is each page's last content commit (docs/src/lib/lastmod.mjs), which a depth-1
+      # checkout cannot know. Owner call on #3207.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 22

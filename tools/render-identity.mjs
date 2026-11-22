@@ -110,6 +110,9 @@ function buildTree(dir, label) {
   // compared below is fresh in both trees.
   steps.push('build-css.js');
   if (fs.existsSync(path.join(dir, 'tools/build-default-bundle.js'))) steps.push('build-default-bundle.js');
+  // The VS Code-shaped stylesheets (dist/lattice-vscode*.css) are built from the bundle too. Left out, the ref tree kept
+  // whatever its checkout had (none) while this tree kept `npm run build`'s, so `--strict` failed on main against itself.
+  if (fs.existsSync(path.join(dir, 'tools/build-marp-vscode-css.js'))) steps.push('build-marp-vscode-css.js');
   for (const step of steps) {
     try {
       execFileSync(process.execPath, [path.join(dir, 'tools', step)], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
@@ -181,14 +184,20 @@ for (const p of sourceChanged) {
   removed.splice(removed.indexOf(p), 1);
 }
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
-const cssNames = [...new Set([...Object.keys(here.css), ...Object.keys(there.css)])].sort();
+// Compared: the stylesheets both trees have. Both trees run the same CSS steps (`buildTree`, the VS Code bundles
+// included), so every stylesheet those write is paired and compared byte for byte. A file only HERE is listed, not
+// failed: a stylesheet some other step of a full `npm run build` wrote into this tree. A file only THERE is a stylesheet
+// the CSS build no longer writes, which `--strict` fails on like any other unpaired output.
+const cssNames = Object.keys(here.css).filter((n) => n in there.css).sort();
 const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
+const cssLostNames = Object.keys(there.css).filter((n) => !(n in here.css)).sort();
+const cssOneSided = [...Object.keys(here.css).filter((n) => !(n in there.css)).map((n) => `${n} (here only)`), ...Object.keys(there.css).filter((n) => !(n in here.css)).map((n) => `${n} (there only)`)].sort();
 
 const result = {
   ref: REF,
   decks: Object.keys(here.decks).length,
   paired: Object.keys(here.decks).filter((k) => there.decks[k]).length,
-  changed, sourceChanged, added, removed, lintSame, cssChanged, stylesheets: cssNames.length, strict: STRICT,
+  changed, sourceChanged, added, removed, lintSame, cssChanged, cssOneSided, cssLost: cssLostNames, stylesheets: cssNames.length, strict: STRICT,
   lintFindings: { here: here.lint.length, there: there.lint.length },
 };
 if (JSON_OUT) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -199,9 +208,12 @@ else {
     `${cssNames.length} stylesheets, ${cssChanged.length} differ.`);
   for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.error ? ` error: ${c.error}` : ''}`);
   for (const n of cssChanged) console.log(`  stylesheet differs: ${n}`);
+  for (const n of cssOneSided) console.log(`  stylesheet in one tree only, not compared: ${n}`);
+  if (STRICT) for (const n of cssLostNames) console.log(`  FAILS --strict: ${n} is a stylesheet the other tree writes and this one no longer does`);
   for (const p of sourceChanged) console.log(`  source changed: ${p}`);
   for (const p of added) console.log(`  added:   ${p}`);
   for (const p of removed) console.log(`  removed: ${p}`);
 }
 const unpaired = sourceChanged.length + added.length + removed.length;
-process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && unpaired) ? 1 : 0);
+const cssLost = cssLostNames.length > 0;
+process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && (unpaired || cssLost)) ? 1 : 0);

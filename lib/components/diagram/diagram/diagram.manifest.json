@@ -22,16 +22,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing what the diagram shows."
     },
     "subtitle": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional eyebrow caption."
     },
     "mermaid": {
       "selector": "[data-lattice-figure], svg",
+      "match": { "kind": "fence", "lang": "mermaid" },
       "required": true,
       "description": "Fenced ```mermaid block, pre-rendered to SVG at build time."
     }

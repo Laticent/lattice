@@ -1,4 +1,5 @@
 import { test as base, expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
+import { layoutSettled } from './barriers';
 
 // Shared harness for the Studio E2E suite. Playwright gives each test its own
 // browser context, so `localStorage` (the `lattice-studio-*` keys) starts empty
@@ -27,6 +28,8 @@ export const CHROME = {
 	deckScope: 'Deck scope',
 	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
 	slideSettings: 'Slide settings',
+	/** The editor bar's ⋯: what the bar has moved out to fit its pane (StudioShell `EDIT_FIT`), Slide settings among them. */
+	editorMore: 'More editor actions',
 	/**
 	 * The SAME destination as `deckScope`, reached the two other ways the Studio offers it.
 	 * `deckScope` is a desktop-only control: at 820px there is no scope rail, and at 390px
@@ -541,7 +544,8 @@ export const appToast = toastText;
  * On mobile/tablet the editor lives behind the Edit pane, so we do NOT gate on it
  * here.
  */
-export async function gotoStudio(page: Page): Promise<void> {
+/** `query`: a search string for the Studio URL (`?tier=lite`), for a spec that pins the device tier. */
+export async function gotoStudio(page: Page, { query = '' }: { query?: string } = {}): Promise<void> {
 	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
@@ -604,7 +608,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 			w.__latticeDeliveredCaret = snap();
 		});
 	});
-	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	await page.goto(`/studio/${query}`, { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }
 
@@ -938,10 +942,15 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
  * document on `webkit-tablet` on the first press.
  *
  * So: press, then CHECK THE OBSERVABLE and take the other modifier if the first did
- * nothing. The check is `window.getSelection()` — a standard API on the real editor —
- * rather than a re-derivation of CodeMirror's own platform sniff, which would just be the
- * same guess in a new place. (CodeMirror virtualizes long documents, so the selected
- * STRING covers only the rendered lines; empty-vs-not is the signal, never its length.)
+ * nothing. The observable is CODEMIRROR'S OWN STATE SELECTION, which must span the whole
+ * document, rather than a re-derivation of CodeMirror's platform sniff, which would just be the
+ * same guess in a new place. It used to be `window.getSelection()`, and that was wrong: on
+ * `webkit-phone`, Ctrl+A is not CodeMirror's select-all, so WebKit runs a NATIVE select-all,
+ * the DOM selection fills at once, and CodeMirror's state stays the click's caret until it
+ * syncs from the DOM asynchronously. Under load the Delete reached CodeMirror's keymap first
+ * and removed one character: 10 of 80 runs at 4 workers left the welcome deck minus one
+ * character (1,695 of 1,696), with no transaction between the two keys. Meta+A, which is
+ * CodeMirror's select-all there, went 0 of 80. Reading the state selection is engine-agnostic.
  */
 async function selectAllInEditor(page: Page): Promise<void> {
 	// Read the probe off the DECK SOURCE editor specifically, never a bare `.cm-content`.
@@ -961,32 +970,78 @@ async function selectAllInEditor(page: Page): Promise<void> {
 			const el = document.querySelector('[aria-label="Deck source"]');
 			if (!el) return null;
 			if (el instanceof HTMLTextAreaElement) {
-				return { selected: el.selectionEnd - el.selectionStart, rendered: el.value.length };
+				return { from: el.selectionStart, to: el.selectionEnd, len: el.value.length };
 			}
-			return { selected: (window.getSelection()?.toString() ?? '').length, rendered: (el.textContent ?? '').length };
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+			const handle = el as any;
+			const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+			if (!view) return null;
+			const { from, to } = view.state.selection.main;
+			return { from, to, len: view.state.doc.length };
 		});
 	for (const combo of ['ControlOrMeta+a', 'Meta+a']) {
 		await page.keyboard.press(combo);
 		const seen = await probe();
-		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` — the editor is not on this page');
-		// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
-		// missed keystroke: without this arm the helper would newly throw on a deck it used to
-		// clear happily. It is gated on having actually FOUND the editor, so it can no longer
-		// stand in for one that is absent.
-		if (seen.selected > 0 || seen.rendered === 0) return;
+		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` (or no editor view behind it) — the editor is not on this page');
+		// The whole document, from 0 to its length. An ALREADY-EMPTY document is 0..0 and passes
+		// too, which is right: it is gated on having actually FOUND the editor.
+		if (seen.from === 0 && seen.to === seen.len) return;
 	}
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
 }
 
-/** Open the current slide's Slide settings at its Look section, at any width. Wide layouts show a Slide settings
- *  button; at phone width (390px) the bottom bar's Settings opens both scopes behind a Slide | Deck switch. */
+/**
+ * Open the current slide's Slide settings, at any width. There are three doors, and the layout picks one:
+ *  - the editor bar's Slide settings button, while the bar has room for it;
+ *  - the same item in the bar's ⋯ menu, once the bar has moved it out to fit its pane (StudioShell `EDIT_FIT`). At
+ *    820px the editor pane is about 375px wide, so this is the tablet door;
+ *  - at phone width, the bottom bar's Settings, which opens both scopes behind a Slide | Deck switch.
+ *
+ * Which door exists is decided after a resize by React's re-render and the bar's fit, so the helper waits for both
+ * (`layoutSettled`) before it looks. A copy of this in image-card-register counted the bar button the moment it had
+ * resized 390 → 820px: it saw the button while the fit had not yet run, and passed; under load the fit had run, it saw
+ * 0, took the phone route, and waited for a bottom bar 820px never draws (a nightly shard, 2026-11-17).
+ */
+export async function openSlideSettings(page: Page): Promise<void> {
+	await layoutSettled(page);
+	const direct = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
+	const more = page.getByRole('button', { name: CHROME.editorMore, exact: true }).filter({ visible: true });
+	// Every door must land in the SLIDE scope, not merely open the panel: the same panel holds the Deck scope. The
+	// slide's own section strip (SlideContext `Slide settings sections`) is drawn only there, whichever door opened it;
+	// the Slide | Deck switch is not on every layout (desktop's rail opens the slide scope directly).
+	const slideScope = page.getByRole('tablist', { name: 'Slide settings sections' }).filter({ visible: true }).first();
+	// The bar can still re-fit after the settle: its fit re-runs when the issue count, the selection or the fonts change
+	// (StudioShell `useRowFit` key), and that moves Slide settings between the bar and the ⋯ menu. So the door read is
+	// not trusted on its own: the strip is the signal that the door was right. A door that moved between the read and
+	// the click fails its short attempt, and the next attempt reads the bar again. Nothing is clicked once the strip
+	// shows, so no attempt can close what an earlier one opened.
+	await expect(async () => {
+		if (await slideScope.isVisible()) return;
+		const menu = page.getByRole('menu').filter({ visible: true });
+		if (await menu.count()) await page.keyboard.press('Escape');
+		if (await direct.count()) await direct.first().click({ timeout: 2_000 });
+		else if (await more.count()) {
+			await more.first().click({ timeout: 2_000 });
+			await page.getByRole('menuitem', { name: CHROME.slideSettings }).click({ timeout: 2_000 });
+		} else {
+			// The phone door is two steps, and an attempt can end between them: the sheet is open but its Slide | Deck switch
+			// is not ready yet (a nightly, webkit-phone, 2026-11-17). Pressing Settings again then fails, because the open
+			// sheet covers the bottom bar ("sheet-title … intercepts pointer events"). So the attempt asks whether the SHEET
+			// is open, by its title, the element that intercepts the press, and presses Settings only when it is not. Asking
+			// whether the switch is on screen instead still pressed Settings in that window and spent the attempt on it
+			// (checker, #3298). The switch sets the scope rather than toggling it (StudioShell `setInspectorScope`), so
+			// pressing Slide again is harmless.
+			const sheetOpen = page.locator('[data-slot="sheet-title"]').filter({ hasText: /^Settings$/, visible: true });
+			if (!(await sheetOpen.count())) await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click({ timeout: 2_000 });
+			await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click({ timeout: 2_000 });
+		}
+		await expect(slideScope).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 15_000 });
+}
+
+/** Open the current slide's Slide settings at its Look section, at any width (see `openSlideSettings`). */
 export async function openSlideLook(page: Page): Promise<void> {
-	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await slideButton.count()) await slideButton.first().click();
-	else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
-	}
+	await openSlideSettings(page);
 	await openSection(page, CHROME.slideTab.look);
 }
 
@@ -1008,7 +1063,8 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	await expect
 		.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
 		.toBe(0);
-	await page.keyboard.insertText(text);
+	// Nothing to insert for an empty deck: Firefox's driver rejects an empty `insertText` (NS_ERROR_FAILURE).
+	if (text) await page.keyboard.insertText(text);
 	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
 	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
 	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
@@ -1173,6 +1229,17 @@ function addSlideReady(page: Page): Promise<void> {
  * to be usable. On a phone the round door is in both panes, so no pane switch is needed; `compact`
  * is accepted so call sites read the same at every width, and changes nothing.
  */
+/** The Studio's Undo: in the editor's edit bar on desktop and tablet, in the header on a phone (one of the two is ever on
+ *  screen). Not the pill's: Undo / Redo left each slide's pill for the deck's own controls (2026-11-15-compose-layout-button.md). */
+export function studioUndo(page: Page): Locator {
+	return page.getByRole('button', { name: 'Undo', exact: true }).filter({ visible: true }).first();
+}
+
+/** The Studio's Redo, beside `studioUndo`. */
+export function studioRedo(page: Page): Locator {
+	return page.getByRole('button', { name: 'Redo', exact: true }).filter({ visible: true }).first();
+}
+
 export async function openAddSlide(page: Page, _compact = false, side: 'before' | 'after' = 'after'): Promise<void> {
 	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
 	await chooseSide(page, side);

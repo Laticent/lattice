@@ -206,6 +206,13 @@ applying; `docs/patches/README.md` says to delete it once Playwright ships the g
 does not follow the re-inserted frame, so a `contentFrame()` locator finds nothing in it; the spec reads the live
 frame's document through `page.evaluate` instead.
 
+**Patch retired, 2026-11-20 (Playwright 1.65.1).** 1.65.1 still reads the frame unguarded (the function now lives in
+`lib/coreBundle.js`, so the 1.56.1 patch no longer applied and blocked the install), but its Firefox 159 no longer
+reports the navigation. `studio-warm-offline` on gecko, unpatched, `--workers=4 --repeat-each=10`: 1.56.1 / Firefox 142
+5 of 10 red, each the `childFrames` crash; 1.65.1 / Firefox 159 0 of 10 red, then 0 of 30 at `--repeat-each=30`, and 10
+of 10 green alone. The patch was dropped rather than rebuilt. The `contentFrame()` workaround above stays untested on
+159.
+
 **Open, for the owner:**
 
 1. ~~**Offline Firefox export**~~ (§4): done 2026-11-13, latent rather than live; see §4, "The export frames".

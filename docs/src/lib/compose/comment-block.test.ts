@@ -173,23 +173,30 @@ describe('scope: the rule never hides text the slide renders', () => {
 	});
 });
 
-describe('the comment CHANNEL drives the pill label, never the bytes', () => {
-	it('classifies the engine\u2019s two structured channels', () => {
-		expect(commentKind('<!-- say: the slide reads as this. -->')).toBe('say');
-		expect(commentKind('<!-- describe: a bar chart with four bars. -->')).toBe('describe');
-		expect(commentKind('<!-- just a note to self -->')).toBe('note');
+describe('the comment KIND drives the pill label, never the bytes', () => {
+	it('names each of the four notes, and calls every other comment a comment', () => {
+		expect(commentKind('<!-- @note{Pause here.} -->')).toBe('note');
+		expect(commentKind('<!-- @say{the slide reads as this.} -->')).toBe('say');
+		expect(commentKind('<!-- @alt{a bar chart with four bars.} -->')).toBe('alt');
+		expect(commentKind('<!-- @handout{measured over 30 days.} -->')).toBe('handout');
+		expect(commentKind('<!-- just a note to self -->')).toBe('comment');
 	});
 
-	it('is space-tolerant, and case-tolerant where the kernel is', () => {
-		expect(commentKind('<!--say : x-->')).toBe('say');
-		// `say:` is LOWERCASE ONLY (notes-core SAY_MATCHER): "Say: …" opens a private note.
-		expect(commentKind('<!--Say : x-->')).toBe('note');
-		expect(commentKind('<!--  DESCRIBE: x -->')).toBe('describe');
+	it('is space-tolerant around the note, and lowercase only, as the kernel is', () => {
+		expect(commentKind('<!--@say{x}-->')).toBe('say');
+		expect(commentKind('<!--\n  @alt{x}\n-->')).toBe('alt');
+		// `@Say{…}` is not a note (lint names it): it reads as a plain comment.
+		expect(commentKind('<!-- @Say{x} -->')).toBe('comment');
+		expect(commentKind('<!-- @say{x -->')).toBe('comment');
 	});
 
-	it('shows the words, not the channel prefix', () => {
-		expect(commentText('<!-- say: FY26 revenue grew. -->')).toBe('FY26 revenue grew.');
-		expect(commentText('<!-- describe: a bar chart. -->')).toBe('a bar chart.');
+	it('the retired keys are plain comments now', () => {
+		for (const old of ['say: x', 'describe: x', 'reader: x', 'note: x']) expect(commentKind(`<!-- ${old} -->`)).toBe('comment');
+	});
+
+	it('shows the words, not the `@name{…}` frame', () => {
+		expect(commentText('<!-- @say{FY26 revenue grew.} -->')).toBe('FY26 revenue grew.');
+		expect(commentText('<!-- @alt{a bar chart.} -->')).toBe('a bar chart.');
 		expect(commentText('<!-- a plain note -->')).toBe('a plain note');
 	});
 
@@ -215,31 +222,22 @@ describe('the comment CHANNEL drives the pill label, never the bytes', () => {
 		expect(commentText('<!-- ends oddly --!>')).toBe('ends oddly');
 	});
 
-	// THERE IS NO PRAGMA CHANNEL, and that is deliberate. A first version added one with a
+	// THERE IS NO PRAGMA KIND, and that is deliberate. A first version added one with a
 	// hand-written prefix regex whose docblock claimed it mirrored `notes-core`. Measured against
 	// the real kernel it disagreed on 22 of 32 probed bodies in BOTH directions. These arms pin the
-	// honest behavior: machinery reads as a note rather than as a confidently wrong label.
-	it('does not try to guess "pragma" — a tooling comment reads as a note', () => {
-		expect(commentKind('<!-- markdownlint-disable -->')).toBe('note');
-		expect(commentKind('<!-- tier: short -->')).toBe('note');
+	// honest behavior: machinery reads as a comment rather than as a confidently wrong label.
+	it('does not try to guess "pragma" — a tooling comment reads as a comment', () => {
+		expect(commentKind('<!-- markdownlint-disable -->')).toBe('comment');
+		expect(commentKind('<!-- tier: short -->')).toBe('comment');
 	});
 
-	it('and never mislabels author prose that merely starts with such a word', () => {
-		// The exact strings the kernel's own docblock names as the cases its constraints exist for.
-		expect(commentKind('<!-- tier: enterprise customers churn faster -->')).toBe('note');
-		expect(commentKind('<!-- color-mode: we should discuss the palette -->')).toBe('note');
-		expect(commentKind('<!-- fit: this into the Q3 story -->')).toBe('note');
-	});
-
-	// PARITY with lib/authoring/notes-core.js on the two channels we DO claim. This reads the real
+	// PARITY with lib/authoring/notes-core.js `noteOf`, the engine's own reader. This reads the real
 	// kernel, so a drift in either direction fails here.
-	it('agrees with the engine kernel on caption / describe', async () => {
+	it('agrees with the engine kernel on every note and near miss', async () => {
 		const kernel = await import('../../../../lib/authoring/notes-core.js');
-		const samples = ['caption: x', 'describe: x', 'Caption : x', 'DESCRIBE:x', 'a plain note', 'captions are nice', 'described below', 'tier: short', 'markdownlint-disable'];
+		const samples = ['@say{x}', '@alt{x}', '@note{x}', '@handout{x}', '@Say{x}', '@say{x', '@say{x} tail', '@speaker{x}', '@meta{layout=cards}', 'say: x', 'a plain note', 'markdownlint-disable'];
 		for (const body of samples) {
-			const text = `<!-- ${body} -->`;
-			expect([body, commentKind(text) === 'say']).toEqual([body, kernel.isSayComment(body)]);
-			expect([body, commentKind(text) === 'describe']).toEqual([body, kernel.isDescriptionComment(body)]);
+			expect([body, commentKind(`<!-- ${body} -->`)]).toEqual([body, kernel.noteOf(body)?.name ?? 'comment']);
 		}
 	});
 });

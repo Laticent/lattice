@@ -44,7 +44,7 @@ test('the live preview draws wordmarks and a badge at one area, and a crest at h
 				const h = (m as HTMLElement).clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
 				return (m as HTMLElement).clientWidth * h;
 			}),
-			tops: [...ul.children].map((li) => (li as HTMLElement).offsetTop),
+			tops: [...ul.children].map((li) => (li as HTMLElement).offsetTop), // flaky-ok: siblings share one offsetParent, and only whether their tops are equal is read
 		}));
 		expect(areas).toHaveLength(4);
 		// Pinnacle 4:1, Keystone 1:1 and Acme 3:1 share one area; the Spire crest (1:2) is held to

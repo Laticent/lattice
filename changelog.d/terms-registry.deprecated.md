@@ -1,0 +1,1 @@
+- **`lexicon-single-letter-key` is no longer emitted.** A letter or digit key (`e:`, `2:`) in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so it can no longer rewrite every `e` inside "revenue". The rule ID stays reserved.

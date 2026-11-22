@@ -80,6 +80,7 @@ const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { recordsToComments } = require('../lib/core/meta-door.mjs');
+const { notesToMarp } = require('../lib/authoring/notes-core.js');
 const { withMarpDirectivesOnly } = require('../lib/export/marp-directives.js');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
@@ -135,12 +136,20 @@ function paletteClosure(palette) {
   return out;
 }
 
-/** Read the deck's `theme:` front-matter palette, or null. */
+/**
+ * Read the deck's palette from its front matter, or null — through the shared top-level reader the
+ * CLI and the engine use (`topLevelRegisterValue`), so a preset that recommends a
+ * `theme:` (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1) picks the palette the bundle
+ * ships, and a trailing YAML comment (`theme: cuoio  # brand`) no longer drops the deck to the default
+ * while the engine renders `cuoio`.
+ */
 function readTheme(src) {
+  // The `^---\r?\n` anchor is deliberate: it reads the deck as `readDeckSource` hands it, so the
+  // ingest boundary stays the one place a BOM or a lone CR is folded (test/unit/core/line-endings.test.js).
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (!m) return null;
-  const t = [...m[1].matchAll(/^theme[ \t]*:[ \t]*["']?([A-Za-z0-9_-]+)["']?[ \t]*$/gm)].pop(); // the last repeat wins (#3050, D1)
-  return t ? t[1].trim() : null;
+  const t = require('../lib/core/front-matter-key').topLevelRegisterValue(m[1].replace(/\r$/gm, ''), 'theme');
+  return t && /^[A-Za-z0-9_-]+$/.test(t) ? t : null;
 }
 
 /**
@@ -165,15 +174,40 @@ function localizeOne(url, deckDir, destDir, copied) {
   // `isFile` rather than `existsSync`: `logo: .` resolved to a DIRECTORY and
   // `copyFileSync` threw EISDIR, same half-written-bundle outcome.
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;
-  const existing = copied.get(abs);
-  if (existing) return existing;
+  if (copied.has(abs)) return copied.get(abs);
   const assetsDir = path.join(destDir, 'assets');
   fs.mkdirSync(assetsDir, { recursive: true });
   let base = path.basename(abs);
   while (fs.existsSync(path.join(assetsDir, base)) && [...copied.values()].indexOf(`assets/${base}`) < 0) {
     base = `_${base}`;
   }
-  fs.copyFileSync(abs, path.join(assetsDir, base));
+  // A picture leaves without its metadata (EXIF, a phone's location, XMP, text chunks, comments), cut by the image
+  // library's cleaner, the one the Studio's intake, the `.lattice` packer, the PDF writer and the player use
+  // (`@laticent/lastra` `cleanerFor`). The pixels are untouched; a picture already clean is copied byte for byte. One
+  // the cleaner cannot parse is not copied at all, and is named: never shipped as it is. Other files (an SVG, a font)
+  // are copied as they are.
+  const { cleanerFor, imageFormat, IMAGE_MIME } = require('@laticent/lastra');
+  const raw = fs.readFileSync(abs);
+  const format = imageFormat(new Uint8Array(raw));
+  const cleaner = format ? cleanerFor(IMAGE_MIME[format]) : undefined;
+  let bytes = raw;
+  if (cleaner) {
+    const cleaned = cleaner(new Uint8Array(raw));
+    if (!cleaned) {
+      console.warn(`  ⚠ asset: ${path.relative(process.cwd(), abs)} is not copied: it does not read as a whole ${format.toUpperCase()} file, so its metadata cannot be removed`);
+      copied.set(abs, null);
+      return null;
+    }
+    bytes = Buffer.from(cleaned);
+  } else if (format === 'svg') {
+    // An SVG can carry pictures of its own (`<image href="data:image/jpeg;base64,…">`): each is cleaned by the player's
+    // rule (lib/export/player-images.mjs `cleanSvgText`), and the SVG is otherwise copied byte for byte.
+    const { cleanSvgText } = require('../lib/export/player-images.mjs');
+    const svg = cleanSvgText(raw.toString('utf8'));
+    for (const why of svg.refused) console.warn(`  ⚠ asset: ${path.relative(process.cwd(), abs)}: ${why}`);
+    if (svg.cleaned || svg.refused.length) bytes = Buffer.from(svg.text, 'utf8');
+  }
+  fs.writeFileSync(path.join(assetsDir, base), bytes);
   const rel = `assets/${base}`;
   copied.set(abs, rel);
   // Name what was copied and WHERE IT CAME FROM. A deck's asset refs are paths,
@@ -196,7 +230,7 @@ function localizeOne(url, deckDir, destDir, copied) {
  */
 function localizeAssets(body, deckDir, destDir, copied = new Map()) {
   const out = mapImageRefs(body, (url) => localizeOne(url, deckDir, destDir, copied));
-  return { body: out, count: copied.size };
+  return { body: out, count: [...copied.values()].filter(Boolean).length };
 }
 
 /**
@@ -422,7 +456,11 @@ function main(argv) {
   const unsafe = recordReport.filter((d) => d.code === 'meta-comment-unsafe');
   if (unsafe.length) die(unsafe.map((d) => `${deckPath}:${d.line}: ${d.message}`).join('\n'));
   for (const d of recordReport) console.warn(`  ⚠ ${deckPath}:${d.line}: ${d.message}`);
-  const imaged = withImageRecordsAsMarp(compiled, admission.off);
+  // The four notes in Marp's form: `@note` a plain comment (Marp's speaker note), `@handout` a `Handout:` note, `@say`
+  // and `@alt` and every other private comment dropped, because Marp would show each as a speaker note
+  // (engineering/decisions/2026-11-20-four-notes.md N5).
+  const noted = notesToMarp(compiled);
+  const imaged = withImageRecordsAsMarp(noted, admission.off);
   const agendaFilled = fillAutoAgenda(imaged);
   const glossed = appendAutoGlossary(agendaFilled);
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);

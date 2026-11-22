@@ -14,10 +14,10 @@ Use when two wide components make one point together: progress over the table be
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | The slide's title, above both panes. It makes the point; the panes support it. |
-| `pane` | `lat-pane` | yes | Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
+| `heading` | a `## ` heading | yes | The slide's title, above both panes. It makes the point; the panes support it. |
+| `pane` | two panes | yes | Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
 
 ### Common mistakes
 
@@ -79,7 +79,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

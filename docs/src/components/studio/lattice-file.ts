@@ -17,15 +17,11 @@ import reopenable from '../../../../lib/core/reopenable.js';
 import type { ParsedBundle } from './asset-bundle';
 import type { PackageFiles } from './package-zip';
 import type { SlideComment } from './slide-comments';
-import { assertZipWithinLimits, declaredInflatedBytes, jsonGuard, MAX_INFLATED_BYTES, MAX_LATTICE_MEDIA_BYTES, MAX_ZIP_BYTES, readBudget } from './zip-limits';
 
-// Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
-// not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
-// on-disk size and the declared inflated size before decompressing. The numbers are
-// shared with the asset `.zip` import (`zip-limits.ts`).
-// A deck title from an untrusted manifest is clamped to the same spirit as the
-// `.md` import path (titleFromSource caps length) — no multi-MB titles in the index.
-const MAX_TITLE_LEN = 120;
+// The READ half — the caps, the zip-bomb guards, the manifest check, the extraction — is shared with
+// the CLI's `.lattice` input too (lib/packages/lattice-read.mjs, loaded on the first read: this module
+// is on the Studio's eager path and a read never is). This file keeps only what is the Studio's own:
+// handing the packages to the Library's reader and the open archive to the photo restore.
 
 /** The manifest envelope. `version` gates forward-compat; bump on a breaking shape change. */
 export type LatticeManifest = {
@@ -40,8 +36,6 @@ export type LatticeManifest = {
 };
 
 export const LATTICE_VERSION: number = reopenable.LATTICE_VERSION;
-const MANIFEST_FILE: string = reopenable.LATTICE_MANIFEST_FILE;
-const DECK_FILE: string = reopenable.LATTICE_DECK_FILE;
 
 /** Build the manifest object for a deck (pure — `now` is injected, never read here). */
 export function buildLatticeManifest(title: string, comments: SlideComment[], now = 0): LatticeManifest {
@@ -52,35 +46,11 @@ export function buildLatticeManifest(title: string, comments: SlideComment[], no
  * Parse + validate a manifest from untrusted JSON text (a shared file). Throws on a
  * shape that isn't a Lattice manifest or a future major version we can't read; the
  * `comments` array is returned as-is (the caller re-validates each via the store's
- * guard). Kept pure + fs-free so it unit-tests without a zip.
+ * guard). Kept pure + fs-free so it unit-tests without a zip. The check is the shared one
+ * (lib/core/reopenable.js), so the CLI refuses the same manifests.
  */
 export function parseLatticeManifest(json: string): LatticeManifest {
-	let obj: unknown;
-	try {
-		obj = JSON.parse(json);
-	} catch {
-		throw new Error('Not a Lattice file — the manifest is unreadable.');
-	}
-	const m = obj as Partial<LatticeManifest>;
-	if (!m || typeof m !== 'object' || m.format !== 'lattice') {
-		throw new Error('Not a Lattice file — missing the Lattice manifest.');
-	}
-	if (typeof m.version !== 'number' || !Number.isInteger(m.version) || m.version < 1) {
-		throw new Error('Not a Lattice file — the manifest version is invalid.');
-	}
-	if (m.version > LATTICE_VERSION) {
-		throw new Error(`This .lattice file needs a newer Lattice (format v${m.version}).`);
-	}
-	// Clamp the untrusted title to the index's expectations (length + no newlines).
-	const title = typeof m.title === 'string' ? m.title.replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_LEN) : '';
-	return {
-		format: 'lattice',
-		version: m.version,
-		title: title || 'Untitled deck',
-		engine: 'lattice',
-		generatedAt: typeof m.generatedAt === 'number' ? m.generatedAt : 0,
-		comments: Array.isArray(m.comments) ? (m.comments as SlideComment[]) : [],
-	};
+	return reopenable.parseLatticeManifest(json) as LatticeManifest;
 }
 
 /**
@@ -99,9 +69,6 @@ export async function exportLatticeBlob(source: string, title: string, comments:
 	return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
 
-const PACKAGES_DIR: string = reopenable.LATTICE_PACKAGES_DIR;
-const MEDIA_INDEX: string = reopenable.LATTICE_MEDIA_INDEX;
-
 /** The photos a deck names, ready to write: the text of `media.json` and each `media/<file>`'s bytes. */
 export type LatticeMedia = { index: string; files: Record<string, Uint8Array> };
 
@@ -118,67 +85,24 @@ export type LatticeImport = { source: string; title: string; comments: SlideComm
  * clean toast rather than a stack trace.
  */
 export async function readLatticeFile(file: Blob | Uint8Array): Promise<LatticeImport> {
-	// Reject an oversized archive before touching it (cheap, catches the obvious case).
 	// Bytes as well as a Blob: `deck-import.ts` has already read the file (or pulled the
 	// `.lattice` out of a PDF / PowerPoint) and hands the bytes straight on.
-	// The photos a file carries ride on top of that cap, so the cap is judged once the archive says
-	// whether it has any (below); this first check only refuses what no file could be.
 	const onDisk = file instanceof Uint8Array ? file.byteLength : file.size;
-	if (onDisk > MAX_ZIP_BYTES + MAX_LATTICE_MEDIA_BYTES) {
-		throw new Error('That .lattice file is too large to open.');
-	}
-	const { default: JSZip } = await import('jszip');
-	const zip = await JSZip.loadAsync(file).catch(() => {
-		throw new Error('That .lattice file is not a valid archive.');
-	});
-	const carriesPhotos = !!zip.file(MEDIA_INDEX);
-	// The extra room is for PHOTOS, not for whatever else a file holds. What the `media/` entries declare is
-	// held to the photo cap, and everything else must fit the ordinary cap, so adding an empty `media.json`
-	// to a file does not raise it.
-	const mediaDeclared = Object.keys(zip.files).filter((p) => p.startsWith('media/') && !zip.files[p].dir).reduce((n, p) => n + declaredInflatedBytes(zip.files[p]), 0);
-	if (mediaDeclared > MAX_LATTICE_MEDIA_BYTES || onDisk - (carriesPhotos ? mediaDeclared : 0) > MAX_ZIP_BYTES) throw new Error('That .lattice file is too large to open.');
-	const deckEntry = zip.file(DECK_FILE);
-	const manifestEntry = zip.file(MANIFEST_FILE);
-	if (!deckEntry || !manifestEntry) {
-		throw new Error('That .lattice file is missing its deck or manifest.');
-	}
-	// Deflate-bomb guard: refuse to inflate if the DECLARED uncompressed size is huge
-	// (a few-KB zip can otherwise expand to gigabytes and crash the tab). JSZip exposes
-	// the entry's uncompressed size on its internal `_data`.
-	if (declaredInflatedBytes(deckEntry) + declaredInflatedBytes(manifestEntry) > MAX_INFLATED_BYTES) {
-		throw new Error('That .lattice file is too large to open.');
-	}
-	// The package folders count against the same cap, together with the deck.
-	const packagePaths = Object.keys(zip.files).filter((p) => p.startsWith(PACKAGES_DIR) && !zip.files[p].dir);
-	assertZipWithinLimits(zip, 'That .lattice file is too large to open.', [DECK_FILE, MANIFEST_FILE, ...packagePaths]);
-	// ONE running budget for every read out of this file — the deck, the manifest and the
-	// packages. The declared-size check above trusts what the archive SAYS; the budget stops
-	// the inflate at the chunk that crosses the cap, so an entry that understates its size
-	// cannot inflate past it (zip-limits.ts). Read in order, not in parallel, so the charge
-	// is deterministic.
-	const charge = readBudget('That .lattice file is too large to open.');
-	const source = (await charge(deckEntry)) ?? '';
-	const manifestText = (await charge(manifestEntry)) ?? '';
-	// Values are counted before the parse: the read budget bounds the bytes, not what
-	// `JSON.parse` builds from them (lib/packages/json-guard.js).
-	const { countJsonValues, MAX_JSON_VALUES } = await jsonGuard();
-	if (countJsonValues(manifestText) > MAX_JSON_VALUES) throw new Error('That .lattice file is too large to open.');
-	const manifest = parseLatticeManifest(manifestText);
+	const [{ default: JSZip }, { readLatticeArchive }] = await Promise.all([import('jszip'), import('../../../../lib/packages/lattice-read.mjs')]);
+	// Every cap, the zip-bomb guards, the manifest check and the one read budget are the shared reader's.
+	const { source, manifest, packageFiles, carriesPhotos, zip } = await readLatticeArchive(JSZip, file, onDisk);
 	// The packages ride through the SAME reader as a Library package zip, so they meet the
 	// same spine, the same refusals and the same notes. Saving them is the caller's step,
 	// through the Library's import funnel (library/import-parsed.ts), which runs the gates.
 	let packages: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [], notes: [], refused: [] };
-	if (packagePaths.length) {
+	if (packageFiles.length) {
 		const { unpackPackages } = await import('./asset-bundle');
 		const sub = new JSZip();
-		for (const p of packagePaths) {
-			const entry = zip.file(p);
-			if (entry) sub.file(p.slice(PACKAGES_DIR.length), (await charge(entry)) ?? '');
-		}
+		for (const [path, text] of packageFiles) sub.file(path, text);
 		packages = await unpackPackages(sub, async (path) => (path ? ((await sub.file(path)?.async('string')) ?? undefined) : undefined));
 	}
 	// Note: `source` is UTF-8 decoded from the zip — round-trip is byte-identical for
 	// any well-formed text (a lone surrogate, only reachable via a corrupt paste, is
 	// normalized to U+FFFD on encode; an accepted narrow caveat, not a data path).
-	return { source, title: manifest.title, comments: manifest.comments, packages, ...(carriesPhotos ? { photos: { zip } } : {}) };
+	return { source, title: manifest.title, comments: manifest.comments as SlideComment[], packages, ...(carriesPhotos ? { photos: { zip } } : {}) };
 }

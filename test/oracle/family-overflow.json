@@ -11,8 +11,10 @@
     "content",
     "cycle",
     "decision",
+    "gift-card",
     "glossary",
     "inventory",
+    "journey",
     "kanban",
     "kpi",
     "list",
@@ -27,9 +29,11 @@
     "pricing",
     "progress",
     "q-and-a",
+    "radar",
     "regulatory-update",
     "roadmap",
     "split-compare",
+    "state-chart",
     "stats",
     "statute-stack",
     "team-profile",
@@ -60,6 +64,7 @@
       "decision",
       "glossary",
       "inventory",
+      "kanban",
       "kpi",
       "list",
       "list-tabular",
@@ -100,7 +105,8 @@
       "cards-grid",
       "compare-code",
       "list-tabular",
-      "pricing"
+      "pricing",
+      "roadmap"
     ]
   }
 }

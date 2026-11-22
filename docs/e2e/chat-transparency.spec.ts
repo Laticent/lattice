@@ -88,14 +88,19 @@ for (const [w, h] of [
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
 		await expect(menu).toBeVisible();
-		await expect(menu.getByText('This session')).toBeVisible();
-		await expect(menu.getByText('This deck')).toBeVisible();
-		await expect(menu.getByText('Today')).toBeVisible();
+		// One card per question; each card's breakdown sits behind its own "show details" toggle.
 		// Two model calls: $0.011 + $0.006. The window is the LAST call's input: 18.4K of 200K, 9%.
+		await expect(menu.getByText('9% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toBeVisible();
+		await menu.getByRole('button', { name: 'Context window: show details' }).click();
+		await expect(menu.getByText('Last reply wrote')).toBeVisible();
+		await expect(menu.getByTitle(/of them thinking$/)).toBeVisible();
+		await expect(menu.getByText('This session', { exact: true })).toBeVisible();
 		await expect(menu.getByText('$0.017').first()).toBeVisible();
-		await expect(menu.getByText('18K of 200K · 9%')).toBeVisible();
+		await menu.getByRole('button', { name: 'This session: show details' }).click();
+		await expect(menu.getByText('This deck', { exact: true })).toBeVisible();
+		await expect(menu.getByText('Today', { exact: true })).toBeVisible();
 		await expect(menu.getByText('Model calls')).toBeVisible();
-		await expect(menu.getByText(/thinking\)/)).toBeVisible();
 		// The menu stays inside the viewport at every width.
 		const box = await menu.boundingBox();
 		expect(box && box.x >= 0 && box.x + box.width <= w).toBe(true);
@@ -145,11 +150,13 @@ for (const [w, h] of [
 		await gotoStudioReady(page, w);
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
-		await expect(menu.getByText('Would compact')).toBeVisible();
+		// Six messages stay word for word, so 18 of the 24 would become the briefing.
+		await expect(menu.getByText('18 messages', { exact: true })).toBeVisible();
+		await menu.getByRole('button', { name: 'Compact conversation: show details' }).click();
 		await expect(menu.getByText('Saves about')).toBeVisible();
 		await expect(menu.getByText('Costs once')).toBeVisible();
 		await page.screenshot({ path: test.info().outputPath(`compact-offer-${w}.png`) });
-		await menu.getByRole('button', { name: 'Compact conversation' }).click();
+		await menu.getByRole('button', { name: 'Compact', exact: true }).click();
 		const divider = page.getByTestId('chat-compacted');
 		await expect(divider).toBeVisible({ timeout: 20_000 });
 		expect(summaries).toBe(1);
@@ -179,7 +186,7 @@ test('sending is held while a compaction runs, so the new message is never dropp
 	await page.reload();
 	await gotoStudioReady(page, 1440);
 	await page.getByRole('button', { name: /^Chat metrics:/ }).click();
-	await page.getByTestId('chat-metrics').getByRole('button', { name: 'Compact conversation' }).click();
+	await page.getByTestId('chat-metrics').getByRole('button', { name: 'Compact', exact: true }).click();
 	// While the summary is in flight (held open by the mock), try to send: it must be refused.
 	await summary.held();
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('a message typed mid-compaction');

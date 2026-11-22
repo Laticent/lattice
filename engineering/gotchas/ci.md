@@ -542,12 +542,12 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
-- **What it costs:** a PR run superseded by a push while its `changes` is still queued now
-  goes red on the old SHA. With `changes` waiting 15-19 minutes for a runner, that window is
-  real. It brings back a little of the red-webhook noise
-  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, because the `changes` check
-  runs before the supersession check and a no-runner cancel reads `cancelled` too. It is
-  accepted because the alternative is a green check over no tests.
+- **What it cost, until #3314:** a PR run superseded by a push while its `changes` was still
+  queued went red on the old SHA, because the `changes` check ran before the supersession check
+  and a no-runner cancel reads `cancelled` too. Since #3314 a `cancelled` `changes` passes only
+  when the PR's head has moved past the run's SHA, the same proof a cancelled tier needs, so the
+  newer run on the head still has to pass. A `changes` cancelled on the current head (#2524's
+  case) and any `cancelled` in the merge queue still fail.
 - **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
 - **Removable when:** never; this documents the gate's contract.
 
@@ -592,31 +592,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** #2749.
 - **Removable when:** someone explains the delta. Then replace this entry with the cause.
 
-## The CI-green beacon says green, but unit, integration and docs-build were canceled
-
-- **Symptom:** a bot comment reads "`ci` workflow green for `<sha>` (ran: lint; cancelled: unit
-  · integration · docs-build)" and "Every other check on this commit had also concluded
-  successfully". Seen on #2749 at `1a17c46`.
-- **Cause:** you pushed again. `concurrency: cancel-in-progress` canceled that run's tiers, and
-  a PR run accepts a `cancelled` tier by design (see "The `ci` check is green on a PR whose test
-  tiers never ran"). The beacon reports the old commit's lint and nothing else.
-- **How to tell:** the list after "ran:" names fewer tiers than a full run (lint · unit ·
-  integration · docs-build), and the SHA is not the PR's current head.
-- **Fix:** ignore it and wait for the run on the head SHA. Never count it as evidence in a
-  pre-merge card.
-- **Triggered by:** two pushes close together.
-- **Removable when:** the beacon stops posting for superseded commits.
-
 ## A red check names a commit that is no longer the PR's head
 
 - **Symptom:** after you push a fix, a failure event for `ci` or `docs-build` arrives, and it is
   the same failure you just fixed.
-- **Cause:** the old run finishes, or is canceled, after your push, and GitHub delivers its
-  result late. `ci` is an aggregate: it reads red when a tier it lists failed, or when `changes`
-  was canceled.
+- **Cause:** the old run finishes after your push, and GitHub delivers its result late. `ci` is
+  an aggregate: it reads red when a tier it lists failed. (Since #3314 a run a push canceled,
+  `changes` included, passes and posts no beacon.)
 - **How to tell:** compare the event's `head_sha` with the PR's current head. In the `ci` job
-  log, `changes=cancelled lint=cancelled …` is a superseded run. `docs-build=failure` with the
-  other tiers `success` is a real failure, so read the `docs-build` job.
+  log, `changes=cancelled lint=cancelled …` is a superseded run, and since #3314 its gate prints
+  "the whole run was cancelled by a newer push" and passes. `docs-build=failure` with the other
+  tiers `success` is a real failure, so read the `docs-build` job.
 - **Fix:** act only on the run for the current head. Seen on #2749 (`5f3d824` after `1108d53`,
   `6384c73` after `8b05bcb`).
 - **Triggered by:** pushing while a run is in flight.
@@ -768,7 +754,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 - **Symptom:** `player no-JS (WebKit)` is cancelled at 25 minutes inside its install step, the log a stream of `Get:` and `Ign:` lines from `azure.archive.ubuntu.com`. Or an `ios-safari-undo` job is cancelled at 30 minutes after one or two devices passed. Either way no test failed, and a re-run often goes green, which is what makes it look harmless.
 - **Cause:** two deadlines that depended on something the test did not control (`engineering/decisions/2026-11-06-flaky-tests.md`). The WebKit job ran `playwright install --with-deps webkit`, which apt-installed about 180 packages from Ubuntu's mirror on every run (F6): over 17 runs on 2026-11-10 the step took 36 s at the median, but 5 took over 2 min, 2 over 10, and one never finished. The undo suite ran an iPad, an iPhone and the Mac's Safari one after another in one 30-minute job (F4): a passing run took 25.4 min, about 3 min of probe per device and the rest simulator boots.
-- **Fix:** WebKit and its packages come from GitHub's cache through `.github/actions/playwright-browsers` (`browsers: webkit`; it was `playwright-webkit` until 2026-11-11, when every browser and apt install moved onto the cache, see the next entry), which `apt-cache-warm.yml` and the WebKit nightly (`webkit-baselines-nightly.yml`) warm on `main`; Ubuntu's mirror is read only on a cache miss. The key carries the runner image's version and falls back to the previous image's entry; when those packages no longer fit the newer image (several pin each other's exact versions), `.github/actions/apt-cached/apt-cached.sh` repairs from the mirror with a `::warning::` and the cache saved under the new image's key fits. A warning on every run means the repair is not reaching the cache: delete the caches whose key starts `playwright-<ImageOS>-<arch>-<version>-webkit-` and let the nightly rebuild them. The undo suite is three suites, `ios-safari-undo-ipad`, `-iphone` and `-mac` (`DEVICES` in `docs/scripts/ios-safari/run.sh`), each with the whole job limit.
+- **Fix:** WebKit and its packages come from GitHub's cache through `.github/actions/playwright-browsers` (`browsers: webkit`; it was `playwright-webkit` until 2026-11-11, when every browser and apt install moved onto the cache, see the next entry), which `apt-cache-warm.yml` and the WebKit nightly (`webkit-baselines-nightly.yml`) warm on `main`; Ubuntu's mirror is read only on a cache miss. The key carries the runner image's version and falls back to the previous image's entry; when those packages no longer fit the newer image (several pin each other's exact versions), `.github/actions/apt-cached/apt-cached.sh` repairs from the mirror with a `::warning::` and the cache saved under the new image's key fits. A warning on every run means the repair is not reaching the cache: delete the caches whose key starts `playwright-<ImageOS>-<arch>-<version>-webkit-` and let the nightly rebuild them. The undo suite is three suites, `ios-safari-undo-ipad`, `-iphone` and `-mac` (`DEVICES` in `docs/scripts/ios-safari/run.sh`), each with the whole job limit. The photo, jpeg, photo-memory and chat-storage suites were split the same way on 2026-11-20 (`ios-safari-photo-ipad`, `-iphone`, and so on): in 14 nightlies they had 6 jobs cancelled at the limit, 5 of them with no test failed (the sixth, photo on 2026-11-13, had failed on the iPad first); a photo dispatch (44651836892) ran out the same way when its iPhone took 7 minutes to boot after the iPad passed.
 - **How to tell it from a real failure:** the log stops before any test output. Do not re-run it until green (HARD RULE #32): find which external fetch or which device ran long.
 - **Triggered by:** a slow mirror, or a slow simulator boot on a hosted Mac.
 - **Removable when:** the install no longer touches the network at all (a runner image with the packages baked in).
@@ -959,3 +945,45 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   this job's later steps, which have shown no such hang; if one appears, the same stacks will say so.
 - **Removable when:** the fix in nodejs/node#66171 (or another for #64274) ships in the node 24 line CI uses; then the
   step goes back to plain `npm ci`.
+
+## A nightly dies at "Resolve the puppeteer Chromium" with `puppeteer resolved Promise {`
+
+- **Symptom:** `fit-nightly`, `overflow-nightly` or `webkit-baselines-nightly` fails in its "Resolve the puppeteer
+  Chromium" step with `::error::puppeteer resolved Promise {`, so the nightly reports "could not run" and scores
+  nothing. `integration-nightly`'s narrated-player step gets the same `Promise { … }` string as
+  `PLAYWRIGHT_CHROMIUM_PATH`, and Playwright then fails to launch it. First seen on 2026-11-14 (fit runs 43574441493 and
+  43694685222, overflow 43701526560, webkit-baselines 43716539955).
+- **Cause:** from puppeteer 24 on, `executablePath()` returns a Promise. #3190 moved the CLI from puppeteer 23 to 25, so
+  `node -p "require('puppeteer').executablePath()"` printed `Promise { '<path>' }`, and the step's `-x` test failed on
+  that string. The browser download, the cache directory and the cache key were all fine: postinstall still downloads
+  Chrome to `~/.cache/puppeteer`, and the Promise holds the right path.
+- **Fix:** await the result: `node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), …)"`.
+  `Promise.resolve()` works with either the old string or the new Promise. JavaScript callers already `await` it
+  (`lib/export/video-cli.mjs`, `lib/core/os-sandbox.js`, `tools/verify-code-sandbox.mjs`). `test/helpers/chrome.js`
+  has to stay synchronous, so it does not call puppeteer's resolver at all.
+- **How to check:** `grep -rn "executablePath()" .github/ tools/ lib/` and confirm that every call is awaited or wrapped
+  in `Promise.resolve`.
+
+## A rendering job fails every test with `Could not find Chrome (ver. …)` after a green `npm ci`
+
+- **Symptom:** an integration shard (or a nightly, or golden-diff) fails dozens of browser tests with `Could not find
+  Chrome (ver. 157.0.8103.50) … your cache path is incorrectly configured (which is: /home/runner/.cache/puppeteer)`,
+  and their children read "test did not finish before its parent and was cancelled". The "Cache Puppeteer browser"
+  step logged `Cache not found`, `npm ci` was green, and a re-run passes. First seen in run 43974960155, shard 4/4:
+  41 failed, 186 canceled, while shards 1-3 on the same cache miss passed.
+- **Cause:** on a cache miss, Chrome comes from puppeteer's postinstall, which catches a failed download, prints
+  `ERROR: Failed to set up chrome v… !` and exits 0. npm hides the output of a script that passes, so the log shows
+  nothing. Measured with the network cut (`unshare -n`): postinstall exits 0 and leaves empty `chrome/` folders, and
+  `npx puppeteer browsers install chrome` exits 1.
+- **Fix:** every job that restores `~/.cache/puppeteer` runs `.github/actions/puppeteer-chrome` right after the root
+  `npm ci`. That runs `puppeteer browsers install chrome` up to three times and fails the step by name when the
+  download never lands. It takes about 0.5 s when Chrome is already there, and it repairs the folders a failed
+  postinstall leaves. `test/unit/tools/puppeteer-chrome-step.test.js` fails when a job restores the cache without it.
+  Each call has `timeout-minutes: 5`, so a stalled download fails at this step too, not at the job's limit.
+- **How to check:** a red "Install Chrome for puppeteer (three tries)" step with `::error::puppeteer could not download
+  its Chrome in three tries` means the download host was unreachable from the runner, not that the code is wrong. That
+  job failed before any test ran, so re-running it is allowed (HARD RULE #33). Tests that went red with "Could not find
+  Chrome" in a job where this step passed are a different defect: find it, do not re-run them.
+- **Proof the step fails:** `.github/workflows/puppeteer-chrome-selftest.yml` runs the action on Linux, Windows and
+  macOS with `PUPPETEER_CACHE_DIR` below a regular file, and passes only when the action fails. It runs on any PR that
+  changes the action or `package-lock.json` (a puppeteer upgrade could change the exit code it relies on), and on demand.

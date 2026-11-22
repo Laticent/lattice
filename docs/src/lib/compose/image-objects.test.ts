@@ -57,11 +57,20 @@ function caretIn(view: EditorView, needle: string, after = false) {
 }
 
 describe('what an image source is', () => {
-	it('tells a Library photo, an embedded photo and everything else apart', () => {
+	it('tells a Library photo, an embedded photo, sample art and everything else apart', () => {
 		expect(imageSourceKind('asset:harbor')).toBe('asset');
 		expect(imageSourceKind('data:image/png;base64,iVBORw0KGgo=')).toBe('data');
 		expect(imageSourceKind('https://example.com/x.png')).toBe('other');
-		expect(imageSourceKind('sample:harbor')).toBe('other');
+		// The Studio's own sample art is drawn from its own folder (owner, 2026-11-17): the engine's shape only, so a path or an
+		// empty name stays a stand-in.
+		expect(imageSourceKind('sample:harbor')).toBe('sample');
+		expect(imageSourceKind('sample:portrait-ada.svg')).toBe('sample');
+		expect(imageSourceKind('sample:../secrets.svg')).toBe('other');
+		expect(imageSourceKind('sample:')).toBe('other');
+		expect(imageSourceKind('sample:a/b.svg')).toBe('other');
+		// The engine refuses `..` in a sample name; so does Compose.
+		// Built, not written whole: sample-images.test.js fails on any literal `sample:` name with no file.
+		expect(imageSourceKind(['sample:', 'a..b.svg'].join(''))).toBe('other');
 		expect(imageSourceKind('./local.png')).toBe('other');
 		// Not an image type, so not drawn from the document: a data URI of any other kind could be markup.
 		expect(imageSourceKind('data:text/html;base64,PGI+')).toBe('other');
@@ -383,6 +392,29 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(placeImage(view, images(view)[0].pos, 'none')).toBe(true);
 		expect(docToDeck(view.state.doc)).toContain('<!-- _class: content -->');
 		expect(docToDeck(view.state.doc)).not.toMatch(/!\[bg/);
+	});
+
+	it('a slide split on its headings: a picture is placed by its own part, and only the first part may be placed from here', () => {
+		// A spot class written before the second heading governs that part only; Compose keeps it at the slide node's head, so the
+		// reader puts it back where the source has it (the checker on #3239: the first part's picture read as placed, its control open).
+		const deck = (lead: string, second: string) => `---\ntheme: indaco\n---\n\n${lead}## One\n\n![A](https://x.test/a.jpg)\n\n${second}## Two\n\n![B](https://x.test/b.jpg)\n`;
+		const read = (md: string) => {
+			const view = mount(md);
+			return images(view).map((p) => placementAt(view.state, p.pos));
+		};
+		expect(read(deck('', '<!-- _class: image -->\n'))).toEqual([
+			{ placement: 'none', canPlace: false },
+			{ placement: 'right', canPlace: false },
+		]);
+		// The first part's own picture is still Compose's to place: writing its `_class` places it, and the engine agrees.
+		expect(read(deck('', ''))[0]).toEqual({ placement: 'none', canPlace: true });
+		expect(read(deck('<!-- _class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: true });
+		// A running class carried into the first part is not this slide's to change.
+		expect(read(deck('<!-- class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: false });
+		expect(read(deck('<!-- _class: image -->\n', ''))).toEqual([
+			{ placement: 'right', canPlace: true },
+			{ placement: 'none', canPlace: false },
+		]);
 	});
 
 	it('an old `![bg …]` picture loses its keywords when placed, and its description becomes its name', () => {

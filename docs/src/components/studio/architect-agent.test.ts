@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import skillIndex from '../../../../design/skills/index.json';
+import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-find-pattern';
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
@@ -65,6 +66,14 @@ describe('the system prompt', () => {
 		expect(sys).toContain('NESTED bullets');
 	});
 
+	it('teaches the four notes, and never the retired plain-comment note', () => {
+		// The prompt taught the retired `note:` comment until 2026-11-20, which is now a plain comment that reaches nothing:
+		// a model following it wrote speaker notes that never showed up (engineering/decisions/2026-11-20-four-notes.md).
+		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		for (const n of ['@note{…}', '@say{…}', '@alt{…}', '@handout{…}']) expect(sys).toContain(`<!-- ${n} -->`);
+		expect(sys).not.toContain(['<!--', 'note:'].join(' '));
+	});
+
 	it('is byte-stable for the same inputs (the cache prefix)', () => {
 		const o = { canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] };
 		expect(buildAgentSystem(o)).toBe(buildAgentSystem(o));
@@ -86,7 +95,9 @@ describe('the system prompt', () => {
 		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
 		// A question about a video was answered with unrequested edits that cleared lint warnings.
 		expect(sys).toContain('WHEN TO EDIT');
-		expect(sys).toMatch(/A question[^\n]*gets an answer and no edit_slides or set_front_matter call/);
+		expect(sys).toMatch(/A question[^\n]*gets an answer and no edit call \(edit_slides, replace_text, set_front_matter, set_terms\)/);
+		// A word change goes through replace_text, not whole-slide rewrites (#3208 item 25).
+		expect(sys).toMatch(/To change a word or phrase wherever it appears, use replace_text/);
 		expect(sys).toMatch(/never a reason to edit on your own/);
 		// …and the reply said "the checker", "referent" and `big-number`.
 		expect(sys).toContain('HOW YOU TALK');
@@ -100,6 +111,8 @@ describe('the system prompt', () => {
 		const big = Array.from({ length: 200 }, (_, i) => `<!-- _class: content -->\n## Slide ${i}\n\n${'x '.repeat(80)}`).join('\n\n---\n\n');
 		expect(big.length).toBeGreaterThan(INLINE_DECK_CHARS);
 		expect(deckForTurn(big)).toContain('read_slides');
+		// …and at find_text, so a term search on a long deck is one call, not a read of every slide.
+		expect(deckForTurn(big)).toContain('find_text');
 	});
 });
 
@@ -161,6 +174,316 @@ describe('the toolbox', () => {
 		await tb.run('set_front_matter', JSON.stringify({ key: 'theme', value: null }));
 		expect(getFrontMatter(tb.draft, 'theme')).toBeUndefined();
 		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'a\nb' }))).toContain('single-line');
+	});
+
+	// #3208 item 1: the agent edits the nested `terms:` map, losslessly, and the author reviews one
+	// block row (2026-11-16-terms-registry.md).
+	it('set_terms merges into one terms: block, absorbs the older keys, and proposes one block row each', async () => {
+		const src = DECK.replace('theme: indaco\n', 'theme: indaco # kept\nacronyms:\n  CRO: chief revenue officer\n');
+		const tb = toolbox({ source: src });
+		const out = await tb.run('set_terms', JSON.stringify({ set: [{ term: 'Derby', pronounce: 'Darby' }, { term: 'CRO', pronounce: 'C R O' }], summary: 'Fixed two pronunciations.' }));
+		expect(out).toContain('2 entries');
+		expect(tb.draft).toContain('theme: indaco # kept\nterms:\n  CRO:\n    expansion: "chief revenue officer"\n    pronounce: "C R O"\n  Derby: Darby\n---');
+		expect(tb.draft).not.toContain('acronyms:');
+		const rows = tb.proposal().filter((e) => e.action === 'frontmatter');
+		expect(rows.map((e) => [e.key, e.block, e.value === null])).toEqual([
+			['terms', true, false],
+			['acronyms', true, true],
+		]);
+		// The review applies those rows to the ORIGINAL deck and lands on exactly the draft.
+		const { applyEditsChecked } = await import('./architect');
+		expect(applyEditsChecked(src, rows).source).toBe(tb.draft);
+	});
+
+	it('set_terms removes a term and reports one it could not find', async () => {
+		const tb = toolbox({ source: DECK.replace('theme: indaco\n', 'theme: indaco\nterms:\n  Derby: Darby\n') });
+		const out = await tb.run('set_terms', JSON.stringify({ remove: ['Derby', 'Nope'], summary: 'Removed one.' }));
+		expect(out).toContain('Not in the deck, so nothing to remove: Nope');
+		expect(tb.draft).not.toContain('terms:');
+	});
+
+	it('preview_speech reads a slide with the draft terms', async () => {
+		const tb = toolbox({ source: DECK.replace('theme: indaco\n', 'theme: indaco\nterms:\n  Revenue: rev a new\n') });
+		const out = await tb.run('preview_speech', JSON.stringify({ from: 2 }));
+		expect(out).toContain('[slide 2] Read from the slide text (approximate');
+		expect(out).toMatch(/Spoken as: .*rev a new grew/);
+		expect(out).toContain('four point two million dollars');
+		expect(out).toContain('"Revenue" → "rev a new"');
+		// The parameter's old name still previews that one slide.
+		expect(await tb.run('preview_speech', JSON.stringify({ slide: 2 }))).toContain('[slide 2]');
+	});
+
+	// #3208 item 3: the preview reads what the VOICE reads. It used to strip every comment, so a slide
+	// with a spoken line previewed its on-screen text, words the voice never says.
+	it('preview_speech reads the spoken line, lists each term form that fired, and flags uncovered words', async () => {
+		const src = [
+			'---',
+			'terms:',
+			'  Twinkima.G: Twinkee mah Gee',
+			'  Derby: Darby',
+			'---',
+			'',
+			'<!-- _class: content -->',
+			'## Oct. Tenth at the Derby',
+			'',
+			"- Twinkima.G's line launched",
+			'',
+			"<!-- @say{On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined.} -->",
+			'<!-- @note{a reminder for the presenter} -->',
+		].join('\n');
+		const out = await toolbox({ source: src }).run('preview_speech', JSON.stringify({ from: 1 }));
+		expect(out).toContain('[slide 1] Read from its spoken line (@say).');
+		expect(out).toContain("Spoken as: On October tenth, Twinkee mah Gee's line launched at the Darby");
+		expect(out).not.toContain('Oct.'); // the on-screen title is not what the voice says
+		expect(out).not.toContain('reminder'); // nor is the note
+		expect(out).toContain(`"Twinkima.G's" → "Twinkee mah Gee's"`);
+		expect(out).toContain('"Derby" → "Darby"');
+		expect(out).toContain('"Ilcea.K"');
+		expect(out).toContain('Speaker notes are never read aloud.');
+	});
+
+	// #3208 items 6 and 25: "Oct. Tenth" → "October Tenth" took reading slide after slide and resending
+	// whole slides. find_text lists every hit by field; replace_text sends only the words.
+	const OCT = [
+		'---',
+		'theme: indaco',
+		'title: Oct. Tenth review',
+		'---',
+		'',
+		'<!-- _class: title -->',
+		'# Oct. Tenth',
+		'',
+		'---',
+		'',
+		'<!-- _class: content -->',
+		'## After Oct. Tenth',
+		'',
+		'- Sold out ([recap](https://x.test/oct.-tenth))',
+		'',
+		'<!-- @say{Oct. Tenth was the day.} -->',
+		'',
+		'---',
+		'',
+		'<!-- _class: content -->',
+		'## Nothing here',
+		'',
+		'```text',
+		'Oct. Tenth',
+		'```',
+	].join('\n');
+
+	it('find_text lists every match by slide and field, code marked, front matter apart', async () => {
+		const out = await toolbox({ source: OCT }).run('find_text', JSON.stringify({ text: 'oct. tenth' }));
+		expect(out).toContain('"oct. tenth": 4 matches in 3 slides, and 1 front-matter line.');
+		expect(out).toContain('[slide 1] heading: "# «Oct. Tenth»"');
+		expect(out).toContain('[slide 2] spoken line:');
+		expect(out).toContain('[slide 3] code (replace_text leaves this alone)');
+		expect(out).toContain('line 2: "title: Oct. Tenth review"');
+		expect(out).not.toContain('oct.-tenth»'); // a link target is never a match
+	});
+
+	it('replace_text stages one replace row per slide, leaves code, targets and front matter, and applies exactly', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', summary: 'Spelled out the date.' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides: slide 1 (1: heading); slide 2 (2: heading, spoken line).');
+		expect(out).toContain('Left alone: 1 in code on slide 3; 1 front-matter line (use set_terms or set_front_matter).');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
+		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
+		expect(tb.draft).toContain('title: Oct. Tenth review');
+		const rows = tb.proposal();
+		expect(rows.map((e) => [e.action, e.slide])).toEqual([
+			['replace', 1],
+			['replace', 2],
+		]);
+		const { applyEditsChecked } = await import('./architect');
+		expect(applyEditsChecked(OCT, rows).source).toBe(tb.draft);
+	});
+
+	it('replace_text refuses what would change structure, and reports a miss', async () => {
+		const tb = toolbox({ source: OCT });
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'a\nb', summary: 's' }))).toContain('one line');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'x -->', summary: 's' }))).toContain('comment markers');
+		// `--!>` closes a comment in HTML parsers too (CodeQL on #3318).
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'x --!>', summary: 's' }))).toContain('comment markers');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Derby', replace: 'Darby', summary: 's' }))).toContain('No replaceable match for "Derby"');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2], summary: 's' }))).toContain('in 1 slide: slide 2');
+		expect(tb.draft).toContain('# Oct. Tenth'); // slide 1 was outside `slides`
+	});
+
+	// The checker on #3208: a slide the structure check refuses must not let the turn end "settled".
+	it('replace_text refuses a slide whose structure would change, and the turn is not settled', async () => {
+		const tb = toolbox({ source: ['---', 'theme: indaco', '---', '', '## A', '', 'TBD here', '', '---', '', '## B', '', '<!-- TBD -->'].join('\n') });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'TBD', replace: 'hide', summary: 's' }));
+		expect(out).toContain('Replaced 1 match in 1 slide: slide 1 (1: body).');
+		expect(out).toContain('slide 2: the new words would still change the slide’s structure');
+		expect(tb.draft).toContain('<!-- TBD -->');
+		expect(tb.verdict?.refused).toBe(true);
+	});
+
+	it('replace_text reads an empty slide list as every slide, and reports numbers outside the deck', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', slides: [], summary: 's' }));
+		expect(out).toContain('in 2 slides');
+		const out2 = await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2, 9], summary: 's' }));
+		expect(out2).toContain('slide 9 (the draft has 3)');
+		expect(await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct. Tenth', case_sensitive: true, summary: 's' }))).toContain('nothing would change');
+	});
+
+	// PRESERVE-CASE AND PATTERNS (#3208 item 6; owner's call 2026-11-19). The Worker is stood in for by
+	// `runPattern` in this thread: it is the function the Worker runs, so the toolbox sees what it would see.
+	const inThread: PatternRunner = async (job) => runPattern(job);
+	const EYEBROWS = ['---', 'theme: indaco', '---', '', '<!-- _class: content -->', '`OCT LAUNCH`', '', '## Oct launch', '', 'We shipped in oct. See [Oct](https://x.test/oct).'].join('\n');
+
+	it('replace_text with preserve_case writes each match in its own case, and only when asked', async () => {
+		const tb = toolbox({ source: EYEBROWS });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, preserve_case: true, summary: 's' }));
+		expect(out).toContain('Replaced 4 matches in 1 slide');
+		expect(tb.draft).toContain('`OCTOBER LAUNCH`');
+		expect(tb.draft).toContain('## October launch');
+		expect(tb.draft).toContain('We shipped in october. See [October](https://x.test/oct).');
+		const plain = toolbox({ source: EYEBROWS });
+		await plain.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, summary: 's' }));
+		expect(plain.draft).toContain('`October LAUNCH`');
+	});
+
+	it('find_text and replace_text run a pattern through the runner, never on the main thread', async () => {
+		const jobs: PatternJob[] = [];
+		const runner: PatternRunner = async (job) => {
+			jobs.push(job);
+			return runPattern(job);
+		};
+		const tb = toolbox({ source: OCT, patterns: runner });
+		const found = await tb.run('find_text', JSON.stringify({ text: 'Oct\\. (Tenth|10)', regex: true }));
+		expect(found).toContain('Pattern "Oct\\\\. (Tenth|10)": 4 matches in 3 slides, and 1 front-matter line.');
+		expect(jobs).toHaveLength(1);
+		expect(jobs[0].source).toBe('Oct\\. (Tenth|10)');
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, summary: 's' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
+		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
+		expect(tb.draft).toContain('title: Oct. Tenth review');
+		expect(jobs).toHaveLength(2);
+	});
+
+	it('a replace limited to some slides sends only those slides to the Worker', async () => {
+		const jobs: PatternJob[] = [];
+		const tb = toolbox({
+			source: OCT,
+			patterns: async (job) => {
+				jobs.push(job);
+				return runPattern(job);
+			},
+		});
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, slides: [2], summary: 's' }));
+		expect(out).toContain('Replaced 2 matches in 1 slide: slide 2');
+		expect(jobs[0].texts.some((t) => t.includes('# Oct. Tenth') && !t.includes('After'))).toBe(false); // slide 1's title
+		expect(tb.draft).toContain('# Oct. Tenth\n'); // slide 1 untouched
+	});
+
+	it('a compile error quotes the model’s pattern, not the whole-word wrapper, and explains Unicode-mode escapes', async () => {
+		const out = await toolbox({ source: OCT, patterns: inThread }).run('find_text', JSON.stringify({ text: 'Q\\d\\-2026', regex: true, whole_word: true }));
+		expect(out).toContain('The pattern does not compile');
+		expect(out).toContain('Unicode mode');
+		expect(out).not.toContain('\\p{L}');
+	});
+
+	it('a pattern that does not compile, runs too long, or has no Worker is refused, and the deck is untouched', async () => {
+		const bad = toolbox({ source: OCT, patterns: inThread });
+		expect(await bad.run('replace_text', JSON.stringify({ find: '(Oct', replace: 'x', regex: true, summary: 's' }))).toContain('The pattern does not compile');
+		const slow = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'timeout', message: 'no answer' }) });
+		expect(await slow.run('replace_text', JSON.stringify({ find: '(a+)+$', replace: 'x', regex: true, summary: 's' }))).toContain('was stopped');
+		expect(slow.draft).toBe(OCT);
+		const cold = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'no-start', message: 'the pattern worker did not start in 15 s' }) });
+		const coldOut = await cold.run('find_text', JSON.stringify({ text: 'Q\\d', regex: true }));
+		expect(coldOut).toContain('could not start');
+		expect(coldOut).not.toContain('simpler pattern'); // a cold load is not the pattern's fault
+		const none = toolbox({ source: OCT, patterns: null });
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct', regex: true }))).toContain('Pattern search is not available');
+		// A literal find never needs the runner.
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct. Tenth' }))).toContain('"Oct. Tenth": 4 matches');
+	});
+
+	// The checker on #3208: with twin slides the LCS anchored on the wrong one, and a word change read on the card
+	// as insert + replace + delete. Same length now compares in place.
+	it('a word change across twin slides is two replace rows, not an insert and a delete', async () => {
+		const src = ['---', 'theme: indaco', '---', '', '## A\n\nfoo', '', '---', '', '## A\n\nbar', '', '---', '', '## A\n\nfoo', '', '---', '', '## A\n\nbar'].join('\n');
+		const tb = toolbox({ source: src });
+		await tb.run('replace_text', JSON.stringify({ find: 'bar', replace: 'foo', summary: 's' }));
+		const rows = tb.proposal();
+		expect(rows.map((e) => [e.action, e.slide])).toEqual([
+			['replace', 2],
+			['replace', 4],
+		]);
+		const { applyEditsChecked } = await import('./architect');
+		expect(deckSlides(applyEditsChecked(src, rows).source)).toEqual(deckSlides(tb.draft));
+	});
+
+	// The checker's second round: "insert one, delete one" keeps the slide count, and must still read as an insert
+	// and a delete, so Auto holds it for the author.
+	it('a turn that inserts and deletes keeps its delete row even at the same length', async () => {
+		const tb = toolbox({ source: DECK });
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 0, body: '## New first' }, { action: 'delete', slide: 4 }], summary: 's' }));
+		const rows = tb.proposal();
+		expect(rows.some((e) => e.action === 'delete')).toBe(true);
+		const { autoHold } = await import('./chat-actions');
+		expect(autoHold({ via: 'agent', clean: true, aborted: false, deckChanged: false, live: false, edits: rows, slideCount: 3 })).toBe('it deletes slides');
+	});
+
+	// The owner on #3318: escape, do not refuse. `$10` is written so the slide shows $10, not math.
+	it('replace_text escapes markup characters in the replacement instead of refusing', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: '$10', summary: 's' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides');
+		expect(tb.draft).toContain('# \\$10');
+		expect(tb.draft).toContain('<!-- @say{$10 was the day.} -->'); // a spoken line is written as typed
+		expect(tb.verdict?.refused).toBe(false);
+	});
+
+	// The checker's round 3: a pill is Lattice syntax in backticks. The chat's real path asks the engine's own
+	// reader (authoring-core's inlineCodeDispatches), not the kernel's fallback.
+	it('replace_text leaves a pill alone, by the engine\u2019s own reader, and still edits a KPI value', async () => {
+		const src = ['---', 'theme: indaco', '---', '', '## Status', '', 'Shipped `{BETA, tag}` with `$4.2M` tag revenue'].join('\n');
+		const tb = toolbox({ source: src });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'tag', replace: 'label', summary: 's' }));
+		expect(out).toContain('Replaced 1 match in 1 slide');
+		expect(out).toContain('1 in inline syntax on slide 1');
+		expect(tb.draft).toContain('`{BETA, tag}`');
+		expect(tb.draft).toContain('label revenue');
+		const kpi = await toolbox({ source: src }).run('replace_text', JSON.stringify({ find: '$4.2M', replace: '$4.5M', summary: 's' }));
+		expect(kpi).toContain('Replaced 1 match');
+	});
+
+	// The dispatcher marks a deck edit that never ran as refused, so the turn cannot end "settled" on it:
+	// refused by the mode, or sent arguments that do not parse (use-case-layer.md §6.1).
+	it('a deck edit refused by the mode or by bad arguments leaves the turn refused', async () => {
+		const talk = toolbox({ source: OCT, mode: 'talk' });
+		await talk.run('replace_text', JSON.stringify({ find: 'Oct', replace: 'Nov', summary: 's' }));
+		expect(talk.verdict?.refused).toBe(true);
+		const review = toolbox({ source: OCT });
+		await review.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 1, body: '# Hi' }], summary: 's' }));
+		expect(review.verdict?.refused).toBe(false);
+		expect(await review.run('edit_slides', '{not json')).toContain('were not valid JSON');
+		expect(review.verdict?.refused).toBe(true);
+	});
+
+	it('Talk mode may search but not replace', async () => {
+		const tb = toolbox({ source: OCT, mode: 'talk' });
+		expect(await tb.run('find_text', JSON.stringify({ text: 'Tenth' }))).toContain('matches');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Tenth', replace: '10th', summary: 's' }))).toContain('not available in this chat mode');
+		expect(tb.draft).toBe(OCT);
+	});
+
+	it('preview_speech skips hidden slides, caps the range, and still previews free text', async () => {
+		const many = ['---', 'theme: indaco', '---', ...Array.from({ length: 14 }, (_, i) => `\n## Slide ${i + 1}\n\n---`), '\n<!-- hide -->\n## Secret'].join('\n');
+		const tb = toolbox({ source: many });
+		const out = await tb.run('preview_speech', JSON.stringify({ from: 1, to: 15 }));
+		expect(out).toContain('[slide 10]');
+		expect(out).not.toContain('[slide 11]');
+		expect(out).toContain('call again from 11');
+		const hidden = deckSlides(many).length;
+		expect(await tb.run('preview_speech', JSON.stringify({ from: hidden }))).toContain(`[slide ${hidden}] Hidden`);
+		expect(await tb.run('preview_speech', JSON.stringify({ text: 'Our CRO joined' }))).toMatch(/Spoken as: Our CRO joined[\s\S]*"CRO"/);
+		expect(await tb.run('preview_speech', JSON.stringify({}))).toContain('Pass `from`');
 	});
 
 	it('checks the DRAFT with the host checker, errors first, and flags slides over budget', async () => {

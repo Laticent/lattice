@@ -8,7 +8,10 @@
  *
  * Usage:
  *   npm run card -- card.yml          # print the fenced card
+ *   npm run card -- --base main card.yml   # pre-merge: diff the GROWTH section against another ref
+ *   npm run card -- --no-growth card.yml   # pre-merge: leave the GROWTH section out
  *   npm run card -- --check card.yml  # validate only
+ *   npm run card -- --table fleet.yml # fleet board as one markdown table
  *   cat card.yml | npm run card -- -  # read YAML from stdin
  *
  * Exit codes:
@@ -19,17 +22,31 @@
 
 const fs = require('node:fs');
 const YAML = require('yaml');
-const { renderCard } = require('./agent-card');
+const { renderCard, renderFleetTable } = require('./agent-card');
 
 function usage(message) {
   if (message) console.error(`card: ${message}`);
-  console.error('usage: npm run card -- [--check] <card.yml | ->');
+  console.error('usage: npm run card -- [--check] [--table] <card.yml | ->');
   process.exit(2);
 }
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
-const files = args.filter((a) => a !== '--check');
+const noGrowth = args.includes('--no-growth');
+const table = args.includes('--table');
+let growthBase = 'origin/main';
+const files = [];
+for (let i = 0; i < args.length; i++) {
+  const a = args[i];
+  if (a === '--check' || a === '--no-growth' || a === '--table') continue;
+  if (a === '--base' || a.startsWith('--base=')) {
+    const value = a === '--base' ? args[++i] : a.slice('--base='.length);
+    if (!value || value.startsWith('--')) usage('--base needs a git ref, e.g. --base origin/main');
+    growthBase = value;
+    continue;
+  }
+  files.push(a);
+}
 if (files.length !== 1) usage('give exactly one card file (or - for stdin)');
 
 let source;
@@ -75,7 +92,23 @@ if (cut.length) {
 }
 const card = doc.toJS();
 
-const result = renderCard(card);
+// The pre-merge card's GROWTH section comes from git, never from the YAML (owner's D3, 2026-11-19):
+// what this branch adds and removes against the base, by kind. tools/pr-growth.js.
+if (card && Object.hasOwn(card, 'growth')) {
+  console.error('card: not valid, fix these and run again:');
+  console.error('  - growth: is read from git by npm run card; remove it from the YAML');
+  process.exit(1);
+}
+if (card && card.card === 'pre-merge' && !noGrowth && !check) {
+  try {
+    card.growth = require('./pr-growth').growth({ base: growthBase });
+  } catch (err) {
+    console.error(`card: could not read growth from git against ${growthBase} (${err.message.split('\n')[0]}); pass --base <ref> or --no-growth`);
+    process.exit(1);
+  }
+}
+
+const result = table ? renderFleetTable(card) : renderCard(card);
 if (!result.ok) {
   console.error('card: not valid, fix these and run again:');
   for (const e of result.errors) console.error(`  - ${e}`);

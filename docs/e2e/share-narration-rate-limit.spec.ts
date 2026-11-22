@@ -8,10 +8,18 @@
 //
 // What it proves, as counts of work done (HARD RULE #32):
 // - the export runs more than the old fixed pool of 3 at once, and never more than the author's cap of 6;
-// - after a 429, no NEW request starts inside the pause: Retry-After when the page can read it, the scheduler's 2 s
-//   fallback when it cannot (a lower bound: a slow machine only waits longer);
+// - after a 429, no NEW request starts inside the pause: the first request the page sends after it reads the refusal is
+//   a retry of a refused sentence, and it goes out no sooner than Retry-After when the page can read it, the scheduler's
+//   2 s fallback when it cannot (a lower bound: a slow machine only waits longer);
 // - every sentence ships, and the provider saw exactly one request per sentence plus one per refusal: nothing was asked
 //   twice, so nothing would have been billed twice.
+//
+// WHERE THE PAUSE STARTS is read in the page, as an order of events, not as a time at the mock. The page learns of a 429
+// only after it has read the refusal's body (voice-model.js `openRouterRung`), and until then it rightly keeps starting
+// requests; under load such a request reached the mock 259 ms after the 429 left it. The old check called anything past
+// 250 ms "started inside the pause" and failed 4 of 16 loaded webkit-phone runs. Here the page's `fetch` is wrapped to
+// log each speech request, and `Headers.get('retry-after')` on a 429 logs the refusal: voiceHttpError reads it in the
+// same task, a few microtasks before the scheduler pauses, so no other request can start between the two.
 import * as fs from 'node:fs';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
@@ -41,17 +49,13 @@ test(`@crosswidth @webkit-phone @gecko a cloud-voiced export rides out a rate li
 	let arrived = 0;
 	let inFlight = 0;
 	let peak = 0;
-	let refusedAt = 0;
-	const startsAfterRefusal: number[] = [];
 	const texts: string[] = [];
 	await context.route(/openrouter\.ai/, async (route) => {
 		const req = route.request();
 		if (!/\/audio\/speech$/.test(new URL(req.url()).pathname) || req.method() !== 'POST') return route.abort();
 		const n = ++arrived;
-		if (refusedAt) startsAfterRefusal.push(Date.now() - refusedAt);
 		texts.push(JSON.parse(req.postData() || '{}').input);
 		if (REFUSED.has(n)) {
-			if (!refusedAt) refusedAt = Date.now();
 			return route.fulfill({ status: 429, headers: { 'retry-after': String(retryAfterS), 'access-control-allow-origin': '*', ...(exposed ? { 'access-control-expose-headers': 'retry-after' } : {}) }, body: '{"error":{"message":"Rate limit exceeded"}}' });
 		}
 		inFlight++;
@@ -60,6 +64,36 @@ test(`@crosswidth @webkit-phone @gecko a cloud-voiced export rides out a rate li
 		await new Promise((r) => setTimeout(r, 150)); // flaky-ok: holds the mock answer open so requests overlap; nothing asserts on it
 		inFlight--;
 		return route.fulfill({ status: 200, contentType: 'audio/mpeg', body: MP3 });
+	});
+	// The page's own record of what it sent and when it read a refusal, in the order it happened (see the note at the top).
+	await context.addInitScript(() => {
+		const log: Array<{ kind: 'sent' | 'refused'; text?: string; at: number }> = [];
+		Object.defineProperty(window, '__speechLog', { value: log });
+		const refusals = new WeakSet<Headers>();
+		const fetch0 = window.fetch;
+		window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+			const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+			if (!/openrouter\.ai\/.*\/audio\/speech$/.test(url)) return fetch0.call(this, input, init);
+			let text = '';
+			try {
+				text = JSON.parse(String(init?.body ?? '{}')).input ?? '';
+			} catch {
+				/* not a speech body: logged with no text, which the checks below treat as a fresh request */
+			}
+			log.push({ kind: 'sent', text, at: Date.now() });
+			return fetch0.call(this, input, init).then((res) => {
+				if (res.status === 429) refusals.add(res.headers);
+				return res;
+			});
+		};
+		const get0 = Headers.prototype.get;
+		Headers.prototype.get = function (name: string) {
+			if (refusals.has(this) && String(name).toLowerCase() === 'retry-after') {
+				refusals.delete(this);
+				log.push({ kind: 'refused', at: Date.now() });
+			}
+			return get0.call(this, name);
+		};
 	});
 	await context.addInitScript((cap) => {
 		try {
@@ -86,6 +120,7 @@ test(`@crosswidth @webkit-phone @gecko a cloud-voiced export rides out a rate li
 	const file = testInfo.outputPath('narrated.html');
 	await dl.saveAs(file);
 	const html = fs.readFileSync(file, 'utf8');
+	const log = await page.evaluate(() => (window as unknown as { __speechLog: Array<{ kind: 'sent' | 'refused'; text?: string; at: number }> }).__speechLog);
 
 	// Each slide speaks its heading as well as its points, so the deck's sentence count is read off what was asked.
 	const unique = new Set(texts);
@@ -95,8 +130,15 @@ test(`@crosswidth @webkit-phone @gecko a cloud-voiced export rides out a rate li
 	expect((html.match(/data:audio\/mpeg;base64,/g) ?? []).length, 'every sentence ships with audio').toBeGreaterThanOrEqual(sentences);
 	expect(peak, 'more than the old fixed pool of 3 ran at once').toBeGreaterThan(3);
 	expect(peak, 'never past the author\'s cap').toBeLessThanOrEqual(CAP);
-	// Requests the browser had already sent when the first 429 landed can arrive just after it; everything later waited.
-	const late = startsAfterRefusal.filter((ms) => ms > 250);
-	expect(Math.min(...late), 'nothing new started inside the pause').toBeGreaterThanOrEqual(minPauseMs - 250);
+	// The page read a refusal, and the first request it sent after that is a sentence it had already asked for: nothing new
+	// started inside the pause. And that retry left no sooner than the pause the scheduler owed: the refusal is logged before
+	// the scheduler computes its pause from its own clock, so the gap can only come out longer than the pause, never shorter.
+	const firstRefusal = log.findIndex((e) => e.kind === 'refused');
+	expect(firstRefusal, 'the page read a 429').toBeGreaterThan(-1);
+	const askedBefore = new Set(log.slice(0, firstRefusal).flatMap((e) => (e.kind === 'sent' ? [e.text] : [])));
+	const next = log.slice(firstRefusal + 1).find((e) => e.kind === 'sent');
+	expect(next, 'a request followed the refusal').toBeDefined();
+	expect(askedBefore.has(next?.text), 'nothing new started inside the pause: the first request after the 429 is a retry').toBe(true);
+	expect((next?.at ?? 0) - log[firstRefusal].at, 'the retry waited out the pause').toBeGreaterThanOrEqual(minPauseMs);
 });
 }

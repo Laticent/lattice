@@ -170,14 +170,14 @@ function opaqueAt(img, w, h, [x, y]) {
  * next round. Returns the last slide drawn and the indexes of the pictures that never arrived.
  */
 export async function settle({ pictures, drawSlide, deadlineMs = SETTLE_DEADLINE_MS, pollMs = SETTLE_POLL_MS, rounds = DRAW_ROUNDS, now = () => performance.now(), wait = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
-	if (!pictures.length) return { canvas: drawSlide(), stuck: [] };
+	if (!pictures.length) return { canvas: await drawSlide(), stuck: [] };
 	const start = now();
 	let pending = pictures.map((_p, i) => i);
 	for (let round = 0; ; round++) {
 		for (const i of pending) {
 			while (!pictures[i].check() && now() - start < deadlineMs) await wait(pollMs);
 		}
-		const canvas = drawSlide();
+		const canvas = await drawSlide();
 		pending = pictures.map((_p, i) => i).filter((i) => !pictures[i].check());
 		if (!pending.length || round + 1 >= rounds || now() - start >= deadlineMs) return { canvas, stuck: pending };
 	}
@@ -216,7 +216,7 @@ async function solo(url) {
  * `log` is the export's image-failure log (`createImageFailureLog`).
  *
  * @param {string} svg
- * @param {() => HTMLCanvasElement} drawSlide
+ * @param {() => HTMLCanvasElement | Promise<HTMLCanvasElement>} drawSlide
  * @param {{ count: number }} [log]
  */
 export async function settleSlideDraw(svg, drawSlide, log) {
@@ -231,6 +231,9 @@ export async function settleSlideDraw(svg, drawSlide, log) {
 	const { canvas, stuck } = await settle({ pictures, drawSlide });
 	// Unnamed: the SVG holds the picture's bytes, not the path the author wrote, so the toast says only
 	// that not every image made it (`missingImageReason`), which is true.
-	if (stuck.length && log) log.count += 1;
+	if (stuck.length && log) {
+		log.count += 1;
+		console.warn(`[deck-export] ${stuck.length} picture(s) had not decoded when the settle loop gave up`);
+	}
 	return canvas;
 }

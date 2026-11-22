@@ -90,10 +90,14 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-fuoco-lib.js',
   // Its whole write set is docs/src/lib/veduta/dist/, covered by docs/.gitignore's `dist/`.
   'build-veduta-lib.js',
+  // Its whole write set is docs/src/lib/cenno/dist/, covered by docs/.gitignore's `dist/`.
+  'build-cenno-lib.js',
   // Its whole write set is docs/src/lib/filo/dist/, covered by docs/.gitignore's `dist/`.
   'build-filo-lib.js',
   // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
   'build-mosaico-lib.js',
+  // Its whole write set is docs/src/lib/lastra/dist/, covered by docs/.gitignore's `dist/`.
+  'build-lastra-lib.js',
   // Its whole write set is docs/src/lib/fluido/dist/, covered by docs/.gitignore's `dist/`.
   'build-fluido-lib.js',
   // Its whole write set is docs/src/lib/squadra/dist/, covered by docs/.gitignore's `dist/`.
@@ -125,6 +129,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-capabilities.js',
   'build-decisions-index.js',
   'build-gotchas-index.js',
+  // Measured 2026-11-19 (touch a marker, run it alone, `find -newer`): its whole write set is
+  // dist/engineering/codemap.md. A fourth index, also `validates`.
+  'build-codemap.js',
   // Measured 2026-10-16: its whole write set is dist/schemas/front-matter.schema.json.
   'build-front-matter-schema.js',
   // Measured 2026-10-16: its whole write set is dist/engineering/conformance.md.
@@ -137,6 +144,7 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
+  'build-use-cases.js', // chat-tools.generated.ts + chat-tool-tiers.generated.ts, compiled from lib/use-cases manifests
   // Re-measured 2026-10-07: its whole write set is lib/packages/packages.generated.json,
   // lib/finishes/presets.generated.js, lib/motion/scenes.generated.js,
   // lib/base/base.finish.css and lib/packages/reserved-classes.generated.js, all tracked —
@@ -147,6 +155,9 @@ const EXPECTED_PR_OWNED = new Set([
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
+  // Measured 2026-11-13: its whole write set is lib/authoring/rules/verified.generated.json, which git tracks — the
+  // browser's Squadra runtime loads a deck rule only against the digest it holds.
+  'build-squadra-stamps.js', // lib/authoring/rules
   'skill-index.js', // design/skills/index.json + README table + .claude/skills/lattice-*
   'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
   'build-marks-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css
@@ -165,6 +176,12 @@ const EXPECTED_PR_OWNED = new Set([
   // highlighter requires it, so the engine does.
   'build-code-languages.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
+  // Measured 2026-11-16 against a timestamped tree: its whole write set is docs/src/lib/cenno/README.md
+  // (the per-module size table between its markers), which git tracks, and only when the table changed.
+  'build-cenno-sizes.js',
+  // Measured 2026-11-16 against a timestamped tree: its whole write set is
+  // lib/export/chart-reveal-player-bundle.generated.mjs, which git tracks — player-core imports it.
+  'build-chart-reveal-player.js',
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
   // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's
@@ -232,7 +249,7 @@ test('built-not-committed build steps', async (t) => {
     // `uncommitted` AND `validates`, and `build:check` runs every `validates` step's
     // --check even though it skips other uncommitted steps. Lose `validates` and the
     // gate shrinks silently. Component docs stay a committed, PR-owned artifact.
-    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js']) {
+    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js', 'build-codemap.js']) {
       const step = STEPS.find((x) => x.script === s);
       assert.ok(step, `${s} missing from STEPS`);
       assert.ok(step.uncommitted && step.validates, `${s} must be uncommitted + validates`);

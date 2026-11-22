@@ -33,29 +33,45 @@
     "bleed",
     "mirror"
   ],
+  "variantAxes": [
+    {
+      "label": "Text placement",
+      "exclusive": true,
+      "members": [
+        "above",
+        "bleed",
+        "mirror"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the title, a short label in backticks."
     },
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional title. A claim earns its place; a bare label does not."
     },
     "subtitle": {
       "selector": "h2 + p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional line under the title, in backticks."
     },
     "description": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional description paragraph, written after the title and subtitle and before the photos. It is the slide's only caption and prints in every export."
     },
     "photos": {
       "selector": "ul > li > img",
+      "match": { "kind": "image" },
       "required": true,
       "description": "One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word."
     }

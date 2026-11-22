@@ -70,6 +70,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/image-plugin.md', 'the demo deck for the image plugin and the shared display layer: its last slide shows a clip as a `>{…}` record beside the pictures (HARD RULE #9)'],
   ['examples/video-plugin.md', 'the demo deck for the video plugin: its new slide writes the clip as a `>{…}` record, the short form (HARD RULE #9)'],
   ['examples/bleed-auto-ink.md', 'the demo deck for a bleed slide\'s automatic ink: one slide writes its photo as an `@image{…}` record, to show the record reads its photo as the `![…](…)` shortcut does (HARD RULE #9)'],
+  ['examples/lastra-image-reading.md', 'the demo deck for lastra\'s one header reader: three content slides place a turned or plain photo as a small `@image{…}` figure, since only the record carries a size, to show the PDF draws it upright (HARD RULE #9)'],
 ]);
 
 /**
@@ -82,6 +83,8 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'cards-stack: a `{status}` pill on each card title'],
   ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill'],
   ['examples/prose-density.md', 'cards-grid: the word and line budgets, each a pill on its card title'],
+  ['examples/semantic-testing.md', 'a cards-grid reveal: a `[x]` or `[!]` mark on each card title shows which part of a test description is named and which is missing'],
+  ['examples/semantic-testing-deep-dive.md', 'a cards-grid reveal: a `[x]` or `[!]` mark on each card title shows which part of a test description is named and which is missing'],
   ['lib/components/inventory/logo-wall/logo-wall.gallery.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
@@ -123,6 +126,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/kpi-allowance.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/kpi-row-rules.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/kpi-stats-lift.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/status-triplets.md', 'the status-triplets demo: a kpi slide ends each tile row with a `{status}` pill, and the policy slide cites each claim with a `{source}` pill'],
   ['examples/mobile-landscape.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/social-grid.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/stage-console-split.md', 'a kpi slide: a `{status}` pill ends each tile row'],

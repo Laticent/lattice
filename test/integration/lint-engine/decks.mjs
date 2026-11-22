@@ -12,7 +12,7 @@ export function decks() {
 	const files = dirs.flatMap((d) =>
 		fs
 			.readdirSync(path.join(ROOT, d))
-			.filter((f) => f.endsWith('.md'))
+			.filter((f) => f.endsWith('.md') && !f.endsWith('.tmp.md'))
 			.sort()
 			.map((f) => path.join(d, f)),
 	);

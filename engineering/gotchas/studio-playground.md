@@ -1675,7 +1675,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom** — a collage photo does not pop under the mouse in the Studio, though it does in the Playground. Any other hover effect that lives in the slide's CSS is dead in the same way.
 - **Cause** — the preview box is `pointer-events-none` (`StudioShell.tsx`, `previewBoxRef`) so a swipe over the slide reaches the swipe container instead of being swallowed by the engine's iframe. A box that takes no pointer events never matches `:hover` for anything inside it.
-- **Mitigation** — the holder hit-tests the pointer itself on `pointermove` (`previewHolderRef`) and marks what is under it with `data-host-hover`; the slide's CSS reads the marker beside `:hover`. Code-block copy buttons were first (`hoverCodeCopyAt`, `code.styles.css`); collage tiles follow (`hoverCollageAt`, `collage.styles.css`). Each bridge clears only its own markers and writes an attribute only on a change, because a write to the frame's DOM that changes nothing still wakes its mutation observers.
+- **Mitigation** — the holder hit-tests the pointer itself on `pointermove` (`previewHolderRef`) and marks what is under it with `data-host-hover`; the slide's CSS reads the marker beside `:hover`. Code-block copy buttons were first (`hoverCodeCopyAt`, `code.styles.css`); collage tiles follow (`hoverCollageAt`, `collage.styles.css`). Each bridge clears only its own markers and writes an attribute only on a change, because a write to the frame's DOM that changes nothing still wakes its mutation observers. A pointer that stops moving is hit-tested again whenever what is under it can change without a pointer move: on a slide change, on each render the preview commits, and when a collage in the frame packs. A live collage packs only once its photos are measured (`stampLive` sets `data-collage` from `measuring` to `packed` or `fallback`), so a hit-test run while they loaded missed every tile; `watchCollagePacks` observes that attribute and asks for one more (`collage-lightbox.spec.ts`, "a photo that packs under a still mouse").
 - **Triggered by** — a mouse over the Studio's live preview. A touch tap goes through the click bridges (`tapCollageAt`, `tapCodeCopyAt`).
 - **Removable when** — the preview box can take pointer events without swallowing swipes.
 - **Commits** — the PR that added `hoverCollageAt`; `docs/e2e/collage-lightbox.spec.ts` drives it with a real mouse.
@@ -1829,11 +1829,11 @@ never turn "passed in headless" into "works on iOS."
 ## A caret key pressed while Compose repaints is undone
 
 - **Symptom** — in Compose, an arrow key moves the caret and a moment later the caret is back where it was; nothing selected, nothing typed. Rare by hand, and a Compose e2e caret walk ends one step short now and then under load. Logged in-page: the browser caret went from offset 0 to 1, then the next `selectionchange` found it at 0 again while ProseMirror's state never moved.
-- **Cause** — ProseMirror learns of a native caret move from `selectionchange`, a queued task. A transaction dispatched before that event is read is built on the OLD selection, and `updateState` writes that selection back to the DOM. Compose dispatches from a timer (the code-highlight poll, every 400ms for up to 12s after a deck opens) and from a loader (the inline-object pass when the pill kernels arrive), so either can land in the gap.
-- **Mitigation** — `takePendingSelection` (`docs/src/lib/compose/pending-selection.ts`) calls `domObserver.flush()`, which reads a DOM selection ProseMirror has not taken in yet (and still honors a read it deferred on purpose, on Android, IE and Safari composition), before any transaction no key or click started. Call it before a new timer-, effect- or loader-driven `view.dispatch`. The test-side races of the same family (ProseMirror's focus-handler and mouseup timers that write the selection back after a click) are handled in `docs/e2e/studio-fixture.ts` by #3150.
-- **Triggered by** — a new `view.dispatch` from a timer, an effect or a load callback in `ComposeView.tsx` or `lib/compose/*`.
-- **Removable when** — prosemirror-view reads a pending DOM selection before applying a programmatic transaction.
-- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12.
+- **Cause** — ProseMirror learns of a native caret move from `selectionchange`, a queued task. A transaction dispatched before that event is read is built on the OLD selection, and `updateState` writes that selection back to the DOM. Compose dispatches from a timer (the code-highlight poll, every 400ms for up to 12s after a deck opens), from a loader (the inline-object pass when the pill kernels arrive), from an animation's end (the undo/redo change flash clearing itself, about three seconds after the undo), and after an `await` (a Markdown paste resuming after its reference check), so any of them can land in the gap. The flash clear is the one a person meets: undo, click another slide, type inside three seconds, and the typing went back to the slide the caret came from, mid-paragraph (1 in 48 with real clicks at a person's pace in WebKit under load; the Studio E2E nightly's `filo-compose` budget test, 2026-11-16).
+- **Mitigation** — `takePendingSelection` (`docs/src/lib/compose/pending-selection.ts`) calls `domObserver.flush()`, which reads a DOM selection ProseMirror has not taken in yet (and still honors a read it deferred on purpose, on Android, IE and Safari composition), before any transaction no key or click started. Call it before a new timer-, effect- or loader-driven `view.dispatch`. A sibling race lives inside prosemirror-view itself: on FIRST focus its `focus` handler writes ProseMirror's selection back to the DOM after 20 ms, and when a click caused the focus on a busy page, WebKit delivered the click's `selectionchange` after that timer (about 190 ms), so the first words typed after opening Compose landed at the top of the deck (3 in 96 first clicks on the 134 KB deck). `docs/src/lib/compose/pointer-focus-caret.ts` reads the click's caret on a 0 ms timer for a focus a mousedown caused; `pointer-focus-caret.test.ts` fails if a prosemirror-view upgrade changes the timer it races. prosemirror-view 1.42.9 fixes the race for WebKit only: its timer writes back only if the DOM caret has not moved since the focus. WebKit fires `focus` before the click moves the caret, so the check sees the move. Gecko fires `focus` with the caret already at the click, so the check sees no move and the old caret still comes back when Firefox's `selectionchange` is late (1/192 first clicks on 1.42.9 with the module unwired, against WebKit 0/192). So the module stays (`followups.d/3291-p2-drop-pointer-focus-workaround.md`). It covers a pointer's focus only, on purpose: reading the DOM caret on every focus would adopt the browser's default caret on a Tab-key focus instead of the selection ProseMirror restores. So a script that calls `focus()` on an unfocused editor and sets a Selection API caret in the same task still races the timer; the iOS Compose probe hit it on a slow simulator (run 44119244333). `docs/scripts/ios-safari/compose-probe.js` makes the stop that focuses the editor a real tap (its runner, `run.mjs` `composeProbePage`, delivers it over WebDriver actions with no pause) and places later carets from script, which is safe because a focused editor fires no focus event. The test-side races of the same family (ProseMirror's focus-handler and mouseup timers that write the selection back after a click) are handled in `docs/e2e/studio-fixture.ts` by #3150.
+- **Triggered by** — a new `view.dispatch` from a timer, an effect, an animation's end, a load callback or the far side of an `await` in `ComposeView.tsx` or `lib/compose/*`; and a prosemirror-view upgrade that changes its `focus` handler's timer (`pointer-focus-caret.test.ts` goes red).
+- **Removable when** — prosemirror-view reads a pending DOM selection before applying a programmatic transaction, and stops writing its selection over a click's caret on focus.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12; the Compose first-click PR of 2026-11-17 (the change flash, the paste, `resyncFrom`, and the pointer focus).
 
 ## The slide strip ignores its shortcuts right after a click
 
@@ -1863,6 +1863,15 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — Radix describes a closed tooltip trigger.
 - **Commits** — the docs-perf PR of 2026-11-09 (#3108).
 
+## A keyboard-opened hint eats the tap on the button under it
+
+- **Symptom** — after Escape closes the chat sheet on a phone, the first tap on Workspace settings does nothing. Playwright reports `tooltip-content … intercepts pointer events` (`e2e/model-spine.spec.ts:87`, `mobile`, red on every run).
+- **Cause** — Escape hands focus back to the sheet's launcher, and that focus counts as `:focus-visible`, so `Tip` opens the launcher's hint, as it should for a keyboard reader. The hint stays open until focus moves. The Chat hint renders above its button, over the header, and a Radix tooltip takes pointer events (its hoverable content, WCAG 1.4.13), so the tap landed on the hint.
+- **Mitigation** — `Tip` (`docs/src/components/ui/tooltip.tsx`) marks a hint that keyboard focus opened `lx-tip-passthrough pointer-events-none`, and clears the mark when the pointer enters the trigger. The hint alone is not enough: Radix renders it inside its own `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto` and still took the tap, so `docs/src/styles/tailwind.css` frees the wrapper with `:has(> .lx-tip-passthrough)`, the chart card's fix (`chart-interact.css`). A hint the pointer is on keeps its hit area, including one the pointer was already resting on when focus arrived (the focus asks `:hover`, but only where `(hover: none)` is false, because a touch screen leaves `:hover` on the last thing tapped). Pinned by `tooltip.test.tsx` (the classes, the hover and touch cases, and the stylesheet rule as text) and the two `model-spine` tests on `mobile`.
+- **Triggered by** — a hint that keyboard focus can open over another control.
+- **Removable when** — never; a hint opened by focus is read, not hovered.
+- **Commits** — the e2e P1/P2 flake PR of 2026-11-13.
+
 ## A dialog's description is read after every control inside it
 
 - **Symptom** — on an iPhone, VoiceOver reads each control in a sheet or dialog, its own description, and then the dialog's description again: "Run a command or jump somewhere in the Studio" after every command palette row (owner, PR #3108).
@@ -1874,7 +1883,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A Compose e2e spec types on the wrong line, misses a pill, or reads an element that is not drawn yet, only under load
 
-- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike.
+- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike; and on `filo-live.spec.ts`, where the host's click, End and Shift+Home before typing "Gone" lost the selection and the word went in at the end of the paragraph instead of replacing it (nightly run 43712760849: ProseMirror's 20 ms focus timer ran 52 ms after the click, behind Compose's repaint of the slide pill).
 - **Cause** — the spec acted before the state it needed existed (F3 in `engineering/decisions/2026-11-06-flaky-tests.md`). ProseMirror learns where a click, a DOM `setBaseAndExtent` or a native arrow put the caret only from `selectionchange`, a queued task, so a key sent before it lands at the old caret. And for 20 ms after the editor GAINS focus, ProseMirror's `focus` handler may write its own selection back to the DOM: a native caret key pressed in that window, before its `selectionchange` is read, is undone (the first ArrowRight after a click and Home was lost in 6 of 24 runs without a wait, 0 of 24 with one; no person types that fast after a click). And the pills, sparks and preview are drawn on their own schedules after the deck opens.
 - **Fix** — wait for the signal, then act: `caretSettled(page)` after any click or `setBaseAndExtent` that a key press follows, and `pressSettled` for native caret keys (`docs/e2e/studio-fixture.ts`; it compares the caret's NODES, because two lines of equal length at the same offset read alike to any description of them); `editorFocusSettled` after the click that focuses the editor and before native caret keys (a 20 ms timer started after the focus runs after ProseMirror's: same-delay timers run in start order); check the caret after each press (`walkOntoFirstPill` in `compose-pill-editor.spec.ts`); poll until the element exists before reading it; and read a menu's state from its trigger's `aria-expanded` (`openStripMenu`), never from its visibility, which an exit animation or a lazy chunk misreports. A Radix menu that fades out stays mounted, and its press-outside watcher can close the next menu a press opens: give such a menu `data-[state=closed]:animate-none!` (the strip menu and the Insert menu do). Never a retry or a sleep (HARD RULE #32).
 - **Triggered by** — any e2e spec that types or presses keys in Compose, or reads a drawn inline object.
@@ -2164,3 +2173,82 @@ never turn "passed in headless" into "works on iOS."
   opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
 - **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
   itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.
+
+## An e2e that waits for "two screenshots in a row identical" times out on a page with nothing moving
+
+- **Symptom** — a poll that compares each `page.screenshot()` with the one before times out after 15 s, and the failure
+  screenshot shows a settled page. `plugin-slots.spec.ts` on `webkit-tablet` (nightly run 43712760849): 6 of 10 local
+  runs red, at the first of its three widths.
+- **Cause** — an infinite animation on the page. The Studio's drawn caret (`lx-ghost-caret-cm`, shown in an editor
+  without focus) blinks every 530 ms (`lx-caret-blink`, 1.06 s). On WebKit, one poll round of a 300 ms interval plus a
+  ~220 ms screenshot took 520 to 570 ms, so consecutive shots fell half a blink apart and never matched.
+- **Fix** — `pictureStill(page)` (`docs/e2e/barriers.ts`) takes every shot with `animations: 'disabled'`, which runs a
+  finite animation to its end and holds an infinite one at its first frame, so only a real change in layout keeps two
+  shots apart. A JS-driven ticker still fails it, as it should. Use it instead of a hand-rolled screenshot poll.
+- **Triggered by** — a screenshot-equality wait on any page that shows a blinking caret, a spinner or another infinite
+  animation.
+- **Removable when** — never: an infinite animation never settles.
+- **Commits** — PR for `fix/e2e-filo-live-plugin-slots` (2026-11-15).
+
+## The editor draws `<!--` as an arrow
+
+- **Symptom** — in the Studio's deck editor or the Playground, `<!--` shows as a left arrow and `-->` as a long
+  arrow. The file holds the plain characters; only the drawing differs.
+- **Cause** — the mono font's ligatures. Every directive comment in a deck reads as an arrow, so the text an author
+  reads is not the text in the file.
+- **Fix** — `editorChrome` (`docs/src/lib/editor-chrome.js`) sets `fontVariantLigatures: 'none'` on `.cm-content`,
+  once for both editors; the autocomplete menu already did the same (`editor-theme.ts`, `editor.js`). Pinned by
+  `docs/src/lib/editor-chrome.test.ts`. The `<textarea>` fallbacks shown when CodeMirror fails to load
+  (`Editor.tsx`, `CodeField.tsx`) set it too. A new editing surface that does not build on `editorChrome` owes the
+  same line.
+- **Triggered by** — any monospace font with programming ligatures on a CodeMirror content box.
+- **Removable when** — never, while the editors use a font with ligatures.
+- **Commits** — the Studio pane follow-ups PR after #3222 (2026-11-16).
+
+## A voice says a deck term wrong in one sentence, or one play, and right in the next
+
+- **Symptom** — a name such as "Yearn" is read right in "This is why I love Yearn." and wrong in "Our pick is Yearn."
+  (heard as "yarn") or "Yearn is our pick." (garbled), with the deck's `terms:` entry unchanged. Seen on Gemini
+  Flash-Lite TTS (`gemini-3.8-flash-lite-tts`), measured 2026-11-19 (#3319).
+- **Cause** — the voice, not the text. Cadenza sends every voice the same spoken text, with `terms:` applied, one
+  sentence per request. A language-model voice then decides how to say it from the words around it, so the same
+  word can come out differently by position. The on-device voice (Kokoro) works from phonemes and says it the same
+  every time. Whether Gemini 3.1 Flash TTS (through OpenRouter) is steadier is not settled: an early judge scored it
+  right 24 of 24, but that judge read Gemini's WAV header and trailing C2PA chunk as audio (see the next point).
+- **Fix** — none in Lattice yet: pick a voice that reads the term the same way (Workspace settings says so under the Voice
+  model card, for each voice in `docs/src/lib/voice-caveats.ts`). A `terms:` respelling is the only lever on the voice itself, and
+  it must be heard on THAT voice: on Kokoro, `yurn` and `yern` produce the same phonemes as `yearn`, so they change
+  nothing. **Machine listening does not settle it on Gemini:** Whisper writes "yarn" for clips a person hears as
+  "yearn", and scoring the two transcripts disagreed with the owner's ear on clean audio. Decide by ear, on the deck.
+  **Gemini answers a RIFF WAV with a signed C2PA chunk after the audio**: read only its `data` chunk (the Studio's
+  `decodeGeminiSpeech` passes the WAV to the browser, which does); a script that treats the bytes as raw PCM adds a
+  click and about 90 ms of loud noise. The reproduction and the open work are
+  `followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md` and `…-p2-voice-model-pronunciation-caveats.md`.
+
+## A click on a dialog's button lands beside it on a loaded machine, and the dialog stays open
+
+- **Symptom** — `expect(dialog).toHaveCount(0)` times out right after a passing `click()` on the dialog's own button,
+  only under load (`library-images-render.spec.ts:148` in a 2-worker full Chromium run, 2026-11-19: the "Add 1 photo"
+  dialog still open 15 s after "Add photo" was clicked).
+- **Cause** — the dialog grew after it opened. `DialogContent` is centered on both axes, so content that arrives late
+  (here the photo-format sizes, measured by the import's encoder) moves the footer down by half the growth. Playwright
+  hit-tests the button, then sends the press at the point it measured; when the sizes land in between, that point is
+  above the button's new top edge (measured: 18.5 px of movement against a 32 px button). A person aiming at the button
+  as the numbers land misses it the same way. **This is the suspected cause of the :148 run, not a proven one:** a
+  deterministic replay of :148 on the build before the fix (aim while the encoder is held, let the sizes land, then
+  press the aimed point) still hit the button, so if this test times out again with the fix in place, look elsewhere.
+- **Fix** — reserve the late content's space from the first frame: draw the empty bar track and give the summary line
+  its full height while measuring (`PhotoFormatDialog.tsx`). `e2e/library-images.spec.ts` holds the encoder and checks
+  the dialog's height and the button's row before and after the sizes land, and that the old aim point is still the
+  button.
+- **Triggered by** — anything in a centered dialog that fills in after it opens: a measured number, a status line, a
+  badge.
+- **Removable when** — never.
+- **Second case: the chat's model chip** — its popover priced a turn ("Ask a question", "Make an edit") only once the
+  model was priced, in two rows ABOVE the source switch, so "On-device" dropped 50 px under a press. The catalog
+  download itself had finished about 1.9 s earlier; what landed inside the click was the status refresh that renders
+  the rows (the trace's snapshots show no rows before the click and both after). That one is proven: `model-spine.spec.ts:206` failed on mobile in a 2-worker full Chromium run on `11d0d61` (2026-11-20) with
+  "On-device" focused but not selected, the signature of a press and release that landed on different elements. The
+  fix (`ChatCost.tsx`) keeps both rows for a priced source and shows a dash until the price arrives;
+  `model-spine.spec.ts` "the source switch stays where it was when the turn prices land" holds the catalog and checks
+  the switch's box before and after.

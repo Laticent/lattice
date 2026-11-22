@@ -2,39 +2,21 @@
 
 Everything the Lattice engine is made of lives here, one concern per folder.
 If you are new, read `engineering/architecture.md` first (how a deck flows
-through the engine), then come back to this map.
+through the engine), then the code map below.
 
 The big picture: **three render paths must agree** — the CLI/PDF path
 (`lattice.js` → `lib/engine`), the browser playground
 (`lib/playground`), and the VS Code preview runtime (`lib/runtime`). Most of
 the structure below exists so shared logic lives in exactly one place.
 
-| Folder | One-liner |
-|---|---|
-| `adaptive/` | The four box families (structural breakpoints) components reflow across |
-| `authoring/` | Deck lint / review / scorecard cores (pure, browser-safe) |
-| `base/` | Foundational CSS: tokens, element defaults, universal variants, finishes |
-| `components/` | The component catalog — one folder per component, in buckets |
-| `concepts/` | The design-vocabulary ontology, drift-gated against live catalogs |
-| `core/` | Pure transform kernels: splitting, resolvers, list/section walkers |
-| `engine/` | The owned Markdown→slides engine (canonical render path) |
-| `exemplars/` | Tier filter for worked example decks (short/standard/full) |
-| `export/` | The owned PPTX writer |
-| `fonts/` | Canonical manifest of self-hosted text fonts |
-| `forms/` | The Form composition catalog (Frame + Cell + Tile) |
-| `helpers/` | Authoring-time diagnostics (the `.overflow` warning-ring contract) |
-| `integrations/` | Wrappers/docs for markdown-it, KaTeX, Mermaid, highlight.js |
-| `layout/` | Layout/Component Studio deterministic core (gates, scaffold) |
-| `playground/` | Browser entry: client-side render through the owned engine |
-| `runtime/` | VS Code preview runtime entry (→ `dist/lattice-runtime.js`) |
-| `shared/` | Semi-universal CSS modifiers (`compact`, `accent`) |
-| `theme/` | Theme Studio color math + palette derivation (see its README) |
-| `tokens/` | The old→new token-rename crosswalk |
-| `transformers/` | The shared transformer registry all render paths iterate |
-| `typography/` | The `--fs-*` type-scale source of truth |
+**What each folder is for: `dist/engineering/codemap.md`.** It lists every folder here with its
+layer and a one-line purpose, and it is generated from `PARTS` in `tools/structure.js` and `FOLDERS` in
+`tools/build-codemap.js`, so it
+cannot leave a folder out the way the table that used to sit here did (21 of 29 folders).
+`npm run build` writes it; `npm run codemap:check` fails on a folder here with no line. It
+checks that each line exists, not that it is still true.
 
 The #1 gotcha repo-wide: several folders are **bundled into the browser** by
 `tools/build-*-core.js` — anything reachable from those entries must be pure
 (no `fs`, no Node-only APIs). Each folder README says whether that applies.
 
-*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

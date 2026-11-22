@@ -28,6 +28,7 @@ import {
 	METRICS,
 	measure,
 	newestHistory,
+	onlyRoutes,
 	PR_ALLOWANCE_BYTES,
 	parseDeclarations,
 	rebaseline,
@@ -181,6 +182,17 @@ describe('rebaseline', () => {
 		const { changes } = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true });
 		expect(changes).toEqual([{ route: 'studio', metric: 'engineJsGz', from: 0, to: 900_000, hardFrom: 0, hardTo: ceilingFor(900_000) }]);
 		expect(routes.studio.engineJsGz, 'rebaseline stays pure').toBeUndefined();
+	});
+
+	// An owner's OK for ONE route's ceiling (`--route home`) moves that route only, even when
+	// another route also sits above its soft target.
+	it('resets only the named routes with --route', () => {
+		const measured = { studio: { eagerJsGz: 660_000, htmlRaw: 196_000 }, home: { eagerJsGz: 80_000, htmlRaw: 111_000 } };
+		const all = rebaseline(routes, measured, { slackPct: SLACK_PCT, raise: true, ceiling: true, metrics: ['htmlRaw'] });
+		expect(all.changes.map((c) => c.route)).toEqual(['studio', 'home']);
+		const { changes } = rebaseline(onlyRoutes(routes, ['home']), measured, { slackPct: SLACK_PCT, raise: true, ceiling: true, metrics: ['htmlRaw'] });
+		expect(changes).toEqual([{ route: 'home', metric: 'htmlRaw', from: 100_000, to: 111_000, hardFrom: 110_000, hardTo: ceilingFor(111_000) }]);
+		expect(onlyRoutes(routes, null), 'no --route means every route').toBe(routes);
 	});
 });
 

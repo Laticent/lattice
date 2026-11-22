@@ -370,6 +370,7 @@ describe('code-line-clipped — every class that moves the pane is measured, not
 // fails) with no Chromium, so `npm test` stays render-free there.
 describe('code-line-clipped — the table, as the browser lays it out', () => {
   const { resolveChrome: chrome } = require('../../../tools/lib/resolve-chrome');
+  const { skipWithoutChrome } = require('../../helpers/chrome');
   const measure = require('../../../tools/measure-code-columns.js');
   const table = require('../../../lib/authoring/code-pane-columns.js');
   const SAMPLE = ['||', 'claim-hero||', 'claim-quiet||', 'compact||', '|venue-huddle|', '|venue-conference|', '|venue-hall|',
@@ -400,7 +401,8 @@ describe('code-line-clipped — the table, as the browser lays it out', () => {
   });
 
   test('every sampled cell is what Chromium fits, on every canvas', (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const why = skipWithoutChrome(exe);
+    if (why) return t.skip(why);
     for (const g of measure.GROUPS) {
       for (const combo of SAMPLE) {
         const want = table.COLUMNS[g][combo];
@@ -412,7 +414,8 @@ describe('code-line-clipped — the table, as the browser lays it out', () => {
   });
 
   test('every sampled bar cost is what Chromium lays out, on every canvas', (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const why = skipWithoutChrome(exe);
+    if (why) return t.skip(why);
     assert.deepEqual([...table.BAR_FIELDS], [...measure.BAR_FIELDS]);
     for (const g of Object.keys(table.BAR)) {
       assert.deepEqual(Object.keys(table.BAR[g]), [...measure.RUNGS], g);

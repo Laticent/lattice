@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './studio-fixture';
 
+// A spec about the device tier: no pinned tier (playwright.config.ts `tierPin`), so the live tier decides.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 // The System diagnostic panel (docs/src/components/site/SystemOverlay*.tsx) on the real Studio, on every
 // engine and width: Chromium at desktop and mobile (@crosswidth) and at tablet width from the desktop
 // project, Playwright's WebKit engine with a phone and a tablet profile (not a real device), and Gecko. Design:

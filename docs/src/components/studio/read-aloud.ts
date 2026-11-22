@@ -297,6 +297,12 @@ export type OrVoiceModel = { id: string; name: string; promptPerM: number | null
 let voicePromise: Promise<VoiceModel | null> | null = null;
 /** The rungs that synthesize bytes with measured onsets (a clocked voice). */
 const CLOCKED_RUNGS = new Set(['openrouter-tts', 'gemini-tts', 'kokoro']);
+/** How long a read waits for the selected voice to be ready before reading the slide on captions alone. */
+export const PREPARE_WAIT_MS = 2500;
+/** Voices whose preparation outlasted PREPARE_WAIT_MS and is still pending. A later slide skips the wait for them,
+ *  instead of freezing its first word for another 2.5 s each time (#3333's maker-checker, F3). Keyed by the voice
+ *  object, so a fresh voice (and every test's stub) starts clean; an entry is dropped when preparation settles. */
+const stalledVoices = new WeakSet<object>();
 /** The tier alias a voice selection names for the explicit-identity calls. */
 export type VoiceTier = 'openrouter' | 'gemini' | 'kokoro';
 
@@ -453,13 +459,12 @@ export async function sentenceHash(spoken: string): Promise<string> {
 export function warmNarration(
 	text: string,
 	signal?: AbortSignal,
-	acronyms?: ReadonlyMap<string, string>,
+	terms?: ReadonlyMap<string, string>,
 	lang?: string,
-	lexicon?: ReadonlyMap<string, string>,
 ): void {
-	// MUST pass the same `acronyms`, `lang` AND `lexicon` play() will use, or the warmed spoken
+	// MUST pass the same `terms` AND `lang` play() will use, or the warmed spoken
 	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
-	const sentences = spokenSentences(text, acronyms, lang, lexicon);
+	const sentences = spokenSentences(text, terms, lang);
 	if (!sentences.length) return;
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
 	// a second instance, and it's a no-op microtask once a reader has already
@@ -472,9 +477,9 @@ export function warmNarration(
  *  `cue.words[].spoken` join `play()` uses, so anything derived from this lines up with
  *  the cache keys playback will look up. Shared by the warm-ahead and the prepare pass;
  *  a second, plainer split here would silently make every prefetch a cache miss. */
-function spokenSentences(text: string, acronyms?: ReadonlyMap<string, string>, lang?: string, lexicon?: ReadonlyMap<string, string>): string[] {
+function spokenSentences(text: string, terms?: ReadonlyMap<string, string>, lang?: string): string[] {
 	if (!text) return [];
-	const track = buildTrack(text, { acronyms, lang, lexicon });
+	const track = buildTrack(text, { terms, lang });
 	return track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 }
 
@@ -492,11 +497,10 @@ function spokenSentences(text: string, acronyms?: ReadonlyMap<string, string>, l
 export function warmNarrationWindow(
 	texts: string[],
 	signal?: AbortSignal,
-	acronyms?: ReadonlyMap<string, string>,
+	terms?: ReadonlyMap<string, string>,
 	lang?: string,
-	lexicon?: ReadonlyMap<string, string>,
 ): void {
-	for (const text of texts) warmNarration(text, signal, acronyms, lang, lexicon);
+	for (const text of texts) warmNarration(text, signal, terms, lang);
 }
 
 /**
@@ -511,8 +515,8 @@ export function useReadAloud(
 	text: string,
 	opts?: {
 		onFinish?: () => void;
-		acronyms?: ReadonlyMap<string, string>;
-		lexicon?: ReadonlyMap<string, string>;
+		/** The deck's term registry (`termsSpokenMap`): written key → what the voice says. */
+		terms?: ReadonlyMap<string, string>;
 		lang?: string;
 		muted?: boolean;
 		debug?: boolean;
@@ -526,10 +530,9 @@ export function useReadAloud(
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
 	// DISPLAY words — the measured onset re-anchors the right cue, so they stay aligned.
-	// The deck's acronym registry (author pronunciations) rides into every track; the
-	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
-	const acronyms = opts?.acronyms;
-	const lexicon = opts?.lexicon;
+	// The deck's term registry (author pronunciations — `terms:`, `acronyms:`, `lexicon:`) rides into
+	// every track; the deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
+	const terms = opts?.terms;
 	const lang = opts?.lang;
 	// Voice muted — captions still run (the silent cadence estimate), no TTS is attached. Read via
 	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
@@ -540,7 +543,7 @@ export function useReadAloud(
 	const debugLabelRef = React.useRef(debugLabel);
 	debugLabelRef.current = debugLabel;
 	const emphasis = opts?.emphasis;
-	const track = React.useMemo(() => buildTrack(text, { acronyms, emphasis, lang, lexicon }), [text, acronyms, emphasis, lang, lexicon]);
+	const track = React.useMemo(() => buildTrack(text, { terms, emphasis, lang }), [text, terms, emphasis, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	// The sentence the Guide is on: the reader's, or the next one once it is GUIDE_LEAD_MS away.
@@ -1164,7 +1167,58 @@ export function useReadAloud(
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then(async (voice) => {
-			if (voice) await Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+			// THE CAPTIONS NEVER WAIT ON A VOICE THAT IS NOT COMING. Preparing the selected voice can take as
+			// long as an on-device model download (~80 MB), and on a slow or blocked link it never finishes —
+			// measured: `prepareSelectedVoice` still pending after 6 s, the highlight frozen on word one with the
+			// voice MUTED, on every surface (2026-11-20, owner report from an iPhone). So:
+			//   · muted — nothing is going to speak, so the estimate starts NOW. Preparation still finishes in
+			//     the background, so an unmute mid-slide can resume the clocked voice as before.
+			//   · unmuted — wait for the voice up to PREPARE_WAIT_MS. Past that, this slide is read on the
+			//     estimate (captions) and the voice joins at the next slide's play, once it is ready. It does
+			//     NOT join mid-slide: that is the race-ahead-then-snap-back the deferred start exists to prevent.
+			//   · whichever way the slide started on the estimate, the voice, once ready, attaches MUTE-SUPPRESSED:
+			//     a presenter who unmutes on this slide gets the voice from the CURRENT sentence (the unmute path),
+			//     never a reset to word 0, and a mute tapped during the wait never freezes the captions
+			//     (#3333's maker-checker, F1 and F2).
+			//   · a voice that already stalled skips the wait on later slides until it is ready (F3).
+			let estimateStarted = false;
+			const startEstimate = () => {
+				if (estimateStarted || ctl.signal.aborted) return;
+				estimateStarted = true;
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+			};
+			const mutedAtPlay = mutedRef.current;
+			if (voice) {
+				const ready = Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+				let prepared = false;
+				const settled = () => {
+					prepared = true;
+					stalledVoices.delete(voice);
+				};
+				ready.then(settled, settled);
+				if (mutedAtPlay) startEstimate();
+				let timedOut = stalledVoices.has(voice);
+				if (!timedOut) {
+					let timer: ReturnType<typeof setTimeout> | undefined;
+					timedOut = await Promise.race([ready.then(() => false), new Promise<boolean>((res) => { timer = setTimeout(() => res(true), PREPARE_WAIT_MS); })]);
+					clearTimeout(timer);
+					if (timedOut && !prepared) stalledVoices.add(voice);
+				}
+				if (ctl.signal.aborted) return;
+				if (timedOut) {
+					setRung('silent');
+					startEstimate();
+				}
+				if (estimateStarted) {
+					try {
+						await ready;
+					} catch {
+						/* a voice that cannot prepare stays on the estimate: its rung() reads silent below */
+					}
+					if (ctl.signal.aborted) return;
+				}
+			}
 			if (ctl.signal.aborted) return;
 			if (!voice) {
 				// Voice model failed to load — the silent estimate still runs the
@@ -1220,11 +1274,17 @@ export function useReadAloud(
 			// runs" path as a failed voice load, but chosen deliberately by the user. If a CLOCKED voice
 			// is behind the mute, remember the audio is only mute-suppressed — a later unmute resumes it
 			// on THIS slide (Present opens muted-by-default, so play-muted → unmute is the common path).
-			if (mutedRef.current) {
+			// A slide that already started on the estimate (muted at play, or a voice that kept it waiting) takes the
+			// same path: the voice attaches suppressed and the running estimate is left alone. If the presenter
+			// unmuted after a muted start, resume from the current sentence now (the unmute itself landed before the
+			// voice was attached, so it could not). An unmuted slide that timed out keeps its estimate: the voice joins
+			// at the next slide, by the rule above.
+			if (mutedRef.current || estimateStarted) {
 				setRung('silent');
 				if (clocked) audioSuppressedRef.current = true;
 				armedRef.current = true;
-				if (!pausedRef.current) startLoop();
+				if (!estimateStarted && !pausedRef.current) startLoop();
+				if (estimateStarted && mutedAtPlay && !mutedRef.current) resumeClockedFromCurrentRef.current();
 				return;
 			}
 			setRung(r);
@@ -1402,9 +1462,9 @@ export function useReadAloud(
  */
 export function spokenSentencesPerSlide(
 	texts: string[],
-	opts?: { acronyms?: ReadonlyMap<string, string>; lang?: string; lexicon?: ReadonlyMap<string, string> },
+	opts?: { terms?: ReadonlyMap<string, string>; lang?: string },
 ): string[][] {
-	return texts.map((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon));
+	return texts.map((t) => spokenSentences(t, opts?.terms, opts?.lang));
 }
 
 export async function narrationReadiness(perSlide: string[][]): Promise<number[]> {
@@ -1896,9 +1956,41 @@ export async function previewTtsVoice(o: { rung: VoiceTier; voice?: string; mode
 	}
 	const s = await v.synthSample({ ...o, speed });
 	if (!s.ok || !s.bytes) return { ok: false, error: s.error || 'no audio returned' };
+	return playPreviewBytes(stage, s.bytes, s.key);
+}
+
+/**
+ * Speak ONE line in the reader's current voice — the Terms editor's ▶, so an author hears how a term
+ * will be said before a slide uses it. `text` is already the SPOKEN form (the editor runs it through
+ * Cadenza with the deck's terms). Uses the same ladder a read uses (`synthOne`), and the browser
+ * speechSynthesis rung plays itself when that is the active one. Never throws.
+ */
+export async function speakLinePreview(text: string, lang?: string): Promise<{ ok: boolean; error?: string }> {
+	const line = String(text ?? '').trim();
+	if (!line) return { ok: false, error: 'nothing to say' };
+	const v = await getVoice();
+	if (!v) return { ok: false, error: 'voice unavailable' };
+	const stage = getStage();
+	try {
+		stage.unlock();
+	} catch {
+		/* best-effort */
+	}
+	const s = await v.synthOne({ text: line });
+	if (!s) return { ok: false, error: 'no voice is ready' };
+	if (!s.bytes) {
+		v.speakThis(line, undefined, lang); // the speechSynthesis rung: it plays itself
+		return { ok: true };
+	}
+	return playPreviewBytes(stage, s.bytes, s.key);
+}
+
+/** Play preview bytes on the shared stage: barge in on any earlier preview, and report a clip that
+ *  never ends (a context stuck suspended) instead of hanging the caller's "Playing…" state. */
+async function playPreviewBytes(stage: Stage, bytes: Bytes, key: string): Promise<{ ok: boolean; error?: string }> {
 	try {
 		previewHandle?.stop(); // barge-in on a prior sample
-		const clip = await stage.decode(s.bytes, s.key);
+		const clip = await stage.decode(bytes, key);
 		const handle = stage.play(clip);
 		previewHandle = handle;
 		let playTimer: ReturnType<typeof setTimeout> | undefined;

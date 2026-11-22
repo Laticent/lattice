@@ -1,0 +1,181 @@
+---
+status: shipped
+summary: >
+  An empty deck looks empty. Compose draws no slide bar for it: one line to write on and a grid of four starting slides
+  (title, content, cards-grid, big-number) drawn with the add-slide picker's own tiles and live previews, plus "Browse all
+  N layouts". Typing starts a content slide and one Undo empties the deck again. Preview says "No slides yet", the counter
+  and deck menu say "No slides", and Present says "Add a slide to present." The default layout is named `content`
+  everywhere. Design C of three, after an independent UI/UX review (C 8.0, A 7.0).
+---
+
+# An empty deck in Compose: no slide chrome, and the first slide one tap away
+
+**Date:** 2026-11-17 · **Owner's direction:** "empty means empty" (2026-11-16) · **Owner's pick:** design C
+
+## 1. The answer
+
+While a deck is empty, Compose draws no slide. It shows one empty line to write on, as Source shows one empty line, and
+under it **"Start your deck"**: a hint, four starting slides and **"Browse all N layouts"**, which opens the add-slide
+picker. Nothing opens on its own.
+
+- **Four starting slides**, in this order: `title` (a deck opens on its title slide), `content`, `cards-grid`,
+  `big-number`. They are the picker's own `Tile`, with live previews of the deck's theme (HARD RULE #15: no second
+  picker). No Blank tile: typing makes that slide.
+- **Typing starts a `content` slide.** Only a key that writes text does: arrows, Escape, Shift, ⌘B and ⌘I leave the deck
+  empty. One Undo takes back the slide and the text together, back to an empty file.
+- **A tile makes slide 1** in its layout, with nothing blank before it, and one Undo empties the deck again.
+- **A pasted Markdown deck arrives as its own slides.** That path existed (`markdown-clipboard.ts`, #3234: slide breaks
+  become slides and front matter merges, one undo step); the empty slide it pastes into is replaced, not kept. The spec
+  pins it.
+- **One call to add a slide.** The floating "New slide" button stands down while Compose shows the grid, and returns with
+  the first slide. On a wide window the strip's "+ Add your first slide" stands down too, because the grid sits beside it.
+  On a phone the strip keeps it: Preview is a separate tab there, and that tile is its only way to add a slide.
+- **Phone and keyboard.** The hint reads "Pick a first slide, or just start typing" with a keyboard and "…or tap here to
+  start writing" on a touch screen, and the empty line's placeholder says the same. A phone has no keyboard until a tap,
+  so a tap anywhere on the canvas the grid's controls do not cover puts the caret on the line and raises it.
+- **Accessible.** The grid is a region named by its heading, "Start your deck", described by the hint. Its four tiles are
+  a list named "Starting slides". Tab from the empty line reaches the first tile.
+
+## 2. How it was chosen
+
+The owner's iPhone screenshots of a new, blank deck showed Compose inventing a slide: a divider, collapse, delete, and a
+layout button reading `text`, around one empty line. Delete offered to delete it, and the New slide button asked "Before
+this slide / After this slide" when no slide existed. The cause is the schema: `doc → slide+` (`deck-doc.ts`), so an
+empty deck is stored as one empty slide and `SlideView` drew a real slide's chrome around it. The model stays as it is.
+Only what is drawn and how the first input behaves change.
+
+Three designs were mocked at 390px and 1440px, next to the real Studio's screenshots of the empty deck:
+
+| Design | Idea | Outcome |
+|---|---|---|
+| A | A centered "Add a slide" button that opens the picker | 7.0 in the review |
+| B | The picker opens on its own | Rejected: it covers the page before the author decides, gets in the way of typing, and fills a phone screen on every new deck |
+| C | The empty canvas shows four starting slides and a link to the whole picker | **8.0, picked** |
+
+The owner asked whether an expert had been consulted on A against C. One independent UI/UX reviewer, given the mock and
+the screenshots but not the maker's recommendation, set its own rubric: time to a first useful slide 25%, not blocking
+typing 20%, showing what the product makes 15%, phone fit 15%, cost 10%, simplicity 15%. It scored C 8.0 and A 7.0
+("A hides the product: on a phone the first screen is a button and gray space") and named C's risks as memory and the
+typing path getting lost. Its fixes are in the build: title first, no Blank tile, the hint at body size, 44pt tiles, a
+grid that scrolls rather than shrinks. One fix was declined by the owner: static thumbnails instead of live previews. A
+static image cannot show the deck's own theme, and the frames are bounded and measured (§4).
+
+## 3. What "empty" means
+
+**Nothing after the front matter but spaces and line breaks** (`isBlankDeck`, `docs/src/lib/deck-empty.ts`, a Studio-only module so the home page and the playground do not carry it). It is the
+rule the slide index already counts by, so Compose, the strip, Preview and the counters agree: `deck-empty.test.ts` holds
+`isBlankDeck(src)` equal to "the index has no slide" over thirteen shapes. Front matter alone is still empty. A lone `---`
+is one blank slide, as the engine renders it, and is not empty.
+
+Compose reads the rule from the text it emits, so the first keystroke clears the grid in the same frame, and from the
+`source` it is given, so an Undo or a Source edit brings it back.
+
+## 4. What the build measured
+
+- **Preview frames.** The grid has its own `PreviewPool`, capped at its four tiles. On the real Studio at an iPhone's size
+  an empty deck holds 5 frames (the four tiles and the live preview) in Chromium and in WebKit, and two rounds of typing a
+  letter and undoing it created **no** new frame. That is on purpose: once shown, the grid stays mounted and is only
+  hidden, because WebKit never frees a destroyed frame's document (about 11 MB each, `preview-pool.tsx`), and mounting it
+  afresh on every Undo back to empty would have stranded four frames each time. The pool is not shared with the picker:
+  each `PreviewPool` owns its frames. The owner asked for a shared pool (2026-11-17); none exists, and a frame cannot move between hosts without
+  reloading. The owner chose to ship this grid on its own pool and build one shared pool, with a global cap, as its own
+  PR: `followups.d/3273-p1-shared-preview-pool.md`.
+- **Where the grid lives: the shell, not Compose (the code review).** The first build rendered the grid inside
+  `ComposeView`. The maker-checker review found that this made it go wrong in four ways once the grid was off screen, each
+  confirmed on the real Studio and each now held by a test that a mutation turns red:
+  1. *A collapsed editor left an empty deck with no way to add a slide.* The New slide doors stood down whenever the deck
+     was empty in Compose, whether or not the grid could be seen. They now stand down only while the grid is on screen:
+     Compose is visible (not collapsed, not Read, not the phone's Preview tab) and its doors are open (`stripEditable`).
+  2. *Each return to Compose built four new frames* (4, 8, 12 over Compose → Source round trips), because Compose
+     unmounts on Source, Read or a lens and took the grid's pool with it. The grid now lives in the editor pane
+     (`StudioShell.tsx`, `[data-start-grid]`), mounted once per session and hidden when off screen; Compose reports `blank`
+     and its empty line's edge (`onEmpty`) and exposes `focusEmptyLine()`. Two round trips now build none.
+  3. *On a phone's Preview tab the frames stayed live*, because that tab only covers the edit pane (`invisible`) and the
+     pool still saw four tiles in view. Hidden is now `display:none`, so the tiles have no box and the pool parks them.
+     (The first cut of the move set the `hidden` attribute beside Tailwind's `flex`, which outranks it: the grid stayed on
+     screen over typed text until the class was used. The spec caught it.)
+  4. *An invisible click-catcher* could stay over the editor once the grid prop went away; it went with the move.
+  It also found the grid's top could go stale when one empty deck replaced another (the measurement now reruns on
+  `resetKey`), that a misspelled `sample:` name drew a broken image (it falls back to the stand-in that names it) and that
+  Compose accepted a `..` in a sample name the engine refuses (it refuses it too).
+- **What the grade then held the PR to (HARD RULE #18).** A second grade read the review's three "low" items as defects
+  this PR ships in a surface it created, which #18 does not allow to wait. Each is fixed, with a unit test a mutation turns
+  red:
+  - *"Browse all 0 layouts"* while the catalog loads: the link names no count until there is one (`browseLabel`).
+  - *A saved local component named `title` or `content`* took a starting tile, since local entries come first in the
+    insert list: the grid picks from the catalog only (`startPicks`).
+  - *The empty flag followed the `source` prop*, so an outside change parked while the author typed (or held for an IME
+    composition in a live session) flipped the grid before the editor showed it, and nothing corrected it when the change
+    landed. The flag now follows the editor's own text: set at creation, on every emitted edit, in `resyncFrom` and on an
+    undo applied in place. `ComposeView.sync.test.tsx` holds the parked case; restoring the prop effect turns it red. A
+    refused live merge takes the same path (the editor shows the author's text until the held change lands through
+    `resyncFrom`). `filo-live.spec.ts` holds it (PR 3288): the host empties the deck while the guest composes; the grid
+    stays hidden while the guest's editor shows text and appears once the refused edit settles. Restoring the prop effect
+    put the grid over the composing text.
+- **A real touch on the canvas (PR 3288).** The phone hint says "tap here to start writing", and only Safari's own tap
+  path can show that the tap gives the editor the focus. The Studio iOS suites now run `empty-deck-probe.js` after the
+  Compose tap: it empties the deck through Source, sends one WebDriver touch on the start grid's own background (its
+  side padding, held still five frames), reads that the editor has the focus with a caret in the empty line and the grid
+  still up, then puts the deck back. `PROBE=empty-deck node scripts/ios-safari/probe.selftest.mjs` runs the same probe on
+  Playwright's WebKit at the iPad, iPad-Safari and iPhone sizes. Making the canvas click a no-op turned all three red.
+  WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
+  by the empty rule.
+  On the iPhone simulator (runs 44087025343 and 44092405081) every tap check passed both times. The probe's clean-up,
+  which switched back to Compose after restoring the deck in Source, failed both times: Compose kept the empty deck,
+  focused, with the restored text not applied. The probe now restores the deck in Source and stays there. Whether a
+  person with a keyboard can lose a Source edit this way is open: `followups.d/3288-p1-compose-parks-a-source-edit-on-a-phone.md`.
+  The likely mechanism, found by reading: a Source edit reaches the shell's `source` in a React transition, and the
+  phone's Compose cell asks the rebuilt Compose to take the focus, so a switch that renders first builds Compose from the
+  old text and parks the edit. A local try (desktop Chromium, iPhone-sized WebKit) did not reach it, because a scripted
+  click did not give Compose the focus there. The note is `blocked` until PR 3291 lets the iPhone suite reach this step.
+  The simulators show no software keyboard (a hardware keyboard is attached), so the probe proves the focus and the
+  caret a tap gives, not that the phone's keyboard comes up.
+- **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
+  fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
+  pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The
+  bar is now `visibility:hidden` while the deck is empty: it keeps its height, and its buttons stay out of the tab order
+  and the accessibility tree. Every descendant is hidden at a higher specificity, because the active pill sets
+  `visibility:visible`, which beats a hidden ancestor (the trap the `.cs-paused` rule already notes). The grid's top is
+  measured from the line, not a constant, so it follows the bar's height at every width. (2) After an Undo back to empty,
+  the change mark (`change-flash.ts`) put a deletion gap in the empty line, which gave it a second row and pushed the
+  grid **27px** down (desktop). A blank deck has no text to mark, so the gap and the wash are not drawn while it is empty.
+  After both, the line and the grid sit at the same pixel through a tap, the first letter and Undo, at 390px and 1440px,
+  and a pasted deck's first line lands where the empty line was. `compose-empty-deck.spec.ts` holds both.
+- **It fits a phone, just.** At an iPhone's 390×664 the grid ends 421px into the 435px left under the reserved bar and the line (WebKit; Chromium 422 of 434), so 14px spare. At a larger text size it scrolls inside its own box (`overflow-y:auto`) rather than shrinking the tiles.
+- **Preview and Present.** Preview drew a blank slide numbered 1 with the counter at "1 / 0", the deck menu said "1 slide"
+  beside a status bar's "0 slides", and Present opened a blank slide. Preview now shows "No slides yet" over the live
+  preview (kept warm, so the first slide paints at once), `SlideCount` reads "No slides", `slideCountLabel(0)` reads "No
+  slides", and every door to Present says "Add a slide to present." (the toolbar button is `aria-disabled` and says so).
+- **The picker's line.** It said "Adds it after this slide" with no slide; on an empty deck it says "Adds it as slide 1",
+  and the door's notice after a pick says "Added title as slide 1".
+
+## 4b. Sample art in Compose
+
+The owner added `team-profile` to an empty deck on an iPhone and saw its portraits as dashed boxes in Compose ("Sample art:
+portrait-ada.svg") beside a preview that drew them. Since 2026-11-15 `image-node-view.ts` drew only a Library photo and an
+embedded data URI, and every other source as a stand-in, so that opening a deck never reaches the network. Sample art is not
+the network: it is the Studio's own folder, the one the preview resolves `sample:` into. It was pre-existing, but the owner hit
+it while testing this PR, so it is on the path (HARD RULE #18) and fixed here. `imageSourceKind` gains `sample` for the
+engine's own shape (`lib/core/media-sources.js` `SAMPLE_REF`: a name, no path); the node view draws it from
+`studioSamplesBase()` (`lib/samples-base.ts`, the reader `photo-ink-read.ts` already had, moved to be shared). An SVG loaded
+through `<img>` runs no script, unlike the SVG data URIs the kind still refuses. Web and relative images keep the stand-in.
+`compose-image.spec.ts` checks the picture loads (`naturalWidth` above 0); turning the draw off turns it red.
+
+## 5. The default layout's name: `content`
+
+Compose named the default component `text` on the layout button, the layout menu, its Undo notice, the pane chip and the
+pane notice. No component is named `text`; Source and the docs say `content`. The owner chose `content` everywhere (this
+round's second decision), and the five aliases are gone. `compose-panes.spec.ts` finds the pane chip by its new name.
+
+## 6. Verification
+
+The real Studio, served by `npm run dev`, driven by `docs/e2e/compose-empty-deck.spec.ts`: ten tests on Chromium desktop
+and the 390px phone project, and four of them (the empty state, typing and Undo, a tile and Undo, nothing moves) on WebKit phone and Gecko as well; the collapsed-editor test runs on desktop only, where there is a split to collapse. They cover no slide chrome
+and no second door; typing then one Undo back to an empty file; keys that write nothing; a tile making slide 1, then Undo;
+a pasted deck arriving as two slides with nothing blank before them; the picker's "as slide 1"; and Preview and Present
+saying the deck is empty. Each failing arm is in the PR body.
+
+The spec's first draft emptied the deck with ⌘A and Delete in Source and waited for the saved source to read `''`. A deck
+that was never saved also reads `''`, so on WebKit phone the wait passed with the welcome deck still in place. It now uses
+the fixture's `setEditorContent`, which checks the editor itself; that helper now skips the insert for an empty deck,
+which Firefox's driver refused.

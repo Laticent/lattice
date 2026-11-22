@@ -123,9 +123,16 @@ const sourceOf = (provider, device) => (device.includes(provider) ? 'device' : '
 // key slots): 'none' = no key; 'opening' = stored, not open yet; 'ready'; 'rejected'.
 const hasKey = (p) => providerKeyState(p) !== 'none';
 
-/** Can this browser run the on-device voice? The same rule as voice-model.js `kokoroSupported`: not a coarse (touch-first) pointer. */
+/** Can this browser run the on-device voice? The same rule as voice-model.js `kokoroSupported`: not a coarse (touch-first)
+ *  pointer, and not a LITE device (device-capability-tiers §4.2), so a LITE desktop is never FILLED with a voice it cannot run. */
 export function canRunKokoro() {
-	return !(typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches);
+	// The LITE read is inlined, not device-lite.js: this module is eager on the home page, and importing that module split it
+	// into a chunk of its own, which took home past its startup-JavaScript ceiling (route budget, CI on PR #3192).
+	let lite = false;
+	try {
+		lite = globalThis.document?.documentElement?.getAttribute('data-device-tier') === 'lite';
+	} catch {}
+	return !(typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) && !lite;
 }
 
 /** Is this selection record set (picked or filled), as opposed to Not set? */

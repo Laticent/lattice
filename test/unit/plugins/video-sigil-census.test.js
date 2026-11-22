@@ -27,8 +27,8 @@ function decks() {
       else if (keep(e.name)) out.push(p);
     }
   };
-  walk(path.join(ROOT, 'examples'), (n) => n.endsWith('.md'));
-  walk(path.join(ROOT, 'test/integration/baseline-decks'), (n) => n.endsWith('.md'));
+  walk(path.join(ROOT, 'examples'), (n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')));
+  walk(path.join(ROOT, 'test/integration/baseline-decks'), (n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')));
   walk(path.join(ROOT, 'lib'), (n) => n.endsWith('.gallery.md'));
   return out.sort();
 }

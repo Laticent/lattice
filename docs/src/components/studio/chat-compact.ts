@@ -46,7 +46,10 @@ export function transcript(older: ChatMessage[]): string {
 			const who = m.role === 'user' ? 'Author' : 'Architect';
 			const body = modelText(m).trim();
 			const clipped = body.length > MSG_CLIP ? `${body.slice(0, MSG_CLIP)}…` : body;
-			const tag = m.role === 'assistant' && m.proposed?.length ? (m.applied ? ' [edits applied]' : ' [edits proposed, not applied]') : '';
+			// Per-row states (the change card) say how much of a proposal landed; a thread from before them has only `applied`.
+			const landed = m.rows ? m.rows.filter((r) => r === 'applied').length : m.applied ? (m.proposed?.length ?? 0) : 0;
+			const total = m.proposed?.length ?? 0;
+			const tag = m.role === 'assistant' && total ? (landed === total ? ' [edits applied]' : landed ? ` [${landed} of ${total} edits applied]` : ' [edits proposed, not applied]') : '';
 			return `${who}${tag}: ${clipped}`;
 		})
 		.join('\n\n');

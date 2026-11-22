@@ -335,7 +335,8 @@
 	}
 }
 .lx-ghost-caret {
-	position: fixed;
+	/* Absolute in Compose's host (.cs-host is position: relative), so it scrolls and clips with the text. */
+	position: absolute;
 	width: 2px;
 	border-radius: 1px;
 	background: var(--text-body);
@@ -366,4 +367,34 @@
 .cs-active-line {
 	background-color: color-mix(in srgb, var(--accent) 12%, transparent);
 	border-radius: 4px;
+}
+
+/* A HINT THAT KEYBOARD FOCUS OPENED LETS THE POINTER THROUGH, WRAPPER AND ALL (ui/tooltip.tsx `viaFocus`).
+ * `Tip` marks such a hint `lx-tip-passthrough` + `pointer-events-none`, but Radix renders it inside its own
+ * positioning div, `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto`: the hint was
+ * see-through and the box around it was not, so on a phone the Chat launcher's hint still took the tap
+ * meant for Workspace settings (e2e/model-spine.spec.ts on `mobile`). The same fix as the chart card's
+ * (chart-interact.css). `:has()` scopes it to that one hint; every other popover keeps its pointer. */
+[data-radix-popper-content-wrapper]:has(> .lx-tip-passthrough) {
+	pointer-events: none;
+}
+
+/* THE EDIT BAR'S STEPS (chrome-parts.tsx EDIT_FIT; useRowFit sets `data-fit` on the row, studio.astro on the pre-paint
+ * shell's). `data-out="N"` leaves the row from step N on, into the More menu; `data-in="1"` (the issue pill's short label)
+ * joins it from step 1; `data-more` (the More button) from step 2. Here rather than as per-element utility classes: the
+ * shell's copy of the row is part of the Studio's HTML, which has a byte ceiling (docs/route-budget.json, htmlRaw), and a
+ * "hidden from step N" utility repeated for every later step cost about 150 bytes per control. */
+[data-slot="edit-bar"][data-fit="1"] [data-out="1"],
+[data-slot="edit-bar"][data-fit="2"] :is([data-out="1"], [data-out="2"]),
+[data-slot="edit-bar"][data-fit="3"] :is([data-out="1"], [data-out="2"], [data-out="3"]),
+[data-slot="edit-bar"][data-fit="4"] :is([data-out="1"], [data-out="2"], [data-out="3"], [data-out="4"]),
+[data-slot="edit-bar"][data-fit="5"] [data-out],
+[data-slot="edit-bar"] :is([data-in], [data-more]) {
+	display: none !important;
+}
+[data-slot="edit-bar"]:is([data-fit="1"], [data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) [data-in] {
+	display: inline !important;
+}
+[data-slot="edit-bar"]:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) [data-more] {
+	display: inline-flex !important;
 }

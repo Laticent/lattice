@@ -16,14 +16,14 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the rubric. |
-| `eyebrow` | `p > code` | no | OPTIONAL axis labels: ONE bracketed list in its own paragraph ABOVE the table — `` `[Wider reach, Deeper cognition]` ``. The first member names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Double quotes are optional and protect a comma inside a name — `["Reach, net", Depth]` is two axes, and a stray `]` right after a quoted name closes the list early (`lint:deck` warns, `bracket-list-closed-early`). Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph that is not a bracketed list is an ordinary eyebrow/subtitle and is left alone. |
-| `subtitle` | `h2 + p` | no | One supporting sentence under the heading, framing how to read the grid. |
-| `matrix` | `table` | yes | Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one bracketed list in its own paragraph BELOW the table. POSITION is what distinguishes it from the axis — the two are the same shape, so a list above the table names the axes and a list below it renames the key. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. |
-| `legend` | `p:last-of-type` | no | Optional single trailing paragraph, doubling as the chart caption. It no longer has to say what the cell shapes mean — the key under the grid names them — so use it for the caveat the key cannot carry (how the placements were derived, what they are illustrative of). A leading `**bold**` run still renders as a filled swatch + label and a leading `*italic*` run as an outlined swatch + label, for a caption that wants to point at a specific cell; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
+| `heading` | a `## ` heading | yes | Slide heading naming the rubric. |
+| `eyebrow` | a line of `inline code` | no | OPTIONAL axis labels: ONE bracketed list in its own paragraph ABOVE the table — `` `[Wider reach, Deeper cognition]` ``. The first member names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge — except on a portrait, 9:16 or phone box, where it lies flat above the column title (and wraps if it is long), so the columns get the edge's width. Double quotes are optional and protect a comma inside a name — `["Reach, net", Depth]` is two axes, and a stray `]` right after a quoted name closes the list early (`lint:deck` warns, `bracket-list-closed-early`). Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph that is not a bracketed list is an ordinary eyebrow/subtitle and is left alone. |
+| `subtitle` | a paragraph | no | One supporting sentence under the heading, framing how to read the grid. |
+| `matrix` | a table | yes | Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label. |
+| `key` | a line of `inline code` | no | OPTIONAL label set renaming the cell key: `[{[-], within reach}, {[ ], out of band}]`, one bracketed list in its own paragraph BELOW the table. POSITION is what distinguishes it from the axis — the two are the same shape, so a list above the table names the axes and a list below it renames the key. TWO shapes are keyable — `[-]` and `[ ]`. `[x]` is deliberately NOT: a filled cell's own trailing text IS its label (`[x] Senior`), so the shape has no general name and a row reading 'filled' would repeat on every slide what the cell already says better. Naming a subset is the normal case; the rest keep the defaults declared in this manifest's `labelSet`. |
+| `legend` | a paragraph | no | Optional single trailing paragraph, doubling as the chart caption. It no longer has to say what the cell shapes mean — the key under the grid names them — so use it for the caveat the key cannot carry (how the placements were derived, what they are illustrative of). A leading `**bold**` run still renders as a filled swatch + label and a leading `*italic*` run as an outlined swatch + label, for a caption that wants to point at a specific cell; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
 
 ### Common mistakes
 
@@ -89,7 +89,7 @@ Your position is the diagonal — depth and reach meet at one cell.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

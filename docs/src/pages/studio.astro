@@ -28,6 +28,7 @@ import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astr
 import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.astro';
 import SkipLink from '../components/SkipLink.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
@@ -194,11 +195,17 @@ try {
 	const v = buildVocab(loadAll());
 	lintVocab = {
 		names: [...v.names],
-		modifiers: [...v.modifiers],
+		// Both word lists ship as ONE space-joined string each (StudioIsland splits them back,
+		// lint-vocab-names.ts): as arrays, Astro wraps each of ~700 words in ~17 bytes of
+		// escaped quotes, which this route's HTML budget (docs/route-budget.json) cannot carry.
+		// `modifiers` ships only what `universalModifiers` does not already hold.
+		modifiersPacked: [...v.modifiers].filter((t) => !new Set(v.universalModifiers || []).has(t)).join(' '),
 		// The cross-component modifier tokens (`dark`, `light`, `numbered`, tone/stamp/
 		// spectrum styles, …) valid on ANY slide — drives the editor's `_class:` /
 		// `class:` modifier completion (never a hand-kept list).
-		universalModifiers: [...(v.universalModifiers || [])],
+		universalModifiersPacked: [...(v.universalModifiers || [])].join(' '),
+		// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
+		slotContract: v.slotContract,
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
 		// EVERY register value list (`guardsNames`, `alignNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
@@ -223,6 +230,9 @@ try {
 		alignAxes: v.alignAxes,
 	};
 } catch (e) {
+	// Same observable degradation as the blocks above, and said out loud: without the vocab the
+	// Studio's inline lint and completion run empty, which a silent null hid once already.
+	console.warn('[studio] lintVocab: could not build the lint vocabulary — the inline lint and completion run without it', e && e.message);
 	lintVocab = null;
 }
 
@@ -490,7 +500,11 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
 @keyframes nacre-rot{to{transform:rotate(360deg);}}
-@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}`;
+@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}
+:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader{background:linear-gradient(115deg,color-mix(in srgb,var(--bg-alt,#e7e7ea) 88%,var(--border,#c9c9cf)) 0%,color-mix(in srgb,var(--bg-alt,#e7e7ea) 70%,var(--border,#c9c9cf)) 45%,color-mix(in srgb,var(--bg-alt,#e7e7ea) 88%,var(--border,#c9c9cf)) 90%);background-size:220% 100%;}
+:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader>*,:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader::after{display:none;}
+@media (prefers-reduced-motion: no-preference){:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader{animation:nacre-lite-pulse 1.4s ease-in-out infinite;}}
+@keyframes nacre-lite-pulse{0%{background-position:100% 0;opacity:1;}50%{opacity:.6;}100%{background-position:0 0;opacity:1;}}`;
 
 // (The old pre-paint REPLAY_JS — a per-visitor snapshot-replay / newcomer welcome-slide
 // selection — is retired with the Nacre-only shell: there is no per-visitor content to
@@ -526,8 +540,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		<CrashSentinel />
 		{/* The preview runtime is prefetched by studio-boot.ts once the island's code has landed, not
 		    here: from the HTML it shared the throttled link with that code (the slide needs it last). */}
-		<title>Lattice Studio — one workspace</title>
-		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
+		<PageMeta title="Lattice Studio — one workspace" description="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<style is:global>
 			html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -1063,6 +1076,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			    entirely if that seed didn't run. See SHELL_BANDS_CSS. */}
 			<div class="ssr-band ssr-activityrail"><StudioActivityRailSkeleton /></div>
 			<div class="ssr-band ssr-editpane"><StudioEditorPaneSkeleton /></div>
+			{/* The shell's edit bar steps out of its controls as the app's does (useRowFit, EDIT_FIT in chrome-parts.tsx): the
+			    lowest step whose row fits its box, refitted on resize and when fonts land, so the two rows agree at every width. */}
+			<script is:inline>(function(){var b=document.querySelector("#studio-ssr-shell [data-slot=edit-bar]");if(!b)return;function f(){for(var l=0;l<6;l++){b.setAttribute("data-fit",l);if(b.scrollWidth<=b.clientWidth+1)return}}f();if(window.ResizeObserver)new ResizeObserver(f).observe(b);if(document.fonts)document.fonts.ready.then(f)})();</script>
 			<div class="ssr-band ssr-panehdr"><StudioPreviewBarSkeleton /></div>
 			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton caption={DECK_CAPTIONS[firstDeck.id] ?? ''} /></div>
 			<script is:inline>(function(){var r=document.documentElement;if(location.search||location.hash){r.setAttribute("data-ssr-caption-unknown","");return;}var v=r.getAttribute("data-ssr-caption");if(!v)return;var t=document.querySelectorAll(".ssr-deck-caption");for(var i=0;i<t.length;i++)t[i].textContent=v;})();</script>

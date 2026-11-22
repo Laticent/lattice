@@ -62,6 +62,14 @@ export type PickerItem = {
 	/** The component's own grouping of those variants (manifest `variantAxes`): which
 	 *  are mutually exclusive and which stack. Absent until a manifest declares it. */
 	variantAxes?: VariantAxis[];
+	/** The layouts the manifest names as near alternatives, with when to use each (Compose's layout menu). */
+	related?: { name: string; when: string }[];
+	/** A pane host's panes (`columns`, `rows`); absent on a single layout. */
+	hosts?: unknown;
+	/** Every token the component accepts on its `_class`: its looks and the shared modifiers. */
+	effectiveVariants?: string[];
+	/** Variants whose authoring grammar differs from the base skeleton, each with its sample slide. */
+	variantSkeletons?: { name: string; caption?: string; sample: string }[];
 };
 
 // Back-compat alias: StudioShell's `insertComponents` and the editor completions
@@ -573,7 +581,7 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 // LIST view is the same three pieces on one row — preview, then name over purpose, then
 // the meta — for when you are reading names and descriptions rather than scanning
 // artwork. Both views render the SAME live engine preview through the same windowing.
-function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks, fit, paneWhere }: { fit?: TileFit; paneWhere?: string; item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
+export function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks, fit, paneWhere }: { fit?: TileFit; paneWhere?: string; item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';

@@ -60,3 +60,10 @@ Then one line: how many confirmed / refuted / forward-proposal / unverifiable,
 and whether any refutation is load-bearing enough that the work built on it
 needs revisiting. Lead with that line if anything is refuted — it is the thing
 the reader most needs to know.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

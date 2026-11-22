@@ -5,6 +5,11 @@ summary: Bridge that carries CSS-only local Workbench components into live rende
 
 # Workbench component bridge — local components reach the Drawing Board (components slice)
 
+> **Superseded in part (2026-11-16).** The Markdown export no longer embeds anything: it is the deck source, byte
+> for byte (`2026-11-16-markdown-export-is-the-source.md`). Saved looks travel in the `.lattice` project file; the
+> Marp bundle still carries them for Marp.
+
+
 **Date:** 2026-06-12
 **Status:** in progress
 **Branch:** `claude/design-studio-themes-layouts-qadmgv`

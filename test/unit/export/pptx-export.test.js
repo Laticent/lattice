@@ -14,9 +14,10 @@ const path   = require('path');
 const fs     = require('fs');
 const os     = require('os');
 
-const { writePptx, pptxLayout } = require('../../../lib/export/pptx-export');
+const { writePptx } = require('../../../lib/export/pptx-export');
+const { removeTags } = require('@laticent/markup');
 
-// A minimal valid 1×1 PNG — enough for pptxgenjs to embed as slide media.
+// A minimal valid 1×1 PNG — enough to embed as slide media.
 const ONE_PX_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
   'base64',
@@ -46,7 +47,12 @@ describe('pptx-export', () => {
     const slides = names.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n));
     const media  = names.filter((n) => /^ppt\/media\/.+\.(png|jpg|jpeg)$/i.test(n));
     assert.equal(slides.length, 3, `expected 3 slide parts, got ${slides.length}`);
-    assert.equal(media.length, 3, `expected 3 media images, got ${media.length}`);
+    // Three identical pictures are one media part, related from every slide.
+    assert.equal(media.length, 1, `expected 1 media part for 3 identical pictures, got ${media.length}`);
+    for (const n of slides) {
+      const rels = await zip.file(n.replace('slides/', 'slides/_rels/') + '.rels').async('string');
+      assert.match(rels, /relationships\/image" Target="\.\.\/media\/[0-9a-f]{16}\.png"/, `${n} has its picture`);
+    }
     // OOXML sanity: the content-types part must be present and name the deck.
     assert.ok(names.includes('[Content_Types].xml'), 'missing [Content_Types].xml');
   });
@@ -74,7 +80,7 @@ describe('pptx-export', () => {
     const xml = await Promise.all(slideParts.map((n) => zip.files[n].async('string')));
     // OOXML alt text lands in the picture's cNvPr @descr. Assert the described
     // slides carry their alt, the undescribed slide falls back to a neutral
-    // "Slide N" (NOT pptxgenjs's junk "preencoded.png" filename default).
+    // "Slide N" (never a file name such as "preencoded.png", which a screen reader reads aloud).
     assert.match(xml[0], /descr="[^"]*Revenue rose 40 percent/, 'slide 1 alt text missing');
     assert.match(xml[2], /descr="[^"]*three equal slices/, 'slide 3 alt text missing');
     assert.match(xml[1], /descr="Slide 2"/, 'slide 2 should fall back to a neutral alt');
@@ -102,8 +108,8 @@ describe('pptx-export', () => {
     );
     assert.equal(count, 3);
 
-    // pptxgenjs emits a notesSlide part per slide regardless; assert the NOTE TEXT
-    // survives export for the noted slides and never fabricates a note from `null`.
+    // Assert the NOTE TEXT survives export for the noted slides and never fabricates a
+    // note from `null`; a slide with no note has no notes page.
     const all = (await notesText(out)).join('\n');
     assert.match(all, /Say this on the opener/, 'opener note missing from notes slides');
     assert.match(all, /Close with the ask/, 'closing note missing from notes slides');
@@ -114,16 +120,17 @@ describe('pptx-export', () => {
     const out = tmpFile();
     const count = await writePptx(out, [ONE_PX_PNG, ONE_PX_PNG], { title: 'No Notes' });
     assert.equal(count, 2);
-    // The call succeeds and no author copy is injected. pptxgenjs still emits the
-    // notesSlide parts with their slide-number field, so the only text is digits —
-    // assert no authored WORDS leak in when notes are absent.
+    // The call succeeds and no author copy is injected: no authored WORDS leak in when
+    // notes are absent.
     const bodies = await notesText(out);
-    const authored = bodies.join('').replace(/<[^>]+>/g, '').trim();
+    // Strip to a fixed point (removeTags), not a one-pass `<[^>]+>` (js/incomplete-multi-character-
+    // sanitization, #1958 §3, §7); the shared strip is what every production path already uses.
+    const authored = removeTags(bodies.join('')).trim();
     assert.doesNotMatch(authored, /[A-Za-z]/, `expected no authored note words, got: ${authored.slice(0, 80)}`);
   });
 
-  // PptxGenJS 3.12 lists the notes master after the slide list and declares a slide master
-  // per slide; the ISO 29500 schema and a strict reader reject both. Calco's tidy mends them.
+  // PptxGenJS 3.12 listed the notes master after the slide list and declared a slide master
+  // per slide; the ISO 29500 schema and a strict reader reject both. Calco writes neither.
   test('the package is schema-tidy: notes master before the slide list, no phantom overrides', async () => {
     const out = tmpFile();
     await writePptx(out, [ONE_PX_PNG, ONE_PX_PNG, ONE_PX_PNG], { title: 'Tidy' }, ['A note', null, 'Another']);
@@ -137,9 +144,9 @@ describe('pptx-export', () => {
     assert.deepEqual(phantom, [], 'every content-type override names a part the package holds');
   });
 
-  // PptxGenJS escapes markup but not the characters XML 1.0 forbids, so a U+0001 in a note
-  // made the notes part unreadable (and the same in a title or an alt text). Calco's
-  // `xmlSafe` strips them; every part must still parse, and the words around them survive.
+  // A U+0001 in a note once made the notes part unreadable (and the same in a title or an
+  // alt text). Calco's `xmlSafe` strips the characters XML 1.0 forbids; every part must
+  // still parse, and the words around them survive.
   test('control characters in a title, note or alt text leave every XML part parseable', async () => {
     const out = tmpFile();
     await writePptx(out, [ONE_PX_PNG], { title: 'Deck\u0001 name', subject: 'Sub\u0003' }, ['Say \u0001this'], ['Alt\u0002 text']);
@@ -157,41 +164,34 @@ describe('pptx-export', () => {
     assert.match(await zip.file('docProps/core.xml').async('string'), /Deck name/);
   });
 
-  test('an alt text or title made only of control characters falls back, never to the filename', async () => {
+  test('an alt text made only of control characters falls back, and such a title is left out, never the filename', async () => {
     const out = tmpFile();
     await writePptx(out, [ONE_PX_PNG], { title: '\u0001' }, [], ['\u0002']);
     const zip = await require('jszip').loadAsync(fs.readFileSync(out));
     assert.match(await zip.file('ppt/slides/slide1.xml').async('string'), /descr="Slide 1"/);
-    assert.match(await zip.file('docProps/core.xml').async('string'), /<dc:title>deck<\/dc:title>/);
+    // A title with nothing readable in it is no title: none is written, rather than a stand-in or the file's name.
+    assert.doesNotMatch(await zip.file('docProps/core.xml').async('string'), /<dc:title>/);
   });
 
-  describe('pptxLayout — slide aspect from @size geometry', () => {
-    // Stub just enough of a pptx instance to capture defineLayout.
-    function stub() {
-      const defs = [];
-      return { defs, defineLayout(d) { defs.push(d); } };
-    }
+  describe('slide aspect from @size geometry', () => {
+    const slideSize = async (width, height) => {
+      const out = tmpFile();
+      await writePptx(out, [ONE_PX_PNG], { title: 'Aspect', width, height });
+      const pres = await (await require('jszip').loadAsync(fs.readFileSync(out))).file('ppt/presentation.xml').async('string');
+      const [, cx, cy] = pres.match(/<p:sldSz cx="(\d+)" cy="(\d+)"/);
+      return [Number(cx) / 914400, Number(cy) / 914400].map((n) => Math.round(n * 1000) / 1000);
+    };
 
-    test('16:9 (HD / 4K) and missing geometry keep the built-in LAYOUT_WIDE (unchanged)', () => {
-      const a = stub();
-      assert.equal(pptxLayout(a, 1280, 720), 'LAYOUT_WIDE');
-      assert.equal(pptxLayout(a, 3840, 2160), 'LAYOUT_WIDE');
-      assert.equal(pptxLayout(a, undefined, undefined), 'LAYOUT_WIDE');
-      assert.equal(a.defs.length, 0, 'no custom layout defined for 16:9 / absent');
+    test('16:9 (HD / 4K) and missing geometry are PowerPoint\'s wide slide', async () => {
+      assert.deepEqual(await slideSize(1280, 720), [13.333, 7.5]);
+      assert.deepEqual(await slideSize(3840, 2160), [13.333, 7.5]);
+      assert.deepEqual(await slideSize(undefined, undefined), [13.333, 7.5]);
     });
 
-    test('portrait/square define a custom layout at the deck aspect, longest edge 13.333in', () => {
-      const story = stub();
-      assert.equal(pptxLayout(story, 1080, 1920), 'LATTICE'); // 9:16
-      assert.deepEqual(story.defs[0], { name: 'LATTICE', width: 7.5, height: 13.333 });
-
-      const square = stub();
-      pptxLayout(square, 1080, 1080); // 1:1
-      assert.deepEqual(square.defs[0], { name: 'LATTICE', width: 13.333, height: 13.333 });
-
-      const portrait = stub();
-      pptxLayout(portrait, 1080, 1350); // 4:5
-      assert.deepEqual(portrait.defs[0], { name: 'LATTICE', width: 10.666, height: 13.333 });
+    test('portrait/square keep the deck aspect, longest edge PowerPoint\'s 13⅓ in', async () => {
+      assert.deepEqual(await slideSize(1080, 1920), [7.5, 13.333]); // 9:16
+      assert.deepEqual(await slideSize(1080, 1080), [13.333, 13.333]); // 1:1
+      assert.deepEqual(await slideSize(1080, 1350), [10.667, 13.333]); // 4:5: 9753600 EMU, 10⅔ in
     });
   });
 });

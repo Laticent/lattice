@@ -18,12 +18,12 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
-| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `items` | a list | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
+| `insight` | a `>` blockquote | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ### Variant decision rule
 
@@ -47,7 +47,7 @@ Use for a small register of related items where each carries similar weight. Aut
 ## When NOT to use
 
 - **More than five items.** Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
-- **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
+- **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway` over a `1.` list. inventory entries are parallel, of similar weight.
 - **Nested-bullet authoring.** inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 - **Lopsided density.** Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 
@@ -145,7 +145,7 @@ A magazine split with a sidebar takeaway.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

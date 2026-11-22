@@ -53,6 +53,23 @@ export function sameOriginAsset(base: string, rel: string): URL | null {
 	}
 }
 
+/**
+ * The `<script>` carrying `marker` whose src is `url` once both are resolved against this page, or
+ * null. The loaders set `script.src` to the RESOLVED href (the same-origin barrier), so a dedup that
+ * compared the caller's raw string missed a tag injected from a relative URL and added a second one.
+ * Comparing the `src` PROPERTY (always resolved) against the resolved `url` matches either spelling.
+ */
+export function scriptTagFor(marker: string, url: string): HTMLScriptElement | null {
+	let href: string;
+	try {
+		href = new URL(url, document.baseURI).href;
+	} catch {
+		return null;
+	}
+	for (const s of document.querySelectorAll<HTMLScriptElement>(`script[${marker}]`)) if (s.src === href) return s;
+	return null;
+}
+
 /** For tests: forget the recorded URL. */
 export function resetEngineBase(): void {
 	recorded = null;

@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. On a phone, a title whose lede runs past the page splits: the cover keeps the eyebrow, the title and the deck's footer, and the lede (with anything authored after it) takes one page of its own on the same canvas; a lede longer than that page still clips, and the export says so. A title that fits never splits (engineering/decisions/2026-10-28-fit-everywhere-model.md §25). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. On a phone, a title whose lede runs past the page splits: the cover keeps the eyebrow, the title and the deck's footer, and the lede (with anything authored after it) takes one page of its own on the same canvas; a lede longer than that page still clips, and the export says so. A title that fits never splits (engineering/decisions/2026-10-28-fit-everywhere-model.md §25). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -14,18 +14,18 @@ First slide of every deck. Sets the topic and the visual tone. Drops the running
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h1` | yes | Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
-| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
-| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`. |
+| `heading` | a `# ` heading | yes | Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | a line of `inline code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
+| `subtitle` | a paragraph | no | Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`. |
 
 ### Common mistakes
 
 - **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the eyebrow lifted above the h1.
 - **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
 - **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
-- **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is Marp's slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
+- **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
 
 ## When to use
 
@@ -81,9 +81,107 @@ A generated gradient bar below the subtitle, in the theme's own six-step palette
 The title echoes the same six-step story the deck's own components carry.
 ```
 
+### `cover-masthead` — cover-masthead
+
+A heavy rule over the title, set left.
+
+```markdown
+<!-- _class: title silent cover-masthead -->
+
+# The cover composes as a masthead.
+
+`anchor · title · cover-masthead`
+
+The heading sits under a heavy rule as wide as its measure.
+```
+
+### `cover-ledger` — cover-ledger
+
+A small-caps title over a double rule.
+
+```markdown
+<!-- _class: title silent cover-ledger -->
+
+# The cover composes as a ledger.
+
+`anchor · title · cover-ledger`
+
+Small capitals over a double rule, centered.
+```
+
+### `cover-column` — cover-column
+
+An accent column at the right edge, the title set left.
+
+```markdown
+<!-- _class: title silent cover-column -->
+
+# The cover composes as a column.
+
+`anchor · title · cover-column`
+
+The accent column runs between the header and footer bands.
+```
+
+### `cover-label` — cover-label
+
+A gallery wall label: a smaller title low on the left under a hairline.
+
+```markdown
+<!-- _class: title silent cover-label -->
+
+# The cover composes as a label.
+
+`anchor · title · cover-label`
+
+A quiet caption sits under the hairline, the way a museum labels a work.
+```
+
+### `cover-stage` — cover-stage
+
+A stage-size centered title.
+
+```markdown
+<!-- _class: title silent cover-stage -->
+
+# Built for the back row.
+
+`anchor · title · cover-stage`
+
+One short line, sized for the back of the hall.
+```
+
+### `cover-frame` — cover-frame
+
+The title boxed in a keyline.
+
+```markdown
+<!-- _class: title silent cover-frame -->
+
+# The cover composes as a frame.
+
+`anchor · title · cover-frame`
+
+The keyline follows the deck's rule weight.
+```
+
+### `cover-poster` — cover-poster
+
+A giant title set left.
+
+```markdown
+<!-- _class: title silent cover-poster -->
+
+# Say it loud.
+
+`anchor · title · cover-poster`
+
+A poster headline, heavy, tight and set left.
+```
+
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

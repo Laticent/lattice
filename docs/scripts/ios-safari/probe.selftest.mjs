@@ -9,6 +9,10 @@
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
+ *   PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs   # Present stays awake, immersive tap, captions, Next keeps playing
+ *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
+ *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
+ *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -27,7 +31,8 @@ const PROBES = [
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
 	// A first visit: nothing stored, so the Studio opens in Compose (run.mjs passes `seed: false` for it too).
-	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true },
+	// It asks its runner for a real tap at the stop that focuses the editor (#3291): `tapRunner` below answers.
+	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true, taps: true },
 ].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
@@ -58,10 +63,14 @@ if (process.env.PROBE === 'font-cache') {
 		const context = await webkit.launchPersistentContext(dir, options);
 		for (const arm of ['control', 'warm']) {
 			const page = await context.newPage();
-			await page.addInitScript(SEED);
+			// The same pages in the same order as run.mjs: the server's blank page first, where the settings are seeded, and
+			// `since` stamped before it, so the probe's check that nothing fetched a face before the Studio runs here too.
+			const since = Date.now();
+			await page.goto(`${origins[arm]}/__probe/blank`, { waitUntil: 'load' });
+			await page.addScriptTag({ content: SEED });
 			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
 			await page.addScriptTag({ content: FONT });
-			report(label, `font-cache-probe.js ${arm}`, await page.evaluate((a) => globalThis.latticeFontCacheProbe(a), arm));
+			report(label, `font-cache-probe.js ${arm}`, await page.evaluate(([a, s]) => globalThis.latticeFontCacheProbe(a, s), [arm, since]));
 			await page.close();
 		}
 		await context.close();
@@ -87,6 +96,88 @@ if (process.env.PROBE === 'chat-storage') {
 		}
 		await context.close();
 	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'player-charts') {
+	// The player chart probe (player-charts.mjs), the same sequence run.mjs runs in Mobile Safari, with Playwright's
+	// touchscreen for the taps: an iPad-sized and an iPhone-sized page with touch. It exports the two decks itself, as
+	// run.sh does, through the real CLI (CHROME_PATH or Puppeteer's Chrome).
+	const { execFileSync } = await import('node:child_process');
+	const { PLAYER_CHARTS_DECKS, PLAYER_CHARTS_SOURCE, runPlayerCharts } = await import('./player-charts.mjs');
+	const root = path.resolve(here, '..', '..', '..');
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'player-charts-'));
+	const players = {};
+	for (const [key, deck] of Object.entries(PLAYER_CHARTS_DECKS)) {
+		players[key] = path.join(dir, `${key}.html`);
+		execFileSync(process.execPath, [path.join(root, 'lattice.js'), path.join(root, deck), players[key], '--player', '-q'], { cwd: root, stdio: 'inherit' });
+	}
+	for (const shape of [{ label: 'iPad-sized', options: { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true } }, shapes.at(-1)]) {
+		const context = await browser.newContext(shape.options);
+		const page = await context.newPage();
+		const result = await runPlayerCharts({
+			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}` },
+			go: (url) => page.goto(url),
+			// In a function scope of its own, as WebDriver's execute-script runs it, so a second call never redeclares a const.
+			call: (expr) => page.evaluate(`(() => {\n${PLAYER_CHARTS_SOURCE}\nreturn ${expr};\n})()`),
+			tap: async (x, y) => {
+				const t0 = Date.now();
+				await page.touchscreen.tap(x, y);
+				return Date.now() - t0;
+			},
+			// Playwright's WebKit has no touch drag, so the swipe is pointer events sent from the page: it proves the
+			// sequence, not Safari's gesture (run.mjs sends a real one through safaridriver).
+			swipe: (x1, y1, x2, y2) =>
+				page.evaluate(
+					([a, b, c, d]) => {
+						const stage = document.querySelector('#lp-stage');
+						const send = (type, x, y) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y }));
+						send('pointerdown', a, b);
+						for (let k = 1; k <= 5; k++) send('pointermove', a + ((c - a) * k) / 5, b + ((d - b) * k) / 5);
+						send('pointerup', 0, 0);
+					},
+					[x1, y1, x2, y2],
+				),
+		});
+		report(shape.label, 'player-charts-probe.js', result);
+		await context.close();
+	}
+	fs.rmSync(dir, { recursive: true, force: true });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'present-keepalive') {
+	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
+	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.
+	const KEEP = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const context = await browser.newContext(shapes.at(-1).options);
+	const page = await context.newPage();
+	await page.addInitScript(SEED);
+	const call = (expr) => page.evaluate(`${KEEP}\n${expr}`);
+	const r = {};
+	let error = '';
+	try {
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await call('latticeKeepaliveArmErrors()');
+		const at = await call('latticeKeepalivePresentAt()');
+		await page.touchscreen.tap(at.x, at.y);
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		await page.touchscreen.tap(r.immersive.x, r.immersive.y);
+		r.shown = await call('latticeKeepaliveShown()');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+		r.voiceOn = await call('latticeKeepaliveVoiceOn()');
+	} catch (e) {
+		error = String(e.message || e).split('\n')[0].slice(0, 300);
+	}
+	// Playwright's WebKit has no Screen Wake Lock, so that one check is reported and not judged here (the Mac judges it).
+	const steps = (await page.evaluate(`${KEEP}\nlatticeKeepaliveChecks(${JSON.stringify(r)}, { realSafari: false })`)).map((s) => (s.name.startsWith('Present holds') && !r.open?.hasApi ? { ...s, pass: true, detail: `${s.detail} (no Wake Lock API in Playwright WebKit: not judged here)` } : s));
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	report('iPhone-sized', 'present-keepalive-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: r.open?.width, steps });
+	await context.close();
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
@@ -133,6 +224,71 @@ if (process.env.PROBE === 'present-memory') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+if (process.env.PROBE === 'icon-grid') {
+	// The icon grid probe, as run.mjs runs it on the iPhone: open the grid from the source pane and then from the preview,
+	// a real touch tap on the first icon between open and check.
+	const GRID = withEditorHelper(fs.readFileSync(path.join(here, 'icon-grid-probe.js'), 'utf8'));
+	const context = await browser.newContext({ ...shapes.at(-1).options, permissions: [] });
+	const page = await context.newPage();
+	await page.addInitScript(SEED);
+	await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+	const steps = [];
+	let error;
+	for (const where of ['source', 'preview']) {
+		const open = await page.evaluate(`${GRID}\nlatticeIconGridOpen(${JSON.stringify(where)})`);
+		steps.push(...open.steps);
+		if (!open.ok) {
+			error = `${where}: ${open.error}`;
+			break;
+		}
+		await page.touchscreen.tap(open.x, open.y);
+		const check = await page.evaluate(`${GRID}\nlatticeIconGridCheck(${JSON.stringify(where)}, ${JSON.stringify(open.name)}, ${Number(open.before) || 0})`);
+		steps.push(...check.steps);
+		if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `icon-grid-${where}.png`) });
+		if (!check.ok) {
+			error = `${where}: ${check.error}`;
+			break;
+		}
+	}
+	report('iPhone-sized', 'icon-grid-probe.js', { ok: !error, error, width: 393, steps });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'empty-deck') {
+	// The empty-deck tap, as run.mjs runs it after the Compose tap: empty the deck, a real touch on the start grid's
+	// background, read the caret, put the deck back. A first visit (nothing stored), so the Studio opens in Compose.
+	const EMPTY = withEditorHelper(fs.readFileSync(path.join(here, 'empty-deck-probe.js'), 'utf8'));
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext({ ...options, hasTouch: true });
+		const page = await context.newPage();
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: EMPTY });
+		const steps = [];
+		const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+		let error;
+		try {
+			const prep = await page.evaluate(() => globalThis.latticeEmptyDeckPrep());
+			step('the start grid shows on the emptied deck, with a still point on its background', prep.hit, `${prep.x},${prep.y} under ${prep.under}, still ${prep.still} frames`);
+			step('the editor does not have the focus before the tap', !prep.focusedBefore);
+			if (prep.hit) {
+				await page.touchscreen.tap(prep.x, prep.y);
+				const seen = await page.evaluate(() => globalThis.latticeEmptyDeckRead());
+				step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}`);
+				step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
+				step('the start grid stays until something is typed', seen.shown);
+				if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `empty-deck-${label}.png`) });
+			}
+			step('the saved deck is back in Source', await page.evaluate((t) => globalThis.latticeEmptyDeckRestore(t), prep.saved), `${prep.saved.length} characters`);
+		} catch (e) {
+			error = String(e.message || e);
+		}
+		const result = { ok: !error && steps.every((s) => s.pass), error, width: page.viewportSize()?.width, steps };
+		report(label, 'empty-deck-probe.js', result);
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'undo') {
 	// The undo probe, as run.mjs runs it: the edit half, a real reload, then the after-reload half.
 	for (const { label, options } of shapes) {
@@ -153,6 +309,52 @@ if (process.env.PROBE === 'undo') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+/**
+ * Run a probe that asks for real taps, as run.mjs `composeProbePage` does over WebDriver: start it, and answer each
+ * `__latticeTapRequest` with a touchscreen tap (a page with touch) or a mouse click, judged as run.mjs judges it: a caret,
+ * in the block under the tap point, with the editor focused. Playwright's taps have no hold to stretch, so there is no
+ * long-press guard here.
+ */
+async function tapRunner(page, fn, touch) {
+	await page.evaluate((name) => {
+		window.__latticeTapBridge = true;
+		window.__composeResult = null;
+		globalThis[name]().then(
+			(r) => {
+				window.__composeResult = r;
+			},
+			(e) => {
+				window.__composeResult = { ok: false, error: String(e), steps: [] };
+			},
+		);
+	}, fn);
+	for (;;) {
+		const handle = await page.waitForFunction(() => window.__composeResult || (window.__latticeTapRequest && !window.__latticeTapRequest.taken && window.__latticeTapRequest), null, { timeout: 360_000 });
+		const next = await handle.jsonValue();
+		if (next && 'ok' in next && 'steps' in next) return next;
+		await page.evaluate(() => {
+			window.__latticeTapRequest.taken = true;
+		});
+		if (touch) await page.touchscreen.tap(next.x, next.y);
+		else await page.mouse.click(next.x, next.y);
+		const seen = await page
+			.waitForFunction(
+				({ x, y }) => {
+					const block = document.elementFromPoint(x, y)?.closest('h1, h2, h3, h4, h5, h6, p, li');
+					const sel = getSelection();
+					return !!(block && sel?.isCollapsed && block.contains(sel.anchorNode) && document.activeElement?.closest('.ProseMirror'));
+				},
+				{ x: next.x, y: next.y },
+				{ timeout: 4000 },
+			)
+			.then(
+				() => true,
+				() => false,
+			);
+		const verdict = { ok: seen, detail: `${touch ? 'touchscreen tap' : 'mouse click'} at ${next.x},${next.y}${seen ? '' : '; no caret in the block, or the editor not focused'}` };
+		await page.evaluate((v) => window.__latticeTapDone(v), verdict);
+	}
+}
 for (const { label, options } of shapes) {
 	for (const probe of PROBES) {
 		const context = await browser.newContext(options);
@@ -160,7 +362,7 @@ for (const { label, options } of shapes) {
 		if (!probe.fresh) await page.addInitScript(SEED);
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.addScriptTag({ content: probe.source });
-		const result = await page.evaluate((fn) => globalThis[fn](), probe.fn);
+		const result = probe.taps ? await tapRunner(page, probe.fn, !!options.hasTouch) : await page.evaluate((fn) => globalThis[fn](), probe.fn);
 		console.log(`${label} ${probe.file}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px`);
 		for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
 		if (!result.ok) failed++;

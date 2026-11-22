@@ -39,7 +39,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, SPLIT_ONLY_MARKER,
+  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, familyReflowingComponents, SPLIT_ONLY_MARKER,
 } = require('../../../tools/check-family-tiers.js');
 
 const sig = (x) => [...x.tokens].sort().join('.');
@@ -112,6 +112,17 @@ describe('tools: the sweep rosters — what the two records are derived from', (
       assert.match(deck.src, /^---\nmarp: true\ntheme: indaco\nsize: story\npaginate: true\n---\n/);
       assert.ok(!/autosplit/i.test(deck.src), 'the sweep deck must not carry a split directive');
     }
+  });
+
+  test('the roster counts BOTH reflow mechanisms: the `data-family` stamp and a `@container lattice` query', () => {
+    // #3131 moved kanban and roadmap from `[data-family]` rules to `@container lattice (width < 34em)`, and a roster
+    // that read only the first dropped both as if they had stopped reflowing. journey has only ever used the second.
+    const roster = familyReflowingComponents();
+    for (const c of ['kanban', 'roadmap', 'journey']) {
+      assert.ok(roster.includes(c), `${c} reflows by a \`@container lattice\` query, so it is on the roster`);
+    }
+    // And the stamp still counts: radar and state-chart reflow by `[data-family]` alone.
+    for (const c of ['radar', 'state-chart']) assert.ok(roster.includes(c), `${c} reflows by \`[data-family]\``);
   });
 
   test('SPLIT_ONLY_MARKER recognizes the markers only the splitter emits', () => {

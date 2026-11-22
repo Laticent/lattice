@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { openDeckInCompose, savedDeck } from './compose-insert';
-import { expect, gotoStudio, openChat, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, openChat, setEditorContent, studioUndo, test } from './studio-fixture';
 
 // An outside change (here a deck rename, which rewrites the title heading) is shown in Compose: the line and the changed words are painted,
 // then the paint removes itself, and the deck's bytes are the ones the change wrote. followups.d/2861-p3;
@@ -50,7 +50,7 @@ test.describe('an outside change shown in Compose', () => {
 		await openDeckInCompose(page, DECK);
 		await rename(page, 'Launch plan', 'Pilot plan');
 		await expect(page.locator('.cs-host .cs-flash-block')).toContainText('Pilot plan');
-		await page.getByRole('button', { name: 'Undo', exact: true }).first().click();
+		await studioUndo(page).click();
 		await expect(page.locator('.cs-host .cs-flash-block')).toContainText('Launch plan');
 		await expect(page.locator('.cs-host .cs-flash-span')).toHaveText('Launch');
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
@@ -98,7 +98,7 @@ test.describe('an outside change shown in Compose', () => {
 		await expect(page.getByText('Moved the launch to Tuesday morning.').first()).toBeVisible({ timeout: 60_000 });
 		await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
 		await page.locator('.cs-host .ProseMirror').waitFor();
-		await page.getByRole('button', { name: /^Apply/ }).first().click();
+		await page.getByRole('button', { name: /^Apply( all)?$/ }).click();
 		const span = page.locator('.cs-host .cs-flash-span');
 		await expect(span).toHaveText('Tuesday morning');
 		await expect(page.locator('.cs-host .cs-flash-block')).toContainText('The launch is on Tuesday morning.');

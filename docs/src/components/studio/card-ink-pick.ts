@@ -1,8 +1,10 @@
+import { buildDeckIndex } from '@/lib/deck-outline';
+import { flatPart, partStart, partText } from '@/lib/fuoco/outline';
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
-import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { headingPartStarts, placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
-import { type SlidePlacing, slidePlacingOf } from '../../lib/slide-carried';
+import { type SlidePlacing, slidePlacingAt, slidePlacingOf } from '../../lib/slide-carried';
 import { getClassTokens } from '../../lib/slide-directives';
 import { type Rgb, sampleBehindCard } from './card-ink-sampler';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
@@ -67,8 +69,32 @@ function recordAddress(body: string): string | null {
  * `slidePlacingAt` / `slidePlacingOf`): the classes the engine resolves for it (its own or the carried `class:`, plus the
  * deck's), and whether a carried background is already its photo. A bare class list is the classes the slide receives
  * besides the `_class` in `chunk` (the deck's `class:` tokens), for a caller with no deck in hand.
+ *
+ * A unit the engine draws as several slides (`split: headings`, `placing.parts`) is read part by part, each with its own
+ * placing, and this is the first part's photo that has one; `photosAt` gives every part's.
  */
 export function photoAt(chunk: string, placing: SlidePlacing | readonly string[] = []): { ref: string; index: number } | null {
+	for (const found of photosAt(chunk, placing)) if (found) return found;
+	return null;
+}
+
+/** Each engine slide's photo in this unit, in order (one entry when the unit is one slide). `index` is in `chunk`. */
+export function photosAt(chunk: string, placing: SlidePlacing | readonly string[] = []): Array<{ ref: string; index: number } | null> {
+	const parts = isPlacing(placing) ? placing.parts : undefined;
+	if (parts && parts.length > 1) {
+		const starts = headingPartStarts(chunk, boundaryParser);
+		// The parts are cut by the same call as the placings; a chunk that cuts otherwise (an edit in flight) is read whole.
+		if (starts.length === parts.length) {
+			return starts.map((from, k) => {
+				const found = photoInSlide(chunk.slice(from, starts[k + 1] ?? chunk.length), parts[k]);
+				return found ? { ref: found.ref, index: found.index + from } : null;
+			});
+		}
+	}
+	return [photoInSlide(chunk, placing)];
+}
+
+function photoInSlide(chunk: string, placing: SlidePlacing | readonly string[]): { ref: string; index: number } | null {
 	const rec = /^[ \t]*`@image\{([^`\n]*)\}`[ \t]*$/m.exec(chunk);
 	if (rec) {
 		const ref = recordAddress(rec[1]);
@@ -92,8 +118,10 @@ const isPlacing = (p: SlidePlacing | readonly string[]): p is SlidePlacing => !A
 
 /** The slide's photo address as written (see `photoAt`), or null. `source`: the whole deck, so the slide's inherited class
  *  and background are read as the engine reads them. */
-export function photoRefOf(chunk: string, source = ''): string | null {
-	const placing = source ? slidePlacingOf(source, chunk) : null;
+export function photoRefOf(chunk: string, source = '', at?: number): string | null {
+	// `at`: where the slide starts in `source`, when the caller knows it. Without it the slide is found by its text, which an
+	// identical earlier slide answers for, with what THAT slide inherits (the checker on #3239).
+	const placing = source ? (at === undefined ? slidePlacingOf(source, chunk) : slidePlacingAt(source, at)) : null;
 	return photoAt(chunk, placing ?? (source ? deckPlacingClasses(source) : []))?.ref ?? null;
 }
 
@@ -102,9 +130,34 @@ export function headingOf(chunk: string): string | null {
 	return /^#{1,6}[ \t]+(.+)$/m.exec(chunk)?.[1]?.trim() ?? null;
 }
 
-/** The colour behind this slide's card, or null when the preview cannot say. */
+/**
+ * The colour behind this slide's card, or null when the preview cannot say. `slideNumber` is the `---` slide's (1-based). A
+ * slide split on its headings is several engine slides: the card read is the part the Slide panel's class edits land in (the
+ * first with a `_class` of its own, else the first). The preview frame holds the slide on screen; the heading and the photo
+ * address say whether it is this part, and the read is null when it is not.
+ */
 export function readBehindCard(chunk: string, slideNumber: number, source = ''): Promise<Rgb | null> {
-	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk, source), getClassTokens(chunk));
+	let part = chunk;
+	let section = slideNumber;
+	let at: number | undefined;
+	if (source) {
+		const ix = buildDeckIndex(source);
+		const u = slideNumber - 1;
+		const unit = ix.units[u];
+		if (unit) {
+			// The part the panel's class edit lands in: a whole-slide class edit changes the FIRST `_class` comment, which is a later
+			// part's when the first has none (the checker on #3239). So the card read is that part's photo.
+			let k = 0;
+			if (unit.parts.length > 1) {
+				const owner = unit.parts.findIndex((_, i) => getClassTokens(partText(ix, u, i)).length > 0);
+				k = owner < 0 ? 0 : owner;
+				part = partText(ix, u, k);
+			}
+			section = flatPart(ix, u, k) + 1;
+			at = partStart(ix, u, k);
+		}
+	}
+	return sampleBehindCard(section, headingOf(part), photoRefOf(part, source, at), getClassTokens(part));
 }
 
 /**

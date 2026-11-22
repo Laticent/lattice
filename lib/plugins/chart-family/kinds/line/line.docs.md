@@ -16,11 +16,11 @@ Use when the claim is that something MOVED: revenue by quarter, headcount throug
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the movement, not the chart (‘Renewals recovered in the second half’, not ‘Revenue line chart’). |
-| `points` | `ul > li` | yes | One li per point on the category axis, in order — the authored order IS the axis order and is never sorted. Lead text is the category label, and a trailing inline-code pill is its value: `Q1 2026 \`4.2\``. For several series, nest one li per series under each category: `- Q1 2026` then `  - Product \`2.4\``. Magnitude suffixes are scale, not decoration — `1.2M` is 1200000 — and an affix every value agrees on (`$`, `%`, `kg`) is carried onto the axis. |
-| `detail` | `li > ul` | no | Optional nested bullet under a CATEGORY whose trailing pill is not a number — that is the whole disambiguation rule: a nested item ending in a numeric pill is a data point, anything else is detail. Drives the Present-mode reveal for that category's band and folds into the slide's speaker note; it paints nothing on the chart, so a deck with detail is pixel-identical to one without. |
+| `title` | a `## ` heading | yes | Slide heading — name the movement, not the chart (‘Renewals recovered in the second half’, not ‘Revenue line chart’). |
+| `points` | a list | yes | One li per point on the category axis, in order — the authored order IS the axis order and is never sorted. Lead text is the category label, and a trailing inline-code pill is its value: `Q1 2026 \`4.2\``. For several series, nest one li per series under each category: `- Q1 2026` then `  - Product \`2.4\``. Magnitude suffixes are scale, not decoration — `1.2M` is 1200000 — and an affix every value agrees on (`$`, `%`, `kg`) is carried onto the axis. |
+| `detail` | a list nested 1 level under an item | no | Optional nested bullet under a CATEGORY whose trailing pill is not a number — that is the whole disambiguation rule: a nested item ending in a numeric pill is a data point, anything else is detail. Drives the Present-mode reveal for that category's band and folds into the slide's speaker note; it paints nothing on the chart, so a deck with detail is pixel-identical to one without. |
 
 ### Variant decision rule
 
@@ -162,7 +162,7 @@ A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — draw
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

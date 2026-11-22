@@ -20,11 +20,14 @@ import type { EditorView } from 'prosemirror-view';
 // Compose asks the same function the engine does rather than spelling it out (engineering/decisions/2026-10-16-media-plugins.md §9, 2026-11-11).
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
-import { backgroundDirectiveOf, backgroundImagePlaces, placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { backgroundDirectiveOf, backgroundImagePlaces, headingPartStarts, placedPictureInSlide, slidePictureCount } from '../../../../lib/core/placed-picture.mjs';
+import { resolveSplitMode } from '../../../../lib/core/resolve-split.mjs';
+import { slidesCarried } from '../../../../lib/core/slide-carried.mjs';
 // The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
 // that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
 import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
 import { deckClassWords, deckPlacingClasses } from '../deck-placing-classes';
+import { partPlacings, type SlidePlacing } from '../slide-carried';
 import { setClassTokens } from '../slide-directives';
 import { deckSchema, serializeSlideNode } from './deck-doc';
 import { classPayloadOf } from './deck-source';
@@ -39,7 +42,7 @@ export function isImage(node: PMNode | null | undefined): boolean {
 }
 
 /** Where an image's bytes come from, as far as the editor draws it. Anything else gets a stand-in; the preview draws the real one. */
-export type ImageSourceKind = 'asset' | 'data' | 'other';
+export type ImageSourceKind = 'asset' | 'data' | 'sample' | 'other';
 
 export function imageSourceKind(src: string): ImageSourceKind {
 	// The same shape the engine resolves (lib/core/media-sources.js): a name, no extension, no path.
@@ -47,7 +50,18 @@ export function imageSourceKind(src: string): ImageSourceKind {
 	// A data URI is the author's own bytes, in the document already: drawing it fetches nothing. The types are the engine's own
 	// allowlist: a type it refuses draws as literal text on the slide, and Compose must not show a picture there.
 	if (/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(src)) return 'data';
+	// The Studio's own sample art (the portraits and photos a component's example ships with): served from the Studio's own
+	// folder, so drawing it reaches no other site. Without it every example with a photo slot showed boxes in Compose
+	// (owner's iPhone, 2026-11-17, `team-profile`).
+	if (sampleNameOf(src) !== null) return 'sample';
 	return 'other';
+}
+
+/** The file in a `sample:` reference, or null: the engine's own shape (lib/core/media-sources.js `SAMPLE_REF`). */
+export function sampleNameOf(src: string): string | null {
+	const name = /^sample:([A-Za-z0-9][A-Za-z0-9._-]*)$/i.exec(src)?.[1] ?? null;
+	// The engine refuses a name with `..` in it (media-sources.js), so Compose must not draw what the slide will not.
+	return name && !name.includes('..') ? name : null;
 }
 
 /** The Library name in an `asset:` reference, or null. */
@@ -124,7 +138,7 @@ export function editImage(view: EditorView, pos: number, edit: ImageEdit): boole
 export type Placement = 'left' | 'right' | 'full' | 'none';
 
 /** The class tokens of a slide's directives (the first `_class` comment), or []. */
-function slideClassTokens(directives: readonly string[]): string[] {
+export function slideClassTokens(directives: readonly string[]): string[] {
 	const d = directives.find((x) => classPayloadOf(x) !== null);
 	return d ? (classPayloadOf(d) ?? '').trim().split(/\s+/).filter(Boolean) : [];
 }
@@ -157,7 +171,7 @@ export function tokensWithPlacement(tokens: readonly string[], p: Placement): st
 }
 
 /** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
-function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
+export function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
 	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
 	// A new class is written as the drawer writes one (`setClassTokens`, lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
 	// with no record); a record's class is rewritten in the record, every other field kept.
@@ -167,8 +181,10 @@ function directivesWithClass(directives: readonly string[], tokens: readonly str
 		return next === directives[at] && classPayloadOf(next) !== tokens.join(' ') ? null : directives.map((x, i) => (i === at ? next : x)).filter(Boolean);
 	}
 	const line = `<!-- _class: ${tokens.join(' ')} -->`;
-	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch.
-	if (!/^\s*<!--\s*_class\s*:[^>]*-->\s*$/.test(directives[at])) return null;
+	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch. One line
+	// only: `[^>]` also matches a newline, so `<!-- _class: stats⏎_paginate: false -->` passed as "the class alone" and the
+	// rewrite dropped `_paginate` (found by slide-layout.test.ts; it reached picture placement too).
+	if (!/^\s*<!--\s*_class\s*:[^>\n]*-->\s*$/.test(directives[at])) return null;
 	return directives.map((x, i) => (i === at ? line : x));
 }
 
@@ -241,26 +257,57 @@ function carriedBackgroundPlaces(state: EditorState, slideIndex: number): boolea
 	return backgroundImagePlaces(carried);
 }
 
-/** The kernel's answer for one slide under these classes, kept per slide node (nodes are immutable, so an edit makes a new one):
- *  the ordinal of its placed picture among its pictures, or -1. */
-const placedBySlide = new WeakMap<PMNode, Map<string, number>>();
-function placedOrdinal(slide: PMNode, classes: readonly string[]): number {
-	const key = classes.join(' ');
-	let bySlide = placedBySlide.get(slide);
-	if (!bySlide) placedBySlide.set(slide, (bySlide = new Map()));
-	let ordinal = bySlide.get(key);
-	if (ordinal === undefined) {
-		ordinal = placedPictureInSlide(serializeSlideNode(slide), [...classes], { md: boundaryParser })?.ordinal ?? -1;
-		bySlide.set(key, ordinal);
+/**
+ * THE ENGINE'S SLIDES IN ONE SLIDE NODE. Under `split: headings` (the default) a node can be several engine slides, one per
+ * heading part (lib/core/placed-picture.mjs `headingPartStarts`), and the engine asks the placed-picture rule of each part. A
+ * part is its Markdown, its pictures (in the order the node's pictures run) and the spot directives the author wrote in it.
+ *
+ * Compose keeps a slide's spot directives (`<!-- _class: … -->`) on the node, lifted out of the prose
+ * (deck-source.ts `splitSlideDirectives`), so the serialized node puts them all at its top, where they would govern the first
+ * part. Each is put back in the part it was written in, found in the node's source (`raw`); when one cannot be found there
+ * (an edit wrote it, or the source moved), the node's parts are unknown (`null`) and no picture on it is called placed.
+ */
+type Part = { text: string; pictures: number; directives: string[] };
+const partsBySlide = new WeakMap<PMNode, Part[] | null>();
+function slideParts(slide: PMNode): Part[] | null {
+	if (partsBySlide.has(slide)) return partsBySlide.get(slide) ?? null;
+	const directives = (slide.attrs.directives as string[] | null) ?? [];
+	const prose = serializeSlideNode(directives.length ? slide.type.create({ ...slide.attrs, directives: [] }, slide.content, slide.marks) : slide);
+	const starts = headingPartStarts(prose, boundaryParser);
+	let parts: Part[] | null;
+	if (starts.length < 2) {
+		parts = [{ text: serializeSlideNode(slide), pictures: -1, directives }];
+	} else {
+		const texts = starts.map((from, k) => prose.slice(from, starts[k + 1] ?? prose.length));
+		const home = directivesByPart(directives, String(slide.attrs.raw ?? ''), starts.length);
+		parts = home ? texts.map((t, k) => ({ text: home[k].length ? `${home[k].join('\n')}\n\n${t}` : t, pictures: slidePictureCount(t, boundaryParser), directives: home[k] })) : null;
 	}
-	return ordinal;
+	partsBySlide.set(slide, parts);
+	return parts;
 }
 
-/** Whether the picture at `offset` inside `slide` is the one the engine places under these classes: the kernel reads the slide's
- *  Markdown and names its placed picture by its place among the slide's pictures, which is this node's place in the tree. */
-function placedAtOffset(slide: PMNode, offset: number, classes: readonly string[]): boolean {
-	const want = placedOrdinal(slide, classes);
-	if (want < 0) return false;
+/** Which heading part of the source each directive was written in, or null when one is not in the source as written. */
+function directivesByPart(directives: readonly string[], raw: string, count: number): string[][] | null {
+	const out: string[][] = Array.from({ length: count }, () => []);
+	if (!directives.length) return out;
+	const starts = headingPartStarts(raw, boundaryParser);
+	if (starts.length !== count) return null;
+	let from = 0;
+	for (const d of directives) {
+		const at = raw.indexOf(d.trim(), from);
+		if (at < 0) return null;
+		from = at + 1;
+		let k = 0;
+		while (k + 1 < starts.length && starts[k + 1] <= at) k++;
+		out[k].push(d);
+	}
+	return out;
+}
+
+const splitsOnHeadings = (state: EditorState) => resolveSplitMode(String(state.doc.attrs.frontMatter ?? '')) === 'headings';
+
+/** The picture at `offset` inside `slide`: its place among the slide's pictures. */
+function pictureOrdinal(slide: PMNode, offset: number): number {
 	let ordinal = 0;
 	let found = -1;
 	slide.descendants((n, at) => {
@@ -270,7 +317,47 @@ function placedAtOffset(slide: PMNode, offset: number, classes: readonly string[
 		ordinal++;
 		return true;
 	});
-	return found === want;
+	return found;
+}
+
+/** The kernel's answer for one slide's (or part's) Markdown under these classes, kept per part (parts are kept per slide node,
+ *  and nodes are immutable, so an edit makes new ones): the ordinal of its placed picture among its pictures, or -1. */
+const placedByPart = new WeakMap<Part, Map<string, number>>();
+function placedOrdinal(part: Part, classes: readonly string[], backgroundImage = false): number {
+	const key = `${classes.join(' ')}|${backgroundImage}`;
+	let byPart = placedByPart.get(part);
+	if (!byPart) placedByPart.set(part, (byPart = new Map()));
+	let ordinal = byPart.get(key);
+	if (ordinal === undefined) {
+		ordinal = placedPictureInSlide(part.text, [...classes], { md: boundaryParser, backgroundImage })?.ordinal ?? -1;
+		byPart.set(key, ordinal);
+	}
+	return ordinal;
+}
+
+/** Whether the picture at `offset` inside a one-part `slide` is the one the engine places under these classes: the kernel reads
+ *  the slide's Markdown and names its placed picture by its place among the slide's pictures. */
+function placedAtOffset(slide: PMNode, offset: number, classes: readonly string[]): boolean {
+	const want = pictureOrdinal(slide, offset);
+	const parts = slideParts(slide);
+	const whole = parts && parts.length === 1 ? parts[0] : { text: serializeSlideNode(slide), pictures: -1, directives: [] };
+	return want >= 0 && placedOrdinal(whole, classes) === want;
+}
+
+/** The text of every slide before `slideIndex`, its comments only (all the carry walk reads). */
+function commentsBefore(state: EditorState, slideIndex: number): string[] {
+	const out: string[] = [];
+	for (let i = 0; i < slideIndex && i < state.doc.childCount; i++) {
+		const child = state.doc.child(i);
+		const texts = [...((child.attrs.directives as string[] | null) ?? [])];
+		child.descendants((n) => {
+			if (n.type.name !== 'comment') return true;
+			texts.push(String(n.attrs.text ?? ''));
+			return false;
+		});
+		out.push(texts.join('\n\n'));
+	}
+	return out;
 }
 
 /** Whether the picture at `pos` is the one the engine places on its slide under these classes. */
@@ -297,6 +384,37 @@ function placeableBgPicture(state: EditorState, pos: number, classes: readonly s
 }
 
 /**
+ * A picture on a slide node the engine draws as several slides: each part resolves its own class and background from the
+ * whole deck, as the Studio's text readers do (lib/slide-carried.ts `partPlacings`), and the picture is placed by its own
+ * part. Only the first part's `_class` is the one Compose writes, so only a picture there may be placed from here, and only
+ * where the old rule allows it: nothing inherited, a layout that takes a picture, and the part's only lone picture.
+ */
+function placementInParts(state: EditorState, pos: number, node: PMNode, parts: Part[] | null): { placement: Placement; canPlace: boolean } {
+	if (!parts) return { placement: 'none', canPlace: false };
+	const $at = state.doc.resolve(pos);
+	let ordinal = pictureOrdinal($at.node(1), pos - $at.before(1) - 1);
+	if (ordinal < 0) return { placement: 'none', canPlace: false };
+	let k = 0;
+	while (k + 1 < parts.length && ordinal >= parts[k].pictures) ordinal -= parts[k++].pictures;
+	const frontMatter = String(state.doc.attrs.frontMatter ?? '');
+	const before = commentsBefore(state, $at.index(0));
+	const placings = partPlacings(frontMatter, before, parts.map((p) => p.text), deckPlacingClasses(frontMatter));
+	const here: SlidePlacing = placings[k];
+	const plain = bgKeywords((node.attrs.alt as string | null) ?? '') === null;
+	const placed = plain && placedOrdinal(parts[k], here.classes, here.backgroundImage) === ordinal;
+	const placement = placed ? placementOf(here.classes) : 'none';
+	if (k > 0 || !plain) return { placement, canPlace: false };
+	// The first part: Compose may write its `_class` when the part's class is its own to decide. A class directive a later part
+	// owns is the one Compose would edit (the node holds one `_class`), so then nothing here is Compose's to place.
+	if (parts.slice(1).some((p) => p.directives.some((d) => classPayloadOf(d) !== null))) return { placement, canPlace: false };
+	const own = slideClassTokens(parts[0].directives);
+	const running = slidesCarried('', [parts[0].text], boundaryParser)[0].carriedClass !== null;
+	const inherited = deckClassWords(frontMatter).length > 0 || carriedClassBefore(state, $at.index(0) - 1) !== null || running || here.backgroundImage;
+	const placeable = placedOrdinal(parts[0], tokensWithPlacement(here.classes, 'right')) === ordinal;
+	return { placement, canPlace: placeable && !inherited && canPlaceOn(own) && !inLockedSlide(state, pos) };
+}
+
+/**
  * The placement of the picture at `pos` and whether it may be changed here, for the panel and the badge. The placement reads
  * what the engine reads: the slide's own class plus the deck's `class:`. It may be changed only where writing this slide's
  * `_class` decides it: no deck-wide or carried class in play, a layout that takes a picture, and the slide's only lone picture
@@ -306,6 +424,11 @@ export function placementAt(state: EditorState, pos: number): { placement: Place
 	const node = state.doc.nodeAt(pos);
 	if (!isImage(node) || !node) return { placement: 'none', canPlace: false };
 	const $at = state.doc.resolve(pos);
+	// A node the engine draws as several slides (`split: headings`) is read part by part.
+	if ($at.depth >= 1 && splitsOnHeadings(state)) {
+		const parts = slideParts($at.node(1));
+		if (!parts || parts.length > 1) return placementInParts(state, pos, node, parts);
+	}
 	const ownDirectives = ($at.node(1).attrs.directives as string[] | null) ?? [];
 	const own = slideClassTokens(ownDirectives);
 	const frontMatter = (state.doc.attrs.frontMatter as string) || '';

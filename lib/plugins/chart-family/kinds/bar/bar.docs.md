@@ -16,12 +16,12 @@ Use when the claim is that these categories differ in size: revenue by region, h
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the takeaway, not the chart ('Growth is concentrated in EMEA', not 'Revenue by region'). |
-| `categories` | `ul > li` | yes | One li per category, in the order they should read. Lead text is the category name, the trailing inline-code pill is the value — `EMEA \`4.2\``. Commas, currency symbols, units and magnitude suffixes are all read: `$4.2M` is 4 200 000 and the `$` and the magnitude carry onto the axis. A negative value hangs below (or left of) the zero rule. Three to eight categories read best. |
-| `series` | `li > ul > li` | no | Nested items whose trailing pill is a NUMBER are the grouped form: each category gets one bar per series, side by side, and a key names them. Two to four series; past four the group gets too dense to compare across categories. |
-| `detail` | `li > ul` | no | Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares. |
+| `title` | a `## ` heading | yes | Slide heading — name the takeaway, not the chart ('Growth is concentrated in EMEA', not 'Revenue by region'). |
+| `categories` | a list | yes | One li per category, in the order they should read. Lead text is the category name, the trailing inline-code pill is the value — `EMEA \`4.2\``. Commas, currency symbols, units and magnitude suffixes are all read: `$4.2M` is 4 200 000 and the `$` and the magnitude carry onto the axis. A negative value hangs below (or left of) the zero rule. Three to eight categories read best. |
+| `series` | a list nested 1 level under an item | no | Nested items whose trailing pill is a NUMBER are the grouped form: each category gets one bar per series, side by side, and a key names them. Two to four series; past four the group gets too dense to compare across categories. |
+| `detail` | a list nested 1 level under an item | no | Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares. |
 
 ### Variant decision rule
 
@@ -148,7 +148,7 @@ Signed values off a centered zero rule, both sides on one scale — the variance
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

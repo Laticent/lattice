@@ -4,7 +4,7 @@
 // keeping. It lives under tools/ rather than docs/src/lib/ precisely BECAUSE nothing
 // should import it: 368 lines of unreferenced module sitting in the shipped source tree
 // is one stray import away from shipping, and the dead-code gate cannot see docs/**
-// (`knip.json` ignores it). Here, its only consumers are its own harnesses. Exercised by
+// (`knip.jsonc` ignores it). Here, its only consumers are its own harnesses. Exercised by
 // `npm run intent:fit`; it is the evidence behind the recommender section of
 // engineering/decisions/2026-08-09-on-device-intent-routing.md.
 //

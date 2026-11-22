@@ -16,18 +16,18 @@ import * as React from 'react';
  * when a row is added without joining this list, so a new row either rings for a follower or is left out on purpose.
  */
 export const FOCUS_ROWS = [
-	'accent', 'acronyms', 'agenda', 'ai-writes-in', 'auto-glossary', 'backdrop',
+	'accent', 'agenda', 'ai-writes-in', 'auto-glossary', 'backdrop',
 	'backdrop-mask', 'backdrop-strength', 'bar-placement', 'brand-bar', 'canvas', 'card-lift',
 	'align-side-to-side', 'align-up-and-down', 'card-rail', 'card-rail-placement', 'card-tags', 'marks', 'claim',
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',
 	'default-slide-class', 'delivery', 'eyebrow', 'finish', 'fit',
 	'footer', 'header', 'heading-rule', 'headline', 'headline-alignment', 'hide-footer',
 	'hide-header', 'hide-logo', 'hide-page-number', 'hide-rail', 'image-card', 'in-the-exported-player', 'inline-pills-and-marks',
-	'inline-validation', 'language', 'lexicon', 'logo', 'logo-style',
+	'inline-validation', 'language', 'logo', 'logo-style',
 	'meta-line', 'mode', 'motion-speed', 'motion-style', 'new-slide-on', 'pace',
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',
 	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
-	'structural-trim', 'style', 'theme', 'tone-shape',
+	'structural-trim', 'style', 'terms', 'theme', 'tone-shape',
 	'type-scale', 'typography', 'venue',
 	// The Content tab's switches (switch-controls.ts `CONTENT_SWITCHES`), drawn from the table, not typed labels.
 	'below-note', 'heading-period', 'table-row-label', 'pane-spine', 'callouts', 'hide-the-deck-s-tints',

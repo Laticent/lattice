@@ -6,7 +6,7 @@
 
 **Tags** `section-break` · `agenda-setting` · `walkthrough`
 
-Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.
+Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise. It keeps the deck's running header and its footer, the standing note (a "Confidential", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md).
 
 ## Agent contract
 
@@ -14,10 +14,10 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`. |
-| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
+| `heading` | a `# ` heading or a `## ` heading | yes | Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | a line of `inline code` | no | Optional section number or category label above the heading. |
 
 ### Variant decision rule
 
@@ -42,8 +42,8 @@ Marks the start of a major section. Use sparingly — every divider is a context
 ## When NOT to use
 
 - **More than five per deck.** Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
-- **Section title that doesn't earn a section.** If the next 3-4 slides aren't a coherent unit, the `light` variant (bright canvas, centered) is the right tool. Reserve the dark divider for genuine section starts.
-- **Header or footer overrides.** Don't blank the header or footer with `_header: ''` / `_footer: ''` on a divider. A divider keeps the deck's running header and its footer, the standing note (a "Confidential", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). Drop one on purpose with `no-header` / `no-footer`, or every band with `silent`.
+- **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
+- **Header or footer overrides.** Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
 
 ## Authoring
 
@@ -113,7 +113,7 @@ The payload bullet becomes a code.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

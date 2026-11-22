@@ -14,10 +14,10 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `quotation` | `blockquote > p` | yes | The quoted text. |
-| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
+| `quotation` | a `>` blockquote | yes | The quoted text. |
+| `attribution` | a paragraph | no | Attribution line below the quote. |
 
 ### Common mistakes
 
@@ -77,7 +77,7 @@ No card, no quotation marks — a plain display-scale line.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

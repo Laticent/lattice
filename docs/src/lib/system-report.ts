@@ -28,7 +28,21 @@ export interface ReportInput {
 	network: { effectiveType?: string; saveData?: boolean } | null;
 	reducedMotion: boolean;
 	reducedData: boolean;
+	/** Where the app's GPU rank stands (device-tier.ts). Omitted: ranked when `signals.gpuTier` is set, else not measured yet. */
+	gpuRank?: 'pending' | 'ranked' | 'unknown' | 'none';
 }
+
+/**
+ * The GPU rank row's words when there is no rank: the row always shows, so a missing rank is never mistaken for a missing
+ * feature. `unknown` covers every way detect-gpu can answer without a tier (a chip newer than its tables, a Mac's masked
+ * "Apple GPU", Save-Data, a failed table fetch), so its words claim none of those causes in particular (the card grader's
+ * finding: "not in its tables" was false for the other three).
+ */
+const GPU_RANK_WHY: Record<'pending' | 'unknown' | 'none', string> = {
+	pending: 'Not measured yet',
+	unknown: "Unknown: detect-gpu couldn't rank this chip",
+	none: 'Not ranked: no WebGL',
+};
 
 export const TIER_LABEL: Record<Tier, string> = { full: 'Full', lite: 'Lite', unsupported: 'Unsupported' };
 
@@ -36,15 +50,20 @@ export const TIER_LABEL: Record<Tier, string> = { full: 'Full', lite: 'Lite', un
 export function browserName(ua: string, brands?: readonly { brand: string; version: string }[]): string {
 	const real = brands?.find((b) => !/Not.?A.?Brand|Chromium/i.test(b.brand));
 	if (real) return `${real.brand.replace(/^Google /, '')} ${real.version}`;
-	const rules: [RegExp, string][] = [
+	const rules: [RegExp, string, string?][] = [
+		// Every iOS browser is WebKit underneath and names itself with its own token, with no `Version/`, `Chrome/` or
+		// `Firefox/` for the rules below to find (the owner's iPhone read "Unknown browser" in both, 2026-11-13).
+		[/EdgiOS\/(\d+)/, 'Edge', ' (iOS)'],
+		[/CriOS\/(\d+)/, 'Chrome', ' (iOS)'],
+		[/FxiOS\/(\d+)/, 'Firefox', ' (iOS)'],
 		[/Edg\/(\d+)/, 'Edge'],
 		[/Firefox\/(\d+)/, 'Firefox'],
 		[/Chrome\/(\d+)/, 'Chrome'],
 		[/Version\/(\d+(?:\.\d+)?).*Safari\//, 'Safari'],
 	];
-	for (const [re, name] of rules) {
+	for (const [re, name, suffix = ''] of rules) {
 		const m = ua.match(re);
-		if (m) return `${name} ${m[1]}`;
+		if (m) return `${name} ${m[1]}${suffix}`;
 	}
 	return 'Unknown browser';
 }
@@ -89,7 +108,18 @@ export function reportRows(input: ReportInput): ReportRow[] {
 		...(s.renderer && shortRenderer(s.renderer) !== s.renderer ? { detail: s.renderer } : {}),
 		status: s.renderer === '' ? 'unknown' : reasonStatus(profile, 'gpu'),
 	});
-	if (s.gpuTier !== null) rows.push({ section: 'Device', label: 'GPU rank', value: `Tier ${s.gpuTier} of 3`, status: reasonStatus(profile, 'gpu') });
+	const rank = s.gpuTier !== null ? 'ranked' : (input.gpuRank ?? 'pending');
+	rows.push(
+		rank === 'ranked' && s.gpuTier !== null
+			? { section: 'Device', label: 'GPU rank', value: `Tier ${s.gpuTier} of 3`, status: reasonStatus(profile, 'gpu') }
+			: {
+					section: 'Device',
+					label: 'GPU rank',
+					// A software renderer is not a chip to rank; it already counts as its own signal (the Graphics row).
+					value: rank === 'unknown' && isSoftwareRenderer(s.renderer) ? 'Not ranked: software renderer' : GPU_RANK_WHY[rank === 'ranked' ? 'pending' : rank],
+					status: 'unknown',
+				},
+	);
 	rows.push({ section: 'Device', label: 'Memory', value: s.memoryGB === null ? 'Not reported by this browser' : `${s.memoryGB} GB`, status: s.memoryGB === null ? 'unknown' : reasonStatus(profile, 'memory') });
 	rows.push({ section: 'Device', label: 'CPU cores', value: s.cores === null ? 'Not reported, or clamped by this browser' : String(s.cores), status: s.cores === null ? 'unknown' : reasonStatus(profile, 'cores') });
 	rows.push({ section: 'Device', label: 'Speed test', value: s.cpuScore === null ? 'Not run yet' : `${s.cpuScore} units`, status: s.cpuScore === null ? 'unknown' : reasonStatus(profile, 'cpu') });

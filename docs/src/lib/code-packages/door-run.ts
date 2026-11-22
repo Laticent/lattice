@@ -11,11 +11,12 @@ import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, s
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { doorFinish, doorFinishFence, doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, scopePluginCss, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
-import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
+import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StampEntries, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
+import { getWaits } from './entry';
 import { openPackageFrame, type PackageFrame } from './runner';
 
 // The palette token names every theme defines, handed to a package in its slide's facts. The theme
@@ -159,8 +160,33 @@ function remember(key: string, section: string) {
 	memo.set(key, section);
 }
 
+/** A plugin's scoped sheet as the stamp carries it (door.ts `codePackagesStamp`), kept per name and stylesheet: a re-import
+ *  can change the stylesheet and keep the code, and the digest does not cover the stylesheet. */
+const sheets = new Map<string, string>();
+function sheetOf(p: StudioPlugin): string {
+	const key = `${p.name}\u0000${p.css}`;
+	let sheet = sheets.get(key);
+	if (sheet === undefined) {
+		if (sheets.size > 64) sheets.clear();
+		sheet = scopePluginCss(p.name, p.css as string);
+		sheets.set(key, sheet);
+	}
+	return sheet;
+}
+
 /** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
-export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean): Promise<R> {
+export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamp: StampEntries | null = null, handed: string | null = null): Promise<R> {
+	// What this render DRAWS as approved: approved now AND in the stamp its CSS carries, when the caller gave that CSS
+	// (door.ts `approvalsInStamp`), so the markup and the plugin's sheet come from one moment. The stamp only ever
+	// narrows: code runs on a live approval, so a stale stamp cannot run a plugin whose approval was withdrawn.
+	// What it REPORTS as unapproved stays live: the notice asks for a yes not given yet, and a render that started
+	// before the yes must not bring the question back.
+	// A name the stamp does not list at all (`stampEntries`) is drawn as with no stamp: by the live approval, and for a
+	// styled plugin only where the CSS carries its sheet (below).
+	const byStamp = (k: string) => !stamp || !stamp.listed.has(k) || stamp.approved.has(k);
+	const pluginKey = (p: StudioPlugin) => `plugin/${p.name}@${p.sha256.slice(0, 16)}`;
+	const drawsApproved = (p: StudioCodePackage) => isApproved(p) && byStamp(`${p.name}@${p.sha256.slice(0, 16)}`);
+	const drawsPluginApproved = (p: StudioPlugin) => isPluginApproved(p) && byStamp(pluginKey(p));
 	const packages = codePackages();
 	// A snapshot: the Library can change the set while this render awaits a sandbox.
 	const pkgs = new Map(packages);
@@ -218,8 +244,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		const key = claimKey(c, p.sha256);
 		if (sections.has(key)) continue;
 		// Approval first, then the memo: a result drawn before an approval was withdrawn is not shown.
-		if (!isApproved(p)) {
-			unapproved.set(p.name, p);
+		if (!drawsApproved(p)) {
+			if (!isApproved(p)) unapproved.set(p.name, p);
 			sections.set(key, withFailureNote(c.html, c.pkg, 'its code has not been approved in this browser'));
 			continue;
 		}
@@ -292,8 +318,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		}
 		// A span that cannot draw keeps its code: a note is a block, and a block in a sentence breaks it. The strip says why.
 		const notDrawn = (why: string) => (kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
-		if (!isPluginApproved(p)) {
-			unapproved.set(`plugin/${p.name}`, p);
+		if (!drawsPluginApproved(p)) {
+			if (!isPluginApproved(p)) unapproved.set(`plugin/${p.name}`, p);
 			// The same drawn card as an unlisted plugin's, with its own words: the strip above the preview is where the yes is given.
 			const hint = placeholderHint(p.placeholder);
 			// A span keeps its code: a card in a sentence would take the author's words out of a shared file, and the strip says why.
@@ -420,6 +446,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 				const why = `the values it returned grew its drawing past the ${SLOT_FILL_MAX.toLocaleString('en-US')}-character limit when the host filled its slots`;
 				failed.push({ name: c.pkg, slide: c.slide + 1, why });
 				sections.set(key, kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
+				// A note now, not the plugin's drawing: the stamp-less override below leaves it standing (#3292).
+				onPage.delete(key);
 				continue;
 			}
 			sections.set(key, filled);
@@ -439,6 +467,45 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			}
 		}
 		if (mine.length) attrs.set(key, mine);
+	}
+	// CSS that does not speak for a styled plugin (no stamp of this page, or a stamp that does not list it) and does not
+	// carry its sheet: on a reload a render can begin before the Studio's stamp holds the plugins, and its drawing painted
+	// the badge's words with no fill (#3292). That render shows the block as the engine drew it instead. The plugin still
+	// ran and its result is remembered, so the next render, with the stamp, draws at once. CSS that carries the sheet
+	// under a stamp with no nonce draws it. Judged by the CSS the render paints with, so a render begun with older CSS
+	// cannot race the shell.
+	// Each drawn block carries the key its afterimage is kept under (wait-capture.ts records it; wait.ts draws it).
+	// A preview only (it carries `codeStatus` or `codeApproval`): an export never carries a wait or its key.
+	const waits = reporting || handed !== null ? getWaits() : null;
+	for (const c of waits ? capFences.claims : []) {
+		const p = offered.get(c.pkg);
+		if (!waits || !p || (c as { inline?: string }).inline) continue;
+		const key = fenceKey(c, p.sha256);
+		const html = sections.get(key);
+		if (!onPage.has(key) || !html) continue;
+		sections.set(key, html.replace('<div data-lattice-plugin="', `<div data-lattice-wait-key="${waits.waitKey(p.sha256.slice(0, 16), c.body)}" data-lattice-plugin="`));
+	}
+	if (handed !== null) {
+		const hidden = new Set<string>();
+		for (const c of capFences.claims) {
+			const p = offered.get(c.pkg);
+			if (!p?.css || disabled.has(p.name) || stamp?.listed.has(pluginKey(p)) || handed.includes(sheetOf(p))) continue;
+			const key = fenceKey(c, p.sha256);
+			// Only the plugin's own drawing (`onPage`): a placeholder (unapproved, unlisted), an inline chip or a note
+			// stands as the door drew it, as it does in the export.
+			if (!onPage.has(key)) continue;
+			// The block's wait (wait.ts: its afterimage, else a skeleton), else the engine's own block for an inline chip.
+			const reg = { name: p.name, placement: p.placeholder?.placement ?? 'figure', aspect: rememberedAspect(p.sha256) ?? p.placeholder?.aspect, sha: p.sha256.slice(0, 16) };
+			sections.set(key, (c as { inline?: string }).inline ? c.block : (waits?.waitMarkup(reg, c.body) ?? c.block));
+			attrs.delete(key);
+			hidden.add(c.pkg);
+		}
+		// A clash note speaks of a block this render no longer shows: the next render, which draws them, reports it.
+		if (hidden.size) {
+			const kept = failed.filter((f) => !(hidden.has(f.name) && f.why.endsWith("the first block's is kept")));
+			failed.length = 0;
+			failed.push(...kept);
+		}
 	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});
 	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(unlisted.size ? { offered: [...unlisted].map((n) => offered.get(n) as StudioPlugin) } : {}), ...(notes.length ? { notes } : {}) });

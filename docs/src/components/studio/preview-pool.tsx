@@ -1,5 +1,6 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { isLiteDevice, LITE } from '@/lib/device-lite.js';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
@@ -134,7 +135,8 @@ type Tile = {
 /**
  * A still picture of what a slot shows: a JPEG of the slide at the tile's size, or null when the slot moved on to
  * another tile before the capture ran, or the capture failed. Rasterized with html-to-image (the export's route) and
- * run only after the pool's scroller has been still for CAPTURE_QUIET_MS, one capture at a time.
+ * run only after the pool's scroller has been still for CAPTURE_QUIET_MS and the reader for CAPTURE_INPUT_QUIET_MS, one
+ * capture at a time.
  */
 export type CapturePicture = () => Promise<Blob | null>;
 /** Told each time the tile's own picture has rendered in a pooled frame, with a way to capture it. */
@@ -143,6 +145,30 @@ export type PictureHandler = (capture: CapturePicture) => void;
 /** How long the pool's scroller must be still before a capture runs. A capture clones and inlines a slide on the main
  *  thread, so it never competes with a scroll the reader is making. */
 export const CAPTURE_QUIET_MS = 300;
+/** How long the READER must be still (no key, pointer or wheel anywhere on the page) before a capture runs. A
+ *  capture is one main-thread task that cannot be interrupted, and with the slide's fonts embedded it measured up to
+ *  ~390 ms at 4x CPU; one that starts mid-word makes the next keystroke wait for it. A poster is never urgent: the live
+ *  frame shows the slide meanwhile. Measured with a typing probe (map open, 4x CPU, 2026-11-15-studio-map-load-cost.md). */
+export const CAPTURE_INPUT_QUIET_MS = 1500;
+
+/** The last time the reader touched the page, shared by every pool. Listened for once, in the capture phase, passively.
+ *  `keydown` covers typing, IME composition included (it fires as key 229), so there is no `input` listener. Exported
+ *  for preview-pool.test.tsx. */
+let lastInput = 0;
+let inputHeard = false;
+export function hearInput() {
+	if (inputHeard || typeof window === 'undefined') return;
+	inputHeard = true;
+	const mark = () => {
+		lastInput = Date.now();
+	};
+	for (const type of ['keydown', 'pointerdown', 'wheel']) window.addEventListener(type, mark, { capture: true, passive: true });
+}
+/** Exported for preview-pool.test.tsx: the clock the capture gate reads. */
+export const readerQuietFor = () => Date.now() - lastInput;
+/** How long a capture must still wait, given how long the scroller and the reader have each been still: 0 means go.
+ *  Pure, for preview-pool.test.tsx. */
+export const captureWait = (scrollStill: number, readerStill: number) => Math.max(0, CAPTURE_QUIET_MS - scrollStill, CAPTURE_INPUT_QUIET_MS - readerStill);
 /** How long a slot must go without another render before its picture is offered for capture. A re-point that lands while
  *  a render is in flight is deferred and runs after it, and the in-flight render's own report would otherwise offer a
  *  picture of the slide the slot is leaving. */
@@ -289,6 +315,16 @@ export const BASE_SLOTS = 10;
 export const HARD_MAX_SLOTS = 28;
 
 /**
+ * A LITE device (device-capability-tiers §4) holds fewer frames: a floor of 6 and a ceiling of 12, where each frame is a
+ * whole document in memory. 12 still covers the biggest grid measured above (12 tiles at 1920x1200), so the "never cap
+ * what is on screen" invariant holds there; a bigger grid on a LITE device starves its least-recently-seen tiles, which
+ * is the trade LITE makes. A host's own lower numbers win. PURE.
+ */
+export function tierSlotCaps(baseSlots: number, maxSlots: number, lite: boolean): { baseSlots: number; maxSlots: number } {
+	return lite ? { baseSlots: Math.min(baseSlots, LITE.baseSlots), maxSlots: Math.min(maxSlots, LITE.maxSlots) } : { baseSlots, maxSlots };
+}
+
+/**
  * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
  * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
  * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
@@ -343,7 +379,11 @@ function parkedProps(p: PooledPreviewProps): PooledPreviewProps {
  * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
  * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSlots = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+	// Read at render. The tier can change once mid-session (decided after the first slide): the effect below re-renders the
+	// pool and runs a pass when it does, and the pass gives back the free frames above a lowered ceiling.
+	const [, setTierTick] = React.useState(0);
+	const { baseSlots, maxSlots } = tierSlotCaps(hostBase, hostMax, isLiteDevice());
 	// Read by the assignment pass, which outlives a render: a ref, so a changed prop reaches it.
 	const baseSlotsRef = React.useRef(baseSlots);
 	baseSlotsRef.current = baseSlots;
@@ -601,6 +641,10 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 				slot.freeSince = null;
 				slot.parked = false;
 			}
+			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
+			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
+			// tile leaves, since the cap above already keeps `want` within the ceiling.
+			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
@@ -656,11 +700,12 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 	const quietTimer = React.useRef(0);
 	const drainCaptures = React.useCallback(() => {
 		if (!alive.current || capturing.current || captureQueue.current.length === 0 || quietTimer.current) return;
-		const still = Date.now() - lastScroll.current;
+		// Both gates: the pool's scroller still for CAPTURE_QUIET_MS, and the reader for CAPTURE_INPUT_QUIET_MS.
+		const wait = captureWait(Date.now() - lastScroll.current, readerQuietFor());
 		const go = () => {
 			quietTimer.current = 0;
 			if (!alive.current) return;
-			if (Date.now() - lastScroll.current < CAPTURE_QUIET_MS) return drainCaptures();
+			if (captureWait(Date.now() - lastScroll.current, readerQuietFor()) > 0) return drainCaptures();
 			const job = captureQueue.current.shift();
 			if (!job) return;
 			capturing.current = true;
@@ -673,8 +718,18 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 		quietTimer.current = window.setTimeout(() => {
 			if (idle) idle(go, { timeout: 1000 });
 			else go();
-		}, Math.max(0, CAPTURE_QUIET_MS - still));
+		}, wait);
 	}, []);
+	// Follow the device tier: when `html[data-device-tier]` changes, re-render (new caps) and run a pass (trim to them).
+	React.useEffect(() => {
+		if (typeof MutationObserver === 'undefined') return;
+		const mo = new MutationObserver(() => {
+			setTierTick((n) => n + 1);
+			schedule();
+		});
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-device-tier'] });
+		return () => mo.disconnect();
+	}, [schedule]);
 	React.useEffect(() => {
 		const wrapper = layerRef.current?.parentElement;
 		const scroller = wrapper ? scrollParent(wrapper) : null;
@@ -684,6 +739,9 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 			lastScroll.current = Date.now();
 		};
 		target.addEventListener('scroll', onScroll, { passive: true });
+		// From the pool's mount, not its first capture: the first capture is the costliest (its fonts are fetched and
+		// encoded), and a reader typing before it must hold it back like any other.
+		hearInput();
 		return () => {
 			target.removeEventListener('scroll', onScroll);
 			window.clearTimeout(quietTimer.current);
@@ -733,9 +791,9 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 									}, 250);
 									return;
 								}
-								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => Date.now() - lastScroll.current >= CAPTURE_QUIET_MS) : null;
-								// The reader scrolled while the capture code loaded: back to the front of the queue, which waits
-								// for the scroller to be quiet again before it runs anything.
+								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => captureWait(Date.now() - lastScroll.current, readerQuietFor()) === 0) : null;
+								// The reader scrolled or typed while the capture code loaded: back to the front of the queue, which
+								// waits for the scroller and the reader to be quiet again before it runs anything.
 								if (got === SCROLLED) {
 									// A pool that is gone drains nothing: answer now, or the caller waits for good.
 									if (!alive.current) return resolve(null);

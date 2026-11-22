@@ -16,11 +16,11 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
-| `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `[data-lattice-figure], svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+| `title` | a `## ` heading | yes | Slide heading framing what the diagram shows. |
+| `subtitle` | a line of `inline code` | no | Optional eyebrow caption. |
+| `mermaid` | a fenced code block tagged `mermaid` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 ### Common mistakes
 
@@ -72,7 +72,7 @@ flowchart LR
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

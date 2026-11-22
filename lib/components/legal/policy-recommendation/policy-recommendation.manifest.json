@@ -18,8 +18,8 @@
     "perPage": 1,
     "soft": 3,
     "hard": 3,
-    "escalateTo": ["list takeaway numbered", "split across slides"],
-    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway numbered` slide and keep the recommendation slide to its strongest three"
+    "escalateTo": ["list takeaway", "split across slides"],
+    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway` slide written as a `1.` list and keep the recommendation slide to its strongest three"
   },
   "density": {
     "axis": "item",
@@ -29,34 +29,62 @@
   },
   "tags": ["recommendation", "regulation", "risk", "takeaway"],
   "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers.",
-  "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list takeaway numbered`.",
+  "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list takeaway` over a `1.` list.",
   "variants": ["adopt", "amend", "oppose", "defer"],
+  "variantAxes": [
+    {
+      "label": "Stance",
+      "exclusive": true,
+      "members": [
+        "adopt",
+        "amend",
+        "oppose",
+        "defer"
+      ]
+    }
+  ],
   "families": [],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`)."
     },
     "recommendation": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "The recommendation as a complete declarative sentence — the action you want taken, not a topic label."
     },
     "impact": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "One-sentence framing of the problem or stakes the recommendation addresses."
     },
     "rationale": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code."
     },
     "ask": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": false,
       "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
+    },
+    "evidence": {
+      "selector": "ul > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The reason's supporting line, nested under it. `-` or `1.` read the same here."
     }
   },
   "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `{Citation}` chip.\n- Second reason\n  - The evidence for it, with a `{Citation}` chip.\n- Third reason\n  - The evidence for it, with a `{Citation}` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
@@ -86,7 +114,7 @@
     },
     {
       "title": "More than four reasons",
-      "body": "Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway numbered`."
+      "body": "Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway` over a `1.` list."
     },
     {
       "title": "A recommendation with no ask",
@@ -108,7 +136,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: a flat enumeration of requirements without a stance or an ask"
+      "when": "`list takeaway` over a `1.` list: a flat enumeration of requirements without a stance or an ask"
     },
     {
       "name": "regulatory-update",

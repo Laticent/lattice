@@ -9,7 +9,7 @@ name: Studio E2E nightly (playwright)
 # fast subset to PR-blocking only after an observed green streak.
 #
 # Browser provisioning: `@playwright/test`'s pinned version IS the browser pin
-# (1.56.1 ↔ Chromium build 1194). `playwright install` fetches exactly that, so
+# (1.65.1 ↔ Chromium build 1255). `playwright install` fetches exactly that, so
 # `toHaveScreenshot`-style comparisons would be reproducible. The Studio reads the
 # committed `dist/docs/components.json` at build time, so no root BUILD is needed —
 # but the root DEPENDENCIES are, because the site imports engine modules from lib/
@@ -30,13 +30,33 @@ on:
         description: 'Spec path(s) under docs/, space-separated (e.g. e2e/workspace-backup-size.spec.ts). Empty = the whole suite. Not e2e/player-host-parity.spec.ts: the `player-parity` job runs that on every dispatch, and this suite skips it.'
         required: false
         default: ''
+      # HARD RULE #34's evidence for a new or changed e2e test, from CI: `--repeat-each=10` alone,
+      # then `--repeat-each=5 --workers=4` under load. Only with `spec`, to keep a repeat to the tests
+      # being proven (a big spec at repeat=20 can still overrun the 45-minute step), and refused
+      # outside the bounds below. Owner's call, D2 on
+      # PR 3324 (2026-11-19): before this, the only way to repeat a spec in CI was to dispatch the
+      # whole workflow again and again.
+      repeat:
+        description: 'With `spec` only: run each test this many times (Playwright --repeat-each), 1 to 20. Empty = once.'
+        required: false
+        default: ''
+      workers:
+        description: 'With `spec` only: Playwright workers per leg, 1 to 8 (4 for the #34 under-load run). Empty = the config default.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
   issues: write # open / append the rolling tracking issue
 
+# One group for `main` (the schedule and any hand-run there) and one per other branch. A concurrency
+# group keeps only ONE pending run, so with a single shared group a dispatch from any branch canceled
+# whichever run was waiting (two sessions' probes on 2026-11-17), the night's scheduled run included.
+# Now a branch probe only replaces an earlier pending probe on the SAME branch. `main` stays one
+# group because every issue-filing step below is gated on `refs/heads/main`: two main runs at once
+# could each open the same rolling issue. Owner's call, 2026-11-17 (#3284).
 concurrency:
-  group: studio-e2e-nightly
+  group: studio-e2e-nightly-${{ github.ref == 'refs/heads/main' && 'main' || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -67,9 +87,10 @@ jobs:
     # 45-minute step every scheduled night from 2026-09-22: on 2026-10-28 it reached test 509 of 2,118
     # (about 5.2 s a test on two workers, so the suite needs about 185 minutes). Eight legs is about 23
     # minutes each, inside the same 45-minute step with room for the suite to double; four would have
-    # been about 46. Each leg runs `--shard=K/8` and uploads its own report and verdict, and the
+    # been about 46. Each leg runs one time-balanced eighth (E2E_SHARD=K/8) and uploads its own report and verdict, and the
     # `e2e-report` job below reads all eight and files or stands down the ONE rolling issue. Re-derive
-    # the count from a full run's per-leg times; if the legs drift past ~1.5x their mean, rebalance.
+    # the count from a full run's per-leg times; if the legs drift past ~1.5x their mean, re-bless
+    # docs/e2e/shard-weights.json (`node docs/scripts/e2e-shard-bless.mjs`, engineering/development.md).
     strategy:
       fail-fast: false
       matrix:
@@ -159,10 +180,23 @@ jobs:
           for f in "${specs[@]}"; do
             case "$f" in e2e/*) ;; *) echo "spec input must name paths under e2e/, got: $f" >&2; exit 2 ;; esac
           done
+          # `repeat` and `workers` become flags only as bounded whole numbers, and only with a spec.
+          extra=()
+          if [ -n "${REPEAT:-}" ] || [ -n "${WORKERS:-}" ]; then
+            if [ "${#specs[@]}" -eq 0 ]; then echo "repeat and workers need a spec input: a whole-suite repeat overruns the step" >&2; exit 2; fi
+          fi
+          # Exact patterns, not `[ -lt ]`: a 19-digit number overflows bash's test, which then errors
+          # to false and would let the value through (the checker on PR 3328).
+          if [ -n "${REPEAT:-}" ]; then
+            case "$REPEAT" in [1-9]|1[0-9]|20) extra+=("--repeat-each=$REPEAT") ;; *) echo "repeat must be 1 to 20, got: $REPEAT" >&2; exit 2 ;; esac
+          fi
+          if [ -n "${WORKERS:-}" ]; then
+            case "$WORKERS" in [1-8]) extra+=("--workers=$WORKERS") ;; *) echo "workers must be 1 to 8, got: $WORKERS" >&2; exit 2 ;; esac
+          fi
           mkdir -p "$GITHUB_WORKSPACE/studio-e2e-text"
           # `--pass-with-no-tests`: a filtered dispatch (one spec) leaves most legs with nothing to run,
           # and an empty leg is not a failure.
-          if npm run test:e2e -- --grep-invert "@perf|@player-parity" --shard="${SHARD}" --pass-with-no-tests "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-text/report.txt"; then
+          if npm run test:e2e -- --grep-invert "@perf|@player-parity" --pass-with-no-tests "${extra[@]}" "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-text/report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
             echo "failed=false" > "$GITHUB_WORKSPACE/studio-e2e-text/verdict.txt"
           else
@@ -173,7 +207,12 @@ jobs:
         env:
           CI: 'true'
           SPEC: ${{ inputs.spec }}
-          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          REPEAT: ${{ inputs.repeat }}
+          WORKERS: ${{ inputs.workers }}
+          # Not `--shard`: playwright.config.ts reads this and gives each project the spec files it runs in
+          # this leg, dealt by measured seconds (e2e/shard-plan.mjs, e2e/shard-weights.json). `--shard`
+          # split by test COUNT in project order and stacked WebKit and Gecko into legs 7 and 8.
+          E2E_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
 
       # The leg's report text and verdict, for the `e2e-report` job. A leg whose run step timed out
       # writes no verdict, and the report job reads that absence as a failure, never as a pass.
@@ -578,7 +617,7 @@ jobs:
   # being lost. Owner's pick, 2026-10-29 (PR #2959, decision D1 B).
   #
   # The image tag IS the browser pin, like `playwright install` in the jobs above: it must match
-  # docs/package-lock.json's @playwright/test (1.56.1). `--retries=0`: a session that connects on
+  # docs/package-lock.json's @playwright/test (1.65.1). `--retries=0`: a session that connects on
   # one try in two is still broken.
   firefox-webrtc:
     # No `spec` filter, like `security`: it runs on every dispatch, so a hand-run on a branch
@@ -586,7 +625,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
       # Chromium-family pages need the host IPC namespace in Docker (Playwright's Docker guide);
       # harmless for Firefox, and the webServer's site build is a Node process either way.
       options: --ipc=host
@@ -596,7 +635,7 @@ jobs:
         shell: bash
     steps:
       # checkout needs git to make a real clone (the docs build reads git history) rather than fall
-      # back to a tarball. The v1.56.1 image already ships git, so this step normally does nothing. If a
+      # back to a tarball. The v1.65.1 image already ships git, so this step normally does nothing. If a
       # later image drops it, its .deb comes from GitHub's cache, keyed on the image tag; only a miss
       # reads a mirror, through the same mirror list as apt-setup.sh, three tries with apt's own three
       # retries (owner call, 2026-11-11). Inline because the repo's apt-cached action is not on disk
@@ -605,7 +644,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /root/apt-git-debs
-          key: apt-container-git-playwright-v1.56.1-noble-v1
+          key: apt-container-git-playwright-v1.65.1-noble-v1
       - name: Install git
         run: |
           set -euo pipefail

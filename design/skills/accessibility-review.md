@@ -1,6 +1,6 @@
 ---
 name: accessibility-review
-description: "Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion."
+description: "Use when reviewing a deck for accessibility: contrast, alt text and @alt notes, reading order, color as the only signal, type size, captions and motion."
 kind: operate
 studio: true
 ---
@@ -19,11 +19,11 @@ and the fix, and then the fixed deck.
 
 ## The 10/10 bar
 
-- **Every slide has a text alternative.** A `<!-- describe: … -->` comment says what
+- **Every slide has a text alternative.** An `<!-- @alt{…} -->` note says what
   the slide SHOWS, for anyone who cannot see it.
 - **Every meaningful image is described.** Every picture carries a name: `![A name](…)`,
   or `title=` on an `@image{…}` record. A slide's placed photo (an `image` panel, a `bleed`
-  background) speaks its name too, and the slide's `describe:` covers the rest.
+  background) speaks its name too, and the slide's `@alt` covers the rest.
 - **Nothing depends on color alone.** Status reads by shape, categories by texture or
   label, change by underline and strike-through.
 - **No author-made contrast failure.** The theme holds WCAG AA; the review checks the
@@ -54,13 +54,13 @@ an author can supply.
 | `<ins>` / `<del>` are underlined and struck, not just colored | Writing them as elements, not "deleted:" prose |
 | `a11y-*` themes add textures, status shapes and line styles | Choosing that theme when the audience needs it |
 | Every PDF shows a build's finished slide; `chart-anima` and diagram motion show the finished still under reduced motion | Not hiding meaning inside a build |
-| `describe:` lands as PPTX alt text and HTML `aria-describedby` | Writing the `describe:` text |
+| `@alt` lands as PPTX alt text and HTML `aria-describedby` | Writing the `@alt` text |
 | Type scales by `venue:` | Naming the venue, and splitting slides instead of shrinking |
 
-**Three channels per slide, three audiences** (see `speaker-notes.md`): the speaker
-note is for the presenter, `say:` is what the slide speaks (captions, `.vtt`, voice),
-and `describe:` is what the slide shows (screen readers, alt text). An accessibility
-review mostly checks the third and uses the second.
+**Four notes per slide, each named for where it shows up** (see `speaker-notes.md`):
+`@note` is for the presenter, `@say` is what the slide speaks (captions, `.vtt`, voice),
+`@alt` is what the slide shows (screen readers, alt text), and `@handout` is for someone
+reading the deck alone. An accessibility review mostly checks `@alt` and uses `@say`.
 
 ---
 
@@ -75,9 +75,9 @@ review mostly checks the third and uses the second.
 - **Texture channel:** `lib/core/accessibility-textures.js`; the
   `--cat-N-texture` tokens.
 - **CLI flags that matter here:** `--read` (the deck as a reading article),
-  `--captions` (WebVTT sidecars from `say:`), `--strip-notes` (keeps `describe:`),
+  `--captions` (WebVTT sidecars from `@say`), `--strip-notes` (keeps `@alt`),
   `--raster` (image-only PDF, no selectable text), `--no-player-motion`.
-- **Demo decks:** `examples/accessible-descriptions.md` (`describe:` on every slide),
+- **Demo decks:** `examples/accessible-descriptions.md` (`@alt` on every slide),
   `examples/a11y.md` (a CVD theme), `examples/build.md` (builds).
 
 ---
@@ -89,7 +89,7 @@ Review in this order: the cheap machine pass first, then the human passes it can
 1. **Lint.** `npm run lint:deck -- deck.md`. Fix every error and warning, and read the
    suggestions: `image-no-alt`, `collage-alt`, `typed-shape-glyph`, `capacity-scale`
    and `chart-no-takeaway` all bear on access.
-2. **Text alternatives.** Walk every slide. Does it carry a `describe:` comment? Does
+2. **Text alternatives.** Walk every slide. Does it carry an `@alt` note? Does
    picture have a name, including the photo an `image` or `bleed` slide places? An
    untitled placed photo is decorative: it paints as CSS with no `<img>`, so it gives a
    screen reader nothing on its own.
@@ -109,9 +109,9 @@ Review in this order: the cheap machine pass first, then the human passes it can
    slide becomes a heading and its body in order; charts, diagrams and math become
    figures captioned with the slide title. A heading that only makes sense beside its
    chart fails here.
-7. **Captions and voice.** If the deck will be narrated or played, check `say:` lines
+7. **Captions and voice.** If the deck will be narrated or played, check `@say` lines
    read well aloud, and that acronyms that should be spoken as words are listed in
-   `acronyms:`. `--captions` writes the `.vtt`.
+   `terms:`. `--captions` writes the `.vtt`.
 8. **Motion.** Nothing essential may exist only mid-animation. A build (`_build`)
    shows its finished slide in every PDF and reveals without a transition under
    reduced motion; `chart-anima` and `motion: on` diagrams show the finished still.
@@ -125,7 +125,7 @@ Review in this order: the cheap machine pass first, then the human passes it can
 
 ## The contract / skeleton
 
-**A `describe:` per slide**, written as what a sighted reader sees, in plain sentences:
+**An `@alt` per slide**, written as what a sighted reader sees, in plain sentences:
 
 ```markdown
 <!-- _class: table -->
@@ -141,14 +141,14 @@ Review in this order: the cheap machine pass first, then the human passes it can
 | Turin | `[!]` | `[x]` | `[-]` |
 | Porto | `[!]` | `[-]` | `[-]` |
 
-<!-- describe: A table of four sites against three checks. Leeds and Lyon pass all three. Turin passes systems, fails staffing and is partly through safety sign-off. Porto fails staffing and is partly through systems and safety sign-off. -->
+<!-- @alt{A table of four sites against three checks. Leeds and Lyon pass all three. Turin passes systems, fails staffing and is partly through safety sign-off. Porto fails staffing and is partly through systems and safety sign-off.} -->
 ```
 
 The marks draw a shape and carry a spoken name, so status survives without color. Only
 the six exact forms dispatch, and a screen reader says their names: `[x]` yes,
 `[-]` partly, `[!]` no, `[?]` unknown, `[ ]` open, `[/]` does not apply.
 
-**A placed photo, named and covered by `describe:`:**
+**A placed photo, named and covered by `@alt`:**
 
 ```markdown
 <!-- _class: image -->
@@ -161,14 +161,13 @@ The second lane opens when the floor resurfacing finishes in October.
 
 ![A loading dock with three bays](sample:photo-wide.jpg)
 
-<!-- describe: A photo of a loading dock with three bays and a single marked forklift lane. -->
+<!-- @alt{A photo of a loading dock with three bays and a single marked forklift lane.} -->
 ```
 
 **Front matter for an audience that needs it:**
 
 ```yaml
 ---
-marp: true
 theme: a11y-deuteranopia   # or a11y-protanopia | a11y-tritanopia | a11y-achromatopsia
 venue: conference          # laptop (default) | huddle | conference | hall
 ---
@@ -187,11 +186,12 @@ fills, shapes on status pills, and dash patterns on multi-series lines.
 | `typed-shape-glyph` (lint) | a typed check, cross or arrow that renders differently per font | warning |
 | `capacity-scale` (lint) | a slide past its `venue:` budget, which clips | warning under a `venue:`, info otherwise |
 | `chart-no-takeaway` (review) | a chart heading that names a topic, not a finding | suggestion |
-| `caption-key-retired` (lint) | the old `caption:` key, which the engine ignores; use `say:` | error |
+| `note-key-retired` (lint) | an old note key (`say:`, `describe:`, `reader:`), which the engine ignores; use `@say`, `@alt`, `@handout` | error |
+| `note-malformed` (lint) | a near-miss note (`@Alt{…}`, an unclosed brace), which reaches nothing | error |
 | `narration-acronyms` (lint-deck) | all-caps tokens read letter by letter | suggestion |
 | `tools/check-slide-contrast.js` | sub-AA text runs on a rendered HTML deck | on demand |
 
-**What no check catches:** a missing or wrong `describe:`, meaning carried by color in
+**What no check catches:** a missing or wrong `@alt`, meaning carried by color in
 your own words ("the red bars"), text over a photograph, and a reading order that only
 works visually. Those are this skill's human passes.
 
@@ -199,7 +199,7 @@ works visually. Those are this skill's human passes.
 
 ## What good looks like
 
-- Every slide has a `describe:` that names the layout and the content in one to three
+- Every slide has an `@alt` that names the layout and the content in one to three
   plain sentences, without repeating the speaker note.
 - Status in tables and lists uses state marks; categories in charts carry a key or a
   label, never hue alone.
@@ -212,7 +212,7 @@ works visually. Those are this skill's human passes.
 
 - "Green means on track, red means late" in a legend. Fix: state marks, or status
   words in the cells.
-- A `describe:` that says "Chart." Fix: say what the chart shows: "Revenue by region;
+- An `@alt` that says "Chart." Fix: say what the chart shows: "Revenue by region;
   North America is largest at $4.2M."
 - White text over a photo with a busy sky. Fix: move the text to the text slot, or
   pick a calmer image; no contrast tool can measure it for you.
@@ -226,14 +226,14 @@ works visually. Those are this skill's human passes.
 ## Ship checklist
 
 - [ ] `npm run lint:deck -- deck.md` reports no errors or warnings; suggestions read.
-- [ ] Every slide carries a `<!-- describe: … -->` comment.
+- [ ] Every slide carries an `<!-- @alt{…} -->` note.
 - [ ] Every picture has a name, the slide's placed photo included.
 - [ ] No meaning rests on color alone; status uses marks or words.
 - [ ] No hand-set color (`style=`, `style:` front matter, `\color`, Mermaid hex).
 - [ ] Text over images checked by eye; `tools/check-slide-contrast.js` run on the HTML.
 - [ ] `venue:` matches the room; no slide past its venue budget.
 - [ ] The `--read` article read top to bottom and makes sense.
-- [ ] `say:` lines read aloud cleanly; acronyms registered where needed.
+- [ ] `@say` lines read aloud cleanly; acronyms registered where needed.
 - [ ] Nothing essential exists only mid-build or mid-animation.
 - [ ] The output format keeps text selectable for readers who need it (not `--raster`).
 
@@ -242,8 +242,8 @@ works visually. Those are this skill's human passes.
 ## Common mistakes
 
 1. **Treating alt text as optional on a photo slide.** A placed photo has no `<img>`;
-   without a name or `describe:` it does not exist for a screen reader.
-2. **Writing `describe:` as a speaker note.** It is public: it survives
+   without a name or `@alt` it does not exist for a screen reader.
+2. **Writing `@alt` as a speaker note.** It is public: it survives
    `--strip-notes` and reaches the recipient. Describe what is shown, not what you say.
 3. **Assuming the theme fixes everything.** It fixes its own tokens. It cannot fix a
    hex you typed, or text you put over a photo.
@@ -251,8 +251,9 @@ works visually. Those are this skill's human passes.
    element; the extra words are heard twice.
 5. **Shrinking type to fit.** Split the slide instead; `scale-*` and `venue:` exist to
    go up, not down.
-6. **Using the retired `caption:` key** for spoken text. The engine ignores it. Use
-   `say:`.
+6. **Using an old note key** (`say:`, `describe:`, `caption:`) for spoken text or alt
+   text. The engine ignores it. Use `@say{…}` and `@alt{…}`; `lattice migrate notes`
+   rewrites a deck.
 7. **Expecting `venue:` to grow a Mermaid diagram's labels.** Mermaid sizes its own
    text; draw fewer nodes.
 8. **Typing glyphs for status.** A typed check mark renders as a fallback font, a
@@ -267,7 +268,7 @@ works visually. Those are this skill's human passes.
   marks", and the `scale-*` modifiers.
 - `engineering/textures.md` — the texture channel and the `--cat-N-texture` tokens.
 - `engineering/typography.md` §7 — the global font scale and `venue:`.
-- `design/skills/speaker-notes.md` — the note, `say:` and `describe:` channels.
+- `design/skills/speaker-notes.md` — the four notes: `@note`, `@say`, `@alt`, `@handout`.
 - `design/skills/theme.md` — the AA contract every theme holds.
 - `design/skills/cli.md` — `--read`, `--captions`, `--strip-notes`, `--raster`.
 - `lib/authoring/review-core.js` (`RUBRIC`) — the advisory review rules and their fixes.

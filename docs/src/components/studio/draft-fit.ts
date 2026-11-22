@@ -5,6 +5,7 @@
 
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { measureDeckFit, rasterizeSlidePreview } from './export/deck-export.js';
+import { holdWarmUps } from './first-slide';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /** `undrawn`: a diagram on the slide had not drawn when it was measured, so its fit is unknown.
@@ -31,6 +32,8 @@ export async function measureDraftFit(options: SingleSlideOptions, draft: string
 	const late = new Promise<undefined>((res) => {
 		timer = setTimeout(() => res(undefined), DRAFT_FIT_TIMEOUT_MS);
 	});
+	// The Studio's warm-ups wait while this runs (first-slide.ts `holdWarmUps`): the model is waiting on it.
+	const release = holdWarmUps();
 	try {
 		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss, 'scoped', 'live').then((r) => measureDeckFit(r, scope) as Promise<SlideFit[] | null>);
 		const out = await Promise.race([run, late]);
@@ -39,6 +42,7 @@ export async function measureDraftFit(options: SingleSlideOptions, draft: string
 		return undefined;
 	} finally {
 		clearTimeout(timer);
+		release();
 	}
 }
 
@@ -50,6 +54,9 @@ export async function renderDraftSlide(options: SingleSlideOptions, draft: strin
 	const late = new Promise<null>((res) => {
 		timer = setTimeout(() => res(null), DRAFT_FIT_TIMEOUT_MS);
 	});
+	// The Studio's warm-ups wait while this runs (first-slide.ts `holdWarmUps`). Under load on a Full device the
+	// warm-up's chunks and fonts landed beside this render and pushed it past DRAFT_FIT_TIMEOUT_MS.
+	const release = holdWarmUps();
 	try {
 		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss, 'scoped', 'live').then((r) => rasterizeSlidePreview(r, slide - 1) as Promise<{ url: string | null; sections: number }>);
 		return await Promise.race([run, late]);
@@ -57,5 +64,6 @@ export async function renderDraftSlide(options: SingleSlideOptions, draft: strin
 		return null;
 	} finally {
 		clearTimeout(timer);
+		release();
 	}
 }

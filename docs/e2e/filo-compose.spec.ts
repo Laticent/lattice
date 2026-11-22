@@ -1,14 +1,14 @@
 // Compose on Filo, on the real Studio (HARD RULE #23): slice 4 of
 // engineering/decisions/2026-10-27-filo-undo-history.md (§3.3). Compose keeps no undo of its own;
 // ⌘Z with focus in Compose goes to the deck's one history and lands AT ONCE (never parked until
-// blur), the structural guard lets the restore of a deck wipe through, the pill's Undo drives the
+// blur), the structural guard lets the restore of a deck wipe through, the toolbar's Undo drives the
 // same history, and an undo waits out an IME composition. Runs in all three engines.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { DEFAULT_COALESCE_MS } from '../src/lib/filo/history';
 import { openDeckInCompose, savedDeck } from './compose-insert';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { editorFocusSettled, expect, gotoStudio, pressSettled, studioUndo, test } from './studio-fixture';
 
 const DECK = ['<!-- _class: content -->\n\n# One\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
@@ -22,17 +22,25 @@ async function chord(page: Page, verb: 'undo' | 'redo'): Promise<void> {
 const slides = (page: Page) => page.locator('.cs-host .cs-slide');
 const composeFocused = (page: Page) => page.evaluate(() => !!document.activeElement?.closest('.cs-host .ProseMirror'));
 
-/** Click at the end of slide `i`'s body paragraph, the way an author puts the caret there. */
+/**
+ * Click at the end of slide `i`'s body paragraph, the way an author puts the caret there. The click focuses the editor,
+ * and ProseMirror's focus handler then writes its own selection back over a native one it has not read yet, so End
+ * pressed at machine speed can be undone (filo-live.spec.ts, #3219). `editorFocusSettled` waits for that timer and
+ * `pressSettled` for End's `selectionchange` (studio-fixture.ts; engineering/gotchas/studio-playground.md).
+ */
 async function caretInBody(page: Page, i: number): Promise<void> {
 	await slides(page).nth(i).locator('p').last().click();
-	await page.keyboard.press('End');
+	await editorFocusSettled(page);
+	await pressSettled(page, 'End');
 }
 
 for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo ${tag}`, () => {
 	test('⌘Z with focus in Compose undoes at once, and ⌘⇧Z redoes', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await caretInBody(page, 1);
-		await page.keyboard.type(' MARK');
+		// One insert, one history step: typed key by key, the keys can land further apart than Filo's 500 ms window on a
+		// loaded runner, and the undo then takes back only the last part (`Body two. MA` left, webkit-tablet at 4 workers).
+		await page.keyboard.insertText(' MARK');
 		await expect.poll(() => savedDeck(page)).toContain('Body two. MARK');
 		expect(await composeFocused(page), 'witness: focus is in Compose').toBe(true);
 		await chord(page, 'undo');
@@ -61,12 +69,13 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
-	test('the pill’s Undo drives the same history', async ({ page }) => {
+	test('the toolbar’s Undo drives the same history', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await caretInBody(page, 2);
-		await page.keyboard.type(' PILL');
-		const undo = page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' });
-		await expect(undo, 'the pill offers Undo once there is something to undo').toBeEnabled();
+		// One insert, one history step (see the first test).
+		await page.keyboard.insertText(' PILL');
+		const undo = studioUndo(page);
+		await expect(undo, 'the toolbar offers Undo once there is something to undo').toBeEnabled();
 		await undo.click();
 		await expect(slides(page).nth(2)).not.toContainText('PILL');
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
@@ -92,6 +101,32 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 		await expect(slides(page).nth(2)).not.toContainText('FROMMD');
 	});
 
+	// #3254's resync fix, on the real surface. Compose takes the NARROW resync only when the undo reverses text Compose
+	// wrote itself, so the slide is deleted with Compose's own control. Two sits behind the canonical `\n\n---\n\n` and Three
+	// keeps the short `\n\n---\n`; the undo re-inserts Two, and the narrow diff starts with the separator's last newline.
+	// Before the fix the narrow resync came back one newline short, ComposeView's check caught the mismatch, and the undo
+	// paid a full rebuild (it marks filo:compose-resync). Now the scoped apply is exact and no rebuild runs.
+	test('undoing a Compose slide delete between differently spelled separators stays a scoped apply', async ({ page }) => {
+		const MIXED = '<!-- _class: content -->\n\n# One\n\nBody one.\n\n---\n\n<!-- _class: content -->\n\n# Two\n\nBody two.\n\n---\n<!-- _class: content -->\n\n# Three\n\nBody three.';
+		await openDeckInCompose(page, MIXED);
+		await expect.poll(() => savedDeck(page), 'witness: the mixed spellings were saved as typed').toBe(MIXED);
+		await slides(page).nth(1).getByRole('button', { name: 'Delete slide' }).click();
+		await page.getByRole('button', { name: 'Confirm delete slide' }).first().click();
+		await expect(slides(page), 'witness: Compose deleted slide Two').toHaveCount(2);
+		await expect.poll(() => savedDeck(page)).not.toContain('Body two.');
+		const rebuilds = () => page.evaluate(() => performance.getEntriesByName('filo:compose-resync').length);
+		const before = await rebuilds();
+		await caretInBody(page, 0);
+		await chord(page, 'undo');
+		await expect(slides(page), 'the undo did not bring slide Two back').toHaveCount(3);
+		await expect.poll(() => savedDeck(page)).toBe(MIXED);
+		expect(await rebuilds(), 'the undo fell back to a full Compose rebuild').toBe(before);
+		// Compose writes from its own copy next: every separator comes back exactly as it was.
+		await caretInBody(page, 0);
+		await page.keyboard.type(' X');
+		await expect.poll(() => savedDeck(page)).toBe(MIXED.replace('Body one.', 'Body one. X'));
+	});
+
 	// An IME composition owns the keys: an undo asked for during one waits for it to end. A real IME is
 	// not drivable here, so the composition is the browser's own `compositionstart` / `compositionend`
 	// on the editor, which is what ProseMirror reads `view.composing` from.
@@ -101,7 +136,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 		await page.keyboard.type(' IME');
 		await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
 		await page.locator('.cs-host .ProseMirror').dispatchEvent('compositionstart', { data: '' });
-		await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(page).click();
 		// Nothing moved while composing.
 		await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
 		await expect(slides(page).nth(1)).toContainText('IME');
@@ -129,7 +164,7 @@ test('an undo during a real Chromium IME composition waits for the commit, then 
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('Input.imeSetComposition', { text: 'にほ', selectionStart: 2, selectionEnd: 2 });
 	await expect(slides(page).nth(0)).toContainText('Body one.にほ');
-	await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+	await studioUndo(page).click();
 	// Mid-composition: the deck did not move and the composing text is intact.
 	await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
 	await expect(slides(page).nth(0)).toContainText('Body one.にほ');

@@ -1,0 +1,43 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "set_finish",
+	"title": "Set the finish",
+	"describe": {
+		"chat": "Change the deck's finish (the backdrop behind every slide) on the draft; \"none\" removes it. Same as setting `finish:`. read_guide finish first if unsure."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.frontmatter"
+	],
+	"destructive": true,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"name": {
+				"type": "string",
+				"enum": [
+					"none",
+					"{{...finishes}}"
+				]
+			},
+			"summary": {
+				"type": "string"
+			}
+		},
+		"required": [
+			"name"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "look",
+	"legacy": true,
+	"chat": {
+		"position": 130,
+		"activity": "Changing the finish…"
+	}
+}

@@ -39,8 +39,8 @@ function swallowNextClick() {
  * trigger opened a second list over the first. Measured in Playwright WebKit on the phone's
  * Settings sheet: zero pointer, touch or click events reached the document for that tap.
  *
- * This layer is the tap's target. It sits one step below the list (`z-[49]` under the list's
- * `z-50`) with its own `pointer-events: auto`, and closes on `pointerdown`, the same moment a
+ * This layer is the tap's target. It sits below the list (`z-[49]`; the list itself sits above the
+ * toaster, see ui/sonner.tsx LAYERING) with its own `pointer-events: auto`, and closes on `pointerdown`, the same moment a
  * mouse closes the list on desktop. A tap on another trigger, a tab or a button therefore only
  * closes the open list, which is how the desktop behaves too.
  */

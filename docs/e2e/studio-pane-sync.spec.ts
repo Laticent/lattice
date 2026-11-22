@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { timersDrained } from './barriers';
 import { expect, isPhone, test, waitForStudioPaint } from './studio-fixture';
 
 // THE SLIDE (AND THE CARET'S LINE) SURVIVE A PANE SWITCH AND A RELOAD (engineering/decisions/2026-11-10-compose-first.md §4).
@@ -59,8 +60,16 @@ const afterCaret = (page: Page) =>
 		return sel?.anchorNode ? (sel.anchorNode.textContent ?? '').slice(sel.anchorOffset) : '';
 	});
 /** Put Compose's caret `fromEnd` characters before the end of `el`'s last text: a DOM selection, which ProseMirror
- *  reads, because on a phone `End` goes to the end of the WRAPPED visual line, not of the paragraph. */
+ *  reads, because on a phone `End` goes to the end of the WRAPPED visual line, not of the paragraph.
+ *
+ *  Every caller clicks `el` first, and ProseMirror finishes that click on a zero-delay timer: its mouseup handler
+ *  (`MouseDown.done`, `delayedSelectionSync`) queues `selectionToDOM`, which writes ITS selection, the click's, back
+ *  to the page. `click()` can return before that timer runs, and a selection set in between is overwritten with the
+ *  click's, here the end of the line, so the caller's poll waited 15 s on a caret that never came (1 run in 20 on
+ *  desktop; a selectionchange log showed the set making no change at all). `timersDrained` queues a zero-delay timer
+ *  after ProseMirror's, so the click has fully landed before the selection is set (HARD RULE #32: a signal, not a wait). */
 async function caretBeforeEnd(page: Page, el: import('@playwright/test').Locator, fromEnd: number): Promise<void> {
+	await timersDrained(page);
 	await el.evaluate((node, n) => {
 		const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
 		let last: Text | null = null;

@@ -74,27 +74,45 @@
     "grid",
     "solo"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "spine",
+        "rail",
+        "tab",
+        "grid",
+        "solo"
+      ]
+    }
+  ],
   "excludes": [
     "accent"
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`."
     },
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A')."
     },
     "question": {
       "selector": "ul > li, ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same."
     },
     "answer": {
       "selector": "ul > li > ul > li, ol > li > ol > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": true,
       "description": "The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one."
     }
@@ -131,7 +149,7 @@
     },
     {
       "title": "Evaluation criteria in disguise",
-      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates."
+      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway` over a `1.` list, not a question you expect to be asked. q-and-a defends; a numbered `list takeaway` evaluates."
     }
   ],
   "variantDocs": {
@@ -172,7 +190,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: numbered criteria with rationale — evaluation, not anticipated objections"
+      "when": "`list takeaway` over a `1.` list: numbered criteria with rationale — evaluation, not anticipated objections"
     },
     {
       "name": "cards-stack",

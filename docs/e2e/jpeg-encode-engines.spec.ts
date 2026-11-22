@@ -1,18 +1,15 @@
 import { createHash } from 'node:crypto';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 import { expect, test } from '@playwright/test';
 
-// The shared JPEG encoder (lib/core/jpeg-encode.mjs) writes the SAME BYTES in every engine, and every engine reads
+// The shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`) writes the SAME BYTES in every engine, and every engine reads
 // them back. @gecko runs it in Chromium (desktop) and Firefox; @webkit-tablet in WebKit, the iPhone's engine.
 //
 // The encoder exists because the platform encoders (`canvas.toBlob('image/jpeg')`) do not agree: one picture
 // PowerPoint came out 12.5 MB from Chromium and 43.3 MB from an iPhone. So the check is the bytes themselves, against
-// the golden hash test/unit/core/jpeg-encode.test.js pins in Node, plus a decode by the engine's own JPEG reader.
+// the golden hash docs/src/lib/lastra/jpeg.test.ts pins in Node, plus a decode by the engine's own JPEG reader.
 // It also times a 2560 × 1440 slide, the size a picture export writes, so a slow engine shows up in the report.
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-// The same as GOLDEN in test/unit/core/jpeg-encode.test.js.
+// The same as GOLDEN in docs/src/lib/lastra/jpeg.test.ts.
 const GOLDEN = { width: 301, height: 157, quality: 90, sha256: 'c58daad69614db3208e19a5f8fcd8fb61eec1cc601fdc373bd4e4d12bd926f00' };
 
 // The unit test's picture: flat areas, gradients, hard edges, noise, and a band of transparency.
@@ -34,7 +31,8 @@ function synthetic(w: number, h: number) {
 for (const tag of ['@gecko', '@webkit-tablet']) {
 	test(`the shared JPEG encoder writes the golden bytes and the engine decodes them ${tag}`, async ({ page }, testInfo) => {
 		test.setTimeout(120_000);
-		const { createJpegEncoder } = await import(pathToFileURL(path.join(ROOT, 'lib', 'core', 'jpeg-encode.mjs')).href);
+		// The built package, the bytes the CLI sends into its page (lib/export/chrome-recode.js) come from.
+		const { createJpegEncoder } = await import('@laticent/lastra');
 		await page.setContent('<!doctype html><title>jpeg</title>');
 		// The encoder goes in as its own source text, the way lib/export/chrome-recode.js sends it.
 		await page.evaluate(`window.__jpeg = ${createJpegEncoder.toString()}; window.__synthetic = ${synthetic.toString()};`);

@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { loadStudioPanels, waitForPanels } from '@/test/panels';
+import { loadFabricate, loadStudioPanels, waitForPanels } from '@/test/panels';
 import { SEL } from './lessons/lesson-kit';
 import StudioShell from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
 // An explicit budget over vitest's 10 s hook default: this is the file's first cold import of all six panel chunks, and
 // under load (three copies of this file at once on 4 cores) it ran past 10 s once in 21 runs. A hang still fails, at 30 s.
-beforeAll(loadStudioPanels, 30_000);
+beforeAll(() => Promise.all([loadStudioPanels(), loadFabricate()]), 30_000);
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
 // The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold
@@ -852,11 +852,11 @@ describe('Studio — Inspector controls respond', () => {
 		// Inspector), opened from the editor row, under the Notes tab.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
 		await clickSection(user, 'Notes');
-		const notes = await screen.findByRole('textbox', { name: 'Speaker note for this slide' });
+		const notes = await screen.findByRole('textbox', { name: 'Speaker notes for this slide' });
 		await user.click(notes);
 		await user.type(notes, 'Open on the room, then the number.');
 		await user.tab(); // blur commits the note
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/note: Open on the room, then the number\./);
+		expect(screen.getByLabelText('Deck source').textContent).toContain('<!-- @note{Open on the room, then the number.} -->');
 	});
 
 	it('version history saves a checkpoint and restores it', async () => {
@@ -928,10 +928,10 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
-	// The toast's Undo, not the top bar's touch-first pair: jsdom applies no CSS, so that `hidden` pair is in its tree.
+	// The toast's Undo, found inside the toast: the edit bar has its own Undo (it acts on the deck's history, not this change).
 	const toastUndo = () => {
-		const b = screen.queryAllByRole('button', { name: 'Undo' }).find((e) => !e.className.includes('pointer:coarse'));
-		return b ?? undefined;
+		const b = [...document.querySelectorAll('[data-sonner-toast] button')].find((e) => e.textContent === 'Undo');
+		return (b as HTMLElement | undefined) ?? undefined;
 	};
 	const findToastUndo = () =>
 		waitFor(() => {
@@ -1152,6 +1152,21 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(await screen.findByRole('combobox', { name: 'Debug overlay' }));
 		await user.click(await screen.findByRole('option', { name: 'Auto — Off' }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/debug:/);
+	});
+
+	// The Deck pane's reset sees every row the pane writes (2026-11-15-one-side-pane.md §3e). Debug overlay wrote
+	// the source directly, past the path that records the pane's keys, so the reset missed it (checker on #3222).
+	it("the Deck pane's reset undoes a Debug overlay change", async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await clickSection(user, 'General');
+		await user.click(await screen.findByRole('combobox', { name: 'Debug overlay' }));
+		await user.click(await screen.findByRole('option', { name: 'Always on · verbose' }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/debug:/);
+		const reset = screen.getByRole('button', { name: 'Reset deck settings' });
+		await waitFor(() => expect(reset).not.toHaveAttribute('aria-disabled'));
+		await user.click(reset);
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/debug:/));
 	});
 });
 

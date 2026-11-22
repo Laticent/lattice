@@ -21,6 +21,7 @@ import '../styles/deck-config.css';
 import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
@@ -88,6 +89,8 @@ const { buildVocab } = require(join(repoRoot, 'lib/authoring', 'lint.js'));
 const _vocab = buildVocab(manifests);
 const lintVocab = {
 	names: [..._vocab.names],
+	// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
+	slotContract: _vocab.slotContract,
 	modifiers: [..._vocab.modifiers],
 	universalModifiers: [..._vocab.universalModifiers],
 	modifierGroups: _vocab.modifierGroups || [],
@@ -204,8 +207,7 @@ const pgData = {
 		<ResourceHints />
 		{/* The runtime prefetch that <RuntimeWarm> issues elsewhere is issued by the boot seed
 		    below on this page: it must NOT run beside the newcomer bake (see there). */}
-		<title>Lattice playground — try it in the browser</title>
-		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
+		<PageMeta title="Lattice playground — try it in the browser" description="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<script
 			is:inline
@@ -310,8 +312,18 @@ const pgData = {
 									// separator the group's width excludes; 821 because below the tab breakpoint the split
 									// is disabled and the panes are stacked full-width, where a pixel minimum means nothing.
 									var pgAt = Math.max(821, Math.ceil(PG_SPLIT_SNAP_MIDPOINT[pgKey] * pgTotal / pgShare) + 1);
-									pgRules += '@media (min-width:' + pgAt + 'px){:root[data-pg-split-seed] .pg-split>#' +
-										PG_SPLIT_PANEL_IDS[pgI] + '{min-width:' + PG_SPLIT_MIN[pgKey] + 'px!important}}';
+									// The preview's minimum also goes on its STAND-IN: while the streamed document has parsed
+									// the editor but not the preview panel, the #1800 reservation (`.pg-split::after` in
+									// playground.css) holds the preview's share, and without the minimum on it the editor
+									// painted at the raw share (907px at 1194) until the real pane arrived and the clamp
+									// took it to 893: about 1 load in 40 under the spec's 6x throttle
+									// (playground-first-paint.spec.ts, "clamped BEFORE paint").
+									// A rule of its own, not a selector list: a browser without `:has()` drops a whole list it
+									// cannot parse, and would lose the pane's own clamp with it.
+									var pgMin = '{min-width:' + PG_SPLIT_MIN[pgKey] + 'px!important}';
+									pgRules += '@media (min-width:' + pgAt + 'px){:root[data-pg-split-seed] .pg-split>#' + PG_SPLIT_PANEL_IDS[pgI] + pgMin;
+									if (pgI === 1) pgRules += ':root[data-pg-split-seed] .pg-split:not(:has(>#' + PG_SPLIT_PANEL_IDS[1] + '))::after' + pgMin;
+									pgRules += '}';
 								}
 								// `!important` because the SSR'd panel wrapper carries `min-width:0` INLINE. Setting the
 								// pixel minimum on the ELEMENT instead would win the cascade and then never be undone:
@@ -608,6 +620,14 @@ const pgData = {
 					window.__pgEditorSeed = draft;
 				} catch (e) {}
 			})();
+		</script>
+
+		<!-- The device gate (engineering/decisions/2026-11-12-device-capability-tiers.md §6, §7.3): applies a ?tier= pin or
+		     the saved tier, decides this visit's tier once the page is idle, and shows the decline screen when it reads
+		     "unsupported". Everything past the attribute read loads on demand. -->
+		<script>
+			import { startDeviceGate } from '../lib/device-gate';
+			startDeviceGate({ decide: true });
 		</script>
 
 		<!-- Guided tour: the Tour button and the first-visit offer. The offer is a card

@@ -84,7 +84,13 @@ async function settle(page: Page, timeout = 10_000) {
 				/* mid-navigation */
 			}
 			const pos = document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim();
-			return `${pos}|${Math.round(sy)}|${h}|${vis}`;
+			// THE LAND, as the app publishes it (`data-pg-land`). A land waits on the fit agent
+			// and then scrolls, and on a loaded box it can sit with every readout above still for
+			// longer than two polls. It covers the land only: before a render resolves (a gallery
+			// fetch, say) the attribute still reads the previous land's `done`, so a caller that
+			// needs a new deck waits for that deck's own position first, as the fit-window test does.
+			const land = document.documentElement.dataset.pgLand ?? 'none';
+			return `${pos}|${Math.round(sy)}|${h}|${vis}|${land}`;
 		});
 	let last = '';
 	let quiet = 0;
@@ -95,7 +101,7 @@ async function settle(page: Page, timeout = 10_000) {
 		.poll(
 			async () => {
 				const now = await read();
-				quiet = now === last ? quiet + 1 : 0;
+				quiet = now === last && !now.endsWith('|pending') ? quiet + 1 : 0;
 				last = now;
 				return quiet;
 			},
@@ -129,9 +135,15 @@ async function visibleFractions(page: Page): Promise<{ ofItself: number; ofPane:
 		const pane = win.innerHeight;
 		const bottom = top + pane;
 		return Array.from(secs, (el) => {
-			const h = el.getBoundingClientRect().height;
+			// The rect plus the scroll, the way the app's `frameBands` places a slide. NOT `offsetTop`: `.lattice` is the
+			// offsetParent (its `filter`), so `offsetTop` leaves out the frame's html and body padding and put every slide
+			// about 36px above where it is. A slide the app rightly kept at more than half visible then measured 36 to 48%
+			// here, and the swipe test went red whenever a flick came to rest near that line (mobile-touch, under load).
+			const r = el.getBoundingClientRect();
+			const h = r.height;
 			if (h <= 0 || pane <= 0) return { ofItself: 0, ofPane: 0 };
-			const seen = Math.max(0, Math.min(bottom, el.offsetTop + h) - Math.max(top, el.offsetTop));
+			const at = r.top + top;
+			const seen = Math.max(0, Math.min(bottom, at + h) - Math.max(top, at));
 			return { ofItself: seen / h, ofPane: seen / pane };
 		});
 	});
@@ -466,9 +478,30 @@ test('a step taken while a fresh deck is still being fit lands on the slide it a
 	// with the bar still reading "1 / 58", and nothing would ever correct it: the document
 	// did not clamp the scroll, so no scroll event fired.
 	await gotoExplore(page);
+	const before = (await page.locator('#pg-walk .pg-walk-pos').textContent())?.trim() ?? '';
 	await page.locator('#pg-galleries-trigger').click();
 	await page.getByRole('button', { name: /Jargon/ }).click();
-	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('/');
+	// WAIT FOR THE GALLERY'S OWN POSITION, polled every frame, and step at once. The bar still
+	// reads the OLD deck's "1 / 15" for a moment after the click, so `toContainText('/')` passed
+	// on it and the step went to a deck that was about to be replaced; and when the check came
+	// late it retried on its 100-500ms back-off, so the step landed after the fit and the test
+	// never entered the window it is named for. The gallery's "1 / 58" appears while its land is
+	// still pending (the fit window), and a frame-rate poll steps inside it.
+	//
+	// …ONCE THE KEY CAN REACH THE DECK. For a frame or two the closing Galleries dialog still
+	// holds focus, and `isTypingTarget` (lib/deck-nav.ts) rightly leaves a key aimed at an
+	// overlay alone. Measured: a step polled on the bar alone went to the dialog's Jargon button
+	// and was dropped in 9 runs of 10. With focus out of the overlays as well, 12 of 12 single-
+	// worker runs pressed while `data-pg-land` was still `pending`, and 9 of 12 at four workers.
+	await page.waitForFunction(
+		(old) => {
+			const t = document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim() ?? '';
+			const overlay = document.activeElement?.closest('[role="menu"],[role="menubar"],[role="listbox"],[role="combobox"],[role="dialog"],[role="alertdialog"]');
+			return /^\d+\s*\/\s*\d+$/.test(t) && t !== old && !overlay;
+		},
+		before,
+		{ polling: 'raf' },
+	);
 	// Deliberately WITHOUT settling: the point is to step inside the fit window.
 	await page.keyboard.press('PageDown');
 	await settle(page);
@@ -669,7 +702,11 @@ test('a single jumping scroll inside the step guard is not stranded', async ({ p
 	await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
 		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
-		if (f?.contentWindow && secs?.[9]) f.contentWindow.scrollTo({ top: secs[9].offsetTop - 16, behavior: 'auto' });
+		// The rect plus the scroll, the way the app's `frameBands` places a slide. Not `offsetTop`: `.lattice` is the
+		// offsetParent (its `filter`), so `offsetTop` leaves out the frame's html and body padding, and the jump put slide
+		// 10's top 52px into the pane instead of 16.
+		const win = f?.contentWindow;
+		if (win && secs?.[9]) win.scrollTo({ top: secs[9].getBoundingClientRect().top + win.scrollY - 16, behavior: 'auto' });
 	});
 	await settle(page);
 	await expectPositionIsTruthful(page, 'a single jumping scroll inside the guard window');

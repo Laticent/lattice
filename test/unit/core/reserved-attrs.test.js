@@ -75,17 +75,16 @@ test('data-lattice-slide is renamed in any case; other data-lattice- names autho
   assert.match(render('<svg data-lattice-motion="m1"></svg>'), /data-lattice-motion="m1"/);
 });
 
-// The rename runs inside comments too, so a speaker note that SAYS a reserved name renders renamed.
-// The note strip matches source comments against the rendered bodies, so it must rename the
-// source the same way, or the note survives a `--strip-notes` (or default player) export.
+// The rename runs inside comments too, so a speaker note that SAYS a reserved name renders renamed. The reader
+// undoes nothing for an attribute (only the section tag), and the strip classifies the SOURCE comment, so the note
+// comes off a `--strip-notes` export whatever its words (engineering/decisions/2026-11-20-four-notes.md).
 test('a speaker note that names a reserved attribute is still stripped from the source', () => {
   const notes = require('../../../lib/authoring/notes-core.js');
-  const src = '---\ntheme: indaco\n---\n\n# One\n\nBody\n\n<!-- Secret: check the data-lattice-slide index and data-split-role -->\n';
+  const src = '---\ntheme: indaco\n---\n\n# One\n\nBody\n\n<!-- @note{Secret: check the data-lattice-slide index and data-split-role} -->\n';
   const html = engine.render(src, 'indaco', { preview: true }).html;
-  const bodies = notes.noteBodiesFromHtml(html);
-  assert.ok(bodies.length, 'the note renders as a note');
-  assert.doesNotMatch(notes.stripNotesFromSource(src, bodies), /Secret/);
-  assert.doesNotMatch(notes.stripChannelsFromSource(src, { noteBodies: bodies }), /Secret/);
+  assert.match(notes.extractSlideNotes([html])[0], /^Secret: /, 'the note renders as a note');
+  assert.doesNotMatch(notes.stripNotesFromSource(src), /Secret/);
+  assert.doesNotMatch(notes.stripChannelsFromSource(src, { notes: true }), /Secret/);
 });
 
 test('only the exact data-lattice-slide name is reserved, not a longer name that starts with it', () => {
@@ -129,15 +128,15 @@ test('the control: without raw section tags the deck renders its two slides', ()
 });
 
 // The rename runs inside comments, and notes are read back from them: a note about HTML said
-// `<x-section>` where its author wrote `<section>` (the independent checker). The readers undo it;
-// the strip still matches, because it renames the source the same way.
-test('a speaker note, a description and a say line that mention <section> read as written', () => {
+// `<x-section>` where its author wrote `<section>` (the independent checker). The readers undo it,
+// and the strip reads the source, where the tag was never renamed.
+test('a speaker note, an alt text and a say line that mention <section> read as written', () => {
   const notes = require('../../../lib/authoring/notes-core.js');
-  const src = '---\ntheme: indaco\n---\n\n# One\n\n<!-- Explain why a <section> tag is a slide, and </section> too -->\n\n<!-- describe: A <section> diagram -->\n\n<!-- say: Every <section> is a slide -->\n';
+  const src = '---\ntheme: indaco\n---\n\n# One\n\n<!-- @note{Explain why a <section> tag is a slide, and </section> too} -->\n\n<!-- @alt{A <section> diagram} -->\n\n<!-- @say{Every <section> is a slide} -->\n';
   const html = engine.render(src, 'indaco', { preview: true }).html;
   assert.deepEqual(notes.extractSlideNotes([html]), ['Explain why a <section> tag is a slide, and </section> too']);
   assert.deepEqual(notes.extractSlideDescriptions([html]), ['A <section> diagram']);
   assert.deepEqual(notes.extractSlideSayLines([html]), ['Every <section> is a slide']);
   assert.equal(splitTopLevelSections(html).length, 1, 'and the rendered comment still adds no slide');
-  assert.doesNotMatch(notes.stripNotesFromSource(src, notes.noteBodiesFromHtml(html)), /Explain why/, 'the strip still finds the note');
+  assert.doesNotMatch(notes.stripNotesFromSource(src), /Explain why/, 'the strip still finds the note');
 });

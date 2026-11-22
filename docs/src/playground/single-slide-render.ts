@@ -46,6 +46,7 @@ import { math as MATH } from '../../../lib/plugins/detect.generated.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { pluginDataMissing } from '../lib/ensure-plugin-data';
+import { liveMediaAttr } from '../lib/live-media-attr';
 import { ensureEngine } from '../lib/load-engine';
 import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
@@ -1337,14 +1338,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
-			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
+			// Underpainting (lib/core/image-painting.js), held still on a LITE device (live-media-attr.ts). An export capture never sets it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
 			// `data-lattice-preview`: a person reads this frame, so the runtime settles only the faces its
 			// laid-out text uses and re-measures when a later one lands (lib/runtime/index.js
 			// `isPreviewFonts`). Without it the runtime force-loads every declared face (28 files, the
 			// emoji subsets among them), `fonts.ready` goes pending again, and the reveal below waits out
 			// its whole PREVIEW_FONT_GATE_MS backstop on a cold load: about 1.5 s on the phone profile.
-			' data-lattice-live-media data-lattice-preview><head><meta charset="utf-8">' +
+			liveMediaAttr() + ' data-lattice-preview><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked, scriptNonce: PREVIEW_SCRIPT_NONCE }) +
@@ -1939,7 +1940,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -2033,7 +2034,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// what this surface did before deck context existed. One extra engine call on
 						// an uncommon deck shape, and only for as long as the deck stays that shape.
 						const alonePlugins = PG.pluginAdmission?.(markdown) ?? undefined;
-						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, codeApproval: extraCss || '', ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
 						// same front matter), and keeping the first render's `stats` keeps the perf

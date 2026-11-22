@@ -150,9 +150,21 @@ describe('shadcn bridge: required semantic tokens are mapped', () => {
 		'--color-chart-1',
 		'--color-chart-5',
 	];
+	// Scan for `token` then a `:` after optional spaces/tabs, by string, not a RegExp built from the
+	// token — the earlier `token.replace(/[-]/g, '\\-')` escaped only `-` (js/incomplete-sanitization,
+	// #1958 §3, §7). A custom-property name holds only `[-\w]`, none of which is a regex metacharacter
+	// here, so there was nothing the half-escape protected.
+	const defines = (sheet, token) => {
+		for (let i = sheet.indexOf(token); i >= 0; i = sheet.indexOf(token, i + 1)) {
+			let j = i + token.length;
+			while (sheet[j] === ' ' || sheet[j] === '\t') j++;
+			if (sheet[j] === ':') return true;
+		}
+		return false;
+	};
 	for (const token of required) {
 		test(`maps ${token}`, () => {
-			assert.match(css, new RegExp(`${token.replace(/[-]/g, '\\-')}\\s*:`), `bridge must define ${token}`);
+			assert.ok(defines(css, token), `bridge must define ${token}`);
 		});
 	}
 

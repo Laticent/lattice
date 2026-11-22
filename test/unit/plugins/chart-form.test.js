@@ -327,6 +327,47 @@ test('a gantt on a phone page sets every name whole at its role size, and keys e
   assert.match(html, /data-pos="above"/, 'a name too long for its bar and its row sits on its own line above the bar');
 });
 
+// Maker-checker on #3221: the tall canvas's fallback ring took its width from the leaf names, and a name that cannot
+// wrap left it no width at all, so the ring search returned non-finite geometry and the whole deck failed to render.
+test('a tiered hub-spoke on a phone page renders when a leaf name is one word wider than the page holds', () => {
+  const deck = `---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: hub-spoke tiered -->\n\n## Long leaf, few spokes\n\n` +
+    '- Platform org\n  - Payments\n    - Internationalizationservices\n  - Data\n    - Warehousingorchestration\n';
+  const html = createEngine().render(deck).html;
+  assert.match(html, /data-chart-form="fit"/);
+  assert.doesNotMatch(html, /NaN|Infinity/, 'every position is a finite number');
+});
+
+// Card grader on #3221: preferring the oval on a tie in broken floors left the demo deck's `Accounts` leaf drawn inside
+// its `Core banking` branch at mobile (centers 3.6 units apart, branch radius 13). Every leaf's center stays outside
+// its branch's disc.
+test('a tiered hub-spoke on a phone page draws no leaf inside its own branch', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const deck = fs.readFileSync(path.join(__dirname, '../../../examples/chart-phone-clips.md'), 'utf8');
+  const html = createEngine().render(deck).html;
+  const svg = html.slice(html.indexOf('hub-spoke-svg'));
+  const nodes = [...svg.matchAll(/class="hub-spoke-(node hub-spoke-branch|leaf)"[^>]*data-label="([^"]*)"[^>]*d="M(-?[\d.]+),(-?[\d.]+)A([\d.]+)/g)]
+    .map(([, kind, label, x, y, r]) => ({ branch: kind !== 'leaf', label, cx: +x + +r, cy: +y, r: +r }));
+  assert.ok(nodes.filter((n) => !n.branch).length >= 9, 'the demo deck draws nine leaves');
+  let branch = null;
+  for (const n of nodes) {
+    if (n.branch) { branch = n; continue; }
+    const d = Math.hypot(n.cx - branch.cx, n.cy - branch.cy);
+    assert.ok(d > branch.r, `${n.label} sits ${d.toFixed(1)} from ${branch.label}, inside its ${branch.r}-unit disc`);
+  }
+});
+
+// Maker-checker on #3221: the dumbbell's value-label cap grew from 30 to 60 units for the phone ladder's 12pt, and
+// landscape got the wider cap too, so `−$123.4M` printed whole into its row's name. The cap scales with the value role.
+test('a landscape dumbbell keeps its 30-unit value cap; the phone ladder widens it with the value role', () => {
+  const deck = (size) => `---\ntheme: indaco\n${size ? `size: ${size}\n` : ''}---\n\n<!-- _class: slope dumbbell -->\n\n## Losses.\n\n` +
+    '- Northern Territories Group\n  - FY24 `-$123.4M`\n  - FY25 `-$118.7M`\n- Meridian Partners\n  - FY24 `-$104.2M`\n  - FY25 `-$99.8M`\n';
+  const land = createEngine().render(deck(null)).html;
+  assert.match(land, /slope-value[^>]*>(?:<[^>]+>)*[^<]*…/, 'landscape cuts a value wider than 30 units, as it did before #3221');
+  const phone = createEngine().render(deck('mobile')).html;
+  assert.match(phone, /class="cart-svg/);
+});
+
 test('a keyed column stack on a phone page keeps a plot wide enough for its totals', () => {
   const deck = '---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: stacked-bar -->\n\n`Ceded premium by layer`\n\n## Every layer costs less in 2027; the bottom layer saves most.\n\n' +
     '- 2026\n  - Layer 1 `USD 18.4mn`\n  - Layer 2 `USD 14.6mn`\n  - Layer 3 `USD 13.0mn`\n- 2027\n  - Layer 1 `USD 15.9mn`\n  - Layer 2 `USD 13.8mn`\n  - Layer 3 `USD 12.6mn`\n';

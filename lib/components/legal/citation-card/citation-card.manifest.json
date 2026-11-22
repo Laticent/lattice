@@ -49,26 +49,49 @@
     "margin",
     "triptych"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "pull-quote",
+        "split",
+        "margin",
+        "triptych"
+      ]
+    }
+  ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing what the citation establishes."
     },
     "citation": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": true,
       "description": "Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA')."
     },
     "quotation": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": true,
       "description": "Verbatim quote of the cited language."
     },
     "gloss": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "Optional plain-English interpretation. Use **What we must do** for the actionable item."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines under a gloss item, such as what the citation obliges you to do."
     }
   },
   "skeleton": "<!-- _class: citation-card -->\n\n## Headline framing what this citation establishes.\n\n`Citation reference · short name`\n\n> Verbatim quotation of the cited language.\n\n- Plain-English interpretation of what the language covers.\n- **What we must do.**\n  - The concrete action this citation argues for.\n",

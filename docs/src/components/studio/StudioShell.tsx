@@ -1,6 +1,4 @@
-import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
-	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Ellipsis, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, TextSearch, Trash2, Undo2, Upload, UsersRound, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -22,7 +20,8 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelResetButton, PanelSearchButton } from '@/components/ui/panel-actions';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
@@ -32,7 +31,9 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, PREVIEW_PAINTED, setCodePackages, setPlugins, setWaits } from '@/lib/code-packages/entry';
+import { forgetWaits, waitKey, waitMarkup, withWaits } from '@/lib/code-packages/wait';
+
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -43,7 +44,7 @@ import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } 
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
-import { partText, unitText } from '@/lib/fuoco/outline';
+import { flatPart, partStart, partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -52,7 +53,7 @@ import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { analysisText } from '@/lib/payload-elision';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
-import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
+import { termEntries } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
@@ -66,8 +67,9 @@ import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
+import { isBlankDeck } from '../../lib/deck-empty';
 import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterTerms, stripFrontMatter, type TermEntry, writeFrontMatterLine } from '../../lib/front-matter';
 import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
@@ -75,18 +77,18 @@ import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
-import { AcronymEditor } from './AcronymEditor';
 import { type AgendaAxis, agendaLabel, agendaOptions, agendaValue, parseAgenda } from './agenda';
 import { ALIGN_HORIZONTAL, ALIGN_VERTICAL, readAlign, writeAlign } from './align-catalog';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import type { ComposeHandle, PaneRequest } from './ComposeView';
+import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import type { ChatApplyOpts, ChatDraft } from './change-card-types';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
+import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -96,10 +98,12 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
+import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorChange, EditorHandle } from './Editor';
+import { EmptyDeckStart } from './EmptyDeckStart';
 import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import type { FabricateSeed } from './Fabricate';
@@ -108,7 +112,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -119,9 +123,8 @@ import { isIOSLike } from './ios-like';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
-import { LexiconEditor } from './LexiconEditor';
 import type { LatticeImport } from './lattice-file';
-import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
+import { PanelLoader, useLatch, warmPanels as warmPanelsNow } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
@@ -161,6 +164,11 @@ import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, set
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
+
+// The chat's draft preview, loaded on first use: it is a second renderer, and only an author previewing an AI
+// change needs it (the Studio's eager bundle is budgeted, docs/route-budget.json).
+const ChatDraftPreview = React.lazy(() => import('./ChatDraftPreview').then((m) => ({ default: m.ChatDraftPreview })));
+
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -171,7 +179,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasAnswerAfterConnect, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, CHAT_CARD_NO_ENTRY as NO_ENTRY, onSourceWriteError, type Posture, relabelCheckpoint, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveCheckpointWithId, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -188,6 +196,18 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// A listed plugin's block waits as its afterimage, not its fence source, until the door holds the plugins (D1).
+setWaits({ withWaits, waitMarkup, waitKey });
+
+/** A `storage` event that can change this browser's code approvals: the approvals key, or `null`, which is another tab
+ *  clearing this browser's storage, approvals with it (#3292). */
+export function approvalsMayHaveChanged(key: string | null): boolean {
+	return key === CODE_APPROVALS_KEY || key === null;
+}
+
+// The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
+const warmPanels = heldWarmPanels(warmPanelsNow);
 
 // The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
 // importing the plugin's folder (tools/structure.js holds that line).
@@ -220,6 +240,8 @@ const Fabricate = React.lazy(() => {
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 // Shown once on a first visit and once at the end of the welcome tour, so it rides its own chunk.
 const WelcomeCard = React.lazy(() => import('./WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
+const FindBar = React.lazy(() => import('./FindBar'));
+const LayoutMenuHost = React.lazy(() => import('./LayoutMenu').then((m) => ({ default: m.LayoutMenuHost })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 // The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
 const StudioMap = React.lazy(() => import('./StudioMap'));
@@ -266,6 +288,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 const PresentOverlay = React.lazy(() =>
 	Promise.all([import('./PresentOverlay'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => ({ default: m.PresentOverlay })),
 );
+
+// The Terms list draws only when Deck setup's Speech tab opens, so its chunk (and its icons) stay off the
+// Studio's first load (docs/route-budget.json).
+const TermsEditor = React.lazy(() => import('./TermsEditor').then((m) => ({ default: m.TermsEditor })));
 
 // The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
 // until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
@@ -585,6 +611,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		});
 	}, [filo]);
 	/** A `source` the editor has already moved past: one of its own emissions, not the newest. */
+	/** The shell's newest text, which every writer sets before its render (see `latestValue` on the editor). */
+	const latestSource = React.useCallback(() => sourceRef.current, []);
 	const isStaleEditorEcho = React.useCallback((text: string) => {
 		const e = editorEchoesRef.current;
 		return e.length > 0 && text !== e[e.length - 1] && e.includes(text);
@@ -873,19 +901,91 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setQuietened(false);
 		if (postureRef.current !== 'craft') setRevealCraft(true);
 	}, []);
-	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
-	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
-	// global `activePanel`: the Architect (Assistants group) and the settings scope
-	// (Settings group) are independent, so the coach stays up while you tune.
-	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
-	// the illegal "open with no scope" state unrepresentable.
-	// The left "tool" slot — a MUTUALLY-EXCLUSIVE assistant/tool panel: the Architect
-	// (Coach/Chat), the reader-views Lenses, or the Library. One at a time (a toggle
-	// group), sharing one grid track — the layout can't fit three docked columns
-	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
-	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'live' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
-	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
+	// Panel state — ONE side pane at a time (engineering/decisions/2026-11-15-one-side-pane.md,
+	// which supersedes the two-slot model of 2026-07-06-studio-activity-bar.md). Every side pane —
+	// Coach, Chat, Live, Reader views, Library, Slide settings, Deck settings — shares ONE nullable
+	// slot, so "two panes open at once" is unrepresentable rather than merely discouraged.
+	// Opening a pane REPLACES whatever holds the slot; closing it returns to the canvas, never to
+	// an earlier pane. The one way back is the visible chip a drill-in sets (`paneBack` below).
+	// panels start closed at every stop; Craft shows the activity-bar launcher, panels open on
+	// demand (T2 §4.5 orthogonality — posture never force-opens a panel). PM-4: preview is sacred.
+	const [activePane, setActivePane] = React.useState<StudioPaneId | null>(null);
+	// The pane the AUTHOR last had open — the rail marks it, so getting back is one click they
+	// choose rather than something X does to them. Moved only by the author's own swaps (`notePane`,
+	// called from the rail, Esc and a pane's own close), never by a tour or by following someone in
+	// Live, which drive the slot through the group setters.
+	const [lastPane, setLastPane] = React.useState<StudioPaneId | null>(null);
+	const notePane = () => {
+		if (activePane) setLastPane(activePane);
+	};
+	// A drill-in's way back: set only when one pane sends you to another (Chat's "Manage docs" →
+	// Library), shown as a "‹ Chat" chip in the destination's header, and dropped the moment the
+	// slot holds anything else.
+	const [paneBack, setPaneBack] = React.useState<{ from: StudioPaneId; to: StudioPaneId } | null>(null);
+	// Derived during render (React's "adjust state when a value changes" pattern), so the chip
+	// goes in the same commit as the swap that ends it — no one-frame flash.
+	const [prevPane, setPrevPane] = React.useState<StudioPaneId | null>(null);
+	if (prevPane !== activePane) {
+		setPrevPane(activePane);
+		if (paneBack && paneBack.to !== activePane) setPaneBack(null);
+	}
+	// The two group views keep their old names: dozens of reads (aria-pressed, layout, effects,
+	// the tour snapshot) speak "assistant" or "settings", and each is now a pure read off the slot.
+	const activeAssistant = isAssistantPane(activePane) ? activePane : null;
+	const activeSettings = isSettingsPane(activePane) ? activePane : null;
+	// The group setters keep the old functional-update API. A non-null result TAKES the slot
+	// (replacing a pane of either group); a null result closes the slot only when this group
+	// holds it, so clearing one group never stomps the other (the restore path relies on that).
+	const setActiveAssistant = React.useCallback((next: AssistantPaneId | null | ((prev: AssistantPaneId | null) => AssistantPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isAssistantPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	const setActiveSettings = React.useCallback((next: SettingsPaneId | null | ((prev: SettingsPaneId | null) => SettingsPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isSettingsPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	// Esc in a docked pane: close it if focus is inside one (and not typing), return focus to its
+	// rail button, and report whether it did. A ref, so the window keydown listener reads the live slot.
+	const closeFocusedPaneRef = React.useRef<() => boolean>(() => false);
+	// Collapse the docked pane: the canvas gets the room, the rail marks it last used, and focus goes to
+	// the control that reopens it. Shared by Esc and every docked header's collapse button (§3d), so the
+	// two ways out of a pane cannot drift apart.
+	const collapsePane = () => {
+		if (!activePane) return;
+		const label = PANE_RAIL_LABEL[activePane];
+		setLastPane(activePane);
+		setActivePane(null);
+		// The rail is desktop-only. On a tablet the docked settings open from the toolbar's
+		// "Slide settings" button or the overflow menu, so focus goes to whichever of those exists
+		// — never to <body>, which is where it fell when the dock it sat in was hidden.
+		requestAnimationFrame(() => {
+			const visible = (b: HTMLElement | null) => (b && (b.checkVisibility?.() ?? true) ? b : null);
+			const target =
+				visible(document.querySelector<HTMLElement>(`nav[aria-label="Studio panels"] button[aria-label="${label}"]`)) ??
+				visible(document.querySelector<HTMLElement>(`button[aria-label="${label}"]:not([data-settings-dock] *)`)) ??
+				visible(document.querySelector<HTMLElement>('button[aria-label="More controls"]'));
+			target?.focus();
+		});
+	};
+	closeFocusedPaneRef.current = () => {
+		const el = document.activeElement as HTMLElement | null;
+		if (!activePane || !el || isTypingTarget(el) || !el.closest('[data-studio-pane], [data-settings-dock]')) return false;
+		collapsePane();
+		return true;
+	};
+	// A drill-in: open `to` from inside `from`, and leave the chip that leads back.
+	const drillPane = React.useCallback((from: StudioPaneId, to: StudioPaneId) => {
+		setActivePane(to);
+		setPaneBack({ from, to });
+	}, []);
+	// What the destination pane's header shows (PanelDrillBack): the source's name, and the swap back.
+	const drillTo = (id: StudioPaneId) => (paneBack && paneBack.to === id ? { label: PANE_NAME[paneBack.from], onBack: () => setActivePane(paneBack.from) } : null);
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
 	// Coach and Chat are SEPARATE panels (own toolbar icon, own drawer) — they have
@@ -917,7 +1017,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (revealCraft && !architectOpen && !liveOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
 	}, [revealCraft, architectOpen, liveOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
-	// call sites still speak the old open/scope API; these adapt it onto the enums.
+	// call sites still speak the old open/scope API; these adapt it onto the one slot.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
 	// call setActiveSettings directly to avoid a two-call batch ordering trap.
 	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
@@ -927,10 +1027,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Lenses/Library). Toggling one closes it; it never stomps a sibling it didn't own.
 	const setCoachOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'coach') : v) ? 'coach' : prev === 'coach' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	const setChatOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'chat') : v) ? 'chat' : prev === 'chat' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
 	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
 	// the two separate panels is shown. CLOSE clears the assistant slot UNCONDITIONALLY
@@ -942,18 +1042,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const was = prev === 'coach' || prev === 'chat';
 			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
 		});
-	}, []);
+	}, [setActiveAssistant]);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : prev === 'lenses' ? null : prev));
+	}, [setActiveAssistant]);
 	const setLibraryOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : prev === 'library' ? null : prev));
+	}, [setActiveAssistant]);
 	const setInspectorOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveSettings((prev) => ((typeof v === 'function' ? v(prev !== null) : v) ? prev ?? 'slide' : null));
-	}, []);
-	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
+	}, [setActiveSettings]);
+	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), [setActiveSettings]);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate' | 'article'>('compose');
@@ -1013,7 +1113,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const shareMounted = useLatch(shareOpen);
 	// Where Slide settings' loading shell records the slide as it was when the panel opened, so
-	// "Reset slide" reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
+	// the pane's reset reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
 	const slideBaseline = React.useRef<SlideBaseline | null>(null);
 	const libraryMounted = useLatch(libraryOpen);
 	const workspaceMounted = useLatch(workspaceOpen);
@@ -1118,7 +1218,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Present is the heaviest thing the Studio opens (a second render surface, plus a
 	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
-	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
+	// An empty deck has nothing to play: every door to Present (button, tab, palette, menu) says so instead of opening a
+	// blank slide numbered 1 (2026-11-17-compose-empty-deck.md).
+	const openPresent = React.useCallback(() => { if (isBlankDeck(sourceRef.current)) { notify('Add a slide to present.'); return; } crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
 	// While someone presents to everyone, this person's own Present joins it (the way back in, §7.2).
 	const livePresentRef = React.useRef(false);
 	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
@@ -1282,8 +1384,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setDrawerPendingReturn(false);
 		setMoreOpen(true);
 	}, [drawerPendingReturn, drawerChildOpen]);
-	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
-	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
+	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the
+	// read-aloud groups (Pace, Delivery, Terms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
@@ -1665,8 +1767,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
 		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
-			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
+			.then((list) => {
+				// No plugin in the Library: no wait may stand in for one (code-packages/wait.ts).
+				if (!list.length) forgetWaits();
+				setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list));
+			})
+			.catch(() => {
+				forgetWaits();
+				setLocalPlugins((prev) => (prev.length ? [] : prev));
+			});
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
@@ -1701,6 +1810,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localPlugins]);
 	const removePlugin = React.useCallback((id: string) => { deleteStudioPlugin(id).then(() => refreshComponents()); }, [refreshComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// An approval given or withdrawn in another tab of this browser: the stamp decides what this tab's previews draw
+	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
+	React.useEffect(() => {
+		const heard = (e: StorageEvent) => {
+			if (approvalsMayHaveChanged(e.key)) setCodeStamp(codePackagesStamp());
+		};
+		window.addEventListener('storage', heard);
+		return () => window.removeEventListener('storage', heard);
+	}, []);
 	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
 	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
 	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders
@@ -1969,10 +2087,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setUndo({ next, id });
 	}, []);
 	const changedCountRef = React.useRef(0);
-	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
+	// Deck settings' reset records which front-matter keys THIS pane's writes changed (deck-reset.ts), so
+	// it can put back exactly those and leave the editor's, a collaborator's and other panes' edits alone.
+	// The visit lives in state below; the write path reads it through these refs (it is memoized).
+	const deckVisitRef = React.useRef<{ key: string; base: string; touched: Set<string> } | null>(null);
+	const deckPaneLiveRef = React.useRef(false);
+	// `outside`: a write from somewhere OTHER than the Deck settings pane (the Share sheet's export options,
+	// the plugin notice, a rename, Reader views), so the pane's reset never counts it as its own.
+	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string, opts?: { outside?: boolean }) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		if (!opts?.outside && deckPaneLiveRef.current && deckVisitRef.current) for (const k of touchedKeys(prev, next)) deckVisitRef.current.touched.add(k);
 		// Live: say which row changed (its name only, never the value) so people following us can see it.
 		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
 		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
@@ -1982,6 +2108,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setSource((s) => (s === prev ? next : updater(s)), { label, origin: 'settings' });
 		showUndo(label, prev, next);
 	}, [showUndo, setSource]);
+	const outsideWrite = React.useCallback((label: string, updater: (s: string) => string) => settingsWrite(label, updater, { outside: true }), [settingsWrite]);
 	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
@@ -2116,7 +2243,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
 	}, [wsLenses]);
 	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
-		settingsWrite(label, (s) => rewrapRegistry(s, next));
+		settingsWrite(label, (s) => rewrapRegistry(s, next), { outside: true });
 	}, [settingsWrite, rewrapRegistry]);
 	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
 	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
@@ -2133,7 +2260,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
 			}
 			return wsLenses ? rewrapRegistry(src, parseLensRegistry(innerFrontMatter(src), wsLenses)) : src;
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
 	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
@@ -2151,7 +2278,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const cur = parseLensRegistry(frontMatterBlock(src), wsLenses);
 			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
 			return rewrapRegistry(src, next);
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
@@ -2607,17 +2734,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// authoritative: the deck stays that way regardless of the site mode. This is the
 	// deck-scoped sibling of the website mode toggle — it writes front matter, saved
 	// with the deck. Resolution precedence lives in @/lib/deck-theme.
-	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
+	const deckClassList = deckScalar(source, 'class').split(/\s+/).filter(Boolean);
 	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
-	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	const deckThemeRaw = deckScalar(source, 'theme');
+	// What Auto renders when the deck's preset recommends a palette or a mode (D1,
+	// engineering/decisions/2026-11-20-deck-preset-study.md): Auto FOLLOWS the preset, and its label says so.
+	const presetTheme = presetRecommendation(source, 'theme');
+	const presetColorMode = presetRecommendation(source, 'color-mode');
 	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
 	// The deck's first-class `color-mode:` value — light/dark PIN a side, `system` follows
 	// the viewer's OS, `inherited` adopts the host (site/player) mode. It is the authored
 	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
-	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
+	const rawColorMode = deckScalar(source, 'color-mode').toLowerCase();
 	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
 		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode
@@ -2740,14 +2871,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
 	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
 	// baseline ''.
-	// The value carries one word per axis (`tone vivid`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
+	// The value carries one word per axis (`tone vivid ink`), so it is read by axis, and choosing a finish keeps the
+	// deck's intensity, and tone's source while the finish stays tone. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
 	// (the old line goes, so the deck never carries both).
 	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
 	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
 	const setMarks = (value: string) =>
 		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
-			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity) || null), 'chart-finish', null),
+			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity, parseMarksValue(marksOf(s)).source) || null), 'chart-finish', null),
 		);
 	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
 	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.
@@ -2878,7 +3009,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `verbose` (adds the class + box levers). The menu offers every value; a
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
-	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value), { label: value ? `Debug overlay → ${value}` : 'Debug overlay off', origin: 'settings' });
+	// Through settingsWrite like every other Deck row, so the pane's reset sees it (found by the checker).
+	const setDebug = (value: string | null) => settingsWrite(value ? `Debug overlay → ${value}` : 'Debug overlay off', (s) => writeFrontMatterLine(s, 'debug', value));
 	// Off is the absence of the key, which the picker's Auto head stands for.
 	const DEBUG_OPTIONS: Array<{ value: string; label: string }> = [
 		{ value: 'on-hover', label: 'On hover' },
@@ -3146,14 +3278,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckName = (v: string) => settingsWrite('Deck name', (s) => writeFrontMatterLine(s, 'title', v.trim() || null));
 	const setHeaderText = (v: string) => settingsWrite('Header', (s) => writeFrontMatterLine(s, 'header', v.trim() || null));
 	const setFooterText = (v: string) => settingsWrite('Footer', (s) => writeFrontMatterLine(s, 'footer', v.trim() || null));
-	// The deck's `lexicon:` (word-or-symbol → spoken). Read from the front-matter block;
-	// committing writes the whole block back through the settings funnel (Undo toast + reactivity).
-	const lexicon = React.useMemo(() => lexiconMap(fm), [fm]);
-	const setLexicon = (entries: [string, string][]) => settingsWrite('Lexicon', (s) => setFrontMatterBlock(s, 'lexicon', entries));
-	// The deck's `acronyms:` registry (term → { expansion, definition? }). Same reactive funnel as the
-	// lexicon; the block-object serializer preserves definitions.
-	const acronyms = React.useMemo(() => acronymEntries(fm), [fm]);
-	const setAcronyms = (entries: [string, AcronymEntry][]) => settingsWrite('Acronyms', (s) => setFrontMatterAcronyms(s, entries));
+	// The deck's TERM registry: `terms:` plus the older `acronyms:` and `lexicon:` it absorbed, as one
+	// list (2026-11-16-terms-registry.md). Committing writes the one `terms:` block and drops the two
+	// aliases, losslessly, through the settings funnel (Undo toast + reactivity).
+	const terms = React.useMemo(() => termEntries(fm), [fm]);
+	const setTerms = (entries: [string, TermEntry][]) => settingsWrite('Terms', (s) => setFrontMatterTerms(s, entries, ['acronyms', 'lexicon']));
 	// Rail OFF → `progress-rail: … off`; ON → drop the word. Either way the legacy `class: no-progress`
 	// goes, so the deck says it in one place (non-destructive to any other author classes).
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => writeRail(removeClassTokens(s, 'no-progress'), { show: deckRail ? 'off' : undefined }));
@@ -3416,7 +3545,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const stored = storedTitleFor(source, t);
 		if (stored && stored === resolveTitle(source)?.text) return;
 		if (stored && retitleSource(source, t)) {
-			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s);
+			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s, { outside: true });
 		} else if (!resolveTitle(source) && !decksClearedRef.current) {
 			// Neither an override nor a heading to carry the name — record it as the deck's
 			// explicit label. Gated on `resolveTitle` being null rather than on retitleSource
@@ -3736,7 +3865,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setWelcomeMode('end');
 		},
 		layout: {
-			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
+			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, lastPane, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
 			reset: (want, { keepPresent }) => {
 				// The layout every tour is written against: this stop, no panel or sheet open, the Markdown
 				// editor and the preview both showing, the first slide. The editor's own mode (Markdown or Compose) is left
@@ -3756,10 +3885,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setActiveSlide(0);
 			},
 			restore: (raw, { slide }) => {
-				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
+				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; lastPane?: StudioPaneId | null; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
 				changePosture(was.posture);
 				setActiveAssistant(was.assistant);
 				setActiveSettings(was.settings);
+				// The tour pressed the rail itself, so it moved the mark; put the visitor's back.
+				setLastPane(was.lastPane ?? null);
 				setView(was.view);
 				setEditMode(was.editMode);
 				setShareOpen(false);
@@ -4087,9 +4218,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once, on load, which is when the sign-in returns; setActiveAssistant is stable.
 	React.useEffect(() => {
 		resumePendingAuth().then((r) => {
-			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			if (r?.status === 'connected') {
+				notify('OpenRouter connected — the Architect can now edit your deck.');
+				// A message was waiting for this connection: reopen the chat, which answers it (the answer-after-connect mark in studio-store.ts).
+				if (hasAnswerAfterConnect(deckIdRef.current)) setActiveAssistant('chat');
+			}
 			// A failed return used to say nothing, so Connect looked like it did nothing.
 			else if (r?.status === 'failed')
 				notifyAction(r.note, {
@@ -4483,6 +4619,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// ⌘. quiets to Write — the opposite of a Craft reveal, so drop any reveal first.
 				// If we're dismissing a TRANSIENT reveal, close its summoned panel(s) too (see Esc).
 				if (viewRef.current !== 'fabricate') { if (revealCraftRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealCraft(false); setQuietened((v) => !v); }
+			} else if (e.key === 'Escape' && !e.defaultPrevented && closeFocusedPaneRef.current()) {
+				// Esc inside a DOCKED pane closes that pane (2026-11-15-one-side-pane.md) and hands focus
+				// back to the rail button that opens it. Only when focus is in the pane and not in a text
+				// field: a popover or menu inside it handles its own Esc first (defaultPrevented), and Esc
+				// in a field keeps its editing meaning. Everywhere else Esc keeps the meaning below.
+				e.preventDefault();
 			} else if (e.key === 'Escape') {
 				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
 				// Dismissing a transient Craft REVEAL also closes the panel(s) it was summoned for:
@@ -4495,7 +4637,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, []);
+	}, [setActiveAssistant, setActiveSettings]);
 	// Fabricate is its own full-screen surface; never sit quietened OR craft-revealed
 	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
 	// you to the exact surface you left — not a posture you didn't choose (R5). Present
@@ -5258,7 +5400,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		rehoverRef.current?.();
 	}, [viewIndex]);
 	// Each render the live preview commits can change what is under a still pointer, so it asks for one more hit-test too.
+	// The photo verdict (coach/photo-contrast-watch.ts) hears when the preview has painted, so a read that ran before the
+	// paint (a phone swapping from Source to Preview) is taken again. A listener set rather than state: a paint must not
+	// re-render the shell, and the verdict re-reads only while its slide is unmeasured.
+	const previewPaintListeners = React.useRef(new Set<() => void>());
+	const onPreviewPaint = React.useCallback((listener: () => void) => {
+		previewPaintListeners.current.add(listener);
+		return () => {
+			previewPaintListeners.current.delete(listener);
+		};
+	}, []);
 	const onLivePreviewRender = React.useCallback(() => rehoverRef.current?.(), []);
+	// The verdict listens to `onPaint`, not `onRender`: a full write commits before the frame shows the new document, and a
+	// read on the commit could still see the old slide (DeckPreview `firePaint`).
+	const onLivePreviewPaint = React.useCallback(() => {
+		for (const listener of previewPaintListeners.current) listener();
+		// Record the live preview's plugin drawings for the next reload's wait (code-packages/wait.ts), on every paint
+		// path (a full write, a patch, an adopted bake), not only the one onFrameLoad sees.
+		try {
+			window.dispatchEvent(new CustomEvent(PREVIEW_PAINTED, { detail: previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument }));
+		} catch {}
+	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
@@ -5322,6 +5484,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						if (holder.style.cursor) holder.style.cursor = '';
 						return;
 					}
+					watchCollagePacks(frame);
 					const overCopy = hoverCodeCopyAt(frame, hoverAt.x, hoverAt.y);
 					const overPhoto = hoverCollageAt(frame, hoverAt.x, hoverAt.y);
 					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
@@ -5330,6 +5493,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				}
 			});
 		};
+		// A COLLAGE THAT PACKS UNDER A STILL POINTER. A live collage lays its photos out only once it has measured them:
+		// the frame's runtime holds the list at `data-collage="measuring"` and, when the last photo's size lands, stamps
+		// the packed grid and sets `packed` or `fallback` (collage.transform.js `stampLive`). That moves every tile, and it
+		// is neither a pointer move nor a render the host commits, so a hit-test run while the photos were still loading
+		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts, "a
+		// photo that packs under a still mouse"; the likely cause of the :254 flake). One observer watches the stamp in whichever document the hover last read and asks for one more
+		// hit-test. A full write replaces the document, so the next hit-test moves the observer onto the new one.
+		let watchedDoc: Document | null = null;
+		const packWatch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => scheduleHover());
+		function watchCollagePacks(frame: HTMLIFrameElement) {
+			let doc: Document | null = null;
+			try {
+				doc = frame.contentDocument;
+			} catch (_e) {
+				return; // a cross-origin frame cannot be observed
+			}
+			if (!packWatch || !doc || doc === watchedDoc) return;
+			packWatch.disconnect();
+			packWatch.observe(doc, { subtree: true, attributes: true, attributeFilter: ['data-collage'] });
+			watchedDoc = doc;
+		}
 		const onHover = (e: PointerEvent) => {
 			if (e.pointerType !== 'mouse') return;
 			hoverAt = { x: e.clientX, y: e.clientY };
@@ -5358,6 +5542,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			holder.removeEventListener('pointerleave', onLeave);
 			if (hoverRaf) cancelAnimationFrame(hoverRaf);
 			hoverFrame()?.removeEventListener('load', scheduleHover);
+			packWatch?.disconnect();
+			watchedDoc = null;
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
@@ -5618,7 +5804,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The one add door (2026-10-27-slide-structure-strip.md §5): wherever the author works, never at Read,
 	// whose strip leads with "Edit this slide" instead. Not gated on the catalog: the gallery always has its
 	// Blank tile, so the door never opens onto nothing.
-	const newSlideShown = effectiveStop !== 'read';
+	// AN EMPTY DECK (2026-11-17-compose-empty-deck.md): Compose shows its start grid, which is then the one way to add a
+	// slide there, so the floating "New slide" doors stand down until the first slide exists. Source keeps them.
+	const deckBlank = isBlankDeck(source);
+	const [composeEmpty, setComposeEmpty] = React.useState<EmptyState | null>(null);
+
 	// What deleting block `i` takes, named for the confirm: its title and how many rendered slides go with it
 	// (2026-10-27-slide-structure-strip.md §12 item 2). `slides` and `deckIndex.units` are both full-deck.
 	const deleteName = (i: number) => deleteTargetName(slideTitle(slides[i] ?? ''), deckIndex.units[i]?.parts.length ?? 1);
@@ -5708,6 +5898,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
 	// for a read-only Live member.
 	const stripEditable = composeLens === 'full' && effectiveStop !== 'read' && !landscapePhone && !live.collab?.readOnly;
+	// THE START GRID (2026-11-17-compose-empty-deck.md): on screen only where Compose is, the deck is empty and its doors are
+	// open (`stripEditable`: never under a lens, at Read, on a landscape phone or for a read-only member). The New slide doors
+	// stand down only while the grid is actually on screen, so a collapsed editor or a phone's Preview tab keeps its door (the
+	// checker on #3273 found a collapsed editor left an empty deck with no way to add a slide). `composeEmpty.blank` is Compose's
+	// own reading, current on the first keystroke; `deckBlank` covers the moments Compose has not reported.
+	const composeOnScreen = editMode === 'compose' && !holdEditor && (mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a'));
+	const startGridShown = stripEditable && composeOnScreen && (composeEmpty?.blank ?? deckBlank);
+	const newSlideShown = effectiveStop !== 'read' && !startGridShown;
+	// Once shown, the grid stays mounted for the session and is only hidden (display:none, so its preview frames park): WebKit
+	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
+	const [startGridMounted, setStartGridMounted] = React.useState(false);
+	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
+	// editor pane that hosts the grid.
+	const editPaneRef = React.useRef<HTMLElement>(null);
+	const [startGridTop, setStartGridTop] = React.useState<number | null>(null);
+	React.useLayoutEffect(() => {
+		const pane = editPaneRef.current;
+		const edge = composeEmpty?.lineBottom;
+		if (!startGridShown || !pane || edge == null) return;
+		const top = Math.ceil(edge - pane.getBoundingClientRect().top);
+		setStartGridTop((t) => (t === top ? t : top));
+	}, [startGridShown, composeEmpty?.lineBottom]);
 	// Opening makes the menu's slide current, which reaches `hereAt` a render later. Once it has, the menu closes the
 	// moment its slide stops being current any other way (an op, a pick, a key), so it never offers to act on a slide
 	// the author has left.
@@ -5801,12 +6014,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// every slide out, where `activeFullIndex` resolves to 0 and this said 1 while the op
 		// said 0, so `revealSlide` silently returned past the end of the doc.
 		const t = insertTarget ?? { side: 'after' as const, at: hereAt, name: deleteTargetName(hereTitle(hereAt), 1) };
+		const startsDeck = isBlankDeck(sourceRef.current);
 		const r = (t.side === 'before' ? addBeforeAt : addAfterAt)(source, t.at, c.skeleton);
 		// GO TO THE SLIDE YOU JUST ADDED, caret and keyboard focus included: the next thing an
 		// author types fills in the skeleton they just chose, not the OLD slide. The door says what it did, in the door.
 		applyDeckOp(r, { grab: hasFinePointer(), label: `Insert “${c.label ?? c.name}”` });
 		setInsertTarget(null);
-		setAddedNote(`Added ${t.side} ${t.name}`);
+		setAddedNote(startsDeck ? `Added ${c.label ?? c.name} as slide 1` : `Added ${t.side} ${t.name}`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 	};
 
@@ -5911,17 +6125,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
 	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext);
+	// A `---` slide split on its headings is several engine slides: the photo read is the heading part on screen (the preview
+	// frame holds that one slide; its heading and photo address confirm it), while the finding keeps the `---` slide's number,
+	// as lint's findings do (PR #3239).
+	const activeParts = deckIndex.units[activeFullIndex]?.parts.length ?? 1;
+	// Clamped to the slide's parts: `partText` does not clamp, and a part past the end reads from the deck's start.
+	const activePart = activeParts > 1 ? Math.max(0, Math.min(viewSection, activeParts - 1)) : 0;
+	const photoChunk = activeParts > 1 ? partText(deckIndex, activeFullIndex, activePart) : activeChunk;
+	const photoSection = deckIndex.units[activeFullIndex] ? flatPart(deckIndex, activeFullIndex, activePart) : activeFullIndex;
+	// Where the part starts in the deck, so what it inherits is read at its own place, not by finding its text.
+	const photoAt = deckIndex.units[activeFullIndex] ? partStart(deckIndex, activeFullIndex, activePart) : undefined;
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(photoChunk, activeFullIndex, source, photoContext, onPreviewPaint, photoSection, photoAt);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
 		(fix: Fix) =>
-			void import('./photo-verdict').then(({ applyFix }) => mutateSlideFromPanel((c) => (canEditClass(c) ? applyFix(c, fix) : c))),
-		[mutateSlideFromPanel],
+			// The fix is the heading part's own: written into that part's class, keeping a class it only inherits, and read from
+			// the source the write is applied to, not the one this render saw (the checker on #3239).
+			void import('./photo-verdict').then(({ applyFixToSlide }) => settingsWrite('This slide', (s) => applyFixToSlide(s, activeFullIndex, activePart, fix) ?? s)),
+		[settingsWrite, activeFullIndex, activePart],
 	);
 	// The editor's half: the verdict for the slide on screen, by source slide index (the full view only, as the spark
 	// measurement: a reader lens reshapes the set the preview shows).
-	const measuredPhoto = React.useMemo(() => (composeLens === 'full' && photoVerdict && photoFresh ? { slideIndex: activeFullIndex, verdict: photoVerdict } : null), [composeLens, photoVerdict, photoFresh, activeFullIndex]);
+	const measuredPhoto = React.useMemo(() => (composeLens === 'full' && photoVerdict && photoFresh ? { slideIndex: activeFullIndex, part: activePart, verdict: photoVerdict } : null), [composeLens, photoVerdict, photoFresh, activeFullIndex, activePart]);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
 	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
@@ -5964,7 +6190,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const keeps = item.name === req.current || req.fit[item.name] === 'keeps';
 			const token = compose.applyPane(req, { cls: item.name, modifiers, skeleton: keeps ? null : item.skeleton });
 			if (!token) return;
-			const shown = item.name === 'content' ? 'text' : (item.label ?? item.name);
+			const shown = item.label ?? item.name;
 			if (keeps) notify(`The ${req.where.toLowerCase()} now holds ${shown}.`);
 			else notifyAction(`The ${req.where.toLowerCase()} now holds ${shown}, with an example in place of its text.`, { label: 'Undo', onClick: () => compose.undoPane(token) });
 		},
@@ -5979,6 +6205,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// showed the correctly-swapped result (#1281).
 	const reshapeVariantAxes = React.useMemo(() => reshapeEntry?.variantAxes ?? [], [reshapeEntry]);
 	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants, reshapeVariantAxes));
+
+	// THE LAYOUT MENU (LayoutMenu.tsx) — what Compose's layout button opens for one slide. Everything it does lives in its own
+	// lazy chunk (`LayoutMenuHost`): the shell keeps the request and the mount, so the Studio's startup script pays for neither
+	// the menu nor the logic that builds it (docs/route-budget.json). Mounted on the first request and kept, so its preview
+	// frames survive between opens. engineering/decisions/2026-11-15-compose-layout-button.md.
+	const [layoutReq, setLayoutReq] = React.useState<LayoutRequest | null>(null);
+	// FIND AND REPLACE (FindBar.tsx): the bar under the edit bar, for whichever editor is on screen. Opening it seeds the
+	// field with a one-line selection, as an editor's ⌘F does; a second ⌘F while it is open re-seeds and focuses it.
+	const [find, setFind] = React.useState<{ seed: string; n: number } | null>(null);
+	// Counts the editor views created while the bar is open (a mode or deck switch builds a new one), so the bar runs its
+	// query again on the new view: the target is read live, but nothing else tells the bar its old view is gone.
+	const findOpenRef = React.useRef(false);
+	findOpenRef.current = !!find;
+	const [findView, setFindView] = React.useState(0);
+	const onEditorView = React.useCallback(() => {
+		if (findOpenRef.current) setFindView((n) => n + 1);
+	}, []);
+	const findTarget = React.useCallback(() => (editModeRef.current === 'compose' ? composeRef.current?.findTarget() : editorRef.current?.findTarget()) ?? null, []);
+	const openFind = React.useCallback(() => {
+		// The editor's own selection, not the browser's: Compose's lives in ProseMirror's state.
+		let picked = '';
+		if (editModeRef.current === 'compose') picked = composeRef.current?.selectedText() ?? '';
+		else {
+			const sel = editorRef.current?.getSelection();
+			picked = sel && !sel.empty ? sel.text : '';
+		}
+		picked = picked.trim();
+		setFind((f) => ({ seed: picked && !picked.includes('\n') && picked.length <= 120 ? picked : (f?.seed ?? ''), n: (f?.n ?? 0) + 1 }));
+	}, []);
+	const layoutMounted = useLatch(!!layoutReq);
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
@@ -5995,16 +6251,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		noteAiEdit(cur, next);
 		return true;
 	};
-	const applyChatEdit = (next: string) => {
+	// The chat's change card applies and undoes one slide at a time. Its card keeps ONE History entry: the first
+	// action saves the deck as it was before the card, and later ones only relabel that entry, so a busy card never
+	// pushes the author's own versions out of the 25 slots (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6).
+	// Returns that entry's id for the card to keep. Each action is still its own undo step (⌘Z), named by `step`.
+	const applyChatEdit = (next: string, opts?: ChatApplyOpts): string | null => {
 		const cur = sourceRef.current;
-		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
-		setSource(next, { label: 'AI chat edit', origin: 'ai' });
+		let entry: string | null = opts?.checkpoint ?? null;
+		// NO_ENTRY: this card must never save an entry of its own (Auto saved one before it applied, or the card's
+		// first save was skipped), because a later save would hold a deck the AI already changed under "Before AI edit".
+		if (entry === NO_ENTRY) {
+			/* the undo step below is the way back; History already holds the right entry */
+		} else if (entry && loadCheckpoints(deck.id).some((c) => c.id === entry) && opts) setCheckpoints(relabelCheckpoint(deck.id, entry, opts.label));
+		else if (!entry) {
+			const saved = saveCheckpointWithId(deck.id, cur, opts?.label ?? 'Before AI chat edit', Date.now());
+			setCheckpoints(saved.list);
+			// Skipped (the deck already matched the newest entry): that entry IS the way back, and no later action
+			// of this card may save one.
+			entry = saved.id ?? NO_ENTRY;
+		}
+		// An entry that fell out of the 25 is not replaced: the deck it held is gone, and a new one would not be it.
+		setSource(next, { label: opts?.step ?? 'AI chat edit', origin: 'ai' });
 		noteAiEdit(cur, next);
-		goToChunk(0, { after: next });
-		// The AI edit jumps the preview to the top — reveal a collapsed preview so
+		goToChunk(Math.max(0, (opts?.slide ?? 1) - 1), { after: next });
+		// The AI edit jumps the preview to the changed slide — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
 		splitApiRef.current.expand('b');
+		return entry;
 	};
+	// The chat's draft preview (ChatDraftPreview): a proposed deck shown, not applied. The chat clears it whenever
+	// the deck changes; a deck switch clears it here.
+	const [chatDraft, setChatDraft] = React.useState<ChatDraft | null>(null);
+	const chatDraftRef = React.useRef(chatDraft);
+	chatDraftRef.current = chatDraft;
+	// Tell the card, so its preview buttons read true. Read from a ref, not inside the state update, which React
+	// may run twice.
+	const closeChatDraft = React.useCallback(() => {
+		const d = chatDraftRef.current;
+		setChatDraft(null);
+		d?.onClosed?.();
+	}, []);
+	// A preview into a collapsed pane would show nothing: reveal it first, as an applied edit does.
+	const showChatDraft = React.useCallback((d: ChatDraft | null) => {
+		if (d) splitApiRef.current.expand('b');
+		setChatDraft(d);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a deck switch is the trigger.
+	React.useEffect(() => setChatDraft(null), [deck.id]);
 
 	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
 	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
@@ -6296,7 +6589,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								finding={f}
 								state={fixStates[key]}
 								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
-								pin={(f.rule === PHOTO_RULE || f.rule === 'thin-card-no-ink') && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? (photoVerdict?.fix ?? null) : null}
+								pin={(f.rule === PHOTO_RULE || f.rule === 'thin-card-no-ink') && f.slide === activeFullIndex + 1 && canEditClass(photoChunk) ? (photoVerdict?.fix ?? null) : null}
 								pinLabel={photoVerdict?.label ?? null}
 								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}
@@ -6317,11 +6610,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Lenses (reader views) is its OWN first-class panel now — a launcher peer of the
 	// Architect, not a tab inside the AI coach. It's a deterministic membership +
 	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
-	// The "add a reader view" trigger lives in the SHEET HEADER, beside the close — the
+	// The "add a reader view" trigger lives in the pane's HEADER, beside the close — the
 	// slot every other panel's actions use (the Library's import is the pattern; this
 	// panel was the one with its action buried at the bottom of the body). The state is
 	// hoisted so the header can own the trigger while `LensesPanel` still renders the
-	// archetype picker; the docked column keeps its own inline button (uncontrolled).
+	// archetype picker; the docked column and the sheet both draw that header (§3d).
 	const [lensAdding, setLensAdding] = React.useState(false);
 	const lensCanAdd = React.useMemo(
 		() => LENS_ARCHETYPES.some((a) => !lensReg.lenses.some((l) => l.id === a.id)),
@@ -6329,11 +6622,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	React.useEffect(() => { if (!lensesOpen) setLensAdding(false); }, [lensesOpen]);
 
-	// `hosted` = the sheet, whose HEADER owns the add trigger. The docked column is NOT
-	// hosted and keeps its own inline dashed button — this body is shared by both, so
-	// passing the controlled props unconditionally silently removed the docked column's
-	// only way to add a reader view. Caught by the unit suite, which drives the docked one.
-	const renderLensesBody = (hosted: boolean) => (
+	// Every host (the docked column and the sheet) draws the shared header with the Add button, so the
+	// panel's add flow is always driven from it (§3d of 2026-11-15-one-side-pane.md).
+	const renderLensesBody = () => (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
 			{/* The lede, in the body. It used to be the header's `description`, which is
 			    what made this one of four header heights; moving it OUT of the header was
@@ -6355,7 +6646,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onWriteRegistry={writeRegistry}
 						onTag={writeTags}
 						onRemoveLens={removeLensWrite}
-						{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
+						adding={lensAdding}
+						onAddingChange={setLensAdding}
 					/>
 				)}
 			</PanelLoader>
@@ -6404,22 +6696,38 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
 	const [chatCostSlot, setChatCostSlot] = React.useState<HTMLElement | null>(null);
-	// A FACTORY, not one element: the docked column wants the chat to render its own header
-	// row (title left, cost right — see ChatCost), while the mobile sheet already has
-	// PanelHeader and only wants the cost.
+	// FACTORIES, not one element each: every host (the docked column, the tablet and phone sheets)
+	// draws the shared PanelHeader and hands in its own header node, where the chat portals its cost
+	// readout and Live its session menu (the clock, and leave or end).
 	// The Live panel, lazy like its peers: it costs nothing until someone opens it.
-	// The phone sheet's header, where the Live panel portals its session menu (the clock, and leave
-	// or end); the docked column's panel has a title bar of its own for it.
 	const [liveHeaderSlot, setLiveHeaderSlot] = React.useState<HTMLElement | null>(null);
-	const liveBodyWith = (title?: string, headerSlot?: HTMLElement | null) => (
-		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col">{title && <div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}</div>}>
-			{(LivePanel) => <LivePanel title={title} view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} headerSlot={headerSlot} />}
+	const liveBodyWith = (headerSlot?: HTMLElement | null) => (
+		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col" />}>
+			{(LivePanel) => <LivePanel view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} headerSlot={headerSlot} />}
 		</PanelLoader>
 	);
-	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
-		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+	const chatBodyWith = (costSlot?: HTMLElement | null) => (
+		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
+			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onPreview={showChatDraft} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
 		</PanelLoader>
+	);
+
+	// The docked column's header slots for Chat's cost readout and Live's session menu: their own, apart
+	// from the sheets' (`chatCostSlot`, `liveHeaderSlot`), so a sheet left mounted across a breakpoint
+	// flip never holds the node the docked pane is portaling into.
+	const [chatDockSlot, setChatDockSlot] = React.useState<HTMLElement | null>(null);
+	const [liveDockSlot, setLiveDockSlot] = React.useState<HTMLElement | null>(null);
+	// Reader views' one header action, the same in the dock and the sheet.
+	const lensAddButton = lensCanAdd ? (
+		<Tip label="Add a reader view">
+			<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
+				<Plus className="size-4" />
+			</Button>
+		</Tip>
+	) : undefined;
+	// A docked pane's header (§3d): the shared PanelHeader with a collapse toward the rail.
+	const dockHeader = (id: StudioPaneId, icon: React.ReactNode, actions?: React.ReactNode, fluidActions = false) => (
+		<PanelHeader icon={icon} title={PANE_NAME[id]} actions={actions} fluidActions={fluidActions} onClose={collapsePane} closeLabel={`Collapse ${PANE_NAME[id]}`} collapse={<PanelLeftClose className="size-[18px]" />} />
 	);
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
@@ -6465,7 +6773,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// word — the same shape every auto head in both scopes now uses. It is
 				// safe to be this long again because the control owns a fixed half of
 				// its row and truncates (SETTING_ROW); it used to widen the whole row.
-				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(presetAutoLabel(source, 'theme', paletteLabel(palette), paletteLabel, (n) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n))), icon: <AutoIcon />, title: presetTheme && (BUILTIN_PALETTES.includes(presetTheme) || savedThemes.some((t) => t.name === presetTheme)) ? `Automatic — the preset's palette, ${paletteLabel(presetTheme)}. Pick another theme to override it.` : 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 			/>
 		</Field>
 	);
@@ -6494,7 +6802,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				className="w-full"
 				value={deckColorMode === 'default' ? AUTO_VALUE : deckColorMode}
 				onValueChange={(v) => setDeckColorMode(v === AUTO_VALUE ? 'default' : (v as typeof deckColorMode))}
-				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: "Theme's own" }, { title: 'The mode the theme was designed in.' })}
+				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: presetAutoLabel(source, 'color-mode', "Theme's own", (v) => COLOR_MODE_META[v as keyof typeof COLOR_MODE_META]?.label ?? v) }, { title: presetColorMode ? 'The color mode the preset recommends. Pick another mode to override it.' : 'The mode the theme was designed in.' })}
 			/>
 		</Field>
 	);
@@ -6596,7 +6904,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								value={deckBd.mask ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckBackdrop('mask', v)}
 								className="w-full"
-								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
+								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : m === 'clear-footer' ? 'Clear the footer' : m === 'clear-hero' ? 'Clear footer and hero' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
 							/>
 						</Field>
 					</>
@@ -6817,7 +7125,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose how slides split" className="w-full" {...autoField(slideSplit, 'headings', setSlideSplit, [{ options: [{ value: 'headings', label: 'Each ## heading', icon: optionGlyph('split', 'headings') }, { value: 'rule', label: '--- dividers only', icon: optionGlyph('split', 'rule') }] }])} />
 				</Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
-				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
+				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your deck’s terms (Speech ▸ Terms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>safe</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle and the Content tab own their tokens in this key, so those are not shown here.</>} value={deckClass} placeholder="e.g. safe" onCommit={setDeckClass} />
 				{/* Developer — the two preview-only authoring aids. They used to be a footer
 				    disclosure hanging below the tab strip; they are facts about this deck like
@@ -7001,21 +7309,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{
 			value: 'speech',
 			label: 'Speech',
-			keywords: 'read aloud narration voice tts audio delivery guide gesture',
+			keywords: 'read aloud narration voice tts audio delivery guide gesture terms pronounce pronunciation acronyms lexicon glossary',
 			body: () => (
 			<div>
-				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
+				<TabNote>Teach read-aloud how to say tricky words, names, symbols and acronyms. The slide keeps them as written; only the voice and its captions change.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
 					<CatalogSelect ariaLabel="Choose pace" className="w-full" {...autoField(pace, DEFAULT_PACE, setPace, [{ options: PACE_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('pace', n) })) }])} />
 				</Field>
 				<Field label="Delivery" desc="How much the Guide gestures as it speaks." find="guide gesture cursor ink focus restrained expressive somber narration" help={<>How the narrated Guide points at what it is saying. <strong>Restrained</strong> highlights each part the narration names, with no cursor — for a boardroom, or a board member reading the file alone. <strong>Expressive</strong> leads with the cursor and draws ink — for a sales room, a talk or a lesson. <strong>Somber</strong> shows no cursor and gestures once, on the slide's key point — for bad news. Saved with the deck as <code>delivery:</code>, so it plays the same wherever it is opened.</>}>
 					<CatalogSelect ariaLabel="Choose delivery" className="w-full" {...autoField(delivery, DEFAULT_DELIVERY, setDelivery, [{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('delivery', n) })) }])} />
 				</Field>
-				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
-					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
-				</InspGroup>
-				<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
-					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
+				<InspGroup icon={<BookMarked className="size-3.5" />} label="Terms" desc="How a word, name, acronym or symbol is said, what it stands for, and a glossary definition. The slide keeps the word as written." last>
+					<React.Suspense fallback={null}>
+						<TermsEditor terms={terms} onChange={setTerms} lang={deckLang || undefined} />
+					</React.Suspense>
 				</InspGroup>
 			</div>
 			),
@@ -7049,9 +7356,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// another is not open to them.
 	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
 	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
+	// THE PANE'S RESET (§3d of 2026-11-15-one-side-pane.md): it undoes this visit. The Slide body owns its
+	// baseline and reports here; Deck settings keeps a visit (below): the deck as the pane found it, and the
+	// front-matter keys the pane's own writes changed since.
+	const [slideReset, setSlideReset] = React.useState<{ dirty: boolean; reset: () => void } | null>(null);
+	const [deckVisit, setDeckVisit] = React.useState<{ key: string; base: string; touched: Set<string> } | null>(null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
+	// One VISIT per show of Deck settings on one deck: keyed by the show count AND the deck's id, so a
+	// deck switch with the pane open starts a fresh visit instead of comparing deck B with deck A's
+	// front matter (found by the checker on #3222: the reset then wrote A's settings into B). Moved during
+	// render, so no frame ever reads the old visit.
+	const deckVisitKey = `${deckShows}|${deck.id}`;
+	const deckPaneLive = settingsShown && inspectorScope === 'deck';
+	if (deckPaneLive && deckVisit?.key !== deckVisitKey) setDeckVisit({ key: deckVisitKey, base: source, touched: new Set() });
+	const liveVisit = deckVisit?.key === deckVisitKey ? deckVisit : null;
+	deckVisitRef.current = liveVisit;
+	deckPaneLiveRef.current = deckPaneLive;
+	const deckDirty = !!liveVisit && liveVisit.touched.size > 0 && keysDiffer(source, liveVisit.base, liveVisit.touched);
+	// One Undo step with the Undo toast (settingsWrite), putting back only the keys this visit changed.
+	const resetDeck = () => {
+		if (!liveVisit) return;
+		const keys = [...liveVisit.touched];
+		settingsWrite('Reset deck settings', (s) => revertKeys(s, liveVisit.base, keys));
+	};
 	const deckEver = useEverTrue(settingsShown && inspectorScope === 'deck');
 	const deckScrollRef = React.useRef<HTMLDivElement>(null);
 	// THE SCOPE THE PANEL SHOWS. Closed, `inspectorScope` falls back to 'slide', and the kept panel
@@ -7062,6 +7391,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [lastScope, setLastScope] = React.useState(inspectorScope);
 	if (settingsShown && lastScope !== inspectorScope) setLastScope(inspectorScope);
 	const panelScope = settingsShown ? inspectorScope : lastScope;
+	const settingsReset = panelScope === 'deck'
+		? <PanelResetButton label="Reset deck settings" hint="Undo this visit: put the deck's settings back as they were when you opened them" disabled={!deckDirty} onClick={resetDeck} />
+		: <PanelResetButton label="Reset slide settings" hint="Undo this visit: put this slide back as it was when you opened settings" disabled={!slideReset?.dirty} onClick={() => slideReset?.reset()} />;
 
 	const inspectorBody = (
 		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
@@ -7138,6 +7470,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Keyed per show, like the deck body below: the chrome above the body starts fresh on
 			    every open, as it did when closing unmounted it. */}
 			<React.Fragment key={settingsShows}>
+			{/* The docked header (desktop, and the tablet's right-hand dock): the shared PanelHeader every
+			    docked pane wears (§3d of 2026-11-15-one-side-pane.md), named for the scope, with the search
+			    button and the collapse. It used to be the tinted scope band below, carrying an icon, the scope
+			    sentence, search, the layout toggle and the collapse, so Settings was the one pane whose header
+			    said what it was editing rather than what it was. The band stays, as the body's first row.
+			    A phone sheet draws its own PanelHeader ("Settings") around this content. */}
+			{!mobile && (
+				<PanelHeader
+					icon={panelScope === 'deck' ? <SlidersHorizontal /> : <FileSliders />}
+					title={PANE_NAME[panelScope]}
+					actions={<>{searchingHere ? null : <PanelSearchButton label={`Search ${panelScope} settings`} onClick={() => (panelScope === 'deck' ? setDeckSearching : setSlideSearching)(true)} />}{settingsReset}</>}
+					onClose={collapsePane}
+					closeLabel="Collapse settings"
+					collapse={bp === 'tablet' ? <PanelRightClose className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+				/>
+			)}
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
 			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
 			{compact && (
@@ -7185,12 +7533,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    `PanelSearch` mounted its Clear button on the first keystroke, so a polite
 				    region announced additions that were not the scope changing. */}
 				<span role="status" aria-live="polite" className="sr-only">{scopeLine.full}</span>
-				{/* The scope ICON returns on DESKTOP only, and only because the scope switch it
-				    moved to is `compact`-gated — without it the docked banner names the scope
-				    nowhere, leaving a background tint as the sole cue between deck and slide. */}
-				{!compact && (panelScope === 'deck'
-					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
+				{/* No scope icon here: the docked header above carries it beside the scope's name, and the
+				    tablet and phone have the Slide/Deck segment. */}
 				{/* …EXCEPT while the field is open, when the title yields the whole row. §8.1's
 				    rule is that this row always carries WORDS, and a truncated stub carries
 				    none: measured on a 390x844 phone with a query live, the two phrasings
@@ -7226,15 +7570,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onQueryChange={panelScope === 'deck' ? setDeckQuery : setSlideQuery}
 					searching={panelScope === 'deck' ? deckSearching : slideSearching}
 					onSearchingChange={panelScope === 'deck' ? setDeckSearching : setSlideSearching}
-					className="!pt-0 min-w-0 shrink"
+					// The docked header holds the search button; a phone sheet's toolbar still draws its own.
+					searchButton={mobile}
+					// Open, the field takes the whole row: the scope words yield to it (above).
+					className={cn('!pt-0 min-w-0 shrink', searchingHere && 'flex-1')}
 				/>
-				{/* `PanelLeftClose`, not a ✕ — this collapses the DOCKED PANEL, and the preview's
-				    own collapse two panes over already uses that idiom (`PanelRightClose`). It
-				    wore a ✕, which put a third identical glyph in this row the moment search
-				    opened: clear the field, close the field, collapse the panel, all the same
-				    mark within 100px of a 296px panel. The first two are one button now; this
-				    one says what it actually does. */}
-				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
 			</React.Fragment>
 			{/* THE DECK BODY STAYS MOUNTED once shown, hidden (and frozen) under the Slide scope,
@@ -7250,8 +7590,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</div>
 			)}
 			{panelScope === 'slide' && (
-				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
+				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} deckId={deck.id} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
+					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} onResetChange={setSlideReset} />}
 				</PanelLoader>
 			)}
 		</>
@@ -7278,9 +7618,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The header keeps `Compose · Source` worded until the pane cannot hold them: measured, not a breakpoint,
 	// because what else sits in the row moves the width they need (use-row-fit.ts). Level 1 drops the issue
 	// pill's word, level 2 the mode words.
-	const editBarRef = useRowFit(3, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
+	const editBarRef = useRowFit(EDIT_FIT_LEVELS, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
+	// The edit bar's More menu (EDIT_FIT): what the row moved out at its current step, read when the menu opens. Reshape opened
+	// from it hangs from the More button.
+	const [moreFit, setMoreFit] = React.useState(0);
+	const [reshapeFromMore, setReshapeFromMore] = React.useState<HTMLElement | null>(null);
+	const moreOpensPopoverRef = React.useRef<HTMLElement | null>(null);
+	// Undo and Redo: in the editor's edit bar on desktop and tablet (they act on the whole deck, so they sit with the deck's
+	// editor controls, not on each slide's pill: owner, 2026-11-15), and in the phone's tail, where there is no edit bar. A
+	// screen with no ⌘Z needs them (an iPad with no keyboard, a phone): WebKit offers its own undo only while its own undo list
+	// holds something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
+	// A press never takes focus from the text (`onMouseDown` prevented, as the pill's buttons do): focus leaving Compose would
+	// end an IME composition the undo is meant to wait out, and on a phone it would drop the keyboard.
+	const keepFocus = (e: React.MouseEvent) => e.preventDefault();
+	const historyButtons = (className: string) => (
+		<>
+			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onMouseDown={keepFocus} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onMouseDown={keepFocus} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+		</>
+	);
 	const editorPane = (
 		<section
+			ref={editPaneRef}
 			id="studio-pane-editor"
 			// Non-interactive whenever the editor is collapsed to 0px — the split's
 			// preview-only state, OR the Read stop (editor mounted at 0px for no-remount).
@@ -7300,10 +7659,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The pane's title IS its mode switch, Compose first (2026-11-10-compose-first.md): the word
 				    `EDIT` that sat here named neither mode and cost the width the two words need. */}
 				<EditModeToggle mode={editMode} onPick={setEditMode} />
+				{/* Undo · Redo act on the whole deck, so they sit with the deck's editor controls, not on each slide's pill
+				    (owner, 2026-11-15). The phone has no edit bar: its pair is in the header. */}
+				{historyButtons('')}
+				<Tip label="Find and replace (⌘F)"><Button variant="ghost" size="icon-sm" aria-label="Find and replace" data-out={EDIT_FIT.c} aria-pressed={!!find} onClick={() => (find ? setFind(null) : openFind())}><TextSearch className="size-[18px]" /></Button></Tip>
 				<span className="flex-1" />
 				{issues > 0 && (
 					<Tip label={issueHint}>
-						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" /><span className="group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden">{issues} issue{issues > 1 ? 's' : ''}</span><span className="hidden group-data-[fit=1]/editbar:inline group-data-[fit=2]/editbar:inline">{issues}</span></button>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]" data-out={EDIT_FIT.c}><AlertTriangle className="size-3" /><span data-out={EDIT_FIT.issueLong}>{issues} issue{issues > 1 ? 's' : ''}</span><span data-in="1">{issues}</span></button>
 					</Tip>
 				)}
 				{hasSelection && (
@@ -7342,33 +7705,102 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    deck, and the pre-paint shell could not draw the row at all without resolving the
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
-				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
-				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} data-out={EDIT_FIT.b} open={reshapeFromMore ? true : undefined} anchor={reshapeFromMore} onOpenChange={(o) => !o && setReshapeFromMore(null)} />
+				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" data-out={EDIT_FIT.b} disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
-				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
+				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></Button></Tip>
 				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
-				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
+				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></Tip>}
+				{/* MORE: what the row has moved out to fit its pane (EDIT_FIT), in the row's own order. Shown from step 2 by CSS; its
+				    items are read from the row's step when it opens, so it lists exactly what the row is not showing. */}
+				<DropdownMenu
+					onOpenChange={(o) => {
+						if (o) setMoreFit(Number((document.querySelector('#studio-pane-editor [data-slot="edit-bar"]') as HTMLElement | null)?.dataset.fit ?? 0));
+					}}
+				>
+					<Tip label="More editor actions">
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><Ellipsis className="size-[18px]" /></Button>
+						</DropdownMenuTrigger>
+					</Tip>
+					{/* A pick that opens a popover (Reshape) opens it once the menu has CLOSED, and keeps the focus off the trigger:
+					    opened while the menu still traps the focus, or handed the focus back to the trigger, the popover reads the
+					    focus leaving it as a dismissal and closes the moment it opens. */}
+					<DropdownMenuContent
+						align="end"
+						className="w-56"
+						onCloseAutoFocus={(e) => {
+							const anchor = moreOpensPopoverRef.current;
+							if (!anchor) return;
+							moreOpensPopoverRef.current = null;
+							e.preventDefault();
+							setReshapeFromMore(anchor);
+						}}
+					>
+						{moreFit >= 5 && <DropdownMenuItem onSelect={openFind} className="gap-2"><TextSearch className="size-4" />Find and replace</DropdownMenuItem>}
+						{moreFit >= 5 && issues > 0 && <DropdownMenuItem onSelect={() => { revealCraftDock(); setActiveAssistant('coach'); }} className="gap-2"><AlertTriangle className="size-4 text-[var(--warn)]" />{issues} issue{issues > 1 ? 's' : ''}: open the Coach</DropdownMenuItem>}
+						{moreFit >= 3 && <DropdownMenuItem disabled={reshapeVariants.length === 0} onSelect={() => { moreOpensPopoverRef.current = document.querySelector('#studio-pane-editor [aria-label="More editor actions"]') as HTMLElement | null; }} className="gap-2"><Shapes className="size-4" />Reshape slide…</DropdownMenuItem>}
+						{moreFit >= 3 && <DropdownMenuItem disabled={!fixableIssues} onSelect={fixAllIssues} className="gap-2"><ListChecks className="size-4" />Fix all issues</DropdownMenuItem>}
+						{moreFit >= 2 && <DropdownMenuItem onSelect={() => setHistoryOpen(true)} className="gap-2"><History className="size-4" />Version history</DropdownMenuItem>}
+						{moreFit >= 2 && compact && <DropdownMenuItem onSelect={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} className="gap-2"><FileSliders className="size-4" />Slide settings</DropdownMenuItem>}
+					</DropdownMenuContent>
+				</DropdownMenu>
 				{splitUsable && (
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
 			)}
+			{find && (
+				<React.Suspense fallback={null}>
+					<FindBar
+						seed={find.seed}
+						seedKey={find.n}
+						getTarget={findTarget}
+						targetKey={`${editMode}#${findView}`}
+						onClose={() => {
+							setFind(null);
+							// Back to the text the author was searching.
+							(document.querySelector('#studio-pane-editor .cs-host .ProseMirror, #studio-pane-editor .cm-content') as HTMLElement | null)?.focus({ preventScroll: true });
+						}}
+					/>
+				</React.Suspense>
+			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} emptyStart={stripEditable} onEmpty={setComposeEmpty} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} onFind={openFind} onView={onEditorView} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
+			)}
+			{/* THE START GRID, hosted here rather than in Compose so it survives Compose unmounting (Source, Read, a lens): see
+			    `startGridMounted`. Hidden is display:none, so its tiles have no box and the pool parks their frames, and a phone's
+			    Preview tab, which only covers this pane with `invisible`, does not keep them live (the checker on #3273). A tap where
+			    the grid has no control puts the caret on Compose's empty line: on a phone that tap is what raises the keyboard. */}
+			{startGridMounted && (
+				// biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: the pointer shortcut to the editor's line, which Tab reaches first anyway.
+				<div
+					data-start-grid=""
+					hidden={!startGridShown}
+					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
+					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
+					style={{ top: startGridTop ?? 56 }}
+					onClick={(e) => {
+						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
+						composeRef.current?.focusEmptyLine();
+					}}
+				>
+					<EmptyDeckStart items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onInsertComponent} onBrowse={() => opAddSlide('after')} />
+				</div>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
 			    (2026-10-27-slide-structure-strip.md §5), drawn only while this pane is the one on screen, so a
@@ -7482,7 +7914,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
 				<React.Suspense fallback={null}>
-					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={settingsWrite} />
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={outsideWrite} />
 				</React.Suspense>
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
@@ -7493,7 +7925,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+			<div ref={previewHolderRef} className={cn('relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+				{chatDraft && !mobile && (
+					<React.Suspense fallback={null}>
+						<ChatDraftPreview
+							draft={chatDraft}
+							current={source}
+							variant="pane"
+							onClose={closeChatDraft}
+							render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }}
+							frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`, width: previewPaneSize ? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px` : '100%' }}
+						/>
+					</React.Suspense>
+				)}
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -7533,7 +7977,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						width: previewPaneSize
 							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
-						boxShadow: landscapePhone ? 'none' : slideFrameShadow('card'),
+						boxShadow: landscapePhone || deckBlank ? 'none' : slideFrameShadow('card'),
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps
@@ -7551,8 +7995,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
+					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
+					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}
+					{deckBlank && (
+						<div data-preview-empty="" className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border bg-[var(--bg)] p-4 text-center">
+							<span className="font-serif text-[17px] font-semibold text-[var(--text-heading)]">No slides yet</span>
+							<span className="text-[13px] text-[var(--text-body)]">Your first slide shows here.</span>
+						</div>
+					)}
 				</div>
 			</div>
 			{/* THE STRIP STACK: whatever stands on the strip (the clip notice) and the strip itself, in one box. The
@@ -7610,14 +8062,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 					</>
 				)}
-			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />}
+			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable && !(startGridShown && !mobile) ? addFirstSlide : undefined} />}
 			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
 			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
 			{mapEver && (
 				<div className={cn('h-[116px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable && !(startGridShown && !mobile) ? addFirstSlide : undefined} />
 					</React.Suspense>
 					</Frozen>
 				</div>
@@ -7726,9 +8178,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// here is only the STATE: which slot is showing, and what a click does to it.
 	const activityBar = (
 		<ActivityRail
-			state={{ assistant: activeAssistant, settings: activeSettings }}
-			onAssistant={(id) => setActiveAssistant((p) => (p === id ? null : id))}
-			onSettings={(id) => setActiveSettings((p) => (p === id ? null : id))}
+			state={{ assistant: activeAssistant, settings: activeSettings, recent: lastPane }}
+			onAssistant={(id) => { notePane(); setActiveAssistant((p) => (p === id ? null : id)); }}
+			onSettings={(id) => { notePane(); setActiveSettings((p) => (p === id ? null : id)); }}
 			onWorkspace={() => setWorkspaceOpen(true)}
 		/>
 	);
@@ -7822,19 +8274,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</div>
 	);
 
-	// Undo and Redo for a screen with no ⌘Z: in the phone's tail, and before Present on a touch-first
-	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
-	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
-	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
-	// The tablet pair shows by CSS alone (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
-	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off and no media hook rides the eager
-	// bundle. Elsewhere it is display:none, which keeps it out of the accessibility tree as well.
-	const historyButtons = (className: string) => (
-		<>
-			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
-		</>
-	);
 	const feedbackButton = (
 		<Tip label="Send feedback">
 			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
@@ -8448,8 +8887,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
-				{!mobile && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
-				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label={deckBlank ? 'Add a slide to present' : 'Present'}><Button size="sm" data-demo="present" onClick={openPresent} aria-disabled={deckBlank || undefined} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3 aria-disabled:opacity-55" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
@@ -8503,6 +8941,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onFixAll={fixAllIssues}
 						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
+						onFind={openFind}
 						onLenses={() => setLensesOpen(true)}
 						onLive={openLive}
 						demoActive={demoActive}
@@ -8716,7 +9155,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
-								<ResizablePanel id="studio-settings" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
+								<ResizablePanel id="studio-settings" data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
@@ -8732,25 +9171,45 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								{/* Library keeps its own panel id so switching the assistant slot
 								    Coach→Library is a fresh panel identity, and each keeps its own
 								    persisted width via the per-panel-id bucket. */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
+								{/* `bg-background`, the Settings column's and every sheet's color, so the one slot keeps its tint
+								    whichever pane fills it, and a pane looks the same docked as in its sheet. It was `bg-card`, a
+								    shade off Settings', so the column changed color on every swap (§3d of 2026-11-15-one-side-pane.md).
+								    The panes' own cards are `bg-background` with a border, as in their sheets. */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
+									{/* ONE header for every docked pane: the PanelHeader the tablet and phone sheets
+									    already wear (icon chip, the pane's name, its actions, then collapse). These
+									    four used to draw an 11px uppercase label with no icon and no way out but the
+									    rail, beside a Library and a Settings that each drew their own, so swapping
+									    panes in the one slot swapped the header's design too (§3d). Chat and Live
+									    portal their header controls in, as they do in their sheets. */}
 									{coachOpen && (
 										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
+											{dockHeader('coach', <Gauge />)}
 											{coachBody}
 										</>
 									)}
-									{chatOpen && chatBodyWith('Chat')}
-									{liveOpen && liveBodyWith('Live')}
+									{chatOpen && (
+										<>
+											{dockHeader('chat', <ChatIcon />, <span ref={setChatDockSlot} className="flex min-w-0 items-center" />, true)}
+											{chatBodyWith(chatDockSlot)}
+										</>
+									)}
+									{liveOpen && (
+										<>
+											{dockHeader('live', <UsersRound />, <span ref={setLiveDockSlot} className="flex items-center gap-2" />)}
+											{liveBodyWith(liveDockSlot)}
+										</>
+									)}
 									{lensesOpen && (
 										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
-											{renderLensesBody(false)}
+											{dockHeader('lenses', <LensIcon />, lensAddButton)}
+											{renderLensesBody()}
 										</>
 									)}
 									{libraryOpen && (
-										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
-										</PanelLoader>
+										<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={(v) => (v ? setLibraryOpen(true) : collapsePane())}>{body}</LibraryShell>}>
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+										</PanelLoader></PanelDrillBack>
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -8814,7 +9273,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							actions={<span ref={setChatCostSlot} className="flex min-w-0 items-center" />}
 							fluidActions
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(chatCostSlot)}</div>
 					</PanelSheet>
 					)}
 					{liveSheetMounted && (
@@ -8824,7 +9283,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							title="Live"
 							actions={<span ref={setLiveHeaderSlot} className="flex items-center gap-2" />}
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(liveHeaderSlot)}</div>
 					</PanelSheet>
 					)}
 					{/* Reader views — its own compact sheet, a peer of the Architect.
@@ -8839,19 +9298,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
-							actions={lensCanAdd ? (
-								<Tip label="Add a reader view">
-									<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
-										<Plus className="size-4" />
-									</Button>
-								</Tip>
-							) : undefined}
+							actions={lensAddButton}
 							// The lede moved OUT of the header and into the zero state, where it has
 							// room and where it is actually needed. As a header `description` it
 							// wrapped to two lines and made this one of four different header
 							// heights in a set of surfaces that claim to share a frame.
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody()}</div>
 					</PanelSheet>
 					)}
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
@@ -8865,6 +9318,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
+								actions={settingsReset}
 							/>
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
@@ -8878,7 +9332,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={outsideWrite} />}
 				</PanelLoader>
 			)}
 			{feedbackMounted && <FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />}
@@ -8936,7 +9390,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
 			    floats over the full-screen Fabricate surface. */}
 			{compact && view === 'compose' && libraryMounted && (
-				<PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+				<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
 					{(Library) => (
 						<Library
 							open={libraryOpen}
@@ -8956,7 +9410,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
-				</PanelLoader>
+				</PanelLoader></PanelDrillBack>
 			)}
 			{(presentOpen || presentEverOpened) && (
 				<React.Suspense
@@ -8994,7 +9448,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</React.Suspense>
 			)}
-			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={deckBlank ? 'as slide 1' : insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{layoutMounted && (
+				<React.Suspense fallback={null}>
+					<LayoutMenuHost
+						req={layoutReq}
+						onDone={() => setLayoutReq(null)}
+						compose={composeRef}
+						slides={slides}
+						components={components}
+						frontMatter={previewFm ?? ''}
+						axes={reshapeAxes}
+						phone={mobile}
+						preview={{ options: deckOptions, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss }}
+					/>
+				</React.Suspense>
+			)}
 			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
@@ -9010,6 +9479,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{welcomeMode && (
 				<React.Suspense fallback={null}>
 					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} end={endCard} onNext={startNextTour} />
+				</React.Suspense>
+			)}
+			{chatDraft && mobile && (
+				<React.Suspense fallback={null}>
+					<ChatDraftPreview draft={chatDraft} current={source} variant="sheet" onClose={closeChatDraft} frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }} render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }} />
 				</React.Suspense>
 			)}
 			<Toaster />
@@ -9244,3 +9718,4 @@ function TextRow({ label, desc, help, find, value, placeholder, onCommit }: { la
 		</Field>
 	);
 }
+

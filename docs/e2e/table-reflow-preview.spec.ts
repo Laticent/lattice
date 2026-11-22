@@ -55,14 +55,16 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 				}),
 		);
 		await expect(t).not.toHaveClass(/lat-reflow-held/);
-		expect(await rowDisplay(t)).not.toBe('table-row');
+		// Polled, as in the six-row test below: the preview can refresh its DOM after the fit check, and a read
+		// mid-refresh sees no row (no computed display, an empty accessibility tree: 1 in 60 runs at four workers).
+		// A row read mid-refresh has no display at all, so the poll waits for a real one that is not a table row.
+		await expect.poll(() => rowDisplay(t), { timeout: 10_000 }).toMatch(/^(?!table-row$)[a-z-]+$/);
 		// A screen reader still hears each value's column. The card form hides the header row, so its
 		// column headers leave the accessibility tree; the label each card line prints (`data-lat-col`,
 		// drawn by `::before`) is part of the cell's accessible name instead. Measured identical in
 		// Chromium and WebKit; a regression here leaves values with no column at all.
-		const ax = await t.ariaSnapshot();
-		expect(ax).toContain('cell "Role Reviewer"');
-		expect(ax).toContain('cell "Status Open"');
+		await expect.poll(() => t.ariaSnapshot(), { timeout: 10_000 }).toContain('cell "Role Reviewer"');
+		await expect.poll(() => t.ariaSnapshot(), { timeout: 10_000 }).toContain('cell "Status Open"');
 		const path = info.outputPath('three-rows-cards.png');
 		await page.screenshot({ path });
 		await info.attach('three-rows-cards.png', { path, contentType: 'image/png' });

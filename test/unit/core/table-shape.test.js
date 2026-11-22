@@ -243,7 +243,12 @@ test('base.table-reflow.css selects the stamped classes and label attribute, and
   // A run table of five or more columns switches below 24em, as a card table that wide does: the
   // one-number-format cue moved such tables from cards to runs, and they must not switch later.
   assert.ok(css.includes('@container (width >= 20em) and (width < 24em) {'), 'no 20-24em step for wide run tables');
-  assert.ok(css.includes('table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5)))'), 'the 20-24em step does not select five-column run tables');
+  // The sheet is written nested (tools/build-css.js NESTED_SOURCES), so a whole selector exists
+  // only in the CSS the build ships: read that, not the source, for what the step selects.
+  const { lowerNesting } = require('../../../tools/build-css.js');
+  const { distributeLeadingIs } = require('../../../lib/core/leading-is.js');
+  const shipped = distributeLeadingIs(lowerNesting(css, 'lib/base/base.table-reflow.css'));
+  assert.ok(shipped.includes('table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5)))'), 'the 20-24em step does not select five-column run tables');
   assert.ok(!/attr\(data-label\)/.test(css), 'data-label belongs to the Guide (SANCTIONED_MARK_IDENTITY), not to tables');
   const build = fs.readFileSync(path.join(ROOT, 'tools/build-css.js'), 'utf8');
   assert.ok(build.includes("'lib/base/base.table-reflow.css'"), 'the sheet is not in the CSS bundle');

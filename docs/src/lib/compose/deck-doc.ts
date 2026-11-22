@@ -143,7 +143,7 @@ export function slideSep(doc: PMNode, i: number): string {
 
 /** A slide's prose → its block content in the deck schema. Bridged by JSON (the block node and mark names are the
  *  prose schema's, so it re-validates cleanly), with a chart slide's row lists tightened. */
-function slideContent(prose: string, directives: string[]): Fragment {
+export function slideContent(prose: string, directives: string[]): Fragment {
 	const json = tightenChartLists(parseSlideProse(prose).content.toJSON(), directives);
 	const content = json ? Fragment.fromJSON(deckSchema, json) : EMPTY_PARAGRAPH();
 	return content.childCount === 0 ? EMPTY_PARAGRAPH() : content;
@@ -533,7 +533,10 @@ export function emitDeck(doc: PMNode, baseline: EmitBaseline): string {
 	for (let i = 0; i < count; i++) {
 		const slide = doc.child(i);
 		const cached = prev.get(slide);
-		parts[i] = cached !== undefined ? cached : serializeSlideFaithfully(slide);
+		// A LOCKED slide with no baseline entry is one that arrived whole — a Markdown paste of a construct Compose
+		// cannot round-trip (markdown-clipboard.ts). Locked slides are immutable, so its `raw` IS its content: emit
+		// those bytes, never the lossy serializer.
+		parts[i] = cached !== undefined ? cached : slide.attrs.locked && slide.attrs.raw ? (slide.attrs.raw as string) : serializeSlideFaithfully(slide);
 		nextNodes[i] = slide;
 	}
 	baseline.nodes = nextNodes;

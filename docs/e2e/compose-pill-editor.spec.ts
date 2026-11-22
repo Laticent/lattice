@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertVia } from './compose-insert';
-import { caretSettled, editorFocusSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
+import { caretSettled, editorFocusSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, studioRedo, studioUndo, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
 async function savedDeck(page: Page): Promise<string> {
@@ -76,7 +76,6 @@ const editor = (page: Page) => page.locator('[data-slot="popover-content"]');
 const composeText = (page: Page) => page.locator('.cs-host .ProseMirror').innerText();
 const drawnPills = (page: Page) => page.locator('.cs-npill .lat-pill');
 const chip = (page: Page, name: RegExp | string) => page.getByRole('button', { name: typeof name === 'string' ? `Edit pill ${name}` : name });
-const bar = (page: Page) => page.locator('.cs-slide-active');
 
 /**
  * Put the caret at the end of "Shipped " (offset 8), checking where it is after each press, then step once more onto
@@ -204,11 +203,11 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
-	test('Compose has Undo and Redo buttons, for the devices with no shortcut', async ({ page }) => {
+	test('the Studio has Undo and Redo buttons, for the devices with no shortcut', async ({ page }) => {
 		await openDeckInCompose(page);
-		await bar(page).locator('.cs-slide-bar').first().hover();
-		const undo = bar(page).getByRole('button', { name: 'Undo' });
-		const redo = bar(page).getByRole('button', { name: 'Redo' });
+		// In the editor's edit bar (the phone's header on a phone), not on each slide's pill: they act on the whole deck.
+		const undo = studioUndo(page);
+		const redo = studioRedo(page);
 		// The pair steps the deck's ONE history (Filo): the setup typed this deck into the Markdown editor,
 		// so Undo is live from the start; nothing has been undone, so Redo is not.
 		await expect(redo).toBeDisabled();

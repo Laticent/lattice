@@ -16,7 +16,7 @@ const layer = require('../../../lib/plugins/chart-family/shared/callout-layer');
 const engine = require('../../../lib/engine');
 
 const EXAMPLES = path.join(__dirname, '..', '..', '..', 'examples');
-const decks = fs.readdirSync(EXAMPLES).filter((f) => f.endsWith('.md')).map((f) => [f, fs.readFileSync(path.join(EXAMPLES, f), 'utf8')]);
+const decks = fs.readdirSync(EXAMPLES).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md'))).map((f) => [f, fs.readFileSync(path.join(EXAMPLES, f), 'utf8')]);
 const hasCallout = (md) => /@callout|@legend/.test(md);
 
 describe('the heavy half of the callout layer', () => {

@@ -94,19 +94,19 @@ section.checklist > .cell-stage > ol > li::marker { content:''; }
  * ::before below. */
 section.checklist > .cell-stage > ul > li.state.pass,
 section.checklist > .cell-stage > ol > li.state.pass {
-  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark);
+  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge);
   border-left-color:var(--state-ink);
   background:var(--pass-bg, var(--bg-alt));
 }
 section.checklist > .cell-stage > ul > li.state.warn,
 section.checklist > .cell-stage > ol > li.state.warn {
-  --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark);
+  --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge);
   border-left-color:var(--state-ink);
   background:var(--warn-bg, var(--bg-alt));
 }
 section.checklist > .cell-stage > ul > li.state.fail,
 section.checklist > .cell-stage > ol > li.state.fail {
-  --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark);
+  --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge);
   border-left-color:var(--state-ink);
   background:var(--fail-bg, var(--bg-alt));
 }
@@ -140,13 +140,13 @@ section.checklist > .cell-stage > ul > li.state.todo,
 section.checklist > .cell-stage > ol > li.state.todo,
 section.checklist > .cell-stage > ul > li.state.unknown,
 section.checklist > .cell-stage > ol > li.state.unknown {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial;
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
 }
 section.checklist > .cell-stage > ul > li.state.skip,
 section.checklist > .cell-stage > ol > li.state.skip {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial;
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
   color:var(--text-muted);
@@ -181,7 +181,7 @@ section.checklist > .cell-stage > ol > li.state::before {
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
     inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-edge, var(--state-ink)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
 section.checklist > .cell-stage > ul > li.state::after,

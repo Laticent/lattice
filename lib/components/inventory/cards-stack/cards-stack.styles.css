@@ -31,7 +31,7 @@ section.cards-stack .cards-stack-inner {
 section.cards-stack > .cell-stage > ul > li, section.cards-stack > .cell-stage > ol > li,
 section.cards-stack .card {
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   /* flex:1 distributes the cards to fill; min-height:0 lets a card yield its share
    * rather than forcing its natural height and pushing the stack past the clip. */
   margin:0; flex:1; min-height:0; list-style:none;

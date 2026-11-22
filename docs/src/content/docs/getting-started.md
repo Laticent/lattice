@@ -85,6 +85,31 @@ extension, which activates on it.
 Every render option — palettes, handouts, the shareable player, speaker notes,
 image sets, packages — is a recipe in [Using the command line](/guides/cli/).
 
+## Supported browsers
+
+The website and the Studio need a browser from 2023 or later:
+
+| Browser | Oldest supported |
+|---|---|
+| Chrome | 111 |
+| Edge | 111 |
+| Firefox | 128 |
+| Safari (Mac) | 16.4 |
+| iPhone and iPad (every browser) | iOS 16.4 |
+| Samsung Internet | 22 |
+| Opera | 97 |
+
+An older browser sees a notice that names what it is missing and how to
+update. Older browsers also stop getting security fixes, so updating protects
+more than Lattice. On an iPhone or iPad every browser runs on Safari's engine,
+so updating iOS is what updates them. Windows 7 and 8 can't run any browser
+this new; Lattice needs Windows 10 or later there. The original Edge (versions 12 to
+18) stopped updating in 2021; Windows Update replaces it with the current Edge. On a
+work computer, your IT team manages these updates.
+
+The command line renders with the Chrome or Chromium installed on your machine
+(`CHROME_PATH`), not with your web browser, so this list does not apply to it.
+
 ## What to read next
 
 - [Using the command line](/guides/cli/) — copy-and-paste commands for

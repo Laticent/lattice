@@ -376,7 +376,7 @@ describe('stacked-bar kernel', () => {
         ['FY24', [['Licenses', '19.1']]],
       ]);
       assert.match(withDetail, /<template class="chart-detail" data-mark="0">/);
-      assert.match(withDetail, /<!-- FY23: Won three renewals early -->/);
+      assert.match(withDetail, /<!-- @note\{FY23: Won three renewals early\} -->/);
       // The chart itself is unchanged by detail: no mark gains or loses paint.
       assert.equal((plain.match(/sbar-seg/g) || []).length, 3 * 3);
     });
@@ -414,6 +414,25 @@ describe('stacked-bar kernel', () => {
         parseStackedBar(ul(FY)), { classTokens: ['row'], orientation: 'portrait' },
       );
       assert.match(portrait, /viewBox="0 0 \d+ \d+"/);
+    });
+
+    test('a two-line period name keeps its second line inside the drawing (followups.d/3226-p1)', () => {
+      // On the chart form kernel, with the type at its role size, `Q1 FY24` sets `Q1` over `FY24`. The fixed
+      // 22-unit band held one line, and the year fell below the viewBox, where the export cut it (the fit
+      // nightly's stacked-bar rises). Each tspan's `y` is its baseline; its ink reaches about a quarter em below.
+      const F = require('../../../lib/plugins/chart-family/shared/chart-form');
+      const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+      const rows = ['Q1 FY24', 'Q2 FY24', 'Q3 FY24', 'Q4 FY24'].map((l) => [l, [['Retail', '12'], ['Wholesale', '8'], ['Online', '5']]]);
+      withRoles(stepPx(), 972 / 320, () => F.withForm({ w: 320, h: 320 }, () => {
+        const svg = buildStackedBar(parseStackedBar(ul(rows)), { classTokens: [] });
+        const h = Number(svg.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1]);
+        // Split, not a lazy `<text …>[\s\S]*?</text>` regex: CodeQL flags that shape as polynomial.
+        const names = svg.split('<text class="cart-cat"').slice(1)
+          .map((seg) => [...seg.slice(0, seg.indexOf('</text>')).matchAll(/ y="([\d.]+)"/g)].map((y) => Number(y[1])));
+        assert.ok(names.length === 4 && names.every((ys) => ys.length === 2), 'the case is real: every name takes two lines');
+        const lowest = Math.max(...names.flat()) + cart.FS.cat * 0.25;
+        assert.ok(lowest <= h, `the year line ends at ${lowest.toFixed(2)}, past the ${h}-unit drawing`);
+      }));
     });
 
     test('a bar is never drawn thicker than the cap, whatever the category count', () => {

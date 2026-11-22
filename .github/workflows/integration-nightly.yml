@@ -68,6 +68,9 @@ jobs:
         with:
           packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
 
       # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
       # check opens real HTML exports in Chromium, WebKit and Firefox, and an engine that cannot
@@ -429,9 +432,14 @@ jobs:
             echo ''
             echo '--- narrated player (real Chromium: narration, forged chrome, forged collections) ---'
           } >> "$REPORT"
-          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "console.log(require('puppeteer').executablePath())")"
-          npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT"
-          code=${PIPESTATUS[0]}
+          # `executablePath()` returns a Promise from puppeteer 24 on (#3190 moved us to 25), so `console.log()` printed
+          # `Promise { ... }` and every nightly that resolves Chrome died here. Promise.resolve() awaits either shape.
+          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), (e) => { console.error(e.message); console.log(''); })")"
+          # `|| code=…`, never a bare pipeline then `code=${PIPESTATUS[0]}`: GitHub runs this under `bash -e`, and with
+          # pipefail a red verifier killed the step before `code=` ran, so `failed=true` was never written and the
+          # steps after it were skipped (Nov 14 and 15, run 43705297932).
+          code=0
+          npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT" || code=${PIPESTATUS[0]}
           if [ "$code" -eq 0 ]; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
@@ -644,7 +652,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.marprange.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.marprange.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

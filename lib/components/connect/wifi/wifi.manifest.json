@@ -30,24 +30,29 @@
   ],
   "description": "A network join card: readable Wi-Fi credentials beside a QR a phone scans to connect in one tap.",
   "purpose": "Use to get a room onto the Wi-Fi without reading a password aloud. The QR encodes the standard WIFI: payload; the same details render legibly for anyone typing them by hand. Author the fields as a postfix-key list.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "The card heading (e.g. \"Join the room.\")."
     },
     "fields": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid|network (required), password|pass, security|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write."
     },
     "eyebrow": {
       "selector": "p:first-child > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``."
     },
     "caption": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``."
     }

@@ -3,8 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!--
-  The probe deck behind engineering/decisions/2026-07-30-overflow-marker-register.md.
+<!-- @note{The probe deck behind engineering/decisions/2026-07-30-overflow-marker-register.md.
 
   Two slides on purpose: one that FITS and one that does not. The fitting slide is
   as load-bearing as the clipping one — the register decides how an overflowing
@@ -37,8 +36,7 @@ theme: indaco
   NOTE: the level is an EXPORT setting, not a deck key — there is deliberately no
   `overflow-marker:` in the front matter below, and adding one would do nothing
   (`lint:deck` says so). It is chosen by the flag above, by
-  LATTICE_OVERFLOW_MARKER, or by the Studio's workspace setting.
--->
+  LATTICE_OVERFLOW_MARKER, or by the Studio's workspace setting.} -->
 
 # Overflow marker probe
 

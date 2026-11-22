@@ -45,11 +45,13 @@ vi.mock('./theme-library', async (orig) => {
 	};
 });
 
-import { loadStudioPanels } from '@/test/panels';
+import { loadFabricate, loadStudioPanels } from '@/test/panels';
 import { saveStudioTheme } from './theme-library';
 
-// The Studio's panels load on first open; load them up front so no test races a shell.
-beforeAll(loadStudioPanels);
+// The Studio's panels load on first open; load them up front so no test races a shell. Fabricate too
+// (`loadFabricate`): the file opens it. 30 s, over vitest's 10 s hook default: under 4-way CPU contention the
+// two loads took 5.3-5.9 s across 10 runs. A hang still fails, at 30 s.
+beforeAll(() => Promise.all([loadStudioPanels(), loadFabricate()]), 30_000);
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 

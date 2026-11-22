@@ -20,7 +20,8 @@ import path from 'node:path';
  * DELIBERATELY NARROW. It handles the one shape that actually occurs — a leaf module
  * that assigns `module.exports` and requires nothing itself — plus ONE extension: a module
  * whose every `require(` names a sibling leaf of that same shape (`./x` in the same folder,
- * itself require-free), which is inlined at the call site. That is `remote-ref.js` reading
+ * itself require-free but for `.mjs` siblings, which are hoisted to imports of the outer module), which is inlined
+ * at the call site. That is `remote-ref.js` reading
  * its URL table from `media-sources.js`. And ONE more: a `require('./x.mjs')` of an ESM sibling becomes a hoisted
  * `import * as` of it, which is what Node's require-of-ESM and Rollup both hand back (the namespace): that is
  * `pane-spec.js` reading the pane-marker reader from `meta-door.mjs`. It REFUSES anything else with its own `require(`,
@@ -39,8 +40,9 @@ const wrapModule = (src) => `(() => {\nconst module = { exports: {} };\nconst ex
  * Inline every `require('./sibling')` in `src` with that sibling's body, or return null when any
  * `require(` is not exactly that shape (a sibling that is missing, ESM, or requires something).
  */
-export function inlineSiblingLeaves(src, dir) {
+export function inlineSiblingLeaves(src, dir, imports = []) {
 	let refused = false;
+	let copy = 0;
 	const out = src.replace(REQUIRE_SIBLING, (_whole, _q, name) => {
 		let sibling;
 		try {
@@ -49,8 +51,14 @@ export function inlineSiblingLeaves(src, dir) {
 			refused = true;
 			return '';
 		}
-		if (!IS_CJS_LEAF(sibling)) refused = true;
-		return wrapModule(sibling);
+		// A sibling may itself require an ESM sibling (`front-matter-key.js` reads the front-matter island): that
+		// `require` is hoisted to an import of the outer module, pushed onto `imports`, under a name of its own.
+		// The name carries a per-call copy number, so a sibling required twice, or two siblings whose names differ only in
+		// a non-word character, never bind the same identifier twice.
+		const esm = hoistEsmSiblings(sibling, `__latticeEsm_${name.replace(/\W/g, '_')}_${copy++}_`);
+		if (!IS_CJS_LEAF(esm.body)) refused = true;
+		if (esm.imports) imports.push(esm.imports);
+		return wrapModule(esm.body);
 	});
 	return refused || REQUIRE.test(out) ? null : out;
 }
@@ -60,10 +68,10 @@ const REQUIRE_ESM_SIBLING = /\brequire\(\s*(['"])\.\/([A-Za-z0-9_.-]+?\.mjs)\1\s
  * Hoist every `require('./sibling.mjs')` in `src` to an `import * as` binding: `{ imports, body }`, both strings.
  * The namespace object is what Node's require of an ES module returns, so the module reads the same names.
  */
-export function hoistEsmSiblings(src) {
+export function hoistEsmSiblings(src, prefix = '__latticeEsm') {
 	const imports = [];
 	const body = src.replace(REQUIRE_ESM_SIBLING, (_whole, _q, name) => {
-		const id = `__latticeEsm${imports.length}`;
+		const id = `${prefix}${imports.length}`;
 		imports.push(`import * as ${id} from './${name}';`);
 		return id;
 	});
@@ -90,11 +98,13 @@ export default function viteCjsLibDev(repoRoot) {
 			if (!/^\s*module\.exports\s*=/m.test(src)) return null;
 			const esm = hoistEsmSiblings(src);
 			src = esm.body;
+			const siblingImports = [];
 			if (REQUIRE.test(src)) {
-				const inlined = inlineSiblingLeaves(src, path.dirname(file));
+				const inlined = inlineSiblingLeaves(src, path.dirname(file), siblingImports);
 				if (inlined === null) return null;
 				src = inlined;
 			}
+			const allImports = [esm.imports, ...siblingImports].filter(Boolean).join('\n');
 			// REFUSE anything that already speaks ESM. The `module.exports` match is a regex,
 			// so it can fire on a template literal or a block comment inside a module that is
 			// really ESM — and wrapping one of those would append a SECOND `export default`
@@ -108,7 +118,7 @@ export default function viteCjsLibDev(repoRoot) {
 			// re-emitted — `resolve-pace.mjs`'s header records that Rollup will not
 			// resolve those off a CJS file, so offering them in dev only would let a
 			// named import pass here and fail `astro build`.
-			return `${esm.imports ? `${esm.imports}\n` : ''}const module = { exports: {} };\nconst exports = module.exports;\n${src}\nexport default module.exports;\n`;
+			return `${allImports ? `${allImports}\n` : ''}const module = { exports: {} };\nconst exports = module.exports;\n${src}\nexport default module.exports;\n`;
 		},
 	};
 }

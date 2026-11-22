@@ -77,6 +77,8 @@ A pane is the one narrow box a wide deck has; the read-across grid now stacks th
 
 ## On a full-width slide the three columns stay side by side.
 
+`Cal. Civ. Code §1798.135 · amendment SB-362`
+
 > Two or more designated methods for submitting requests to opt out.
 
 > At least one designated method, including a homepage link.

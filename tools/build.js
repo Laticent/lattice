@@ -35,6 +35,7 @@
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
  *   -  skill index           tools/skill-index.js (design/skills/index.json, README table, .claude/skills)
  *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
+ *  13a. code map              tools/build-codemap.js (dist/engineering/codemap.md)
  *  13b. third-party licenses  tools/build-third-party-licenses.js (dist/THIRD-PARTY-LICENSES.txt)
  *  13c. VS Code stylesheet    tools/build-marp-vscode-css.js (dist/lattice-vscode{,-bundle}-min.css + the engine stubs; packed by marp-core)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
@@ -108,6 +109,10 @@ const STEPS = [
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.
   { label: 'Mosaico library dist (ESM + CJS + .d.ts)', script: 'build-mosaico-lib.js', uncommitted: true },
+  // Lastra, the image library (2026-11-13-image-library.md). FOREGROUND and early for the same reason: the image
+  // layout's shape (lib/core/image-dimensions.js, which the transformer registry loads) requires `@laticent/lastra`,
+  // and the PDF writer, player-core and CLI bundles inline it through the export spine.
+  { label: 'Lastra library dist (ESM + CJS + .d.ts)', script: 'build-lastra-lib.js', uncommitted: true },
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
   { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
@@ -152,6 +157,10 @@ const STEPS = [
   // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
+  // The Studio chat's tool catalog, compiled from lib/use-cases/*/*.use-case.json (one manifest per
+  // tool). Committed: architect-agent.ts and chat-actions.ts import it as ordinary modules.
+  // engineering/decisions/2026-11-17-use-case-layer.md §3.4.
+  { label: 'use-case catalog (studio chat tools)', script: 'build-use-cases.js' },
   // The one index of every shipped package (lib/packages/), walked through the package
   // spine. Committed, like the catalogs around it: later phases import it as a module.
   { label: 'package index (lib/packages)', script: 'build-packages-index.js' },
@@ -187,6 +196,10 @@ const STEPS = [
   // nothing caught it, because dist/ is gitignored and `build:check
   // --exclude-uncommitted` skips the emulator by design.
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
+  // The chart reveal (Cenno + the shared chart model) for the exported player, injected only when a deck
+  // carries a chart detail (engineering/decisions/2026-11-16-cenno-popover-library.md §7). Like the Anima
+  // bundle above, player-core imports the committed string, so it builds before anything that bundles it.
+  { label: 'chart-reveal player bundle (engine export)', script: 'build-chart-reveal-player.js' },
   // The Guide for narrated exports, ahead of the emulator for the anima bundle's reason: the
   // emulator's graph reaches lib/export/player-core.mjs, which imports this generated file. It
   // reads SOURCES, never the background library dists, so it has no join to wait on.
@@ -254,6 +267,10 @@ const STEPS = [
   // publishes ./dist like its siblings, so it builds like them.
   { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
   { label: 'Veduta library dist (ESM + CJS + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
+  // Cenno is a browser library (popovers; the player's chart detail cards); it publishes ./dist like its siblings.
+  { label: 'Cenno library dist (ESM + CJS + .d.ts)', script: 'build-cenno-lib.js', uncommitted: true },
+  // Cenno has no byte budget; its README carries a per-module size table instead, kept current here.
+  { label: 'Cenno size table (README)', script: 'build-cenno-sizes.js' },
   { label: 'Filo library dist (ESM + CJS + .d.ts)', script: 'build-filo-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
@@ -272,6 +289,11 @@ const STEPS = [
   // before anything that copies themes/ into dist/.
   { label: 'categorical on-canvas ink (themes/*.css)', script: 'derive-cat-ink.js' },
   { label: 'chart categorical ink (themes/*.css)', script: 'derive-chart-cat-ink.js' },
+  // The deck lint ruleset's stamps (2026-11-13-squadra-replaces-lint-core.md §3.4): every rule in
+  // lib/authoring/rules/ compiled strictly against its fixtures, and the digests the browser's
+  // `@laticent/squadra/runtime` checks written to verified.generated.json. AFTER the Squadra dist and the
+  // stage catalog: it loads both, and lint's vocabulary reads the generated pane and venue tables.
+  { label: 'deck lint ruleset stamps (lib/authoring/rules/verified.generated.json)', script: 'build-squadra-stamps.js' },
   // THE THREE INDEXES — `uncommitted` + `validates`. Each is generated from a folder of
   // one-file-per-item sources (tools/ headers + package.json scripts, the decision notes,
   // the gotcha topic files) into dist/engineering/, and none is committed: a committed index is a
@@ -286,6 +308,10 @@ const STEPS = [
   // `--check` that reads sources only. test/unit/tools/uncommitted-steps.test.js holds the
   // TAGS; the decision and gotcha index tests run their --check with no output on disk.
   { label: 'capability index (dist/engineering/capabilities.md)', script: 'build-capabilities.js', uncommitted: true, validates: true },
+  // The code map — one line per folder, code part, plugin and workspace library, from PARTS in
+  // tools/structure.js, the plugin and library manifests, and its own FOLDERS table. --check
+  // reads those sources and the tracked file list only.
+  { label: 'code map (dist/engineering/codemap.md)', script: 'build-codemap.js', uncommitted: true, validates: true },
   // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
   // the split decision note. Reads manifests + that map; order-independent.
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
@@ -479,10 +505,17 @@ async function main(argv) {
     // The guard loads the transformer registry, whose collage transform requires
     // `@laticent/mosaico` (2026-10-16-mosaico-layout-library.md).
     'docs/src/lib/mosaico/dist/index.cjs',
+    // …and the image layout's shape reads picture headers through `@laticent/lastra` (2026-11-13-image-library.md).
+    'docs/src/lib/lastra/dist/index.cjs',
     // …and the split kernels require `@laticent/fluido` (2026-10-27-fluid-layout-library.md).
     'docs/src/lib/fluido/dist/index.cjs',
     // …and lint-core's fix path requires `@laticent/squadra/driver` (2026-10-26-squadra-lint-library.md).
     'docs/src/lib/squadra/dist/driver.cjs',
+    // …and the deck ruleset's stamps step compiles with the main entry, and the entry loads the runtime and the
+    // Markdown language (2026-11-13-squadra-replaces-lint-core.md), so a dist built before those entries is cold.
+    'docs/src/lib/squadra/dist/index.cjs',
+    'docs/src/lib/squadra/dist/markdown.cjs',
+    'docs/src/lib/squadra/dist/runtime.cjs',
   ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');

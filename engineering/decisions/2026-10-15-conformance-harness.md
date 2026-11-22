@@ -536,7 +536,7 @@ Ruled after the measurements above. Each changes what every future run pays (the
    matrix with `CONFORMANCE_RENDER=1` (about 48 minutes added to a job that already takes about two
    hours). Findings do not fail it; a blind harness or a probe that cannot bite does, and opens the
    rolling issue.
-2. **Per PR: in line with the recommendation.** `ci.yml` runs `tools/conformance-render.js --changed`
+2. **Per PR: in line with the recommendation.** *(Superseded 2026-11-21: the step left PR CI with the render tier, `2026-11-21-ci-load-plan.md` §6 D2; run `--changed=origin/main` locally.)* `ci.yml` runs `tools/conformance-render.js --changed`
    on shard 1 of the PR integration job: the components the diff touches, every cheap probe, and
    contrast on three palettes (`indaco`, `indaco-dark`, `concrete`). Report-only, in the job summary.
    A shared-file change (lib/core, lattice.css) maps to no component, so the nightly covers it.

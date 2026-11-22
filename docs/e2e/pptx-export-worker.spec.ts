@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
 
 // The PowerPoint export has two lanes that must produce the SAME deck: the worker
-// (which base64s each slide and builds the whole pptxgenjs document off the main
-// thread) and the main-thread fallback, kept for a browser with no `Worker` and as
+// (which builds the whole document with Calco's PPTX writer off the main thread) and the main-thread fallback, kept for a browser with no `Worker` and as
 // the safety net when the worker dies. They run the same library over the same
 // pixels, so the slide images must come out byte-for-byte identical — anything else
 // means the fast lane is quietly shipping a different artifact.

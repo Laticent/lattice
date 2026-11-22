@@ -190,7 +190,7 @@ OPTIONS
       --captions          Also write read-along WebVTT caption sidecars — one
                           deck-level <output>.vtt (continuous timeline) plus
                           per-slide <output>.NN.vtt. Each slide narrates its own
-                          CONTENT unless the author overrode it with a say: line.
+                          CONTENT unless the author overrode it with <!-- @say{…} -->.
                           Timing is Cadenza's estimate (no audio, no key); honors
                           --strip-say
       --no-split          Do NOT auto-split a slide with many members — render it
@@ -199,11 +199,11 @@ OPTIONS
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text. Removes the NOTE
-                          channel only: a <!-- describe: --> accessibility
-                          description survives (it is the slide's text
-                          alternative, not speaker text), and so do say: lines,
-                          which are public narration and have --strip-say
+                          shareable file with no speaker text. Removes every
+                          <!-- @note{…} --> and every plain comment; the public
+                          notes survive: @alt (the slide's alt text), @handout
+                          (for readers), and @say (public narration, which has
+                          --strip-say)
       --no-guide          Leave the Guide out of a narrated --player (on by default:
                           the focus and gestures that follow the narration, as in
                           Present; the deck's delivery: picks only their style).
@@ -213,9 +213,9 @@ OPTIONS
                           bytes and it moves for a recipient you are not there to
                           frame it for. The front-matter equivalent is
                           player-motion: off; this flag is for the scripted export
-      --strip-say         Scrub the author's say: lines (inline <!-- say: --> and
-                          the front-matter say: map) from the .vtt and embedded
-                          source; those slides fall back to the generated narration.
+      --strip-say         Scrub the author's <!-- @say{…} --> lines from the .vtt
+                          and embedded source; those slides fall back to the
+                          generated narration.
                           Orthogonal to --strip-notes — a speaker note is never a
                           narration source, so neither flag can leak the other's channel
       --notes-icon        Show a clickable sticky-note icon on each slide with
@@ -487,6 +487,7 @@ USAGE
     deck.odp    LibreOffice Impress   (--editable for real text boxes)
     deck.png    one PNG per slide     (deck.001.png, deck.002.png, …)
     deck.html   the rendered deck     (--player for a self-contained player)
+    deck.lattice  a project file the Studio opens (the input can be a .lattice too)
 
 COMMON OPTIONS
   -p, --palette NAME   Color palette, e.g. indaco, cuoio, onyx (default: the deck's theme:)
@@ -553,9 +554,12 @@ if (process.argv[2] === 'fmt') {
 }
 
 // `lattice migrate meta <deck.md>` — directive comments rewritten as slide records (lib/cli/migrate-meta.mjs,
-// engineering/decisions/2026-10-17-meta-record.md §9 step 5). Dispatched as a child for the same reason as `packages`.
+// engineering/decisions/2026-10-17-meta-record.md §9 step 5). `lattice migrate notes <deck.md>` — old-form notes
+// rewritten as the four notes (lib/cli/migrate-notes.mjs, engineering/decisions/2026-11-20-four-notes.md). Dispatched
+// as a child for the same reason as `packages`.
 if (process.argv[2] === 'migrate') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/migrate-meta.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const tool = process.argv[3] === 'notes' ? 'migrate-notes.mjs' : 'migrate-meta.mjs';
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli', tool), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -600,7 +604,7 @@ function parseArgs(argv) {
     // Named, not left to the unknown-option error: a script still passing it asked for a privacy
     // strip, and "unknown option" does not tell them which flag gives it to them now.
     if (a === '--strip-captions') {
-      console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `say:` now).');
+      console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `@say{…}` now).');
       process.exit(1);
     }
     // Renamed 2026-11-09 before any release shipped it: `--fonts` read as choosing fonts, and it only decides what an
@@ -690,6 +694,56 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
+//
+// A `.lattice` project file (the Studio's own format) is unpacked first, by the Studio's own reader, into a private
+// folder shaped like a deck this CLI renders: `deck.md`, its photos in `assets/` as their original bytes, and a
+// one-run package store (lib/export/lattice-input.js). The input is judged by its BYTES: a zip is a `.lattice`
+// whatever it is called, and other binary bytes are refused here, never parsed as Markdown (they used to run into
+// a 60 s navigation timeout).
+const LATTICE_INPUT = (() => {
+  const input = positional[0];
+  if (!input || input === '-') return null;
+  const { sniffInput, unpackSync } = require('./lib/export/lattice-input.js');
+  const kind = sniffInput(input);
+  if (kind === 'binary') {
+    console.error(`error: ${input} is not a Markdown deck or a .lattice project file`);
+    process.exit(1);
+  }
+  if (kind !== 'zip') return null;
+  let out;
+  try {
+    out = unpackSync(input);
+  } catch (e) {
+    console.error(`error: ${input}: ${e.message}`);
+    process.exit(1);
+  }
+  const home = require('./lib/packages/home.js');
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  if (!flags.quiet) {
+    if (out.photos.length) console.log(`  photos: ${out.photos.length} from the .lattice, as the Library stored them`);
+    if (out.packages.length) console.log(printableLine(`  packages: ${out.packages.map((p) => `${p.type} ${p.name}`).join(', ')} (from the .lattice, used for this render only)`));
+  }
+  // The file's packages are searched BEFORE the user's store (PACKAGES_ROOTS below). Where one replaces an installed
+  // package of the same name, that is said where it is actually used (`noteFileWins`), never here.
+  for (const r of out.refused) console.error(printableLine(`warning: the .lattice photo ${r.name} is not used: ${r.why}`));
+  // `--trust`: the code packages THIS file carries run for this render, at the digests they have now. Nothing is
+  // written to the trust store, and an installed code package still needs `lattice packages trust`.
+  if (flags.trust) {
+    const { acceptedDigests } = require('./lib/packages/trust.js');
+    const { grantForThisRun } = require('./lib/cli/code-door.js');
+    for (const p of out.packages) {
+      const found = (p.type === 'component' || p.type === 'plugin') && home.findInstalled(out.store, p.type, p.name);
+      const digests = found ? acceptedDigests(found.pkg) : [];
+      if (!digests.length || !(found.pkg.code || found.pkg.roles?.['render.js'])) continue;
+      grantForThisRun(p.type, p.name, digests);
+      if (!flags.quiet) console.log(printableLine(`  --trust: the code in the ${p.type} ${p.name} runs for this render only`));
+    }
+  }
+  // The rest of the run reads the unpacked deck. Its packages are found through PACKAGES_ROOTS.
+  positional[0] = out.deck;
+  return { file: input, ...out };
+})();
+if (flags.trust && !LATTICE_INPUT) console.warn('note: --trust runs the code packages a .lattice input carries; this input is not a .lattice, so it is ignored');
 const mdFile = positional[0];
 // Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
 // symlink in the deck folder and a typed `file:///etc/x` are refused (lib/core/file-confine.js; media note §4.11).
@@ -770,13 +824,14 @@ const PLAYER_CONSENT = (() => {
 // `--strip-say`: the SEPARATE privacy strip for the say (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (private, for the presenter) and say lines (public,
 // what a slide speaks) are independent channels, so each has its own strip. This scrubs the
-// author's say OVERRIDES — inline `<!-- say: -->` AND the front-matter `say:` map — from the
-// baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
+// author's say OVERRIDES — every `<!-- @say{…} -->` — from the baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
 // the envelope/attached `source`. Notes and the auto DOM projection are untouched.
 const STRIP_SAY = !!flags['strip-say'];
 // Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
-// PDF-attached source): scrub note comments under `--strip-notes` and/or say comments
-// under `--strip-say`. `noteBodies` is the set lifted from the render.
+// PDF-attached source, the reopenable `.lattice`): under `--strip-notes` every private comment
+// (each `@note{…}` and each plain comment), and/or under `--strip-say` every `@say{…}`. A note is
+// named in the source, so the kernel classifies each comment where it stands; nothing is lifted
+// from the render (engineering/decisions/2026-11-20-four-notes.md N5).
 // Which cut `strippedSlidesOrAuthored` measured as reproducing the deck. Read here so the
 // SOURCE this ships is the one that was rendered — see the note at that function. ONE cut for
 // both channels, because pass 2 renders ONE combined source; a per-channel cut would be a
@@ -797,22 +852,20 @@ let scrubBoundaryMeasured = false;
 // against the source's own neighbors, so there is no order left to get wrong.
 // The composition carries no reporting — the pure half, so `strippedSlidesOrAuthored` can call
 // it once per candidate cut without warning the author twice about the same deck.
-function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
+function composeStrippedSource(src, boundary = scrubBoundary) {
   return notesCore.stripChannelsFromSource(src, {
-    noteBodies: STRIP_NOTES ? noteBodies : null,
+    notes: STRIP_NOTES,
     say: STRIP_SAY,
     boundary,
   });
 }
 const survivorWarned = new Set();
-function stripSharedSource(src, noteBodies, boundary = undefined) {
-  const out = composeStrippedSource(src, noteBodies, boundary ?? scrubBoundary);
+function stripSharedSource(src, boundary = undefined) {
+  const out = composeStrippedSource(src, boundary ?? scrubBoundary);
   if (STRIP_NOTES) {
-    // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
-    // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
-    // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
-    // not a directive, pragma, `describe:` or `say:` is suspected speaker text that got
-    // through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
+    // FAIL-CLOSED. Check the OUTPUT rather than trusting the classifier: a comment still
+    // standing that is not a directive, a record, a pragma or a public note (`@say`, `@alt`,
+    // `@handout`) is suspected private text that got through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
     // the one failure the author cannot take back once the file is sent.
     const survivors = notesCore.auditStrippedSource(out);
     // Once per run: `--embed-source` and `--reopenable` scrub two sources when `--size` or
@@ -910,7 +963,7 @@ if (!mdFile || !outFile) {
 }
 
 // Output format is driven by the output extension: `.pptx` → image-per-slide
-// PowerPoint (owned, via pptxgenjs), `.png` → one PNG per slide (`<base>.NNN.png`),
+// PowerPoint (owned, Calco's writer), `.png` → one PNG per slide (`<base>.NNN.png`),
 // `.zip` → an IMAGE SET (a zip of one raster per slide — PNG/JPEG/WebP — plus opt-in
 // thumbnails and standalone chart/diagram SVGs), `.html` → the rendered HTML as the
 // DELIVERABLE (no PDF at all), `.pdf` → the vector, selectable-text path. PPTX/PNG/
@@ -951,6 +1004,8 @@ const OUT_FORMATS = Object.freeze({
   '.png': 'png',
   '.zip': 'imageset',
   '.html': 'html',
+  // The deck as a project file the Studio opens (lib/core/reopenable.js), written with no render.
+  '.lattice': 'lattice',
 });
 // The lossy image formats the image-set encoder DOES speak — just not as a loose
 // per-slide output. A caller who typed one meant "one image per slide in this format",
@@ -1174,25 +1229,17 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
   console.error(`warning: run \`lattice lint\` for the fix \u2014 Form is the composition model now and cannot be disabled.`);
 }
 
-// A RETIRED SPOKEN-LINE KEY — `caption:` / `captions:` became `say:` (2026-09-28,
-// engineering/decisions/2026-09-28-say-not-caption.md). The render no longer reads the old
-// key, so the slide speaks its generated narration and the old comment surfaces as a speaker
-// note, with a successful exit code. Same channel and reason as the retired Form opt-outs
-// above; the detector is the linter's own (HARD RULE #7).
-const { findRetiredCaptionKeys } = require('./lib/authoring/lint-core');
-const retiredCaption = findRetiredCaptionKeys(md);
-for (const f of retiredCaption.slice(0, RETIRED_FORM_SHOWN)) {
+// A RETIRED NOTE KEY (`say:`, `describe:`, `reader:`, `note:`, `caption:`, the front-matter `say:` map) or a near-miss
+// note (`@Say{…}`, an unclosed brace). The render reads neither, so the line silently reaches nothing, with a
+// successful exit code (engineering/decisions/2026-11-20-four-notes.md). Same channel and reason as the retired Form
+// opt-outs above; the detectors are the linter's own (HARD RULE #7).
+const { findRetiredNoteKeys, findMalformedNotes } = require('./lib/authoring/lint-core');
+const noteFindings = [...findRetiredNoteKeys(md), ...findMalformedNotes(md)];
+for (const f of noteFindings.slice(0, RETIRED_FORM_SHOWN)) {
   console.error(`warning: slide ${f.slide}: ${f.message} ${f.fix}`);
 }
-if (retiredCaption.length > RETIRED_FORM_SHOWN) {
-  console.error(`warning: \u2026 and ${retiredCaption.length - RETIRED_FORM_SHOWN} more retired \`caption:\` line(s). Run \`lattice lint\` for the full list.`);
-}
-// `--strip-say` scrubs the retired key in ANY case (as `--strip-captions` did), so a comment
-// opening with `Caption:` — a note to the engine now — leaves the shipped copies too. Say so:
-// a strip that removes an author's text without a word is the silent loss the checker found.
-const retiredComments = retiredCaption.filter((f) => f.classToken === 'caption').length;
-if (flags['strip-say'] && retiredComments) {
-  console.error(`note: --strip-say also removed ${retiredComments} retired \`caption:\` comment(s), including any that start with \`Caption:\`, from the shipped copies.`);
+if (noteFindings.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: \u2026 and ${noteFindings.length - RETIRED_FORM_SHOWN} more note line(s) that reach nothing. Run \`lattice lint\` for the full list, or \`lattice migrate notes\` to rewrite the deck.`);
 }
 
 // A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
@@ -1336,7 +1383,23 @@ const palettePath = path.join(THEMES_DIR, paletteName, `${paletteName}.css`);
 // name and the command that installs it (portable-packages §6).
 const packagesHome = require('./lib/packages/home.js');
 const PACKAGES_ROOT = packagesHome.packagesRoot({ flag: flags.packages });
-const installedTheme = fs.existsSync(palettePath) ? null : packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
+// Where packages are looked up, in order: a `.lattice` input's own packages first (used for this render only, never
+// installed; lib/export/lattice-input.js), then the user's store.
+const PACKAGES_ROOTS = [...(LATTICE_INPUT ? [LATTICE_INPUT.store] : []), PACKAGES_ROOT];
+const themeHit = fs.existsSync(palettePath) ? null : packagesHome.findInstalledIn(PACKAGES_ROOTS, 'theme', paletteName);
+// A `.lattice`'s own theme that does not read is refused WITH its reason. It never falls back to an installed theme of
+// the same name: the deck names the author's copy, and the user's different one would misrepresent it.
+if (themeHit && !themeHit.ok && themeHit.root === LATTICE_INPUT?.store) {
+  console.error(`error: the .lattice's theme ${paletteName} cannot be read: ${themeHit.errors.join('; ')}`);
+  process.exit(1);
+}
+const installedTheme = themeHit?.ok ? themeHit : null;
+const FROM_FILE = (p) => !!LATTICE_INPUT && p?.root === LATTICE_INPUT.store;
+/** Say that a `.lattice`'s own package is used instead of an installed one of that name: only when it IS used. */
+function noteFileWins(type, name) {
+  if (!LATTICE_INPUT || !fs.existsSync(path.join(PACKAGES_ROOT, type, name))) return;
+  console.error(require('./lib/cli/package-gate.js').printableLine(`note: the .lattice carries the ${type} ${name}, so its copy is used instead of the installed one`));
+}
 if (!fs.existsSync(palettePath) && !installedTheme) {
   console.error(`error: palette not found: ${paletteName}`);
   console.error(`       (looked in ${palettePath}`);
@@ -1352,8 +1415,8 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 // package the user installed under it before. That must not be silent: the deck would render
 // a different theme from the one it rendered yesterday (followups.d/2336 item 1).
 if (fs.existsSync(palettePath) && !flags.quiet) {
-  const hidden = packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
-  if (hidden) {
+  const hidden = packagesHome.findInstalledIn(PACKAGES_ROOTS, 'theme', paletteName);
+  if (hidden?.ok) {
     console.error(`warning: "${paletteName}" is a theme Lattice ships, so the installed package of that name is not used`);
     console.error(`         (${hidden.dir}). To use yours, re-add it: it installs as "${paletteName}-custom".`);
   }
@@ -1361,7 +1424,7 @@ if (fs.existsSync(palettePath) && !flags.quiet) {
 if (installedTheme) {
   const refused = require('./lib/cli/package-gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
-    console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
+    console.error(`error: the ${FROM_FILE(installedTheme) ? ".lattice's" : 'installed'} theme ${paletteName} is refused: ${refused}`);
     console.error(`       (${installedTheme.dir})`);
     process.exit(1);
   }
@@ -1384,7 +1447,8 @@ const themeChainFor = (name) => themeChain(name, THEME_EDGES);
 const paletteChain = installedTheme ? [paletteName] : themeChainFor(paletteName);
 // Parallel to paletteChain (the engine registers them pairwise): shipped files, then the installed leaf.
 const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, n, `${n}.css`)));
-if (installedTheme && !flags.quiet) console.log(`  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
+if (installedTheme && !flags.quiet) console.log(FROM_FILE(installedTheme) ? `  theme: ${paletteName} (from the .lattice)` : `  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
+if (FROM_FILE(installedTheme)) noteFileWins('theme', paletteName);
 
 const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.basename(f, '.css')}'`)).join('\n');
 // Does this deck's palette carry its categories by PATTERN rather than hue?
@@ -1573,7 +1637,9 @@ const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (sizeDirective(_mdFm) || [])[1];
-if (explicitSize && !isRegisteredSize(explicitSize)) {
+// A `.lattice` output renders nothing: it carries the deck as written, so a size this CLI does not know (a deck from
+// a newer Studio, say) is the next reader's business, not a reason to refuse the copy.
+if (explicitSize && !isRegisteredSize(explicitSize) && OUT_FORMAT !== 'lattice') {
   console.error(`error: unknown size: ${explicitSize}`);
   console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
   process.exit(1);
@@ -1812,7 +1878,8 @@ const CHROME_EXEC = detectChromeExecutable();
 // Every browser this run starts is kept off the network unless the author passed
 // --allow-remote (lib/core/offline-chromium.js; 2026-09-01 export posture, revised 2026-09-24).
 const OFFLINE_ARGS = require('./lib/core/offline-chromium.js').offlineChromiumArgs(!!flags['allow-remote']);
-if (!CHROME_EXEC) {
+// A `.lattice` output starts no browser, so it needs none and says nothing about one.
+if (!CHROME_EXEC && OUT_FORMAT !== 'lattice') {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
 
@@ -1869,14 +1936,20 @@ function refuseUnapprovedCode(pkgs) {
  * when the user has not given it. A plugin the deck does not list, whose fence the deck writes, is named once.
  */
 function withInstalledPlugins(source) {
-  const { refusePackage } = require('./lib/cli/package-gate.js');
+  const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
   const { acceptedDigests, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
-  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'plugin')) {
+    // A `.lattice`'s own plugin that does not read hides an installed one of its name (the deck named the author's
+    // copy), so it is refused with its reason rather than skipped in silence.
+    if (!p.ok) {
+      if (FROM_FILE(p)) console.error(printableLine(`warning: the .lattice's plugin ${p.name} cannot be read and is not used: ${p.errors.join('; ')}`));
+      continue;
+    }
     const why = (PLUGIN_NAMES.includes(p.name) && `"${p.name}" is a plugin Lattice ships, so the installed one of that name is not used`) || refusePackage(p.pkg, { forRender: true });
-    if (why) console.error(`warning: the installed plugin ${p.name} is refused and not used: ${why}`);
+    if (why) console.error(printableLine(`warning: the ${FROM_FILE(p) ? ".lattice's" : 'installed'} plugin ${p.name} is refused and not used: ${why}`));
     else installed.push(p);
   }
   const approvals = readTrust();
@@ -1913,7 +1986,9 @@ function withNpmPlugins(source, installed, approvals, shippedNames) {
   if (!asked.length) return [];
   const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
   const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
-  const deckDir = path.dirname(path.resolve(mdFile));
+  // The list sits beside the deck the author has: for a `.lattice` input that is the file's own folder, never the
+  // private folder it was unpacked into (a lookup from there would walk the system's temp directory).
+  const deckDir = path.dirname(path.resolve(LATTICE_INPUT ? LATTICE_INPUT.file : mdFile));
   const file = findPluginList(deckDir);
   if (!file) return [];
   const list = readPluginList(file);
@@ -1942,9 +2017,16 @@ function withInstalledComponents(source) {
   // The store is a plain folder, so every package is gated again here (lib/cli/package-gate.js):
   // a refused component is left out and named, never embedded.
   const installed = [];
-  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'component')) {
+    // A `.lattice`'s own component that does not read hides an installed one of its name (the deck named the
+    // author's copy, and the user's different one would misrepresent it), so it is refused with its reason.
+    if (!p.ok) {
+      if (FROM_FILE(p)) console.error(printableLine(`warning: the .lattice's component ${p.name} cannot be read and is not used: ${p.errors.join('; ')}`));
+      continue;
+    }
     const why = refusePackage(p.pkg, { forRender: true });
-    if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
+    if (why) console.error(printableLine(`warning: the ${FROM_FILE(p) ? ".lattice's" : 'installed'} component ${p.name} is refused and not used: ${why}`));
     else installed.push(p);
   }
   const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
@@ -1956,7 +2038,15 @@ function withInstalledComponents(source) {
     console.error(`warning: "${p.name}" is a component Lattice ships, so the installed package of that name is not used`);
     console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
   }
-  if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+  if (r.used.length && !flags.quiet) {
+    // Say where each came from: a `.lattice` input's own package is not installed anywhere.
+    const fromFile = new Set(installed.filter((p) => p.root === LATTICE_INPUT?.store).map((p) => p.name));
+    const own = r.used.filter((n) => fromFile.has(n));
+    const inst = r.used.filter((n) => !fromFile.has(n));
+    if (inst.length) console.log(`  components: ${inst.join(', ')} (installed packages)`);
+    if (own.length) console.log(`  components: ${own.join(', ')} (from the .lattice)`);
+  }
+  for (const p of installed.filter((x) => FROM_FILE(x) && (r.used.includes(x.name) || (x.pkg.code && classTokens(source).includes(x.name))))) noteFileWins('component', p.name);
 
   // CODE PACKAGES (contract note §9): an installed component with a `transform.js` runs only
   // with the user's consent at exactly these bytes (lib/packages/trust.js). One the deck names
@@ -2017,6 +2107,108 @@ function withInstalledComponents(source) {
 // (`BAKE_SERVICES`), which `bakeDeck` holds this object to. The palette readers and the scope key
 // stay HERE, where the palette is parsed; what a plugin builds from a palette (Mermaid's theme
 // variables) is the plugin's, in its bake.
+const notesCore = require('./lib/authoring/notes-core');
+// The engine render below reaches it (a media figure's box), so it is required before that can run.
+const imageDimensions    = require('./lib/core/image-dimensions');
+/**
+ * A `.lattice` output's deck under `--strip-notes` / `--strip-say`: the functions `--reopenable` scrubs its embedded
+ * copy with, and the cut an engine render of this deck shows reproduces it.
+ * @param {string} src
+ */
+function latticeStrippedSource(src) {
+  // The engine as `engineSlides` builds it (same options, same theme chain), with no package code and none of the
+  // export's per-slide picture passes: the scrub reads notes and slide shapes, not pictures.
+  const latticeEngine = require('./lib/engine');
+  const { isHiddenSection } = require('./lib/core/hidden-slides.js');
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGIN_HOST.disabled], ...(PLUGIN_HOST.defaults ? { defaults: [...PLUGIN_HOST.defaults] } : {}) } });
+  registerCliThemes(engine);
+  const sectionsOf = (deck) => {
+    const html = engine.render(deck, paletteName, { samplesUrl: pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href, assetUrls: {} }).html;
+    const all = splitSections(html).filter((p) => p.type === 'section').map((p) => `${p.openTag}${p.inner}</section>`);
+    return Object.assign(all.filter((sec) => !isHiddenSection(sec)), { hiddenSections: all.filter(isHiddenSection) });
+  };
+  const cut = notesCore.measureScrubBoundary({
+    attached: src,
+    rendered: src,
+    inherited: 'preserve',
+    inheritedMeasured: false,
+    scrub: (s, boundary) => composeStrippedSource(s, boundary),
+    render: sectionsOf,
+    onRenderError: (e) => console.warn(`  ⚠ Could not measure the .lattice deck's cut (${e.message}); keeping a blank line where a note stood.`),
+  });
+  return stripSharedSource(src, cut.boundary);
+}
+
+// ── `.lattice` OUTPUT: the deck as a project file, written HERE and nowhere later ──────────────────────────────────
+// A `.lattice` is the deck, not a render of it, so nothing below runs for one: no export HTML, no browser, and no
+// package code (a code package rides in the file as its files, never executed, so it needs no approval to be
+// carried). The one render it may run is the engine's, for the note scrub (`latticeStrippedSource`). The writer is the Studio's (lib/core/reopenable.js), run in a child (lib/export/lattice-input.js
+// `writeSync`). It carries the deck as written (scrubbed under `--strip-notes` / `--strip-say`), the installed theme and
+// components the deck names (each through the render-time gate), every package a `.lattice` input held, the photos
+// `photosToCarry` allows, and, from a `.lattice` input, its title and (unless stripping) its review comments. It runs
+// here, before the code packages are filled and before any HTML or browser, so the only render it may need, the
+// engine's for the note scrub, runs no package code.
+if (OUT_FORMAT === 'lattice') {
+  const { refusePackage } = require('./lib/cli/package-gate.js');
+  const { classTokens } = require('./lib/cli/package-render.js');
+  const { assetNamesIn } = require('./lib/export/deck-assets.js');
+  const { photosToCarry, writeSync } = require('./lib/export/lattice-input.js');
+  const limits = require('./lib/packages/limits.js');
+  const named = new Set(classTokens(mdRaw));
+  // A copy keeps every package: from a `.lattice`, EVERY package the input held goes back out as its exact files
+  // (finishes, plugins, scenes, a component the deck does not name), whether or not this deck uses it. Then, as for a
+  // `.md`, the installed theme and components the deck uses that the file did not already carry. (Photos are carried
+  // only when the deck names them, as the Studio's own export does: `photosToCarry`.)
+  const packages = (LATTICE_INPUT?.packages ?? []).map((p) => ({ type: p.type, name: p.name, dir: path.join(LATTICE_INPUT.store, p.type, p.name) }));
+  const carried = new Set(packages.map((p) => `${p.type}/${p.name}`));
+  const add = (type, name, dir) => {
+    if (carried.has(`${type}/${name}`)) return;
+    carried.add(`${type}/${name}`);
+    packages.push({ type, name, dir });
+  };
+  if (installedTheme) add('theme', paletteName, installedTheme.dir);
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'component' && x.ok && named.has(x.name))) {
+    if (carried.has(`component/${p.name}`)) continue;
+    const why = refusePackage(p.pkg, { forRender: true });
+    if (why) console.error(`warning: the component ${p.name} is refused and not carried: ${why}`);
+    else add('component', p.name, p.dir);
+  }
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetNamesIn(mdRaw)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES, now: resolveEpoch() * 1000, confine: DECK_CONFINE });
+  const plural = (k) => `${k} photo${k === 1 ? '' : 's'}`;
+  reportPhotosLeftOut(carry, limits.MAX_LATTICE_MEDIA_BYTES, 'the .lattice');
+  const { directives: fm } = require('./lib/engine/directives').parseFrontMatter(mdRaw);
+  const heading = (mdRaw.replace(/```[\s\S]*?```/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+  const title = LATTICE_INPUT?.title || String(fm.title || heading || path.basename(outFile).replace(/\.[^.]+$/, '') || 'Lattice deck').replace(/\s+/g, ' ').trim().slice(0, 120);
+  warnThemeDoesNotTravel('.lattice');
+  // From a `.lattice`, the deck exactly as the file held it; otherwise as the CLI read it. Under `--strip-notes` /
+  // `--strip-say` it is scrubbed by the SAME functions `--reopenable` scrubs its copy with (`stripSharedSource`, the
+  // cut measured by `notesCore.measureScrubBoundary` on a render). That render is the engine's, run here with no
+  // package code (the code packages are not filled yet), so nothing a package ships runs to write a zip.
+  const STRIPPING = STRIP_NOTES || STRIP_SAY;
+  const asWritten = LATTICE_INPUT ? fs.readFileSync(LATTICE_INPUT.deck, 'utf8') : mdRaw;
+  const source = STRIPPING ? latticeStrippedSource(asWritten) : asWritten;
+  try {
+    // Create the output's folder, as the render path does further down (a batch loop writes `out/<name>.lattice`).
+    fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
+    const { bytes } = writeSync({
+      out: path.resolve(outFile),
+      source,
+      title,
+      // Review comments are review data, not the deck: under a privacy strip they stay out, as `--reopenable` leaves
+      // them out of the copy it embeds. Otherwise a `.lattice` input's comments go back out with it.
+      comments: STRIPPING ? [] : (LATTICE_INPUT?.comments ?? []),
+      now: resolveEpoch() * 1000,
+      packages,
+      ...(carry.rows.length ? { media: { index: JSON.stringify(carry.rows, null, 2), files: carry.paths } } : {}),
+    });
+    if (!QUIET) console.log(`Lattice project: ${outFile} (${plural(carry.included.length)}) · ${(bytes / 1_048_576).toFixed(1)} MB`);
+  } catch (e) {
+    console.error(`error: could not write ${outFile}: ${e.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 const mdForBake = withInstalledComponents(md);
 const bakeServices = {
   pkgRoot: PKG_ROOT,
@@ -2090,7 +2282,7 @@ if (OUT_FORMAT === 'html') {
 // `--reopenable` has a home in exactly two formats. Named for every other one rather than
 // dropped silently: an author who asked for an editable file and got a plain one would only
 // find out from the person they sent it to.
-if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
+if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx' && OUT_FORMAT !== 'lattice') {
   console.warn(`  ⚠ --reopenable embeds the deck in a .pdf or .pptx — ignoring for this output.${OUT_FORMAT === 'html' ? ' Use --player, which embeds the source for lossless re-import.' : ''}`);
 }
 // `-p` (or LATTICE_PALETTE) themes THIS render without editing the deck, and the `.lattice`
@@ -2098,13 +2290,23 @@ if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
 // PDF shows (reopenable-exports §8). Said once, naming both themes and the fix. Silent when
 // the deck re-opens in the theme it was rendered in (named, or the default), since then
 // nothing is lost.
-if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx') && (paletteSource === 'cli' || paletteSource === 'env')) {
+if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx')) warnThemeDoesNotTravel('--reopenable');
+/**
+ * A deck carried as a project file (`--reopenable`'s copy, or a `.lattice` output) re-opens in the theme ITS OWN front
+ * matter names, so a theme given by `-p` or LATTICE_PALETTE does not travel with it, even when that theme's package
+ * rides along. Said once, for each writer that carries the deck.
+ * @param {string} what  the writer, as the author asked for it
+ */
+function warnThemeDoesNotTravel(what) {
+  if (paletteSource !== 'cli' && paletteSource !== 'env') return;
   const declared = readFrontMatterTheme(md);
-  if ((declared ?? DEFAULT_PALETTE) !== paletteName) {
-    const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
-    const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
-    console.warn(`  ⚠ --reopenable: this export is themed ${paletteName} by ${how}, but the embedded deck re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
-  }
+  if ((declared ?? DEFAULT_PALETTE) === paletteName) return;
+  const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
+  const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
+  // A `.lattice` output is not themed at all (it renders nothing), and a shipped theme is never carried in one, so the
+  // warning says only what is true either way: the flag does not change the deck the file carries.
+  const themed = what === '.lattice' ? `${how} does not change the deck this .lattice carries, which` : `this export is themed ${paletteName} by ${how}, but the embedded deck`;
+  console.warn(`  ⚠ ${what}: ${themed} re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
 }
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·
@@ -2275,7 +2477,6 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').
 // Markdown shortcut; Marp's `![bg]` is not read since 2026-11-13) + wrapImageText (HTML post-pass) to fold the prose into
 // `.image-text` beside it. See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
-const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/transformers/collage-stamp');
 const logoWallPack       = require('./lib/core/logo-wall-pack');
 
@@ -2317,6 +2518,19 @@ function topLevelSectionStrings(latticeHtml) {
 let webImagesReported = false;
 // Every web reference the render swapped for a placeholder, for --player-consent's report.
 const webBlockedAtRender = [];
+/**
+ * The layout sheet and the palette chain, registered on an engine the way every CLI render does (the comment above
+ * `engineSlides`' call says why the whole chain and both names). One place, so the export's render and the
+ * `.lattice` note scrub register the same themes.
+ */
+function registerCliThemes(engine) {
+  const layoutCss = readFileOrDie(cssFile, 'layout CSS');
+  engine.addThemes([
+    cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
+    ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
+  ]);
+}
+
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2354,11 +2568,7 @@ function engineSlides(deckSource = rawMd) {
   // `paletteCSS` — but any caller using the engine's composed output from a
   // CLI-shaped setup got an unstyled deck. The chain comes from the manifests
   // (lib/theme/chain.mjs); no stylesheet is parsed to find it.
-  const layoutCss = readFileOrDie(cssFile, 'layout CSS');
-  engine.addThemes([
-    cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
-    ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
-  ]);
+  registerCliThemes(engine);
   // The engine draws a slide's placed photo as the lattice-bg panel (CSS background) and resolves deck-relative URLs
   // against `baseUrl` below.
   // The deck's directory (as a file:// URL with a trailing slash) resolves
@@ -2376,7 +2586,8 @@ function engineSlides(deckSource = rawMd) {
   };
   // `asset:<name>` names a picture in `assets/` beside the deck (lib/export/deck-assets.js). The CLI owns every
   // `asset:` reference, so a name the folder lacks draws the missing-picture stand-in, not a dead address.
-  const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
+  // A `.lattice` input's photos sit once each in its private assets/; the names it still writes for them (aliases) answer through the map.
+  const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE, LATTICE_INPUT?.aliases);
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
   const deckMd = deckSource;
@@ -2473,14 +2684,14 @@ function engineSlides(deckSource = rawMd) {
   // The hidden sections, kept beside the list rather than in it: `--strip-notes` must find THEIR notes too, or a
   // hidden slide's note rides into the shipped source (the checker's finding). Never exported.
   out.hiddenSections = all.filter((sec) => isHiddenSection(sec));
-  // The authored position of each shown section among ALL sections, for anything keyed by slide number
-  // (front-matter `say:`), which counts hidden slides.
+  // The authored position of each shown section among ALL sections, for anything keyed by authored slide number,
+  // which counts hidden slides (the chart-narration blocks below).
   out.sectionIndex = all.map((sec, i) => (isHiddenSection(sec) ? -1 : i)).filter((i) => i >= 0);
   return out;
 }
 
-// PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
-// to lift the note bodies; the file ships pass 2.
+// PASS 1 — the deck as the author wrote it. Under a privacy strip this render is the shape
+// pass 2 must reproduce; the file ships pass 2.
 const slidesAsAuthored = engineSlides();
 // A deck with PANES inlines the pane-widened sheet: every rule arm that reaches one of its
 // panes' bodies gains a `section lat-pane…` twin (lib/core/pane-css.js), scoped to the
@@ -2501,18 +2712,12 @@ const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLA
 // Each note is lifted into a hidden presenter-notes channel and the raw comment
 // nodes are stripped — exactly what Marp does, so the rendered HTML/PDF carry
 // the note once, structurally, rather than as an invisible comment.
-const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // For a double-quoted ATTRIBUTE value, where a `"` would end the attribute. escapeHtml is
 // for text, and adding `"` to it would change the bytes of every exported <title> that
 // quotes something.
 const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
-// The set of INDIVIDUAL note bodies straight from the render — the directive-safe
-// key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
-// attachment). NOT the `\n\n`-joined note split apart, which shatters a single
-// blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set([...slidesAsAuthored, ...(slidesAsAuthored.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 // PASS 2 — A PRIVACY STRIP SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
 // of the authored source. Blanking the note copies after the fact left the comment's own
 // whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
@@ -2566,11 +2771,9 @@ function strippedSlidesOrAuthored() {
   // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
   // can quietly gain a cut or reorder them without the other.
   for (const boundary of notesCore.SCRUB_BOUNDARIES) {
-    const source = composeStrippedSource(rawMd, noteStripSet, boundary);
-    // Nothing either flag removes from this deck — no note, no say comment, no
-    // front-matter `say:` map. Every cut would render the same document, so pass 2 is
-    // pure cost. Asked of the SOURCE rather than of the note set, because `--strip-say`
-    // has no set to be empty: its material is structural.
+    const source = composeStrippedSource(rawMd, boundary);
+    // Nothing either flag removes from this deck — no private comment, no `@say`. Every cut
+    // would render the same document, so pass 2 is pure cost.
     // SETTLED, not unmeasured — and the difference is a warning the author should never see.
     // Every cut renders the same document here, so the boundary question has an answer even
     // though no render was needed to get it. Leaving the flag false made `attachmentCut` inherit
@@ -2656,7 +2859,7 @@ function attachmentCut() {
     // Pass 2's answer AND its confidence. `scrubBoundary` alone cannot say whether it was
     // measured or is still the initial `'preserve'` left behind by a fidelity fallback.
     inheritedMeasured: scrubBoundaryMeasured,
-    scrub: (src, boundary) => composeStrippedSource(src, noteStripSet, boundary),
+    scrub: (src, boundary) => composeStrippedSource(src, boundary),
     render: engineSlides,
     onRenderError: (e) => console.warn(
       `  ⚠ Could not measure the attached source's cut (${e.message}); using the rendered deck's.`
@@ -2679,43 +2882,73 @@ const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // PDF's annotations, PowerPoint's notes pane. The default is right; silence was wrong.
 // Counts the MATERIALIZED array, so under --strip-notes there is nothing to say. Gated by
 // --quiet like the format's own summary line it follows.
-function warnShippedNotes(what) {
+//
+// A PLAIN comment is no note (engineering/decisions/2026-11-20-four-notes.md): it reaches no rendered surface. But a
+// file that carries the deck's SOURCE (the player, `--embed-source`, `--reopenable`) carries it too, so that file says
+// so as well. Before the four notes, the same comment was a speaker note and this warning covered it; keeping the
+// warning is what keeps "a plain comment goes nowhere" from becoming a silent leak.
+let plainCommentCount = null;
+function plainComments() {
+  if (plainCommentCount === null) {
+    plainCommentCount = 0;
+    notesCore.rewriteComments(md, (body) => {
+      if (notesCore.isPrivateComment(body) && !notesCore.noteOf(body)) plainCommentCount++;
+      return false;
+    });
+  }
+  return plainCommentCount;
+}
+// A deck written before the four notes kept its speaker notes as plain comments, which are no notes now: its PDF,
+// PowerPoint or player would ship with none and no word why (the inversion on PR 3351). Asked once per run, from every
+// export with a notes channel, by the linter's own rule (HARD RULE #7), so the CLI and lint never disagree on the shape.
+let oldNotesHinted = false;
+function hintOldNotes() {
+  if (QUIET || STRIP_NOTES || oldNotesHinted) return;
+  oldNotesHinted = true;
+  const { findPlainCommentNotes } = require('./lib/authoring/lint-core');
+  const [f] = findPlainCommentNotes(md);
+  if (f) console.warn(`  note: ${f.message} Run \`lattice migrate notes ${mdFile || 'deck.md'}\` to turn them into @note.`);
+}
+function warnShippedNotes(what, { carriesSource = false } = {}) {
+  hintOldNotes();
+  if (QUIET) return;
   const n = materializedNotes.filter(Boolean).length;
-  if (QUIET || !n) return;
-  console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+  if (n) console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+  const c = carriesSource && !STRIP_NOTES ? plainComments() : 0;
+  if (c) console.warn(`  ⚠ ${c} plain comment${c === 1 ? '' : 's'} ride${c === 1 ? 's' : ''} in the deck source this ${what} carries — anyone who opens the file can read ${c === 1 ? 'it' : 'them'}. Export with --strip-notes to remove ${c === 1 ? 'it' : 'them'}.`);
 }
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
-// Per-slide inline `<!-- say: … -->` read-as text (Layer 1, §16) — the highest-precedence
+// Per-slide `<!-- @say{…} -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
 // say line is public-facing narration (it reaches the caption track), not a private note, so it is NOT blanked
 // by `--strip-notes` (which removes the note channel) — the two flags compose.
 //
 // Under `--strip-say` this is empty BY CONSTRUCTION, not by a second rule: pass 2 rendered a
 // source with the say comments already gone, so there is nothing here to extract and every
-// slide falls back to the generated projection. The explicit `inlineForMerge` / `fmForMerge`
+// slide falls back to the generated projection. The explicit `inlineForMerge`
 // clearing further down stays as belt and braces, the same way `materializedNotes` does.
 const slideSayLines = notesCore.extractSlideSayLines(slides);
-// Per-slide READER notes (a record's `reader` field, engineering/decisions/2026-10-17-meta-record.md §4.4): text for
-// whoever opens the exported file, not for the presenter. D8: PPTX and PDF carry it in the notes channel as a labeled
-// `Reader:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A reader note is
+// Per-slide HANDOUT notes (`<!-- @handout{…} -->`, engineering/decisions/2026-11-20-four-notes.md): text for whoever
+// reads the deck alone, later, not for the presenter. PPTX and PDF carry it in the notes channel as a labeled
+// `Handout:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A handout is
 // meant to ship, so `--strip-notes` (the PRESENTER's channel) keeps it: that flag removes what is private.
-const slideReaderNotes = notesCore.extractSlideReaderNotes(slides);
-const exportedNotes = notesCore.withReaderNotes(materializedNotes, slideReaderNotes);
+const slideHandouts = notesCore.extractSlideHandouts(slides);
+const exportedNotes = notesCore.withHandoutNotes(materializedNotes, slideHandouts);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
   const description = slideDescriptions[i];
-  const reader = slideReaderNotes[i];
-  if (!note && !description && !reader) return stripped;
+  const handout = slideHandouts[i];
+  if (!note && !description && !handout) return stripped;
   let inject = '';
   let sectionAttr = '';
   // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
   // (it is spoken by the presenter, not read by a screen reader). `--strip-notes`
   // omits it so the shared player's DOM carries no speaker text.
   if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
-  // Reader note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
-  // and keep it off the presenter's view (D8).
-  if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escapeHtml(reader)}</aside>`;
+  // Handout note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
+  // and keep it off the presenter's view.
+  if (handout) inject += `<aside class="lattice-handout" hidden data-slide="${i + 1}">${escapeHtml(handout)}</aside>`;
   // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
   // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
   // text alternative for a screen-reader user; sr-only keeps it off the rasterized
@@ -3452,7 +3685,7 @@ fs.writeFileSync(outHtml, cleanDocHtml);
 // Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
 // rewrites the file, so its count is the pre-split one. The `.html` branch logs the
 // final rendered-page count instead, and one line beats two disagreeing ones.
-if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+if (!QUIET && OUT_FORMAT !== 'html' && OUT_FORMAT !== 'lattice') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -4872,7 +5105,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
     // every annotation in the deck (see notesPerRenderedPage).
-    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true });
+    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { handout: true });
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
@@ -4887,7 +5120,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
-    warnShippedNotes('PDF');
+    warnShippedNotes('PDF', { carriesSource: EMBED_SOURCE || REOPENABLE });
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
@@ -4911,7 +5144,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true }));
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { handout: true }));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     finalBytes = await embedLatticeInPdf(finalBytes);
@@ -4934,7 +5167,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
-    warnShippedNotes('PDF');
+    warnShippedNotes('PDF', { carriesSource: EMBED_SOURCE || REOPENABLE });
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
@@ -5318,15 +5551,15 @@ async function renderBody(browser, g, closeBrowser) {
       if (OFFICE_ICON_SHAPES) await g(() => page.$$eval('section[data-lattice-slide]', (els) => { for (const el of els) el.classList.add('icon-svg'); }), 'icons as shapes');
       const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
-      const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
       const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {
-        title: path.basename(outFile).replace(ext, ''),
+        title: deckTitle,
+        lang: deckLang,
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
+      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { handout: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
@@ -5334,7 +5567,7 @@ async function renderBody(browser, g, closeBrowser) {
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
-        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file');
+        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file', { carriesSource: REOPENABLE && OUT_FORMAT === 'pptx' });
       }
     } else {
       const pngBuffers = [];
@@ -5359,7 +5592,8 @@ async function renderBody(browser, g, closeBrowser) {
         // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
         const { writePptx } = require('./lib/export/pptx-export');
         const count = await writePptx(outFile, pngBuffers, {
-          title: path.basename(outFile).replace(/\.pptx$/i, ''),
+          title: deckTitle,
+          lang: deckLang,
           company: `Lattice · ${paletteName}`,
           width: slideW,
           height: slideH,
@@ -5368,9 +5602,9 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { handout: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
-        warnShippedNotes('PowerPoint file');
+        warnShippedNotes('PowerPoint file', { carriesSource: REOPENABLE });
       }
     }
   }
@@ -5384,7 +5618,7 @@ async function renderBody(browser, g, closeBrowser) {
   let playerNarration;
   if (PLAYER && NARRATE) {
     try {
-      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { reader: true }).length;
+      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { handout: true }).length;
       const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
@@ -5509,9 +5743,8 @@ async function renderBody(browser, g, closeBrowser) {
         consentOrigins: PLAYER_CONSENT,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-say` that source is re-serialized WITHOUT the
-        // respective comments (directive-safe: notes match only the exact bodies lifted
-        // from the render; say lines match the `say:` prefix), so the shared file leaks
-        // no speaker text and/or no say text. A stripped file re-imports without them —
+        // respective comments (directive-safe: the kernel never takes a directive, a record
+        // or a pragma), so the shared file leaks no private comment and/or no say text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
         //
         // `md`, the deck as authored, NOT `rawMd`: the plugins' bakes have replaced every
@@ -5537,10 +5770,10 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         theme: { name: paletteName, mode: PLAYER_MODE ?? deckScheme },
         ...(playerNarration ? { narration: playerNarration } : {}),
-        // The engine's shallow front-matter parse doesn't read the nested `say:` map (it
-        // surfaces as `""`), so `config` normally carries no say text — but an inline
-        // `say: {…}` form would echo here. Under `--strip-say` drop the key outright
-        // so the envelope config can't carry ANY say-labeled text (privacy, not just the map).
+        // A deck written before 2026-11-20 may still hold a front-matter `say:` (or `captions:`)
+        // map, which nothing reads now; an inline `say: {…}` form would echo here. Under
+        // `--strip-say` drop both keys outright so the envelope config can't carry ANY
+        // say-labeled text.
         //
         // Parsed from `md`, the deck as authored, like `source` above: `deckFm` reads `rawMd`, whose
         // `glossary: auto` trigger the auto-glossary strips once it has run, so the record described
@@ -5603,7 +5836,7 @@ async function renderBody(browser, g, closeBrowser) {
         // So the export says what it is about to disclose, and names the flag. Counts the
         // MATERIALIZED array, so under `--strip-notes` there is nothing to warn about and
         // this stays silent (#1833).
-        warnShippedNotes('player');
+        warnShippedNotes('player', { carriesSource: true });
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
         if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
@@ -5755,8 +5988,8 @@ async function renderBody(browser, g, closeBrowser) {
   if (CAPTIONS) {
     // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
     // RENDERED sections, so feeding it the authored array made the two lengths disagree
-    // the moment a slide split — and `mergeNarration` then dropped the projection (and
-    // the front-matter say: map with it) rather than misalign. One index space fixes all
+    // the moment a slide split — and `mergeNarration` then dropped the projection
+    // rather than misalign. One index space fixes all
     // three channels at once.
     const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
     await writeCaptionsSidecar(outFile, pageNotesForCaptions.length, slideSayLines, captionScript);
@@ -6332,7 +6565,7 @@ function attachableSource(src) {
       + `re-import with that block boundary changed. ${advice}`
     );
   }
-  const out = stripSharedSource(src, noteStripSet, cut.boundary);
+  const out = stripSharedSource(src, cut.boundary);
   attachableMemo.set(src, out);
   return out;
 }
@@ -6351,6 +6584,18 @@ function attachableSource(src) {
 //     import gates them exactly as it gates a `.lattice` from the Studio.
 //   · CLOCK — pinned like every PDF date (SOURCE_DATE_EPOCH, else the epoch), so a re-render of
 //     an unchanged deck writes the same payload bytes.
+//   · PHOTOS — what `photosToCarry` (lib/export/lattice-input.js) allows, at MAX_EMBEDDED_MEDIA_BYTES: the photos a
+//     `.lattice` input carried, as their bytes; a photo from `assets/`, cleaned as the Studio's "Keep original" stores
+//     one (`cleanAssetPhoto`), or left out and named with the reason. A `.lattice` OUTPUT uses the same function.
+/** Name every photo a carried deck leaves out, and why: one the cleaner refused, and the ones past the cap. */
+function reportPhotosLeftOut(carry, maxBytes, where) {
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  for (const r of carry.refused) console.warn(printableLine(`  ⚠ the photo ${r.name} is left out of ${where}: ${r.why}`));
+  if (carry.omitted.length) {
+    const n = carry.omitted.length;
+    console.warn(printableLine(`  ⚠ ${n} photo${n === 1 ? '' : 's'} left out of ${where} to stay under ${Math.floor(maxBytes / 1_048_576)} MB (or ${require('./lib/packages/limits.js').MAX_LATTICE_PHOTOS} photos): ${carry.omitted.join(', ')}`));
+  }
+}
 let reopenableMemo = null;
 function reopenableDate() {
   return new Date(resolveEpoch() * 1000);
@@ -6360,6 +6605,12 @@ function reopenableLattice() {
   const packages = [];
   if (installedTheme) packages.push({ type: 'theme', name: paletteName, files: packagesHome.readFolder(installedTheme.dir) });
   for (const p of REOPENABLE_COMPONENTS) packages.push({ type: 'component', name: p.name, files: packagesHome.readFolder(p.dir) });
+  const { photosToCarry, mediaOf } = require('./lib/export/lattice-input.js');
+  const { assetNamesIn } = require('./lib/export/deck-assets.js');
+  const maxBytes = require('./lib/packages/limits.js').MAX_EMBEDDED_MEDIA_BYTES;
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetNamesIn(mdRaw)), maxBytes, now: reopenableDate().getTime(), confine: DECK_CONFINE });
+  reportPhotosLeftOut(carry, maxBytes, 'the re-openable copy');
+  const media = mediaOf(carry);
   const { buildLatticeZip } = require('./lib/core/reopenable');
   return (reopenableMemo = buildLatticeZip(require('jszip'), {
     source: attachableSource(mdRaw),
@@ -6367,6 +6618,7 @@ function reopenableLattice() {
     comments: [],
     now: reopenableDate().getTime(),
     packages,
+    ...(media ? { media } : {}),
     date: reopenableDate(),
   }));
 }
@@ -6436,6 +6688,8 @@ function writeNotesSidecar(outPath, notes) {
   const sidecar = outPath.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
+  // A deck written before 2026-11-20 kept its speaker notes as plain comments: asked for its notes, it gets none.
+  if (!blocks.length) hintOldNotes();
 }
 
 // The reading article's stylesheet for `--read`. Targets the `lp-*` class contract the
@@ -6469,6 +6723,8 @@ html,body{background:var(--bg,#fff)}
 #lat-read .lp-insight>*{margin:0}
 #lat-read .lp-insight>:last-child{padding-bottom:0}
 #lat-read .lp-note{border-top:1px solid var(--border,#ddd);padding:.6em 0 1.2em;color:var(--text-muted,#777);font-size:.92rem}
+#lat-read .lp-handout{border-left:3px solid var(--border,#ddd);margin:0 0 1.2em;padding:.1em 0 .1em 1em;color:var(--text-body,#333)}
+#lat-read .lp-handout>p:last-child{padding-bottom:0}
 #lat-read .lp-video{margin:0;padding:.2em 0 1.2em}
 #lat-read .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--bg-alt,#f7f7f7);color:var(--text-heading,#111);font-weight:600;text-decoration:none}
 #lat-read .lp-video-link:hover{border-color:var(--accent,#4338ca)}
@@ -6854,24 +7110,20 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 }
 
 // THE DECK'S NARRATION, resolved once for every CLI consumer: the `--captions` sidecars and the
-// `--narrate` voice (lattice video deck.md). Inline say line, then front-matter say: map, then the
+// `--narrate` voice (lattice video deck.md). The slide's `@say{…}`, then the
 // slide's own content projected to speech, with chart narration and emphasis — so the sentences a
 // voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
 async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration, refsForResolved } = require('./lib/core/read-along-build.js');
-  // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
-  // front-matter `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
-  // the shared resolver so both producers can't drift (#904).
-  let acronyms;
-  let lexicon; // author `lexicon:` — a token (glyph or word) → spoken; beats the built-in commons
-  let fmSayMap;
+  // Deck term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs —
+  // engineering/decisions/2026-11-16-terms-registry.md) → key→spoken map. Parsed once from the
+  // shared resolver so both producers can't drift (#904).
+  let terms;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   let bookends; // the `greeting:` / `closing:` kernel (lib/core/resolve-bookends.mjs); a caption file has no viewer clock, so it takes the NEUTRAL greeting
   try {
-    const { acronymSpokenMap, frontMatterSayMap, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-narration.mjs');
-    acronyms = acronymSpokenMap(rawMd);
-    lexicon = lexiconMap(rawMd);
-    fmSayMap = frontMatterSayMap(rawMd);
+    const { termsSpokenMap, frontMatterLang } = await import('./lib/core/resolve-narration.mjs');
+    terms = termsSpokenMap(rawMd);
     lang = frontMatterLang(rawMd);
     const bookendsMod = await import('./lib/core/resolve-bookends.mjs');
     bookends = bookendsMod; // resolved against the slides' narration below, once it is known
@@ -6922,8 +7174,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // heading-only caption. Run the SAME shared narrateChart the live Studio Present uses
   // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
   // substitute its FULL-slide narration for the figure projection at that index. It
-  // sits at the PROJECTION precedence level (mergeNarration still lets an inline
-  // say line or a front-matter say: entry win), exactly as Present's narrationAt
+  // sits at the PROJECTION precedence level (mergeNarration still lets the slide's
+  // `@say{…}` win), exactly as Present's narrationAt
   // orders chart → projection. `splitSourceToSections` recovers each rendered
   // section's SOURCE Markdown from the engine's OWN `hr`-token boundary (bake headings
   // boundaries → `---`, then group on markdown-it's hr tokens), so blocks[i] ⇔ section i
@@ -6980,58 +7232,24 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
       if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);
     }
   }
-  // The front-matter `say:` map is keyed by AUTHORED slide number, but the say-line array is indexed
-  // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
-  // number-keyed say line would misbind past a split — so drop the front-matter map under autosplit
-  // (with a note). Inline `<!-- say: -->` is unaffected: it rides with its section, staying
-  // index-aligned. (Present resolves the same map through the original source index; the export has
-  // no such map here.) NOTE: say lines are NOT stripped by `--strip-notes` — that flag removes the
-  // private NOTE channel; a say line is public-facing narration the author opts into via `--captions`.
-  // Front-matter `say:[n]` is keyed by AUTHORED slide, and splitting changes the
-  // page count — so the keys stop lining up the moment a slide paginates. This used to
-  // DROP the whole map on any split deck, which was survivable while splitting was
-  // opt-in and is not now that it is intrinsic: every deck with a split slide would
-  // silently lose its authored say lines. Remap instead. `authoredIndexPerPage` recovers
-  // page → authored slide from the contiguous `data-split-run` groups, so a say line
-  // written for slide 4 reaches every page slide 4 became — the same treatment notes
-  // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
+  // NOTE: say lines are NOT stripped by `--strip-notes` — that flag removes the private NOTE channel; a say line is
+  // public-facing narration the author opts into via `--captions`. A `@say{…}` rides with its section, so it stays
+  // aligned past a split.
   // page → authored slide (1-based), from the contiguous `data-split-run` groups; [] when the
-  // document has no lattice sections. Read by the say-map remap and the glossary blank below.
+  // document has no lattice sections. Read by the glossary blank below.
   const pageOrigin = () => {
     const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
     if (at < 0) return [];
     const pages = splitSections(cleanDocHtml.slice(at)).filter((x) => x.type === 'section');
     return require('./lib/core/auto-split').authoredIndexPerPage(pages);
   };
-  let fmForMerge = fmSayMap;
-  if (fmSayMap?.size) {
-    // `say:` is keyed by AUTHORED slide number, which counts hidden slides; the pages count only shown ones. Map each
-    // page's shown-slide number back through `sectionIndex` (identity when nothing is hidden).
-    const shownAt = slides.sectionIndex;
-    const origin = pageOrigin().map((n) => (shownAt && shownAt[n - 1] !== undefined ? shownAt[n - 1] + 1 : n));
-    // Only rebuild when the split actually moved something; an unsplit deck keeps the
-    // authored map byte-for-byte, so a deck that never paginates is unaffected.
-    // ANY page whose authored slide is not its own position needs the remap. Testing only the LAST page missed a deck
-    // where a split adds exactly the pages hidden slides remove (the second checker's finding).
-    if (origin.some((a, i) => a !== i + 1)) {
-      const remapped = new Map();
-      origin.forEach((authored, i) => {
-        if (fmSayMap.has(authored)) remapped.set(i + 1, fmSayMap.get(authored));
-      });
-      fmForMerge = remapped;
-      if (!QUIET) console.log(`Captions: front-matter say: map remapped across split or hidden slides — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
-    }
-  }
-  // `--strip-say` blanks the author's say OVERRIDES (inline + front-matter), so those
-  // slides fall back to the generated projection — the deck still gets an auto caption track.
-  // It no longer has anything to do with `--strip-notes`: a note is not a narration source, so
-  // stripping the public channel cannot hand anyone the private one (it used to, and the help
-  // text for this flag had to warn you to strip twice). Inline say lines come in via the
-  // `sayLines` arg; drop both here.
+  // `--strip-say` blanks the author's `@say{…}` lines, so those slides fall back to the generated
+  // projection — the deck still gets an auto caption track. It has nothing to do with
+  // `--strip-notes`: a note is not a narration source, so stripping the public channel cannot
+  // hand anyone the private one.
   const inlineForMerge = STRIP_SAY ? [] : sayLines;
-  if (STRIP_SAY) fmForMerge = null;
-  // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
-  const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge, fmSayMap: fmForMerge });
+  // Precedence, highest first: the slide's `@say{…}` → projection.
+  const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge });
   // THE AUTO-GLOSSARY PAGES ARE SILENT, as they are in the Studio. `glossary: auto` appends one
   // slide per glossary page, which the source does not contain, always last; Present never shows it, so the Studio has no clip for
   // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
@@ -7066,9 +7284,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
-    acronyms,
+    terms,
     emphasis,
-    lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
     bookends: bookendTexts,
   });
@@ -7077,8 +7294,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // its segment hashes are the ones the Studio would write for the same text.
   const inputs = {
     ...(lang ? { lang } : {}),
-    ...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
-    ...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+    // LTT 1.0's `acronyms` input hashes the whole term registry (narration-bake.ts does the same).
+    ...(terms?.size ? { acronyms: Object.fromEntries(terms) } : {}),
   };
   return { readAlong, slideTexts, emphasis, refs, inputs };
 }
@@ -7088,8 +7305,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
 // offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
 // EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
-// DOM speech projection, unless the author overrode it — an inline `<!-- say: -->`
-// or a front-matter `say:` entry replaces the generated line entirely. A speaker
+// DOM speech projection, unless the author overrode it — a `<!-- @say{…} -->` replaces
+// the generated line entirely. A speaker
 // note is NOT a source: it is the author's, and nothing here reads it. (It was the top
 // rung until 2026-08-24, which is how a private remark reached a recipient's caption
 // sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)

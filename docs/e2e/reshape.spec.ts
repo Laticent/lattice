@@ -12,14 +12,16 @@ import { expect, gotoStudio, persistedSource, setEditorContent, test } from './s
  * (HARD RULE #23) — so these read the persisted deck source after each pick.
  *
  * Both branches of the model are exercised on real catalog components:
- *   - `kpi` declares five looks but NO `variantAxes`, so they are unclassified and each
- *     tile TOGGLES — picking never stacks forever, and never silently strips.
+ *   - `logo-wall` declares two looks (`color`, `dense`), both real modifiers with their own CSS, and NO
+ *     `variantAxes`, so they are unclassified and each tile TOGGLES — picking never stacks forever, and
+ *     never silently strips. (These tests used `kpi` until #3224 gave its looks an exclusive Layout axis;
+ *     an unclassified look needs a component whose looks are still unclassified.)
  *   - `map` ships real axes (`Basemap` exclusive with a `world` default, plus independent
  *     modifiers), so the basemap swaps while the modifiers survive untouched.
  */
 
 const FM = ['---', 'theme: indaco', 'paginate: true', '---', ''].join('\n');
-const KPI_DECK = [FM, '<!-- _class: kpi -->', '', '## Revenue ahead of plan.', '', '1. $2.4B', '   - Total revenue', '   - target $2.2B · +9%', ''].join('\n');
+const WALL_DECK = [FM, '<!-- _class: logo-wall -->', '', '`Trusted by`', '', '## Six partners already run the program.', '', ...['acme', 'globex', 'vantage', 'umbra', 'meridian', 'helios'].map((n) => `- ![${n}](sample:logo-${n}.svg)`), ''].join('\n');
 const MAP_DECK = [FM, '<!-- _class: map world highlight -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', '- India `2.8`', ''].join('\n');
 
 /** The `_class` tokens of the persisted deck's only slide. */
@@ -39,23 +41,23 @@ const settled = (page: Page) => expect.poll(() => classTokens(page), { timeout: 
 
 test('an unclassified look toggles — it never stacks forever @studio', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, KPI_DECK);
-	await settled(page).toEqual(['kpi']);
+	await setEditorContent(page, WALL_DECK);
+	await settled(page).toEqual(['logo-wall']);
 
 	// The reported symptom: `_class` grew on every visit to the gallery and never shrank.
-	await pick(page, 'Reshape to ops');
-	await settled(page).toEqual(['kpi', 'ops']);
+	await pick(page, 'Reshape to color');
+	await settled(page).toEqual(['logo-wall', 'color']);
 
-	// A second look stacks — kpi declares no axes, so the Studio does not claim to know
+	// A second look stacks — logo-wall declares no axes, so the Studio does not claim to know
 	// these are mutually exclusive. What it must never do is grow without bound…
-	await pick(page, 'Reshape to spotlight');
-	await settled(page).toEqual(['kpi', 'ops', 'spotlight']);
+	await pick(page, 'Reshape to dense');
+	await settled(page).toEqual(['logo-wall', 'color', 'dense']);
 
 	// …because every look can be taken straight back off, which is what was impossible.
-	await pick(page, 'Remove spotlight');
-	await settled(page).toEqual(['kpi', 'ops']);
-	await pick(page, 'Remove ops');
-	await settled(page).toEqual(['kpi']);
+	await pick(page, 'Remove dense');
+	await settled(page).toEqual(['logo-wall', 'color']);
+	await pick(page, 'Remove color');
+	await settled(page).toEqual(['logo-wall']);
 });
 
 test('Default keeps the universal slide settings it never offered @studio', async ({ page }) => {
@@ -100,15 +102,15 @@ test('an active toggle warns a SIGHTED author that the click removes @studio', a
 	// The removal affordance used to live only in the accessible name: the visible badge
 	// still read "Current", so a sighted author had no warning a click deletes a token.
 	await gotoStudio(page);
-	await setEditorContent(page, KPI_DECK);
-	await settled(page).toEqual(['kpi']);
-	await pick(page, 'Reshape to ops');
-	await settled(page).toEqual(['kpi', 'ops']);
+	await setEditorContent(page, WALL_DECK);
+	await settled(page).toEqual(['logo-wall']);
+	await pick(page, 'Reshape to color');
+	await settled(page).toEqual(['logo-wall', 'color']);
 
 	await page.getByRole('button', { name: 'Reshape slide' }).click();
-	const opsTile = page.getByRole('button', { name: 'Remove ops', exact: true });
-	await expect(opsTile).toHaveAttribute('aria-pressed', 'true');
-	await expect(opsTile).toContainText('Current ×');
+	const tile = page.getByRole('button', { name: 'Remove color', exact: true });
+	await expect(tile).toHaveAttribute('aria-pressed', 'true');
+	await expect(tile).toContainText('Current ×');
 });
 
 test('a classified component swaps within its axis and keeps the rest @studio', async ({ page }) => {

@@ -27,7 +27,7 @@ describe('scanMetaSource', () => {
     const s = m.scanMetaSource('```\n<!-- _class: x -->\n```\n\n<!-- {layout=content} -->\n\n<!-- a note -->\n').slides.at(-1);
     assert.deepEqual([...s.resolved.keys()], ['class']);
     assert.equal(s.resolved.get('class').value, 'content');
-    assert.deepEqual(s.comments.map((c) => c.kind), ['directive', 'note']);
+    assert.deepEqual(s.comments.map((c) => c.kind), ['directive', 'comment']);
   });
   test('a record in a list item or a blockquote is classified, never resolved (D1: the engine does not apply it)', () => {
     const s = m.scanMetaSource('- item\n  <!-- {layout=cards} -->\n\n> <!-- {layout=cards} -->\n').slides.at(-1);
@@ -37,12 +37,16 @@ describe('scanMetaSource', () => {
 });
 
 describe('classifyComment and directiveKey', () => {
-  test('directive, marker, record, note', () => {
+  test('directive, marker, record, note, comment', () => {
     assert.deepEqual(m.classifyComment(' _class: x '), { kind: 'directive', key: 'class', spot: true });
     assert.equal(m.classifyComment(' stress-slide ').kind, 'marker');
     assert.equal(m.classifyComment(' {layout=content} ').kind, 'record');
     assert.equal(m.classifyComment(' @meta{a=b} ').kind, 'record');
-    assert.equal(m.classifyComment(' remember to smile ').kind, 'note');
+    // A note is named (engineering/decisions/2026-11-20-four-notes.md); anything else is the author's plain comment.
+    for (const name of ['note', 'say', 'alt', 'handout']) assert.equal(m.classifyComment(` @${name}{remember to smile} `).kind, 'note', name);
+    assert.equal(m.classifyComment(' remember to smile ').kind, 'comment');
+    assert.equal(m.classifyComment(' say: the old say key ').kind, 'comment');
+    assert.equal(m.classifyComment(' @Say{a near miss} ').kind, 'comment');
   });
   test('a bare key is a directive only when the key may be bare', () => {
     assert.equal(m.directiveKey('_build'), 'build');
@@ -139,13 +143,23 @@ describe('the comment finder is linear on hostile text', () => {
 });
 
 describe('hostile-input cost, round 1 findings', () => {
-  test('many comments against many fences stay linear (the fence scan advances one pointer)', () => {
-    // Counted, not timed (HARD RULE #32): one step per opener and one per fence the pointer passes. Linear is about
-    // 2 x 8,000; scanning every fence per comment, the path this guards, is about 8,000 x 8,000 / 2.
+  test('many comments against many fences stay linear (the line pointer only advances)', () => {
+    // Counted, not timed (HARD RULE #32): one step per opener and one per line the pointer passes. Linear is
+    // 8,000 openers + 24,000 lines; looking each opener's block up from the top, the path this guards, is about
+    // 8,000 x 24,000 / 2.
     const t = '```\n```\n<!-- x -->\n'.repeat(8000);
     const work = { steps: 0 };
-    m.comments(t, work);
-    assert.ok(work.steps <= 2 * 8000 + 2, `comments x fences took ${work.steps} steps, the quadratic path`);
+    assert.equal(m.comments(t, work).length, 8000);
+    assert.ok(work.steps <= 8000 + 3 * 8000 + 2, `comments x fences took ${work.steps} steps, the quadratic path`);
+  });
+  test('openers in many paragraphs before one far closer are one search for it, not one each', () => {
+    // Counted, not timed (HARD RULE #32). Each paragraph's `<!--` has no closer in its own leaf; the first cut searched for
+    // `-->` from every one of them to the one at the end, about n x n / 2 characters (15 s at 320 KB). The closer is
+    // remembered now, so the search covers the text about once.
+    const t = `${'p <!--\n\n'.repeat(20000)}-->\n`;
+    const { result, scanned } = scanWork(() => m.comments(t, { steps: 0 }));
+    assert.deepEqual(result, []);
+    assert.ok(scanned <= 20 * t.length, `${scanned} chars scanned for ${t.length}`);
   });
   test('many unterminated openers on separate lines are one failed scan, not one each', () => {
     // Counted, not timed (HARD RULE #32): about 8 times the text today. A walk that searched for `-->` from every
@@ -195,10 +209,9 @@ describe('writeMeta on records: the inversion’s cases', () => {
     assert.equal(edit.writeMeta('<!-- {layout=cards, footer=Q3} -->\n\n# Hi', { footer: 'a\r\nb' }), '<!-- {layout=cards, footer=a b} -->\n\n# Hi');
     // `with-icon` is not a word of the icon register (it has no on/off axis), so it stays in `class`.
     assert.equal(edit.writeMeta('<!-- {layout=cards} -->\n# Hi', { class: 'cards with-icon' }), '<!-- {layout=cards, class=with-icon} -->\n# Hi');
-    // A note channel in two records: both read, one value written.
-    const two = '<!-- {note=one} -->\n<!-- {note=two} -->\n# A';
-    assert.equal(edit.readRecordChannel(two, 'note'), 'one\n\ntwo');
-    assert.equal(edit.writeRecordChannel(two, 'note', 'X'), '<!-- {note=X} -->\n# A');
+    // A note reading `class:` is a note, never a directive, whichever way it is written.
+    assert.equal(edit.readMetaField('<!-- @note{class: the cohort we sold to} -->\n\n# One', 'class').present, false);
+    assert.equal(Object.hasOwn(edit, 'readRecordChannel') || Object.hasOwn(edit, 'writeRecordChannel'), false, 'a record holds no note channel to edit');
   });
   test('a finish word or a variant swap stays typed', () => {
     assert.equal(edit.writeMeta('<!-- {layout=cards, finish=ledger} -->\n# A', { class: 'cards finish-halo' }), '<!-- {layout=cards, finish=halo} -->\n# A');

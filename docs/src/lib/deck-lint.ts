@@ -147,7 +147,7 @@ function paneMarkerLines(src: string): number {
 }
 
 /** The component label for a single slide — the class the ENGINE would apply to it, or
- *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
+ *  `content` for a bare-Markdown slide (the default component, named as Source names it). Drives the slide-navigator chips.
  *
  *  THE LAST directive, not the first, because that is what the engine applies — measured:
  *  `<!-- _class: big-number -->` … `<!-- _class: stats -->` on one slide renders `stats
@@ -164,9 +164,71 @@ export function slideClass(slideSrc: string): string {
 	if (found.length) {
 		const payload = found[found.length - 1].payload;
 		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
-		return componentOf(payload) || (panes ? 'panes' : 'text');
+		return componentOf(payload) || (panes ? 'panes' : 'content');
 	}
-	return panes ? 'panes' : 'text';
+	return panes ? 'panes' : 'content';
+}
+
+// A slide's text as the class scan needs it (see `slideClasses`): '.' when it holds no comment, else the text with each long
+// base64 payload cut to a marker. A scan with `indexOf`, not a regex: `/;base64,[A-Za-z0-9+/=]{1024,}/g` took 316 ms over a
+// 60 MB deck of phone photos (the checker on #3239), where this takes a pass over the payload's characters once per text.
+const LEAN = new Map<string, string>();
+/** Characters `slideClasses` has read to cut payloads: a count of work a test asserts on (HARD RULE #32), never a timing. */
+export const slideClassesStats = { charsCut: 0 };
+const B64 = new Uint8Array(128);
+for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=') B64[c.charCodeAt(0)] = 1;
+function leanSlide(text: string): string {
+	// The cache first: `includes` would read a photo slide's megabytes again on every keystroke.
+	let v = LEAN.get(text);
+	if (v !== undefined) return v;
+	if (!text.includes('<!--')) v = '.';
+	if (v !== undefined) {
+		if (LEAN.size > 2048) LEAN.clear();
+		LEAN.set(text, v);
+		return v;
+	}
+	slideClassesStats.charsCut += text.length;
+	const head = ';base64,';
+	let out = '';
+	let from = 0;
+	for (let at = text.indexOf(head); at >= 0; at = text.indexOf(head, at + 1)) {
+		const start = at + head.length;
+		let end = start;
+		while (end < text.length && B64[text.charCodeAt(end)] === 1) end++;
+		if (end - start >= 1024) {
+			out += `${text.slice(from, start)}x`;
+			from = end;
+		}
+		at = end - 1;
+	}
+	v = from ? out + text.slice(from) : text;
+	if (LEAN.size > 2048) LEAN.clear();
+	LEAN.set(text, v);
+	return v;
+}
+
+/**
+ * `slideClass` for every engine slide of a deck at once, in order: `texts` are the slides' texts (a `---` slide's heading parts
+ * each count as one). A slide with no class comment of its own takes the running `<!-- class: … -->` from the slides before it,
+ * as the engine does; `slideClass` on one slide's text alone cannot see that, and the strip and the map labelled such a slide
+ * `text` (PR #3239). The parts are joined on `---`, so the class-directive kernel resolves the running class across them
+ * exactly as it does across `---` slides; if that ever cuts them differently, each is read on its own.
+ */
+export function slideClasses(texts: readonly string[]): string[] {
+	if (texts.length < 2) return texts.map((t) => slideClass(t));
+	// Only a slide with a comment can set a class; the others stand in as one character, and a pasted photo's base64 is cut
+	// short, so a deck of phone photos is not scanned whole on every keystroke. Kept per slide text, so a keystroke re-cuts
+	// only the slide it touched.
+	const lean = texts.map(leanSlide);
+	const dirs = slideClassDirectives(lean.join('\n\n---\n\n'));
+	if (dirs.length !== texts.length) return texts.map((t) => slideClass(t));
+	return texts.map((t, i) => {
+		const payload = dirs[i]?.payload ?? '';
+		const panes = paneMarkerLines(t) >= 2;
+		if (!payload) return panes ? 'panes' : 'content';
+		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
+		return componentOf(payload) || (panes ? 'panes' : 'content');
+	});
 }
 
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;
@@ -196,7 +258,7 @@ export type PresentLens = string;
 
 /** The slides to present under a reader lens, EACH PAIRED with its original 0-based deck index (the
  *  author's slide order) — so a filtered/reordered lens still maps every shown slide back to the number
- *  the author wrote, which the front-matter `say:` map is keyed on. Pure; always non-empty for a
+ *  the author wrote. Pure; always non-empty for a
  *  non-empty deck under `full` (falls back to the full deck for an unknown lens rather than nothing).
  *
  *  Projection source: when `registry` defines `lens`, the deterministic, tag-driven @laticent/lente
@@ -230,8 +292,7 @@ export function presentationSet(slides: string[], lens: PresentLens, registry?: 
 
 /** The ORIGINAL 0-based deck index of each slide in `presentationSet(slides, lens)`,
  *  positionally aligned: `presentationIndices(...)[i]` is the author slide index of the
- *  i-th presented slide. So a number-keyed front-matter say: entry resolves under ANY lens —
- *  `fmSayMap.get(presentationIndices(slides, lens)[i] + 1)` — not just `full`. */
+ *  i-th presented slide, under ANY lens, not just `full`. */
 export function presentationIndices(slides: string[], lens: PresentLens, registry?: LensRegistry): number[] {
 	return presentationPairs(slides, lens, registry).map((p) => p.index);
 }

@@ -63,6 +63,8 @@ Studio remembers which one the author picked.
 | Surface | Where | What it is for |
 |---|---|---|
 | **Editor** | toggle "Compose" / "Source" at the top of the pane (the phone bar has the same two cells, Compose first) | Write the deck as rich text in Compose, or as Markdown in Source. Both change the same deck; ⌘K "Write in Compose" / "Write in Source" switches too. |
+| **Empty deck** | Compose, while the deck has no text after its settings | No slide bar: a line to write on and a grid of four starting slides; the floating "New slide" button returns with the first slide. The default layout is named `content` everywhere, as in Source. |
+| **Slide bar** | above each slide in Compose | The active slide's pill, in two groups: the layout button (`cards-grid ▾`), "Add slide below", Insert and "Slide settings", then the styles of the block under the caret. One row on a wide pane; on a narrow one the styles take a second row. Undo and Redo are in the editor's edit bar (the header on a phone), with Find and replace (⌘F; on a phone, in the drawer). When the editor pane is narrow, the edit bar moves its less-used controls (Version history, Slide settings, Reshape, Fix all) into its More (⋯) menu rather than overflowing. Every other slide shows its layout button quietly on its line, so the column of slides reads as a list of layouts. The layout button opens the slide's looks and the layouts its manifest names as alternatives, each with when to use it; a pick applies at once, and one Undo takes back the whole visit. |
 | **Preview** | beside the editor | The rendered slide. Overflow shows as a ring. |
 | **Slide strip** | the row of slide thumbnails | Every slide as a thumbnail; move, duplicate, delete. |
 | **Command palette** | ⌘K / Ctrl+K | Search and run any Studio verb. |
@@ -143,8 +145,16 @@ opens the presenter's second window; Esc leaves.
 
 **Common jobs**
 
-1. **Start a deck**: ⌘K → "New deck", then write in Compose. To bring in a
-   whole Markdown deck, paste it into Source.
+1. **Start a deck**: ⌘K → "New deck". An empty deck shows no slide in
+   Compose: one line to write on and four starting slides (`title`, `content`,
+   `cards-grid`, `big-number`), with "Browse all … layouts" for the rest. Typing
+   starts a `content` slide, and one Undo empties the deck again. Preview says
+   "No slides yet" and Present has nothing to play. Markdown pasted
+   into Compose arrives as slides, layouts and formatting (⌘⇧V pastes it as
+   plain text). A pasted deck's front matter (theme, size, pagination) is
+   applied to the open deck, key by key; Undo takes it back. Copying
+   from Compose gives Markdown: a phrase as `**bold**`, slides with their
+   layouts and `---` breaks, the whole deck as the deck file.
 2. **Open a file**: "Import deck…" or drop the file on the Studio. It opens
    `.md`, `.lattice`, and a webpage, PDF or PowerPoint that Lattice exported
    re-openable. See `import.md`.
@@ -153,10 +163,12 @@ opens the presenter's second window; Esc leaves.
    `fix-findings.md`.
 4. **Ask the chat**: open Chat and say what you want. The chat has three
    modes on its composer bar: **Talk** (reads and answers, changes nothing),
-   **Review** (the default: edits arrive as one diff card per turn and wait
-   for Apply) and **Auto** (for this visit only: a clean edit applies at once,
+   **Review** (the default: edits arrive as one card per turn and wait for
+   Apply; each slide in the card has its own Apply, Discard, Preview and,
+   once applied, Undo, and Apply all sits at the card's bottom right) and **Auto** (for this visit only: a clean edit applies at once,
    undo from History; an edit that deletes slides or rewrites most of the deck
-   still waits for Apply). From Review, one press of the mode button reaches
+   still waits for Apply). A message sent before a model is connected waits, and the chat
+   answers it once one is. From Review, one press of the mode button reaches
    Talk and two reach Auto.
 5. **Change the look**: the Deck panel, or ask the chat. See `restyle-deck.md`.
 6. **Present**: ⌘K → "Present".
@@ -186,15 +198,19 @@ or a browser that evicts storage loses them. "Backup & restore" downloads
 `lattice-workspace.zip`: the Studio's store, a readable `decks/<slug>.md` for
 every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 
-**What the chat can do** (`AGENT_TOOLS` in
-`docs/src/components/studio/architect-agent.ts`; which tools each mode allows is
-`TOOL_TIERS` in `chat-actions.ts` — Talk gets only the reads):
+**What the chat can do** (one manifest per tool in `lib/use-cases/<id>/`, compiled
+into `docs/src/components/studio/chat-tools.generated.ts`; which tools each mode
+allows is each manifest's `tier` — Talk gets only the reads):
 
 | Tool | Does |
 |---|---|
 | `read_slides` | Reads the exact Markdown of slides in the open deck |
 | `edit_slides` | Stages `replace`, `insert` or `delete` on whole slides |
-| `set_front_matter` | Stages setting or removing one front-matter key |
+| `find_text` | Finds words across the deck: each match's slide, field (heading, body, spoken line, note, alt text…) and the words around it; front-matter matches listed apart. With `regex` it searches by pattern (a JavaScript regular expression, run off the page's main thread and stopped after 2 s) |
+| `replace_text` | Stages a find-and-replace across the deck's text, one diff row per slide, the way a word processor does it: the words change and their formatting stays. Characters Markdown reads as markup (`$`, `*`, `[`…) are escaped, so `$5` shows as $5. Never touches link or image targets, URLs, directives, code blocks, math, HTML, records or the front matter; a match that crosses formatting is left alone and reported. `preserve_case` keeps each match's case (`OCT` → `OCTOBER` in an all-caps eyebrow, `Oct` → `October`); `regex` replaces by pattern, with `$1`, `$<name>` and `$&` in the replacement |
+| `set_front_matter` | Stages setting or removing one single-line front-matter key |
+| `set_terms` | Stages adding, changing or removing deck terms (`terms:`, which absorbs `acronyms:` and `lexicon:`): how a word is spoken, what it stands for |
+| `preview_speech` | Shows what the voice says for up to 10 slides, read the way Present and the export read them (spoken line first, then the slide text, labeled approximate); lists the terms that fired and the odd words nothing covers |
 | `check_deck` | Runs the linter, the review and Mermaid's parser on the draft |
 | `read_component` | Reads one component's contract and skeleton |
 | `read_front_matter` | Reads how one front-matter key works |
@@ -222,7 +238,6 @@ A starter deck to paste into "New deck" (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: laguna
 paginate: true

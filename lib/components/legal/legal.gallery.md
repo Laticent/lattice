@@ -619,16 +619,16 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "Closing · list takeaway numbered" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "Closing · list takeaway over 1." -->
 
 ## What this deck delivers.
 
-- Six anchor layouts cover jurisdiction, quotation, regime matrix, motion, redline, and authority.
-- Five visual variants per anchor — the strongest of each becomes the shipped default.
-- Lean authoring: slot labels auto-lift, `[x] [-] [ ]` for state markers, pin-cite typography throughout.
-- Shared-kernel parity: the owned engine (CLI/PDF path + browser playground) and the runtime process the same transforms.
-- The other four variants per anchor can be deleted before graduation into the gallery.
+1. Six anchor layouts cover jurisdiction, quotation, regime matrix, motion, redline, and authority.
+1. Five visual variants per anchor — the strongest of each becomes the shipped default.
+1. Lean authoring: slot labels auto-lift, `[x] [-] [ ]` for state markers, pin-cite typography throughout.
+1. Shared-kernel parity: the owned engine (CLI/PDF path + browser playground) and the runtime process the same transforms.
+1. The other four variants per anchor can be deleted before graduation into the gallery.
 
 ---
 

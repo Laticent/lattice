@@ -4,31 +4,39 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import { Mark, type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
+import { search } from 'prosemirror-search';
 import { type Command, EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
-import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { closeFiloGroup, closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
+import { composeFindTarget } from '@/lib/compose/find-target';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { insertLineBreak } from '@/lib/compose/line-break-command';
 import { linkAt, linkBlocker, selectedLink, startLink } from '@/lib/compose/link-commands';
+import { markdownClipboardPlugin } from '@/lib/compose/markdown-clipboard';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { takePendingSelection } from '@/lib/compose/pending-selection';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
+import { pointerFocusCaret } from '@/lib/compose/pointer-focus-caret';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
+import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { isBlankDeck } from '@/lib/deck-empty';
 import { type CarriedColumn, lineOffsetIn, plainColumnOf, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
+import type { FindTarget } from '@/lib/find-types';
 import { notify } from '@/lib/notify';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { hasFinePointer } from '@/lib/use-breakpoint';
@@ -37,7 +45,6 @@ import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/checks-registry.js';
 import { CodeControls, FencePicker } from './code-controls';
-import { carrySay } from './deck-ops';
 import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
@@ -574,6 +581,10 @@ function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 // kernel's rule (`slidePanes`), read per doc and memoized by doc identity, the stateMarkerPlugin pattern.
 const paneKey = new PluginKey<DecorationSet>('cs-panes');
 
+/** What the layout menu (LayoutMenu.tsx, rendered by StudioShell) needs to open for one slide: which slide, and the
+ *  pill button to anchor a popover to. The menu reads the rest through the handle (`layoutOf`). */
+export type LayoutRequest = { slideIndex: number; anchor: HTMLElement };
+
 /** A pick from the pane gallery: the component, its look's modifiers, and its gallery skeleton
  *  when the pane starts fresh (null when it keeps its text). */
 export type PanePick = { cls: string; modifiers: string[]; skeleton: string | null };
@@ -612,11 +623,11 @@ function paneBar(view: EditorView, getPos: () => number | undefined, info: { dir
 	change.className = 'cs-pane-change';
 	change.disabled = locked || !open;
 	change.title = locked ? 'This slide is edited in Source' : 'Change what this pane holds';
-	change.setAttribute('aria-label', `${where} holds ${pane.cls === 'content' ? 'text' : pane.cls}. Change what this pane holds`);
+	change.setAttribute('aria-label', `${where} holds ${pane.cls}. Change what this pane holds`);
 	change.setAttribute('aria-haspopup', 'dialog');
 	const name = document.createElement('span');
 	name.className = 'cs-pane-name';
-	name.textContent = pane.cls === 'content' ? 'text' : pane.cls;
+	name.textContent = pane.cls;
 	const verb = document.createElement('span');
 	verb.className = 'cs-pane-verb';
 	verb.textContent = 'Change';
@@ -702,19 +713,11 @@ type FormatIsland = 'table' | 'code';
 // move — the applicable registers change as the caret moves between blocks WITHIN a slide, which
 // no node- or outer-decoration change would otherwise signal.
 const liveSlideViews = new Set<SlideView>();
-// THE UNDO BRIDGE. Compose keeps no undo stack: the Studio's one history (Filo) owns it. The pill's
-// Undo / Redo call `run`, and their enabled state is the Studio's `canUndo` / `canRedo`. Module
-// scoped because the pill lives in each slide's node view; only one Compose is ever mounted.
-const composeHistory: { run: (verb: 'undo' | 'redo') => void; canUndo: boolean; canRedo: boolean } = { run: () => {}, canUndo: false, canRedo: false };
-function syncHistoryButtons() {
-	for (const sv of liveSlideViews) {
-		try {
-			sv.syncHistory(composeHistory.canUndo, composeHistory.canRedo);
-		} catch (e) {
-			console.error('[compose] syncHistory', e);
-		}
-	}
-}
+// THE UNDO BRIDGE. Compose keeps no undo stack: the Studio's one history (Filo) owns it. A pane pick's Undo (`undoPane`)
+// calls `run`. Module scoped; only one Compose is ever mounted.
+const composeHistory: { run: (verb: 'undo' | 'redo') => void } = { run: () => {} };
+// ⌘F's way to the shell's find bar, module scoped for the same reason: the keymap is built once, the prop changes.
+const composeFind: { open: () => boolean } = { open: () => false };
 function formatSyncPlugin() {
 	return new Plugin({
 		view() {
@@ -724,10 +727,8 @@ function formatSyncPlugin() {
 					// runs inside view.updateState, so it would propagate out and ABORT the transaction's
 					// emit branch — silently dropping the author's edits. Contain any per-view error so one
 					// bad slide can never wedge the whole editor.
-					const { canUndo, canRedo } = composeHistory;
 					for (const sv of liveSlideViews) {
 						try {
-							sv.syncHistory(canUndo, canRedo);
 							sv.syncFormat();
 						} catch (e) {
 							console.error('[compose] syncFormat', e);
@@ -747,8 +748,6 @@ class SlideView {
 	private fmtGroup: HTMLElement;
 	// The pill, kept so its width can be held while the caret moves (`holdPillWidth`).
 	private pill: HTMLElement;
-	private undoBtn: HTMLButtonElement;
-	private redoBtn: HTMLButtonElement;
 	private dangerGroup: HTMLElement;
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
@@ -780,6 +779,12 @@ class SlideView {
 	// The slot the Insert menu island is portaled into, and whether it is mounted (only the active slide's bar is shown).
 	private insertSlot: HTMLElement;
 	private insertMounted = false;
+	// THE LAYOUT BUTTON — the slide's component by name, as the pill's first control on the active slide and as a quiet copy
+	// on every other slide (the pill is hidden there), so the column of slides reads as a list of layouts. One control in
+	// two places: the same name, the same chevron, the same menu. engineering/decisions/2026-11-15-compose-layout-button.md.
+	private layoutBtn: HTMLButtonElement;
+	private ghostBtn: HTMLButtonElement;
+	private layoutSig = '';
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -796,6 +801,8 @@ class SlideView {
 		private mountInsert?: (slot: HTMLElement | null, owner: SlideView) => void,
 		// What a delete of slide `i` takes, in words ("“Pricing” (3 slides)"), read lazily like the rest.
 		private describeDelete?: (index: number) => string,
+		// The layout button's opener (LayoutMenu.tsx, via StudioShell): the slide, and the button to anchor the menu to.
+		private openLayout?: (getPos: () => number | undefined, anchor: HTMLElement) => void,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -838,29 +845,10 @@ class SlideView {
 		this.fmtGroup.className = 'cs-sb-format';
 		this.fmtGroup.setAttribute('role', 'group');
 		this.fmtGroup.setAttribute('aria-label', 'Formatting');
-		const div = document.createElement('span');
-		div.className = 'cs-sb-div';
-		div.setAttribute('aria-hidden', 'true');
 		const actions = document.createElement('div');
 		actions.className = 'cs-sb-actions';
-		// COMPOSE-WIDE UNDO / REDO. ⌘Z is keyboard-only, and on a phone iOS's own undo (shake,
-		// three-finger swipe) lists only what the BROWSER edited, so an author who picked the wrong
-		// color had no way back. The pair drives the deck's one history (Filo, through the bridge
-		// above), from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
-		this.undoBtn = this.btn('Undo', 'undo-2', () => composeHistory.run('undo'), 'cs-pill-btn cs-undo', false);
-		this.redoBtn = this.btn('Redo', 'redo-2', () => composeHistory.run('redo'), 'cs-pill-btn cs-redo', false);
-		this.undoBtn.disabled = !composeHistory.canUndo;
-		this.redoBtn.disabled = !composeHistory.canRedo;
-		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
-		// and the insert doors on the first row.
-		const history = document.createElement('div');
-		history.className = 'cs-sb-actions';
-		history.setAttribute('role', 'group');
-		history.setAttribute('aria-label', 'History');
-		history.append(this.undoBtn, this.redoBtn);
-		const historyDiv = document.createElement('span');
-		historyDiv.className = 'cs-sb-div cs-sb-div-hist';
-		historyDiv.setAttribute('aria-hidden', 'true');
+		// No Undo / Redo here: they act on the whole deck, so they live in the editor toolbar with Compose / Source, Reshape and
+		// Fix all (and in the phone's header), not on each slide (owner, 2026-11-15). ⌘Z still works in the text.
 		// "Add slide below" opens the unified add-slide gallery (SlidePicker) for this slide when
 		// wired (onInsertBelow) — the #1058 "one insert door", its Blank tile a tap away — and
 		// falls back to a direct blank insert if it isn't. It says "Add", like the other four
@@ -875,9 +863,20 @@ class SlideView {
 		this.insertSlot.className = 'cs-ins-slot';
 		actions.append(this.insertSlot);
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
-		pill.append(history, historyDiv, this.fmtGroup, div, actions);
+		this.layoutBtn = this.layoutButton('cs-sb-layout');
+		this.ghostBtn = this.layoutButton('cs-sb-layout cs-sb-ghost');
+		// TWO GROUPS, in this order: what the slide IS and the doors that act on it (static: the layout, Add, Insert, Settings),
+		// then what the block under the caret can BE (dynamic: its styles, or the table / code island). One row when the pane is
+		// wide enough, the divider between them; on a narrow pane the dynamic group takes row two (owner, 2026-11-15).
+		const fixed = document.createElement('div');
+		fixed.className = 'cs-sb-static';
+		fixed.append(this.layoutBtn, actions);
+		// The divider between the groups is the dynamic group's own leading edge (`.cs-sb-format::before`), so a group with
+		// nothing to show takes its divider with it, no sibling rule needed.
+		pill.append(fixed, this.fmtGroup);
 
-		bar.append(line, pill);
+		bar.append(line, pill, this.ghostBtn);
+		this.syncLayout();
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
 		dom.append(bar, content);
@@ -910,11 +909,6 @@ class SlideView {
 			fn();
 		}, { signal: this.ac.signal });
 		return b;
-	}
-	/** Enable Undo / Redo to match the editor's history (called on every state change). */
-	syncHistory(canUndo: boolean, canRedo: boolean) {
-		if (this.undoBtn.disabled === canUndo) this.undoBtn.disabled = !canUndo;
-		if (this.redoBtn.disabled === canRedo) this.redoBtn.disabled = !canRedo;
 	}
 	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
 	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
@@ -1034,11 +1028,36 @@ class SlideView {
 		this.pill.append(ghost);
 		const w = Math.ceil(ghost.getBoundingClientRect().width);
 		ghost.remove();
-		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass): measure again next time.
-		if (w === 0 && keys.size) return;
+		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass). "Measure again next time" left
+		// it to whatever editor update came next, so a first visit could show the pill at its unreserved width (169px on
+		// the title slide) and then grow to 232px with no caret move: the toolbar jump the iOS Compose probe saw once in
+		// five runs (2026-11-15). Measure again the moment the pill has a size instead, after layout and before paint.
+		if (w === 0 && keys.size) {
+			this.reserveWhenLaidOut();
+			return;
+		}
 		this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
 		// A block with no style to offer (a list item) keeps the slot and its divider, so the doors do not slide over.
 		this.fmtGroup.toggleAttribute('data-reserved', w > 0);
+	}
+	private layoutWatch: ResizeObserver | null = null;
+	/** Re-run the reserve once the pill is laid out; one observer at a time, gone on destroy or after it fires. */
+	private reserveWhenLaidOut() {
+		if (this.layoutWatch || typeof ResizeObserver === 'undefined' || this.ac.signal.aborted) return;
+		const stop = () => {
+			watch.disconnect();
+			this.layoutWatch = null;
+		};
+		const watch = new ResizeObserver(() => {
+			if (!this.pill.getBoundingClientRect().width) return;
+			stop();
+			this.ac.signal.removeEventListener('abort', stop);
+			this.reserveFormatWidth();
+			if (this.dom.classList.contains('cs-slide-active')) this.holdPillWidth();
+		});
+		this.layoutWatch = watch;
+		watch.observe(this.pill);
+		this.ac.signal.addEventListener('abort', stop, { once: true });
 	}
 	/** Every style the slide offers in any of its blocks: the caret placed at each top-level block, asked in turn. */
 	private slideFormatKeys(): Set<Reg> {
@@ -1124,17 +1143,6 @@ class SlideView {
 		const caretSlide = $from.depth >= 1 ? $from.node(1) : null;
 		const offsetInSlide = caretSlide ? $from.pos - $from.before(1) : 0;
 		const tr = state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true);
-		// The front-matter `say:` narration moves with its slides, as the strip's ops move it (deck-ops `carrySay`). The
-		// nodes are the SAME instances, so a node's identity says where each old slide went; the front matter is a doc
-		// attribute, so the new one goes in on this transaction and every later emit keeps it.
-		const fm = (state.doc.attrs.frontMatter as string) || '';
-		if (/^say:[ \t]*$/m.test(fm)) {
-			const moved: number[] = [];
-			state.doc.forEach((n) => void moved.push(nodes.indexOf(n)));
-			const after = docToDeck(tr.doc);
-			const carried = carrySay(docToDeck(state.doc), after, moved);
-			if (carried !== after) tr.setDocAttribute('frontMatter', carried.slice(0, carried.length - (after.length - fm.length)));
-		}
 		if (caretSlide) {
 			let start = -1;
 			tr.doc.forEach((n, off) => {
@@ -1196,6 +1204,81 @@ class SlideView {
 		nodes.splice(i, 1);
 		this.commit(nodes, i);
 	}
+	/** One layout button: the slide's component name and a chevron. The quiet copy (`ghost`) on an inactive slide
+	 *  first makes its slide the active one, then opens the menu from the pill's button, so the menu always has one anchor. */
+	private layoutButton(cls: string): HTMLButtonElement {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = cls;
+		b.setAttribute('aria-haspopup', 'dialog');
+		const name = document.createElement('span');
+		name.className = 'cs-lb-name';
+		const chev = document.createElement('span');
+		chev.className = 'cs-lb-chev';
+		chev.innerHTML = lucideSvg('chevron-down');
+		b.append(name, chev);
+		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
+		const ghost = cls.includes('cs-sb-ghost');
+		b.addEventListener(
+			'click',
+			(e) => {
+				e.preventDefault();
+				if (layoutBlocker(this.node) || !this.openLayout) return;
+				this.writeOpenNote();
+				if (ghost) this.activate();
+				// The pill's button is the anchor even when the quiet copy was tapped: the pill shows the moment the slide is active.
+				// It also takes focus before the menu opens, so the menu gives focus back to it on close (a sheet returns focus to
+				// what held it at open, components/ui/sheet.tsx), and a phone's keyboard goes down while the author chooses.
+				requestAnimationFrame(() => {
+					this.layoutBtn.focus({ preventScroll: true });
+					this.openLayout?.(() => this.getPos(), this.layoutBtn);
+				});
+			},
+			{ signal: this.ac.signal },
+		);
+		return b;
+	}
+	/** Make this the active slide without taking keyboard focus (on a phone, focus would raise the keyboard over the menu). */
+	private activate() {
+		const pos = this.getPos();
+		const sel = TextSelection.near(this.view.state.doc.resolve(pos + 1));
+		this.view.dispatch(this.view.state.tr.setSelection(sel));
+	}
+	/** Name the slide's component on both buttons, and disable them on a slide Compose cannot rewrite. */
+	private syncLayout() {
+		const cls = slideComponent(this.node);
+		const shown = cls;
+		const blocked = layoutBlocker(this.node);
+		const sig = `${shown}|${blocked}|${!!this.openLayout}`;
+		if (sig === this.layoutSig) return;
+		this.layoutSig = sig;
+		// Disabled, never absent, where Compose cannot rewrite the class: the name still reads, and the title says where to change it.
+		for (const b of [this.layoutBtn, this.ghostBtn]) {
+			(b.firstChild as HTMLElement).textContent = shown;
+			b.disabled = !!blocked || !this.openLayout;
+			// The whole name, since a narrow pane may end it in an ellipsis.
+			b.title = `Layout: ${shown}. ${blocked ?? 'Change layout'}`;
+			b.setAttribute('aria-label', `Layout: ${shown}. ${blocked ?? 'Change layout'}`);
+		}
+		// The quiet copy is a second way to the same menu: one tab stop per slide is the pill's button.
+		this.ghostBtn.tabIndex = -1;
+		// A WHOLE-PIXEL width. The name is text, so its width is fractional, and the pill (centered) then sat on a half pixel that
+		// rounded one way or the other as the Format group beside it settled: the toolbar moved 1px while the caret moved
+		// (compose-toolbar-steady.spec.ts). Measured after layout; a hidden pill still has a box.
+		// It is a WIDTH, measured with the button's own max-width in force, so a narrow pane's cap still ends a long name in an
+		// ellipsis: rounded up when there is room under the cap, down when the cap is what set it (rounding up past a cap would
+		// put the half pixel straight back).
+		requestAnimationFrame(() => {
+			if (this.ac.signal.aborted) return;
+			for (const b of [this.layoutBtn, this.ghostBtn]) {
+				b.style.width = '';
+				const w = b.getBoundingClientRect().width;
+				if (!w) continue;
+				const cap = Number.parseFloat(getComputedStyle(b).maxWidth);
+				b.style.width = `${Number.isFinite(cap) && Math.ceil(w) > cap ? Math.floor(w) : Math.ceil(w)}px`;
+			}
+		});
+	}
 	private toggleCollapse() {
 		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
 		// Its words are written first (`btn` does it on every control, and asks again here for the answer), because the panel leaves the page
@@ -1213,6 +1296,7 @@ class SlideView {
 		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);
 		this.dom.dataset.directives = JSON.stringify((node.attrs.directives as string[]) || []);
+		this.syncLayout();
 		this.applyDecos(decorations);
 		return true;
 	}
@@ -1478,7 +1562,7 @@ class CodeBlockView {
 // line of very small type and removes both.
 //
 // A RUN OF COMMENTS IS ONE CONTROL, not N stacked ones. Adjacent comments are extremely common —
-// a `say:`, a `describe:` and a note all belong to the same slide — and rendering each as its
+// an `@say`, an `@alt` and an `@note` all belong to the same slide — and rendering each as its
 // own block with its own panel and its own Remove button produced three identical "NOTE" boxes
 // down the page (the shipped screenshot). So the run reads as a TAB BAR: the pills sit on one row,
 // exactly one is open at a time, and the open one's text appears in a single panel BELOW the row.
@@ -1522,17 +1606,19 @@ function commentRuns(doc: PMNode) {
 	return runs.map(({ from, to, nodes, positions }) => ({ from, to, nodes, positions }));
 }
 
-/** The label a pill carries, by channel. `say:` and `describe:` are not notes — they are the
- *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
- *  "note" mislabels what the author is looking at. */
-// Each channel has its own DRAWN shape (HARD RULE #29), so the three read differently before the label does: say is a speech bubble,
-// describe is an eye (what a reader who cannot see the slide is told), note is a folded note.
+/** The label a pill carries, by kind: one of the four notes, each named for where its words show up, or a plain
+ *  `comment`, which reaches nothing (engineering/decisions/2026-11-20-four-notes.md). */
+// Each kind has its own DRAWN shape (HARD RULE #29), so they read differently before the label does: note is a folded
+// note, say a speech bubble, alt an eye (what a reader who cannot see the slide is told), handout an open book, and a
+// plain comment the code-comment brackets.
 const KIND_GLYPH: Record<CommentKind, string> = {
-	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
-	describe: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
 	note: '<path d="M3 2.5h7.5l3 3v8H3z"/><path d="M10.5 2.5v3h3M5.5 8h5M5.5 10.5h3"/>',
+	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
+	alt: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
+	handout: '<path d="M8 4.2C6.5 3.2 4.5 2.8 2 2.8v9c2.5 0 4.5.4 6 1.4 1.5-1 3.5-1.4 6-1.4v-9c-2.5 0-4.5.4-6 1.4zM8 4.2v9"/>',
+	comment: '<path d="M6 4.5 2.5 8 6 11.5M10 4.5l3.5 3.5L10 11.5"/>',
 };
-const KIND_LABEL: Record<CommentKind, string> = { say: 'say', describe: 'describe', note: 'note' };
+const KIND_LABEL: Record<CommentKind, string> = { note: 'note', say: 'say', alt: 'alt', handout: 'handout', comment: 'comment' };
 
 /** The open panel's id, PER EDITOR INSTANCE.
  *
@@ -1576,7 +1662,7 @@ function readableNote(text: string): string {
 		})
 		.filter(Boolean)
 		.join('\n\n');
-	// The channel prefix selects the channel; it is not part of what the author wrote. Shared with
+	// A note's `@name{…}` frame names the note; it is not part of what the author wrote. Shared with
 	// `commentText` so the two can never disagree about what a prefix is.
 	return stripChannelPrefix(prose, text);
 }
@@ -1637,8 +1723,8 @@ function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
 /** A drawn caret at the caret while Compose does not have focus: on a phone the real caret only shows with the keyboard
  *  up, so after a switch from the preview the author could not see where they were (owner, 2026-11-11). It is an OVERLAY,
  *  a sibling of the editable element, never a node inside it: a widget there was taken out on focus, and changing the
- *  editable DOM under a click made Firefox drop where the first click landed. `position: fixed` from the caret's
- *  coordinates, so no ancestor has to be positioned; it lives in the host, so a hidden pane hides it.
+ *  editable DOM under a click made Firefox drop where the first click landed. `position: absolute` in the host (which
+ *  is `position: relative` for it), so it scrolls and clips with the text; it lives in the host, so a hidden pane hides it.
  *  Styled by `.lx-ghost-caret` (styles/tailwind.css). */
 /**
  * THE CARET'S LINE, marked as Source marks it (owner, 2026-11-12: "it would be nice not to have to search for the caret").
@@ -1659,6 +1745,10 @@ function activeLinePlugin(): Plugin {
 	});
 }
 
+/** A Markdown paste's network check (markdown-clipboard.ts): the engine render and spine read Insert uses for a sample
+ *  slide, loaded on the first paste so the eager bundle carries none of it. */
+const pasteRemoteRefs = async (md: string): Promise<string[]> => (await import('./library/gallery-gate')).galleryRemoteRefs(md);
+
 function ghostCaretPlugin(): Plugin {
 	return new Plugin({
 		view(view) {
@@ -1668,6 +1758,12 @@ function ghostCaretPlugin(): Plugin {
 			el.setAttribute('aria-hidden', 'true');
 			el.style.display = 'none';
 			host?.appendChild(el);
+			// Placed in the HOST's content coordinates (the host is the scroll container and is positioned), never the
+			// viewport's. It was `position: fixed` from viewport coordinates, re-measured only on focus, blur, scroll, window
+			// resize and a state update, so opening or closing a pane, which reflows the column without any of those, left it
+			// standing where the text had been, and nothing clipped it to the editor (owner, 2026-11-15). Inside the host it
+			// scrolls with the text natively, is clipped by the host's overflow, and a ResizeObserver re-measures it whenever
+			// the column's width or the text's flow changes, after layout and before paint, so it never trails a frame.
 			const place = () => {
 				const sel = view.state.selection;
 				if (!host || view.hasFocus() || !(sel instanceof TextSelection) || !sel.empty) {
@@ -1675,14 +1771,14 @@ function ghostCaretPlugin(): Plugin {
 					return;
 				}
 				try {
-					const c = view.coordsAtPos(sel.head);
 					const box = host.getBoundingClientRect();
-					if (!box.height || c.bottom <= box.top || c.top >= box.bottom) {
+					if (!box.height || !box.width) {
 						el.style.display = 'none';
 						return;
 					}
-					el.style.left = `${c.left - 1}px`;
-					el.style.top = `${c.top}px`;
+					const c = view.coordsAtPos(sel.head);
+					el.style.left = `${c.left - box.left + host.scrollLeft - host.clientLeft - 1}px`;
+					el.style.top = `${c.top - box.top + host.scrollTop - host.clientTop}px`;
 					el.style.height = `${Math.max(8, c.bottom - c.top)}px`;
 					el.style.display = 'block';
 				} catch {
@@ -1692,16 +1788,20 @@ function ghostCaretPlugin(): Plugin {
 			const later = () => requestAnimationFrame(place);
 			view.dom.addEventListener('focus', place);
 			view.dom.addEventListener('blur', later);
-			host?.addEventListener('scroll', place, { passive: true });
-			window.addEventListener('resize', later);
+			const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+			if (host) ro?.observe(host);
+			ro?.observe(view.dom);
+			// A web font arriving re-flows the text without changing the editor's box in every case, so it re-measures too.
+			const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+			fonts?.addEventListener?.('loadingdone', place);
 			later();
 			return {
 				update: place,
 				destroy() {
 					view.dom.removeEventListener('focus', place);
 					view.dom.removeEventListener('blur', later);
-					host?.removeEventListener('scroll', place);
-					window.removeEventListener('resize', later);
+					ro?.disconnect();
+					fonts?.removeEventListener?.('loadingdone', place);
 					el.remove();
 				},
 			};
@@ -1776,9 +1876,8 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// does not behave like one — no roving focus, no arrow-key cycle — so claiming `tablist` would
 	// promise keyboard behavior that is not implemented.)
 	wrap.setAttribute('role', 'region');
-	// Named for its CHANNEL alone. The label used to end "— authoring note", which put the word this
-	// feature exists to stop using back on the caption and describe channels, where only a
-	// screen-reader user would ever meet it.
+	// Named for its KIND alone: one of the four notes, or a plain comment. The label used to end
+	// "— authoring note", which put that word on every kind, where only a screen-reader user would meet it.
 	wrap.setAttribute('aria-label', KIND_LABEL[commentKind(node.attrs.text as string)]);
 
 	const body = document.createElement('div');
@@ -1862,7 +1961,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	}
 	// The words write when the author leaves the field or presses Ctrl/Cmd+Enter; Escape puts the original back and returns to the
 	// slide. Nothing is written for words that did not change, so a note that is opened and left keeps its bytes. `writeNote` keeps
-	// the opener, closer and channel prefix, and refuses a result that would not be the same kind of comment: the panel says why and
+	// the opener, closer and a note's `@name{…}` frame, and refuses a result that would not be the same kind of comment: the panel says why and
 	// keeps the author's words in the field. Remove stays its own control, a second deliberate act.
 	const actions = document.createElement('div');
 	actions.className = 'cs-comment-actions';
@@ -1878,7 +1977,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const nested = view.state.doc.resolve(open.at).depth >= 2;
 			const next = nested && field.value.trim().includes('\n') ? null : writeNote(open.node.attrs.text as string, field.value);
 			if (next === null) {
-				why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+				why.textContent = field.value.trim() ? 'These words cannot end the comment early, open with a directive word such as footer: or _class:, change what kind of note it is (a note\'s braces must balance), or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
 				why.hidden = false;
 				return;
 			}
@@ -2147,7 +2246,7 @@ export class CommentView {
 		this.dom.dataset.kind = kind;
 		this.glyph.innerHTML = KIND_GLYPH[kind];
 		this.dom.title = readableNote(text);
-		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
+		// The pill NAMES a kind; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
 		this.dom.setAttribute('aria-label', `open the ${KIND_LABEL[kind]} comment`);
@@ -2230,6 +2329,10 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
 		formatSyncPlugin(),
+		// The find bar's query and highlights (lib/compose/find-target.ts drives them).
+		search(),
+		// ⌘F opens the Studio's find bar rather than the browser's, which cannot replace (only when one is wired).
+		keymap({ 'Mod-f': () => composeFind.open() }),
 		// No history() and no Mod-z binding: ⌘Z / ⌘⇧Z / Ctrl+Y bubble to the Studio root, which sends them
 		// to Filo, and the undo comes back through `applyHistory` (Filo note §3.3).
 		// Table cell navigation FIRST — Tab hops cells and appends a row off the end
@@ -2324,7 +2427,15 @@ export function refinableRange(state: EditorState): { from: number; to: number }
 	return clean ? { from, to } : null;
 }
 
+/** What Compose tells the shell about an empty deck: whether it is blank (from the text Compose itself emits, so the first
+ *  keystroke reports it in the same frame), and the empty line's bottom edge in client pixels, where the shell's start grid
+ *  begins. The grid lives in the shell, not here: Compose unmounts on a switch to Source, Read or a lens, and a grid inside it
+ *  rebuilt its four preview frames on every return (the checker on #3273, 4 → 8 → 12). */
+export type EmptyState = { blank: boolean; lineBottom: number | null };
+
 export type ComposeHandle = {
+	/** Put the caret on a blank deck's empty line and focus it: the shell's start grid calls it on a tap outside its controls. */
+	focusEmptyLine: () => void;
 	/** The caret's column in its block, in the plain form both editors share (caret-line.ts), or null with no text caret. */
 	caretColumn: () => CarriedColumn;
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
@@ -2355,6 +2466,18 @@ export type ComposeHandle = {
 	/** Undo that pick, but only while nothing has been written since (the token is the document
 	 *  the pick produced): an Undo toast must never undo the author's later typing. */
 	undoPane: (token: unknown) => boolean;
+	/** The layout menu's reading of slide `index`: the component it holds, a fit test for every other one (whether it would keep
+	 *  the slide's text), and the slide as it stands, to put back on Undo. Null when the slide is gone or locked. */
+	layoutOf: (index: number) => { current: string; fit: (cls: string) => 'keeps' | 'fresh'; original: unknown } | null;
+	/** Give slide `index` a layout (slide-layout.ts `applySlideLayout`), as its own history step: its class `tokens`, and, when
+	 *  `skeleton` is set, that component's starter in place of the slide's body. False when nothing changed. */
+	applyLayout: (index: number, choice: { tokens: string[]; skeleton: string | null }) => boolean;
+	/** Put slide `index` back as `layoutOf` read it: the layout menu's Undo, one step for a whole visit. */
+	restoreLayout: (index: number, original: unknown) => boolean;
+	/** The selected text, whatever block it is in ('' when nothing is selected): what ⌘F seeds the find bar with. */
+	selectedText: () => string;
+	/** The find bar's way into Compose (lib/compose/find-target.ts): ProseMirror's search, highlighting in the slides. */
+	findTarget: () => FindTarget;
 	/** Show the text a Filo undo or redo produced, now, even while the editor has focus (an outside
 	 *  change is parked until blur; an undo must not be, or ⌘Z would look like it did nothing and the
 	 *  next keystroke would put the undone change back). Only the slides that differ change. */
@@ -2365,7 +2488,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onFind?: () => void; onView?: () => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean; emptyStart?: boolean; onEmpty?: (e: EmptyState) => void }>(function ComposeView({ source, onChange, onHistory, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onFind, onView, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false, emptyStart = false, onEmpty }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2381,20 +2504,31 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const historyCommitRef = React.useRef<((doc: PMNode) => void) | null>(null);
 	// `resyncFrom`, for the handle (declared above it): the full rebuild a history apply falls back to.
 	const resyncRef = React.useRef<((view: EditorView, src: string) => void) | null>(null);
-	// The pill's Undo / Redo: the Studio's history, through the bridge.
+	// The Studio's history, through the bridge (a pane pick's Undo).
 	const onHistoryRef = React.useRef(onHistory);
 	onHistoryRef.current = onHistory;
+	const onFindRef = React.useRef(onFind);
+	onFindRef.current = onFind;
+	// A new ProseMirror view exists: the find bar runs its query again on it (the handle reads the view live, but nothing
+	// else tells the bar the view it searched is gone).
+	const onViewRef = React.useRef(onView);
+	onViewRef.current = onView;
+	React.useEffect(() => {
+		composeFind.open = () => {
+			if (!onFindRef.current) return false;
+			onFindRef.current();
+			return true;
+		};
+		return () => {
+			composeFind.open = () => false;
+		};
+	}, []);
 	React.useEffect(() => {
 		composeHistory.run = (verb) => onHistoryRef.current?.(verb);
 		return () => {
 			composeHistory.run = () => {};
 		};
 	}, []);
-	React.useEffect(() => {
-		composeHistory.canUndo = canUndo;
-		composeHistory.canRedo = canRedo;
-		syncHistoryButtons();
-	}, [canUndo, canRedo]);
 	const lastEmittedRef = React.useRef(source);
 	const baselineRef = React.useRef<EmitBaseline | null>(null);
 	// An external source change that arrived while the editor held focus — parked here
@@ -2408,6 +2542,47 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const [failed, setFailed] = React.useState(false);
 	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
 	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
+	// AN EMPTY DECK IS DRAWN EMPTY (engineering/decisions/2026-11-17-compose-empty-deck.md). The schema still holds one empty
+	// slide (`doc → slide+`), but while the deck is blank (`isBlankDeck`) Compose draws none of its chrome: one empty line to
+	// write on, as Source shows, and the host's start grid (`emptyStart`) under it. Read from the text Compose itself emits,
+	// so the first keystroke clears it in the same frame, and from `source`, so an undo or a Source edit brings it back.
+	// THE EDITOR'S OWN TEXT decides, never the `source` prop: an outside change parked while the author types (or held for an
+	// IME composition in a live session) is not on screen yet, and a flag that followed the prop showed the empty state over
+	// text, or slide chrome over an empty line, until the next change (the checker on #3273). Set where the editor's text is
+	// established: at creation, on every emitted edit, on a resync (`resyncFrom`) and on an undo applied in place.
+	const [blank, setBlank] = React.useState(() => isBlankDeck(source));
+	// The empty line's bottom edge, reported with `blank` to the shell, which places its start grid under it. Measured, not a
+	// constant: the reserved bar's height depends on the pane's width (the pill wraps on a narrow pane) and on whether the slide
+	// is active. Re-measured when the editor is rebuilt for another deck (`resetKey`): the slide node is new, and an observer
+	// left on the old one would keep a stale edge (the checker on #3273).
+	const onEmptyRef = React.useRef(onEmpty);
+	onEmptyRef.current = onEmpty;
+	const lastEmpty = React.useRef<EmptyState | null>(null);
+	const report = React.useCallback((e: EmptyState) => {
+		const was = lastEmpty.current;
+		if (was && was.blank === e.blank && was.lineBottom === e.lineBottom) return;
+		lastEmpty.current = e;
+		onEmptyRef.current?.(e);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetKey stands for "the editor was rebuilt", so the slide node is new.
+	React.useLayoutEffect(() => {
+		const host = hostRef.current;
+		if (!blank || !emptyStart || !host) {
+			report({ blank, lineBottom: null });
+			return;
+		}
+		const measure = () => {
+			const line = host.querySelector('.cs-slide-content');
+			report({ blank: true, lineBottom: line ? Math.ceil(line.getBoundingClientRect().bottom) : null });
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(host);
+		// The slide too: its bar changes height when the slide turns active on a tap, and the host does not resize then.
+		const slide = host.querySelector('.cs-slide');
+		if (slide) ro.observe(slide);
+		return () => ro.disconnect();
+	}, [blank, emptyStart, resetKey, report]);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -2569,6 +2744,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		focusEmptyLine: () => {
+			const v = viewRef.current;
+			if (!v || v.isDestroyed) return;
+			v.dispatch(v.state.tr.setSelection(TextSelection.atStart(v.state.doc)));
+			v.focus();
+		},
 		caretColumn() {
 			const v = viewRef.current;
 			const sel = v?.state.selection;
@@ -2577,6 +2758,17 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// Measured as `textContent` measures (each leaf's own `leafText`: inline math is its `$tex$`, a hard break is
 			// nothing), so the count lines up with `plainColumnOf`; a ' ' per leaf put a caret after math inside the formula.
 			return { col: plainColumnOf($h.parent.textContent, $h.parent.textBetween(0, $h.parentOffset).length) };
+		},
+		selectedText() {
+			const v = viewRef.current;
+			if (!v) return '';
+			// The page's own selection first, when it is inside Compose: ProseMirror reads a keyboard selection (Shift+End)
+			// into its state on a short delay, and ⌘F straight after it found the state still empty (measured).
+			const dom = typeof window === 'undefined' ? null : window.getSelection();
+			if (dom && !dom.isCollapsed && dom.anchorNode && v.dom.contains(dom.anchorNode)) return dom.toString();
+			if (v.state.selection.empty) return '';
+			const { from, to } = v.state.selection;
+			return v.state.doc.textBetween(from, to, '\n');
 		},
 		getSelection() {
 			const v = viewRef.current;
@@ -2614,6 +2806,44 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const v = viewRef.current;
 			if (!v || v.state.doc !== token) return false;
 			composeHistory.run('undo');
+			return true;
+		},
+		findTarget() {
+			return composeFindTarget(
+				() => viewRef.current,
+				(tr, name) => {
+					tr.setMeta(STEP_LABEL, name);
+				},
+			);
+		},
+		layoutOf(index: number) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount) return null;
+			const slide = v.state.doc.child(index);
+			if (layoutBlocker(slide)) return null;
+			return { current: slideComponent(slide), fit: slideFit(slide, paneNeedsRef.current, document), original: slide };
+		},
+		applyLayout(index: number, choice: { tokens: string[]; skeleton: string | null }) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount || !choice.tokens.length) return false;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += v.state.doc.child(i).nodeSize;
+			// A closing blockquote stays in the starter only for a component that reads one as its own, as in `applyPane`.
+			const keepQuote = (paneNeedsRef.current?.[choice.tokens[0]]?.slots || []).some((sel) => sel.includes('blockquote'));
+			const layout: SlideLayoutChoice = { tokens: choice.tokens, starter: choice.skeleton === null ? null : slideStarter(choice.skeleton, keepQuote) };
+			const tr = applySlideLayout(v.state, pos, layout);
+			if (!tr) return false;
+			v.dispatch(tr.setMeta(STEP_LABEL, 'Change layout'));
+			return true;
+		},
+		restoreLayout(index: number, original: unknown) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount || !original) return false;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += v.state.doc.child(i).nodeSize;
+			const tr = restoreSlide(v.state, pos, original as PMNode);
+			if (!tr) return false;
+			v.dispatch(tr.setMeta(STEP_LABEL, 'Undo layout change'));
 			return true;
 		},
 		applyHistory(text: string) {
@@ -2692,6 +2922,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				return;
 			}
 			lastEmittedRef.current = text;
+			setBlank(isBlankDeck(text));
 			pendingResyncRef.current = null;
 			liveHoldRef.current = null;
 			// New slides arrive with their pills as text: a silent pass turns them back into objects.
@@ -2877,6 +3108,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	paneNeedsRef.current = paneNeeds;
 	const onOpenPanePickerRef = React.useRef(onOpenPanePicker);
 	onOpenPanePickerRef.current = onOpenPanePicker;
+	// The layout button's opener, held by every SlideView: one stable function that reads the latest prop, like `openPane`.
+	const onOpenLayoutMenuRef = React.useRef(onOpenLayoutMenu);
+	onOpenLayoutMenuRef.current = onOpenLayoutMenu;
+	const openLayout = React.useCallback((getPos: () => number | undefined, anchor: HTMLElement) => {
+		const v = viewRef.current;
+		const at = getPos();
+		const opener = onOpenLayoutMenuRef.current;
+		if (!v || at === undefined || !opener) return;
+		opener({ slideIndex: v.state.doc.resolve(at).index(0), anchor });
+	}, []);
 	const openPane = React.useCallback<PaneOpen>((getPos, paneIndex) => {
 		const v = viewRef.current;
 		const at = getPos();
@@ -3068,6 +3309,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the add-slide gallery, a Markdown round trip), and each one used to silently unfold
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
+		// A resync can start with no key or click (a co-editor's change in a live session, a held change settling on a
+		// timer), and the caret it keeps is read from the state below: read a click ProseMirror has not taken in yet first,
+		// or the rebuilt state puts the caret back on the slide the author just left (pending-selection.ts).
+		takePendingSelection(view);
 		const folded = collapsedKeys(view.state);
 		const before = view.state.doc;
 		const doc = deckToDoc(src);
@@ -3100,6 +3345,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// ordering hygiene against a latent hazard, not a fixed break.
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
+		setBlank(isBlankDeck(src));
 		pendingResyncRef.current = null;
 		liveHoldRef.current = null;
 		// The rebuilt doc has its pills as text again: turn them back into objects (a silent pass, so
@@ -3163,6 +3409,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
+			setBlank(isBlankDeck(source));
 			// A NEW VIEW FOLLOWS THE FOCUS; it does not announce its own caret (the Markdown editor's rule, Editor.tsx). A view built
 			// after a round trip through Source, or on a phone when the Compose pane comes back, started at the top of the deck, and
 			// its first transaction reported slide 1 as the author's move: the preview and the rail jumped there (owner, iPhone).
@@ -3170,6 +3417,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const at = mountAt;
 			const onFocus = !!at && at.slide >= 0 && at.slide < doc.childCount;
 			if (onFocus) lastSlideRef.current = at.slide;
+			const clickCaret = pointerFocusCaret();
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
@@ -3178,11 +3426,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin()),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin(), markdownClipboardPlugin((message) => notify(message), pasteRemoteRefs)),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert, (i) => describeDeleteRef.current?.(i) ?? 'this slide'),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert, (i) => describeDeleteRef.current?.(i) ?? 'this slide', onOpenLayoutMenuRef.current ? openLayout : undefined),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 					image: imageNodeView,
 					inline_math: mathInlineNodeView,
@@ -3241,6 +3489,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const base = baselineRef.current ?? initBaseline(next.doc);
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
+						setBlank(isBlankDeck(src));
 						// In a live session a co-editor's change held for an IME composition is MERGED, not superseded: the
 						// author's edit (base to src) is moved onto it, and the merge goes out, so the session keeps both. The
 						// editor shows the merge when the composition ends. An edit that cannot be placed is refused, as the
@@ -3305,6 +3554,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 				},
 				handleDOMEvents: {
+					// A click that focuses the editor keeps its caret: prosemirror-view's own focus timer could write the old caret
+					// back before WebKit delivered the click's `selectionchange` (pointer-focus-caret.ts pins the internal it races).
+					mousedown: clickCaret.mousedown,
+					focus: clickCaret.focus,
 					// Shift-Enter adds one line inside a paragraph (line-break-command.ts). A DOM handler, not a keymap entry: on iOS
 					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
 					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.
@@ -3346,6 +3599,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			return;
 		}
 		viewRef.current = view;
+		onViewRef.current?.();
 		// Frame the focused slide the way `revealSlide` does: its node at the top of the scroller, 8px of room. A pane with no
 		// size yet (a desktop split collapsed to the preview hides it with `display: none`) is framed the first time it gets
 		// a height, or it would show the right slide's caret scrolled to the top of the deck.
@@ -3481,17 +3735,20 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		);
 	}
 	return (
-		<div className={cn('cs-surface', !visible && 'cs-paused', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
+		<div className={cn('cs-surface', !visible && 'cs-paused', className)} data-empty={blank && emptyStart ? '' : undefined} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
 				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
 				<div ref={hostRef} className="cs-host" data-filo-owned="" />
+				{/* Jump to the deck's top or bottom: appears while a long deck scrolls (components/ui/quick-scroll.tsx). */}
+				<QuickScroll root={hostRef} label="deck" />
 				{flashChip && (
 					<button
 						type="button"
 						className="cs-flash-chip"
+						data-quick-scroll-avoid=""
 						data-dir={flashChip.dir}
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => {
@@ -3577,9 +3834,25 @@ function ComposeStyles() {
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%;position:relative}
+			/* AN EMPTY DECK (2026-11-17-compose-empty-deck.md): no slide chrome, one line to write on, the start grid under it. */
+			/* HIDDEN, NOT REMOVED: the bar keeps its height, so the first keystroke (which brings it back) does not push the
+			   line down under the author's caret. Measured before this: 94px on a phone, 54px on a desktop. visibility also
+			   takes its buttons out of the tab order and the accessibility tree, as display:none did. */
+			/* …and every descendant, at a higher specificity: the active slide's pill sets visibility:visible, which beats a hidden
+			   ancestor (the trap noted at the active pill's rule below). */
+			.cs-surface[data-empty] .cs-slide-bar,.cs-surface[data-empty] .cs-slide .cs-slide-bar *{visibility:hidden}
+			.cs-surface[data-empty] .cs-active-line{background:none}
+			/* Every paragraph of a blank deck is empty, so the first one carries the placeholder. Not \`:has(> br:only-child)\`: an
+			   Undo's change mark puts a widget beside the break and the placeholder vanished. */
+			.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Start typing…";float:left;height:0;pointer-events:none;color:var(--text-muted,#6b7f9a);font-style:italic}
+			@media (pointer:coarse){.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Tap here to start writing"}}
+			/* No change marks on a blank deck: an Undo back to empty has no text to point at, and the deletion gap gave the
+			   empty line a second row for the length of the flash, pushing the grid 27px down and back (measured, desktop). */
+			.cs-surface[data-empty] .cs-flash-gap{display:none}
+			.cs-surface[data-empty] .cs-flash-block{animation:none;background:none;box-shadow:none}
 			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
-			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
+			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size;position:relative}
 			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd
 			   (#1290). 72px was barely four lines, so the last slide sat jammed against the
 			   pane edge exactly where authors do most of their work. A viewport-proportional
@@ -3588,6 +3861,16 @@ function ComposeStyles() {
 			   deck still ends flush, with no phantom empty scroll. */
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(clamp(72px,38vh,520px) + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
+			/* Keep each slide's right-hand controls (the delete button) out of the jump rail's column. On a
+			   mouse the rail (components/ui/quick-scroll.tsx) sits 8px inside the scrollbar and is 28px wide, so
+			   everything keeps 44px clear of the scrollbar: 8 + 28 + 8. The slide pads its text that far; its
+			   bar bleeds into that padding (the negative margin below), so the bar pads its own controls back
+			   by the same 44px. Measured before, at 1440 / 1100 / 820px windows: the delete button overlapped
+			   the rail column by 5, 2 and 0px. Wide panes already pad 64px, so nothing moves there. A touch
+			   screen gets the corner stack, which needs no column, and a window under 641px pins the bar inside
+			   the slide (the MOBILE block), where the slide's own padding is enough. */
+			@media (pointer:fine){.cs-host .cs-slide{padding-right:max(clamp(24px,6cqw,64px),44px)}}
+			@media (pointer:fine) and (min-width:641px){.cs-host .cs-slide-bar{margin-right:calc(-1 * max(clamp(24px,6cqw,64px),44px));padding-inline:max(clamp(16px,4cqw,44px),44px)}}
 			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
 			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded
@@ -3626,9 +3909,16 @@ function ComposeStyles() {
 			.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:hidden;opacity:0}
 			.cs-sb-format{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:var(--cs-fmt-min,0px)}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
+			/* The static group: the layout button and the doors, kept together whatever the width. */
+			.cs-sb-static{display:inline-flex;align-items:center;gap:2px;min-width:0}
 
-			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}
-			.cs-sb-format:empty:not([data-reserved]),.cs-sb-format:empty:not([data-reserved]) + .cs-sb-div{display:none}
+			.cs-sb-format:empty:not([data-reserved]){display:none}
+			/* THE DIVIDER between the pill's two groups (static | dynamic): the dynamic group's leading edge, so an empty, unreserved
+			   group hides it too. 4px of clear space each side of the 1px line, so the groups read as two (owner, 2026-11-15: it
+			   hugged its neighbors at the pill's 3px gap): a transparent border with the background clipped to the line, space
+			   without margin. A pseudo-element rather than a sibling :has(+ …) rule, which jsdom cannot parse (it broke every
+			   Studio unit test that renders Compose). */
+			.cs-sb-pill > .cs-sb-format::before{content:"";flex:none;align-self:center;width:1px;height:14px;border-radius:1px;box-sizing:content-box;border-inline:4px solid transparent;background:var(--border,#e4eaf2);background-clip:content-box}
 			/* content-register buttons — ghost glyph; the ACTIVE one is a SOLID accent chip (in-effect highlight) */
 			.cs-fmt-btn{min-width:22px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;font-family:var(--font-mono,ui-monospace,monospace);font-size:10.5px;font-weight:600;letter-spacing:.02em;line-height:1;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s,box-shadow .12s}
 			.cs-fmt-btn:not(.cs-fmt-mono){font-family:var(--font-serif,Georgia,serif);font-size:13px;font-weight:500;letter-spacing:0}
@@ -3638,6 +3928,26 @@ function ComposeStyles() {
 			.cs-pill-btn svg{display:block;width:13px;height:13px}
 			.cs-pill-btn:hover:not(:disabled){color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			.cs-pill-btn:disabled{opacity:.35;cursor:default}
+			/* Find bar matches (prosemirror-search's classes): every match tinted, the current one stronger and outlined, so it reads
+			   without color alone. The Source editor's are the same (lib/find-replace.ts). */
+			.cs-host .ProseMirror-search-match{background:color-mix(in oklab,var(--accent,#006fa8) 22%,transparent);border-radius:2px}
+			.cs-host .ProseMirror-active-search-match{background:color-mix(in oklab,var(--accent,#006fa8) 45%,transparent);outline:1px solid var(--accent,#006fa8)}
+			/* THE LAYOUT BUTTON — the slide's component by name, with a chevron: the "Normal text ▾" a word processor puts first in its
+			   toolbar. The pill's first control on the active slide; a quiet copy (.cs-sb-ghost) sits on the line of every other slide,
+			   in the space the hidden pill reserves, so focusing a slide moves nothing. Its hit area reaches 38px (44px on a phone)
+			   without taking room from its neighbors. engineering/decisions/2026-11-15-compose-layout-button.md. */
+			.cs-sb-layout{flex:none;position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;max-width:min(22ch,100%);padding:0 4px 0 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text-heading,#0a1628);font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;font-weight:600;letter-spacing:.01em;cursor:pointer;transition:color .12s,background .12s,border-color .12s}
+			.cs-sb-layout::after{content:"";position:absolute;inset:-8px -2px}
+			.cs-sb-layout .cs-lb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+			.cs-sb-layout .cs-lb-chev{flex:none;display:flex;color:var(--text-muted,#6b7f9a)}
+			.cs-sb-layout .cs-lb-chev svg{width:12px;height:12px}
+			.cs-sb-layout:hover:not(:disabled){color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-sb-layout[aria-expanded="true"]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-sb-layout:disabled{opacity:.5;cursor:default}
+			.cs-sb-layout:focus-visible{outline:2px solid var(--accent,#006fa8);outline-offset:1px}
+			.cs-sb-ghost{grid-area:1/1;justify-self:center;z-index:1;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-weight:500;padding:0 6px 0 9px}
+			.cs-sb-ghost:hover:not(:disabled){border-color:var(--border,#e4eaf2)}
+			.cs-slide-active > .cs-slide-bar > .cs-sb-ghost{visibility:hidden}
 			/* COLLAPSED — the slide's TITLE, with the ellipsis riding the same line.
 			   Keeping merely the FIRST block showed the eyebrow instead (an eyebrow is
 			   p:has(> code:only-child) placed BEFORE the heading — see lib/base/base.docs.md),
@@ -3680,9 +3990,9 @@ function ComposeStyles() {
 			/* the open pill is the selected tab — solid, accent, and visually joined to its panel */
 			.cs-host .cs-comment-open,.cs-host .cs-comment-open:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);border-style:solid;border-color:var(--accent,#006fa8)}
 			.cs-host .cs-comment-open svg{opacity:1}
-			/* CHANNEL, not decoration: caption and describe are different registers from a note — the
-			   slide's narration text and its WCAG alternative — so they read differently at rest. */
-			.cs-host .cs-comment-say:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			/* KIND, not decoration: a note reaches a reader (the presenter, the voice, a screen reader, the
+			   handout) and a plain comment reaches nobody, so the four notes read differently at rest. */
+			.cs-host .cs-comment-note:not(.cs-comment-open),.cs-host .cs-comment-say:not(.cs-comment-open),.cs-host .cs-comment-alt:not(.cs-comment-open),.cs-host .cs-comment-handout:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
 			/* the shared panel — one per run, below the row, never one per pill */
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
@@ -3865,43 +4175,46 @@ function ComposeStyles() {
 				   insert buttons make on mobile. A container query, not a viewport one: the Compose
 				   pane is what narrows, and it is narrow at tablet width too. */
 				@container (max-width:460px){.cs-tblc-marks{display:none}}
-				/* A NARROW PANE GETS A TWO-ROW BAR. At 390px the widest state (a caret in body text) is history,
-				   the Format group, four insert and settings doors: about 320px against the 266px between the two
-				   end caps. Measured, not guessed. Scrolling hid the insert doors and covering the caps hid the
-				   delete, so the bar wraps: history and the doors on row one, the contextual Format group on row
-				   two. Row two is RESERVED (min-height) on every slide, so switching the active slide never moves
-				   the page. Wide panes keep the single row. */
+				/* A NARROW PANE GETS A TWO-ROW BAR: the static group (the layout, Add, Insert, Settings) on row one and the dynamic
+				   group (the block's styles, or the table / code island) on row two, with no divider, since the rows divide them. Wide
+				   panes keep one row with the divider between the groups. Row two is RESERVED (min-height) on every slide, so
+				   switching the active slide never moves the page. Undo and Redo left the pill for the editor toolbar (owner,
+				   2026-11-15); before that, row one held them, and the layout name had room for about five characters at 390px. */
 				@container (max-width:520px){
-					/* A GRID, so the pill is as wide as its wider row and no wider: row one is history, a divider and
-					   the doors; row two the Format group, whose width the slide reserves (SlideView.reserveFormatWidth),
-					   so the caret moving inside the slide never resizes it. A fixed full width did that too, but left
-					   wide empty margins on most slides (owner, 2026-11-11, on an iPhone). */
-					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "f f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px)}
-					.cs-sb-pill > .cs-sb-actions:first-child{grid-area:h}
-					.cs-sb-pill > .cs-sb-actions:last-child{grid-area:a}
-					.cs-sb-pill > .cs-sb-div:not(.cs-sb-div-hist){grid-area:d;display:block}
-					.cs-sb-pill > .cs-sb-div-hist{display:none}
+					/* A GRID, so the pill is as wide as its wider row and no wider. Row two's width is reserved by the slide
+					   (SlideView.reserveFormatWidth), so the caret moving inside the slide never resizes it. A fixed full width did that
+					   too, but left wide empty margins on most slides (owner, 2026-11-11, on an iPhone). */
+					.cs-sb-pill{display:inline-grid;grid-template-columns:minmax(0,auto);grid-template-areas:"s" "f";justify-content:center;justify-items:center;row-gap:3px;max-width:calc(100% - 68px)}
+					.cs-sb-pill > .cs-sb-static{grid-area:s;max-width:100%}
+					.cs-sb-pill > .cs-sb-format::before{display:none}
+					/* The layout button's name gives way only for the longest layouts (past about 13 characters), so the pill keeps clear of the
+					   end caps; the full name is in its title and accessible name. The whole-pixel width the button gets
+					   (SlideView.syncLayout) is measured under this cap. */
+					.cs-sb-static > .cs-sb-layout{max-width:17ch}
 					.cs-sb-pill > .cs-sb-format{grid-area:f;justify-content:center;min-height:28px;display:inline-flex}
-					/* Row two stays, empty or not, and so does row one's divider: these out-rank the wide pane's rule
-					   that hides an empty, unreserved Format group and the divider after it. */
+					/* Row two stays, empty or not: this out-ranks the wide pane's rule that hides an empty, unreserved Format group. */
 					.cs-sb-pill > .cs-sb-format:empty:not([data-reserved]){display:inline-flex}
-					.cs-sb-pill > .cs-sb-format:empty:not([data-reserved]) + .cs-sb-div:not(.cs-sb-div-hist){display:block}
 				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
+				.cs-slide-bar{margin:0 0 6px;padding:12px 4px 6px}
 				/* The ACTIVE slide's bar stays on screen while its slide scrolls under it. A phone's keyboard scrolls the
 				   pane to keep the caret in view, which left the bar half above the top edge, its buttons clipped and
 				   hard to hit (reported from a real iPhone). Opaque, so text never shows through the hairline; the
 				   containing block is the slide, so the bar leaves with its slide and the next slide's bar takes over. */
-				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;margin-top:0;padding-top:12px;padding-bottom:6px;background:var(--bg,#fff)}
+				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;background:var(--bg,#fff)}
+				/* EVERY bar on a phone has the spacing the sticky one needs (12px of padding above for the opaque band, 6px below),
+				   so focusing a slide changes only its stickiness and background, never its box. The active bar used to swap its
+				   12px top MARGIN for padding: an inactive bar's top margin collapses out through its slide, an active one's could
+				   not, and the slide's text moved 5.6px down on every focus (measured; compose-layout-button.spec.ts). */
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}
 				.cs-sc-cap svg{width:15px;height:15px}
+				.cs-sb-layout{height:28px;font-size:11.5px}
 				.cs-sb-pill{gap:4px;padding:4px 6px;border-radius:14px}
-				.cs-sb-div{height:16px}
+				.cs-sb-pill > .cs-sb-format::before{height:16px}
 				.cs-fmt-btn{min-width:28px;height:28px;padding:0 9px;font-size:12px}
 				.cs-fmt-btn:not(.cs-fmt-mono){font-size:15px}
 				.cs-pill-btn{width:28px;height:28px}

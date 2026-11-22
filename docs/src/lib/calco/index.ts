@@ -8,20 +8,22 @@
  */
 
 export type { CapturedSlide, CaptureHost, CaptureOptions, CropEncoding, Shot } from './capture.js';
-export { captureOfficeSlides, cropPictures, describeBackground, logoKey, placePictures, readsBackdrop, splitError, toBase64 } from './capture.js';
+export { captureOfficeSlides, cropPictures, describeBackground, logoKey, placePictures, readsBackdrop, resolvePalette, splitError, toBase64 } from './capture.js';
 export type { FaceUse, FontHost, FontMetrics, FontSkipReason } from './fonts.js';
 export { embeddingAllowed, emojiSpans, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, splitEmojiRuns, uniqueFaceNames } from './fonts.js';
 export type { PlacedBox } from './layout.js';
 export { applyTransform, dominantStyle, placeFrame, spacingMultiple } from './layout.js';
-export type { ChromeRole, Layout, MasterPlan } from './masters.js';
+export type { ChromeRole, Layout, LayoutKind, MasterPlan } from './masters.js';
 export { CHROME_ROLES, planMasters, withoutHoisted } from './masters.js';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
 export { imageExt, imageMime, isContinuousTone } from './picture.js';
-export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
-export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, uniqueShapeIds, writePptx, xmlSafe } from './pptx.js';
+export type { EmbeddingPlan } from './pptx.js';
+export { buildPptx, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, pptxZipOptions, writePptx, xmlSafe } from './pptx.js';
 export type { ReadOptions, ReadResult, Refusal } from './reader.js';
 export { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
 export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt.js';
 export type { Drawn, DrawnGroup, Insets, PathCmd, ShapeGeometry } from './shapes.js';
 export { drawOrder, labelInsets, shapeGeometry } from './shapes.js';
+export type { ColorSlot, DeckTheme } from './theme.js';
+export { COLOR_SLOTS, luminance, readTheme } from './theme.js';
 export type * from './types.js';

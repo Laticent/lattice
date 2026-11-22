@@ -60,6 +60,16 @@
     "grouped",
     "diverging"
   ],
+  "variantAxes": [
+    {
+      "label": "Series encoding",
+      "exclusive": true,
+      "members": [
+        "grouped",
+        "diverging"
+      ]
+    }
+  ],
   "variantDecisionRule": [
     {
       "variant": "default",
@@ -78,24 +88,29 @@
       "useWhen": "Values carry a sign and the direction is the point: variance to plan, sentiment, a tornado / sensitivity chart. Zero sits at the middle of the plot and the two sides share one scale."
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name the takeaway, not the chart ('Growth is concentrated in EMEA', not 'Revenue by region')."
     },
     "categories": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per category, in the order they should read. Lead text is the category name, the trailing inline-code pill is the value — `EMEA \\`4.2\\``. Commas, currency symbols, units and magnitude suffixes are all read: `$4.2M` is 4 200 000 and the `$` and the magnitude carry onto the axis. A negative value hangs below (or left of) the zero rule. Three to eight categories read best."
     },
     "series": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Nested items whose trailing pill is a NUMBER are the grouped form: each category gets one bar per series, side by side, and a key names them. Two to four series; past four the group gets too dense to compare across categories."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares."
     }

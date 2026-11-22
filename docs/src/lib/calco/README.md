@@ -11,7 +11,6 @@ picture per slide.
 ```ts
 import { readSlide, restoreSlide, prepareFonts, writeOdp, writePptx } from '@laticent/calco';
 import JSZip from 'jszip';
-import PptxGenJS from 'pptxgenjs';
 
 // 1. In the page (a browser, or puppeteer's elementHandle.evaluate):
 const read = readSlide(slideElement, { hide: true }); // text → frames; text now hidden
@@ -25,7 +24,7 @@ const deck = {
 };
 deck.fonts = await prepareFonts(deck, { load, pin }); // optional: embed the fonts
 const odp = await writeOdp(JSZip, deck);               // Uint8Array
-const pptx = await writePptx(PptxGenJS, deck, 'uint8array', JSZip); // fonts embedded
+const pptx = await writePptx(JSZip, deck);             // Uint8Array, fonts embedded
 ```
 
 ## Install
@@ -57,8 +56,10 @@ Hiding the text does not touch anything else: colors that come from `currentColo
 ## Layouts, shared backgrounds and roles
 
 `readSlide` tags each frame with a `role` it reads off the page: `title` (the first `h1`/`h2`),
-`eyebrow` and `subtitle` (a lone inline-code paragraph above or below a heading), `header`,
-`footer` and `number`. `splitSlide(section, 'background' | 'foreground')` hides a slide's
+`eyebrow` and `subtitle` (a lone inline-code paragraph above or below a heading), `meta` (a lone
+inline-code paragraph that is a slide's last paragraph: a source, a basis), `header`, `footer` and
+`number`, and the slide's `look` (Lattice's `data-frame`: title, content, divider, topic, closing).
+`splitSlide(section, 'background' | 'foreground')` hides a slide's
 content (so a photograph shows only the slide's own paint and its decorative layer) or hides
 that paint (so a photograph with a transparent background shows only content);
 `splitKey(section)` says when two slides paint the same background, so one photograph serves
@@ -66,12 +67,43 @@ both. Put the backgrounds in `deck.backgrounds` (`{ color }` for a flat fill, `{
 picture) and point each slide at one with `slide.background`; its `image` is then the
 transparent foreground.
 
-With backgrounds or roles, the writers use one master page (`.odp`) or layout (`.pptx`) per
-distinct background plus the chrome its slides share: a title is a title placeholder, a page
-number a slide-number field (when it equals the slide's position), and a header, footer or page number that two or more slides
-share on a background is drawn once on the layout (`planMasters`). A slide with no shared
-background keeps its own opaque picture and its own chrome, because a layout paints under the
-slide's picture. The slide's foreground picture, when there is one, is locked against moving and
+With backgrounds or roles, every layout (`.pptx`) or master page (`.odp`) carries the WHOLE look of its slides
+(`planMasters`). Slides share one when they sit on the same background, are the same look, and draw their running
+chrome in the same place and style, whatever its text says:
+
+- chrome whose text is the same on every slide of a layout is drawn once on it, a layout of one slide included (a
+  dark divider's light footer); chrome whose text varies (a header naming each section) stays on each slide, and the
+  `.pptx` layout offers a placeholder in its look instead of becoming a layout per slide;
+- a page number is a slide-number field when it equals the slide's position;
+- in the `.pptx`, the chrome most slides show is drawn once on the slide master; a layout whose header and footer are
+  the master's shows them, and any other hides them and draws its own;
+- each `.pptx` layout has a placeholder, in that layout's own type and ink, for every role its slides show: title, a
+  body (or, on a look with a heading and at most one line under it, a subtitle), eyebrow, meta, and a varying header
+  or footer. A role with no frame on the layout falls back to its title's ink, never the master's, so a slide added
+  on a dark look in a light deck is light on dark;
+- layouts are named after the look ("Title", "Content", "Divider", "Topic", "Closing", "Divider 2"); a divider is
+  PowerPoint's section header.
+
+Chrome whose ink hardly shows on its layout's flat ground (under 1.5:1) sits on something the slide's own picture
+paints, such as a split slide's dark half, so it stays on the slide. A slide with no background in `deck.backgrounds`
+keeps its own opaque picture and its own chrome, because a layout paints under the slide's picture.
+
+## Theme
+
+The `.pptx` carries the deck's theme, not Office's (`readTheme`, theme.ts): the theme fonts are the faces the deck's titles and
+body are drawn in; the twelve theme colors are the body ink and ground, the heading ink and a second ground, and six accents,
+the saturated colors the deck paints with most. They are written the Office way: `dk1`/`dk2` the dark pair and `lt1`/`lt2` the
+light one, so a dark deck's text is `lt1`, and its master's color map reads text from the light pair (`bg1="dk1" tx1="lt1"`),
+as Office's own dark themes do; a layout whose ground is the other way from the deck's (a navy divider in a light deck)
+overrides the map. The master's text styles take the theme's text colors (`tx1`, `tx2`), so a text box, table or chart
+added on any layout reads on it. Each layout's placeholders are in its own type and ink, checked to read on its ground
+(3:1 or more, else recolored), so a slide added in PowerPoint looks like the deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures. Every run also
+states its weight, slant, caps and letter-spacing when they are off, so it never inherits a bold or all-caps master style.
+
+A host that knows its palette passes it: `captureOfficeSlides(host, n, { palette: { dk1: 'var(--text-body)', accent1:
+'var(--accent)', … } })` resolves each CSS color on every slide under its color scheme (`resolvePalette`) and returns the
+colors most slides give as `theme`; put it in `deck.theme`, and it wins over what Calco reads, slot by slot. Lattice's palette is
+`OFFICE_PALETTE` in `lib/core/office-export-policy.js`. The slide's foreground picture, when there is one, is locked against moving and
 resizing; pictures of single objects are not, so a photo can be replaced or moved.
 
 ## Fonts
@@ -108,26 +140,40 @@ For the pictures Calco crops out of a slide itself (a photo, an icon), pass `cap
 share }`, the instructions it encodes by. Leave it out and every crop is a lossless PNG.
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
-Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or
+Embedded OpenType in `ppt/fonts/`; a regular or
 bold face goes in its slot of the family's own name ("Playfair Display", flagged bold or italic by the run), and any
 other weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's font slots are only
 regular, bold, italic and bold italic. Only TrueType-outline faces are embedded in a `.pptx`; a
-CFF face, or a call without JSZip, is named instead, so a reader without it sees a substitute.
+CFF face is named instead, so a reader without it sees a substitute.
 
-Pass JSZip to `writePptx` even when the deck has no fonts to embed: Calco also uses it to mend
-three schema errors PptxGenJS 3.12 writes (a paragraph's properties repeated before every run,
-the notes master listed out of order, and a slide master declared per slide). Without JSZip the
-file is exactly what PptxGenJS wrote.
+## The PowerPoint package
 
-A `.pptx` you built with PptxGenJS yourself (pictures only, say) can take the same mending:
-`await tidyPptxPackage(JSZip, bytes)` returns the package with those errors fixed and nothing
-else changed. Pass its notes, alt text and document properties through `xmlSafe(text)` first:
-PptxGenJS escapes markup but writes control characters as they come, and one makes its XML
-part unreadable.
+`writePptx(JSZip, deck, outputType)` builds the whole OOXML package itself, as `writeOdp` builds
+the `.odp`: the content types and relationships, the document properties, one slide master with
+a layout for each look (`planMasters`), a notes master, the slides and their notes pages, the
+fonts, and the media, one part per distinct picture, named by a hash of its bytes. Each master
+has its own theme, the parts are in the order the ISO/IEC 29500 schema gives, and every shape id
+is unique on its slide. `outputType` is JSZip's (`uint8array`, the default, `nodebuffer`,
+`arraybuffer`, `blob`, `base64`); `buildPptx(JSZip, deck)` returns the zip unwritten.
+
+What the browser drew comes out as PowerPoint's own objects: a card is a `p:grpSp` (or, when it
+holds custom geometry, its members loose in paint order, because Apple's Office importer drops
+custom geometry inside a group), the slide title is the title placeholder, the page number is a
+`slidenum` field, small caps are `cap="small"`, and an icon that is an inline `<svg>` is an SVG
+picture with its PNG as the fallback.
+
+A picture-only deck is a deck whose slides have an `image` and no `frames`: Lattice's plain
+`.pptx` is written that way, by the same function. Every text value goes through `xmlSafe`
+(which strips the characters XML 1.0 forbids) and is then escaped.
+
+Before 2026-11-15, Calco's `writePptx` took PptxGenJS as its first argument and JSZip as its fourth,
+and Calco exported `tidyPptxPackage`, `embedPptxFonts`, `groupShapes`, `applyRoles` and
+`uniqueShapeIds` to mend what PptxGenJS wrote. Those are gone: pass JSZip first. The package
+version moves at its first publish.
 
 ## No dependencies
 
-JSZip, PptxGenJS and the font pinner are passed in. `readSlide` and `restoreSlide` close over
+JSZip and the font pinner are passed in. `readSlide` and `restoreSlide` close over
 nothing, so a headless browser can receive them as source.
 
 ## Limits

@@ -1,0 +1,101 @@
+// knip finds unused files, exports and packages, and imports of packages package.json does not
+// declare. It follows import and require edges from `entry`, so anything this repo loads some
+// other way must be named here, with its reason, or knip calls it dead. Run through
+// `npm run quality` and the pre-push ratchet (`node tools/quality-assessment.js --check --only dead-code`).
+// engineering/quality-assessment.md has the method; the sort of every finding is in the PR that added this file (2026-11-20).
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "lattice.js",
+    "lib/runtime/index.js",
+    "lib/playground/index.js",
+    "lib/engine/index.js",
+    "tools/*.{js,mjs}",
+    "test/**/*.test.js",
+    "test/benchmark/*.mjs",
+    "lib/theme/*.js",
+    "lib/layout/*.js",
+    "lib/authoring/*.js",
+    "lib/exemplars/*.js",
+    "lib/plugins/chart-family/shared/*.js",
+    "lib/core/*.js",
+
+    // Loaded by listing a directory, not by an import.
+    "lib/conformance/kinds/*.contract.js",            // lib/conformance/index.js lists kinds/
+    "lib/packages/_demo-host-slots/status-card/status-card.render.js", // a demo code package, loaded through its manifest (lattice packages add)
+
+    // Loaded by path at build time, or swapped in for another file.
+    "lib/plugins/*/*.draw-frame.js",                   // tools/build-plugin-registry.js, `${name}.draw-frame.js`
+    "lib/plugins/code/shared/load-grammar.browser.js", // tools/build-playground.js aliases it for the browser
+    "lib/plugins/data-browser-stub.js",                // tools/build-playground.js aliases it for the browser
+    "lib/plugins/math/shared/katex-provider.js",       // tools/build-katex-provider.js bundles it
+    "tools/lib/player-pack-shims/*.js",                // tools/build-player-prune.js swaps them in for node:fs/path
+
+    // Started as their own process (spawnSync / execFileSync on a path), or by hand.
+    "tools/lib/calibrate-*.js",                        // tools/calibrate-capacity.js --panel / --points / --rows
+    "tools/lib/fit-harness/*.js",                      // tools/fit-harness.js
+    "tools/frame-lab/bakeoff/corpus.js",               // run by hand; tools/frame-lab/README.md
+    "tools/frame-lab/proto/gen-css.js",                // spawned by tools/frame-lab/build.js
+    "tools/frame-lab/proto/proto.js",                  // loaded as a <script> by tools/frame-lab/build.js's page
+    "tools/vscode-harness/launcher/extension.js",      // a VS Code extension; tools/vscode-preview-probe.mjs installs it
+
+    // An unwired prototype's public surface; only its tests import its parts. Keep or delete is an
+    // owner decision (asked with D1, 2026-11-20).
+    "lib/core/transform-dsl/index.js"
+  ],
+  // .js only today: lib/ has 157 .mjs files and tools/ 72 more that knip does not read yet, so the
+  // ratchet holds dead code in .js files only. Widening it is followups.d/3334-p3.
+  "project": ["lib/**/*.js", "tools/**/*.js", "*.js"],
+  "ignore": [
+    "dist/**",
+    "docs/**",
+    ".scratch/**",
+    "node_modules/**",
+    "examples/**",
+    "exemplars/**",
+    "themes/**",
+    "spec/**",
+    "assets/**",
+    "lib/plugins/*/vendor/**"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    // Used, by a route knip does not follow.
+    // These three are imported from lib/**/*.mjs, which `project` below does not cover yet
+    // (followups.d/3334-p3); once it does, they drop out of this list.
+    "@mediabunny/aac-encoder",        // lib/export/video.mjs and video-cli.mjs
+    "woff2-encoder",                  // lib/core/pdf-compose/font-subset.mjs, a static import
+    "@breezystack/lamejs",            // the narrated export's MP3 encoder
+    "@fortawesome/fontawesome-free",  // the Mermaid render worker reads its CSS and fonts by path
+    "@mermaid-js/mermaid-cli",        // the Mermaid render worker resolves it by path
+    "@mermaid-js/mermaid-zenuml",     // a Mermaid diagram plugin, loaded by the renderer
+    "@tabler/icons",                  // tools/build-icons-data.js reads its SVG files
+    "vscode",                         // the VS Code host provides it to tools/vscode-harness/launcher
+    "animejs",                        // used in docs/ (knip skips docs/); its version is gated in check-ownership
+    "buffer",                         // the browser polyfill the player bundles alias node:buffer to
+    "dependency-cruiser",             // run as a binary by tools/quality-assessment.js and tools/build.js
+    "function-plot",                  // vendored by build, drawn in a frame from its path
+    "html-to-image",                  // used in docs/ (knip skips docs/) and in tests that load it by path
+    "jscpd",                          // run as a binary by tools/quality-assessment.js
+    "lodash-es",                      // tools/build-dagre-bundle.js bundles it by path
+    "trystero",                       // tools/build-tavola-lib.js bundles it
+    "zdog",                           // vendored by build and drawn in a frame
+
+    // Installed on demand by an experiment that says so in its header (npm i --no-save …).
+    "kokoro-js", "happy-dom", "@mozilla/readability",
+    "wink-nlp", "wink-bm25-text-search", "wink-eng-lite-web-model", "wink-naive-bayes-text-classifier",
+    // The docs workspace's test runner, used by the tools/verify-*.mjs and fuzz-*.mjs drivers.
+    "@playwright/test",
+    // Not a root dependency on purpose: tests resolve it from docs/node_modules (require.resolve with
+    // `paths`), and the cloud sandbox ships a global copy matched to its Chromium.
+    "playwright",
+    // A workspace package (docs/src/lib/lente), linked by npm workspaces.
+    "@laticent/lente"
+  ],
+  // System programs a tool shells out to; not npm packages.
+  "ignoreBinaries": ["convert", "pgrep", "ps", "gh", "pdfinfo", "pdftoppm", "claude", "qlmanage", "espeak-ng", "ffmpeg", "python3"],
+  // These tools build `require` with createRequire(<repo>/package.json), so './lib/…' resolves from
+  // the repo root, which knip does not model (tools/parser-bakeoff/deck.mjs, tools/spike-video-export.mjs).
+  // knip matches these specifiers in every file, so the same wrong path elsewhere is hidden too.
+  "ignoreUnresolved": ["./lib/authoring/lint.js", "./lib/engine/index.js", "./lib/export/html-player.js"]
+}

@@ -18,10 +18,10 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the table shows. |
-| `table` | `table` | yes | Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`). |
+| `title` | a `## ` heading | yes | Slide heading framing what the table shows. |
+| `table` | a table or an inline `<table>` | yes | Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`). |
 
 ### Common mistakes
 
@@ -81,7 +81,7 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

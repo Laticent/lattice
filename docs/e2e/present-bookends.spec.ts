@@ -11,7 +11,7 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 //
 // The deck opens and ends on SILENT slides — the shape the feature exists for, and the one a
 // maker-checker pass caught racing: the empty-slide skip must wait out the greeting's gap.
-// SILENT MEANS NO TEXT. An empty `<!-- say: -->` does not mute a slide: it falls through to
+// SILENT MEANS NO TEXT. An empty `<!-- @say{} -->` does not mute a slide: it falls through to
 // the slide's own words (mergeNarration, lib/core/read-along-build.js). This deck used to close
 // on `## Thank you` under an empty spoken line, so its last slide SAID "Thank you." and the closing
 // was dropped by design, as a repeat (`alreadyThanks`) — the spec had been red since it landed.
@@ -28,7 +28,7 @@ const DECK = [
 	'',
 	'## The middle slide',
 	'',
-	'<!-- say: The middle slide speaks one line. -->',
+	'<!-- @say{The middle slide speaks one line.} -->',
 	'',
 	'---',
 	'',

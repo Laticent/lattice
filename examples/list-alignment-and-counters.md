@@ -48,8 +48,8 @@ Top, middle and fill now place a list's rows, every counter follows one scale, a
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "takeaway numbered · counter 1.4× the text, one gap" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "takeaway over 1. · counter 1.4× the text, one gap" -->
 
 ## Counters sit one gap from their text.
 
@@ -59,8 +59,8 @@ Top, middle and fill now place a list's rows, every counter follows one scale, a
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "takeaway numbered with a gloss · the lead outranks its gloss" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "takeaway over 1. with a gloss · the lead outranks its gloss" -->
 
 ## A lead keeps its size over its gloss.
 

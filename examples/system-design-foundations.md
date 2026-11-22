@@ -1544,7 +1544,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Data kit · the invariants`
 
@@ -1701,7 +1701,7 @@ flowchart TB
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Compute kit · the invariants`
 
@@ -1886,7 +1886,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Network kit · the invariants`
 
@@ -2081,7 +2081,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Scale kit · the invariants`
 
@@ -2297,7 +2297,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Reliability kit · the invariants`
 
@@ -2520,7 +2520,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Security kit · the invariants`
 
@@ -2664,7 +2664,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Instagram · what it must do`
 
@@ -2681,7 +2681,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Instagram · what it must guarantee`
 

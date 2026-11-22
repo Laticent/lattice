@@ -67,7 +67,12 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	page.on('worker', (w) => workers.push(w.url()));
 	const packFailures: string[] = [];
 	page.on('console', (m) => /narration worker failed/.test(m.text()) && packFailures.push(m.text()));
-	await gotoStudio(page);
+	// THE TIER IS PINNED FULL. A LITE device does not offer the on-device voice (voice-model.js `kokoroSupported`), so the
+	// Workspace shows no download button. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`),
+	// which device-tier.ts applies only after the first slide shows, so on a loaded machine it can land before the clicks
+	// below: holding the test until it does times out on "Get ~80MB". A `?tier=` pin applies before first paint and
+	// outranks it (the same race model-spine.spec.ts pins).
+	await gotoStudio(page, { query: '?tier=full' });
 	// UNDO THE FIXTURE'S WORKER BLOCK, so the worker path this spec claims to cover is the one
 	// that runs. `gotoStudio` makes constructing the Kokoro worker throw (so no spec pulls the real
 	// model), and the rung then falls back to loading on the MAIN THREAD — which would still pass

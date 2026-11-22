@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { figureChange } from './ArchitectChat';
+import { figureChange } from './figure-change';
 
 // Numeric provenance (Munger's content-truth point): a chat rewrite that changes a
 // figure is the highest-risk edit in a numbers deck, so `figureChange` surfaces exactly

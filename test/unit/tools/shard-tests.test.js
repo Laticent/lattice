@@ -43,6 +43,15 @@ describe('shard-tests plan', () => {
   it('copes with no weights at all', () => {
     assert.deepEqual(plan(['x', 'y'], {}, 2).flatMap((b) => b.files).sort(), ['x', 'y']);
   });
+
+  it('deals into seeded bins, so a caller can fill the same bins group after group', () => {
+    // Bin 0 starts 100 heavier: both files go to bin 1 until it catches up, and the returned loads include the seed.
+    const bins = plan(['p', 'q'], { p: 60, q: 30 }, 2, [100, 0]);
+    assert.deepEqual(bins.map((b) => b.files), [[], ['p', 'q']]);
+    assert.deepEqual(bins.map((b) => b.load), [100, 90]);
+    // No seed is the old behavior, byte for byte.
+    assert.deepEqual(plan(files, weights, 3, []), plan(files, weights, 3));
+  });
 });
 
 describe('shard-tests parseShard', () => {

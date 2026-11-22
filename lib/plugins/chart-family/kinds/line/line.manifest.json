@@ -64,6 +64,17 @@
     "stacked-area",
     "step"
   ],
+  "variantAxes": [
+    {
+      "label": "Shape",
+      "exclusive": true,
+      "members": [
+        "area",
+        "stacked-area",
+        "step"
+      ]
+    }
+  ],
   "tags": [
     "metric",
     "board-deck",
@@ -72,19 +83,23 @@
   ],
   "description": "A measure plotted across an ordered axis, so the movement is the read — one line or several, optionally filled, stacked, or stepped.",
   "purpose": "Use when the claim is that something MOVED: revenue by quarter, headcount through a reorg, latency after a fix. Points sit on a shared value scale so the slope between them is comparable across series; each series is named at the end of its own line in that line's color, so the reader never travels to a key.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name the movement, not the chart (‘Renewals recovered in the second half’, not ‘Revenue line chart’)."
     },
     "points": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per point on the category axis, in order — the authored order IS the axis order and is never sorted. Lead text is the category label, and a trailing inline-code pill is its value: `Q1 2026 \\`4.2\\``. For several series, nest one li per series under each category: `- Q1 2026` then `  - Product \\`2.4\\``. Magnitude suffixes are scale, not decoration — `1.2M` is 1200000 — and an affix every value agrees on (`$`, `%`, `kg`) is carried onto the axis."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Optional nested bullet under a CATEGORY whose trailing pill is not a number — that is the whole disambiguation rule: a nested item ending in a numeric pill is a data point, anything else is detail. Drives the Present-mode reveal for that category's band and folds into the slide's speaker note; it paints nothing on the chart, so a deck with detail is pixel-identical to one without."
     }

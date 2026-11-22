@@ -145,6 +145,25 @@ describe('histogram kernel', () => {
     assert.equal(edges[edges.length - 1], '$120k');
   });
 
+  test('an edge label that would run out of the viewBox turns inward; one that fits stays centered', () => {
+    // The fit nightly counted this slide as clipped in six cells: `$120k`, centered on the
+    // plot's right end, hung past the viewBox and was cut at the slide edge.
+    const rows = Array.from({ length: 12 }, (_, i) => ['', `$${i * 10}k..$${(i + 1) * 10}k`, '5%']);
+    const svg = buildHistogram(parseHistogram(li(rows)), {});
+    const vbW = Number(svg.match(/viewBox="0 0 ([\d.]+) /)[1]);
+    const edges = svg.split('class="cart-tick histogram-edge"').slice(1).map((t) => ({
+      x: Number(t.match(/ x="([\d.]+)"/)[1]),
+      anchor: t.match(/text-anchor="(\w+)"/)[1],
+      text: t.split('>')[1].split('<')[0],
+    }));
+    const last = edges[edges.length - 1];
+    assert.equal(last.text, '$120k');
+    assert.equal(last.anchor, 'end', 'the last edge sits on the plot end, so it anchors inward');
+    const fs = require('../../../lib/plugins/chart-family/shared/cartesian').FS.tick;
+    assert.ok(last.x + (last.text.length * fs * 0.62) / 2 > vbW, 'the case is real: centered, it would cross the viewBox');
+    assert.ok(edges.slice(1, -1).every((e) => e.anchor === 'middle'), 'interior edges stay centered under their tick');
+  });
+
   test('a named band keeps its name; an unnamed band is named by its range', () => {
     const svg = buildHistogram(parseHistogram(li([['Attritional', '$1M..$5M', '61%'], ['', '$5M..$25M', '27%']])), {});
     assert.deepEqual(tags(svg, 'histogram-band').map((a) => a('data-label')), ['Attritional', '$5M to $25M']);

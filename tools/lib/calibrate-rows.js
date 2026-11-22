@@ -45,7 +45,8 @@ function die(msg) {
 // The registers each component is measured in, with the shapes it is written in and its columns.
 // A register not listed is judged by its count row.
 const ROWS = {
-  list: { bare: ['flat'], takeaway: ['flat', 'nested'], 'takeaway numbered': ['flat', 'nested'] },
+  // `takeaway` numbers a `1.` list (W2 retired `numbered`): its counter rows are the `ordered` shape below.
+  list: { bare: ['flat'], takeaway: ['flat', 'nested'] },
   'cards-grid': { bare: ['nested'], three: ['nested'], four: ['nested'] },
   // The badge registers (`phase`, `milestone`, `milestone lettered`) rename the STEP badge; `vertical`
   // stacks the steps (one column, a row cost); `capsule` centers a row of cards with a pill badge
@@ -66,10 +67,11 @@ const COLS = { 'cards-grid': 2, 'cards-grid three': 3, 'cards-grid four': 4, 'li
 // but at six a hall column is narrower than the probe's longest word (every role reads 10.7 there,
 // the word, not the column), so a six-stage ring keeps its count row, as list-steps does.
 const ONE_ROW_AT = { 'list-steps': [2, 3, 4, 5], 'compare-prose': [2], cycle: [2, 3, 4, 5] };
-// list-steps lays out a ROW only as an ordered list (`1.`), the form it documents; written with `-`
-// it is a plain vertical list, which keeps its count row.
+// list-steps is measured as `1.`, the form it documents. Since W2 a `-` list renders the same cards
+// without the STEP tag (the list contract hands it an `ol`), so the `1.` rows bound it too.
 const ORDERED_ONLY = new Set(['list-steps']);
-// cycle styles only `ul > li` (an `ol` renders as a plain list), and compare-prose writes `1.` only
+// cycle styles only `ul > li` (since W2 the list contract hands it a `ul` for `1.` as well, so the
+// loop draws either way, but lint reads a `1.` cycle on its count row), and compare-prose writes `1.` only
 // in `axis`, which this rig does not measure: both are measured unordered only, and the row is
 // stored with `ul: 1` so lint keeps an ordered slide on its count row.
 const UNORDERED_ONLY = new Set(['compare-prose', 'cycle']);

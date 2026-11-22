@@ -322,19 +322,76 @@ npx lattice deck.md deck.pdf --reopenable --strip-notes
 npx lattice deck.md deck.pptx --reopenable
 ```
 
-## Speaker notes and captions
+### Render a Lattice project from the Studio
 
-A plain HTML comment on a slide is that slide's speaker note:
+A `.lattice` file renders like a deck. Pass it where the `.md` would go:
 
-```markdown
-<!-- Open with the one number that matters. -->
+```sh
+npx lattice deck.lattice deck.pdf
+npx lattice deck.lattice deck.pptx
 ```
 
-Notes stay in by default, so you can present your own file from any computer.
-They ride inside every PDF (hidden), the PowerPoint notes pane, and the web page
-and player. Anyone you send the file to can read them, so every export that
-keeps notes says so on the console and names `--strip-notes`. Three switches
-change what ships:
+The CLI reads the file with the same checks the Studio uses when you open one.
+The photos the deck names come from the file as the Library stored them, so
+`asset:` pictures draw without an `assets/` folder. The export then treats them
+like any other picture, so `--images original` keeps them exactly as stored.
+
+The saved themes, components and plugins the file carries are used for this
+render only. Nothing is installed into `~/.lattice`, and the packages you did
+install still work alongside them. A package the file carries wins over an
+installed one of the same name, and the CLI says so. A
+component that runs code still needs your approval: approve it at its exact
+code with `lattice packages trust`, or add `--trust` to run the code the file
+carries for this one render.
+
+```sh
+npx lattice deck.lattice deck.pdf --trust
+```
+
+The CLI also writes one. Name the output `.lattice` and you get the project file
+without a render: the deck, the installed theme and components it uses, and its
+photos.
+
+```sh
+npx lattice deck.md deck.lattice
+npx lattice deck.lattice copy.lattice
+```
+
+Photos that came in a `.lattice` go through the same cleaner on the way in, so a
+photo the Studio made comes back out exactly as it was, and a camera original
+someone packed by hand loses its location. Photos from an
+`assets/` folder go the way the Studio keeps an original when you add it to the
+Library: a photo straight from a camera can record where it was taken, so that and
+the rest of its metadata (camera, text, comments) are removed, and the pixels,
+transparency and rotation stay. A photo the CLI cannot clean, such as a HEIC, an
+AVIF, a damaged file, or a link that points outside the deck's folder, is left
+out and named with the reason; add it to the
+Studio's Library instead, which converts it. `--reopenable` follows the same rule
+for the copy it puts inside a PDF or PowerPoint, up to 32 MB of photos.
+
+## Notes and captions
+
+A slide carries up to four notes, each named for where it shows up:
+
+```markdown
+<!-- @note{Open with the one number that matters.} -->
+<!-- @say{Revenue grew eighteen percent, led by Asia-Pacific.} -->
+<!-- @alt{Bar chart of revenue by region; Asia-Pacific is the tallest bar.} -->
+<!-- @handout{Figures are unaudited until the Q4 close.} -->
+```
+
+`@note` is your speaker note, `@say` is what the slide says aloud and in its
+captions, `@alt` is the slide's alt text for a screen reader, and `@handout` is
+for someone reading the deck alone. A plain `<!-- comment -->` is none of them:
+it reaches no export, like a comment in code. A deck written with the old
+`say:`, `describe:` or `reader:` comments, or with plain comments as speaker
+notes, is rewritten by `npx lattice migrate notes deck.md`.
+
+Speaker notes stay in by default, so you can present your own file from any
+computer. They ride inside every PDF (hidden), the PowerPoint notes pane, and
+the web page and player. Anyone you send the file to can read them, so every
+export that keeps notes says so on the console and names `--strip-notes`. Three
+switches change what ships:
 
 ```sh
 # Write the notes to deck.notes.txt as well
@@ -343,23 +400,25 @@ npx lattice deck.md deck.pdf --notes
 # Show a clickable note icon on every slide that has one
 npx lattice deck.md deck.pdf --notes-icon
 
-# Remove the notes from every copy: the PDF, the HTML and any embedded source
+# Remove every @note, and every plain comment, from every copy:
+# the PDF, the HTML and any embedded source
 npx lattice deck.md deck.pdf --strip-notes
 ```
 
+`--strip-notes` keeps the three public notes: `@say`, `@alt` (the recipient's
+accessibility) and `@handout`.
+
 `--captions` writes WebVTT read-along captions: one `deck.vtt` for the whole
 deck, plus one `deck.01.vtt` per slide. Each slide reads its own content
-unless you wrote a `<!-- say: … -->` for it.
+unless you wrote an `@say` for it.
 
 ```sh
 npx lattice deck.md deck.pdf --captions
 ```
 
-`--strip-say` removes the spoken lines you wrote yourself (`say:`) and keeps
-the generated narration. It also removes the retired `caption:` comments and
-`captions:` map, including a comment that starts with `Caption:`, and says so
-when it does. It does not touch any other speaker note, and `--strip-notes`
-does not touch `say:` lines.
+`--strip-say` removes the `@say` lines you wrote yourself and keeps the
+generated narration. It does not touch any other note, and `--strip-notes`
+does not touch `@say` lines.
 
 ## Check a deck before you render it
 

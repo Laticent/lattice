@@ -532,3 +532,14 @@ test('@parity resizing the pane while zoomed never blanks the slide', async ({ p
 		expect(v, `${edge} edge exposed ${v}px of background`).toBeLessThanOrEqual(1);
 	}
 });
+
+// The strip names each engine slide by the class the engine draws it with: a slide that only inherits a running
+// `<!-- class: … -->` (a later heading part, or a later `---` slide) used to read `text` (PR #3239).
+test('the strip names a slide that inherits a running class by that class', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Strip\n---\n\n<!-- class: image -->\n## One\n\n![A](sample:photo-wide.svg)\n\n## Two\n\n![B](sample:photo-wide.svg)\n\n---\n\n## Three\n\n![C](sample:photo-wide.svg)\n\n---\n\n<!-- _class: quote -->\n> Four\n');
+	const rail = page.locator('nav[aria-label="Slide navigator"]');
+	// The slide pills, not the strip's "Slide actions" menu.
+	const pills = () => rail.locator('button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label') ?? '').filter((l) => /^Slide \d/.test(l)));
+	await expect.poll(pills).toEqual(['Slide 1 — image', 'Slide 2 — image', 'Slide 3 — image', 'Slide 4 — quote']);
+});

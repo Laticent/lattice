@@ -162,8 +162,10 @@ function corpusDecks() {
 	// for a few hundred milliseconds, and globbing them made this test fail with a bare ENOENT
 	// whenever the suite ran during a corpus sweep — the exact pairing a golden refresh performs.
 	// Measured: `.regr-piechart.dark.md`, read after it had already been cleaned up.
+	// `*.tmp.md` is the same race from the gallery builders, which write `*.gallery.<theme>.tmp.md`
+	// beside a deck while it renders (tools/check-ownership.js TRANSIENT_RENDER_RE). None is committed.
 	return [...walk(path.join(ROOT, 'examples')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...componentCorpusRoots(path.join(ROOT, 'lib/components')).flatMap(walk)].filter(
-		(f) => f.endsWith('.md') && !path.basename(f).startsWith('.'),
+		(f) => f.endsWith('.md') && !f.endsWith('.tmp.md') && !path.basename(f).startsWith('.'),
 	);
 }
 
@@ -218,7 +220,7 @@ test('seeded fuzz: block-parse and full-parse agree on every generated deck', ()
 		'  - nested', '   1. nested ord', '-\tfoo', '1.\tbar', '> quote', '> > deep',
 		'| a | b |', '|---|---|', '|---|---|---|', '| 1 | 2 |', 'h1 | h2', '--- | ---', '|:-:|--:|',
 		'```', '```js', '~~~', '~~~md', '````', '$$', '$$ x $$', 'x = y',
-		'<!-- _class: text -->', '<!-- note:', '-->', '<div>', '</div>', '<span>inline</span>',
+		'<!-- _class: text -->', '<!-- @note{', '-->', '<div>', '</div>', '<span>inline</span>',
 		'<custom-el>', '<script>', '</script>', '<pre>', '</pre>', '<br/>', '<hr>',
 		'    indented code', '\ttab code', '[ref]: /url', '[ref]:', '[]: /url', '[a]: <span>hi</span>',
 		'"Title"', '<!-- one-liner -->', 'text with --- inside', 'the plan --- v2',

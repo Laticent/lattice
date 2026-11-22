@@ -17,7 +17,15 @@ import { type FormatSizes, measureFormats, PHOTO_FORMATS, type PhotoFormat, webp
 
 const PREF_KEY = 'lattice-photo-format';
 
-/** The format the person chose last time, or JPEG: what the Library has always done with a phone photo. */
+/**
+ * The format the person chose last time, or the original. The original is the default because the Library is
+ * where a `.lattice` project takes its photos from, and a `.lattice` is the file format: it carries the photo as
+ * the author added it, and every other export decides, by its own Pictures choice, whether to send a smaller copy
+ * (the owner, 2026-11-13; engineering/decisions/2026-10-12-library-media-assets.md §3). A re-encode at intake
+ * would lose the original before any of those choices could be made.
+ */
+export const DEFAULT_PHOTO_FORMAT: PhotoFormat = 'original';
+
 export function loadPhotoFormat(): PhotoFormat {
 	try {
 		const v = localStorage.getItem(PREF_KEY);
@@ -25,7 +33,7 @@ export function loadPhotoFormat(): PhotoFormat {
 	} catch {
 		// private window or blocked storage: the default is fine
 	}
-	return 'jpeg';
+	return DEFAULT_PHOTO_FORMAT;
 }
 function savePhotoFormat(f: PhotoFormat) {
 	try {
@@ -128,9 +136,14 @@ export function PhotoFormatDialog({ files, onCancel, onConfirm }: { files: File[
 											) : null}
 										</span>
 									</span>
-									{b !== null && !unavailable ? (
+									{/* The track is drawn from the first frame, its bar only once measured: a track that appeared with its
+									    number grew the dialog, and a centered dialog that grows moves its "Add" button out from under a pointer
+									    already aimed at it (the dialog-holds-its-place case in e2e/library-images.spec.ts). */}
+									{!unavailable ? (
 										<span aria-hidden className="block h-1 overflow-hidden rounded-full bg-border/60">
-											<span className={cn('block h-full rounded-full transition-[width] duration-300', picked ? 'bg-[var(--accent)]' : 'bg-muted-foreground/40')} style={{ width: `${Math.max(3, Math.round((b / widest) * 100))}%` }} />
+											{b !== null ? (
+												<span className={cn('block h-full rounded-full transition-[width] duration-300', picked ? 'bg-[var(--accent)]' : 'bg-muted-foreground/40')} style={{ width: `${Math.max(3, Math.round((b / widest) * 100))}%` }} />
+											) : null}
 										</span>
 									) : null}
 									<span className="block text-[11.5px] leading-snug text-muted-foreground">{unavailable ? 'This browser cannot save WebP. Choose JPEG or PNG.' : OPTIONS[f].means}</span>
@@ -139,7 +152,7 @@ export function PhotoFormatDialog({ files, onCancel, onConfirm }: { files: File[
 						);
 					})}
 				</RadioGroup>
-				<p className="min-h-4 text-[11px] leading-snug text-muted-foreground" aria-live="polite">
+				<p className="min-h-[2lh] text-[11px] leading-snug text-muted-foreground" aria-live="polite">
 					{sizes
 						? `You picked ${mb(sizes.pickedBytes)}. Sizes are measured on ${sizes.sampled < sizes.of ? `${sizes.sampled} of your ${sizes.of} photos and scaled to the rest` : n === 1 ? 'your photo' : 'your photos'}${sizes.skipped ? `; ${sizes.skipped} could not be measured` : ''}.`
 						: 'Measuring your photos…'}

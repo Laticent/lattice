@@ -14,12 +14,12 @@ Printed QR gift card. `tools/gift-cards.mjs` writes one card per slide at the `c
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | no | The card's line (e.g. "Make your next deck with Lattice."). |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field. Keys: link\|url (required; the gift link, written inside a code span: ``- `https://lattice.style/gift#v1.…` `link` ``), pin (printed apart from the code when the link is locked), caption, number\|no. The link goes into the QR only and is never shown as text. |
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, as an inline-code first line: `` `A deck on us` ``. |
-| `caption` | `ul > li` | no | Optional line under the heading, as a postfix-key bullet: ``- Scan to start. `caption` ``. |
+| `title` | a `## ` heading | no | The card's line (e.g. "Make your next deck with Lattice."). |
+| `fields` | a list | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field. Keys: link\|url (required; the gift link, written inside a code span: ``- `https://lattice.style/gift#v1.…` `link` ``), pin (printed apart from the code when the link is locked), caption, number\|no. The link goes into the QR only and is never shown as text. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the heading, as an inline-code first line: `` `A deck on us` ``. |
+| `caption` | a list | no | Optional line under the heading, as a postfix-key bullet: ``- Scan to start. `caption` ``. |
 
 ### Common mistakes
 
@@ -51,7 +51,9 @@ Printed QR gift card. `tools/gift-cards.mjs` writes one card per slide at the `c
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
+
+On this layout, modifiers that style the **eyebrow**, **heading** and **table** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 
 ## Related components
 

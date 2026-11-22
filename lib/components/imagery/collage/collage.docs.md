@@ -14,13 +14,13 @@ Use when several photographs make the argument together: a product line, a site,
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the title, a short label in backticks. |
-| `title` | `h2` | no | Optional title. A claim earns its place; a bare label does not. |
-| `subtitle` | `h2 + p > code:only-child` | no | Optional line under the title, in backticks. |
-| `description` | `p` | no | Optional description paragraph, written after the title and subtitle and before the photos. It is the slide's only caption and prints in every export. |
-| `photos` | `ul > li > img` | yes | One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the title, a short label in backticks. |
+| `title` | a `## ` heading | no | Optional title. A claim earns its place; a bare label does not. |
+| `subtitle` | a line of `inline code` | no | Optional line under the title, in backticks. |
+| `description` | a paragraph | no | Optional description paragraph, written after the title and subtitle and before the photos. It is the slide's only caption and prints in every export. |
+| `photos` | an image (`![alt](src)`) | yes | One list item per photo, written as `- ![Alt text](path.jpg)`. Four to six photos. The alt text is the screen-reader label and the label in the enlarged view; it is not drawn on the tile. A trailing code span sets hints for that photo: `hero` (largest tile), one of `top` `bottom` `left` `right` `center` (which part stays in view if it is cropped), and a ratio such as `3:2` for a remote image the build cannot measure. Separate hints with commas. An unknown word voids the whole span: nothing in it applies, nothing is drawn for it, and lint names the word. |
 
 ### Common mistakes
 
@@ -188,7 +188,7 @@ The words themselves (the address, `title`, `description`) are always the author
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

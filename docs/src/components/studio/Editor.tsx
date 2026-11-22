@@ -7,10 +7,13 @@ import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, type Text, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
+import { cmFindExtension, cmFindTarget } from '@/lib/find-replace';
+import type { FindTarget } from '@/lib/find-types';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
@@ -18,7 +21,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { completionKeys, completionLoading as completionLoadingFacet } from '@/playground/completion-keys.js';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
-import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, positionCompletionInfo, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
 import { largeInsert } from './editor-large-insert';
 import { payloadFold } from './editor-payload-fold';
 import { editorTheme, studioHighlight } from './editor-theme';
@@ -429,6 +432,8 @@ export type EditorHandle = {
 	/** Put the caret at `offset` once the document holds `text` (an undo landing through the
 	 *  `value` sync): the change's own place, not the mapped old caret. */
 	placeCaret: (text: string, offset: number) => void;
+	/** The find bar's way into this editor (lib/find-replace.ts): CodeMirror's own search, highlighting in the text. */
+	findTarget: () => FindTarget;
 };
 
 /** A drawn caret where the caret is, while the editor does not have focus: on a phone the real caret only shows with the
@@ -448,6 +453,10 @@ const ghostCaret = layer({
 
 export const Editor = React.forwardRef<EditorHandle, {
 	value: string;
+	/** ⌘F / Ctrl+F in the text: open the Studio's find bar (FindBar.tsx) rather than the browser's, which cannot replace. */
+	onFind?: () => void;
+	/** A new CodeMirror view exists (mount, deck switch): the find bar runs its query again on it. */
+	onView?: () => void;
 	/** Every change to the document, with what changed when the editor knows it (an author's edit
 	 *  or a command; not the `value` sync, whose text the shell already holds). */
 	onChange: (next: string, change?: EditorChange) => void;
@@ -498,6 +507,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  transition, so `value` can trail the document by a keystroke or two; syncing such a value back would undo
 	 *  what the author just typed. Every other `value` is a real write and is synced as before. */
 	isStaleEcho?: (value: string) => boolean;
+	/** The newest text the shell holds, read now. It runs AHEAD of `value` while a transition trails the keyboard, and
+	 *  a view built in that window (a layout switch remounting the editor) must start from it, not from the render's
+	 *  `value`. A `value` that differs from it is a trailing render; the render carrying the newest text follows. */
+	latestValue?: () => string;
 	/** Identity of the deck this editor is showing. A different key builds a new view, so nothing
 	 *  of one deck's editor state (its caret, its selection) is ever shown on another. The undo
 	 *  history is not the editor's: the Studio keeps it in Filo, one history per deck. */
@@ -532,9 +545,15 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onFind, onView, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, latestValue, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
+	// A Fix all is running (it awaits its passes, lint-core `fixAllDetailed` with a pause): a second press waits for it.
+	const fixAllRunningRef = React.useRef(false);
+	const onFindRef = React.useRef(onFind);
+	onFindRef.current = onFind;
+	const onViewRef = React.useRef(onView);
+	onViewRef.current = onView;
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
 	const collabRef = React.useRef(collab);
 	collabRef.current = collab;
@@ -558,6 +577,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	hubRef.current = focusHub;
 	const isStaleEchoRef = React.useRef(isStaleEcho);
 	isStaleEchoRef.current = isStaleEcho;
+	const latestValueRef = React.useRef(latestValue);
+	latestValueRef.current = latestValue;
 	// The index revision the editor's text was last fed as, so a caret report names the text
 	// it was computed against (the hub drops a report against older text).
 	const revRef = React.useRef<number | undefined>(undefined);
@@ -645,7 +666,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false, positionInfo: positionCompletionInfo }),
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),
@@ -752,8 +773,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const fixOpts = {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
-							const out = core.applyFix(docString(v.state.doc), f);
-							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
+							const doc = v.state.doc;
+							void core.applyFixWhenReady(docString(doc), f).then((out: string | null) => {
+								if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							});
 						},
 					};
 					// Measured, not linted: sparks the preview found too big for their space. Only the
@@ -796,10 +820,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
 							const text = docString(view.state.doc);
-							fix.attachInkFixes(thin, text, () => hubRef.current?.get().unitIndex, () => measuredPhotoRef.current);
+							fix.attachInkFixes(
+								thin,
+								text,
+								() => {
+									const f = hubRef.current?.get();
+									return f ? { unit: f.unitIndex, part: f.part ?? 0 } : undefined;
+								},
+								() => measuredPhotoRef.current,
+							);
 							if (photo && photoWanted) {
 								const ix = buildDeckIndex(text);
-								const flagged = thin.some((d) => Math.max(0, unitAt(ix, d.from)) === photo.slideIndex);
+								// Lint's warning on the same engine slide (the `---` slide, and its heading part when it splits) carries this verdict.
+								const flagged = thin.some((d) => Math.max(0, unitAt(ix, d.from)) === photo.slideIndex && (partAt(ix, d.from)?.part ?? 0) === (photo.part ?? 0));
 								const d = flagged ? null : fix.photoDiagnostic(view.state.doc, photo, () => measuredPhotoRef.current);
 								if (d) measured.push(d);
 							}
@@ -896,6 +929,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [focusHub, revealFocus]);
 
 	React.useImperativeHandle(ref, () => ({
+		findTarget() {
+			return cmFindTarget(() => viewRef.current);
+		},
 		caretColumn() {
 			const v = viewRef.current;
 			if (!v) return null;
@@ -912,6 +948,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 			if (!v) return;
 			// Real lint: apply every autofixable lint-core finding in one undoable pass.
 			if (useRealLint && vocabSets && known.size > 0) {
+				// One run at a time: a second press while the passes run would start a second run on the same text,
+				// and its result would then read as stale against the first run's write.
+				if (fixAllRunningRef.current) return;
+				fixAllRunningRef.current = true;
 				(async () => {
 					const core = lintCoreNow() || (await loadLintCore());
 					if (!core) return;
@@ -919,13 +959,26 @@ export const Editor = React.forwardRef<EditorHandle, {
 					await core.loadFixDriver();
 					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
 					const cur = docString(v.state.doc);
-					const res = core.fixAllDetailed(cur, vocabSets);
-					if (res.text !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: res.text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
+					// Marks the page from the moment the run has read the deck it fixes until it ends: what an e2e waits on before it
+					// types "during the run" (HARD RULE #32), since the driver's chunk loads first and a keystroke before the read is kept.
+					document.documentElement.dataset.fixAllRunning = '';
+					// The passes run one task each (lint-core `fixAllDetailed` with a pause), so the click returns at once and
+					// the page keeps painting: the synchronous call froze the Studio for 8.4 s on a deck that needs
+					// the driver's 500 passes (editor-lint.spec.ts). The author can type meanwhile, so the result is
+					// written only onto the text it was computed from, as one undo step; otherwise nothing is written.
+					const res = await core.fixAllDetailed(cur, vocabSets, true);
+					// Stale also when this view was torn down meanwhile (Compose or another deck unmounts it): a destroyed
+					// view keeps its old text and takes a dispatch silently, so the fixes would be announced and never written.
+					const stale = viewRef.current !== v || docString(v.state.doc) !== cur;
+					if (!stale && res.text !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: res.text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
 					// Say what it did, naming each fix the driver refused (a refused fix keeps its underline).
 					// The wording loads here, after the click: the Studio's first paint is at its route-budget
 					// ceiling (docs/route-budget.json, eagerJsGz), and a static import put it there.
-					(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied.length, skipped: res.skipped }, notify);
-				})();
+					(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied.length, skipped: res.skipped, stale }, notify);
+				})().finally(() => {
+					fixAllRunningRef.current = false;
+					delete document.documentElement.dataset.fixAllRunning;
+				});
 				return;
 			}
 			// Fallback: swap each unknown `_class` for its nearest known suggestion.
@@ -1053,7 +1106,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const seed = {
 					// Canonicalized here because `EditorState.create` runs NO transaction filter — a
 					// deck stored with a BOM before this landed would otherwise keep it on screen.
-					doc: collab ? collab.seed() : stripBom(value),
+					// THE SHELL'S NEWEST TEXT, not this render's `value`, which can trail it (see `latestValue`). The hub
+					// holds that newest text, and the build below restates the view's text to the hub: a view seeded
+					// from a trailing `value` moved the hub BACK, and with it the caret's slide and the preview. Measured
+					// on WebKit at phone size after typing a deck at 1440 px: the switch to one pane rebuilt the editor
+					// from an empty `value` (Delete after select-all, still in a transition), and the preview went to
+					// slide 1 for good, 3 runs in 16 under load (logo-wall-revisit.spec.ts).
+					doc: collab ? collab.seed() : stripBom(latestValueRef.current?.() ?? value),
 					extensions: [
 						lineNumbers(),
 						// The caret's line, marked as the Playground marks it (owner, 2026-11-12), and standing down while a selection
@@ -1063,6 +1122,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 						EditorView.editorAttributes.compute(['selection'], (state): Record<string, string> => (state.selection.ranges.some((r) => !r.empty) ? { class: 'cm-has-selection' } : {})),
 						noLeadingBom,
 						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : []),
+						// ⌘F opens the Studio's find bar, ahead of the default keymap. Only when a bar is wired: otherwise the
+						// browser's own find stays the fallback.
+						keymap.of([
+							{
+								key: 'Mod-f',
+								run: () => {
+									if (!onFindRef.current) return false;
+									onFindRef.current();
+									return true;
+								},
+							},
+						]),
+						cmFindExtension,
 						keymap.of(defaultKeymap),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
 						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
@@ -1205,6 +1277,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 			const view = new EditorView({ parent: hostRef.current, state: EditorState.create(seed) });
 			viewRef.current = view;
+			onViewRef.current?.();
 			// THE LATEST-REF BELONGS TO THE COMPONENT, NOT THE VIEW, so a new view leaves it holding
 			// the OLD one's answer — and the update listener above only emits on a CHANGE, so
 			// nothing corrects it.
@@ -1308,6 +1381,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 		if (!v || value === docString(v.state.doc)) return;
 		// A trailing echo of the author's own typing, not a write (see `isStaleEcho`).
 		if (isStaleEchoRef.current?.(value)) return;
+		// A trailing render of any older text: the shell already holds a newer one, and the render that carries it
+		// follows. A view built in between starts from that newer text, so syncing this one back would undo it.
+		const latest = latestValueRef.current?.();
+		if (latest !== undefined && latest !== value) return;
 		const old = docString(v.state.doc);
 		// Minimal diff — the common prefix/suffix the two docs share.
 		const minLen = Math.min(old.length, value.length);
@@ -1360,7 +1437,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		return (
 			<textarea
 				className={className}
-				style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'var(--bg)', color: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontSize: 13, padding: 14, lineHeight: 1.85 }}
+				style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'var(--bg)', color: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontSize: 13, padding: 14, lineHeight: 1.85 }}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				spellCheck={false}
@@ -1368,5 +1445,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			/>
 		);
 	}
-	return <div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />;
+	return (
+		<>
+			<div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />
+			{/* Whichever of the host or `.cm-scroller` scrolls on this engine, the capturing listener finds it. */}
+			<QuickScroll root={hostRef} label="source" />
+		</>
+	);
 });

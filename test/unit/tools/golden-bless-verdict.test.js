@@ -258,3 +258,98 @@ describe('writtenProblems: what the promoting check wrote, against what it repor
     assert.equal(p.unchecked.includes('n.pdf'), false);
   });
 });
+
+// Rollout step 1 of engineering/decisions/2026-11-16-blessing-invariants-attribution.md: the bless is
+// per golden. A golden that breaks the invariant, or that the check cannot vouch for, is HELD; every
+// other written golden is BLESSED, however far its pixels moved, and one held golden never holds back
+// the rest. A false "bless" re-records a page-count change unseen, so each hold reason is pinned.
+describe('partition — per golden, never all-or-nothing', () => {
+  test('a large pixel move alone is blessed; only the invariant and an untrusted check hold', async () => {
+    await load();
+    const rows = [
+      row(Q, { worstFraction: 0.4 }), // moved a lot, page shape intact
+      row(P, { pageShapeChanged: true }), // a page added, removed or resized
+      row('examples/broken.pdf', { status: 'RENDER_ERROR' }),
+    ];
+    const part = m.partition(rows, [Q, P, 'examples/broken.pdf', 'examples/unreported.pdf']);
+    assert.deepEqual(part.bless, [Q]);
+    assert.deepEqual(part.held.map((h) => h.golden), [P, 'examples/broken.pdf', 'examples/unreported.pdf']);
+    assert.match(part.held[0].why, /added, removed or resized/);
+    assert.match(part.held[1].why, /RENDER_ERROR/);
+    assert.match(part.held[2].why, /did not report it/);
+  });
+
+  test('a golden rendered for the first time is blessed, reported or not', async () => {
+    await load();
+    const N = 'examples/gift-card.pdf';
+    const part = m.partition([row(N, { status: 'NO_GOLDEN' })], [N, 'examples/new2.pdf'], { created: [N, 'examples/new2.pdf'] });
+    assert.deepEqual(part.bless, [N, 'examples/new2.pdf']);
+    assert.deepEqual(part.held, []);
+  });
+
+  test('one held golden does not hold back the others', async () => {
+    await load();
+    const names = Array.from({ length: 40 }, (_, i) => `examples/d${i}.pdf`);
+    const rows = names.map((g, i) => row(g, { pageShapeChanged: i === 0 }));
+    const part = m.partition(rows, names);
+    assert.equal(part.bless.length, 39);
+    assert.equal(part.held.length, 1);
+  });
+
+  test('a page-count change is blessed when the caller says its slides explain it, or when the owner says bless_held', async () => {
+    await load();
+    const rows = [row(P, { pageShapeChanged: true }), row(Q, { pageShapeChanged: true })];
+    const explained = m.partition(rows, [P, Q], { explained: [P] });
+    assert.deepEqual(explained.bless, [P]);
+    assert.deepEqual(explained.held.map((h) => h.golden), [Q]);
+    const owner = m.partition(rows, [P, Q], { blessHeld: true });
+    assert.deepEqual(owner.bless, [P, Q]);
+    assert.deepEqual(owner.held, []);
+    // bless_held answers the page-shape hold only: a check the bot cannot trust still holds.
+    const broken = m.partition([row(P, { status: 'RENDER_ERROR' })], [P], { blessHeld: true });
+    assert.deepEqual(broken.bless, []);
+  });
+
+  // Owner's call, 2026-11-16: the source explains a page-count change only when it gained or lost
+  // exactly as many slides. "The source changed at all" let a typo fix excuse an engine regression.
+  test('slidesExplainPages: only an equal, non-zero change in slides and pages is the author\'s', async () => {
+    await load();
+    const e = m.slidesExplainPages;
+    assert.equal(e({ oldPages: 10, newPages: 12, oldSlides: 8, newSlides: 10 }), true, 'two slides added, two pages');
+    assert.equal(e({ oldPages: 10, newPages: 9, oldSlides: 8, newSlides: 7 }), true, 'one slide removed, one page');
+    assert.equal(e({ oldPages: 10, newPages: 11, oldSlides: 8, newSlides: 8 }), false, 'a typo fix does not explain a new page');
+    assert.equal(e({ oldPages: 10, newPages: 12, oldSlides: 8, newSlides: 9 }), false, 'one slide does not explain two pages');
+    assert.equal(e({ oldPages: 10, newPages: 10, oldSlides: 8, newSlides: 8 }), false, 'a resized page is never explained');
+    assert.equal(e({ oldPages: 10, newPages: 11, oldSlides: undefined, newSlides: 9 }), false, 'an unreadable count holds');
+    assert.equal(e({}), false);
+  });
+
+  // Read off the first local run of the bless (2026-11-16): a gallery that gained a slide showed
+  // "0.00%" moved and 16 first renders filled the table at 0.00%, hiding both from the owner.
+  test('the digest lists first renders apart and puts an added page first, saying whether slides explain it', async () => {
+    await load();
+    const A = 'examples/added-slide.pdf';
+    const F = 'examples/brand-new.pdf';
+    const rows = [row(Q, { worstFraction: 0.4 }), row(A, { pageShapeChanged: true, worstFraction: 0 })];
+    const md = m.digestMarkdown({ bless: [Q, A, F], held: [] }, rows, { created: [F], explained: [A] });
+    assert.match(md, /3 re-recorded, 0 held/);
+    assert.match(md, /Moved most\*\* \(worst page of each, 2 of 2\)/);
+    assert.ok(md.indexOf(A) < md.indexOf(Q), 'a page change leads, even at 0% pixels');
+    assert.match(md, /matching its slides/);
+    assert.match(md, /Rendered for the first time\*\* \(1\): `examples\/brand-new\.pdf`/);
+    assert.doesNotMatch(md.split('Rendered for the first time')[0], /brand-new/, 'a first render is not in the moved table');
+  });
+
+  test('the digest names what was held and what moved most, and asks nothing', async () => {
+    await load();
+    const rows = [row(Q, { worstFraction: 0.4 }), row('examples/a.pdf', { worstFraction: 0.01 }), row(P, { pageShapeChanged: true })];
+    const md = m.digestMarkdown(m.partition(rows, [Q, 'examples/a.pdf', P]), rows, { renderedFrom: 'abcdef1234567890' });
+    assert.match(md, /2 re-recorded, 1 held/);
+    assert.match(md, /merges itself/);
+    // Worst first: the 40% golden is listed before the 1% one.
+    assert.ok(md.indexOf(Q) < md.indexOf('examples/a.pdf'));
+    assert.match(md, new RegExp(`${P.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\`: a page was added`));
+    assert.doesNotMatch(md, /\?\s*$/m);
+    assert.ok(md.includes(m.VERDICT_MARKER));
+  });
+});

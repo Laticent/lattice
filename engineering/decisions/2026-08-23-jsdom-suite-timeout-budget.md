@@ -271,6 +271,11 @@ worker that has already rendered `StudioShell` 22 times, and costs about twice a
 - **3 further full runs under the four-burner contention that reproduced the flake**, zero
   failures. The plain-run bar cannot distinguish a fix from an idle machine; this one can.
 - The reproduction above, run before the change, fails on the first attempt.
+- **Re-measured 2026-11-15 under 4 burners**, the five `studio.*` jsdom files: 62/63 runs green, then one red named
+  on the first run of a JSON-reported loop. It was the second class above, at a new site: `studio.theme-depth`'s first
+  Fabricate open waited on its `React.lazy` load inside Testing Library's 3 s clock (cold 1485–1945 ms, file alone).
+  Fixed by `loadFabricate()` (`docs/src/test/panels.ts`) in `beforeAll`; then 10/10 named runs green under the same
+  load. The steady red needs 4 real WebKit browsers on the same cores, which CI never schedules.
 
 ## What this does NOT claim
 

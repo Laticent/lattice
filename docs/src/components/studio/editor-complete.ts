@@ -120,6 +120,108 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/**
+ * The three fields a `terms:` entry can carry (engineering/decisions/2026-11-16-terms-registry.md §3),
+ * in the order an author fills them. Any other name is ignored by the reader and warned by
+ * `terms-entry-ignored`, so these are the only names offered.
+ */
+const TERM_FIELDS: readonly { label: string; info: string }[] = [
+	// Plain text: the completion tooltip does not render Markdown, so no backticks.
+	{ label: 'pronounce', info: 'How the voice says it: “ee bit dah”. An empty value "" silences the term.' },
+	{ label: 'expansion', info: 'What it stands for: “earnings before interest, taxes…”. Spoken when there is no pronounce.' },
+	{ label: 'definition', info: 'The glossary line. Never spoken.' },
+];
+
+/**
+ * Is the cursor where a `terms:` entry's FIELD goes? Two places: an indented child line under an entry
+ * (`  EBITDA:` then `    pro|`), or inside the entry's `{ … }` after `{` or a comma (`CRO: { exp|`).
+ * Returns the word typed so far and the fields not yet written on that entry, or null. Pure: it reads
+ * lines by number, as the rest of this file does, so it is tested without an editor.
+ */
+export function termFieldCompletion(lineText: (n: number) => string, lineNumber: number, before: string): { typed: string; options: { label: string; info: string }[] } | null {
+	// Find the root line above (indent 0); it must be the `terms:` header, as a block.
+	let root = -1;
+	for (let n = lineNumber; n >= 1; n--) {
+		const t = lineText(n);
+		if (/^---[ \t]*$/.test(t)) return null; // the front matter's opening line: no root key above
+		if (t.trim() && !/^\s/.test(t)) {
+			root = n;
+			break;
+		}
+	}
+	if (root < 0 || root === lineNumber || !/^terms[ \t]*:[ \t]*(?:#.*)?$/.test(lineText(root))) return null;
+	const indentOf = (t: string) => (t.match(/^[ \t]*/) as RegExpMatchArray)[0].length;
+	let entryIndent = -1;
+	for (let n = root + 1; n <= lineNumber; n++) {
+		const t = lineText(n);
+		if (t.trim() && !t.trim().startsWith('#')) {
+			entryIndent = indentOf(t);
+			break;
+		}
+	}
+	const indent = indentOf(before);
+	let written: string[];
+	let typed: string;
+	const flow = before.match(/:[ \t]*\{([^}]*)$/);
+	if (indent <= entryIndent && flow) {
+		const tail = flow[1].match(/(?:^|,)[ \t]*([\w-]*)$/);
+		if (!tail) return null; // after a field's colon: that is a value, not a field
+		typed = tail[1];
+		written = [...flow[1].matchAll(/(?:^|,)[ \t]*([\w-]+)[ \t]*:/g)].map((m) => m[1]);
+	} else if (indent > entryIndent && /^[ \t]*[\w-]*$/.test(before)) {
+		typed = before.trim();
+		// The entry this child belongs to: the nearest line above at the entry indent; its other children.
+		let head = lineNumber - 1;
+		while (head > root && (indentOf(lineText(head)) !== entryIndent || lineText(head).trim().startsWith('#'))) head--;
+		// An entry that already has a value on its own line (`Yearn: yurn`) takes no fields under it.
+		if (head <= root || lineText(head).replace(/^[^:]*:/, '').replace(/[ \t]#.*$/, '').trim()) return null;
+		written = [];
+		for (let n = head + 1; n < lineNumber + 40; n++) {
+			if (n === lineNumber) continue;
+			const t = lineText(n);
+			if (t === undefined || (t.trim() && indentOf(t) <= entryIndent) || /^---/.test(t)) break;
+			const m = t.match(/^[ \t]*([\w-]+)[ \t]*:/);
+			if (m) written.push(m[1]);
+		}
+	} else return null;
+	const options = TERM_FIELDS.filter((f) => !written.includes(f.label));
+	return options.length ? { typed, options } : null;
+}
+
+type Rect = { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number };
+
+/**
+ * Where a completion's help text goes. CodeMirror's own placement, except on a NARROW screen: there it
+ * hangs the help under the SELECTED option, which covers every option below it (a phone showed the
+ * three `terms:` fields as one, the other two under the help). Here it goes under the whole list, or
+ * above it when there is no room below, so every option stays readable. Wide screens are unchanged:
+ * the help sits beside the list, level with the selected option.
+ */
+export function positionCompletionInfo(view: { textDirection: number }, list: Rect, option: Rect, info: Rect, space: Rect, tooltip?: { offsetWidth: number; offsetHeight: number }): { style: string; class: string } {
+	const rtl = view.textDirection === 1; // Direction.RTL
+	let left = rtl;
+	const spaceLeft = list.left - space.left;
+	const spaceRight = space.right - list.right;
+	const infoWidth = info.right - info.left;
+	const infoHeight = info.bottom - info.top;
+	if (left && spaceLeft < Math.min(infoWidth, spaceRight)) left = false;
+	else if (!left && spaceRight < Math.min(infoWidth, spaceLeft)) left = true;
+	// The tooltip element gives the page zoom (CodeMirror passes it at runtime; its typings name five
+	// arguments). Without it, no scaling.
+	const scaleY = tooltip?.offsetHeight ? (list.bottom - list.top) / tooltip.offsetHeight : 1;
+	const scaleX = tooltip?.offsetWidth ? (list.right - list.left) / tooltip.offsetWidth : 1;
+	if (infoWidth <= (left ? spaceLeft : spaceRight)) {
+		const offset = Math.max(space.top, Math.min(option.top, space.bottom - infoHeight)) - list.top;
+		const maxWidth = Math.min(400, left ? spaceLeft : spaceRight);
+		return { style: `top: ${offset / scaleY}px; max-width: ${maxWidth / scaleX}px`, class: `cm-completionInfo-${left ? 'left' : 'right'}` };
+	}
+	// 30px is CodeMirror's own indent for a narrow info box; 8px more keeps its border off the screen edge.
+	const maxWidth = Math.min(400, (rtl ? list.right : space.right - list.left) - 38);
+	const below = space.bottom - list.bottom >= infoHeight || space.bottom - list.bottom > list.top - space.top;
+	// Past the list's own edge, not the option's: `top: 100%` / `bottom: 100%` of the list box.
+	return { style: `${below ? 'top' : 'bottom'}: ${(list.bottom - list.top) / scaleY}px; max-width: ${maxWidth / scaleX}px`, class: `cm-completionInfo-${rtl ? 'left' : 'right'}-narrow` };
+}
+
 /** What a hover over a front-matter KEY shows: the row's description, its values and its default. */
 export type FrontMatterHover = { key: string; from: number; to: number; info: string; values: string[] | null; default: string };
 
@@ -368,6 +470,22 @@ export function makeStudioCompletion(
 			const options = recordOptions(rec, components, classVocab, { ...classExtra, slideText });
 			if (!options.length) return null;
 			return { from: line.from + rec.from, options: options as Completion[], validFor: /^[\w-]*$/ };
+		}
+
+		// 1a2. A FIELD of a `terms:` entry — `pronounce`, `expansion`, `definition` — on a child line under
+		// the term or inside its `{ … }`. The reader ignores any other name, so these are the only three.
+		if (inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const doc = context.state.doc;
+			const field = termFieldCompletion((n: number) => (n >= 1 && n <= doc.lines ? doc.line(n).text : (undefined as unknown as string)), line.number, before);
+			if (field) {
+				if (!field.typed && !context.explicit && !/[{,][ \t]*$/.test(before) && before.trim()) return null;
+				return {
+					from: context.pos - field.typed.length,
+					// `boost` keeps the order an author fills them in (`pronounce` first), not the alphabet's.
+					options: field.options.map((f, i) => ({ label: f.label, type: 'property', info: f.info, boost: 3 - i, apply: applyKey(f.label, false) })),
+					validFor: /^[\w-]*$/,
+				};
+			}
 		}
 
 		// 1b. The deck-wide `class:` front-matter VALUE — the same modifier vocabulary

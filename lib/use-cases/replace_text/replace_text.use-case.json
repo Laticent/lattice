@@ -1,0 +1,71 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "replace_text",
+	"title": "Replace words in the deck",
+	"describe": {
+		"chat": "Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, spoken lines, notes and descriptions. It works the way a word processor does: the words change and their formatting stays (replace `Oct` in **Oct** and it stays bold). Write the replacement as plain words; characters Markdown would read as markup (`$`, `*`, `[`…) are escaped for you, so `$5` shows as $5. It never touches link or image targets, URLs, directives, code blocks, math, HTML, `{…}` records or the front matter; a match that crosses formatting (`**Oct.** Tenth`) is left alone; it reports what it left alone (for terms in the front matter use set_terms). Literal text unless regex is true; then `find` is a JavaScript regular expression and `replace` may use $1, $<name> and $& (write $$ for a dollar sign). With case_sensitive false the replacement is written exactly as given, unless preserve_case is true: then each match keeps its case (OCT → OCTOBER, Oct → October, oct → october) — what an all-caps eyebrow needs. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result carries the checker’s verdict."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.slides"
+	],
+	"destructive": true,
+	"idempotent": false,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"find": {
+				"type": "string",
+				"description": "The words to replace, up to {{FIND_MAX_CHARS}} characters."
+			},
+			"replace": {
+				"type": "string",
+				"description": "What to write instead. One line; may be empty to delete the words."
+			},
+			"case_sensitive": {
+				"type": "boolean",
+				"description": "Match case exactly. Default false."
+			},
+			"whole_word": {
+				"type": "boolean",
+				"description": "Match whole words only. Default false."
+			},
+			"regex": {
+				"type": "boolean",
+				"description": "Read `find` as a JavaScript regular expression (no slashes or flags); `replace` may use $1, $<name>, $& and $$. Prefer \\b to ^ and $: a field’s text can start with its heading or list marker. Default false: literal words."
+			},
+			"preserve_case": {
+				"type": "boolean",
+				"description": "Write each replacement in the case of the words it replaces: ALL CAPS, Capitalized or lower case. Default false: exactly as given."
+			},
+			"slides": {
+				"type": "array",
+				"items": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"description": "Only these slides. Default: every slide."
+			},
+			"summary": {
+				"type": "string",
+				"description": "One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn."
+			}
+		},
+		"required": [
+			"find",
+			"replace",
+			"summary"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "deck",
+	"legacy": true,
+	"chat": {
+		"position": 100,
+		"activity": "Replacing words…"
+	}
+}

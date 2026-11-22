@@ -3,7 +3,7 @@
  *
  * Pull requests no longer commit PDFs (goldens rollout step 3,
  * engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.3). The bless bot renders them
- * the night after a merge and a person merges its PR. Until then a committed PDF can be
+ * the night after a merge, and its PR merges itself (2026-11-16 design). Until then a committed PDF can be
  * MISSING (a deck or gallery merged without one) or OLDER than its sources, and that is
  * the expected state, not a defect. A test that asserts on a committed PDF uses this to
  * skip with the reason instead of failing every night until the bless PR is merged.

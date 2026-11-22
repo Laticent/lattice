@@ -388,6 +388,45 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });
 
+// The two cases above and below, crossed: a saved share under the preview's minimum AND a document the parser has
+// emitted only as far as the editor. While the preview panel is absent, the #1800 reservation (`.pg-split::after`)
+// holds its share, and the seed's #1589 clamp used to name only `#pg-split-preview`, so the stand-in had no minimum
+// and the editor painted at the RAW share (907px at 1194), then narrowed to the clamped 893 when the pane parsed.
+// The sampling case below caught it about 1 load in 40 under 6x throttle; this holds the cut state still, so it is
+// certain. Same cut and the same hydration block as the case above.
+test('@smoke the editor pane holds its CLAMPED width before a sub-minimum preview pane has parsed', async ({ page }) => {
+	await page.setViewportSize({ width: 1194, height: 834 });
+	// A preview share that resolves under its 300px minimum at 1194 and above the snap midpoint, so the library clamps
+	// rather than snapping to the rail: the branch the seed models.
+	const share = { [PG_SPLIT_PANEL_IDS[0]]: 76, [PG_SPLIT_PANEL_IDS[1]]: 24 };
+	const preview = (1194 - 1) * 0.24;
+	expect(preview, 'the share must land under the minimum and over the snap midpoint, or nothing is clamped').toBeLessThan(PG_SPLIT_MIN.preview);
+	expect(preview).toBeGreaterThan(PG_SPLIT_SNAP_MIDPOINT.preview);
+	await page.addInitScript(
+		([key, bucket, layout]) => localStorage.setItem(key, JSON.stringify({ [bucket]: layout })),
+		[PG_SPLIT_KEY, PG_SPLIT_BUCKET, share] as const,
+	);
+	await page.route('**/playground/**', async (route) => {
+		if (route.request().resourceType() !== 'document') return route.fallback();
+		const html = await (await route.fetch()).text();
+		const at = html.indexOf('id="pg-split-preview"');
+		expect(at, 'the preview panel is not in the served document — this test would prove nothing').toBeGreaterThan(0);
+		await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html.slice(0, html.lastIndexOf('<div', at)) });
+	});
+	await page.route(/\/_astro\/.*\.js($|\?)/, (route) => route.abort());
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+
+	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
+	const width = await laidOutWidth(page.locator('#pg-split-editor'));
+	const row = await page.locator('.pg-split').evaluate((el) => {
+		const sep = el.querySelector('[data-slot="resizable-handle"]');
+		return { row: el.getBoundingClientRect().width, sep: sep ? sep.getBoundingClientRect().width : 0 };
+	});
+	// The width the app settles at: the row less the separator and the preview's minimum (893 at 1194, measured).
+	const clamped = row.row - row.sep - PG_SPLIT_MIN.preview;
+	expect(Math.abs(width - clamped), `the editor pane is ${Math.round(width)}px before the preview parsed and settles at ${Math.round(clamped)}px — a person watches it narrow`).toBeLessThanOrEqual(1);
+});
+
 // A saved split is a pair of PERCENTAGES; the panes' minimums are PIXELS. A share that clears
 // its minimum at the window it was saved in can fall below it at a narrower one — the library
 // clamps at hydration, and the pre-paint seed used to spend the raw share, so the two disagreed

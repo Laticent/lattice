@@ -1,6 +1,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { takePendingSelection } from './pending-selection';
 
 // "Show what an outside change changed." An edit that lands from outside Compose (an AI apply, an Inspector
 // stamp, an undo) re-imports the deck, so the author sees new words with no cue to where. This module finds the
@@ -145,6 +146,12 @@ export function changeFlashPlugin(opts: { onClear?: () => void } = {}) {
 				clearTimeout(timer);
 				timer = undefined;
 				if (editorView.isDestroyed || flashKey.getState(editorView.state) === DecorationSet.empty) return;
+				// No key or click started this transaction: an animation's end or a timer did, about three seconds after an
+				// undo or redo, which is when an author clicks another slide and types. Built on a selection ProseMirror had
+				// not read yet, it wrote the OLD caret back over the click, and the typing landed mid-paragraph in the slide
+				// the caret came from (2026-11-17: real clicks, 1 in 48 at a person's pace in WebKit under load, and at machine pace
+				// in Firefox and Chromium too; pending-selection.ts).
+				takePendingSelection(editorView);
 				editorView.dispatch(editorView.state.tr.setMeta(flashKey, { clear: true }));
 				opts.onClear?.();
 			};

@@ -10,6 +10,10 @@ summary: >
   regression GATE, already report-only, becomes the bless bot's own before/after.
 ---
 
+> **PART SUPERSEDED (2026-11-16).** The four-rule hybrid of §2.1 and rollout step 4 are replaced by
+> `2026-11-16-blessing-invariants-attribution.md`: the bless PR merges itself, per golden, and holds only a
+> golden that breaks an invariant or that the check cannot vouch for. The rest of this note stands.
+
 # Goldens: bot-blessed on main, rendered (not committed) on pull requests
 
 **The owner asked:** every component already owns its markdown and its gallery PDF. Do we

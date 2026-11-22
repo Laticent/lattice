@@ -16,12 +16,12 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name what the decomposition shows (‘Services is carrying the growth’), not the chart type. |
-| `categories` | `ul > li` | yes | One li per category, in the order they should read left to right (or top to bottom under `row`). Lead text is the category label. Optionally a trailing inline-code value — the authored TOTAL, printed instead of the computed sum when the two agree. |
-| `parts` | `li > ul > li` | yes | The nested sublist under each category: one li per part, lead text = the series name, trailing inline-code = its value (`Product \`2.4\``). Series order is taken from the FIRST category that names each one and is then held identical in every bar. A part a category does not name is simply absent from that bar, and a part valued zero draws nothing; nothing is inferred. |
-| `detail` | `li > ul > li` | no | A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without. |
+| `title` | a `## ` heading | yes | Slide heading — name what the decomposition shows (‘Services is carrying the growth’), not the chart type. |
+| `categories` | a list | yes | One li per category, in the order they should read left to right (or top to bottom under `row`). Lead text is the category label. Optionally a trailing inline-code value — the authored TOTAL, printed instead of the computed sum when the two agree. |
+| `parts` | a list nested 1 level under an item | yes | The nested sublist under each category: one li per part, lead text = the series name, trailing inline-code = its value (`Product \`2.4\``). Series order is taken from the FIRST category that names each one and is then held identical in every bar. A part a category does not name is simply absent from that bar, and a part valued zero draws nothing; nothing is inferred. |
+| `detail` | a list nested 1 level under an item | no | A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without. |
 
 ### Variant decision rule
 
@@ -43,6 +43,7 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 - A part below about 3 % of the bar renders as a sliver roughly one unit high, unlabeled. Nothing is done to rescue it: a minimum visible height would make the picture lie about the value, and every part above it would shift to pay for the lie. Fold slivers into 'Other' before authoring.
 - Values are the shared Cartesian pills, so a magnitude suffix is SCALE, not decoration: `1.2M` is 1 200 000 and `800k` is 800 000, and the two sit correctly on one axis. `%` is not a magnitude — `12%` is 12. An affix every value agrees on (`$`, `kg`) is carried onto the axis; a mixed series gets a bare axis. A computed total is printed to the number of decimals you typed, so author every part to the same precision. Money is read as a global client writes it: a currency code (`EUR 4.2M`), a country dollar (`US$4.2M`), the currency after the number (`4.2M €`, `4200€`), and the magnitude words `Mio`, `Mrd`, and beside a currency `mn`, `Md` and `Cr` (crore). The axis keeps the currency where you put it and prints a decimal comma when your values use one (`4,2` → `4,5`).
 - Part names are set beside the last bar, so keep them short — about twenty characters fits the column. A longer name is not truncated; the whole chart falls back to the family's key instead, which costs the plot about a third of its width.
+- A category name may take two lines under its bar (`Q1 FY24` sets `Q1` over `FY24`), and the band under the axis grows to hold both. When a word of a category name is wider than its bar's pitch beside the name column, the part names move to the family's key, so the bars keep the whole width and no two names run together.
 - Negative parts are drawn below the zero rule and the total is the net sum, which is honest but hard to read — the parts above zero no longer sum to the bar. If contributions are signed, `waterfall` tells that story properly.
 - Under `share` the denominator is the sum of each category's ABSOLUTE part values, so every bar fills exactly 100 % of the axis and the printed percentages sum to 100 (largest-remainder rounding, never three 33s adding to 99). The absolute total is printed above each bar so normalization does not destroy the scale — unless every total is the same, in which case it says nothing and is dropped.
 
@@ -143,7 +144,7 @@ The stack runs horizontally, so long category names sit in a left column instead
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

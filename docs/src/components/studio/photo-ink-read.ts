@@ -1,7 +1,7 @@
 import { compositionOf, coverSourceRect, effectiveCard, meanRgb } from '../../../../lib/core/card-ink.mjs';
 import { getClassTokens } from '../../lib/slide-directives';
 import { photoRefOf } from './card-ink-pick';
-import { ensureAssetUrls } from './media-urls';
+import { ensureAssetUrls, studioSamplesBase } from './media-urls';
 import { deckImageCardClasses } from './slide-provenance';
 
 // The photo-file half of the photo verdict (photo-verdict.ts): for a slide the preview is not showing, the photo's mean
@@ -93,21 +93,12 @@ export function keepFix(c: CardBox, fix: string | null, ratio: number | null, sr
 	}
 }
 
-/** The Studio page's sample folder, from the boot data it publishes (studio.astro), or null off the Studio. */
-function samplesBase(): string | null {
-	try {
-		const boot = JSON.parse(document.querySelector('script[data-studio-boot]')?.textContent ?? 'null') as { themeBase?: string } | null;
-		return boot?.themeBase ? new URL(boot.themeBase.replace(/themes\/$/, 'samples/'), location.href).href : null;
-	} catch {
-		return null;
-	}
-}
 
 /** A URL the browser can load for a `![bg](ref)` destination, or null when this cannot resolve it (a relative path). */
 export async function photoUrl(ref: string): Promise<string | null> {
 	const r = ref.trim();
 	if (r.startsWith('sample:')) {
-		const base = samplesBase();
+		const base = studioSamplesBase();
 		return base ? new URL(r.slice('sample:'.length), base).href : null;
 	}
 	if (r.startsWith('asset:')) return (await ensureAssetUrls())[r.slice('asset:'.length)] ?? null;
@@ -172,11 +163,11 @@ export function hasBodyText(chunk: string): boolean {
 }
 
 /** What the estimate needs to know about a slide before it reads anything: its photo, the card's place, opacity and shape. */
-export function cardOf(chunk: string, source: string): Omit<CardBox, 'ref'> & { ref: string | null } {
+export function cardOf(chunk: string, source: string, at?: number): Omit<CardBox, 'ref'> & { ref: string | null } {
 	const tokens = getClassTokens(chunk);
 	const deck = deckImageCardClasses(source);
 	// The composition the slide names and whether it has body text change the scenes a fix is judged on, so they key it too.
 	const body = hasBodyText(chunk) ? 'body' : 'heading';
 	const shape = [...[...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort(), compositionOf(tokens) ?? 'auto', body].join(' ');
-	return { ref: photoRefOf(chunk, source), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
+	return { ref: photoRefOf(chunk, source, at), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
 }

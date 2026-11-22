@@ -18,11 +18,11 @@ Use to evaluate 2–4 options against the same set of criteria, with a check per
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the choice. |
-| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a label of AT MOST TWO WORDS; the check and the label are drawn as one pill. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
-| `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the criteria. |
+| `title` | a `## ` heading | yes | Slide heading naming the choice. |
+| `options` | a list | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a label of AT MOST TWO WORDS; the check and the label are drawn as one pill. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
+| `rationale` | a list nested 1 level under an item | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the criteria. |
 
 ### Common mistakes
 
@@ -87,7 +87,7 @@ Use to evaluate 2–4 options against the same set of criteria, with a check per
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

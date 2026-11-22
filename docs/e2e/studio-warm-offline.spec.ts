@@ -35,12 +35,16 @@ async function warmOnline(
 	page: Page,
 	origin: string,
 	names: Array<string | RegExp>,
-	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false } = {},
+	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false, tier = 'full' as 'full' | 'lite' } = {},
 ): Promise<void> {
 	await page.addInitScript(
-		([used, diagrams, save, math, mathSource]) => {
+		([used, diagrams, save, math, mathSource, perf]) => {
 			try {
 				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' }));
+				// The device tier, set through Performance mode (the person's own setting). The warm-up is FULL behavior: a
+				// LITE device prefetches nothing on a guess (device-capability-tiers §4.2), and this runner draws in
+				// software, so unpinned it reads as LITE (HARD RULE #32: the runner's GPU never decides a result).
+				localStorage.setItem('lattice-device-tier-override', perf);
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
 				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
 				// The starter deck's stored source (studio-store.ts SRC_PREFIX), as a JSON string.
@@ -48,7 +52,7 @@ async function warmOnline(
 			} catch {}
 			if (save) Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		},
-		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK] as const,
+		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK, tier] as const,
 	);
 	await page.goto(`${origin}/studio/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => navigator.serviceWorker.ready);
@@ -78,8 +82,41 @@ async function warmOnline(
 async function goOffline(page: Page, server: import('node:http').Server): Promise<void> {
 	server.closeAllConnections();
 	await new Promise<void>((resolve) => server.close(() => resolve()));
-	await page.reload({ waitUntil: 'domcontentloaded' });
-	await waitForStudioPaint(page);
+	// What went wrong after the cut, kept for the failure message: every request that failed and every console error.
+	// The sweep lost its offline paint once in a 2-worker full Chromium run (2026-11-19) and never in about 100 runs
+	// alone or under load, so the next failure has to say what the page held.
+	const cut = Date.now();
+	const failed: string[] = [];
+	const onFailed = (r: import('@playwright/test').Request) => failed.push(`${Date.now() - cut} ms ${r.failure()?.errorText ?? '?'} ${r.resourceType()} ${new URL(r.url()).pathname}`);
+	const onConsole = (m: import('@playwright/test').ConsoleMessage) => {
+		if (m.type() === 'error') failed.push(`${Date.now() - cut} ms console: ${m.text().slice(0, 200)}`);
+	};
+	page.on('requestfailed', onFailed);
+	page.on('console', onConsole);
+	try {
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitForStudioPaint(page);
+	} catch (cause) {
+		// The page's own account, bounded: a wedged main thread must not hang the report.
+		const held = await Promise.race([
+			page
+				.evaluate(() => ({
+					url: location.pathname + location.search,
+					title: document.title,
+					controlled: Boolean(navigator.serviceWorker?.controller),
+					preview: Boolean(document.querySelector('[aria-label="Live deck preview"]')),
+					frames: [...document.querySelectorAll<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe')].map((f) => `${f.className}:${f.contentDocument?.readyState ?? 'no-doc'}:${f.contentDocument?.querySelectorAll('.lattice').length ?? 0}`),
+					alerts: [...document.querySelectorAll('[role="alert"]')].map((a) => (a.textContent ?? '').trim().slice(0, 120)),
+				}))
+				.then((v) => JSON.stringify(v))
+				.catch((e: Error) => `unreadable: ${e.message}`),
+			new Promise<string>((resolve) => setTimeout(() => resolve('no answer in 5 s'), 5_000)), // flaky-ok: a bound on a diagnostic read, never asserted
+		]);
+		throw new Error(`offline paint failed. The page held: ${held}. After the cut: ${failed.length ? failed.join(' | ') : 'no failed request, no console error'}`, { cause });
+	} finally {
+		page.off('requestfailed', onFailed);
+		page.off('console', onConsole);
+	}
 }
 
 test('Present and the reading view open offline after a session that never opened them', async ({ page }) => {
@@ -175,6 +212,22 @@ test('under Save-Data the warm-up fetches the six panels but not Present or the 
 		await warmOnline(page, origin, ['LensesPanel'], { saveData: true, diagramsUsed: true });
 		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX, MERMAID];
 		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'Save-Data warmed a surface no visitor downloaded before').toEqual([]);
+	} finally {
+		server.closeAllConnections();
+		server.close();
+	}
+});
+
+test('on a LITE device the warm-up fetches the six panels but no surface, not even Fabricate for a browser that used it', async ({ page }) => {
+	test.setTimeout(180_000);
+	const { server, origin, hits } = await serveDist();
+	try {
+		// The last of the six panels, so the queue has reached the point where the surfaces would start. Flagged as a
+		// Fabricate and diagram user, so skipping both is LITE's doing (device-capability-tiers §4.2), not the flags'.
+		await warmOnline(page, origin, ['LensesPanel'], { tier: 'lite', fabricateUsed: true, diagramsUsed: true });
+		expect(await page.evaluate(() => document.documentElement.getAttribute('data-device-tier'))).toBe('lite');
+		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX, MERMAID];
+		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'LITE warmed a surface on a guess').toEqual([]);
 	} finally {
 		server.closeAllConnections();
 		server.close();

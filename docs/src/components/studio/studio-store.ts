@@ -286,8 +286,10 @@ export function checkpointMeta(cp: Checkpoint): string {
 /** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
  *  chip agrees with the rail and the counter (docs/src/lib/fuoco). */
 export function slideCountLabel(rendered: number): string {
-	const n = rendered || 1;
-	return `${n} slide${n === 1 ? '' : 's'}`;
+	// An empty deck has none, and says so: it used to read "1 slide" beside a status bar's "0 slides"
+	// (2026-11-17-compose-empty-deck.md).
+	if (!rendered) return 'No slides';
+	return `${rendered} slide${rendered === 1 ? '' : 's'}`;
 }
 
 /**
@@ -825,6 +827,80 @@ export function saveCheckpointDurably(deckId: string, source: string, label: str
 	return appendCheckpoint(deckId, cp);
 }
 
+// ANSWER THE WAITING MESSAGE AFTER CONNECTING (engineering/decisions/2026-11-19-chat-card-apply-undo.md, PR #3317).
+// An author who asks the chat with no model connected is sent to connect one. OpenRouter's sign-in reloads the page,
+// and the message used to sit unanswered after it; now the chat marks the deck that is waiting and answers it once a
+// model is ready, and the Studio reopens the chat after the sign-in. sessionStorage, because the mark must survive the
+// sign-in's round trip and nothing longer: yesterday's mark must not fire a paid turn by itself. Here, in a module the
+// Studio's first load already holds, because the shell reads it on load: a module of its own, shared by the shell and
+// the lazy chat, became a chunk the first load fetched (+573 bytes gzipped).
+const ANSWER_AFTER_CONNECT_KEY = 'lattice-chat-answer-after-connect';
+
+/** The decks whose last message waits for a model. One entry per deck, so marking one deck never drops another's. */
+function waitingDecks(): string[] {
+	try {
+		const raw = sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY);
+		const list: unknown = raw ? JSON.parse(raw) : [];
+		return Array.isArray(list) ? list.filter((d): d is string => typeof d === 'string') : [];
+	} catch {
+		return [];
+	}
+}
+
+function storeWaitingDecks(decks: string[]): void {
+	try {
+		if (decks.length) sessionStorage.setItem(ANSWER_AFTER_CONNECT_KEY, JSON.stringify(decks));
+		else sessionStorage.removeItem(ANSWER_AFTER_CONNECT_KEY);
+	} catch {
+		/* storage unavailable: the author asks again */
+	}
+}
+
+/** Remember that `deckId`'s last message is waiting for a model. */
+export function markAnswerAfterConnect(deckId: string): void {
+	const decks = waitingDecks();
+	if (!decks.includes(deckId)) storeWaitingDecks([...decks, deckId]);
+}
+
+/** Whether `deckId` has a message waiting for a model. */
+export function hasAnswerAfterConnect(deckId: string): boolean {
+	return waitingDecks().includes(deckId);
+}
+
+/** Take (read and clear) the mark for `deckId`: true at most once per mark, so the waiting message is answered once. */
+export function takeAnswerAfterConnect(deckId: string): boolean {
+	const decks = waitingDecks();
+	if (!decks.includes(deckId)) return false;
+	storeWaitingDecks(decks.filter((d) => d !== deckId));
+	return true;
+}
+
+/** The chat change card's mark for "this card never saves a History entry of its own" (change-card-types.ts
+ *  `NO_ENTRY`). Here, in a module the Studio's first load already holds, so the shell reads it for free. */
+export const CHAT_CARD_NO_ENTRY = 'none';
+
+/**
+ * Save a checkpoint like `saveCheckpoint`, and return its id with the list, so a caller can relabel it later.
+ * The id is null when nothing was saved (the deck already matched the newest checkpoint).
+ */
+export function saveCheckpointWithId(deckId: string, source: string, label: string, ts: number): { list: Checkpoint[]; id: string | null } {
+	const list = saveCheckpoint(deckId, source, label, ts);
+	return { list, id: list[0]?.source === source && list[0].label === label && list[0].ts === ts ? list[0].id : null };
+}
+
+/**
+ * Rename one checkpoint in place, keeping its source, time and place in the list: the chat's change card keeps ONE
+ * History entry per card and updates its label as rows are applied and undone
+ * (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6). Returns the updated list; unchanged when the id is gone.
+ */
+export function relabelCheckpoint(deckId: string, id: string, label: string): Checkpoint[] {
+	const list = loadCheckpoints(deckId);
+	if (!list.some((c) => c.id === id && c.label !== label)) return list;
+	const next = list.map((c) => (c.id === id ? { ...c, label } : c));
+	void replaceCheckpoints(deckId, next);
+	return next;
+}
+
 /** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
  *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
 export function mapCheckpointSources(deckId: string, fn: (source: string) => string): Promise<boolean> {
@@ -845,10 +921,12 @@ export type ChatProposal = {
 	label: string;
 	slide: number;
 	action: string;
-	raw: { action: string; slide: number; body: string; key?: string; value?: string | null };
+	raw: { action: string; slide: number; body: string; key?: string; value?: string | null; block?: boolean };
 	before: string;
 	after: string;
 	diff: { type: string; text: string }[];
+	/** Insert: the slide it goes after; delete: the slide before it (by text). Absent on older threads. */
+	anchor?: string;
 };
 
 /** A photo attached to a user turn — a REFERENCE to a Library asset, never the bytes. The picture
@@ -931,6 +1009,15 @@ export type ChatMessage = {
 	 *  run, so the badge can say "Applied 2 of 3" instead of a flat "Applied". */
 	appliedCount?: number;
 	refused?: number;
+	/** Assistant turn only: each proposed edit's state on the change card (change-card.ts `RowState`: waiting,
+	 *  applied, discarded, undone), index-aligned with `proposed`. Absent on threads from before per-row apply,
+	 *  which read as all applied when `applied` is set (`rowStates`). */
+	rows?: ('waiting' | 'applied' | 'discarded' | 'undone')[];
+	/** Assistant turn only: the id of the card's ONE History entry, so later actions relabel it instead of adding
+	 *  more (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6). */
+	cardCheckpoint?: string;
+	/** Assistant turn only: when the card first changed the deck (ms), for that History entry's label. */
+	cardAt?: number;
 	/** Assistant turn only: what the chat agent read, changed and checked to produce it
 	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */

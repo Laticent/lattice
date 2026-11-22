@@ -105,7 +105,7 @@ test('"Check my deck" opens Coach when the user waits', async ({ page }) => {
 test('"Speaker notes" opens the notes field of the slide when the user waits', async ({ page }) => {
 	await search(page, 'notes');
 	await page.getByRole('option', { name: 'How do I add speaker notes?', exact: true }).click();
-	await expect(page.getByLabel('Speaker note for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
+	await expect(page.getByLabel('Speaker notes for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
@@ -207,7 +207,12 @@ test.describe('on an iPhone, by touch @webkit-phone', () => {
 	// §THE VOICE). This records, in the page, every decoded clip that starts playing and the
 	// context's state at that moment, so "the lesson spoke" is measured rather than assumed.
 	test('a lesson started by tap speaks: its first clip plays on a running AudioContext', async ({ page }) => {
-		await page.addInitScript(() => {
+		// Installed in the booted page, not by an init script and a second `gotoStudio`: that navigation
+		// fired while the first Studio was still fetching its lazy chunks and starting the lint worker,
+		// and WebKit dropped it ("WebKit encountered an internal error", 1 in 100 loaded runs). The
+		// narrator is built inside the tap below and calls `start` on each node, so patching the
+		// prototype before the tap records every clip it plays.
+		await page.evaluate(() => {
 			const w = window as unknown as { __played: { sec: number; state: string }[] };
 			w.__played = [];
 			const start = AudioBufferSourceNode.prototype.start;
@@ -217,7 +222,6 @@ test.describe('on an iPhone, by touch @webkit-phone', () => {
 				return start.apply(this, a);
 			};
 		});
-		await gotoStudio(page); // again, so the probe is installed before the Studio boots
 		await tapSearch(page, 'pdf');
 		await page.getByRole('option', { name: 'How do I export a PDF?', exact: true }).tap();
 		await expect(page.locator(STAGE)).toContainText('Click Share');

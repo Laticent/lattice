@@ -156,7 +156,7 @@ header: "Lattice · cards-grid"
 - More than 4 items
   - Split into multiple slides instead. The grid loses scannability past 4 cards.
 - Order carries meaning
-  - Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences.
+  - Use list-steps or `list takeaway` over a `1.` list. cards-grid is for parallel options, not sequences.
 
 ---
 

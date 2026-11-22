@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // The bless bot's dry-run nights as one table — the data goldens rollout step 4 is set from.
+// The dry run ended 2026-11-16, when the bot began to merge its own PR per golden
+// (engineering/decisions/2026-11-16-blessing-invariants-attribution.md); this reads the nights before.
 //
 // The verdict comment on the bless PR is edited in place, so it shows only the latest night.
 // Every run of `.github/workflows/golden-bless.yml` also uploads a `golden-bless` artifact

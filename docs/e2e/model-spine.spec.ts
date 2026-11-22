@@ -1,4 +1,4 @@
-import { expect, gotoStudio, openChatAtWidth, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, isPhone, openChatAtWidth, setEditorContent, test } from './studio-fixture';
 
 // THE MODEL SPINE on the real Studio (engineering/decisions/2026-11-07-studio-model-spine.md).
 //
@@ -89,8 +89,31 @@ async function openWorkspaceAi(page: Page) {
 		await page.getByRole('button', { name: /^(Menu|More controls)$/ }).click();
 		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
 	}
+	return showWorkspaceAi(page);
+}
+
+/** The open Workspace's AI tab, and its two model cards. */
+async function showWorkspaceAi(page: Page) {
 	await page.getByRole('tab', { name: 'AI' }).click();
 	return { chat: page.getByTestId('chat-model-card'), voice: page.getByTestId('voice-model-card') };
+}
+
+/**
+ * Put the chat away before reaching for the Workspace. On a phone the chat is a bottom sheet, and a phone user leaves
+ * it with its back control, so that is what this taps. Not Escape: a key press makes the focus the sheet hands back to
+ * its launcher a keyboard focus (`:focus-visible`), so the Chat cell's hint opens as it should for a keyboard user
+ * (ui/tooltip.tsx `KeyboardFocusTip`), and at 390px that hint sits over the header's Workspace settings button. Since
+ * #3155 made the sheet's overlay leave after its box, the hint is always up before the overlay is gone, and the click
+ * landed on the hint every run. Wider, the chat sits at the side, where the hint covers no header control, and Escape
+ * closes it.
+ */
+async function closeChat(page: Page) {
+	if (isPhone(page)) {
+		await page.getByRole('dialog', { name: 'Chat' }).getByRole('button', { name: /^Back\b/ }).click();
+		await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
+		return;
+	}
+	await page.keyboard.press('Escape');
 }
 
 async function useBuiltIn(page: Page) {
@@ -175,7 +198,7 @@ test('@crosswidth @webkit-tablet @gecko the chip names the model that answered, 
 	await send(page, 'again');
 	await expect.poll(() => seen.chat.at(-1)).toBe('test/big');
 	// The Workspace shows the same selection (on a phone the chat is a sheet: close it first).
-	await page.keyboard.press('Escape');
+	await closeChat(page);
 	const ws = await openWorkspaceAi(page);
 	await expect(ws.chat.getByTestId('chat-model-card-name')).toHaveText('Big Model');
 });
@@ -213,6 +236,41 @@ async function chipReachesEverySource(page: Page) {
 	await expect(chip).toHaveText('Test Model');
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', model: 'test/model' });
 }
+
+// The chip's popover prices a turn once the model catalog lands, in rows ABOVE the source switch.
+// If those rows arrive between a press and its release, the switch slides away under the pointer:
+// the radio takes focus but never the click, and "On-device" stays unpicked (model-spine:206 on
+// mobile in a loaded full Chromium run, 2026-11-20). Hold the catalog, aim, release it, compare.
+test('@crosswidth @webkit-phone @webkit-tablet @gecko the source switch stays where it was when the turn prices land', async ({ page }) => {
+	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
+	await mockOpenRouter(page);
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	// Registered after mockOpenRouter, so it answers the catalog first: same body, held until released.
+	await page.route(/openrouter\.ai\/api\/v1\/models/, async (route) => {
+		await held;
+		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MODELS }) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
+	await page.getByTestId('chat-model-chip-name').click();
+	const onDevice = page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'On-device' });
+	await expect(onDevice).toBeVisible();
+	// Aim once the popover's opening zoom has finished, as a person's eye and Playwright's click both do.
+	// Only the popover's own finite animations: the page keeps endless ones (a spinner) that never finish.
+	await onDevice.evaluate((el) => {
+		const pop = el.closest('[data-radix-popper-content-wrapper]') ?? el;
+		const finite = pop.getAnimations({ subtree: true }).filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+		return Promise.all(finite.map((a) => a.finished));
+	});
+	const before = await onDevice.boundingBox();
+	release();
+	// The prices are what moved it: wait for the figure itself (the label stands from the first frame).
+	await expect(page.getByText('Ask a question', { exact: true }).locator('xpath=following-sibling::span[@data-usd]')).toBeVisible();
+	expect(await onDevice.boundingBox()).toEqual(before);
+});
 
 test('@webkit-tablet @gecko another tab follows a selection change without a reload', async ({ page, context }) => {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
@@ -282,7 +340,7 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) });
 	const seen = await mockOpenRouter(page);
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The selected voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The selected voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -343,7 +401,7 @@ test(`${tags} Present decodes a Gemini clip on a worker and plays it at the decl
 	// A phone shows the slides first; its Markdown source tab reveals the editor.
 	const source = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 	if (await source.isVisible()) await source.click();
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The decoded clip reads this line. -->\n\n---\n\n# Two\n\n<!-- say: The decoded clip reads this line. -->\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The decoded clip reads this line.} -->\n\n---\n\n# Two\n\n<!-- @say{The decoded clip reads this line.} -->\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -404,12 +462,21 @@ test('@crosswidth @webkit-tablet @gecko a chat model the config retires stops ch
 	expect(await page.evaluate(() => (window as unknown as { __promptApiUsed: number }).__promptApiUsed)).toBe(0);
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ provider: 'openrouter', model: 'qwen/qwq-32b' });
 	await shot(page, `chat-retired-${page.viewportSize()?.width}`);
-	// On a phone the chat is a sheet, and the first Escape only leaves the composer: press until the sheet is gone.
-	await expect(async () => {
-		await page.keyboard.press('Escape');
-		await expect(page.locator('[data-slot="sheet-overlay"][data-state="open"]')).toHaveCount(0, { timeout: 1000 });
-	}).toPass({ timeout: 10_000 });
-	const ws = await openWorkspaceAi(page);
+	// The refused send opened the Workspace over the chat (ArchitectChat's `onConnect`). On a phone that sheet is what
+	// the author is looking at, so read the AI tab there: going back out to the header's Workspace settings button by
+	// keyboard pops the Chat cell's hint over it (see closeChat). Wider, the first Escape only leaves the composer: press
+	// until every sheet is gone, then open the Workspace from the header.
+	let ws: Awaited<ReturnType<typeof showWorkspaceAi>>;
+	if (isPhone(page)) {
+		await expect(page.getByRole('dialog', { name: 'Workspace' })).toBeVisible();
+		ws = await showWorkspaceAi(page);
+	} else {
+		await expect(async () => {
+			await page.keyboard.press('Escape');
+			await expect(page.locator('[data-slot="sheet-overlay"][data-state="open"]')).toHaveCount(0, { timeout: 1000 });
+		}).toPass({ timeout: 10_000 });
+		ws = await openWorkspaceAi(page);
+	}
 	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Model retired');
 });
 
@@ -430,7 +497,7 @@ test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off an
 		return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
 	});
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: First line. Second line. Third line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{First line. Second line. Third line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -472,13 +539,17 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'device', provider: 'kokoro', model: '', voice: 'af_heart' }) }, { promptApi: false });
 	await context.route('https://esm.run/kokoro-js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: FAKE_KOKORO }));
 	await mockOpenRouter(page);
-	await gotoStudio(page);
+	// THE TIER IS PINNED FULL. A LITE device does not offer the on-device voice (voice-model.js `kokoroSupported`), so Present
+	// reads captions, as it should. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`), which
+	// device-tier.ts applies only after the first slide shows, so on a loaded machine LITE landed before Play: 3 in 24 runs at
+	// 4 workers read "Captions" instead of "Loading voice… 42%". A `?tier=` pin applies before first paint and outranks it.
+	await gotoStudio(page, { query: '?tier=full' });
 	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
 	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
 	await page.evaluate(() => {
 		window.Worker = Object.getPrototypeOf(window.Worker);
 	});
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The on-device voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The on-device voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });

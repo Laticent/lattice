@@ -43,19 +43,23 @@
   ],
   "description": "Tapering stages that show where a flow drops off, with the conversion rate between each.",
   "purpose": "Use for a pipeline that narrows — a sales / conversion funnel, a hiring or grant pipeline, an onboarding flow. Each stage's band width is proportional to its value; the stage-to-stage conversion % is printed in the gaps so the leak is the read.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name the flow and, ideally, the takeaway (‘Where the pipeline leaks’)."
     },
     "stages": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per stage, in flow order (widest first). Lead with the stage label, then a trailing inline-code value — `Signups \\`4,800\\``. Commas and units are tolerated; the largest value sets full width. Three to seven stages read best."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "bullet" },
       "required": false,
       "description": "Optional nested sublist under a stage. Drives two surfaces from one source (shared with pie/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the stage `<polygon>` with `data-mark` and emits the sublist as an inert `<template class=\"chart-detail\">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A funnel with no sublists emits no note and is unchanged."
     }

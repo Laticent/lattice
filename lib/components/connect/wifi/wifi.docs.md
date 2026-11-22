@@ -14,12 +14,12 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
-| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
+| `title` | a `## ` heading | yes | The card heading (e.g. "Join the room."). |
+| `fields` | a list | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
+| `caption` | a list | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
 
 ### Common mistakes
 
@@ -53,7 +53,9 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
+
+On this layout, modifiers that style the **eyebrow**, **heading** and **table** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 
 ## Related components
 

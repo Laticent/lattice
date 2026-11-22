@@ -55,7 +55,7 @@ section.actors > .cell-stage > ol > li {
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-left:3px solid var(--accent);
-  border-radius:var(--radius-md);
+  border-radius:var(--radius-card, var(--radius-md));
 }
 section.actors > .cell-stage > ul > li::marker,
 section.actors > .cell-stage > ol > li::marker { content:''; }

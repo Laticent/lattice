@@ -16,6 +16,7 @@ name: Docs PR preview (Cloudflare Pages)
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     # Mirror docs.yml's trigger set: the playground stages engine assets at
     # build time, so an engine/theme change alters the preview without touching
     # docs/ and must still rebuild.
@@ -40,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Secrets are withheld from fork PRs, so wrangler can't authenticate there —
     # skip cleanly rather than fail. Same-repo branches (claude/*, ci/*, …) run.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
     steps:
       # Skip, but SAY SO (#1931 criterion 2). Dependabot PRs never receive Actions
       # secrets, so a missing token is routine there and must not red the PR; on any
@@ -60,8 +61,13 @@ jobs:
             echo "$MSG (Expected on Dependabot PRs; anywhere else the repo secret is missing.)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Full history without file contents, as docs.yml: the sitemap's lastmod needs each page's
+      # last content commit (docs/src/lib/lastmod.mjs). Owner call on #3207.
       - uses: actions/checkout@v4
         if: steps.guard.outputs.have == 'true'
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
       - uses: actions/setup-node@v4
         if: steps.guard.outputs.have == 'true'

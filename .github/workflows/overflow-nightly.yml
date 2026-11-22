@@ -137,6 +137,9 @@ jobs:
         with:
           packages: fonts-noto-color-emoji
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
@@ -149,7 +152,9 @@ jobs:
       - name: Resolve the puppeteer Chromium both tools must agree on
         id: chrome
         run: |
-          CHROME="$(node -p "require('puppeteer').executablePath()")"
+          # `executablePath()` returns a Promise from puppeteer 24 on (#3190 moved us to 25), so `node -p` printed
+          # `Promise { ... }` and every nightly that resolves Chrome died here. Promise.resolve() awaits either shape.
+          CHROME="$(node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), (e) => { console.error(e.message); console.log(''); })")"
           if [ ! -x "$CHROME" ]; then
             echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
             exit 1
@@ -238,7 +243,7 @@ jobs:
       # output (an npm failure, an OOM, a canceled job) still files rather than passing in
       # silence. On a green run `failed=false` is written and this does not fire — verified.
       - name: Open / append overflow issue
-        if: always() && steps.sweep.outputs.failed != 'false'
+        if: always() && steps.sweep.outputs.failed != 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

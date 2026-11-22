@@ -1,4 +1,6 @@
-import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, devices, type Project } from '@playwright/test';
+import { shardProjects } from './e2e/shard-plan.mjs';
 
 // Playwright E2E for the Studio (route `/studio/`). Governed by
 // engineering/decisions/2026-06-28-experience-gating-playwright.md.
@@ -20,10 +22,9 @@ import { defineConfig, devices } from '@playwright/test';
 // whose subject is resource ordering, first paint or a pre-hydration window has
 // to say WHICH build produced the `dist` it was measured against.
 //
-// Browser: Chromium build 1194 ↔ @playwright/test 1.56.1, at
-// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox USED TO ship that build;
-// since 2026-11 it ships a newer one (1243), so `globalSetup` installs 1194 beside it
-// when it is missing (about 20 s). In CI, provision the pinned browser explicitly
+// Browser: Chromium build 1255 ↔ @playwright/test 1.65.1, at
+// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox ships its own build (1243 as
+// of 2026-11), so `globalSetup` installs 1255 beside it when it is missing (about 20 s). In CI, provision the pinned browser explicitly
 // (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
@@ -41,7 +42,38 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4321;
 const BASE_URL = `http://localhost:${PORT}`;
+// THE DEVICE TIER, PINNED TO LITE in every context the suite opens (lib/device-tier.ts, decision note
+// 2026-11-12-device-capability-tiers.md). Lite is what every engine effectively runs at in CI today. Chromium draws in
+// software and headless Firefox has no WebGL, so both start at Lite. Playwright WebKit names its renderer "Apple GPU" even
+// on Linux with no GPU, so it starts at Full, and a CI runner's CPU or boot probe then drops it to Lite within the first
+// seconds of each test: pinned at Full instead, the nightly's WebKit tests ran 1.44x (webkit-phone) and 1.51x
+// (webkit-tablet) as long and a shard overran its 45-minute step (#3245). Left live, that drop's notice once sat over the
+// chat's Send button for a whole click budget (chat-photos.spec.ts, 1/50 at 4 workers). The pin is the person's
+// Performance mode choice, stored before the first script runs, so a `?tier=` pin still outranks it. A spec about the tier
+// opts out with `test.use({ storageState: { cookies: [], origins: [] } })` (device-tier, decline-screen, system-panel,
+// device-tier-drop). The pin is seeded once per context, for this origin only. A context a spec opens itself
+// (`browser.newContext()`) is pinned too: the test runner merges this `use` block, `storageState` included, into every
+// context a test creates (playwright/lib/index.js `runBeforeCreateBrowserContext`); pass `storageState` to opt out, as
+// studio-player-consent does. A page on another origin, or a load after `localStorage.clear()`, starts unpinned.
+const tierPin = (tier: 'lite') => ({
+	cookies: [],
+	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }] }],
+});
 const isCI = !!process.env.CI;
+// TIME-BALANCED LEGS. The nightly's eight `e2e` legs set E2E_SHARD=K/8 instead of passing `--shard`.
+// Playwright's `--shard` cuts the test list into equal COUNTS in project order, so the WebKit and Gecko
+// projects all landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min against the
+// 45-minute step, leg 1 at 22.1). With E2E_SHARD set, each project's testMatch becomes the spec files
+// it runs in this leg, dealt by measured seconds per (project, spec) from e2e/shard-weights.json. Every
+// pair lands in exactly one leg. Unset (a laptop, the per-PR jobs), nothing changes. e2e/shard-plan.mjs.
+const E2E_SHARD = process.env.E2E_SHARD;
+const shard = (projects: Project[]): Project[] =>
+	E2E_SHARD
+		? shardProjects(projects, E2E_SHARD, {
+				testDir: fileURLToPath(new URL('./e2e', import.meta.url)),
+				weightsFile: fileURLToPath(new URL('./e2e/shard-weights.json', import.meta.url)),
+			})
+		: projects;
 const RECORD = process.env.E2E_RECORD !== 'off';
 
 export default defineConfig({
@@ -79,6 +111,7 @@ export default defineConfig({
 	outputDir: 'test-results',
 	use: {
 		baseURL: BASE_URL,
+		storageState: tierPin('lite'),
 		// Every test records a trace and a video, so a nightly failure carries both. E2E_RECORD=off turns both
 		// off: the per-PR `studio-smoke` job sets it, because recording is about a third of that job's time
 		// (measured on 4 cores, 2 workers, the 155 @smoke tests: 11.9 min recorded, 8.2 min not, the same 155
@@ -128,7 +161,7 @@ export default defineConfig({
 	//                   project cannot stand in for (history traversal, #1226)
 	//   @webkit-tablet  real WebKit at a wide+short box — engine DIVERGENCE in layout, where
 	//                   the viewport is as load-bearing as the engine (#1227)
-	projects: [
+	projects: shard([
 		// DESKTOP. The `@webkit` half of its grepInvert reads "webkit-ONLY", not "mentions webkit".
 		// It used to be a bare `/@mobile|@webkit/`, which was right while every `@webkit-*`
 		// spec was webkit-exclusive — and silently wrong the moment one also wanted a
@@ -274,9 +307,11 @@ export default defineConfig({
 			use: { browserName: 'firefox', viewport: { width: 1440, height: 900 } },
 			grep: /@gecko/,
 		},
-	],
+	]),
 	webServer: {
-		command: 'npm run build:e2e && npm run preview:e2e',
+		// E2E_PREBUILT=1 serves a docs/dist/ built elsewhere: the Windows platform suite downloads the Linux build, because
+		// the docs site does not build on Windows (tools/check-ownership.js, checkPlatformSuites; #3345).
+		command: process.env.E2E_PREBUILT === '1' ? 'npm run preview:e2e' : 'npm run build:e2e && npm run preview:e2e',
 		url: `${BASE_URL}/studio/`,
 		reuseExistingServer: !isCI,
 		timeout: 300_000,

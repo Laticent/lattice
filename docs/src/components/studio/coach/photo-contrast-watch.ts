@@ -17,15 +17,20 @@ const SETTLE_MS = 900;
 /**
  * `context` stands for everything outside the slide that changes what the preview paints (the site's mode and palette, the
  * rest of the deck), compared by identity: a new object re-reads the slide, so a theme or mode switch cannot leave an old verdict on screen.
- * `slideIndex` is 0-based. `verdict` is null until this slide has been read, and when it cannot be measured.
+ * `slideIndex` is 0-based. `verdict` is null until this slide has been read, and when it cannot be measured. `section`: the
+ * engine slide the preview draws for `chunk` (0-based), which differs from `slideIndex` once a `---` slide splits on its
+ * headings; `chunk` is then the heading part on screen.
  */
 export function usePhotoContrast(
 	chunk: string,
 	slideIndex: number,
 	source: string,
 	context: object,
+	onPreviewRender?: (listener: () => void) => () => void,
+	section = slideIndex,
+	at?: number,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
-	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
+	const [state, setState] = React.useState<{ key: object | null; slide: number; section: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, section: -1, verdict: null });
 	// Any picture or record may be the slide's photo; the reader decides which one the engine places (card-ink-pick.ts
 	// `photoAt`, with what the slide inherits from the deck) and returns null when none is. Arming on `![bg]` alone left the
 	// shortcut's photo, `![title](src)` on an `image` or `bleed` slide, unchecked.
@@ -36,31 +41,56 @@ export function usePhotoContrast(
 	// holds a phone photo copied and compared megabytes per render (Firefox flattens a joined string to compare it: about
 	// 0.4 s of a paste, PR #3153, Gecko profile).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the key's identity; the body reads none of them.
-	const key = React.useMemo(() => ({}), [slideIndex, context, chunk]);
+	const key = React.useMemo(() => ({}), [slideIndex, section, context, chunk]);
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
+	// READ AGAIN WHEN THE PREVIEW PAINTS, WHILE THE LAST READ COULD NOT MEASURE. The read runs once the inputs have been still
+	// for SETTLE_MS, on the guess that the preview has painted by then. When it has not, the read finds the preview still
+	// showing another slide (or no frame at all) and comes back empty, and nothing re-read it: none of the inputs changes
+	// when the preview catches up. On a phone that is an author who types in Source and taps Preview: the frame paints after
+	// the read, and the Coach never showed the finding (photo-contrast-coach.spec.ts:91, webkit-phone, 13 of 100 under load).
+	// So a paint re-reads, but only while the slide is unmeasured: a measured verdict costs no further reads. A paint that lands
+	// DURING a read that then comes back empty reads once more, so a read racing the paint cannot strand the slide either.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `context` is not read in the body; a new value is the signal to re-read the preview.
 	React.useEffect(() => {
 		let live = true;
 		if (!photo) {
-			setState((prev) => (prev.verdict ? { key: null, slide: -1, verdict: null } : prev));
+			setState((prev) => (prev.verdict ? { key: null, slide: -1, section: -1, verdict: null } : prev));
 			return;
 		}
-		const id = setTimeout(async () => {
-			const { readVerdict } = await import('../photo-verdict');
-			const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true);
-			if (!live) return;
-			setState({ key, slide: slideIndex, verdict: verdict?.src === 'live' ? verdict : null });
-		}, SETTLE_MS);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let unmeasured = false;
+		let paints = 0;
+		const read = () => {
+			clearTimeout(timer);
+			timer = setTimeout(async () => {
+				const seen = paints;
+				const { readVerdict } = await import('../photo-verdict');
+				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true, section, at);
+				if (!live) return;
+				const measured = verdict?.src === 'live' ? verdict : null;
+				unmeasured = !measured;
+				setState({ key, slide: slideIndex, section, verdict: measured });
+				if (unmeasured && paints !== seen) read();
+			}, SETTLE_MS);
+		};
+		read();
+		const off = onPreviewRender?.(() => {
+			paints++;
+			if (unmeasured) read();
+		});
 		return () => {
 			live = false;
-			clearTimeout(id);
+			clearTimeout(timer);
+			off?.();
 		};
-	}, [chunk, slideIndex, context, photo, key]);
+	}, [chunk, slideIndex, section, at, context, photo, key, onPreviewRender]);
 	// While the SAME slide is re-read after an edit, its last verdict stays on screen rather than flickering on every
 	// keystroke. A verdict for ANOTHER slide never does: on a slide change it is gone in the same render, so neither view
-	// shows the slide you left, with its button hidden, for the second the new read takes.
-	const verdict = state.slide === slideIndex ? state.verdict : null;
+	// shows the slide you left, with its button hidden, for the second the new read takes. A heading part of a `---` slide is a
+	// slide of its own here: moving between parts keeps `slideIndex` and changes `section` (the checker on #3239: the first
+	// part's verdict and fix stayed up on the second, and its button wrote the first part's ink there).
+	const verdict = state.slide === slideIndex && state.section === section ? state.verdict : null;
 	const findings: PhotoFinding[] = verdict?.low ? [{ slide: slideIndex + 1, rule: PHOTO_RULE, severity: 'warning', message: verdict.message, pin: verdict.fix }] : [];
 	// `fresh`: the verdict is for the slide's CURRENT text. Right after an edit the Coach keeps the last one on screen, but the
 	// editor must not draw an underline from it: a fix that just landed would flash its own warning back for a moment.

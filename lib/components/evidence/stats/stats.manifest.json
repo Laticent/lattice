@@ -55,21 +55,35 @@
   ],
   "description": "Row of 3–5 stat tiles, each with a big number and a label.",
   "purpose": "Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the metrics."
     },
     "subtitle": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule."
     },
     "tiles": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
-      "description": "One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nThe number still renders big with no nested caption, but the tile has no label under it — always nest a caption."
+      "description": "One li per stat tile, written as a list (`1.` or `-`; the list contract renders both the same). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nThe number still renders big with no nested caption, but the tile has no label under it — always nest a caption."
+    },
+    "caption": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The tile's caption, nested under the number. `-` or `1.` read the same here."
     }
   },
   "skeleton": "<!-- _class: stats -->\n\n`Impact · Pilot Results`\n\n## Six months of results across four product teams.\n\n`Measured against pre-framework baseline, same teams, same market conditions.`\n\n1. 73%\n   - faster close\n2. 4.2×\n   - signal recall\n3. $1.2M\n   - prevented losses\n4. −18d\n   - avg cycle time\n",

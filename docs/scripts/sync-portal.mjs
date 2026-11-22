@@ -5,9 +5,10 @@
 // staged here.) The .md is generated from the manifests by
 // tools/build-docs-portal.js and committed under dist/docs/; this just
 // stages it for the Astro build.
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rebaseLinks } from './md-twins.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoReference = join(here, '..', '..', 'dist', 'docs');
@@ -22,7 +23,11 @@ for (const name of ['components.md']) {
 		console.error(`sync-portal: missing ${src} — run \`npm run docs:portal\` in the repo root.`);
 		process.exit(1);
 	}
-	copyFileSync(src, join(publicDir, name));
+	// The reference links design docs and gallery PDFs relative to where it is generated
+	// (dist/docs/), which resolve in the repo and 404 on the site: about 160 dead links, served
+	// for as long as the file has been, and found when #3207 began pointing agents at it. Resolve
+	// them against that location, which turns each into the file on GitHub.
+	writeFileSync(join(publicDir, name), rebaseLinks(readFileSync(src, 'utf8'), `dist/docs/${name}`));
 	copied++;
 }
 
@@ -37,5 +42,19 @@ if (!existsSync(galleryPdf)) {
 	process.exit(1);
 }
 copyFileSync(galleryPdf, join(publicDir, 'gallery.pdf'));
+copied++;
+// Stage the agent pack (tools/build-agent-kit.mjs → dist/agent-kit/) at /agents/, so an agent
+// that starts at /llms.txt never leaves the domain: /agents/start.md, one file per layout under
+// /agents/components/, the craft guides under /agents/skills/, the checker at
+// /agents/review/check.mjs. The SAME tree is mirrored to the dist-kits branch, and the kit build
+// fails on a link that leaves it, so every link resolves in both places
+// (engineering/decisions/2026-11-17-agent-pack.md §4). Gitignored like components.md above.
+const agentKit = join(here, '..', '..', 'dist', 'agent-kit');
+if (!existsSync(join(agentKit, 'start.md'))) {
+	console.error(`sync-portal: missing ${join(agentKit, 'start.md')} — run \`npm run build\` in the repo root.`);
+	process.exit(1);
+}
+rmSync(join(publicDir, 'agents'), { recursive: true, force: true });
+cpSync(agentKit, join(publicDir, 'agents'), { recursive: true });
 copied++;
 console.log(`sync-portal: staged ${copied} file(s) into public/.`);

@@ -2,12 +2,17 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { unified } from '@astrojs/markdown-remark';
 import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import { isIndexable } from './src/lib/discovery.mjs';
+import { makeLastmod } from './src/lib/lastmod.mjs';
 import { assetVersion } from './src/playground/asset-version.mjs';
+import { oldBrowserCheck } from './src/plugins/old-browser-check.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
 import vitePublicEsmDev from './src/plugins/vite-public-esm-dev.mjs';
@@ -75,6 +80,8 @@ function chunkGraphPlugin() {
 // the *.pages.dev deployment host); otherwise fall back to the per-deployment
 // CF_PAGES_URL on Cloudflare, or the lattice.style production origin.
 const onCloudflare = Boolean(process.env.CF_PAGES);
+// One `git log` pass at config load (~1 s with history; nothing on a shallow clone).
+const lastmodFor = makeLastmod(fileURLToPath(new URL('..', import.meta.url)));
 // A sandboxed (opaque-origin) preview frame loads Mermaid's ES modules and the engine's fonts from this site, and both are fetched with CORS, so
 // those folders must answer with `Access-Control-Allow-Origin: *`. GitHub Pages (production) sends it on everything and the Cloudflare previews
 // read public/_headers; this is the LOCAL dev and preview servers (the e2e runs on `astro preview`). It is set on those folders ONLY, so Vite's own
@@ -238,6 +245,23 @@ export default defineConfig({
 		processor: unified({ rehypePlugins: [rehypeScrollableTables] }),
 	},
 	integrations: [
+		// The old-browser check in the <head> of every page (src/plugins/old-browser-check.mjs).
+		oldBrowserCheck(),
+		// Our own sitemap, declared so Starlight does not add its unfiltered one (it adds
+		// @astrojs/sitemap only when no integration of that name is present). The filter drops
+		// every page that also says `noindex`, so the site never asks a crawler to index a page
+		// it tells the same crawler not to index. The list and the check that keeps it true:
+		// src/lib/discovery.mjs, scripts/check-discovery.mjs (#3207). Starlight's own copy also
+		// passes its i18n locales; the site has none. Adding locales means passing `i18n` here.
+		// `lastmod` is each page's main-content source's last commit, and is omitted entirely on a
+		// shallow checkout rather than stamped with today's date (src/lib/lastmod.mjs).
+		sitemap({
+			filter: (page) => isIndexable(new URL(page).pathname),
+			serialize: (item) => {
+				const date = lastmodFor(new URL(item.url).pathname);
+				return date ? { ...item, lastmod: date } : item;
+			},
+		}),
 		starlight({
 			title: 'Lattice',
 			// Browser-tab icon: the 1.3KB vector mark (replaced a 26KB 512² PNG).

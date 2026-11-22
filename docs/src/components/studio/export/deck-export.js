@@ -6,7 +6,7 @@
 //                and placed one-per-page via jsPDF. No print dialog. Trade-off:
 //                text is an image, not selectable/searchable. For vector +
 //                selectable text use "Print" (the browser's own PDF engine).
-//   - PPTX     : image-slides — the same 2x PNGs, full-bleed via PptxGenJS.
+//   - PPTX     : image-slides — the same 2x PNGs, full-bleed, through Calco's PPTX writer.
 //   - Print    : the browser print path — true vector, selectable, but a dialog.
 //
 // Rasterization uses the shared slide camera (lib/core/slide-camera.mjs; formerly html-to-image's toPng): it clones the slide, inlines the
@@ -29,7 +29,7 @@
 // to survive the white because a background-image paints over background-color;
 // solid-color ones did not — hence title/closing went white on Cuoio.)
 //
-// jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
+// jspdf / Calco's PPTX writer / html-to-image are lazy-imported (own chunks).
 
 // The theme graph is DECLARED (manifest `extends`, baked into THEME_EDGES), not
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
@@ -62,6 +62,7 @@ import { bakedFigureOpenTag } from '../../../../../lib/plugins/mermaid/shared/ba
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
+import { exportInFlight } from '../../../lib/device-lite.js';
 import { writeSrcdoc } from '../../../lib/srcdoc-write.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
@@ -158,59 +159,19 @@ function download(blob, filename) {
 }
 
 // ── Markdown ────────────────────────────────────────────────────────────────
-// Self-contained embed for a Workbench *library* theme (export bridge — see
-// engineering/decisions/2026-06-11-workbench-export-bridge.md). A library theme
-// isn't a registered theme, so a bare `theme:<name>` directive
-// renders palette-less for a CLI consumer. We keep the directive (a Drawing Board
-// re-import resolves the theme by name) AND inline the saved CSS — which already
-// carries `@import 'lattice';` — as a Marp global <style> right after the front
-// matter, so a lattice-configured marp-cli run styles correctly off the block
-// even when the directive name is unknown to it. Pure + DOM-free → unit-tested.
-// `theme` is { name, css } for a library theme, or null/undefined for a built-in
-// (whose `theme:` resolves from themeSet — nothing to embed).
-export function embedThemeInMarkdown(source, theme) {
-	const src = String(source || '');
-	if (!theme?.css) return src;
-	// #22 stylesheet channel — a SAVED LIBRARY THEME is user- or model-authored CSS, and this
-	// splices it into a `<style>` in the markdown handed to a RECIPIENT. A `</style>` in it
-	// ends the element on their machine: demonstrated end to end through the real CLI, where
-	// this block's own bytes produced a live `<link rel=stylesheet href=…>` in the exported
-	// document and truncated the theme's remaining CSS into markup.
-	//
-	// The whole element BODY goes through the guard, not just `theme.css`, because
-	// `theme.name` is interpolated into the comment header above it and is free text too.
-	// This is the exact shape `share-export.ts`'s `embedFinishInMarkdown` already guards —
-	// it was the twin that got the call, and this one did not.
-	const block =
-		'<style>\n' +
-		sanitizeStyleText(
-			'/* Lattice Workbench — embedded theme "' +
-				String(theme.name || 'theme') +
-				'" (self-contained: this deck keeps its palette\n' +
-				'   even where the theme is not installed). Generated on export. */\n' +
-				String(theme.css).trim(),
-		) +
-		'\n</style>\n';
-	// Place the block just after the front matter (or at the top if there is none),
-	// blank-line-separated so it reads as its own Marp directive scope.
-	const fm = /^(---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$))/.exec(src);
-	if (fm) return src.slice(0, fm[0].length) + '\n' + block + '\n' + src.slice(fm[0].length);
-	return block + '\n' + src;
-}
-
-// `components` is the array of referenced library components ({ name, css }) the
-// deck uses — vendored as global <style> blocks so the exported .md renders them
-// across all three engine paths (the component bridge; see
-// engineering/decisions/2026-06-12-workbench-component-bridge.md). Pairs with the
-// theme embed: theme first, then components, both self-contained.
+// THE DECK SOURCE, NOTHING ADDED (engineering/decisions/2026-11-16-markdown-export-is-the-source.md).
+// The `.md` is exactly what Source shows: no `<style>`, no CSS, no comment, no HTML that the
+// author did not write. It used to splice the whole theme stylesheet in as a Marp global `<style>`
+// (the 2026-06-11 Workbench export bridge), even for a built-in theme: a two-slide deck exported as
+// 10,269 bytes for a 116-byte deck. Saved themes, finishes and components travel in the
+// `.lattice` project file, as packages; the Marp bundle is the Marp-shaped export.
 //
 // `files` maps a path inside the archive (`photos/team.jpg`) to bytes: the Library photos the deck
 // names, which the caller has already pointed the source's references at. With none, the download
-// is the bare `.md` it always was; with some it is a `.zip` holding the `.md` beside them, because a
-// Markdown file cannot hold a picture and a reference to a path the recipient lacks is a broken image.
-export async function exportMarkdown(source, name, theme, components, files = {}) {
-	let md = embedThemeInMarkdown(source, theme);
-	md = embedComponentsInMarkdown(md, components);
+// is the bare `.md`; with some it is a `.zip` holding the `.md` beside them, because a Markdown file
+// cannot hold a picture and a reference to a path the recipient lacks is a broken image.
+export async function exportMarkdown(source, name, files = {}) {
+	const md = String(source || '');
 	const slug = safeName(name);
 	const paths = Object.keys(files);
 	if (!paths.length) {
@@ -338,6 +299,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
 	const recordReport = [];
 	source = recordsToComments(source, recordReport);
+	// The four notes as Marp reads them (engineering/decisions/2026-11-20-four-notes.md): `@note` becomes Marp's plain
+	// speaker note, `@handout` a note labeled `Handout:`, and `@say`, `@alt` and every plain comment are dropped, because
+	// Marp shows any comment as a speaker note and has no channel for the voice or the alt text. The kernel the CLI's
+	// bundle runs (lib/authoring/notes-core.js `notesToMarp`).
+	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	source = notesCore.notesToMarp(source);
 	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
 	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
 	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
@@ -582,7 +549,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true, previewFonts = false } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	let stepCounts = null;
@@ -630,6 +597,9 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// `forceSectionVisibleForCapture` cannot save it: that forces the SECTION visible,
 			// and this is an explicit `visibility:hidden` on a descendant <code>.
 			diagrams: false,
+			// `previewFonts`: the runtime waits for the faces the laid-out slides use, not every declared face. Only the chat's
+			// one-slide look asks for it (`rasterizeSlidePreview`); every export keeps the force-load (deck-preview.js).
+			previewFonts,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
 		// An EXPORT frame says so: with the block the runtime draws the export's marker level rather
 		// than the authoring one. Only the Webpage bake passes a level today; the rasterizers keep
@@ -888,7 +858,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
 }
 
 /**
- * The per-slide comment channel (note / `describe:` / `say:`) for a deck, lifted from
+ * The per-slide four notes (`@note`, `@alt`, `@say`, `@handout`) for a deck, lifted from
  * the ENGINE render.
  *
  * Every capture-frame consumer needs this and none of them can read it out of the frame:
@@ -898,7 +868,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, say: string|null, reader: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null, handout: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
@@ -1188,7 +1158,7 @@ const glyphTextOf = (doc) =>
 		.join('');
 const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}\n${glyphTextOf(doc)}`;
 
-async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
+async function sectionsOf(frame, fonts, { iconShapes = false, only } = {}) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
 	clearDataUriMemo();
@@ -1215,8 +1185,26 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	// for every face — so off-screen slides (forced visible mid-loop) rasterize
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
-	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
-	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
+	// markdown kernels above stay unit-testable) — same split as jspdf and Calco's writers.
+	const { buildFontEmbedCss, buildFamilyFontCss, ensureFontsLoaded, ICON_FACES, isVendoredFontUrl } = await loadFontEmbed();
+	// ONE SLIDE'S FONTS, for a caller that shoots one section (`rasterizeSlidePreview`, the chat's `render_slide`): only
+	// the faces that slide draws, its icon faces and emoji slices, by the slide map's own rules (pool-capture.ts
+	// `facesOf` / `slideTextOf`, font-embed.js `buildFamilyFontCss`), and only those are waited for. The whole block
+	// fetched and loaded every vendored face, 130 woff2 for one title slide, which pushed a loaded render past its 15 s
+	// budget (draft-fit.ts). A face that cannot be had falls through to the whole block, so the look is never drawn in a
+	// fallback face. Every export leaves `only` unset and takes the path below, unchanged.
+	const one = only === undefined ? null : sections[only];
+	if (one) {
+		const [{ facesOf, slideTextOf }, { pseudoContentText }] = await Promise.all([import('../pool-capture'), import('../../../../../lib/core/slide-camera.mjs')]);
+		const faces = facesOf(one);
+		const css = await buildFamilyFontCss(faces, slideTextOf(one, pseudoContentText)).catch(() => null);
+		if (css !== null) {
+			await ensureFontsLoaded(doc, css, [...faces, ...ICON_FACES.filter((f) => css.includes(f.family))]);
+			// `vendored`: which font addresses are files we ship, so the camera may leave out the page's other weights of the
+			// families this sheet carries, and never an author's own file (`rasterizeSlidePreview`, `withoutHostFamilies`).
+			return { sections, fontEmbedCSS: css, vendored: (url) => isVendoredFontUrl(url, doc.baseURI) };
+		}
+	}
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	return { sections, fontEmbedCSS };
@@ -1547,8 +1535,10 @@ async function studioDataUri(url) {
 	}
 	return uri;
 }
-function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
+function shootSection(section, pixelRatio, fontEmbedCSS, log, face, { hostFamilies = null } = {}) {
 	return captureSlideCanvas(section, {
+		// Only the one-slide look sets it (`rasterizeSlidePreview`): its sheet carries every face the slide draws. Exports leave it unset.
+		...(hostFamilies ? { hostFamilies } : {}),
 		scale: pixelRatio,
 		face,
 		fontCss: fontEmbedCSS,
@@ -1556,8 +1546,11 @@ function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
 		// The camera reads every `url()` in the page's CSS, and `studioDataUri` refuses a web address. One the deck has not
 		// allowed is refused on purpose (the frame's policy refuses it too, and the sweep draws the hatch for a background),
 		// so it is no missing picture: a theme with a web background used to make every export say a picture was lost.
-		onImageError: (url) => {
-			if (log && !refusedWebAddress(section.ownerDocument, url)) log.count += 1;
+		onImageError: (url, err) => {
+			if (!log || refusedWebAddress(section.ownerDocument, url)) return;
+			log.count += 1;
+			// The toast cannot name this one (`createImageFailureLog`), so the console does: which address, and why.
+			console.warn(`[deck-export] the capture could not read ${logName(url)}: ${err?.message ?? err ?? 'no reader for it'}`);
 		},
 		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
 		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
@@ -1686,10 +1679,16 @@ export async function recordUnreachableAssets(sections, log) {
 	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
 	[...urls].forEach((url, i) => {
 		if (results[i]) return;
+		console.warn(`[deck-export] the background probe could not load ${logName(url)}`);
 		log.paths.add(url);
 		// The hook never fires for a background, so this IS the trigger as well as the name.
 		log.count += 1;
 	});
+}
+
+/** An address short enough for one console line: a `data:` or long URL is cut, since its bytes say nothing. */
+function logName(url) {
+	return url.length > MISSING_IMAGE_NAME_CHARS ? `${url.slice(0, MISSING_IMAGE_NAME_CHARS)}…` : url;
 }
 
 /** How many names a degradation sentence carries before it stops listing them. */
@@ -1884,13 +1883,15 @@ function canUsePdfWorker() {
 // which blows iOS Safari's per-tab memory ceiling and crashes the export
 // mid-deck. A window of 2 keeps the pipeline overlapped (main draws slide N+1
 // while the worker encodes slide N) with bounded memory; 1 would serialize the
-// lanes and give back part of the speed win.
-const PDF_WORKER_MAX_IN_FLIGHT = 2;
+// lanes and give back part of the speed win. A LITE device takes that trade (`exportInFlight`, device-lite.js): one
+// bitmap at a time, slower, the same bytes, because the worker still writes the slides in index order.
+
 
 async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
+		const maxInFlight = exportInFlight();
 		let acked = 0;
 		let wake = null;
 		let failure = null;
@@ -1925,7 +1926,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 			// Backpressure: wait for the worker's ack before growing the in-flight
 			// window. Raced against `done` so a worker-side error breaks the wait
 			// (rejects) instead of deadlocking the loop.
-			while (i - acked >= PDF_WORKER_MAX_IN_FLIGHT) {
+			while (i - acked >= maxInFlight) {
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
 				if (failure) throw failure;
 			}
@@ -2500,22 +2501,13 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // the alt can never drift onto the wrong slide: no source re-split, no
 // front-matter phantom, no auto-split (`split: headings`) misalignment. Mirrors
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
-/** The PowerPoint slide layout for a deck's geometry — 16:9 keeps the built-in one. */
-function pptxLayout(boxW, boxH) {
-	if (!(boxW > 0 && boxH > 0) || Math.abs(boxW / boxH - 16 / 9) < 0.01) return { custom: false, w: 0, h: 0 };
-	const longest = Math.max(boxW, boxH);
-	const inches = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
-	return { custom: true, w: inches(boxW), h: inches(boxH) };
-}
-
 function canUsePptxWorker() {
 	return typeof Worker !== 'undefined';
 }
 
 // At most this many slides may sit transferred-but-unassembled in the worker's queue —
 // the same bound, for the same reason, as the PDF lane's. Each is a full PNG, and an
-// unbounded queue grows with however far the worker falls behind the clone + draw.
-const PPTX_WORKER_MAX_IN_FLIGHT = 2;
+// unbounded queue grows with however far the worker falls behind the clone + draw. `exportInFlight()`: 2, or 1 on LITE.
 
 /**
  * Build the .pptx in a worker: this thread only clones and draws.
@@ -2523,13 +2515,14 @@ const PPTX_WORKER_MAX_IN_FLIGHT = 2;
  * What moves is the DOCUMENT, not the encode, and the measurement is why. On a
  * 56-slide deck the per-slide stall is the same in PowerPoint and in the PDF (350 ms
  * vs 367 ms) — that is html-to-image, and it needs the DOM. What PowerPoint had on
- * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
- * JSZip base64-decoding every image, and the zip write, none of it yielding.
+ * top was one 717 ms freeze at the END (measured with pptxgenjs, the writer before Calco's):
+ * an XML part per slide, every image decoded from base64, and the zip write, none of it yielding.
  */
-async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images) {
+async function buildPptxViaWorker(sections, fontEmbedCSS, { size, props }, altTextFor, onStatus, log, images) {
 	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
+		const pptxInFlight = exportInFlight();
 		let acked = 0;
 		let wake = null;
 		let failure = null;
@@ -2551,10 +2544,10 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 			failure = failure || e;
 			if (wake) { wake(); wake = null; }
 		});
-		worker.postMessage({ type: 'init', layout, props });
+		worker.postMessage({ type: 'init', size, props });
 		for (let i = 0; i < total; i++) {
 			if (failure) throw failure;
-			while (i - acked >= PPTX_WORKER_MAX_IN_FLIGHT) {
+			while (i - acked >= pptxInFlight) {
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
 				if (failure) throw failure;
 			}
@@ -2577,7 +2570,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const images = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
-	// Lift the `describe:` channel from the ENGINE render, before the capture frame
+	// Lift the `@alt` note from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
 	let describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
@@ -2599,19 +2592,18 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		describeRecord.length = 0;
 	}
 	const { eng, summary } = provenance(meta, sections.length);
-	const props = { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', company: `Lattice · ${eng}` };
-	// Slide aspect from the deck's @size geometry (mirrors lib/export/pptx-export.js
-	// pptxLayout). 16:9 keeps the built-in LAYOUT_WIDE; portrait/square get a custom
-	// layout at the same aspect, normalized to a 13.333in longest edge so the PNG
-	// full-bleeds without a ~20in sheet. Without this a portrait deck letterboxed.
-	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	const layout = pptxLayout(boxW, boxH);
+	// No author: the Studio does not know who wrote the deck, and the program is the file's Application, not its author.
+	const props = { title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
+	// The deck's @size geometry, in px. Calco's writer sets the slide aspect from it (`pptxPageSize`): 16:9 is
+	// PowerPoint's wide slide, and a portrait or square deck keeps its aspect, so the picture full-bleeds.
+	const { w: width, h: height } = slideGeom(sections[0]);
+	const size = { width, height };
 	// The alt text for slide i, read from the RECORD rather than from the rasterized
 	// section (see the note below).
 	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 	if (canUsePptxWorker()) {
 		try {
-			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
+			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { size, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
 			download(blob, safeName(name) + '.pptx');
 			return missingImageReason(log);
 		} catch (e) {
@@ -2619,45 +2611,29 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const [{ default: PptxGenJS }, { tidyPptxPackage, xmlSafe }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
-	const pptx = new PptxGenJS();
-	// Control characters would make an XML part unreadable; PptxGenJS escapes markup only.
-	pptx.title = xmlSafe(props.title).trim() || 'deck';
-	pptx.subject = xmlSafe(props.subject);
-	pptx.author = xmlSafe(props.author);
-	pptx.company = xmlSafe(props.company);
-	if (layout.custom) {
-		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
-		pptx.layout = 'LATTICE';
-	} else {
-		pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5in, 16:9 — the PNG full-bleeds it
-	}
+	const [{ writePptx }, { default: JSZip }] = await Promise.all([import('@/lib/calco/pptx'), import('jszip')]);
+	const slides = [];
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images));
-		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
-		// (never let pptxgenjs default `descr` to the image filename — junk a screen
-		// reader reads).
+		const image = new Uint8Array(await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer());
+		// Alt text: the slide's own `@alt` note, else a neutral "Slide N".
 		//
 		// Read from the RECORD, not from the rasterized section. `sections` comes out of
 		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
-		// nodes, which is where `describe:` lives. So every PowerPoint export handed screen
+		// nodes, which is where `@alt` lives. So every PowerPoint export handed screen
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: picture, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
+		slides.push({ image, frames: [], description: altTextFor(i) });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
 	}
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
-	// `write` + our own `download`, not `writeFile`: the blob has to pass through the
-	// re-openable step first, and both lanes then save the same way.
-	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
-	// where `writeFile` used to wrap it in the presentation type before saving.
-	// Calco's schema tidy, as the worker lane runs it (pptx-assemble-worker.js).
-	const tidy = await tidyPptxPackage(JSZip, new Uint8Array(await pptx.write({ outputType: 'arraybuffer' })), 'uint8array');
-	const built = new Blob([tidy], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// Calco's writer, as the worker lane runs it (pptx-assemble-worker.js); our own `download`, because the
+	// blob has to pass through the re-openable step first.
+	const bytes = await writePptx(JSZip, { ...size, ...props, slides }, 'uint8array');
+	const built = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a
@@ -2697,10 +2673,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
 	// descriptions are alt text, not private, so they still ride (#1833).
 	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
-	// The notes field PowerPoint and Impress carry: the speaker note, then the reader note labeled `Reader:` (D8,
-	// lib/authoring/notes-core.js `withReaderNotes`, the CLI's same join). The reader note survives the strip above.
+	// The notes field PowerPoint and Impress carry: the speaker note, then the handout note labeled `Handout:`
+	// (lib/authoring/notes-core.js `withHandoutNotes`, the CLI's same join). The handout survives the strip above.
 	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
-	const officeNotes = (r) => (r ? notesCore.withReaderNotes([r.note], [r.reader ?? null])[0] : null);
+	const officeNotes = (r) => (r ? notesCore.withHandoutNotes([r.note], [r.handout ?? null])[0] : null);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.
@@ -2719,6 +2695,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const calco = await import('@/lib/calco');
 		let slides = [];
 		let backgrounds;
+		let theme;
 		const unreadable = [];
 		const unembeddedFonts = [];
 		const progress = async (i) => {
@@ -2774,9 +2751,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), palette: officePolicyCore.OFFICE_PALETTE, onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
+			theme = captured.theme;
 		} else {
 			for (let i = 0; i < sections.length; i++) {
 				await progress(i);
@@ -2801,7 +2779,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), ...(theme ? { theme } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');
@@ -2824,7 +2802,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const bytes =
 			format === 'odp'
 				? await calco.writeOdp((await import('jszip')).default, deck, 'uint8array')
-				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
+				: await calco.writePptx((await import('jszip')).default, deck, 'uint8array');
 		let blob = new Blob([bytes], { type: kind.mime });
 		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
@@ -2935,20 +2913,25 @@ function dataUrlToBlob(dataUrl) {
 /**
  * One rendered slide as a small JPEG data URL, for the Studio chat's `render_slide`: a look for the
  * model, never an export. It reuses the export's capture (the same frame, fonts and fixups) so the
- * model sees what an export would draw, and it changes nothing any export writes.
+ * model sees what an export would draw, and it changes nothing any export writes. It embeds and loads only the faces
+ * this slide draws (`sectionsOf`'s `only`), so a look at a title slide does not fetch every vendored font.
  * `index` is the rendered section (0-based); `url` is null when the deck has no such section.
  */
 export async function rasterizeSlidePreview(render, index, maxWidth = 768) {
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose } = await createCaptureFrame(render, { previewFonts: true });
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		// `only`: the fonts this one slide draws, not the whole block (`sectionsOf`).
+		const { sections, fontEmbedCSS, vendored } = await sectionsOf(frame, undefined, { only: index });
 		const section = sections[index];
 		if (!section) return { url: null, sections: sections.length };
 		const ratio = Math.min(1, maxWidth / slideGeom(section).w);
 		const url = await withCaptureFixups(
 			section,
 			async (_w, _h, pixelRatio) => {
-				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export');
+				// `hostFamilies`: the one-slide sheet is every face this slide draws, so the camera leaves out the page's vendored rules
+				// for those families (lib/core/slide-camera.mjs `withoutHostFamilies`): it fetched and inlined 16 of them for a title
+				// slide. Unset when `sectionsOf` fell back to the whole block.
+				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export', { hostFamilies: vendored ?? null });
 				return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 80 })], { type: 'image/jpeg' }));
 			},
 			ratio,

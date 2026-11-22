@@ -28,15 +28,15 @@ A slide holding six things becomes six slides. The markup says how many, so ever
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 ## What a split page owes the reader
 
-- The one thing it holds, set at full size — not shrunk to share
-- A heading that says which run it belongs to
-- A pointer to what comes next
-- A way back to the whole — the k-of-N rail in the footer band
-- An ending that says what the run meant
+1. The one thing it holds, set at full size — not shrunk to share
+1. A heading that says which run it belongs to
+1. A pointer to what comes next
+1. A way back to the whole — the k-of-N rail in the footer band
+1. An ending that says what the run meant
 
 _This numbered list — authored as the since-retired `list-criteria` then — could not split at all before this change._
 

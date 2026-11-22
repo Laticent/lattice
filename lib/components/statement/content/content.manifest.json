@@ -32,15 +32,18 @@
   ],
   "description": "Generic prose slide \u2014 heading plus paragraphs or a short list.",
   "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `_class: content` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier \u2014 it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.",
+  "lists": "prose",
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "body": {
-      "selector": "section > p, section > ul",
-      "required": true,
+      "selector": "p, ul > li, ol > li",
+      "match": [{ "kind": "paragraph" }, { "kind": "list", "depth": 1, "marker": "any" }],
+      "required": false,
       "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words \u2014 an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this."
     }
   },

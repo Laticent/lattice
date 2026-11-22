@@ -93,18 +93,22 @@ Clearance clears the center; **spotlight** does the opposite — it shows the fi
 
 `Legible over a live finish`
 
-- 61%
-  - faster to skim
-- 3x
-  - less visual noise
-- AA
-  - contrast held
+## The tiles stay legible over the finish.
+
+1. 61%
+   - faster to skim
+2. 3x
+   - less visual noise
+3. AA
+   - contrast held
 
 ---
 
 <!-- _class: code finish finish-recede -->
 
 `One map overrides any baked layer`
+
+## One map overrides any baked layer.
 
 ```yaml
 finish: finish-recede

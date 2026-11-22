@@ -95,11 +95,13 @@ const {
   checkCalcoBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkCennoBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
   checkSegnoMarkdownBoundary,
   checkFiloCommitPath,
   checkMosaicoBoundary,
+  checkLastraBoundary,
   checkFluidoBoundary,
   checkSquadraBoundary,
   checkTavolaBoundary,
@@ -1676,6 +1678,7 @@ describe('check-ownership', () => {
         'tools/intent-bakeoff/judge-eval.mjs',
         'tools/probe-picture-tokens.mjs', // measures per-model picture cost for the Studio chat's budget gate; opt-in, capped, prints its call count first
         'tools/tts-bench.mjs', // S0 of the voice synthesis spine: TTS latency, 429 onset, packed cuts; opt-in, refuses a plan over --max-usd, prints spend first
+        'tools/agent-pack-eval.mjs', // nightly agent-pack eval: a model writes decks from start.md alone; opt-in, prints spend (2026-11-17-agent-pack.md §4.5)
       ]);
       for (const rel of SANCTIONED_OPENROUTER_SPENDERS) assert.ok(fs.existsSync(path.join(REPO, rel)), `${rel} is sanctioned but missing`);
       // A sanctioned spender must actually CARRY the opt-in guard, not merely be listed.
@@ -2096,14 +2099,14 @@ describe('check-ownership', () => {
       assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
     });
 
-    test('Calco admits no dependency at all: JSZip and PptxGenJS are passed in', () => {
+    test('Calco admits no dependency at all: JSZip is passed in', () => {
       const live = [];
       checkCalcoBoundary(live);
       assert.deepEqual(live, [], live.join('\n'));
       assert.deepEqual(run(checkCalcoBoundary, "import type { Deck } from './types';\nexport { readSlide } from './reader';"), []);
       for (const src of [
         "import JSZip from 'jszip';",
-        "import PptxGenJS from 'pptxgenjs';",
+        "import JSZip2 from 'jszip/dist/jszip.min.js';",
         "import fs from 'node:fs';",
         "import { x } from '@laticent/trama';",
         "import { TEXT_FACES } from '../../../../lib/fonts/text-faces.js';",
@@ -2196,6 +2199,69 @@ describe('check-ownership', () => {
         assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
       }
       assert.deepEqual(run({ 'pack.test.ts': "import { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Lastra: the image library is bytes in, bytes out, so nothing escapes the folder either (2026-11-13-image-library.md).
+  describe('Lastra import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lastra-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkLastraBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkLastraBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('relative imports pass; anything outside the folder is caught', () => {
+      assert.deepEqual(run({ 'index.ts': "export { readImage } from './read.js';\nimport type { Pixels } from './resize.js';" }), []);
+      for (const src of [
+        "import { inflateSync } from 'node:zlib';",
+        "import sharp from 'sharp';",
+        "import policy from '../../../../lib/core/image-policy.js';",
+        "const { exifOrientation } = require('../../../../lib/core/image-dimensions.js');",
+        "const m = await import('../mosaico/index.js');",
+      ]) {
+        assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'read.test.ts': "import { readFileSync } from 'node:fs';" }), [], 'a test may use the runner and node:');
+    });
+    // `run` writes flat files; these need decode/.
+    const runTree = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lastra-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkLastraBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the decode test helper is skipped, and production code may not import it however the path is spelled', () => {
+      const helper = { 'decode/test-support.ts': "import { readFileSync } from 'node:fs';" };
+      assert.deepEqual(runTree(helper), [], 'the helper itself may use node:');
+      for (const spec of ['./test-support.js', './test-support.ts', './test-support']) {
+        const errors = runTree({ ...helper, 'decode/png.ts': `import { FIXTURES } from '${spec}';` });
+        assert.equal(errors.length, 1, `not caught: ${spec}`);
+        assert.match(errors[0], /a test module/);
+      }
+    });
+    test("the package's own name is allowed only under decode/", () => {
+      const self = "import { LastraError } from '@laticent/lastra';";
+      assert.deepEqual(runTree({ 'decode/jpeg.ts': self }), []);
+      assert.equal(runTree({ 'clean.ts': self }).length, 1, 'a root-entry file importing its own package by name');
+      assert.equal(runTree({ 'decode/jpeg.ts': "import { x } from '@laticent/lastra/decode';" }).length, 1, 'only the root name');
     });
   });
 
@@ -2453,6 +2519,47 @@ describe('check-ownership', () => {
     test('a sanctioned file passes, and a stale sanction fails', () => {
       assert.deepEqual(run({ 'X.tsx': "import { undo } from 'prosemirror-history';" }, ['X.tsx']), []);
       assert.equal(run({ 'X.tsx': 'export const x = 1;' }, ['X.tsx']).length, 1);
+    });
+  });
+
+  // Cenno: the popover core has no dependencies and knows nothing about Lattice; the chart reveal
+  // that builds its cards lives outside it (2026-11-16-cenno-popover-library.md §7).
+  describe('Cenno import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cenno-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkCennoBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkCennoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; nothing from Lattice, a framework, a library or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { place } from './place.js';", 'place.ts': 'export const place = () => 1;' }), []);
+      for (const src of [
+        "import { computePosition } from '@floating-ui/dom';",
+        "import * as React from 'react';",
+        "import * as M from '../../../../lib/runtime/chart-reveal/model.mjs';",
+        "import { createFocusHub } from '../fuoco';",
+        "import fs from 'node:fs';",
+        "const m = await import('radix-ui');",
+      ]) {
+        assert.equal(run({ 'cenno.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'cenno.test.ts': "import { it } from 'vitest';" }), [], 'tests may import their runner');
+    });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'cenno.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
     });
   });
 
@@ -4228,16 +4335,20 @@ describe('listRepoTextFiles skips transient render sources', () => {
   // The gallery builders write `*.gallery.<theme>.tmp.md` beside a deck and delete it
   // when the render ends. The pre-commit `pdf-rebuild` job runs them in parallel with
   // the tests, so a walk that lists the file can read it after it is gone (ENOENT).
-  test('a *.tmp.md file under lib/components is never listed', () => {
+  // The probe lives in its own temp folder, never in lib/components: a file written into the
+  // real tree is seen by every other test that walks the decks, and one of them read it after
+  // this test deleted it (ENOENT in slide-boundaries.test.js, #3231's CI, 2026-11-16).
+  test('a *.tmp.md file is never listed', () => {
     const { listRepoTextFiles } = require('../../../tools/check-ownership');
-    const probe = path.join(__dirname, '../../../lib/components/comparison/pricing/pricing.gallery.probe.tmp.md');
-    fs.writeFileSync(probe, '---\nmarp: true\n---\n');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownership-tmp-md-'));
     try {
-      const listed = listRepoTextFiles().map((f) => path.basename(f));
+      fs.writeFileSync(path.join(dir, 'pricing.gallery.md'), '---\nmarp: true\n---\n');
+      fs.writeFileSync(path.join(dir, 'pricing.gallery.probe.tmp.md'), '---\nmarp: true\n---\n');
+      const listed = listRepoTextFiles(dir).map((f) => path.basename(f));
       assert.ok(listed.includes('pricing.gallery.md'), 'the walk still reaches the real deck');
       assert.ok(!listed.includes('pricing.gallery.probe.tmp.md'), 'the transient copy is skipped');
     } finally {
-      fs.unlinkSync(probe);
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

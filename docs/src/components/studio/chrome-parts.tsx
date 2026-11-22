@@ -165,6 +165,8 @@ export function SlideNavigator({ counter, onPrev, onNext, mapOn, onToggleMap }: 
  * is "5 / 7", and a wide pane adds "Slide " in CSS (`content`), never as a second copy in the DOM.
  */
 export function SlideCount({ n, total }: { n: number; total: number }) {
+	// An empty deck has no slide to be on: "No slides", never "1 / 0" (2026-11-17-compose-empty-deck.md).
+	if (total < 1) return <span>No slides</span>;
 	return (
 		<>
 			<span className="sr-only">
@@ -185,9 +187,11 @@ export function SlideCount({ n, total }: { n: number; total: number }) {
 // surface you're on (the transient `quietened` overlay lights Write without moving the
 // saved posture). Matches the segmented-control idiom (bordered group, card-lift active).
 export const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
-	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
-	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
-	{ id: 'craft', label: 'Craft', hint: 'Craft — every panel', icon: <Layers className="size-4" /> },
+	// 14px icons at a 1.75 stroke beside 12.5px words, so the word leads (owner, 2026-11-15, from a design
+	// review): a 16px, 2px-stroke icon outweighed a 12px word, the rail's problem at a fifth of the strength.
+	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-3.5" strokeWidth={1.75} /> },
+	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-3.5" strokeWidth={1.75} /> },
+	{ id: 'craft', label: 'Craft', hint: 'Craft — every panel', icon: <Layers className="size-3.5" strokeWidth={1.75} /> },
 ];
 export function PostureDial({ posture, quietened, revealCraft, onChange }: { posture: Posture; quietened: boolean; revealCraft: boolean; onChange: (p: Posture) => void }) {
 	// Light the EFFECTIVE stop — a transient reveal shows Craft, a quiet shows Write —
@@ -243,7 +247,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      monochrome ones included. Gold stays for the two hero verbs, Present and Compose
 						      (EditModeToggle). The TRANSIENT stop keeps the quieter 12% mix with the dashed
 						      outline, which is what tells "showing now" apart from "your saved home". */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-[5px] rounded-md px-2.5 text-[12.5px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
@@ -272,20 +276,35 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 // and `badge`/`describedBy` so a status count can ride the cell without changing its
 // accessible name. Both variants now floor at `min-h-11` (44px) — the rail's own
 // `py-1.5` box computed to ~41px, itself under the touch floor.
-export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
+export function BarIcon({ label, hint, caption, active, recent, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; /** The pane that last held the one side slot (2026-11-15-one-side-pane.md): a small mark on the rail's inner edge, where the active rule sits, so getting back is one visible click. */ recent?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
 	const bar = variant === 'bar';
 	return (
 		// `describedBy` rides the Tip, not the button: an `aria-describedby` on the button, even an
 		// undefined one, overrides the Tip's and silenced every bar icon's hint for a screen reader.
-		<Tip label={hint} alsoDescribedBy={describedBy}><button
+		<Tip label={recent && !active ? `${hint} (last used)` : hint} alsoDescribedBy={describedBy}><button
 			type="button"
 			aria-label={label}
 			aria-pressed={active}
 			data-demo={demo}
 			onClick={onClick}
 			className={cn(
-				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
-				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
+				// The RAIL's caption is 10px with no tracking, in body text (owner, 2026-11-15, from a design
+				// review; 2026-11-15-one-side-pane.md §3e). It was 8.5px with tight
+				// tracking in the muted color under an 18px, 2px-stroke icon: the smallest text in the Studio,
+				// about 4 device pixels of x-height on a 1x laptop, with roughly ten times the word's ink in the
+				// icon, so the words read as a footnote. A 2x screen and the phone hid it. Measured: "Library"
+				// is 33px at 10px, inside the 44px cell, so the rail (52px) does not widen.
+				// The rail also takes a 16px icon at a 1.75 stroke (the selector outranks each icon's own size
+				// class). The phone BAR keeps its 9px caption and 17px icons, which the owner judged fine there,
+				// and takes only the body-text color: the shell places everything under that bar from its frozen
+				// height (`mobileBarH`), so its geometry stays exactly as measured.
+				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-[3px] font-semibold leading-none transition-colors',
+				// The size comes AFTER `leading-none`, on purpose: `cn` (tailwind-merge) drops a line-height
+				// that precedes a font size, so the caption keeps the app's inherited 1.6 line box, which the
+				// phone bar's frozen height in the instant shell (`mobileBarH`) and its @minfont growth are
+				// measured against. Putting the size first kept `leading-none` and moved the slide box 4px off
+				// at a raised minimum font.
+				bar ? 'min-w-0 flex-1 rounded-none px-1 py-1.5 text-[9px]' : 'w-11 rounded-xl py-2 text-[10px] [&_svg]:size-4 [&_svg]:[stroke-width:1.75]',
 				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): its word and icon stay gold
 				// (`--lx-compose`) whether or not it is the pane on screen. Selected, it takes the header toggle's light chip,
 				// not the bar's ink cell: gold on ink fails contrast (about 2.6:1 in cuoio light, 2:1 dark, 1:1 in a
@@ -300,8 +319,16 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 						// with zero new tokens (every palette already carries both, high-contrast by
 						// construction since they're the theme's primary text/background pair). Reported as
 						// too subtle to read at a glance; the rail's accent-soft tint is unchanged (scoped fix).
-						? (bar ? 'bg-[var(--text-heading)] text-[var(--bg)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]')
-						: 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
+						// The desktop RAIL now takes the same ink chip (owner, 2026-11-15, option B in the
+						// selected-state comparison): the accent-soft tint it had cleared 3:1 against the rail in
+						// 0 of 36 palette×mode combinations (1.01:1 in cuoio light), so the open pane barely
+						// showed. Measured in the live Studio, the ink chip clears 9.88:1 against the rail and its
+						// label 9.65:1 against the chip in all 36. A brand-accent label on this chip is the
+						// follow-up (option D), which falls back to exactly this.
+						? 'bg-[var(--text-heading)] text-[var(--bg)]'
+						// Body text, not muted: the caption is the only thing that names the control (about 8.5:1
+						// against the rail in cuoio light, where muted read 4.65:1 and lost more at this size).
+						: 'text-[var(--text-body)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
 			)}
 		>
 			{/* Active marker: the rail variant gets a left-edge rule (VSCode-style, on a
@@ -326,8 +353,9 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			{active && tone === 'ghost' && (
 				<span aria-hidden="true" className={bar ? cn('absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full', brand ? 'bg-[var(--lx-compose)]' : 'bg-[var(--bg)]') : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}
+			{recent && !active && !bar && <span aria-hidden="true" data-recent="" className="absolute -left-[6px] top-1/2 size-[5px] -translate-y-1/2 rounded-full bg-[var(--accent)]" />}
 			{children}
-			<span className="tracking-tight">{caption}</span>
+			<span>{caption}</span>
 			{typeof badge === 'number' && badge > 0 && (
 				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[var(--warn-fill)] px-[3px] font-mono text-[9px] font-bold leading-none text-white">{badge > 99 ? '99+' : badge}</span>
 			)}
@@ -338,8 +366,9 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // ── The desktop Craft activity rail — the ONE launcher for every panel ──────────
 //
 // Assistants (Coach/Chat/Library/Views) top · Settings (Slide/Deck) mid · Globals
-// (Workspace, account) foot. Group labels + dividers make the grouped exclusivity
-// legible (the assistants share one slot; Slide/Deck swap another).
+// (Workspace, account) foot. The labels and divider group the icons by job; every pane in
+// both groups shares ONE side slot, so opening any of them replaces the one showing
+// (engineering/decisions/2026-11-15-one-side-pane.md).
 //
 // It lives HERE, beside BarIcon and PostureDial, for the reason those two do: the
 // pre-paint instant shell has to draw this rail at build time and the app draws it at
@@ -357,13 +386,27 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // scope', 'Slide settings', 'Open Library', 'Workspace settings', 'Toggle Live' (studio-fixture.ts CHROME
 // map + tour-kit SEL) — keep them stable.
 
-/** Which panel each of the rail's two exclusive slots is showing (null = closed). */
+/** Which pane holds the one side slot, read as its two groups (at most one is non-null). */
 export type ActivityRailState = {
 	/** The assistant slot: Coach · Chat · Live · Library · Reader views. */
 	assistant: 'coach' | 'chat' | 'live' | 'library' | 'lenses' | null;
 	/** The settings slot: the slide Inspector or the deck one. */
 	settings: 'slide' | 'deck' | null;
+	/** The pane that last held the slot, marked on the rail while another (or none) shows. */
+	recent?: StudioPaneId | null;
 };
+
+export type AssistantPaneId = NonNullable<ActivityRailState['assistant']>;
+export type SettingsPaneId = NonNullable<ActivityRailState['settings']>;
+/** Every side pane. They share ONE slot: opening one replaces the other. */
+export type StudioPaneId = AssistantPaneId | SettingsPaneId;
+const ASSISTANT_PANES: readonly string[] = ['coach', 'chat', 'live', 'library', 'lenses'] satisfies readonly AssistantPaneId[];
+export const isAssistantPane = (p: StudioPaneId | null): p is AssistantPaneId => p !== null && ASSISTANT_PANES.includes(p);
+export const isSettingsPane = (p: StudioPaneId | null): p is SettingsPaneId => p === 'slide' || p === 'deck';
+/** Each pane's name as a destination ("‹ Chat") — the rail's captions are abbreviations. */
+export const PANE_NAME: Record<StudioPaneId, string> = { coach: 'Coach', chat: 'Chat', live: 'Live', library: 'Library', lenses: 'Reader views', slide: 'Slide settings', deck: 'Deck settings' };
+/** The rail button that opens each pane, by its accessible name (the e2e CHROME contract) — where focus returns on Esc. */
+export const PANE_RAIL_LABEL: Record<StudioPaneId, string> = { coach: 'Toggle Coach', chat: 'Toggle Chat', live: 'Toggle Live', library: 'Open Library', lenses: 'Toggle Reader views', slide: 'Slide settings', deck: 'Deck scope' };
 
 /** The rail's boot state — every panel closed, which is what StudioShell mounts with. */
 export const ACTIVITY_RAIL_CLOSED: ActivityRailState = { assistant: null, settings: null };
@@ -392,15 +435,15 @@ export function ActivityRail({
 			    switches the slot. Library + Lenses are first-class panels here, not a
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
-			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
-			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} recent={state.recent === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} recent={state.recent === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} recent={state.recent === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
+			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} recent={state.recent === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} recent={state.recent === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
-			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={state.settings === 'slide'} onClick={() => onSettings('slide')}><FileSliders className="size-[18px]" /></BarIcon>
-			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={state.settings === 'deck'} onClick={() => onSettings('deck')}><SlidersHorizontal className="size-[18px]" /></BarIcon>
+			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={state.settings === 'slide'} recent={state.recent === 'slide'} onClick={() => onSettings('slide')}><FileSliders className="size-[18px]" /></BarIcon>
+			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={state.settings === 'deck'} recent={state.recent === 'deck'} onClick={() => onSettings('deck')}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
 			<Separator className="my-1 w-6" />
 			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={onWorkspace}><SettingsCog className="size-[18px]" /></BarIcon>
@@ -469,19 +512,46 @@ function segmentTone(brand: boolean | undefined, on: boolean, interactive = true
  * uses the width the tablet row (which carries Slide settings too) was measured to need, 360 px; a desktop pane
  * narrowed to 320-360 px shows the words a moment after paint (2026-11-10-compose-first.md §4).
  */
-const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: '[&_span]:hidden @[360px]:[&_span]:inline' } as const;
+/**
+ * THE EDIT BAR'S STEPS (`useRowFit`, `EDIT_FIT_LEVELS` of them): the row takes the lowest step whose controls fit its box, and
+ * each step moves one more set out of the row, least important first, into its More menu, so nothing ever bleeds past the
+ * pane down to its minimum width (owner, 2026-11-15). Undo and Redo never move.
+ *   1 · the issue pill shortens to its count
+ *   2 · Version history and Slide settings → More
+ *   3 · Reshape and Fix all → More
+ *   4 · the Compose / Source words drop to their icons (their names stay on the buttons and in a tooltip)
+ *   5 · Find and replace and the issue pill → More
+ * The app's row and the pre-paint shell's carry the same attributes and are measured the same way (studio.astro steps the
+ * shell's), so the two agree at every width.
+ */
+export const EDIT_FIT_LEVELS = 6;
+/** The step each control leaves the row at, as its `data-out` (styles/tailwind.css holds the rules: a control is out from
+ *  its step on). The issue pill's short label is `data-in="1"`, the More button `data-more`. */
+export const EDIT_FIT = {
+	/** Version history, Slide settings. */
+	a: '2',
+	/** Reshape, Fix all. */
+	b: '3',
+	/** The Compose / Source words. */
+	words: '4',
+	/** Find and replace, the issue pill. */
+	c: '5',
+	/** The issue pill's long label. */
+	issueLong: '1',
+} as const;
+
 
 /**
  * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
  * `mode: null` is the pre-paint shell, which cannot know the stored mode at build time: it draws both
  * segments unlit and `studio.astro` lights Compose, or Source under `data-ssr-src`, keyed by `data-edit-seg`.
- * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is not.
+ * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is the same group, stepped by studio.astro.
  */
 export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick?: (mode: EditMode) => void }) {
 	return (
 		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
 		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
-		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal', mode === null && EDIT_MODE_WORDS.shell)}>
+		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className="m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal">
 			{EDIT_MODES.map((m) => {
 				const on = mode === m.mode;
 				const button = (
@@ -495,7 +565,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', segmentTone(m.brand, on, mode !== null), mode !== null && 'transition-colors')}
 						>
 							<m.Icon className="size-3" />
-							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
+							<span data-out={EDIT_FIT.words}>{m.label}</span>
 						</button>
 				);
 				// The shell's copy is inert (`pointer-events:none`), so a tooltip there is bytes for nothing.

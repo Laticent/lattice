@@ -1,23 +1,16 @@
-// MAY TONIGHT'S BLESS MERGE ITSELF? — pure, so it is unit-tested.
+// WHAT TONIGHT'S BLESS RE-RECORDS — pure, so it is unit-tested.
 //
-// The nightly bless bot (`.github/workflows/golden-bless.yml`) re-blesses every golden that
-// drifted on `main`. The owner decided on 2026-10-07 that its PR merges itself only when
-// all four rules below hold, and that the first week is a dry run that only reports them
-// (engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.1). This module scores them.
+// `partition` decides, per golden, what the nightly bless re-records and what it holds
+// (engineering/decisions/2026-11-16-blessing-invariants-attribution.md, rollout step 1). The bless
+// PR merges itself; a held golden stays drifted on `main` and turns the night red.
 //
-//   1. No page was added, removed or resized.
-//   2. No page moved more than MAX_PAGE_FRACTION.
-//   3. At most MAX_GOLDENS goldens changed.
-//   4. Every changed golden was already SHOWN to a person: the golden-diff comment of a
-//      PR a person merged since the last bless listed it as changed.
-//
-// Rule 4 reads what golden-diff actually showed (the `golden-diff-changed` marker in its PR
-// comment), not what a PR could have rendered. The adversarial trio on #2570 showed the
-// difference matters: replaying the path mapping called a golden "seen" whenever any PR
-// touched a shared file, which happens most nights, and whenever a bot PR (Dependabot,
-// the release) merged with nobody looking.
-
-// Starting guesses, to be replaced by a week of dry-run data (rollout step 4).
+// `verdict` still scores the 2026-10-07 four-rule hybrid (no page count changed, no page moved past a
+// threshold, at most a handful changed, every changed golden shown on a merged PR) for the record and
+// for tools/golden-bless-nights.mjs. It no longer decides the merge. Rule 4 reads what golden-diff
+// actually showed (the `golden-diff-changed` marker), not what a PR could have rendered: the adversarial
+// trio on #2570 showed that replaying the path mapping called a golden "seen" whenever any PR touched a
+// shared file.
+// The retired hybrid's thresholds, kept so `verdict` still scores it for the record.
 export const MAX_PAGE_FRACTION = 0.01;
 export const MAX_GOLDENS = 10;
 
@@ -201,6 +194,116 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
     problems,
     rules,
   };
+}
+
+/**
+ * Does the source explain a page-count change? Only when the deck or gallery gained or lost
+ * EXACTLY as many slides as the PDF gained or lost pages. Owner's call, 2026-11-16 (#3235):
+ * "the source changed at all" was too loose, because a typo fix next to an engine change that
+ * adds a page would excuse it. A change of zero pages (a page resized) is never explained by
+ * the source, and a missing count on any side means the bot cannot tell, so the golden is held.
+ *
+ * @param {{oldPages?: number, newPages?: number, oldSlides?: number, newSlides?: number}} c
+ */
+export function slidesExplainPages({ oldPages, newPages, oldSlides, newSlides } = {}) {
+  const counts = [oldPages, newPages, oldSlides, newSlides];
+  if (!counts.every((n) => Number.isInteger(n) && n >= 0)) return false;
+  const pageDelta = newPages - oldPages;
+  return pageDelta !== 0 && pageDelta === newSlides - oldSlides;
+}
+
+/**
+ * WHICH GOLDENS TONIGHT'S BLESS RE-RECORDS — the 2026-11-16 design, rollout step 1
+ * (engineering/decisions/2026-11-16-blessing-invariants-attribution.md §5, §10).
+ *
+ * The bless no longer asks a person, and it is never all-or-nothing. Each golden the check wrote is
+ * either BLESSED (re-recorded, and the PR merges itself) or HELD (put back, so it stays drifted on
+ * `main` and is reported). A golden is held when:
+ *   - it breaks the goldens' invariant: a page was added, removed or resized (`pageShapeChanged`,
+ *     which also catches a resized page that regression-gate scores as 0% moved);
+ *   - or it cannot be trusted: the check did not report it, or reported it in a state other than
+ *     DRIFT, ok or NEW (a render error, a dead worker).
+ * Pixel movement alone never holds a golden: what moved is shown in the digest, worst first, and
+ * attributing each movement to the merge that caused it is rollout step 3. One held golden never
+ * holds back the rest, which is what stalled bless PRs #2624 and #3118.
+ *
+ * @param {ReturnType<typeof goldenRows>} rows  the check's rows
+ * @param {string[]} written                    golden PDFs the bless changed or created on disk
+ * @param {{created?: string[], explained?: string[], blessHeld?: boolean}} [opts]  first renders; page changes
+ *   the slides explain (`slidesExplainPages`); the owner's `bless_held` dispatch
+ * @returns {{bless: string[], held: {golden: string, why: string}[]}}
+ */
+export function partition(rows, written, { created = [], explained = [], blessHeld = false } = {}) {
+  const explainedSet = new Set(explained);
+  const byGolden = new Map(rows.map((r) => [r.golden, r]));
+  const createdSet = new Set(created);
+  const bless = [];
+  const held = [];
+  for (const golden of written) {
+    const r = byGolden.get(golden);
+    if (!r) {
+      if (createdSet.has(golden)) bless.push(golden);
+      else held.push({ golden, why: 'written, but the check did not report it' });
+      continue;
+    }
+    if (createdSet.has(golden) && r.status === 'NO_GOLDEN') { bless.push(golden); continue; }
+    if (!['DRIFT', 'ok', 'NEW'].includes(r.status)) { held.push({ golden, why: `the check reported ${r.status}` }); continue; }
+    // A page-count change is EXPLAINED when the golden's source gained or lost exactly as many
+    // slides as the PDF gained or lost pages (`slidesExplainPages`, computed by the caller): an
+    // author added or removed a slide. The last bless before this design (#2987) changed 28 page
+    // counts, every one a gallery edit. Unexplained, the engine moved it, and it is held unless the
+    // owner's dispatch says otherwise (`blessHeld`).
+    if (r.pageShapeChanged && !explainedSet.has(golden) && !blessHeld) {
+      held.push({ golden, why: 'a page was added, removed or resized, and its source did not gain or lose as many slides' });
+      continue;
+    }
+    bless.push(golden);
+  }
+  return { bless, held };
+}
+
+/**
+ * The night's digest, the PR body's first comment: what was blessed, what was held and why, and the
+ * goldens that moved most. It is read, never answered: nothing in it is a question.
+ * @param {ReturnType<typeof partition>} part
+ * @param {ReturnType<typeof goldenRows>} rows
+ */
+export function digestMarkdown(part, rows, { renderedFrom = '', runUrl = '', problems = [], worst = 12, created = [], explained = [] } = {}) {
+  const pct = (f) => `${(f * 100).toFixed(2)}%`;
+  const byGolden = new Map(rows.map((r) => [r.golden, r]));
+  // A first render has nothing to have moved from, so it is listed apart, not as "0.00%" moved.
+  const createdSet = new Set(created);
+  const explainedSet = new Set(explained);
+  const fresh = part.bless.filter((g) => createdSet.has(g));
+  const recorded = part.bless.filter((g) => !createdSet.has(g));
+  const moved = recorded
+    .map((g) => ({ g, f: byGolden.get(g)?.worstFraction ?? 0, shape: !!byGolden.get(g)?.pageShapeChanged }))
+    // A page added or removed is the biggest change a golden can make: it leads, whatever its pixels.
+    .sort((a, b) => Number(b.shape) - Number(a.shape) || b.f - a.f)
+    .slice(0, worst);
+  const lines = [
+    `### Golden bless: ${part.bless.length} re-recorded, ${part.held.length} held${renderedFrom ? ` (from \`${renderedFrom.slice(0, 12)}\`)` : ''}`,
+    '',
+    part.bless.length
+      ? '_This PR merges itself (engineering/decisions/2026-11-16-blessing-invariants-attribution.md). Nothing here needs an answer; it is a record of what moved._'
+      : '_Nothing was re-recorded tonight: every golden that drifted is held below._',
+  ];
+  if (moved.length) {
+    lines.push('', `**Moved most** (worst page of each, ${moved.length} of ${recorded.length}):`, '', '| Golden | Worst page moved |', '|---|---|');
+    for (const m of moved) {
+      const note = m.shape ? (explainedSet.has(m.g) ? 'pages added or removed, matching its slides' : 'pages added, removed or resized') : '';
+      lines.push(`| \`${m.g}\` | ${note ? `${pct(m.f)}; ${note}` : pct(m.f)} |`);
+    }
+  }
+  if (fresh.length) lines.push('', `**Rendered for the first time** (${fresh.length}): ${fresh.map((g) => `\`${g}\``).join(', ')}.`);
+  if (part.held.length) {
+    lines.push('', '**Held** (left drifted on `main`, and the night is red until each is fixed, or blessed by a `bless_held` dispatch of golden-bless.yml):', '');
+    for (const h of part.held) lines.push(`- \`${h.golden}\`: ${h.why}`);
+  }
+  if (problems.length) lines.push('', `**Problems** (the night turns red; the rest still lands): ${problems.join('; ')}`);
+  if (runUrl) lines.push('', `Before │ after │ overlay montages of every drifted page: the \`golden-bless\` artifact of [this run](${runUrl}).`);
+  lines.push('', VERDICT_MARKER);
+  return lines.join('\n');
 }
 
 /** The verdict comment body. The marker lets the workflow update one comment in place. */

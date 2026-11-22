@@ -40,9 +40,14 @@ function gate({ results = {}, event = 'pull_request', head = RUN_SHA }) {
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-gate-'));
   // The stub answers only the call the gate makes: the PR's head SHA.
   fs.writeFileSync(path.join(bin, 'gh'), head === null ? '#!/bin/sh\nexit 1\n' : `#!/bin/sh\necho ${head}\n`, { mode: 0o755 });
-  const out = spawnSync('bash', ['-e', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+  // The gate writes step outputs here; the beacon reads `superseded` to stay silent on a stale run.
+  // GitHub runs a `run:` step as `bash --noprofile --norc -eo pipefail {0}`; the spawn below matches.
+  const outputs = path.join(bin, 'github-output');
+  fs.writeFileSync(outputs, '');
+  const out = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_OUTPUT: outputs } });
+  const written = fs.readFileSync(outputs, 'utf8');
   fs.rmSync(bin, { recursive: true, force: true });
-  return { code: out.status, text: out.stdout + out.stderr };
+  return { code: out.status, text: out.stdout + out.stderr, superseded: /^superseded=true$/m.test(written) };
 }
 
 test('a full green run passes', () => {
@@ -70,6 +75,24 @@ test('a tier cancelled because a newer push superseded the run still passes', ()
   const r = gate({ results: { integration: 'cancelled', unit: 'cancelled' }, head: NEWER });
   assert.equal(r.code, 0);
   assert.match(r.text, /cancelled by a newer push/);
+  assert.equal(r.superseded, true, 'the gate must tell the beacon this run was superseded');
+});
+
+test('a full green run is not marked superseded, so its beacon posts', () => {
+  assert.equal(gate({}).superseded, false);
+});
+
+test('the CI-green beacon stays silent on a superseded run', () => {
+  // A superseded run's gate passes, but a "green" beacon for a SHA that is no longer the head is a
+  // false green, and with draft parking no newer beacon replaces it (#3314, 8aa411c).
+  const beacon = ci.jobs.ci.steps.find((s) => s.name === 'CI-green beacon');
+  assert.equal(step.id, 'gate');
+  assert.match(beacon.if, /steps\.gate\.outputs\.superseded != 'true'/);
+});
+
+test('a ready_for_review run does not cancel an in-flight run on the same head', () => {
+  // The gate fails a tier canceled on the current head, so re-readying with no push would paint ci red.
+  assert.match(String(ci.concurrency['cancel-in-progress']), /github\.event\.action != 'ready_for_review'/);
 });
 
 test('when the PR cannot be read, a cancelled tier fails closed', () => {
@@ -85,5 +108,34 @@ test('in the merge queue a cancelled tier fails, without reading any PR', () => 
 });
 
 test('a path filter that did not succeed fails the gate', () => {
-  assert.equal(gate({ results: { changes: 'cancelled' }, head: NEWER }).code, 1);
+  assert.equal(gate({ results: { changes: 'failure' }, head: NEWER }).code, 1);
+  assert.equal(gate({ results: { changes: 'skipped' }, head: NEWER }).code, 1);
+});
+
+test('a path filter cancelled on the current head fails: #2524, changes queued 19 min then canceled', () => {
+  const r = gate({ results: { changes: 'cancelled', integration: 'cancelled' } });
+  assert.equal(r.code, 1);
+  assert.match(r.text, /path filter \(changes\) did not succeed/);
+});
+
+test('a whole run cancelled by a newer push passes and posts no beacon', () => {
+  // #3314: a push cancelled 033d389's run before `changes` started, and the gate went red on a SHA
+  // that was no longer the head, a false failure webhook. The tier-cancelled half of this path ran
+  // live on #3314 as run 44462579450 (gate passed, beacon skipped).
+  const all = Object.fromEntries(['changes', 'lint', 'unit', 'integration', 'docs-build', 'docs-test', 'player-webkit'].map((k) => [k, 'cancelled']));
+  const r = gate({ results: all, head: NEWER });
+  assert.equal(r.code, 0);
+  assert.equal(r.superseded, true);
+});
+
+test('in the merge queue a cancelled path filter fails', () => {
+  assert.equal(gate({ results: { changes: 'cancelled' }, event: 'merge_group', head: NEWER }).code, 1);
+});
+
+test('in the merge queue a skipped integration fails: the queue is the only place it runs (D2)', () => {
+  assert.equal(gate({ event: 'merge_group', results: { integration: 'skipped' } }).code, 1);
+  assert.match(gate({ event: 'merge_group', results: { integration: 'skipped' } }).text, /only place the render tier runs/);
+  assert.equal(gate({ event: 'merge_group' }).code, 0, 'a green queue run still passes');
+  assert.equal(gate({ event: 'merge_group', results: { 'docs-build': 'skipped' } }).code, 0, 'other tiers may still skip');
+  assert.equal(gate({ results: { integration: 'skipped' } }).code, 0, 'on a pull request it is skipped by design');
 });

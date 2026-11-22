@@ -49,6 +49,41 @@
   ],
   "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it.",
   "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. A run of `proof` slides is a SEQUENCE, so the engine tints each one from the theme's categorical palette by its position in the deck — authors write `split-panel proof` and nothing else. `capstone` implies `proof`, so the sequence's final slide is just `split-panel capstone`. An explicit `cat-1`…`cat-8` overrides the assignment for one slide.",
+  "variantSlots": {
+    "pullquote": {
+      "heading": {
+        "required": false
+      },
+      "quote": {
+        "selector": "blockquote",
+        "match": {
+          "kind": "blockquote"
+        },
+        "required": true,
+        "description": "The quotation that fills the left panel."
+      }
+    },
+    "steps": {
+      "points": {
+        "selector": "ol > li, ul > li",
+        "match": {
+          "kind": "list",
+          "depth": 1,
+          "marker": "any"
+        },
+        "description": "The moves. A `1.` list numbers the steps on the rail; a `-` list leaves them unnumbered (the list contract, R2)."
+      }
+    },
+    "watermark": {
+      "points": {
+        "match": {
+          "kind": "list",
+          "depth": 1,
+          "marker": "any"
+        }
+      }
+    }
+  },
   "variants": [
     "metric",
     "pullquote",
@@ -67,26 +102,65 @@
     "cat-7",
     "cat-8"
   ],
+  "variantAxes": [
+    {
+      "label": "Panel",
+      "exclusive": true,
+      "members": [
+        "metric",
+        "pullquote",
+        "steps",
+        "watermark",
+        "proof"
+      ]
+    },
+    {
+      "label": "Tint",
+      "exclusive": true,
+      "members": [
+        "cat-1",
+        "cat-2",
+        "cat-3",
+        "cat-4",
+        "cat-5",
+        "cat-6",
+        "cat-7",
+        "cat-8"
+      ]
+    }
+  ],
+  "lists": "neutral",
+  "variantLists": { "steps": "numbered-tags", "watermark": "numbered-tags" },
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`)."
     },
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.)"
     },
     "lede": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "One-sentence framing paragraph under the feature."
     },
     "points": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. \"You know you're here when\"); the other two render as the paired proof cards."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
   "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",

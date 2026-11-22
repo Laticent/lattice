@@ -374,7 +374,10 @@ section video[data-lattice-web-src] {
  * is loading and stops for reduced motion; the one-off sweep is a clip. */
 section [data-lattice-painting] {
   /* Nacre's three tones: the accent, and two hue-shifted relatives (+34° and −28°, Nacre's own
-     offsets). A browser without relative colors keeps plain token mixes. */
+     offsets). A browser without relative colors keeps plain token mixes. The guard is the rule's
+     own shape: a light-dark() origin, as `--accent` is, and a calc() in the hue channel. WebKit 17.4
+     (Safari 17.5-17.6) passed a bare `oklch(from red l c h)` but rejects both, so --lp-b and --lp-c
+     went invalid and the canvas lost its whole background-image; it now keeps the plain mixes. */
   --lp-a: var(--accent);
   --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
   --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
@@ -382,7 +385,7 @@ section [data-lattice-painting] {
   isolation: isolate;
   background-color: var(--bg-alt, var(--bg));
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section [data-lattice-painting] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -547,7 +550,7 @@ section :is(div, span)[data-lattice-plugin-off] {
     radial-gradient(50% 140% at 100% 10%, color-mix(in oklab, var(--lp-c) 36%, transparent), transparent 72%),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section :is(div, span)[data-lattice-plugin-off] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -1081,6 +1084,10 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* A palette's ramp hue and ink (--ramp-hue / --ramp-ink, carbone) resolve on :root, so they would carry the screen
+   * color past the remap above; reset them so a printed ramp falls back to the first category's print gray, as before. */
+  --ramp-hue: initial;
+  --ramp-ink: initial;
   /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
    * block above does. It used to ride along for free, being derived from
    * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be
@@ -1124,6 +1131,11 @@ section.print {
   --info-mark: var(--print-info-mark);
   --info-vivid-mark: var(--print-info-mark);
   --mute-mark: var(--print-mute-mark);
+  /* The print band's status fills keep the one print ink and the slide-ink border: a theme's curated triplet
+   * (`--X-on-mark`, `--X-edge-mark`) is put back to the pre-triplet pair here, in the print inks. */
+  --pass-on-mark: var(--print-on-mark); --warn-on-mark: var(--print-on-mark); --fail-on-mark: var(--print-on-mark); --info-on-mark: var(--print-on-mark); --mute-on-mark: var(--print-on-mark);
+  --pass-edge-mark: var(--print-pass); --warn-edge-mark: var(--print-warn); --fail-edge-mark: var(--print-fail); --info-edge-mark: var(--print-info); --mute-edge-mark: var(--print-mute);
+  --pass-vivid-edge-mark: var(--print-pass); --warn-vivid-edge-mark: var(--print-warn); --fail-vivid-edge-mark: var(--print-fail); --info-vivid-edge-mark: var(--print-info);
   --chart-neutral-mark: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
@@ -1274,8 +1286,11 @@ section.color-inherited {
  * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
  * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
  * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
- * the light scheme it declares beside that background. */
-section:is(.title, .closing):not(.print),
+ * the light scheme it declares beside that background. `cover-light` (the `cover: light`
+ * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+ * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
+ * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
+section:is(.title, .closing):not(.print, .cover-light),
 section.divider:not(.light):not(.print) {
   color-scheme: dark;
   /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
@@ -1310,10 +1325,53 @@ section.divider:not(.light):not(.print) {
  * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
  * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
  * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
-section:where(.title, .closing, .divider:not(.light)):not(.print) {
+section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {
   --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
+}
+
+/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+ * The front and back cover on the deck's own light canvas instead of the inverse panel. The
+ * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+ * the `light` mood token.
+ *
+ * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
+ * named through a token rather than a color: the heading reads `--text-display` (a constant
+ * light ink in every theme), and the subtitle, eyebrow, closing list, inline-code chip and the
+ * eyebrow rebinds above all read the `--on-dark-*` tier. Repointing those tokens on the section
+ * reaches every one of them at once, the way `section.print` remaps the same tokens to the print
+ * band, so no element rule is copied and none can be missed. Each points at the light-canvas
+ * ink a content slide uses for the same role: display → heading, primary → heading, secondary →
+ * secondary, ghost → muted.
+ *
+ * `background: var(--bg)` with `color-scheme: light`, the pair `section.divider.light` paints, so
+ * the light cover and the bright divider are the same surface. THE SAME IN BOTH COLOR MODES: in a
+ * dark deck a light cover is still the light canvas, because the scheme travels with the surface
+ * (2026-08-17-dark-surface-ink.md) and `--bg` is a `light-dark()` pair that resolves to its light
+ * side under `color-scheme: light`. A dark deck that wants dark covers leaves the key out.
+ *
+ * The CHROME and the LOGO go back to the light canvas's own: the two blocks above carve
+ * `cover-light` out of their panel predicate, so the bands keep the `--text-muted` mapping from
+ * base.tokens.css, and the logo filter is reset here because a `-dark` theme or a `.dark` deck
+ * sets the inverse mark on every section at (0,1,1). `--fin-canvas` is repointed in
+ * base.finish.css, beside the rule that points it at the panel.
+ *
+ * `:not(.print)`: a printed cover is paper already, and print's own remap of these tokens must
+ * keep winning, so a `cover-light` slide under print renders exactly as a printed title does.
+ *
+ * (0,3,1) beats the component sheets' `section.title` / `section.closing` (0,1,1) canvas, the
+ * `.dark` / `.color-*` scheme registers (0,1,1), and the inverse-logo rules (0,1,1). No font
+ * size, no margin, no hex: HARD RULES #4, #20 and #3. */
+section:is(.title, .closing).cover-light:not(.print) {
+  background: var(--bg);
+  color-scheme: light;
+  --text-display: var(--text-heading);
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+  --on-dark-ghost: var(--text-muted);
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
@@ -1831,7 +1889,7 @@ section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
 section.heat .lat-state.pass,
 section.heat td .state.pass,
-section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
+section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
@@ -1841,7 +1899,7 @@ section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
 section.heat .lat-state.warn,
 section.heat td .state.warn,
-section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge); }
 
 /* empty → relief */
 section.heat > ul > li.state.fail,
@@ -1851,7 +1909,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .lat-state.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1860,7 +1918,7 @@ section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
 section.heat .lat-state.skip,
 section.heat td .state.skip,
-section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
@@ -1922,15 +1980,15 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state {
   background: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
     inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-edge, var(--state-ink)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;

@@ -31,7 +31,7 @@
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
-import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
+import { frontMatterLang, termsSpokenMap } from '@/lib/resolve-narration';
 import { compressClip, DEFAULT_BITRATE_KBPS, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled, parallelPref } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
@@ -45,7 +45,7 @@ import { stripFrontMatter } from '../../lib/front-matter';
 import { packPoolSize, sharedNarrationPacker } from './narration-pack-pool.js';
 import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, narrationClipFor, slideToSpeech, synthBakeClip } from './read-aloud';
-import { getSayLine } from './slide-say';
+import { getSlideNote } from './slide-notes';
 import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
 
 /** One spoken sentence, as it ships. */
@@ -316,14 +316,11 @@ type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 
 function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphasis?: readonly (EmphasisSpans | undefined)[]) {
 	// HIDDEN slides are not presented and not exported (engineering/decisions/2026-11-06-hidden-slides.md), so the bake
-	// resolves the SHOWN slides, the list Present narrates and the projection holds. `authored[i]` is shown slide i's
-	// place in the deck, the number front-matter `say:` is keyed by, as Present keys it (`setIndices`).
-	const every = splitSlides(stripFrontMatter(source));
-	const authored = every.map((_, i) => i).filter((i) => !slideSourceHidden(every[i]));
-	const slides = authored.map((i) => every[i]);
-	const fmSayMap = frontMatterSayMap(source);
-	const acronyms = acronymSpokenMap(source);
-	const lexicon = lexiconMap(source);
+	// resolves the SHOWN slides, the list Present narrates and the projection holds.
+	const slides = splitSlides(stripFrontMatter(source)).filter((md) => !slideSourceHidden(md));
+	// The deck's term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs) — the same map
+	// Present hands its reader, so a baked clip and a live one say every term the same way.
+	const terms = termsSpokenMap(source);
 	const lang = frontMatterLang(source) ?? undefined;
 	// THE AUTO-GLOSSARY SECTION IS TRIMMED, by the same kernel the projection's producer and the
 	// CLI use (lib/core/glossary-auto.mjs `withoutAutoGlossary`). `glossary: auto` makes the render
@@ -343,7 +340,6 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	const texts = slides.map((md, i) =>
 		resolveNarration({
 			say: getInlineSay(md),
-			fmSay: fmSayMap.get(authored[i] + 1),
 			// NO NOTE RUNG — see narration-resolve.ts. What gets BAKED is what the deck says,
 			// not what its author planned to say over it.
 			chart: aligned ? null : narrateChartSafe(md, chartDeck), // already substituted into `aligned`
@@ -387,7 +383,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 			emphases.push(undefined);
 		}
 	}
-	const tracks = texts.map((t, i) => (t ? buildTrack(t, { acronyms, emphasis: emphases[i], lang, lexicon }) : null));
+	const tracks = texts.map((t, i) => (t ? buildTrack(t, { terms, emphasis: emphases[i], lang }) : null));
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
 	// fallback rung above then reproduces exactly what Present does with the same input — so
@@ -405,8 +401,9 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 		projectionUsed: Array.isArray(projected),
 		inputs: {
 			...(lang ? { lang } : {}),
-			...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
-			...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+			// LTT 1.0's `acronyms` input carries the whole term registry it grew into (a "did it change"
+			// hash, never read back as data); `lexicon` is folded into it and no longer written.
+			...(terms.size ? { acronyms: Object.fromEntries(terms) } : {}),
 		},
 	};
 }
@@ -415,7 +412,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 // can never take the whole bake down.
 function getInlineSay(md: string): string | null {
 	try {
-		return getSayLine(md);
+		return getSlideNote(md, 'say');
 	} catch {
 		return null;
 	}
@@ -499,7 +496,7 @@ const ENCODE_SECONDS_PER_CLIP = 0.1;
  * projection to keep the panel cheap to open, on the reasoning that it would "move a
  * sentence or two either way on a chart-heavy deck." That was wrong by an order of
  * magnitude. The projection is not a chart detail — it is the rung that carries every slide
- * with no inline say line, no front-matter say: entry, no note and no recognized chart, which is
+ * with no `@say` line and no recognized chart, which is
  * most slides in most decks. Without it those slides contribute ZERO sentences, and the
  * author would be quoted a fraction of the bill they were about to be charged.
  *

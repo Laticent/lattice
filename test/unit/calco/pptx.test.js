@@ -1,18 +1,16 @@
 /**
- * Unit: Calco's editable PPTX writer (docs/src/lib/calco/pptx.ts). Builds a deck through
- * the real PptxGenJS and reads the OOXML back: the slide picture with its alt text, one
- * text box per frame with its runs, and what OOXML cannot carry (numeric weight, a
- * transform) mapped the way the module header says.
+ * Unit: Calco's PPTX writer (docs/src/lib/calco/pptx.ts). Builds a deck and reads the OOXML
+ * back: the slide picture with its alt text, one text box per frame with its runs, and what
+ * OOXML cannot carry (numeric weight, a transform) mapped the way the module header says.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
 const { writePptx, pptxPageSize } = require('@laticent/calco');
 const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
 async function slideXml(deck, n = 1) {
-  const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer'));
+  const zip = await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
   return { zip, xml: await zip.file(`ppt/slides/slide${n}.xml`).async('string') };
 }
 
@@ -58,20 +56,31 @@ describe('calco pptx', () => {
   test('small caps ride as cap="small"; the picture spans the exact slide width', async () => {
     const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Pain', style: style({ smallCaps: true }) }, { text: ' plain', style: style() }]])] }] };
     const { zip, xml } = await slideXml(deck);
-    assert.match(xml, /<a:rPr lang="en-US" cap="small"[^>]*>(?:(?!<\/a:r>).)*<a:t>Pain<\/a:t>/s);
+    assert.match(xml, /<a:rPr [^>]*cap="small"[^>]*>(?:(?!<\/a:r>).)*<a:t>Pain<\/a:t>/s);
+    assert.doesNotMatch(xml, /altLang/, 'a real attribute, not a ride in an unescaped lang');
     assert.equal((xml.match(/cap="small"/g) || []).length, 1, 'only the small-caps run');
     const pres = await zip.file('ppt/presentation.xml').async('string');
     const slideCx = pres.match(/<p:sldSz cx="(\d+)"/)[1];
     assert.equal(xml.match(/<p:pic>.*?<a:ext cx="(\d+)"/s)[1], slideCx, 'no 1px sliver at the right edge');
   });
 
-  test('pptxPageSize: 16:9 is LAYOUT_WIDE, other aspects keep a 13.333in longest edge', () => {
-    assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, wide: true });
-    assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, wide: false });
+  test('a near-16:9 deck keeps its own aspect, and its picture covers the slide exactly', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, { width: 1280, height: 722, slides: [{ image: ONE_PX_PNG, frames: [] }] }, 'nodebuffer'));
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    const [, cx, cy] = pres.match(/<p:sldSz cx="(\d+)" cy="(\d+)"/);
+    assert.deepEqual([cx, cy], ['12192000', String(Math.round((12192000 * 722) / 1280))]);
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.match(xml, new RegExp(`<p:pic>.*?<a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/>`, 's'));
+  });
+
+  test('pptxPageSize: exact 16:9 is PowerPoint\'s wide slide, any other aspect keeps a 12192000 EMU longest edge', () => {
+    assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, cx: 12192000, cy: 6858000, wide: true });
+    assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, cx: 6858000, cy: 12192000, wide: false });
+    assert.equal(pptxPageSize(1280, 722).wide, false);
   });
 });
 
-describe('calco pptx — what PptxGenJS does not escape', () => {
+describe('calco pptx — escaping', () => {
   test('a hostile font family and control characters still give well-formed XML', async () => {
     const evil = style({ family: 'Ev"il<b>&x' });
     const deck = { width: 1280, height: 720, title: 'Deck\u0001 name', subject: 'Sub\u0003', slides: [{ image: ONE_PX_PNG, notes: 'bell\u0001note', frames: [frame([[{ text: 'ctrl\u0001text', style: evil }]])] }] };
@@ -99,39 +108,27 @@ describe('calco pptx — what PptxGenJS does not escape', () => {
     assert.match(xml, /wrap="none"/);
   });
 
-  test('with JSZip the package is schema-shaped: one pPr per paragraph, notes master in order, no phantom parts', async () => {
-    // Two runs on one line, and two slides: PptxGenJS 3.12 writes a pPr before each run, puts
-    // notesMasterIdLst after sldIdLst and overrides a slide master per slide (one exists).
+  test('the package is schema-shaped: one pPr per paragraph, notes master in order, no phantom parts', async () => {
     const twoRuns = frame([[{ text: 'import', style: style({ italic: true }) }, { text: ' x', style: style() }], [{ text: 'next', style: style() }]]);
     const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [twoRuns], notes: 'n' }, { image: ONE_PX_PNG, frames: [twoRuns] }] };
-    const check = async (bytes) => {
-      const zip = await JSZip.loadAsync(bytes);
-      const xml = await zip.file('ppt/slides/slide1.xml').async('string');
-      const paras = [...xml.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0]);
-      const pres = await zip.file('ppt/presentation.xml').async('string');
-      const types = await zip.file('[Content_Types].xml').async('string');
-      return {
-        paras,
-        maxPPr: Math.max(...paras.map((p) => (p.match(/<a:pPr\b/g) || []).length)),
-        notesFirst: pres.indexOf('<p:notesMasterIdLst>') < pres.indexOf('<p:sldIdLst>'),
-        phantoms: [...types.matchAll(/<Override PartName="\/([^"]+)"/g)].map((m) => m[1]).filter((n) => !zip.file(n)),
-      };
-    };
-    const raw = await check(await writePptx(PptxGenJS, deck, 'nodebuffer'));
-    assert.ok(raw.maxPPr > 1 && !raw.notesFirst && raw.phantoms.length, 'PptxGenJS still writes all three; if not, tidyPptx can go');
-    const tidy = await check(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
-    assert.equal(tidy.paras.length, raw.paras.length, 'no paragraph is lost');
-    assert.equal(tidy.maxPPr, 1);
-    assert.ok(tidy.notesFirst, 'p:notesMasterIdLst sits before p:sldIdLst');
-    assert.deepEqual(tidy.phantoms, []);
-    assert.match(tidy.paras[0], /<a:pPr[^>]*>[\s\S]*?<\/a:pPr><a:r>[\s\S]*>import<\/a:t>[\s\S]*> x<\/a:t>/, 'the kept pPr comes first, both runs follow');
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    const paras = [...xml.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0]);
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    const types = await zip.file('[Content_Types].xml').async('string');
+    assert.equal(paras.length, 2, 'one paragraph per browser line');
+    assert.equal(Math.max(...paras.map((p) => (p.match(/<a:pPr\b/g) || []).length)), 1);
+    assert.ok(pres.indexOf('<p:notesMasterIdLst>') < pres.indexOf('<p:sldIdLst>'), 'p:notesMasterIdLst sits before p:sldIdLst');
+    assert.deepEqual([...types.matchAll(/<Override PartName="\/([^"]+)"/g)].map((m) => m[1]).filter((n) => !zip.file(n)), []);
+    assert.match(paras[0], /<a:pPr[^>]*>[\s\S]*?<\/a:pPr><a:r>[\s\S]*>import<\/a:t>[\s\S]*> x<\/a:t>/, 'the pPr comes first, both runs follow');
   });
 });
 
 
 describe('calco pptx — layouts, roles and the locked picture', () => {
-  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
-  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  // Chrome on the navy ground is light, as a real dark slide's is (dark ink there would sit on something the picture paints).
+  const header = (text) => frame([[{ text, style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
   const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
   const deck = () => ({
     width: 1280,
@@ -144,7 +141,7 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     ],
   });
   const open = async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck(), 'nodebuffer'));
     const text = (n) => zip.file(n).async('string');
     return { zip, text };
   };
@@ -154,8 +151,7 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     const { zip, text } = await open();
     const layouts = Object.keys(zip.files).filter((n) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n));
     const withBg = [];
-    // PptxGenJS also writes its own empty default layout; ours are the ones named "Layout n".
-    for (const n of layouts) if (/<p:cSld name="Layout \d+"/.test(await text(n))) withBg.push(await text(n));
+    for (const n of layouts) if (/<p:cSld name="[^"]+"/.test(await text(n))) withBg.push(await text(n));
     assert.ok(withBg.every((x) => /<p:bg>/.test(x)));
     assert.equal(withBg.length, 2, 'one per background, none per slide');
     assert.ok(withBg.some((x) => /<a:srgbClr val="003D66"\/>/.test(x)), 'a flat color is a solid fill');
@@ -166,33 +162,257 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
   test('a title is the slide title placeholder, drawn where the browser drew it, with no stray empty placeholders', async () => {
     const { text } = await open();
     const xml = await text('ppt/slides/slide1.xml');
-    assert.match(xml, /<p:ph type="title" idx="100"\/>/);
+    assert.match(xml, /<p:ph type="title"\/>/);
     assert.equal((xml.match(/type="title"/g) || []).length, 1, 'one title, not the layout copy as well');
     assert.doesNotMatch(xml, /hasCustomPrompt/);
     assert.ok(names(xml).includes('Title 1'));
     assert.doesNotMatch(xml, /calco-/, 'no tag leaks into the file');
   });
 
-  test('a header and page number two slides share live on the layout; a lone page number is a slide-number field', async () => {
+  test('a header and page number slides share live on their layout; pale chrome stays off the white master; every slide keeps a slide-number field', async () => {
     const { text } = await open();
     const s1 = await text('ppt/slides/slide1.xml');
-    assert.ok(!names(s1).includes('Header 1'), 'the header moved to the layout');
+    assert.ok(!names(s1).includes('Header 1'), 'the header moved off the slide');
     assert.match(s1, /type="sldNum"/);
-    const layout = (await text('ppt/slideLayouts/slideLayout2.xml')) + (await text('ppt/slideLayouts/slideLayout3.xml'));
-    assert.match(layout, /name="Header"/);
-    assert.match(layout, /<a:t>Deck<\/a:t>/);
+    // The navy slides' header is pale ink: on the master's white ground it would be faint, so the navy layout draws it.
+    const master = await text('ppt/slideMasters/slideMaster1.xml');
+    assert.doesNotMatch(master, /name="Header"/, 'no pale header on the white master');
+    assert.doesNotMatch(master, /type="sldNum"/, 'nor a pale page number');
+    const layout1 = await text('ppt/slideLayouts/slideLayout1.xml');
+    assert.match(layout1, /name="Header"/, 'the navy layout draws its own header');
+    assert.match(layout1, /type="sldNum"/, 'and its own page number');
+    assert.match(layout1, /<a:t>Deck<\/a:t>/);
+    assert.match(layout1, /showMasterSp="0"/);
+    // Slide 3 shows a number and no header: its layout draws its own number and no header.
+    const layout2 = await text('ppt/slideLayouts/slideLayout2.xml');
+    assert.match(layout2, /type="sldNum"/);
+    assert.doesNotMatch(layout2, /name="Header"/);
     const s3 = await text('ppt/slides/slide3.xml');
-    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'unshared number is still a field');
-    assert.ok(names(s3).includes('Slide number 3'));
+    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'its number is still a field');
+  });
+
+  test('the theme, the master\'s text styles and the layouts\' placeholders are the deck\'s own type and colors', async () => {
+    // This deck's content ground is cream, so its running chrome is dark ink.
+    const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+    const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+    const body = (t, y) => frame([[{ text: t, style: style({ family: 'Outfit', size: 24, color: '#1b2a4a' }) }]], { x: 64, y, w: 900, h: 30 });
+    const ttl = (t) => frame([[{ text: t, style: style({ family: 'Playfair Display', weight: 700, size: 48, color: '#2c3e8f' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const card = { kind: 'box', x: 64, y: 300, w: 300, h: 120, radii: [0, 0, 0, 0], fill: { color: '#e4572e', alpha: 1 } };
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#003d66' }, { color: '#f7f4ee' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, frames: [frame([[{ text: 'Opening', style: style({ family: 'Playfair Display', weight: 700, size: 64, color: '#ffffff' }) }]], { role: 'title', x: 64, y: 300, w: 900, h: 80 }), frame([[{ text: 'A subtitle', style: style({ size: 20, color: '#dddddd' }) }]], { role: 'subtitle', x: 64, y: 400, w: 900, h: 26 })] },
+        { image: ONE_PX_PNG, background: 1, frames: [ttl('Two'), body('The body text of the deck', 200), header('Deck'), num(2)], shapes: [card] },
+        { image: ONE_PX_PNG, background: 1, frames: [ttl('Three'), body('More body text here', 200), header('Deck'), num(3)], shapes: [card] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const text = (n) => zip.file(n).async('string');
+    const theme = await text('ppt/theme/theme1.xml');
+    assert.match(theme, /<a:majorFont><a:latin typeface="Playfair Display"\/>/);
+    assert.match(theme, /<a:minorFont><a:latin typeface="Outfit"\/>/);
+    assert.match(theme, /<a:dk1><a:srgbClr val="1B2A4A"\/><\/a:dk1>/, 'dark 1 is the body ink');
+    assert.match(theme, /<a:lt1><a:srgbClr val="F7F4EE"\/><\/a:lt1>/, 'light 1 is the ground most slides sit on');
+    assert.match(theme, /<a:accent\d><a:srgbClr val="E4572E"\/>/, 'a fill the deck paints with is an accent');
+    assert.doesNotMatch(theme, /Calibri|4472C4/, 'nothing of Office\'s theme is left');
+    const master = await text('ppt/slideMasters/slideMaster1.xml');
+    assert.match(master, /name="Header"[\s\S]*?<a:t>Deck<\/a:t>/, 'the dark header the cream slides share is drawn once, on the master');
+    const titleStyle = master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0];
+    assert.match(titleStyle, /sz="3600" b="1"/, '48px is 36pt, bold');
+    // The master's styles take the theme's text colors, so a layout's color map decides the ink of anything typed on it;
+    // the theme's dk2 is the title ink, so a light layout still types it in that ink.
+    assert.match(titleStyle, /<a:schemeClr val="tx2"\/>[\s\S]*<a:latin typeface="\+mj-lt"\/>/);
+    assert.match(theme, /<a:dk2><a:srgbClr val="2C3E8F"\/><\/a:dk2>/, 'dark 2 is the title ink');
+    assert.match(master.match(/<p:bodyStyle>[\s\S]*?<\/p:bodyStyle>/)[0], /sz="1800"[^>]*>[\s\S]*?<a:schemeClr val="tx1"\/>[\s\S]*?\+mn-lt/, 'body text in the theme\'s text 1, the body ink');
+    const layouts = await Promise.all([1, 2].map((i) => text(`ppt/slideLayouts/slideLayout${i}.xml`)));
+    assert.match(layouts[0], /<p:sldLayout [^>]*type="title"[^>]*showMasterSp="0"[^>]*><p:cSld name="Title">/);
+    assert.match(layouts[0], /<p:ph type="subTitle" idx="1"/);
+    assert.match(layouts[0], /val="FFFFFF"/, 'the title look\'s placeholder is in its own white title');
+    assert.match(layouts[1], /<p:sldLayout [^>]*type="obj"[^>]*><p:cSld name="Content">/);
+    assert.match(layouts[1], /<p:ph idx="1"\/>/, 'a content layout has a body placeholder');
+  });
+
+  test('a run states weight, slant, caps and spacing even when off, so it never inherits the master\'s title look', async () => {
+    // The deck's title style is bold, uppercase and letter-spaced, so the master and layouts carry b="1" cap="all" spc;
+    // slide 3's plain title must say b="0" i="0" cap="none" spc="0" or PowerPoint draws it in the inherited look.
+    const loud = (t) => frame([[{ text: t, style: style({ family: 'Outfit', weight: 700, size: 48, transform: 'uppercase', letterSpacing: 2 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const quiet = frame([[{ text: 'Quiet', style: style({ family: 'Outfit', weight: 400, size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#ffffff' }], slides: [loud('The opening loud title'), loud('A second loud title here'), quiet].map((f) => ({ image: ONE_PX_PNG, background: 0, frames: [f] })) };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+    assert.match(master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0], /b="1"[^>]*cap="all"[^>]*spc="/, 'the inherited title look is loud');
+    const s3 = await zip.file('ppt/slides/slide3.xml').async('string');
+    const rPr = s3.split('<a:r>').find((r) => r.includes('<a:t>Quiet</a:t>')).match(/<a:rPr [^>]*>/)[0];
+    for (const attr of ['b="0"', 'i="0"', 'cap="none"', 'spc="0"']) assert.ok(rPr.includes(attr), `${attr} in ${rPr}`);
+  });
+
+  test('a dark deck is written the Office way: the dark pair in dk1/dk2, a color map that reads text from the light pair, a dark master', async () => {
+    const ttl = frame([[{ text: 'Title', style: style({ family: 'Outfit', weight: 700, size: 48, color: '#f0f0f0' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const txt = frame([[{ text: 'Body text on the dark ground', style: style({ family: 'Outfit', size: 24, color: '#d0d4d8' }) }]], { x: 64, y: 200, w: 900, h: 30 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#101418' }], slides: [0, 1].map(() => ({ image: ONE_PX_PNG, background: 0, frames: [ttl, txt] })) };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+    // Office's built-in shape, table and chart styles assume dk is dark (red team and inversion, 2026-11-19).
+    assert.match(theme, /<a:dk1><a:srgbClr val="101418"\/><\/a:dk1>/, 'dark 1 is the ground');
+    assert.match(theme, /<a:lt1><a:srgbClr val="D0D4D8"\/><\/a:lt1>/, 'light 1 is the body ink');
+    assert.match(theme, /<a:lt2><a:srgbClr val="F0F0F0"\/><\/a:lt2>/, 'light 2 is the title ink');
+    const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+    assert.match(master, /<p:clrMap bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2"/, 'text reads from the light pair');
+    assert.match(master, /<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="101418"\/>/, 'the master is the deck\'s dark ground, so Slide Master view reads');
+  });
+
+  test('a title look with no subtitle frame styles its subtitle placeholder from the lead line, else the title ink, never empty', async () => {
+    // An empty list style inherits the master's body ink: dark on a dark title look (owner, Google Slides, 2026-11-19).
+    const deckWith = (openingFrames) => ({
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#003d66' }, { color: '#ffffff' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, frames: openingFrames },
+        { image: ONE_PX_PNG, background: 1, frames: [frame([[{ text: 'Body title', style: style({ family: 'Outfit', weight: 700, size: 40, color: '#0a1628' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 50 })] },
+      ],
+    });
+    const heading = frame([[{ text: 'The opening', style: style({ family: 'Outfit', weight: 700, size: 64, color: '#ffffff' }) }]], { role: 'title', x: 64, y: 260, w: 1152, h: 80, align: 'center' });
+    const eyebrow = frame([[{ text: 'kicker', style: style({ size: 18, color: '#aabbcc' }) }]], { role: 'eyebrow', x: 64, y: 200, w: 1152, h: 24, align: 'center' });
+    const lead = frame([[{ text: 'A lead line under the title', style: style({ family: 'Outfit', weight: 300, size: 28, color: '#c2d0da' }) }]], { x: 64, y: 380, w: 1152, h: 36, align: 'center' });
+    const subStyle = async (d) => {
+      const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+      const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+      const sp = layout.slice(layout.indexOf('Subtitle Placeholder'));
+      return sp.slice(0, sp.indexOf('</a:lstStyle>') + 14);
+    };
+    const withLead = await subStyle(deckWith([eyebrow, heading, lead]));
+    assert.match(withLead, /algn="ctr"/, 'centered, as the lead is');
+    assert.match(withLead, /<a:srgbClr val="C2D0DA"\/>/, 'in the lead line\'s light ink, not the master body\'s dark one');
+    const titleOnly = await subStyle(deckWith([heading]));
+    assert.match(titleOnly, /<a:srgbClr val="FFFFFF"\/>/, 'with no lead, in the title\'s own ink');
+    assert.match(titleOnly, /b="0"/, 'at a subtitle\'s weight');
+    assert.doesNotMatch(titleOnly, /<a:lstStyle\/>/);
+  });
+
+  test('a dark look in a light deck carries its whole look: eyebrow, meta, a varying header and its body, each in its own ink', async () => {
+    // The owner, 2026-11-19: anchor slides (divider, topic, closing) are dark in a light deck and show more than a title.
+    const t = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 14, ...over }) }]], { x: 64, y: 40, w: 600, h: 20, ...at });
+    const light = (o = {}) => ({ color: '#e8eef5', ...o });
+    const topic = (section, n) => ({
+      image: ONE_PX_PNG,
+      background: 1,
+      look: 'topic',
+      frames: [
+        t(section, light(), { role: 'header', y: 20 }),
+        t('Section 01', light({ italic: true }), { role: 'eyebrow', y: 70 }),
+        t(`Topic ${n}`, { family: 'Playfair Display', weight: 700, size: 40, color: '#ffffff' }, { role: 'title', y: 110, h: 50 }),
+        t('A claim about the topic, in the body ink.', light({ size: 22 }), { y: 180, h: 30 }),
+        t('Cohorts Q1-Q3', light({ size: 12 }), { role: 'meta', y: 640 }),
+      ],
+    });
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#ffffff' }, { color: '#003d66' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [t('Light content', { size: 36, color: '#0a1628' }, { role: 'title', y: 100, h: 50 }), t('Body line', { size: 22, color: '#1e3a5f' }, { y: 200, h: 30 })] },
+        topic('Unit economics', 1),
+        topic('Go to market', 2),
+        { image: ONE_PX_PNG, background: 1, look: 'divider', frames: [t('Section 02', light(), { role: 'eyebrow', y: 300 }), t('Divider', { size: 48, color: '#ffffff' }, { role: 'title', y: 340, h: 60 })] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layouts = await Promise.all([1, 2, 3].map((i) => zip.file(`ppt/slideLayouts/slideLayout${i}.xml`).async('string')));
+    const named = (n) => layouts.find((x) => x.includes(`<p:cSld name="${n}">`));
+    const topicL = named('Topic');
+    assert.ok(topicL, 'the two topic slides share one layout, named after their look, though their headers differ');
+    const ph = (x, nm) => {
+      const i = x.indexOf(`name="${nm} Placeholder"`);
+      assert.ok(i >= 0, `${nm} placeholder`);
+      return x.slice(i, x.indexOf('</p:sp>', i));
+    };
+    assert.match(ph(topicL, 'Eyebrow'), /idx="13"[\s\S]*E8EEF5/, 'an eyebrow slot in its light ink');
+    assert.match(ph(topicL, 'Meta'), /idx="14"[\s\S]*E8EEF5/, 'a meta slot');
+    assert.match(ph(topicL, 'Header'), /idx="15"[\s\S]*E8EEF5/, 'the header varies between its slides: a slot, not text');
+    assert.match(ph(topicL, 'Title'), /FFFFFF/);
+    // A heading with one claim under it is a title look: its second slot is a subtitle, in the claim's own ink.
+    assert.match(ph(topicL, 'Subtitle'), /E8EEF5/, 'the claim slot in the look\'s own ink, not the master\'s dark one');
+    assert.doesNotMatch(topicL, /<a:lstStyle\/>/, 'no slot is left to inherit the master\'s light-slide ink');
+    for (const n of [2, 3]) assert.match(await zip.file(`ppt/slides/slide${n}.xml`).async('string'), /name="Header \d"/, 'each topic slide keeps its own header text');
+    assert.match(named('Divider'), /<p:sldLayout [^>]*type="secHead"/, 'a divider is a section header');
+  });
+
+  test('every slot reads on its layout: a dark layout maps text to the light pair; a chip label is no body look; a layout with no title still gets a readable one', async () => {
+    // The red team, 2026-11-19: white body text on white (a tag chip taken as the body), dark titles on navy (no title
+    // frame, so an empty style), and a text box on a navy layout in the light look's dark ink.
+    const f = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 22, ...over }) }]], { x: 64, y: 200, w: 600, h: 30, ...at });
+    const chip = f('TAG', { size: 11, weight: 700, color: '#ffffff', transform: 'uppercase' }, { y: 150, w: 60, h: 16 });
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#ffffff' }, { color: '#001d33' }],
+      slides: [
+        // White content: its first plain frame is a chip's white label; the body text comes after it.
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [f('Light', { size: 36, color: '#0a1628' }, { role: 'title', y: 80, h: 50 }), chip, f('Body line', { color: '#1e3a5f' })], shapes: [{ kind: 'box', x: 60, y: 146, w: 70, h: 24, radii: [4, 4, 4, 4], fill: { color: '#006fa8', alpha: 1 }, text: 1 }] },
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [f('Again', { size: 36, color: '#0a1628' }, { role: 'title', y: 80, h: 50 }), f('More body', { color: '#1e3a5f' })] },
+        // Navy split slide with no title frame at all.
+        { image: ONE_PX_PNG, background: 1, look: 'split', frames: [f('Only a line', { color: '#e8eef5' })] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layouts = await Promise.all([1, 2].map((i) => zip.file(`ppt/slideLayouts/slideLayout${i}.xml`).async('string')));
+    const light = layouts.find((x) => x.includes('name="Content"'));
+    const navy = layouts.find((x) => x.includes('name="Split"'));
+    const sp = (x, nm) => x.slice(x.indexOf(`name="${nm} Placeholder"`), x.indexOf('</p:sp>', x.indexOf(`name="${nm} Placeholder"`)));
+    assert.match(sp(light, 'Content'), /1E3A5F/, 'the body takes the body text, not the chip label');
+    assert.doesNotMatch(sp(light, 'Content'), /FFFFFF/);
+    assert.match(light, /<a:masterClrMapping\/>/, 'a light layout in a light deck keeps the master\'s map');
+    assert.match(navy, /<a:overrideClrMapping bg1="dk1" tx1="lt1"/, 'a navy layout in a light deck maps text to the light pair');
+    const t = sp(navy, 'Title');
+    assert.doesNotMatch(t, /<a:lstStyle\/>/, 'a layout with no title frame still styles its title');
+    const ink = t.match(/<a:defRPr[^>]*><a:solidFill><a:srgbClr val="(\w+)"/)[1];
+    assert.ok(['FFFFFF', 'E8EEF5'].includes(ink), `a title that reads on navy, got ${ink}`);
+    const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+    assert.match(theme, /<a:lt1><a:srgbClr val="FFFFFF"\/><\/a:lt1>/, 'light 1, what a text box on the navy layout types in, is white');
+  });
+
+  test('a mid-tone ground keeps the master\'s map, so new text is the deck\'s text color, not the ground\'s', async () => {
+    // Checker on bbd647a, 2026-11-19: a lightness threshold for layouts and another test for the deck disagreed on a
+    // mid-tone ground and mapped every layout's text onto its own ground (#3A7BD5 on #3A7BD5).
+    for (const [ground, ink] of [['#3a7bd5', '#ffffff'], ['#6a6a6a', '#000000']]) {
+      const f = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 22, color: ink, ...over }) }]], { x: 64, y: 200, w: 600, h: 30, ...at });
+      const d = {
+        width: 1280,
+        height: 720,
+        backgrounds: [{ color: ground }],
+        slides: [0, 1].map((n) => ({ image: ONE_PX_PNG, background: 0, look: 'content', frames: [f(`Title ${n}`, { size: 36 }, { role: 'title', y: 80, h: 50 }), f('Body line')] })),
+      };
+      const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+      const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+      const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+      const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+      assert.match(layout, /<a:masterClrMapping\/>/, `${ground}: the deck's own look keeps the master's map`);
+      // What a new text box types in: tx1 through the master's map.
+      const tx1 = master.match(/<p:clrMap [^>]*tx1="(\w+)"/)[1];
+      const typed = theme.match(new RegExp(`<a:${tx1}><a:srgbClr val="(\\w+)"`))[1];
+      assert.equal(`#${typed.toLowerCase()}`, ink, `${ground}: a new text box is the deck's text color`);
+    }
   });
 
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
     const d = deck();
     d.slides[2].frames[1] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide3.xml').async('string');
     assert.match(xml, /<a:t>2\.2<\/a:t>/);
     assert.doesNotMatch(xml, /type="slidenum"/);
+  });
+
+  test('the layout\'s title placeholder sits where the slide\'s own title is, not a card\'s', async () => {
+    const carded = frame([[{ text: 'In a card', style: style({ size: 40 }) }]], { role: 'title', x: 900, y: 600, w: 300, h: 60, group: 0 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#003d66' }], slides: [{ image: ONE_PX_PNG, background: 0, frames: [carded, title('Real')], shapes: [{ kind: 'box', x: 880, y: 580, w: 340, h: 100, radii: [0, 0, 0, 0], fill: { color: '#ffffff', alpha: 1 }, group: 0 }] }] };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+    const x = Number(layout.match(/<p:ph type="title"[^>]*\/>[\s\S]*?<a:off x="(\d+)"/)[1]);
+    assert.ok(x < 100 * 9525, `the placeholder is at x=${x / 9525}px, near the real title at 64px`);
   });
 
   test('the slide content picture is locked against moving and resizing', async () => {
@@ -202,7 +422,7 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
 
   test('a deck with no roles and no backgrounds is written as before: no layouts, no lock', async () => {
     const plain = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])] }] };
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, plain, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, plain, 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.doesNotMatch(xml, /noMove/);
     assert.equal(Object.keys(zip.files).filter((n) => /slideLayout\d+\.xml$/.test(n)).length, 1);
@@ -210,8 +430,8 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
 });
 
 describe('calco pptx — every master has its own theme', () => {
-  // PptxGenJS 3.12 writes one theme1.xml for the slide master AND the notes master. PowerPoint refuses
-  // ("Sorry, PowerPoint can't read") a package like that once p:notesMasterIdLst is in its schema position.
+  // PowerPoint refuses ("Sorry, PowerPoint can't read") a package whose slide master and notes master share
+  // one theme part once p:notesMasterIdLst is in its schema position. PptxGenJS 3.12 wrote exactly that.
   const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])], notes: 'Say this' }] };
   const themeOf = async (zip, rels) => {
     const xml = await zip.file(rels).async('string');
@@ -229,20 +449,17 @@ describe('calco pptx — every master has its own theme', () => {
   };
 
   test('the editable writer gives the notes master a theme of its own', async () => {
-    await check(await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip)));
+    await check(await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer')));
   });
 
-  test('the picture-only package, tidied through tidyPptxPackage, does too', async () => {
-    const { tidyPptxPackage } = require('@laticent/calco');
-    const raw = new PptxGenJS();
-    raw.addSlide().addNotes('Say this');
-    const bytes = await tidyPptxPackage(JSZip, await raw.write({ outputType: 'uint8array' }), 'nodebuffer');
-    await check(await JSZip.loadAsync(bytes));
+  test('the picture-only package (no frames, no layouts) does too', async () => {
+    const pictures = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [], notes: 'Say this' }] };
+    await check(await JSZip.loadAsync(await writePptx(JSZip, pictures, 'nodebuffer')));
   });
 });
 
 describe('calco pptx — media are named by what their bytes are', () => {
-  // PptxGenJS 3.12 writes a layout's background image as <layout>-image-1.png whatever it holds.
+  // PptxGenJS 3.12 wrote a layout's background image as <layout>-image-1.png whatever it held.
   test('a JPEG layout background is a .jpeg part, and its relationship follows the rename', async () => {
     const deck = {
       width: 1280,
@@ -250,7 +467,7 @@ describe('calco pptx — media are named by what their bytes are', () => {
       backgrounds: [{ image: ONE_PX_JPEG }],
       slides: [{ image: ONE_PX_PNG, background: 0, frames: [frame([[{ text: 'Hi', style: style() }]], { role: 'title' })] }],
     };
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
     const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/[^/]+\.\w+$/.test(n));
     const jpeg = media.filter((n) => /\.jpe?g$/.test(n));
     assert.equal(jpeg.length, 1, 'the background is a .jpeg');
@@ -262,32 +479,27 @@ describe('calco pptx — media are named by what their bytes are', () => {
     }
     const rels = (await Promise.all(Object.keys(zip.files).filter((n) => n.endsWith('.rels')).map((n) => zip.file(n).async('string')))).join('');
     assert.match(rels, new RegExp(jpeg[0].split('/').pop().replace('.', '\\.')), 'a relationship names the renamed part');
-    assert.doesNotMatch(rels, /Layout-\d+-image-1\.png/, 'none still names the old .png');
   });
 });
 
 describe('calco pptx — a text highlight', () => {
   test('a highlighted run writes a:highlight with the color', async () => {
     const JSZip = require('jszip');
-    const PptxGenJS = require('pptxgenjs');
     const { writePptx } = require('@laticent/calco');
     const { ONE_PX_PNG, style, frame } = require('./_fixtures');
     const lit = { ...style(), highlight: '#e6f0f5' };
-    const bytes = await writePptx(PptxGenJS, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'code', style: lit }]])] }] }, 'nodebuffer', JSZip);
+    const bytes = await writePptx(JSZip, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'code', style: lit }]])] }] }, 'nodebuffer');
     const xml = await (await JSZip.loadAsync(bytes)).file('ppt/slides/slide1.xml').async('string');
     assert.match(xml, /<a:highlight><a:srgbClr val="E6F0F5"\/><\/a:highlight>/);
   });
 });
 
 describe('calco pptx — unique shape ids', () => {
-  test('a repeated cNvPr id on a slide is renumbered; the first holder keeps it', () => {
-    const { uniqueShapeIds } = require('@laticent/calco');
-    const xml = '<p:spTree><p:cNvPr id="1" name=""/><p:cNvPr id="25" name="Slide Number Placeholder 0"/><p:cNvPr id="25" name="Text"/><p:cNvPr id="26" name="Shape"/></p:spTree>';
-    const out = uniqueShapeIds(xml);
-    const ids = [...out.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1]);
-    assert.equal(new Set(ids).size, ids.length);
-    assert.equal(ids[1], '25');
-    assert.ok(out.includes('name="Text"') && out.includes('name="Shape"'));
-    assert.equal(uniqueShapeIds('<p:cNvPr id="2"/><p:cNvPr id="3"/>'), '<p:cNvPr id="2"/><p:cNvPr id="3"/>', 'unique ids are left alone');
+  test('every shape on a slide or layout has its own id, the page-number placeholder included', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, require('./_rich-deck')(), 'nodebuffer'));
+    for (const n of Object.keys(zip.files).filter((x) => /^ppt\/(slides|slideLayouts)\/[^/]+\.xml$/.test(x))) {
+      const ids = [...(await zip.file(n).async('string')).matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1]);
+      assert.equal(new Set(ids).size, ids.length, n);
+    }
   });
 });

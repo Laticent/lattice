@@ -56,7 +56,18 @@ on:
         default: 'none'
         type: choice
         options: ['none', 'no-session']
+      harness:
+        description: 'Warm harness: a pull request number. Instead of the suites, one runner builds once and takes `/harness` commands from that PR (tools/platform-harness.js)'
+        required: false
+        default: ''
+      harness_os:
+        description: 'The harness runner'
+        required: false
+        default: 'macos-26'
+        type: choice
+        options: ['macos-26', 'windows-2025']
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -70,6 +81,9 @@ concurrency:
 
 jobs:
   plan:
+    # A harness dispatch runs the `harness` job alone; with `plan` skipped, `docs-site`, `run` and `alert` skip too.
+    # A draft pull request skips it as well (#3342).
+    if: ${{ (github.event.inputs.harness == '' || github.event.inputs.harness == null) && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -138,7 +152,14 @@ jobs:
     # `docs-site` is skipped when no suite needs it; a skipped need must not skip this job, a failed one must.
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' && needs.docs-site.result != 'failure' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # 30 per suite, 40 for office-quicklook. Its Suite step took 25.5 min on run 43970893314 (every slide ok) and setup
+    # about 4 more, so the job hit 30m04s and was canceled during teardown after the suite had passed. Raised for that
+    # suite only (coordinator call, 2026-11-17, on #3270), the pattern ci.yml uses for integration shard 4.
+    # ios-safari-font-cache gets 40 too: it starts two simulators one after the other, about 8 min each before its probe,
+    # so 19 runs (11-12 to 11-17) took a median 25.3 min, the worst that finished 29.7, and 3 were killed at 30 (one 4 s
+    # after its probe passed, run 44096107262). Its matrix entry raises run.sh's SUITE_DEADLINE to match (coordinator
+    # call, 2026-11-17).
+    timeout-minutes: ${{ contains(fromJSON('["office-quicklook","ios-safari-font-cache"]'), matrix.suite) && 40 || 30 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
@@ -156,6 +177,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         timeout-minutes: 10
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
       - name: Build the generated bundles
         run: npm run build
@@ -191,6 +215,85 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           overwrite: true # the supervisor's re-run uploads the same name again
+
+  harness:
+    # WARM HARNESS (engineering/decisions/2026-11-17-platform-harness.md). One runner checks out the dispatched branch,
+    # installs and builds once, then tools/platform-harness.js takes `/harness` commands from the pull request named in the
+    # `harness` input: only the dispatching login's comments run, a new commit is synced and rebuilt incrementally, and each
+    # result is replied on the PR. It stops after 15 idle minutes, 90 minutes after the job started, or on `/harness stop`.
+    # One at a time per OS (owner, 2026-11-21): a second macOS dispatch waits for the first rather than taking another
+    # macOS slot from the nightly, and a Windows harness never blocks a macOS one. GitHub keeps one pending job per group,
+    # so a third dispatch for the same OS replaces the waiting second.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.harness != '' }}
+    runs-on: ${{ github.event.inputs.harness_os }}
+    timeout-minutes: 105
+    concurrency:
+      group: platform-harness-${{ github.event.inputs.harness_os }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      # write, not read: a comment on a pull request goes through the issues API, and GITHUB_TOKEN needs pull-requests
+      # write for it there (the first real run, 44154479520, posted nothing with read).
+      pull-requests: write
+    name: harness (${{ github.event.inputs.harness_os }}, PR ${{ github.event.inputs.harness }})
+    steps:
+      - name: Start the clock
+        # The 90-minute deadline counts from here, not from the end of setup, so a job is killed before the 105-minute
+        # timeout and the artifact upload still runs.
+        shell: bash
+        run: echo "HARNESS_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          # Keep the token out of .git/config: a job runs arbitrary branch code and its output is posted on the PR.
+          # Fetching a public repository needs no credentials.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        timeout-minutes: 10
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Build the docs site the iOS probes serve
+        if: runner.os == 'macOS'
+        working-directory: docs
+        shell: bash
+        run: |
+          npm ci
+          npm run build:e2e
+          printf '%s built on the harness\n' "$GITHUB_SHA" > dist/.prebuilt
+      - name: Serve /harness commands
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.inputs.harness }}
+          ACTOR: ${{ github.triggering_actor }}
+          BRANCH: ${{ github.ref_name }}
+          HARNESS_OS: ${{ github.event.inputs.harness_os }}
+          DOCS_SITE: ${{ runner.os == 'macOS' && '1' || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          IDLE_MINUTES: '15'
+          DEADLINE_MINUTES: '90'
+        run: node tools/platform-harness.js
+      - name: Upload every job's log and artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-${{ github.event.inputs.harness_os }}
+          path: harness-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
   alert:
     # Runs when `plan`, `docs-site` or any suite failed on a scheduled or manual run. It sorts the failures

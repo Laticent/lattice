@@ -392,9 +392,9 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 section.kpi.briefing > .cell-stage > ol > li,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
   --lat-pill-edge: var(--state-pass-hue);
-  --kpi-pill-rim: var(--pass);
+  --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-pass-on-ink);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -404,9 +404,9 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--warn-signal-mark);
-  --kpi-pill-rim: var(--warn);
+  --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-warn-on-ink);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -448,9 +448,9 @@ section.kpi.ops > .cell-stage > ol > li > strong {
 section.kpi.ops > .cell-stage > ol > li:nth-child(1),
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn-signal-mark);
-  --kpi-pill-rim: var(--warn);
+  --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-warn-on-ink);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -458,9 +458,9 @@ section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--state-pass-hue);
-  --kpi-pill-rim: var(--pass);
+  --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-pass-on-ink);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -616,18 +616,18 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--state-pass-hue);
-  --kpi-pill-rim: var(--pass);
+  --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-pass-on-ink);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn-signal-mark);
-  --kpi-pill-rim: var(--warn);
+  --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-warn-on-ink);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -694,9 +694,9 @@ section.kpi.trajectory > .cell-stage > ol > li > strong {
 }
 section.kpi.trajectory > .cell-stage > ol > li {
   --lat-pill-edge: var(--state-pass-hue);
-  --kpi-pill-rim: var(--pass);
+  --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-pass-on-ink);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
@@ -776,9 +776,9 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--state-pass-hue);
-  --kpi-pill-rim: var(--pass);
+  --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
-  --lat-pill-ink: var(--on-mark);
+  --lat-pill-ink: var(--state-pass-on-ink);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;

@@ -1,0 +1,19 @@
+---
+// The social card's tags, for both heads that need them: PageMeta (the standalone routes) and
+// DocsHead (Starlight). Absolute URL, because a link unfurler fetches it from outside the page.
+// Absent when the build has no `site`, like the canonical link. No twitter:image: X reads
+// og:image when it is absent, and every byte here is on every page (the landing page's HTML
+// sits within 1 KB of its route-budget ceiling). What the card is: OG_IMAGE in discovery.mjs.
+import { OG_IMAGE } from '../../lib/discovery.mjs';
+
+const src = Astro.site ? new URL(OG_IMAGE.path, Astro.site).href : undefined;
+---
+
+{src && (
+	<>
+		<meta property="og:image" content={src} />
+		<meta property="og:image:width" content={String(OG_IMAGE.width)} />
+		<meta property="og:image:height" content={String(OG_IMAGE.height)} />
+		<meta property="og:image:alt" content={OG_IMAGE.alt} />
+	</>
+)}

@@ -314,7 +314,9 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 						keys += 1;
 						await page.clock.runFor(250);
 					}
-					await page.clock.resume();
+					// The clock stays paused. The loop ends on the stop, and `arm`'s observer stamped `t1` when the verdict
+					// changed, before the test could read it, so `landed` reads a value already there. A `resume()` stood
+					// here, and a resumed clock lets a frame born later run ahead of this one (testing.md §fake clock).
 					const { ms } = await landed(page, 1_000);
 					// The runaway's request is the last one posted before the stop (keystrokes queue behind it, unposted).
 					// On the page's clock its timer fires exactly 1.5 s after that post, so the stop is the budget to the

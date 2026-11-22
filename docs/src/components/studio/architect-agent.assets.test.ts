@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type AgentAssets, type AssetInfo, cleanCaption, MAX_VIEWS_PER_TURN } from './agent-assets';
 import { chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { AGENT_TOOLS, type AgentComplete, type AgentLibrary, ASSET_TOOLS, createToolbox, runAgentLoop, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, chatOfferedTools, createToolbox, runAgentLoop, type ToolCall } from './architect-agent';
 import { init as initChatAgent } from './chat-agent';
 
 beforeAll(async () => {
@@ -35,9 +35,13 @@ const box = (assets: AgentAssets | undefined, canSee = true) => createToolbox({ 
 
 describe('asset tools in the tool list', () => {
 	it('are a separate set, so a Library-less turn keeps the tool prefix it always had', () => {
-		const names = (t: readonly { function: { name: string } }[]) => t.map((x) => x.function.name);
-		expect(names(ASSET_TOOLS)).toEqual(['list_assets', 'view_asset', 'caption_asset']);
-		expect(names(AGENT_TOOLS)).not.toContain('view_asset');
+		const names = (hasLibrary: boolean) => chatOfferedTools({ mode: 'review', themes: ['indaco'], finishes: [], seesPictures: true, hasLibrary }).map((x) => x.function.name);
+		const without = names(false);
+		const withLib = names(true);
+		// The Library tools come last, only with a Library, so the prefix before them is unchanged.
+		expect(withLib.slice(without.length)).toEqual(['list_assets', 'view_asset', 'caption_asset']);
+		expect(withLib.slice(0, without.length)).toEqual(without);
+		expect(without).not.toContain('view_asset');
 	});
 });
 

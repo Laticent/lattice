@@ -5,6 +5,11 @@ summary: Export bridge carrying Workbench library themes into the Drawing Board 
 
 # Workbench export bridge — library themes reach the Drawing Board (themes slice)
 
+> **Superseded in part (2026-11-16).** The Markdown export no longer embeds anything: it is the deck source, byte
+> for byte (`2026-11-16-markdown-export-is-the-source.md`). Saved looks travel in the `.lattice` project file; the
+> Marp bundle still carries them for Marp.
+
+
 **Date:** 2026-06-11
 **Status:** shipped (themes end-to-end; components deferred)
 **Branch:** `claude/workbench-export-bridge`

@@ -53,6 +53,10 @@ export interface ReadResult {
 	kept?: Array<{ kind: string; x: number; y: number; w: number; h: number }>;
 	/** With `logo`: the slide's deck logo (`img.deck-logo`), left out of the pictures so the caller can shoot it alone. Absent when the slide shows none. */
 	logo?: { x: number; y: number; w: number; h: number; alt?: string };
+	/** The slide's look: Lattice's `data-frame` ("standard" reads as "content"); absent on a page that does not say. */
+	look?: string;
+	/** The slide's ground: the section's own background color, when it is opaque (`#rrggbb`). What a layout's new text must read on. */
+	ground?: string;
 	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
 	approximated: string[];
 }
@@ -409,8 +413,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const family = usedFamily(cs.fontFamily);
 		const weight = Number(cs.fontWeight) || 400;
 		const italic = cs.fontStyle !== 'normal';
+		const generic = cs.fontFamily
+			.split(',')
+			.map((s) => s.trim().replace(/^["']|["']$/g, ''))
+			.reverse()
+			.find((f) => /^(serif|sans-serif|monospace|cursive|fantasy)$/.test(f)) as TextStyle['generic'];
+		const lang = el.closest('[lang]')?.getAttribute('lang') || '';
 		const style: TextStyle = {
 			family,
+			...(generic ? { generic } : {}),
+			...(lang ? { lang } : {}),
 			weight,
 			italic,
 			size: (Number.parseFloat(cs.fontSize) || 16) * faceSizeAdjust(family, weight, italic),
@@ -1052,6 +1064,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const heading = section.querySelector('h1, h2');
 	const onlyCode = (el: Element) => el.tagName === 'P' && el.children.length === 1 && el.firstElementChild?.tagName === 'CODE' && (el.textContent || '').trim() === (el.firstElementChild.textContent || '').trim();
 	const isHeading = (el: Element | null) => !!el && /^H[1-3]$/.test(el.tagName);
+	// Nothing an author wrote follows it: only the running chrome and the engine's hidden furniture (a topic's track, a
+	// marker rail). A code paragraph that ends a column, or has a list or a table after it, is content, not the meta line.
+	const endsSlide = (el: Element) => {
+		for (let n = el.nextElementSibling; n; n = n.nextElementSibling) {
+			if (n.tagName === 'HEADER' || n.tagName === 'FOOTER' || n.classList.contains('lat-pagination') || n.getAttribute('aria-hidden') === 'true') continue;
+			return false;
+		}
+		return true;
+	};
 	frames.forEach((frame, i) => {
 		if (splitFrames.has(i)) return;
 		const block = frameBlocks[i];
@@ -1061,6 +1082,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		else if (heading && block === heading) frame.role = 'title';
 		else if (onlyCode(block) && isHeading(block.nextElementSibling)) frame.role = 'eyebrow';
 		else if (onlyCode(block) && isHeading(block.previousElementSibling)) frame.role = 'subtitle';
+		else if (onlyCode(block) && block.parentElement === section && endsSlide(block)) frame.role = 'meta';
 	});
 
 	// ── SHAPES (`shapes: true`). A box whose paint an office shape can carry exactly — a solid
@@ -3115,7 +3137,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	}
 	putScrollBack();
 	if (!hidden) earlyHost.__calcoRestore = undefined;
-	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
+	// The look is the page's own word for the slide; a CSS class is not one (Marp's `invert`, `lead`), so a page without
+	// `data-frame` has none and the writers name its layouts as before.
+	const frameAttr = section.getAttribute('data-frame') || '';
+	const look = (frameAttr === 'standard' ? 'content' : frameAttr) || undefined;
+	const groundColor = parseColor(win.getComputedStyle(section).backgroundColor);
+	const ground = groundColor && groundColor.a >= 0.99 ? hex(groundColor) : undefined;
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(look ? { look } : {}), ...(ground ? { ground } : {}), ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

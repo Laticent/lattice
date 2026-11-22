@@ -27,7 +27,7 @@ Four color tokens whose declared contract did not match what they painted.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- _class: table -->
 <!-- _footer: "Part 2 · the muted text tier at its new floor, on --bg-alt" -->
 
 ## Muted text still reads as muted — and now it reads.

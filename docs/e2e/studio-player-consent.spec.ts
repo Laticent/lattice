@@ -88,7 +88,10 @@ for (const tag of [' @gecko', ' @webkit-tablet @webkit-phone']) {
 
 			// Scripting off: nothing loads, the picture is listed as a plain link.
 			hits.length = 0;
-			const context = await browser.newContext({ javaScriptEnabled: false });
+			// An empty storageState, not the config's Lite pin: Playwright merges config options into this context, and to
+			// seed localStorage it loads the site first. With scripting off, Firefox 159 (Playwright 1.65.1) never finishes
+			// that load, so newContext hung until the test timed out (5 of 5). This page is a file:// export; it reads no pin.
+			const context = await browser.newContext({ javaScriptEnabled: false, storageState: { cookies: [], origins: [] } });
 			const plain = await context.newPage();
 			await plain.goto(`file://${file}`);
 			await expect(plain.locator('#lp-consent a').first()).toHaveAttribute('href', new RegExp(`${host}/p.png`));

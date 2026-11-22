@@ -590,7 +590,7 @@ function renderBlocks(ordered) {
   const byPlugin = new Map();
   for (const { plugin, token } of entries) byPlugin.set(plugin, [...(byPlugin.get(plugin) || []), token]);
   const imports = [...byPlugin].map(([plugin, tokens]) => `import { ${tokens.sort().join(', ')} } from './${plugin.folder}/${plugin.manifest.name}.syntax.mjs';`);
-  if (entries.length) imports.push(`import { guardedRule } from './state-facade.mjs';`);
+  imports.push(entries.length ? `import { guardedRule, memoHeld } from './state-facade.mjs';` : `import { memoHeld } from './state-facade.mjs';`);
   // Each rule through the state facade, with its plugin's declared token types, as host-grammar.mjs installs it.
   const guard = (e) => `guardedRule(${e.token}, ${JSON.stringify(e.plugin.manifest.name)}, new Set(${JSON.stringify(Object.keys(e.plugin.manifest.contributes.syntax))}))`;
   const calls = [
@@ -618,6 +618,10 @@ export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
  *  lines that decision depends on (the manifest's \`scansAhead\`). The Studio's incremental slide
  *  index rebuilds the deck when an edit adds or removes such a line (docs/src/lib/deck-outline/deck-outline.ts). */
 export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join(', ')} ` : ''}});
+
+/** Whether a plugin rule wrote its per-parse memo (lib/plugins/state-facade.mjs), re-exported here so the deck model
+ *  (lib/core/deck-model.mjs) reaches it through the generated table it already reads, not up into lib/plugins. */
+export { memoHeld };
 
 /** The characters each block rule starts on (the manifest's \`triggers\`), so a parser that knows the line's
  *  first character tries only the rules that can open there (the deck model, lib/core/deck-model.mjs). */
@@ -1080,7 +1084,9 @@ function renderMeta(ordered) {
   const fields = {};
   const markers = [];
   const commentKeys = {};
+  const notes = [];
   for (const p of providers) {
+    notes.push(...Object.keys(p.manifest.contributes.meta.notes || {}));
     Object.assign(fields, p.manifest.contributes.meta.fields);
     markers.push(...(p.manifest.contributes.meta.markers || []));
     Object.assign(commentKeys, p.manifest.contributes.meta.comments || {});
@@ -1104,6 +1110,8 @@ export const META_FIELDS = ${freeze(fields)};
 export const META_MARKERS = ${freeze(markers)};
 
 export const META_COMMENTS = ${freeze(commentKeys)};
+
+export const META_NOTES = ${freeze(notes)};
 
 export const META_REGISTERS = ${freeze(registers)};
 

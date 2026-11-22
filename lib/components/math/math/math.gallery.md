@@ -11,7 +11,7 @@ header: "Lattice · math"
 
 `Evidence · Canvas · Prose`
 
-Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way.
+Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround.
 
 ---
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { embedFinishInMarkdown, marpExportNote } from './share-export';
+import { embedFinishInMarkdown, marpExportNote, withoutStampNonce } from './share-export';
 
 // The source-handoff finish embed (Markdown / Marp share). A saved finish renders
 // only from its generated CSS, so the exported copy must carry that CSS inline —
@@ -139,5 +139,44 @@ describe('marpExportNote', () => {
 	});
 	it('reports an escaped deck on its own', () => {
 		expect(marpExportNote({ ...none, escaped: true, refused: { tags: { iframe: 1 } } })).toMatch(/shows all of it as text/);
+	});
+});
+
+describe('savedLooksNote (2026-11-16-markdown-export-is-the-source.md)', () => {
+	it('says nothing for a deck that uses only shipped looks', async () => {
+		const { savedLooksNote } = await import('./share-export');
+		expect(savedLooksNote({})).toBeUndefined();
+		expect(savedLooksNote({ components: [] })).toBeUndefined();
+	});
+	it('names each saved look the .md leaves out, and points at .lattice', async () => {
+		const { savedLooksNote } = await import('./share-export');
+		const note = savedLooksNote({ theme: 'brand', finish: true, components: ['mybox'] });
+		expect(note).toContain('the saved theme “brand”, a saved finish and the saved component “mybox”');
+		expect(note).toContain('.lattice');
+	});
+});
+
+describe('the code-package stamp an export writes (#3292)', () => {
+	it('drops the per-page nonce wherever it sits in the extra CSS, so a reload exports the same text', async () => {
+		const { setCodePackages, codePackagesStamp } = await import('@/lib/code-packages/entry');
+		const { approvalsInStamp } = await import('@/lib/code-packages/door');
+		await setCodePackages([{ name: 'acme', code: 'function t(s){return s.html}\nexport { t as default };\n' }]);
+		const stamp = codePackagesStamp();
+		const nonce = /^\/\* lattice code packages ([0-9a-z]+): /.exec(stamp)?.[1] as string;
+		expect(nonce).toBeTruthy();
+		// The stamp rides after a Library component's CSS and a finish, as in the Studio's extra CSS.
+		const extra = `.card { color: red }\n\n${stamp}`;
+		const written = withoutStampNonce(extra);
+		expect(written).toMatch(/\/\* lattice code packages: acme@[0-9a-f]{16}- \*\//);
+		expect(written).not.toContain(nonce);
+		expect(withoutStampNonce(extra.replace(nonce, 'zz9'))).toBe(written);
+		// A written stamp is never this page's stamp, so a file read back cannot narrow a preview.
+		expect(approvalsInStamp(written)).toBeNull();
+		await setCodePackages([]);
+	});
+
+	it('leaves CSS with no stamp as it is', () => {
+		expect(withoutStampNonce('')).toBe('');
+		expect(withoutStampNonce('.a { color: red }')).toBe('.a { color: red }');
 	});
 });

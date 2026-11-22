@@ -68,8 +68,16 @@ test('render_slide sends the model a real picture of the slide @crosswidth @webk
 	const bodies = await mockModel(page, [toolCall('render_slide', { slide: 1 }), say('The title slide reads cleanly.')]);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
+	// The look fetches the fonts its slide uses, not every face the engine declares (deck-export.js
+	// `rasterizeSlidePreview`). Counted from the send to the reply: 130 font files for this title slide when its capture
+	// frame force-loaded every face, 30 when it does not, up to 51 under 4 workers. 80 sits between the two.
+	const fonts: string[] = [];
+	page.on('request', (r) => {
+		if (r.url().includes('.woff2')) fonts.push(r.url());
+	});
 	await send(page, 'how does the title slide look?');
 	await expect(page.getByText('The title slide reads cleanly.')).toBeVisible({ timeout: 60_000 });
+	expect(fonts.length, 'the look fetched every declared font face, not the ones its slide draws').toBeLessThan(80);
 	expect(bodies[0].tools?.map((t) => t.function.name)).toContain('render_slide');
 	// The picture rides the message after the tool result, as an image part.
 	const parts = bodies[1].messages.flatMap((m) => (Array.isArray(m.content) ? (m.content as { type?: string; image_url?: { url?: string } }[]) : []));
@@ -90,7 +98,7 @@ test('chart_from_data stages a chart slide that lands on Apply @crosswidth', asy
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	await send(page, 'chart these: EMEA 4.2M, APAC 3.1M, Americas 2.9M');
-	await page.getByRole('button', { name: /^Apply/ }).click({ timeout: 30_000 });
+	await page.getByRole('button', { name: /^Apply( all)?$/ }).click({ timeout: 30_000 });
 	await expect.poll(async () => (await storedSources(page)).some((v) => v.includes('<!-- _class: bar -->') && v.includes('- EMEA `$4.2M`'))).toBe(true);
 	await page.screenshot({ path: test.info().outputPath('chart-from-data-1440.png') });
 });
@@ -102,7 +110,7 @@ test('set_theme stages the theme change, from the Studio\'s own theme list @cros
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	await send(page, 'use the cuoio theme');
-	await page.getByRole('button', { name: /^Apply/ }).click({ timeout: 30_000 });
+	await page.getByRole('button', { name: /^Apply( all)?$/ }).click({ timeout: 30_000 });
 	await expect.poll(async () => (await storedSources(page)).some((v) => /^---[\s\S]*theme: cuoio/.test(v))).toBe(true);
 	// The theme list the model was offered is the Studio's own.
 	const def = bodies[0].tools?.find((t) => t.function.name === 'set_theme') as unknown as { function: { parameters: { properties: { name: { enum: string[] } } } } };

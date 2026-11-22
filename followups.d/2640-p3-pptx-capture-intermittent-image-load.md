@@ -34,3 +34,19 @@ done when — A failure is reproduced with the toast text in hand, the cause (an
               store the probe as the default JPEG. It now confirms the radio before Add.
             - Left: the two counting paths (`inlineAll`'s failed fetch, the settle loop's `stuck`) both log no name, so the
               next failure's toast still cannot say which fired. The next step is to name the path in the log.
+
+2026-11-21 — investigated on claude/flake-backlog-sweep (flake desk); still not reproduced, so still open.
+            - 101 more loaded runs green on a `build:e2e` of main 450df6d plus this branch: the PowerPoint case 20 of 20
+              at 4 workers while 64 concurrent clients pulled the server's four largest bundles, and the five photo-export
+              specs together (library-images-export, pptx-export-photo-size, pptx-export-worker, export-photo-size,
+              export-missing-image) 81 of 81 on Chromium and Firefox, 6 workers, 3 repeats.
+            - Refuted: that the preview server drops a same-origin fetch under load, so `studioDataUri` counts a
+              transient network error as a lost picture. At 512 concurrent clients the server answered 1,190 of 1,190.
+            - Done, the step this note named: every path that counts a lost picture now says which and why on the
+              console. The camera hands `onImageError` the reader's error (lib/core/slide-camera.mjs `inlineAll`);
+              deck-export.js logs `[deck-export] the capture could not read <url>: <error>` and `the background probe
+              could not load <url>`; settled-canvas.js logs how many pictures had not decoded when the settle loop gave
+              up. The PowerPoint spec puts those lines in its failure message, so the next red names the address and the
+              path that counted it.
+            - Next: when a nightly reports it, read that message. A `blob:` read error points at the Library's object
+              URL; `image fetch 404` points at a path; the settle line points at decode priming.

@@ -1,14 +1,4 @@
 {
   "_comment": "HARD RULE #32 backlog: each committed test file's flaky-shape counts, held exactly by checkFlakyTests in tools/check-ownership.js. Lower a count in the PR that rewrites the test, or mark a line that is right as it is with // flaky-ok: <why>. Never raise a count without the reason in the PR. A docs/e2e waitForTimeout is held by SANCTIONED_E2E_SLEEPS instead. followups.d/3045-p1-flaky-test-audit.md drives this to empty.",
-  "files": {
-    "test/integration/mermaid/mermaid-unavailable.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/unit/components/code-line-width.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/trama/serialization.test.js": {
-      "env-skip": 1
-    }
-  }
+  "files": {}
 }

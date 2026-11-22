@@ -100,7 +100,7 @@ describe('robustness', () => {
       assert.equal(O.SWITCH_BY_FLAG[w], undefined);
     }
     // A deck named `constructor` is still the first positional, so the output comes next.
-    assert.equal(C.complete(['constructor'], '').directive, ':files pdf,pptx,odp,png,zip,html,css');
+    assert.equal(C.complete(['constructor'], '').directive, ':files pdf,pptx,odp,png,zip,html,lattice,css');
   });
 
   test('the store Tab reads is the store packagesRoot resolves', () => {
@@ -164,8 +164,8 @@ describe('values', () => {
   });
 
   test('paths are left to the shell, with the extensions that fit', () => {
-    assert.equal(C.complete([], '').directive, ':files md');
-    assert.equal(C.complete(['deck.md'], '').directive, ':files pdf,pptx,odp,png,zip,html,css');
+    assert.equal(C.complete([], '').directive, ':files md,lattice');
+    assert.equal(C.complete(['deck.md'], '').directive, ':files pdf,pptx,odp,png,zip,html,lattice,css');
     assert.equal(C.complete(['--packages'], '').directive, ':dirs');
     assert.equal(C.complete(['--image-quality'], '').directive, ':values');
     assert.equal(C.complete(['video'], '').directive, ':files md,html');

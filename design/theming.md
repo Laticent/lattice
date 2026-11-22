@@ -385,7 +385,8 @@ character by setting the override hooks at `:root`, each a
 | `--chart-neutral-mark` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
 | `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status INKS — base tokens every theme curates, not chart-only hooks; `--info` and `--mute` are also their own fills |
 | `--pass-mark` / `--warn-mark` / `--fail-mark` | the light-face status FILLS (the dark face uses the ink); see `base.tokens.css` § STATUS, IN TWO JOBS |
-| `--on-mark` | the ink on a fill: white on every chart fill, a category, the neutral or a status (near-black on an `a11y-*` dark face). One ink; a status is told apart by its drawn mark and, for an exception, its signal ring |
+| `--on-mark` | the ink on a CATEGORY fill and the neutral: white (near-black on an `a11y-*` dark face) |
+| `--pass-on-mark` … `--mute-on-mark`, `--pass-edge-mark` … `--mute-edge-mark`, `--pass-vivid-edge-mark` … `--info-vivid-edge-mark` | THE STATUS TRIPLET: the ink on each status fill and its border. A brand theme sets them: on light its paper and the fill itself, on dark the one ink `--on-mark` and the status ink `--X`; unset, they default to `--on-mark` and the status ink `--X` (engineering/decisions/2026-11-16-status-triplets.md; solve with `node tools/curate-status-triplets.js`) |
 
 The `var()` indirection means a theme always wins, and it need only set the
 slots it wants to flavor.

@@ -36,7 +36,6 @@ import {
 	MAP_KEY,
 	type Plan,
 	parsePlaygroundUrl,
-	playgroundQuery,
 	readHandoff,
 	readingSlideIndex,
 	readPlan,
@@ -50,6 +49,7 @@ import {
 	VIEW_KEY,
 	variantSource,
 	walkChipLabel,
+	withPlaygroundQuery,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import type { PlaygroundSync, SyncPorts } from '@/lib/playground-sync';
@@ -70,6 +70,10 @@ import { type EditorAdapter, EditorHost, type EditSpan } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { PlaygroundTourCard } from './PlaygroundTourCard';
 import { WalkBar } from './WalkBar';
+
+// Lazy: the control is needed only once a long pane scrolls, so it stays out of the Playground's startup
+// JS (it measured +2,830 gzip bytes eager; docs/route-budget.json).
+const QuickScroll = React.lazy(() => import('@/components/ui/quick-scroll').then((m) => ({ default: m.QuickScroll })));
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
 // rail are a separate chunk the Playground never fetches otherwise.
@@ -2532,9 +2536,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				const s = walk.plan.slides[walk.index]?.kind ?? null;
 				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
 				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
-				window.history.replaceState(window.history.state, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+				window.history.replaceState(window.history.state, '', pathname + withPlaygroundQuery(search, { c: walk.plan.name, view: 'read', s }) + hash);
 			} else if (search) {
-				window.history.replaceState(window.history.state, '', pathname + hash);
+				// Strip the Playground's keys only: a key it does not own (`?tier=`) is someone else's to keep.
+				const rest = withPlaygroundQuery(search, {});
+				if (rest !== search) window.history.replaceState(window.history.state, '', pathname + rest + hash);
 			}
 		};
 		const t = setTimeout(write, SCROLL_IDLE_MS);
@@ -3096,8 +3102,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (!band) return false;
 			const inset = Math.max(0, (win.innerHeight - band.height) / 2);
 			const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-			win.scrollTo({ top: Math.max(0, band.top - inset), behavior: opts.instant || reduce ? 'auto' : 'smooth' });
-			return true;
+			// Clamped to where the document can scroll, so the sync can tell "arrived" from "still on its way" (see `show`).
+			const se = frame.contentDocument?.scrollingElement;
+			const want = Math.max(0, band.top - inset);
+			const top = se?.scrollHeight ? Math.min(want, Math.max(0, se.scrollHeight - se.clientHeight)) : want;
+			win.scrollTo({ top, behavior: opts.instant || reduce ? 'auto' : 'smooth' });
+			return top;
 		},
 		[gotoIndex, mountAroundIndex],
 	);
@@ -3431,6 +3441,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+							{/* Jump to the first or last slide: binds to the frame's own document and rebinds on each load. */}
+							<React.Suspense fallback={null}>
+								<QuickScroll root={frameRef} label="slides" />
+							</React.Suspense>
 						</div>
 						{mapEver && mapRendered && hub && (!mapStacked || walkMapEl) && (
 							<div className="pg-map" hidden={!mapOn}>

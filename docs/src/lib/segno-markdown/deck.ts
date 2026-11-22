@@ -99,7 +99,7 @@ export function spanHolds(a: string, b: string, span: EditSpan): EditSpan | null
 type Side = { content?: string; info?: string; markup?: string; meta?: unknown };
 
 /** How the last updates went, for tests and the benchmark. */
-export const deckModelStats = { full: 0, incremental: 0, reparsedLines: 0 };
+export const deckModelStats = { full: 0, incremental: 0, reparsedLines: 0, fullLines: 0, fullDecks: 0 };
 
 /**
  * One authored slide's share of the tape, as it was written. A segment never changes after it is made;
@@ -129,6 +129,8 @@ interface Segment {
 	readonly side: ReadonlyMap<number, Side> | null;
 	/** Lines (as written) in this slide that a `scansAhead` rule was tried on. */
 	readonly forward: readonly number[] | null;
+	/** The line (as written) in this slide after whose `scansAhead` try the parse first held a memo, or -1. */
+	readonly memo: number;
 }
 
 /**
@@ -136,7 +138,7 @@ interface Segment {
  * `bm`/`em` are indexed so that line `L` of the parse is entry `L - bmBase`. `lineTo`: one past the last
  * line the parse covers.
  */
-function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, Side>, forward: readonly number[], bm: Int32Array, em: Int32Array, bmBase: number, lineFrom: number, lineTo: number): Segment[] {
+function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, Side>, forward: readonly number[], memoAt: number, bm: Int32Array, em: Int32Array, bmBase: number, lineFrom: number, lineTo: number): Segment[] {
 	const out: Segment[] = [];
 	let tok = 0;
 	let line = lineFrom;
@@ -151,7 +153,8 @@ function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, 
 		const n = nextLine - line;
 		let fwd: number[] | null = null;
 		for (const f of forward) if (f >= line && (f < nextLine || !closed)) (fwd ??= []).push(f);
-		out.push({ tape, t0: tok, length: end - tok, line0: line, lines: n, bm, em, b0: line - bmBase, off0: bm[Math.min(line, lineTo) - bmBase], closed, side: sideHere, forward: fwd });
+		const memo = memoAt >= line && (memoAt < nextLine || !closed) ? memoAt : -1;
+		out.push({ tape, t0: tok, length: end - tok, line0: line, lines: n, bm, em, b0: line - bmBase, off0: bm[Math.min(line, lineTo) - bmBase], closed, side: sideHere, forward: fwd, memo });
 		tok = end;
 		line = nextLine;
 	};
@@ -174,6 +177,9 @@ function lineAt(bMarks: Int32Array, lines: number, offset: number): number {
 	}
 	return lo;
 }
+
+/** The open tokens `containers` lists. */
+const CONTAINER_OPENS: ReadonlySet<number> = new Set([KIND.bullet_list_open, KIND.ordered_list_open, KIND.list_item_open, KIND.blockquote_open, KIND.table_open, KIND.tr_open]);
 
 /** A deck read once: the S0 text, the front-matter split and the block tape of the body, slide by slide. */
 export class DeckModel {
@@ -198,7 +204,7 @@ export class DeckModel {
 	private _blocks?: BlockTape;
 	private _boundaries?: Int32Array;
 	private _slides?: Slide[];
-	private _ranges?: { directives?: BlockRange[]; html?: BlockRange[]; fences?: BlockRange[]; plugins?: BlockRange[]; leaves?: BlockRange[] };
+	private _ranges?: { directives?: BlockRange[]; html?: BlockRange[]; fences?: BlockRange[]; plugins?: BlockRange[]; leaves?: BlockRange[]; containers?: BlockRange[] };
 
 	constructor(source: string, text: string, bodyStart: number, lines: number, segs: readonly Segment[], options: DeckModelOptions, flat?: BlockTape) {
 		this.source = source;
@@ -241,6 +247,7 @@ export class DeckModel {
 			const eMarks = new Int32Array(this.lines + 1);
 			const side = new Map<number, Side>();
 			const forward: number[] = [];
+			let memoAt = -1;
 			for (let i = 0; i < this.segs.length; i++) {
 				const g = this.segs[i];
 				const at = this.segTok[i] * STRIDE;
@@ -260,10 +267,11 @@ export class DeckModel {
 				}
 				if (g.side) for (const [k, v] of g.side) side.set(this.segTok[i] + k, v);
 				if (g.forward) for (const f of g.forward) forward.push(f + dl);
+				if (memoAt < 0 && g.memo >= 0) memoAt = g.memo + dl;
 			}
 			bMarks[this.lines] = this.body.length;
 			eMarks[this.lines] = this.body.length;
-			this._blocks = { src: this.body, kinds: this.options.parser.kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward };
+			this._blocks = { src: this.body, kinds: this.options.parser.kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward, memoAt };
 		}
 		return this._blocks;
 	}
@@ -312,7 +320,7 @@ export class DeckModel {
 	 * One kind of range, collected on its first read: a reader of the comment blocks does not pay for building every
 	 * leaf, which is most of the tape (on the gallery, the four together cost about five times the comments alone).
 	 */
-	private ranges(which: 'directives' | 'html' | 'fences' | 'plugins' | 'leaves'): BlockRange[] {
+	private ranges(which: 'directives' | 'html' | 'fences' | 'plugins' | 'leaves' | 'containers'): BlockRange[] {
 		this._ranges ??= {};
 		const hit = this._ranges[which];
 		if (hit) return hit;
@@ -345,6 +353,8 @@ export class DeckModel {
 					}
 				} else if (kind > coreKinds) {
 					if (which === 'plugins') type = kinds[kind];
+				} else if (which === 'containers' && CONTAINER_OPENS.has(kind)) {
+					type = kinds[kind].replace(/_open$/, '');
 				}
 				if (type !== null) out.push({ type, fromLine: l0 + dl, toLine: tape[at + T_L1] + dl, level, slide, token: this.segTok[slide] + j });
 			}
@@ -376,6 +386,15 @@ export class DeckModel {
 	/** Every leaf with a line range: the inline text of a paragraph or heading (S2 reads these). */
 	get leaves(): readonly BlockRange[] {
 		return this.ranges('leaves');
+	}
+
+	/**
+	 * Every container's open token with its line range: `bullet_list`, `ordered_list`, `list_item`, `blockquote`,
+	 * `table` and its rows (`tr`), outermost first where two open on one line. The blocks inside one have a deeper
+	 * `level`. A table cell has no line range of its own (markdown-it maps none), so a row is the finest table unit.
+	 */
+	get containers(): readonly BlockRange[] {
+		return this.ranges('containers');
 	}
 
 	/** Offset in `body` where a body line starts (`body.length` past the last line). */
@@ -468,7 +487,10 @@ export function deckModel(source: string, options: DeckModelOptions): DeckModel 
 	const text = options.raw ? src : ingest(src);
 	const bodyStart = frontMatterEnd(text, options);
 	const flat = options.parser.parse(text.slice(bodyStart));
-	const segs = segmentsOf(flat.tape, flat.length, flat.side, flat.forward, flat.bMarks, flat.eMarks, 0, 0, flat.lines);
+	const segs = segmentsOf(flat.tape, flat.length, flat.side, flat.forward, flat.memoAt, flat.bMarks, flat.eMarks, 0, 0, flat.lines);
+	// What the parse from nothing read: its lines, and whether it held more than one slide (a deck, not a slide's chunk).
+	deckModelStats.fullLines += flat.lines;
+	if (segs.length > 1) deckModelStats.fullDecks++;
 	return new DeckModel(src, text, bodyStart, flat.lines, segs, options, flat);
 }
 
@@ -562,11 +584,14 @@ export function updateDeckModel(prev: DeckModel, next: string, span?: EditSpan):
 	// The re-parsed lines' index, copied out of the scratch once for all the fresh segments.
 	const bm = sc.bMarks.slice(restartLine, parsedTo + 1);
 	const em = sc.eMarks.slice(restartLine, parsedTo + 1);
-	// A forward-scanning rule tried above the reused tail, in the old parse or this one, can have decided
-	// something the splice would get wrong (it read past a break, or left a memo the next slide reads).
-	for (let i = 0; i < reuseFrom && i < nSegs; i++) if (prev.segs[i].forward) return full();
-	for (const f of parsed.forward) if (f < parsedTo) return full();
-	const fresh = segmentsOf(parsed.tape, parsed.length, parsed.side, parsed.forward, bm, em, restartLine, restartLine, parsedTo);
+	// A forward-scanning rule's memo (math's "no closer ahead") carries a decision from one slide into the next, so the
+	// splice is exact only where none is held: not at the restart and not at the reused tail's start in the old parse
+	// (the tail was read without one), and not at the stop in this one (the tail must be read without one again). A try
+	// that held no memo read no line past the block it opened (`memoHeld`'s contract, block.ts), and such a block ends
+	// before the next top-level break, so it cannot reach the edit from above or the tail from the re-read slides.
+	for (let i = 0; i < reuseFrom && i < nSegs; i++) if (prev.segs[i].memo >= 0) return full();
+	if (parsed.memoAt >= 0 && parsed.memoAt < parsedTo) return full();
+	const fresh = segmentsOf(parsed.tape, parsed.length, parsed.side, parsed.forward, parsed.memoAt, bm, em, restartLine, restartLine, parsedTo);
 	// A stopped parse ends on a break, which leaves an empty open segment after it: drop it.
 	if (parsed.stopped) fresh.pop();
 	const segs = [...prev.segs.slice(0, r), ...fresh, ...prev.segs.slice(reuseFrom)];

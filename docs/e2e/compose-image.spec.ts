@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { addLibraryPhoto, insertVia, openDeckInCompose, savedDeck } from './compose-insert';
-import { CHROME, expect, gotoStudio, livePreview, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, studioUndo, test } from './studio-fixture';
 
 /**
  * COMPOSE — images: drawn, chosen from the Library by looking, and edited in a panel.
@@ -61,6 +61,26 @@ test.describe('compose images', () => {
 		expect(requested.filter((u) => new URL(u).hostname === 'example.com')).toEqual([]);
 		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
+	});
+
+	// The Studio's own sample art (an example's portraits, `team-profile`) is a picture in Compose, as in the preview: it is
+	// served from the Studio's own folder, so drawing it reaches no other site (owner, 2026-11-17).
+	test('@crosswidth @webkit-phone sample art is drawn as the picture, not a box that names it', async ({ page }) => {
+		await gotoStudio(page);
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A face', '', '![](sample:portrait-ada.svg)'].join('\n'));
+		const face = page.locator('.cs-img-btn img').first();
+		await expect(face).toBeVisible();
+		await expect.poll(() => face.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBeGreaterThan(0);
+		await expect(page.locator('.cs-img-stand')).toHaveCount(0);
+	});
+
+	test('a sample name not in the folder is a stand-in that names it, not a broken image', async ({ page }) => {
+		await gotoStudio(page);
+		// Built, not written whole: test/unit/core/sample-images.test.js fails on any literal `sample:` name with no file.
+		const typo = ['sample:', 'portrait-nobody.svg'].join('');
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', `![](${typo})`].join('\n'));
+		await expect(page.locator('.cs-img-stand')).toContainText('portrait-nobody.svg');
+		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
 	});
 
 	test('a photo the Library does not hold is a stand-in that names it, not a broken image', async ({ page }) => {
@@ -144,9 +164,12 @@ test.describe('compose images', () => {
 		expect(await savedDeck(page)).not.toMatch(/!\[bg/);
 	});
 
-	test('the Placement control at 1440, 820 and 390: a phone opens Compose its own way, and the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
-		const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
-		for (const width of [1440, 820, 390]) {
+	// One test per width, not one test walking all three: each width retypes the deck, waits for the preview and opens
+	// Compose, about 20 s apiece at 4 workers on WebKit, and three of them shared one 60 s budget (3 of 50 ran out of it
+	// mid-flow at 390 px). Same steps and assertions at every width, each on its own budget.
+	for (const width of [1440, 820, 390]) {
+		test(`the Placement control at ${width}px: ${width === 390 ? 'a phone opens Compose its own way, and ' : ''}the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }) => {
+			const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
 			await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
 			await openDeckInCompose(page, ONE);
 			await page.getByRole('button', { name: 'Edit image: A lake' }).click();
@@ -154,9 +177,8 @@ test.describe('compose images', () => {
 			await expect(page.getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
 			await expect(page.getByRole('radio', { name: 'Placement: In the text' })).toBeVisible();
 			if (process.env.LATTICE_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.LATTICE_EVIDENCE_DIR}/compose-placement-${test.info().project.name}-${width}.png` });
-			await page.keyboard.press('Escape');
-		}
-	});
+		});
+	}
 
 	test('Remove takes the image and its paragraph, and Undo brings it back', async ({ page }) => {
 		await openWithPhotos(page);
@@ -164,7 +186,7 @@ test.describe('compose images', () => {
 		await panel(page).getByRole('button', { name: /Remove/ }).click();
 		await expect(panel(page)).toHaveCount(0);
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('![A harbor at dawn](asset:harbor)\n\n', ''));
-		await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(page).click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 

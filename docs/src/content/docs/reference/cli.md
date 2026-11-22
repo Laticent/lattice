@@ -30,11 +30,18 @@ npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
 npx lattice fmt <deck.md> [more.md …] [options]
+npx lattice migrate notes <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
 ```
 
 Named flags win over positional arguments when you give both. Flags that take
 a value accept `--flag value` and `--flag=value`.
+
+The input is a Markdown deck or a `.lattice` project file from the Studio. The
+CLI tells them apart by their bytes, not their names: a zip is read as a
+`.lattice`, with the Studio's own checks, and any other binary file is refused.
+A `.lattice` brings its photos (as the Library stored them) and its packages,
+which are used for that render only and never installed.
 
 ## Output formats
 
@@ -49,6 +56,7 @@ it.
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
+| `.lattice` | A project file the Studio opens: the deck, the installed theme and components it uses, and its photos. Written without a render. Photos from a `.lattice` input and from an `assets/` folder are carried the way the Studio keeps an original: the location, camera data, text and comments are removed and the pixels are kept, so a photo the Studio made comes out byte for byte. A photo the CLI cannot clean (a HEIC, an AVIF, a damaged file), or an `assets/` link that points outside the deck's folder, is left out and named with the reason |
 | no extension | A PDF, plus the HTML sidecar as the deliverable |
 
 For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
@@ -75,6 +83,7 @@ instead.
 | `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
+| `--trust` | With a `.lattice` input, run the code in the components and plugins the file carries, for this render only. Nothing is written to the trust store; an installed code package still needs `lattice packages trust` |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
 | `--default-plugins <names>` | Narrow the default plugin set for this run, comma-separated, or `none` (default: every shipped plugin). A plugin outside it loads only when the deck lists it in `plugins:` or a component the deck uses requires it; one that does not load exports as source on every output. An unknown name fails the run |
 | `--overflow-marker <level>` | What a clipped slide shows: `reader` (default, a "Content clipped" tag), `author` (red ring and "Overflows" flag) or `off` |
@@ -91,7 +100,7 @@ instead.
 | `--paper <size>` | Fit each slide onto `auto`, `letter`, `legal` or `a4` paper with a 9 mm margin. Text is not selectable |
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
-| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
+| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes`. Photos ride along the way a `.lattice` output carries them, up to 32 MB |
 | `--steps` | One page per step of every `_build` or `_focusSteps` slide, each lit or revealed at its step. Every page keeps its slide's page number, and speaker notes and alt text ride on each. Also applies to `.pptx`, `.odp` and images; a `.html` player walks the steps live instead. The Studio's "One page per step" switch |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
@@ -151,9 +160,9 @@ These apply to `.zip` output only.
 |---|---|
 | `--notes` | Also write the notes to `<output>.notes.txt`, one block per slide |
 | `--notes-icon` | Show a clickable note icon on each slide with a note. Notes are embedded but hidden by default |
-| `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `<!-- describe: -->` text stays. Without it, an export that keeps notes prints a warning saying so |
+| `--strip-notes` | Remove every `@note` and every plain comment from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `@say`, `@alt` and `@handout` stay. Without it, an export that keeps notes prints a warning saying so |
 | `--captions` | Also write WebVTT captions: `<output>.vtt` for the deck and `<output>.NN.vtt` per slide |
-| `--strip-say` | Remove the spoken lines you wrote (`<!-- say: -->` and the front-matter `say:` map), keeping the generated narration. Replaces the retired `--strip-captions` |
+| `--strip-say` | Remove the spoken lines you wrote (`<!-- @say{…} -->`), keeping the generated narration. Replaces the retired `--strip-captions` |
 
 ## Palette resolution
 
@@ -207,6 +216,30 @@ every deck, and `lattice fmt` names the package a block needs.
 The Studio formats the same way: **Format code blocks** in the command palette,
 and a block whose record says `format` (or a deck with `code: format`) is
 formatted when you leave the editor.
+
+## `lattice migrate notes`
+
+Rewrites a deck's notes in the form Lattice reads, in place:
+
+| Before | After |
+|---|---|
+| `<!-- A plain comment -->` (it was the speaker note) | `<!-- @note{A plain comment} -->` |
+| `<!-- say: … -->` | `<!-- @say{…} -->` |
+| `<!-- describe: … -->` | `<!-- @alt{…} -->` |
+| `<!-- reader: … -->` | `<!-- @handout{…} -->` |
+| a record's `note=`, `say=`, `describe=` or `reader=` field | the record without it, then the note's own comment |
+| a front-matter `say:` map | each line as `@say` at the end of its slide |
+
+Directives, a record's other fields and anything in code stay as written. Line
+endings and a byte-order mark stay as the file had them.
+
+| Option | What it does |
+|---|---|
+| `--check` | Write nothing; exit 1 when a file would change (for CI) |
+| `--stdout` | Print the rewritten deck instead of writing it (one file only) |
+| `--back` | The reverse, for a revert to LFM 1.x: `@note` becomes a plain comment, a slide's `@say` notes one `say:` line, `@alt` `describe:` and `@handout` `reader:` |
+
+Run `--back` before you move a deck to an engine older than LFM 2.0, with a build that has it. `--back` lists, for review, what LFM 1.x reads differently: a plain comment and an `@word{…}` that is no note (1.x shows both as speaker notes), and a note 1.x would read as a directive or a record, which it writes with a `Note:` label.
 
 ## `lattice video`
 

@@ -431,11 +431,11 @@ describe('applyHistory — a Filo undo lands now, focused or not', () => {
 	});
 });
 
-// Compose's own delete rebuilds the deck without the strip's ops, so it carries the front-matter `say:`
-// narration itself (2026-10-27-slide-structure-strip.md §8): the narration keyed to a later slide follows it.
-describe('Compose delete keeps the say: narration on its slide', () => {
-	it('deleting slide 1 renumbers the entries after it, and later edits keep the new numbers', async () => {
-		const deck = `---\nsay:\n  1: Narrate one\n  2: Narrate two\n  3: Narrate three\n---\n\n${DECK}`;
+// A slide's notes live on the slide (`<!-- @say{…} -->`, engineering/decisions/2026-11-20-four-notes.md), so Compose's
+// own delete takes a slide's say line with it and leaves every other slide's where it was: there is no number to keep.
+describe('Compose delete takes a slide’s notes with it', () => {
+	it('deleting slide 1 removes its @say and keeps the others on their slides', () => {
+		const deck = ['<!-- _class: title -->\n\n# One\n\nbody one\n\n<!-- @say{Narrate one} -->', '<!-- _class: content -->\n\n# Two\n\nbody two\n\n<!-- @say{Narrate two} -->'].join('\n\n---\n\n');
 		const out: string[] = [];
 		render(<ComposeView source={deck} onChange={(s) => out.push(s)} />);
 		const view = theView();
@@ -443,12 +443,8 @@ describe('Compose delete keeps the say: narration on its slide', () => {
 		(first.querySelector('[aria-label="Delete slide"]') as HTMLElement).click();
 		(first.querySelector('[aria-label="Confirm delete slide"]') as HTMLElement).click();
 		const after = out.at(-1) ?? '';
-		expect(after).toContain('  1: Narrate two\n');
-		expect(after).toContain('  2: Narrate three\n');
 		expect(after).not.toContain('Narrate one');
-		// The front matter is the doc's own now, so the next keystroke does not bring the old numbers back.
-		view.dispatch(view.state.tr.insertText('!', view.state.doc.content.size - 2));
-		expect(out.at(-1)).toContain('  1: Narrate two\n');
+		expect(after).toMatch(/# Two\n\nbody two\n\n<!-- @say\{Narrate two\} -->/);
 	});
 });
 
@@ -494,5 +490,30 @@ describe('ComposeView — keeps the author on their slide', () => {
 		expect(slideOf(v)).toBe(3);
 		expect(v.state.doc.child(3).textContent).toContain('Three');
 		expect(reports).toEqual([]);
+	});
+});
+
+// THE EMPTY FLAG FOLLOWS THE EDITOR'S TEXT, not the `source` prop (engineering/decisions/2026-11-17-compose-empty-deck.md;
+// the checker on #3273). An outside change that arrives while the author is in the editor is parked; until it lands, the
+// editor still shows the empty line, so the shell's start grid must stay, and it must go when the change lands.
+describe('ComposeView: the empty state while an outside change waits', () => {
+	it('stays blank while the change is parked, and reports the change when it lands', async () => {
+		const seen: { blank: boolean }[] = [];
+		const onEmpty = (e: { blank: boolean }) => seen.push(e);
+		const v = render(<ComposeView source="" onChange={() => {}} emptyStart onEmpty={onEmpty} />);
+		expect(seen.at(-1)?.blank).toBe(true);
+		const pm = v.container.querySelector('.ProseMirror') as HTMLElement;
+		pm.focus();
+		expect(liveView?.hasFocus()).toBe(true);
+		v.rerender(<ComposeView source={'## Hello\n\nA line.'} onChange={() => {}} emptyStart onEmpty={onEmpty} />);
+		await Promise.resolve();
+		// Parked: the editor still shows the empty line, and the flag says so.
+		expect(v.container.querySelector('h2')).toBeNull();
+		expect(seen.at(-1)?.blank).toBe(true);
+		pm.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(v.container.querySelector('h2')?.textContent).toBe('Hello');
+		expect(seen.at(-1)?.blank).toBe(false);
 	});
 });
