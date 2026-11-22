@@ -22,12 +22,12 @@
 	"cards-grid.light": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "03108bbed6f078abe6d7a0c66eb716b04ab89abd6467bad761560bee9cf679cc"
+		"srcSha256": "bbc6cbcdfdd25056fcc1a3e5adbd388c12a9c624c89b59b4db960eeee7c0e2cb"
 	},
 	"cards-grid.dark": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "74da1f801db27c2fa8ffe8cece41af09e5d2247858d6c601a9004f48bc340762"
+		"srcSha256": "a8b616652863388676b9216762433bf06def7987f42c6b0a1ba14a06d915ab1a"
 	},
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",
@@ -92,12 +92,12 @@
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a9389f7406ab216beb53a3000b1e4736db811d4dcc3735e06332dbc850a31789"
+		"srcSha256": "c9c1f164e443cc32198f3483f4b19287aa54b63e9c4bc8d5f0888c648f73e1f1"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "644556c5a5a304f0cc38252da52b416f807b12695858d629bf83c8906ab84f7e"
+		"srcSha256": "0329a48e158c56d2b67be0d7e0d6cfecb098f1dcfbe5e5eda55a2f738591372f"
 	},
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",

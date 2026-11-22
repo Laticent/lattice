@@ -188,6 +188,10 @@ test('the Stage carries auto-hiding controls, and its full-screen button is real
 	// user gesture in THIS document and a click here is one. Headless Chromium honors
 	// requestFullscreen, so this is measurable; what stays unverified is auto-fullscreen
 	// onto a second physical display at open time (§7).
+	// Focus the Stage window first, as the presenter's own click into it would. Chromium 159 (Playwright 1.65.1) refuses
+	// requestFullscreen with "not granted" from a window that does not have focus, and in headless a click into a popup
+	// does not move the window focus there; Chromium 141 did not ask. Measured: `not granted` without this, filled with it.
+	await stage.bringToFront();
 	await stage.locator('#latt-full').click();
 	await expect.poll(() => stage.evaluate(() => !!document.fullscreenElement)).toBe(true);
 	await stage.locator('#latt-full').click();
@@ -204,6 +208,10 @@ test('the Stage carries auto-hiding controls, and its full-screen button is real
 test('the Stage control bar fits, and `f` fills the screen like the button does', async ({ page, context }) => {
 	const { stage } = await openStage(page, context);
 
+	// Focus the Stage window first, as the presenter's own click into it would. Chromium 159 (Playwright 1.65.1) refuses
+	// requestFullscreen with "not granted" from a window that does not have focus, and in headless a click into a popup
+	// does not move the window focus there; Chromium 141 did not ask. Measured: `not granted` without this, filled with it.
+	await stage.bringToFront();
 	await stage.locator('body').click({ position: { x: 5, y: 5 } });
 	await stage.keyboard.press('f');
 	await expect

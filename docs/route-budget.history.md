@@ -6,6 +6,64 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — raise the studio eagerJsGz ceiling by 2,000 B (636,636 → 638,636), by hand, at the owner's direction
+
+The owner chose a 2,000-byte ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too (571,778 → about 636,517) and put the ceiling 10% above it (about 700,170, +63.5 KB), so this entry is written by hand, as the 2026-11-22 lintCoreGz entry below is. Soft stays 571,778, so every byte above it is still declared in `docs/route-budget.d/`.
+
+Why: main measured 636,517 bytes, leaving 119 bytes under the old ceiling. PR #3385 (an engine that fails to load shows the failure card, not an endless skeleton) adds 564 bytes to DeckPreview, measured at 637,081, 445 over. Gzip already absorbs the card's repeated phrases: a de-duplicated message table measured 17 bytes larger. Giving the bytes back would have meant dropping the recovery real Mobile Safari needs (only a new tab recovers a failed engine sub-file).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 638636 |
+
+### 2026-11-22 — restore the owner's hand-set studio lintCoreGz ceiling (171,974 B), undoing #3386's lint raise
+
+#3386 merged from the merge queue at a head that still carried a standard 10% lintCoreGz rebaseline (soft 169910, ceiling 186901). That raise was meant to be dropped before merge: #3397 had already set this ceiling by hand to 171974, and the owner chose that over the same +17 KB rebaseline so the gate keeps catching lint-core growth. #3386's row below justifies keeping it with "PR 3349 (+~2 KB)"; that is wrong, as PR 3349 adds 146 B (see #3397's row). The fix was committed but the branch was locked in the queue, so the old head merged. This row puts back #3397's numbers. PR 3362 measures 166.8 KB, 1.2 KB under 171974, so it still fits.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 169910 | 152151 | -17759 | 171974 |
+
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3362: playground htmlRaw to 508.4 KB
+
+Owner OK 2026-11-21, in PR 3362's session: "Small raise in #3386", chosen over the standard 10% rebaseline (ceiling ~554 KB) and over trimming PR 3362's new playground samples.
+
+Measured locally with fresh root and docs builds: `main` (with this PR) is 515,721 B, 3,313 B under the 519,034 B ceiling. PR 3362 at 9bf60bc measures 519,814 B, 780 B over. It adds 4,093 B, all inlined in the playground island's props: the `panel-narrow` / `panel-wide` variants of `split-panel` and `split-compare` in the catalog (+2,296 B), and the claim budgets (`capacity.withClaim`) that the in-browser lint reads (+1,347 B). The ceiling rises 519034 -> 520570 (+1,536 B), 756 B over PR 3362's measurement. The soft target is unchanged. Set by hand, as the entries below are. The lasting fix is to stop inlining the catalog into the page HTML (followups.d/3386-p1-playground-catalog-inline.md).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 520570 |
+
+### 2026-11-21 — measured on the built tree at 03dce9a9
+
+lint-core grew to the ceiling (#3351 raised it by hand to 165.9KB with 11 B left); #3362's coda and claim-budget rules add ~0.9KB. Standard 10% ceiling raise from the 165.9KB measurement.
+
+This row replaces the 171,974 B ceiling that #3397 set by hand for PR 3349 (the row below). That ceiling covers PR 3349 alone; with PR 3349 (+~2 KB) and PR 3362 (+~0.9 KB) both on `main`, the bundle reaches ~172.8 KB.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 169910 | +17759 | 186901 |
+
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3349: studio lintCoreGz to 167.9 KB
+
+Owner OK 2026-11-21, in PR 3349's session, in two steps. First "Raise the ceiling, own PR", over dropping PR 3349's `marks-source-needs-tone` warning (it would land 2 B under the ceiling, and `marks: etch accent` would do nothing with no hint) or finding the bytes elsewhere in the lint core. Then "Hand-set ceiling +2 KB", over the rebaseline tool's standard raise (soft to the measured size and the ceiling 10% above it, about +17 KB), so the gate keeps catching lint-core growth. Trimming the warning's message was measured and does not fit: the shortest wording still lands 90 B over.
+
+Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js`, hashes fixed as the gate fixes them: `main` at 65b2432f is 169,914 B, 12 B under the 169,926 B ceiling. PR 3349 rebased on it is 170,060 B (CI read the same, 166.1 KB, 134 B past the ceiling), 146 B over `main`: the warning itself costs 136 B. The ceiling rises 169926 -> 171974 (+2,048 B), which leaves 1,914 B after PR 3349. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 171974 |
+
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3378: studio chartKernelsGz to 261.7 KB
+
+Owner OK 2026-11-21, relayed by the flake desk: raise studio chartKernelsGz's ceiling by about 0.5 KB in its own PR, chosen over dropping PR 3378's table walkers (the heatmap kernel's tables would stay quadratic on unclosed `<tr`/`<td`), sharing a reader across the plugin boundary (a new plugin-to-core import, and still short), or holding PR 3378.
+
+Measured locally with the gate's own `measure()` on fresh root and docs builds: `main` at 42eb069 measures 267,420 B, 49 B under the 267,469 B ceiling. PR 3378 (the render path's linear readers, HARD RULE #32, followups.d/3045-p2-regex-recheck-gate.md) measures 267,667 B after its readers were compacted once, a compaction not yet pushed to PR 3378 (code-paragraph.js 890 -> 615 B gz, html-tables.js 860 -> 722 B gz; CI read 261.5 KB before the compaction). It adds about 247 B: the table walker in the heatmap kernel, and the code-paragraph reader in a shared chunk the kernels load. The ceiling rises 267469 -> 267981 (261.7 KB), 314 B over the PR's measurement. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 267981 |
+
 ### 2026-11-21 — the owner raised one ceiling by hand, for PR 3351: studio lintCoreGz to 165.9 KB
 
 Owner OK 2026-11-21, in PR 3351's session, in two steps. First "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`. Then "Raise to 1KB total", after PR 3330 (one list contract) grew `main`'s own lint chunk by about 400 B while PR 3351 was open, over raising by exactly what it needed (0 B left), trimming the three rules' messages, or holding the PR.

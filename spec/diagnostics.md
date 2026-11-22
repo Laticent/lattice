@@ -232,11 +232,6 @@ distinct, stable ID.
 | `unknown-claim` | warning | ✓ | A `claim:` value the engine does not know; the deck uses `framed`. |
 | `unknown-stamp` | warning | ✓ | A `stamp:` value the engine does not know; markers use the `tab` shape. |
 | `unknown-tone` | warning | ✓ | A `tone:` value the engine does not know; markers use the `rail` shape. |
-| `unknown-spectrum` | warning | ✓ | A `spectrum:` value the engine does not know; the deck uses the rainbow default. |
-| `unknown-spectrum-edge` | warning | ✓ | A `spectrum-edge:` value the engine does not know; the bar sits on top. |
-| `unknown-spectrum-card` | warning | ✓ | A `spectrum-card:` value the engine does not know; no card rail is drawn. |
-| `unknown-spectrum-card-edge` | warning | ✓ | A `spectrum-card-edge:` value the engine does not know; the rail sits on the left. |
-| `unknown-spectrum-trim` | warning | ✓ | A `spectrum-trim:` value the engine does not know; the accents stay plain. |
 | `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
 | `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
@@ -248,11 +243,12 @@ distinct, stable ID.
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
 | `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
-| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. |
+| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
+| `marks-source-needs-tone` | warning | — | A `marks:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `marks: tone ink`, or drop the word. |
 | `unknown-cards` | warning | ✓ | A `cards:` value the engine does not know; each layout keeps its own card spacing. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
-| `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
+| `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, `unknown-cover`, the three spectrum keys `unknown-spectrum`, `unknown-card-spectrum` and `unknown-trim-spectrum`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
 | `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-typography`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
 | `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
@@ -269,6 +265,7 @@ distinct, stable ID.
 | `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
 | `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
+| `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |

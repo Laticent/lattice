@@ -180,6 +180,36 @@ describe('merge-order CLI input', () => {
     }
   });
 
+  test('a PR git cannot measure is listed apart, and the rest are still ordered (merge desk, live run)', () => {
+    // #3381's first live run aborted with exit 3 because one PR had no merge base in
+    // a shallow clone. An unrelated-history branch reproduces that "no merge base".
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-order-'));
+    try {
+      const git = (...args) => execFileSync('git', args, { cwd: repo, stdio: 'ignore' });
+      const c = (msg) => git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', msg);
+      git('init', '-q', '-b', 'main');
+      c('base');
+      git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+      git('checkout', '-q', '-b', 'a');
+      c('a');
+      git('update-ref', 'refs/remotes/origin/a', 'HEAD');
+      git('checkout', '-q', '--orphan', 'lonely');
+      c('lonely');
+      git('update-ref', 'refs/remotes/origin/lonely', 'HEAD');
+      const input = '[{"number":1,"head":"a","created_at":"2026-11-20"},{"number":2,"head":"lonely","created_at":"2026-11-19"}]';
+      const run = (...flags) => spawnSync(process.execPath, [TOOL, '--no-fetch', ...flags], { cwd: repo, input, encoding: 'utf8' });
+      const text = run();
+      assert.equal(text.status, 1, text.stderr);
+      assert.match(text.stdout, /1\. #1 {2}oldest first/);
+      assert.match(text.stdout, /unmeasured: #2 left out/);
+      const json = JSON.parse(run('--json').stdout);
+      assert.deepEqual(json.order.map((o) => o.number), [1]);
+      assert.deepEqual(json.unmeasured.map((u) => u.number), [2]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test('an empty list prints nothing and exits 0', () => {
     const r = run('[]');
     assert.equal(r.status, 0);

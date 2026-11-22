@@ -70,7 +70,7 @@ const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // `--cat-1-fill` is the palette's slot-1 fill, a different hue from `--chart-cat-1-hue` on most themes (atelier, laguna,
 // crepuscolo), and a base of another hue dragged every pale step toward it (the checker, #2908). The dark ladder mixes
 // toward the canvas.
-const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3))';
+const TONE_BASE_REL = 'oklab(from var(--finish-one) 0.97 calc(a * 0.3) calc(b * 0.3))';
 // a pie's wedges on a DARK slide: wedges touch, so each needs a lightness gap to the next, and TONE_D's steps (a mix of the
 // hue toward the canvas, which tops out at the hue's own lightness) left adjacent wedges 0.032 to 0.047 OKLab apart on
 // indaco (wedge 3 beside wedge 4 read as one blue). The pie mixes the hue's INK (the lighter member of the same hue) toward
@@ -93,6 +93,17 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
  */
 const TONE_STATUS = [100, 88];
 
+/**
+ * ETCH'S DARK BODY clears 3:1 against the slide (WCAG 1.4.11). It was the category hue at 40% toward the canvas, and
+ * on every built-in dark face that measured 1.14 to 1.57:1 at its worst slot (onyx the lowest, indaco 1.57): the outline
+ * carried the bar and the fill all but vanished. The hue cannot fix it at any level that is still etch: onyx's darkest
+ * hue clears 3:1 only at 99%, which is pigment. So the dark body mixes the category INK (the lighter member of the same
+ * hue, the one the doubled edge is drawn in) toward the canvas instead. 78% is the least that holds 3:1 on every slot of
+ * every built-in palette in dark (onyx slot 3, 3.19:1; most land 3.5 to 4.5:1), and it keeps the edge a step lighter
+ * than the body. test/unit/components/marks-finish-contrast.test.js holds it. The light face is unchanged (the hue at 30%).
+ */
+const ETCH_BODY_INK_D = 78;
+
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
   // `rampText` is the member's own span, [0, 1] (`--mix` as shipped, 18%→92% on a heatmap). Pigment is
@@ -111,7 +122,8 @@ const F = {
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable. On a dark slide a text-free ramp
   // (a map) starts at 24% and climbs faster, as tone's starts at 40%: from 6% a region sat within a hair of the land and the scale vanished.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
+  // Etch's dark body is the category INK at 78%, not the hue at 40% (ETCH_BODY_INK_D, below).
+  etch: { body: [30, ETCH_BODY_INK_D], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -191,9 +203,20 @@ const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: '
 const BODY_BASE_L = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
-const ONE = 'var(--chart-cat-1-hue)';
-const ONE_INK = 'var(--chart-cat-1-ink)';
-/** A sequential ramp's hue and ink: the first category unless the palette names its own (--chart-ramp-hue / --chart-ramp-ink, declared in heatmap.styles.css and map.styles.css). */
+/**
+ * THE FIRST HUE, as a finish token. Every rule that draws in "the first hue" (tone's one hue, a neutral tile, a waterfall
+ * total) reads `--finish-one` and `--finish-one-ink`, which every finish block sets to chart color one
+ * (`--chart-cat-1-hue` / `-ink`). Tone's SOURCE re-points the two tokens (sourceBlocks, below). They are tokens rather
+ * than a re-pointed `--chart-cat-1-hue` because the palette gates and tools read the bundle as one flat list of
+ * declarations, where a scoped `--chart-cat-1-hue: var(--accent)` would read as the palette's own slot one.
+ *
+ * A sequential ramp (heatmap, map) reads `--chart-ramp-hue` / `-ink`, which heatmap.styles.css and map.styles.css
+ * declare on the figure from the palette's optional `--ramp-hue` / `--ramp-ink` hook, else chart color one. Tone's
+ * source sets that hook (sourceBlocks), so a ramp follows the source the same way it follows a palette that names one.
+ */
+const ONE = 'var(--finish-one)';
+const ONE_INK = 'var(--finish-one-ink)';
+/** A sequential ramp's hue and ink: the first category unless the palette (or tone's source) names its own. */
 const RAMP = 'var(--chart-ramp-hue)';
 const RAMP_INK = 'var(--chart-ramp-ink)';
 /**
@@ -413,7 +436,7 @@ function strokeMemberClasses() {
 // because nothing here paints.
 const T = {
   base: '--finish-base', baseD: '--finish-base-d', statusBase: '--finish-status-base', ink: '--finish-ink', edge: '--finish-edge', edgeText: '--finish-edge-text',
-  hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
+  hue: (n) => `--finish-hue-${n}`, hueD: (n) => `--finish-hue-d-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
   text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
   layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
   status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d', statusK: '--finish-status-k', statusKD: '--finish-status-k-d',
@@ -438,6 +461,9 @@ function finishTokens(name) {
     `${T.baseD}: ${BODY_BASE_D[name]}`,
     `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
+    // The first hue and its ink (ONE, ONE_INK): chart color one, unless tone names a source.
+    '--finish-one: var(--chart-cat-1-hue)',
+    '--finish-one-ink: var(--chart-cat-1-ink)',
     // Etch draws a status as a pale wash, so its text is the heading ink. Pigment and tone paint the status body at (or
     // near) the curated fill (TONE_STATUS), so their text is that status's own ink, curated for the fill: the slide's
     // paper on a brand theme's light face, white on its dark one, near-black on an a11y palette's bright dark face.
@@ -451,6 +477,8 @@ function finishTokens(name) {
   for (const n of SLOTS) {
     const i = n - 1;
     d.push(`${T.hue(n)}: ${tone ? ONE : hueOf(n)}`);
+    // The color a DARK body mixes toward the canvas: the hue, except under etch, whose dark body is the ink (ETCH_BODY_INK_D).
+    d.push(`${T.hueD(n)}: ${tone ? ONE : name === 'etch' ? inkOf(n) : hueOf(n)}`);
     d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE_D[i] : f.body[1]}%`);
     d.push(`${T.text(n)}: ${tone ? TONE[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE_D[i] : f.backdrop[1]}%`);
     // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
@@ -484,6 +512,31 @@ function finishTokens(name) {
   return [`${heads.join(',\n')} {`, ...d.map((x) => `  ${x};`), '}'].join('\n');
 }
 
+/**
+ * TONE'S SOURCE — which one hue tone draws in (`marks: tone ink`, `marks: tone accent`; resolve-marks.js). Tone reads its
+ * hue as `--finish-one` and its ink as `--finish-one-ink` everywhere above (ONE, ONE_INK, TONE_BASE_REL), and a ramp as
+ * `--chart-ramp-hue`, which reads the `--ramp-hue` / `--ramp-ink` hook. So a source re-points those four on the same
+ * three heads as the finish's own block, after it, and every tone rule follows without one of its own. Both classes are in the selector: a source means nothing under pigment or etch, which draw every
+ * category in its own hue. A mark no finish reaches keeps its member's own paint, as under plain tone.
+ *
+ *   ink     `--text-heading`: a monochrome chart in the deck's own ink, at 14:1 or more on every built-in palette.
+ *   accent  `--accent`: the theme's emphasis color, which each theme already holds at AA or better as text on the slide.
+ *
+ * One color is both the hue and the ink: each source is curated for text on the slide, so a name in it reads, and the
+ * ladder's steps are mixes of it. marks-finish-contrast.test.js measures both against every palette, in both modes.
+ */
+const TONE_SOURCES = { ink: 'var(--text-heading)', accent: 'var(--accent)' };
+function sourceBlocks() {
+  const { MARKS_SOURCE_REGISTER, MARKS_SOURCE_FINISH } = require('../lib/core/resolve-marks');
+  const out = ['\n/* ══ TONE\'S SOURCE — the one hue tone draws in, when the deck names one ══ */'];
+  for (const [word, cls] of Object.entries(MARKS_SOURCE_REGISTER)) {
+    const on = `.marks-${MARKS_SOURCE_FINISH}.${cls}`;
+    const heads = [`section${on}`, `figure${on}`, `:is(section, figure)${on} .chart-frame`];
+    out.push(`${heads.join(',\n')} {\n  --finish-one: ${TONE_SOURCES[word]};\n  --finish-one-ink: ${TONE_SOURCES[word]};\n  --ramp-hue: ${TONE_SOURCES[word]} !important;\n  --ramp-ink: ${TONE_SOURCES[word]} !important;\n}`);
+  }
+  return out.join('\n');
+}
+
 const ALL = MARKS_FINISHES;
 // Etch and tone move a ramp's text band, a heatmap value and a hub-spoke icon; pigment is the member's own span there.
 const MOVERS = ALL.filter((n) => n !== 'pigment');
@@ -510,6 +563,7 @@ function build() {
   // Tone's light base: the tone hue lifted to near-white, where the engine has relative color (see TONE_BASE_REL).
   const toneHeads = ['section.marks-tone', 'figure.marks-tone', ':is(section, figure).marks-tone .chart-frame'];
   w(supports(`${toneHeads.join(',\n')} {\n  ${T.base}: ${TONE_BASE_REL};\n}`));
+  w(sourceBlocks());
 
   const MARK_BODY = 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))';
   const MARK_TEXT = 'light-dark(var(--finish-mark-text-l), var(--finish-mark-text-d))';
@@ -531,7 +585,7 @@ function build() {
       // custom property to :root, where a mark's own value beats it, so dark mode kept the light level. In a real
       // property (the fill, below) it is scoped to its own rule and survives.
       `--finish-mark-body-l: ${tmix(tv(T.hue(n)), T.body(n))}`,
-      `--finish-mark-body-d: ${tmix(tv(T.hue(n)), T.bodyD(n), T.baseD)}`,
+      `--finish-mark-body-d: ${tmix(tv(T.hueD(n)), T.bodyD(n), T.baseD)}`,
       `--finish-mark-text-l: ${tmix(tv(T.hue(n)), T.text(n))}`,
       `--finish-mark-text-d: ${tmix(tv(T.hue(n)), T.textD(n), T.baseD)}`,
       // The edge is the mark's own category ink under EVERY finish, tone included: tone has one hue for bodies, and the
@@ -826,7 +880,7 @@ function build() {
       w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${tstep(5)}`, `stroke: ${ONE_INK}`]));
       // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
       // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
-      w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
+      w(rule(name, SLOT_SEL, [`--finish-mark-edge: ${ONE_INK}`], false));
       // ONE LADDER. A text-bearing mark takes the same eight steps as every other body, so category N is the same shade on
       // a tower, a matrix grid and a pie. Its text picks black or white from its OWN body (inkOn clears 4.58:1 on any
       // body), instead of one fixed ink curated for a pale ladder.
@@ -927,8 +981,9 @@ function build() {
     }
     if (name === 'etch') {
       // A bullet's measure is the datum; its range bands are a 36/22/10/4% grey wash. At etch's 30% body the bar was paler
-      // than the band it sits on, so the row read upside down. The measure takes the category ink at half strength.
-      w(rule(name, '.bullet-measure[data-hue]', ['fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) 60%, var(--bg)))']));
+      // than the band it sits on, so the row read upside down. The measure takes the category ink at half strength, and on a
+      // dark slide at etch's dark body level, so it clears 3:1 like every other etch bar (ETCH_BODY_INK_D).
+      w(rule(name, '.bullet-measure[data-hue]', [`fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) ${ETCH_BODY_INK_D}%, var(--bg)))`]));
     }
 
     {
@@ -1073,7 +1128,7 @@ function build() {
     }
     if (tone) {
       // Tone's stage bar is a pale step of the one hue with the one ink on its top rule: the shipped slate was a second color.
-      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, '--section-accent: var(--chart-cat-1-ink)']));
+      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, `--section-accent: ${ONE_INK}`]));
       // A journey persona is a small disc, and four adjacent ladder steps on a disc that size read as one blue (the tone audit).
       // Personas take every other step (slots 1-4 are steps 1, 3, 5, 7): the same ladder, spaced for a mark too small for adjacent steps.
       // Slots 5-8 (a fifth persona and on) take the odd steps, so all eight stay distinct.
@@ -1200,4 +1255,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, TONE_STATUS, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, ETCH_BODY_INK_D, TONE_SOURCES, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, TONE_STATUS, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

@@ -201,6 +201,10 @@ test('@gecko the Stage fills the screen from the key and from the button', async
 	// anything delayed the key. The welcome deck has seven slides.
 	await expect(stage.locator('#latt-count')).toHaveText(/^1 \/ [2-9]\d*$/);
 
+	// Focus the Stage window first, as the presenter's own click into it would. Chromium 159 (Playwright 1.65.1) refuses
+	// requestFullscreen with "not granted" from a window that does not have focus, and in headless a click into a popup
+	// does not move the window focus there; Chromium 141 did not ask. Measured: `not granted` without this, filled with it.
+	await stage.bringToFront();
 	await stage.locator('body').click({ position: { x: 5, y: 5 } });
 	await stage.keyboard.press('f');
 	await expect.poll(isFull, { message: '`f` did not fill the screen' }).toBe(true);

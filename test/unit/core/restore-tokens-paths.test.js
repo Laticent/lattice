@@ -3,7 +3,7 @@
  *
  * A deck value writes no token when it is the default, so one slide inside a deck that set
  * another value needs the default's own token to ask for it back: `with-spectrum`,
- * `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain`, `head-auto`.
+ * `spectrum-top`, `card-spectrum-left`, `rule-auto`, `eyebrow-plain`, `head-auto`.
  * Each sits in its register's override set, so the engine drops the deck's token on that axis
  * for that slide, and the slide renders as the default. markdown-it-plugins.test.js pins the
  * same contract on the plugin; this pins it where decks are actually rendered. The last test pins
@@ -20,15 +20,18 @@ const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const RESTORES = [
   ['with-spectrum', 'spectrum-solid'],
-  ['spectrum-edge-top', 'spectrum-edge-left'],
-  ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
+  ['spectrum-top', 'spectrum-left'],
+  ['card-spectrum-left', 'card-spectrum-top'],
+  ['spectrum-regular', 'spectrum-band'],
+  ['card-spectrum-regular', 'card-spectrum-hairline'],
+  ['trim-spectrum-quiet', 'trim-spectrum-mono'],
   ['rule-auto', 'rule-accent'],
   ['eyebrow-plain', 'eyebrow-dot'],
   ['head-auto', 'head-center'],
 ];
 const DECK = [
   '---', 'theme: indaco',
-  'spectrum: solid', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
+  'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
   'rule: accent', 'eyebrow: dot', 'headline: center',
   '---', '', '## Follows the deck',
   ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, '', `## ${own}`]),
@@ -57,7 +60,7 @@ test('the runtime evicts the deck token on a restore token\'s axis too', async (
   const fs = require('node:fs');
   const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
   const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-  assert.ok(bundle.includes('spectrum-card-edge-left'),
+  assert.ok(bundle.includes('card-spectrum-left'),
     'dist/lattice-runtime.js predates the restore tokens — run `npm run runtime:build` and re-run.');
   const markup = ['<section class="content"><h2>Deck</h2></section>',
     ...RESTORES.map(([own]) => `<section class="content ${own}"><h2>${own}</h2></section>`)].join('');

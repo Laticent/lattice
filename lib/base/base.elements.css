@@ -69,7 +69,7 @@ section {
      extra width so the content box stays HD's, centered (lib/engine/css.js orientationCss). */
   /* The bar border is carved OUT of this inset, never added to it: each side's padding gives up
      exactly the border that side carries (`--_bar-*`, declared in the same rule as the border),
-     so the content box is the same rectangle under every `spectrum-edge:` (check:edge-shift).
+     so the content box is the same rectangle under every `spectrum:` edge (check:edge-shift).
      `--_bar-room-t` is the top inset the default bar always reserved, held on a slide whose bar is
      elsewhere so it does not jump 4px. `--_inline-inset` lets a frame widen the side inset without
      restating the padding (premise). Padding, not margin (HARD RULE #20). */
@@ -94,7 +94,11 @@ section {
      value for the border AND the padding keeps them equal. It is also what a frame with no inset of its
      own on a side reserves there. */
   --_bar-w: max(1px, calc(0.3125 * var(--_sec-1cqi, 1cqi))); /* never 0: a tiny canvas keeps a 1px bar. Unrounded where CSS round() is missing (below) */
-  --_bar-room-t: var(--_bar-w); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
+  /* THE ROOM the slide holds for the bar: the REGULAR width, whatever weight the bar draws at (`spectrum:`'s
+     weight axis moves `--_bar-w` only, below). A heavier bar takes its extra width out of the inset beside it,
+     so the content box, the chrome and the markers sit where they sit under the regular bar. */
+  --_bar-room: max(1px, calc(0.3125 * var(--_sec-1cqi, 1cqi)));
+  --_bar-room-t: var(--_bar-room); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
   --_bar-t: var(--_bar-w); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
 }
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
@@ -103,7 +107,19 @@ section {
 @supports (width: round(down, 1px, 1px)) {
   section {
     --_bar-w: max(1px, round(down, calc(0.3125 * var(--_sec-1cqi, 1cqi)), 1px));
+    --_bar-room: max(1px, round(down, calc(0.3125 * var(--_sec-1cqi, 1cqi)), 1px));
   }
+}
+/* THE WEIGHT AXIS of `spectrum:` (lib/core/resolve-spectrum.js): `regular` is the width above, `hairline` one
+   pixel, `band` the heavy edge a preset draws (about 19px on a 1280px slide). Only the DRAWN width moves: each
+   side's padding gives up the border it carries (`--_bar-*`), while the room the slide holds stays
+   `--_bar-room`, so the content box and the chrome hold still under every weight exactly as under every edge
+   (npm run check:edge-shift -- --weight band). (0,1,1) beats the bare `section` default above, wherever the
+   @supports arm lands. */
+section.spectrum-hairline { --_bar-w: 1px; }
+section.spectrum-band { --_bar-w: max(1px, calc(1.5 * var(--_sec-1cqi, 1cqi))); }
+@supports (width: round(down, 1px, 1px)) {
+  section.spectrum-band { --_bar-w: max(1px, round(down, calc(1.5 * var(--_sec-1cqi, 1cqi)), 1px)); }
 }
 
 /* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the

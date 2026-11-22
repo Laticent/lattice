@@ -1,0 +1,86 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import resolveSpectrum from '../../../../lib/core/resolve-spectrum.js';
+import { applyPreset, presetChanges, registerValue, writeSpectrumAxis } from './deck-preset';
+import { mergeSpectrum, parseSpectrum, SPECTRUM_KEY_AXES, SPECTRUM_KEYS, spectrumClass, spectrumWordOf, writeSpectrumWord } from './spectrum-keys';
+
+type Register = { key: string; AXES: { axis: string; names: string[]; tokens: string[] }[] };
+const ENGINE = resolveSpectrum as unknown as { SPECTRUM_REGISTER: Register; CARD_SPECTRUM_REGISTER: Register; TRIM_SPECTRUM_REGISTER: Register };
+const REGISTERS = [ENGINE.SPECTRUM_REGISTER, ENGINE.CARD_SPECTRUM_REGISTER, ENGINE.TRIM_SPECTRUM_REGISTER];
+
+// Rot-guard: the Studio mirror holds the engine's words, axes, order and classes exactly.
+describe('spectrum-keys ↔ lib/core/resolve-spectrum.js', () => {
+	it('every key, axis and word, in the engine order', () => {
+		expect([...SPECTRUM_KEYS]).toEqual(REGISTERS.map((r) => r.key));
+		for (const r of REGISTERS) {
+			expect(SPECTRUM_KEY_AXES[r.key as keyof typeof SPECTRUM_KEY_AXES].map((a) => [a.axis, [...a.names]])).toEqual(r.AXES.map((a) => [a.axis, [...a.names]]));
+		}
+	});
+
+	it('every word names the class the engine stamps, and reads back', () => {
+		for (const r of REGISTERS) {
+			for (const a of r.AXES) {
+				a.names.forEach((w, i) => {
+					const cls = spectrumClass(r.key as never, a.axis as never, w);
+					expect(cls, `${r.key} ${a.axis} ${w}`).toBe(a.tokens[i]);
+					expect(spectrumWordOf(r.key as never, a.axis as never, cls)).toBe(w);
+				});
+			}
+		}
+	});
+});
+
+describe('reading and writing one axis', () => {
+	it('merges a preset per axis, as the engine does', () => {
+		expect(mergeSpectrum('spectrum', 'left', 'solid')).toBe('solid left');
+		expect(mergeSpectrum('spectrum', 'duo band', 'solid')).toBe('duo band');
+		expect(mergeSpectrum('spectrum', undefined, null)).toBe('');
+	});
+
+	it('turning a placed card stripe off keeps the off word, and a trim style is written', () => {
+		expect(writeSpectrumWord('card-spectrum', 'rainbow top band', null, 'style', 'off')).toBe('off top band');
+		expect(writeSpectrumWord('card-spectrum', 'rainbow', null, 'style', 'off')).toBe('');
+		expect(writeSpectrumWord('trim-spectrum', 'mono', null, 'style', 'solid')).toBe('solid');
+	});
+
+	it('a card line with an edge or a weight but no style renders the rainbow, exactly as the engine stamps it', () => {
+		for (const [own, want] of [['top band', 'rainbow top band'], ['off top', 'off top'], ['solid', 'solid'], ['', '']] as const) {
+			expect(mergeSpectrum('card-spectrum', own, null)).toBe(want);
+			const engine = resolveSpectrum.spectrumDeckTokens(own ? `card-spectrum: ${own}` : '');
+			const studio = resolveSpectrum.CARD_SPECTRUM_REGISTER.classes(want).filter((t: string) => !['no-card-spectrum', 'card-spectrum-left', 'card-spectrum-regular'].includes(t));
+			expect(engine).toEqual(studio);
+		}
+	});
+
+	it('writes only what the deck needs: a word the preset or the default gives goes', () => {
+		expect(writeSpectrumWord('spectrum', 'solid', null, 'edge', 'left')).toBe('solid left');
+		expect(writeSpectrumWord('spectrum', 'solid left', null, 'edge', 'top'), 'top is the default').toBe('solid');
+		expect(writeSpectrumWord('spectrum', 'left', 'solid', 'style', 'solid'), 'the preset gives solid').toBe('left');
+		expect(writeSpectrumWord('spectrum', 'left', 'solid', 'style', 'rainbow'), 'the default overrides a preset').toBe('rainbow left');
+		expect(writeSpectrumWord('spectrum', 'left', null, 'edge', null)).toBe('');
+		expect(parseSpectrum('card-spectrum', writeSpectrumWord('card-spectrum', '', null, 'weight', 'band'))).toEqual({ weight: 'band' });
+	});
+
+	it('the deck panel writes one line and the row reads back what renders', () => {
+		let src = '---\ntheme: indaco\n---\n\n## A\n';
+		src = writeSpectrumAxis(src, 'spectrum', 'edge', 'left');
+		src = writeSpectrumAxis(src, 'spectrum', 'weight', 'band');
+		expect(src).toMatch(/^spectrum: "?left band"?$/m);
+		expect(registerValue(src, 'spectrum')).toBe('left band');
+		src = applyPreset(src, 'brand');
+		expect(registerValue(src, 'spectrum'), 'brand gives the style, the deck the edge and weight').toBe('solid left band');
+		src = writeSpectrumAxis(src, 'spectrum', 'edge', null);
+		src = writeSpectrumAxis(src, 'spectrum', 'weight', null);
+		expect(src).not.toMatch(/^spectrum:/m);
+	});
+});
+
+describe('the preset change count', () => {
+	it('counts a spectrum key only when what it renders differs from the preset', () => {
+		const deck = (fm: string) => `---\n${fm}\n---\n\n## A\n`;
+		expect(presetChanges(deck('spectrum: top'))).toEqual([]);
+		expect(presetChanges(deck('preset: brand\nspectrum: solid top regular'))).toEqual([]);
+		expect(presetChanges(deck('preset: brand\nspectrum: left'))).toEqual(['spectrum']);
+		expect(presetChanges(deck('spectrum: band'))).toEqual(['spectrum']);
+	});
+});

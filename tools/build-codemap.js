@@ -133,6 +133,7 @@ const FOLDERS = {
   'tools/segno-legacy/': 'Frozen copies of the inline-code kernels from before Segno phase 2, kept as the bake-off baseline.',
   'tools/spike-card-slack/': 'A spike, not production tooling: the measurement behind the card-stack vertical alignment decision.',
   'tools/squadra/': 'Corpora and reference data the Squadra lint diffs run on, so every run reads the same cases.',
+  'tools/vscode-harness/': 'The decks, probes and launcher extension `tools/vscode-preview-probe.mjs` runs in a real VS Code Markdown preview.',
   // test/
   'test/benchmark/': 'The render benchmark and its committed baseline (`npm run bench`, HARD RULE #19).',
   'test/conformance/': 'Fixtures, corpora and the debt list for the conformance contracts.',

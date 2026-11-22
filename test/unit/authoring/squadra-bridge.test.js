@@ -43,6 +43,19 @@ describe('Fix all through the Squadra driver', () => {
     assert.deepEqual([...new Set(res.applied.map((a) => a.slide))].sort(), [1, 2]);
   });
 
+  test('fixAllDetailed with a pause runs the same passes to the same result, one task per pass', async () => {
+    // The Studio's Fix all awaits this so a click does not freeze the page (editor-lint.spec.ts, the
+    // 501-card deck). The deck needs one pass per card: the card rule reports one card per slide per lint.
+    const deck = ['---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '', ...Array.from({ length: 12 }, (_, i) => `- **Bet ${i}.** body ${i}`), ''].join('\n');
+    const sync = core.fixAllDetailed(deck, vocab);
+    let pauses = 0;
+    const res = await core.fixAllDetailed(deck, vocab, async () => { pauses++; });
+    assert.deepEqual(res, sync);
+    assert.equal(sync.applied.length, 12);
+    // One pause before each pass the driver ran, the one that found nothing to fix included.
+    assert.equal(pauses, sync.passes + 1);
+  });
+
   test('applyAllFixes is fixAllDetailed().text', () => {
     const src = `${FM}${CARDS}- **A.** one\n`;
     assert.equal(core.applyAllFixes(src, vocab), core.fixAllDetailed(src, vocab).text);

@@ -20,11 +20,18 @@
     "board-deck"
   ],
   "description": "Final slide. Dark canvas mirror of title.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover).",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
   "variants": [
     "qr",
     "index",
-    "spectrum"
+    "spectrum",
+    "cover-masthead",
+    "cover-ledger",
+    "cover-column",
+    "cover-label",
+    "cover-stage",
+    "cover-frame",
+    "cover-poster"
   ],
   "variantAxes": [
     {
@@ -33,6 +40,19 @@
       "members": [
         "qr",
         "index"
+      ]
+    },
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "cover-masthead",
+        "cover-ledger",
+        "cover-column",
+        "cover-label",
+        "cover-stage",
+        "cover-frame",
+        "cover-poster"
       ]
     }
   ],
@@ -131,6 +151,34 @@
     {
       "variant": "spectrum",
       "useWhen": "`title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time."
+    },
+    {
+      "variant": "cover-masthead",
+      "useWhen": "A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover: masthead`, so the front cover matches."
+    },
+    {
+      "variant": "cover-ledger",
+      "useWhen": "A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover: ledger`, so the front cover matches."
+    },
+    {
+      "variant": "cover-column",
+      "useWhen": "An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover: column`, so the front cover matches."
+    },
+    {
+      "variant": "cover-label",
+      "useWhen": "A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover: label`, so the front cover matches."
+    },
+    {
+      "variant": "cover-stage",
+      "useWhen": "The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover: stage`, so the front cover matches."
+    },
+    {
+      "variant": "cover-frame",
+      "useWhen": "The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover: frame`, so the front cover matches."
+    },
+    {
+      "variant": "cover-poster",
+      "useWhen": "A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover: poster`, so the front cover matches."
     }
   ],
   "variantDocs": {
@@ -148,6 +196,41 @@
       "label": "index",
       "summary": "Ends on a reference list — see also, next steps.",
       "sample": "<!-- _class: closing silent index -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
+    },
+    "cover-masthead": {
+      "label": "cover-masthead",
+      "summary": "A heavy rule over the title, set left.",
+      "sample": "<!-- _class: closing silent cover-masthead -->\n\n## The back cover composes as a masthead.\n\n`anchor · closing · cover-masthead`\n"
+    },
+    "cover-ledger": {
+      "label": "cover-ledger",
+      "summary": "A small-caps title over a double rule.",
+      "sample": "<!-- _class: closing silent cover-ledger -->\n\n## The back cover composes as a ledger.\n\n`anchor · closing · cover-ledger`\n"
+    },
+    "cover-column": {
+      "label": "cover-column",
+      "summary": "An accent column at the right edge, the title set left.",
+      "sample": "<!-- _class: closing silent cover-column -->\n\n## The back cover composes as a column.\n\n`anchor · closing · cover-column`\n"
+    },
+    "cover-label": {
+      "label": "cover-label",
+      "summary": "A gallery wall label: a smaller title low on the left under a hairline.",
+      "sample": "<!-- _class: closing silent cover-label -->\n\n## The back cover composes as a label.\n\n`anchor · closing · cover-label`\n"
+    },
+    "cover-stage": {
+      "label": "cover-stage",
+      "summary": "A stage-size centered title.",
+      "sample": "<!-- _class: closing silent cover-stage -->\n\n## Thank you.\n\n`anchor · closing · cover-stage`\n"
+    },
+    "cover-frame": {
+      "label": "cover-frame",
+      "summary": "The title boxed in a keyline.",
+      "sample": "<!-- _class: closing silent cover-frame -->\n\n## The back cover composes as a frame.\n\n`anchor · closing · cover-frame`\n"
+    },
+    "cover-poster": {
+      "label": "cover-poster",
+      "summary": "A giant title set left.",
+      "sample": "<!-- _class: closing silent cover-poster -->\n\n## Make it yours.\n\n`anchor · closing · cover-poster`\n"
     }
   },
   "specimenVoice": true,

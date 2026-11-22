@@ -1,8 +1,8 @@
 import { compositionOf, coverSourceRect, effectiveCard, meanRgb } from '../../../../lib/core/card-ink.mjs';
 import { getClassTokens } from '../../lib/slide-directives';
 import { photoRefOf } from './card-ink-pick';
+import { deckImageCardClasses } from './deck-axes';
 import { ensureAssetUrls, studioSamplesBase } from './media-urls';
-import { deckImageCardClasses } from './slide-provenance';
 
 // The photo-file half of the photo verdict (photo-verdict.ts): for a slide the preview is not showing, the photo's mean
 // color over the part of the frame the card's placement covers, and the fix found for it, kept in the browser so a reload

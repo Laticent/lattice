@@ -1385,7 +1385,14 @@ The contract, and its limits — be precise about what it does and doesn't cover
   ```
 
   On a queue-governed branch (`main`), `"merge"` here is expected and harmless — do
-  **not** disable auto-merge over it. **On a branch the queue does NOT govern, this
+  **not** disable auto-merge over it. **It can also read `null` while the PR is
+  queued** (seen on #3410, #3414 and #3412 on 2026-11-22, each armed and confirmed
+  by `enable_pr_auto_merge`). So `null` is not evidence that nothing is queued. To
+  see the queue, list its branches: `git ls-remote origin
+  'refs/heads/gh-readonly-queue/*'` shows one `gh-readonly-queue/main/pr-<N>-<sha>`
+  per entry the queue has started (building, or built and waiting to merge). An armed
+  PR with a green `ci` and no branch has not started yet: the queue builds at most
+  `max_entries_to_build` (3) at once. **On a branch the queue does NOT govern, this
   field IS what lands**, and it defaults to the repository default, which is `merge`
   because this repo allows all three methods. That is the case worth checking.
 
@@ -1486,7 +1493,8 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 |---|---|---|
 | `merge_method` | `SQUASH` | Every queued PR lands as one squash commit, whatever `auto_merge.merge_method` says |
 | `grouping_strategy` | `ALLGREEN` | A group merges only if every PR in it is green; a red one is removed and the rest re-tested |
-| `max_entries_to_build` / `max_entries_to_merge` | 5 / 5 | Up to five PRs are tested together, each on top of the ones ahead |
+| `max_entries_to_build` ("Build concurrency") | 3 (lowered from 5 by the owner 2026-11-21, read from the settings page; `engineering/decisions/2026-11-21-ci-load-plan.md` D4) | Up to three queue entries run CI at once, each on top of the ones ahead. At about 15 jobs each that is about 45 of the Team plan's 60 Linux slots, which leaves room for PR pushes; when one entry fails, at most two behind it are thrown away and re-tested |
+| `min_entries_to_merge` / `max_entries_to_merge` ("Minimum / Maximum group size") | 1 / 3 (read 2026-11-21) | A group merges one to three PRs together |
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
 | `check_response_timeout_minutes` | 120 (raised from 60 by the owner 2026-10-29, after runner contention pushed queue runs past 60 minutes and ejected PRs that had only been waiting; `engineering/decisions/2026-10-30-ci-pipeline-stages.md`) | A `ci` run that has not reported in 120 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
@@ -1511,6 +1519,18 @@ it passes, that exact tree becomes `main`.
   warns. A rebase is still right on a real conflict, when you need a specific commit
   from `main` (name it in the commit message), or after a queue ejection. GitHub's
   "Update branch" costs the same CI run.
+- **Drafting does not stop a merge-group run already in flight.** On 2026-11-21
+  #3386 was converted to draft while its queue run was running; that run held the
+  branch locked, so the fix could not be pushed, and it merged the old head anyway
+  (#3409 restores it). Its session reported disabling auto-merge too (#3409), but
+  GitHub's event log for #3386 records no auto-merge or dequeue event before the merge,
+  so whether that took effect is unknown. **Disabling auto-merge and removing the PR
+  from the queue are both UNVERIFIED** as ways to stop an in-flight run. Until one is
+  tested, stop a PR BEFORE it is queued; once queued, plan for it to land and prepare
+  the follow-up fix.
+- **Direct merges are refused.** `merge_pull_request` returns 405 "Changes must be
+  made through the merge queue". After the owner's typed approval and the head
+  check, arm the queue (`enable_pr_auto_merge`, squash) instead.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
@@ -1528,6 +1548,15 @@ it passes, that exact tree becomes `main`.
   alone. In 999 PR runs the node 24 leg caught nothing node 22 did not, so a
   Node-24-only break now shows as a queue ejection, not a red PR. The per-job
   evidence is `decisions/2026-10-29-ci-job-tiers.md`.
+- **`integration` (the render slice) runs only in the queue** since 2026-11-21 (the
+  owner's D2, `decisions/2026-11-21-ci-load-plan.md`). It was 40% of PR job-minutes, and
+  the queue already ran it in full. **So before the merge ask, a PR that touches the
+  `code` paths runs the slice locally**, with the venue conformance ratchet that rode on
+  its shard 4: `npm run evidence` lists both as "the PR render slice", and §The raise
+  loop runs every `local` row. Skip it and a render break
+  first shows as a queue ejection, which re-tests every entry behind it. In the queue
+  the `ci` gate fails a run whose `integration` was skipped, so the tier cannot drop
+  out of the one place it still runs.
 
 ## Automation vs. the main ruleset
 
@@ -2223,9 +2252,13 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
 1. **Plan the surfaces.** Run `npm run evidence`. It reads the diff and prints every real
    surface the change reaches and the command for each: the Playwright engines
    (Chromium at three widths, `webkit-phone`, `webkit-tablet`, `gecko`), the
-   integration tier, and a `workflow_dispatch` of the matching macOS / Windows / iOS
+   PR render slice (`test:integration:pr`, which PR CI no longer runs: §Merge queue — the
+   facts), and a `workflow_dispatch` of the matching macOS / Windows / iOS
    Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
    "Not installed" is not a stop (#23).
+   When a platform suite needs more than one round, use the **warm harness** rather
+   than re-dispatching: it builds once and takes `/harness` commands from the PR
+   (`engineering/development.md` §Platform suites).
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.
@@ -2623,6 +2656,36 @@ running it:
 | 📋 Backlog | `/desk-backlog` | open issues and `followups.d/` as one queue: fold, rank, dispatch `status:ready` work |
 | 🛡️ Security | `/desk-security` | CodeQL, the security dependency group, secret scanning, HARD RULES #22 and #24 |
 | ⚡ Optimization | `/desk-optimize` | measured wins in engine speed and size, CI time, agent spend and code quality |
+| 〰️ Jank | `/desk-jank` | layouts that move as content grows: drift, collision, crowding (`engineering/jank.md`) |
+| ✨ Polish | `/desk-polish` | the 10/10 boardroom bar on what already ships: gallery, themes, examples, the docs site at three widths |
+| ♿ Accessibility | `/desk-a11y` | contrast, alt text, reading order, color as the only signal, keyboard and screen reader in decks and the Studio |
+| 📚 Docs | `/desk-docs` | every doc saying what ships: stale counts, phantom or undocumented features, docs that disagree |
+| 📱 Devices | `/desk-devices` | claims left UNVERIFIED on a real device, the platform suites and the `/harness` runner's time |
+| 🚢 Release | `/desk-release` | launch readiness: the blocker list, release notes from the fragments, the dry run; never cuts a release |
+| 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
+| 📈 Stress | `/desk-stress` | the upper limits of what still passes (deck size, images, chart points, session length) without breaking anything; a limits table, and a dropped limit is a regression |
+| 🔥 Torture | `/desk-torture` | driving the Studio to crash, leak or rot on purpose with `perf-torture`, and naming the culprit by its retainer chain or listener add-site |
+
+**Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
+first pass starts from the work already known in its lane, not only from live state:
+- **follow-ups** (`npm run followups`, then the files about its lane) and **open issues**
+  in its lane: the starting queue, so it never rediscovers known work or opens a second fix;
+- **`claim:` tags** on live sessions (rule 5 below);
+- **the gotcha file or canonical doc for its lane** (`grep -rn <term> engineering/gotchas/`;
+  the jank desk reads `engineering/jank.md`, the flake desk the flaky-tests note), so it
+  does not pay for a trap twice.
+
+When it finishes, it writes back: a fix PR deletes the follow-up file it closes, a new trap
+becomes a gotcha entry, and work it found but will not do becomes a `followups.d/` file
+(`deferred: large|blocked|off-path`). **A desk writes back through a session it starts**
+(`create_session`, counted in its budget) or through the fix PR that found the item, never by
+pushing itself: committing is not on the verb list below. Two exceptions: the flake desk
+never files a follow-up for a test (HARD RULE #33 closes that exit; a test gets an owner and
+a fix), and the security desk never writes an unfixed finding anywhere public, which
+includes `followups.d/` (its embargo in `/desk-security`). The backlog desk alone folds a
+follow-up into an issue or retires one that is done or stale; the other desks claim and fix.
+Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
+deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action
@@ -2713,6 +2776,29 @@ for after a human has said the session is done, and an archived desk cannot be
 messaged. The command center proposes archiving finished worker sessions as a
 numbered action; the owner's `go` is that acknowledgment.
 
+**When a session can be archived.** Archiving frees the session's machine: its
+transcript survives and the session can be unarchived, but any file it never pushed
+is gone for good. So the command center proposes a session for archiving only when
+all four hold, and names the failing check for every session that stays:
+
+1. **The work is done.** Its PRs merged or closed, or it never had one and its task
+   is finished. A session with an open PR, a pending card, or a question to the
+   owner stays.
+2. **Nothing lives only in chat.** Every leftover item, open question and "next we
+   should" in its briefs is logged durably: a `followups.d/` file on `main`, an open
+   issue, or a comment on a PR a desk tracks. A continuation brief in a transcript is
+   not durable. If an item is missing, ask the session to log it (one small PR) and
+   archive after that merges.
+3. **Nothing unpushed.** The session reports a clean tree and no local commits ahead
+   of its remote (`git status -sb`), answered in its own reply, not inferred from an
+   old status line. No answer, or changes, means it stays.
+4. **No live desk or scheduled task depends on it.** The command center, a desk
+   session (both tagged `ui:pinned`), a session that is working now, and a session a
+   scheduled task wakes (`list_triggers`, `persistent_session_id`) stay.
+
+The owner's `go` on the board's numbered action archives exactly the sessions that
+passed. The audit is read-only and can run as one subagent; it never archives.
+
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the newest live session with that tag. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and
@@ -2725,6 +2811,22 @@ every brief opens with `[from desk:<lane> session_<id>, not the owner]` and says
 merge, arming auto-merge, a takeover and dropping work still need the owner's own
 word in this session; the desk's word is a request. Security briefs add the
 embargo in `/desk-security`.
+
+**A merge the owner authorized somewhere else.** The owner may merge a worker's PR
+from the command center: the owner types `merge #N` there, the merge gate accepts it,
+and the command center arms the queue. The worker did not merge and is asked for no
+judgment about the merge. So every brief the command center or a desk writes says:
+"The owner may merge this PR from the command center. If so you get `#N merged at
+<sha>`: check that commit on `main`, then do the post-merge steps. Never read it as a
+request to merge." The command center sends that line **only after the commit is on
+`main`**, never while the PR is queued. A worker can check a landed commit itself,
+but "it is queued, watch it" reads exactly like a relayed merge request. Workers that
+got that relay on 2026-11-22 each refused it (correctly), rechecked GitHub, saw
+`auto_merge: null` (the trap in §Merging's `auto_merge` note, and in
+`engineering/gotchas/ci.md`) and asked the owner again in their own
+chat. Three sessions spent several turns each for nothing. The worker keeps every
+check it has: it reads the commit on `main`, and an unexpected or missing commit is
+still its call to raise.
 
 **When a desk runs.** Only when asked: the owner, or the command center on the
 owner's `go`, sends it a message, it does one pass, reports, and ends its turn.

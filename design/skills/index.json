@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3188
+      "tokens": 3186
     },
     {
       "name": "speaker-notes",
