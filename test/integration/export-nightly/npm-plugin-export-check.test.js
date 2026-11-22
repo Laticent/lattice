@@ -138,6 +138,18 @@ after(async () => {
 const ACCEPTED_EXITS = ['navigate', 'windowopen', 'webrtc', 'metarefresh', 'blanklink'];
 const MAY_MISS = { chromium: [], webkit: ['prefetch', 'blanklink'], firefox: ['prefetch', 'ping'] };
 
+/**
+ * Firefox gathers WebRTC candidates on its default-route interface only, and it will not send to a TURN server on
+ * 127.0.0.1 from a non-loopback interface. The listener's TURN port is on 127.0.0.1, so on a machine where Firefox
+ * finds its default address (a cloud sandbox: eth0, 192.0.2.2), the control's WebRTC never reached it and 4 of 12
+ * cells failed with "the witness never heard webrtc". Measured 2026-11-22, Firefox 1572 (Playwright 1.65.1): TURN on
+ * 127.0.0.1 got 0 datagrams; TURN on 192.0.2.2 got 6; TURN on 127.0.0.1 with this pref got 6. The nightly runner was
+ * green because there Firefox fails to find a default address (docs/e2e/filo-live.spec.ts, "failed to find default
+ * addresses") and takes another path. This pref only ADDS the loopback interface, so it cannot hide an exit: the
+ * export's policy is what the walled run measures, and a real TURN server is not on loopback.
+ */
+const GECKO_PREFS = { 'media.peerconnection.ice.loopback': true };
+
 /** The engines this run can reach: name → launch. */
 function engines() {
   const list = [
@@ -156,7 +168,7 @@ function engines() {
     list.push({
       name,
       needs: pw ? null : 'set LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright',
-      launch: async () => require(pw)[name].launch(),
+      launch: async () => require(pw)[name].launch(name === 'firefox' ? { firefoxUserPrefs: GECKO_PREFS } : {}),
     });
   }
   return list;
