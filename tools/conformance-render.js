@@ -37,6 +37,7 @@
  */
 const fs = require('node:fs');
 const { classEntries } = require('../lib/core/class-entries.mjs');
+const { metaComment } = require('../lib/core/meta-comment.mjs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -108,9 +109,13 @@ function buildMatrixDeck(files) {
     if (!header) throw new Error(`conformance-render: ${path.relative(ROOT, f.file)} has no front-matter header:`);
     if (headers.has(header)) throw new Error(`conformance-render: galleries ${headers.get(header)} and ${f.name} share the header "${header}"`);
     headers.set(header, f.name);
-    // Before each slide's class, a comment or a record (`@meta{layout=…}`). A writer (slice C of the record note's §15 owns
-    // the written form): it writes the comment, which the engine reads until the cut.
-    return galleryBody(f.file).replace(/(<!--\s*(?:_class:|@meta\{))/g, `<!-- _header: ${JSON.stringify(header)} -->\n$1`);
+    // The header goes above every slide's class line, in either spelling, and is written as a record (record note §15,
+    // slice C): the generators write their own slides as records, the samples still as `<!-- _class: … -->`.
+    const lead = metaComment({ header });
+    return galleryBody(f.file)
+      .split('\n')
+      .map((l) => (classEntries(l).length ? `${lead}\n${l}` : l))
+      .join('\n');
   });
   // `size: 4k` is the canvas the shared contrast exemptions are calibrated to (a watermark counts as
   // decoration at fs >= 200, which a 1280 px hd canvas never reaches) and the one palette-sweep's
