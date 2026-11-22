@@ -1006,8 +1006,8 @@ door (§9 Status: it cannot be a change to the shared grammar).
 
 ### 15.3 Slices, in order, each with its proof
 
-Each slice is its own branch and PR from `main` (HARD RULE #17). Slices 1 and 2 can run at once; 3 and 4 follow 1;
-5 follows 2, 3 and 4; 6 runs on 5's branch before its merge ask.
+Each slice is its own branch and PR from `main` (HARD RULE #17). Slices 1, 2 and 3 can run at once; 4 follows 1 and 3;
+5 follows all four; 6 runs on 5's branch before its merge ask.
 
 | # | Slice | Proof | Review tier |
 |---|---|---|---|
