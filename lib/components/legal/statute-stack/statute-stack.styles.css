@@ -125,11 +125,14 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-a
  * base.card-reflow.css declares on wide and square decks only, so no portrait or story deck got
  * it. This needs no query: it wraps on every box.
  *
- * `--lh-base` spaces wrapped lines. A pill is taller than that line, so a header that fits on one
- * line is exactly as tall as before. */
+ * The line box is exactly one pill tall: the pill plugin's own outer height (`1em` of type, both
+ * paddings, both 1px borders), which holds here because `--lat-pill-cap:1` below sets the pill to
+ * the label's size. A floated pill sits at the top of its line, so a shorter line put the label
+ * 1.5px above the pill's center (measured on a 16:9 default card; flex had it at 0.23px). With
+ * one height, label and pill share a center, and a wrapped header spaces its lines by a pill. */
 section.statute-stack > .cell-stage > ul > li > strong:first-child,
 section.statute-stack > .cell-stage > ol > li > strong:first-child {
-  display:flow-root; line-height:var(--lh-base);
+  display:flow-root; line-height:calc(1em + 2 * var(--pill-pad-y) + 2px);
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
@@ -144,6 +147,11 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
 section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill {
   --lat-pill-case:none;
   --lat-pill-cap:1;
+  /* The plugin's `middle` centers an inline pill on the lowercase x-height, and this label is
+   * all capitals: it put the citation 1.4px under the label's center on a 16:9 hierarchy card.
+   * The line box is one pill tall (above), so `top` makes an inline pill fill its line exactly,
+   * where a floated one already sits, and both share the label's center. */
+  vertical-align:top;
 }
 /* The pill's own inline margin is its breathing room in running text, which this header is.
  * The citation that follows the label takes none: the space after the label separates them, a
@@ -294,12 +302,15 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-chil
    *
    * DRAWN, not typed (HARD RULE #29): this was `content:'❯'`, and the rotation is
    * why keeping the rotate rather than swapping to --shape-chevron-down matters —
-   * the transform also carries the centering translate, and splitting the two
+   * the transform also carries the vertical translate, and splitting the two
    * would move the mark. `font-size` stays as the `em` BASIS for the box. */
   content:'';
   position:absolute;
-  inset-inline-start:50%; top:100%;
-  transform:translate(-50%, calc(var(--sp-md) / 2 - 50%)) rotate(90deg);
+  /* Centered by its start edge at half the card less half its own 1em box, not by a
+   * `translate(-50%)`: a translate is physical, so after `inset-inline-start` it pulled the
+   * mark one width off center in a right-to-left deck. */
+  inset-inline-start:calc(50% - 0.5em); top:100%;
+  transform:translate(0, calc(var(--sp-md) / 2 - 50%)) rotate(90deg);
   font-size:var(--fs-h3);
   line-height:1;
   width:1em; height:1em;

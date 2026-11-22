@@ -73,3 +73,17 @@ A story box at a hall venue splits these slides one member a page. Each header n
   - Stricter opt-in survives where it adds protection.
 - Local `{NYC §22-1201}` `{Independent of preemption}`
   - An employment rule outside the privacy floor.
+
+---
+
+<!-- _class: statute-stack bands -->
+<!-- _footer: "bands" -->
+
+## bands strips each jurisdiction full-width.
+
+- Federal `{15 U.S.C. §6501}` `{In effect since 2000}`
+  - A long status pill drops to its own line at the right.
+- State `{Cal. Civ. §1798.120}` `{Enforced 2023}`
+  - The label and citation stay on the first line.
+- International `{GDPR Art. 8}` `{Applies since 2018}`
+  - A longer label still leaves room for the pill.

@@ -2924,7 +2924,18 @@ function checkReadingRole(errors) {
 // Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
 // `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
 // ask the pill plugin for a pill holding a check.
-const SANCTIONED_PILL_READS = [];
+const SANCTIONED_PILL_READS = [
+  {
+    file: 'lib/components/legal/statute-stack/statute-stack.styles.css',
+    count: 1,
+    // The header's line box must be exactly one pill tall, or a floated status pill sits off the
+    // label's center (measured 1.5px high on a 16:9 card; 0.23px under the old flex row). The
+    // height is the plugin's own `1em + 2 * --pill-pad-y + 2px`; copying 0.3em instead would drift
+    // silently the day the plugin's padding changes. A read, never a write: the plugin still
+    // draws the pill.
+    why: 'statute-stack header line box = one pill height, so a floated pill shares the label center',
+  },
+];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
