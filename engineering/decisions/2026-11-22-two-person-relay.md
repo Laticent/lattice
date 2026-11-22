@@ -305,11 +305,18 @@ usage, and past 75% only critical work continues.
     the owner already asked for.
   - Not critical: census and cleanup, raise rounds nobody waits on, design competitions, new desks.
   - **Nothing pauses until the owner replies.** Pausing is: checkpoint, `npm run baton -- release`, the
-    line `paused at 75%, resume after <resetsAt as UTC>` in the living comment, then idle. Resuming is
-    after the reset, on the owner's word, or sooner if the other person's session takes the baton.
+    line `paused at 75%, resume after <resetsAt as UTC>` in the living comment, then idle. A paused
+    session resumes after the reset on the owner's word; the other person's session may take the baton
+    sooner.
+  - As built: a pause stops a session's work, which #31 says no command-center message can authorize, so
+    the receiving session checkpoints at once and pauses on the owner's yes in its own session.
+    Checkpoints and the 90% release are not stops and act on the broadcast alone. A scoped exception to
+    #31 for pause lines is the owner's call (the PR's ❓ card).
 - **U4 Spend past 75%.** The raise loop is capped at 1 round; no new multi-agent fan-outs; only the
   mandated card checker runs. Work that needs the adversarial trio is **not started** past 75%: it waits
-  for the reset, and the trio is never skipped. A card that could not be raised says so.
+  for the reset, and the trio is never skipped; work whose trio stage falls past 75% stops at a
+  checkpoint before it and is proposed as a pause. A card that could not be raised says so in its
+  `raised` row, and the usage cap is a stop reason for the raise loop.
 - **Accounts.** Each account's meter is separate, and Kirk's sessions are invisible to Picard's command
   center, so each person's command center broadcasts to its own sessions only.
 

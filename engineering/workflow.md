@@ -152,8 +152,9 @@ environment change, approved in their account.
 
 ### Usage checkpoints — 25, 50, 75, 90% of the weekly limit
 
-Each account has its own weekly meter, and no tool can read its percentage today (`get_session` shows
-only `allowed` / `allowed_warning`, which flips at about 25%). So **the owner calls each level**: typing
+Each account has its own weekly meter, and no session is known to read its percentage today (`get_session`
+shows only `allowed` / `allowed_warning`, which flips at about 25%; the status line's percentage is
+unverified in cloud sessions). So **the owner calls each level**: typing
 `usage 50` in the command center sends one line to every live session on that account. Each person's
 command center reaches only its own sessions. Decision: `2026-11-22-two-person-relay.md` §Usage
 checkpoints.
@@ -169,10 +170,17 @@ red-on-main fixes (#33), work needed to reach a merge the owner already asked fo
 and cleanup, raise rounds nobody waits on, design competitions, new desks. A paused session checkpoints,
 releases, writes `paused at 75%, resume after <resetsAt as UTC>` in its living comment and goes idle; it
 resumes after the reset on the owner's word, unless the other person's session takes the baton first.
+**A pause is the owner's word in the session that pauses** (#31: a command-center message never stops a
+session's work): the session that receives a pause line checkpoints at once, then asks the owner in its
+own session and pauses on the yes. A checkpoint or the 90% release is not a stop, so those act on the
+broadcast alone.
 
 **Spend past 75%:** the raise loop runs at most 1 round, no new multi-agent fan-out starts, and only the
-mandated card checker runs. Work that needs the adversarial trio does not start until the reset; the
-trio is never skipped. A card that could not be raised says so.
+mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and
+work whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped.
+Either one is proposed to the owner as a pause, critical or not. The usage cap is a stop reason for the
+raise loop (§The raise loop): the card's `raised` row says so, e.g.
+`1 round: HIGH (stopped: usage past 75%)`, or `0 rounds (stopped: usage past 75%)` when not even one fits.
 
 ### What the baton does not do
 
@@ -2360,7 +2368,8 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    test, fix the gap. Then grade again.
 4. **Stop after three rounds**, or earlier when the only thing left is out of your reach:
    a taste call on a visual, the export sign-off, something irreversible, or a surface
-   no runner here or in CI can reach. Name which one in `raised`.
+   no runner here or in CI can reach. Past 75% of the weekly usage, stop after one round
+   (§Relay, usage checkpoints). Name which one in `raised`.
 
 The card's `raised` row lists the rounds and what stopped them, e.g. `2 rounds: MEDIUM
 to HIGH (webkit-phone), HIGH to VERY HIGH (iOS sim)`. `npm run card` refuses `raised:
