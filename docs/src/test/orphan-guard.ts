@@ -50,6 +50,15 @@ export function releaseTest(token: object): void {
  * from that test's leftover work, so it is let through. Two known costs: a leftover from a file's first test is not
  * caught between tests; and async work a later `beforeAll`/`afterAll` starts, still running once a test has begun, is
  * judged an orphan of the first test and throws (no docs test does this today).
+ *
+ * Shapes the guard misjudges, found by probe (2026-11-22, #3398) and used by no docs test today; a test that needs one
+ * has to change the guard first. Each makes a LEGITIMATE call throw:
+ * - `aroundEach`: its setup runs before this file's claim and its teardown after the release, both in the runner's
+ *   context, so a Testing Library call there is judged the first test's orphan (and `cleanup()` there does nothing).
+ * - a test's own `onTestFailed` handler: vitest runs it after `onTestFinished`, so after the release.
+ * - a file that OPENS with concurrent tests: the token left in the runner's context is the last of them, not the first
+ *   claim, so a later `beforeAll` or the `afterAll` throws. And under `test.concurrent` vitest's current test is one
+ *   slot that any finishing test clears, so the between-tests exemption can read a running moment as "between tests".
  */
 export function orphanedFrom(): string | null {
 	const mine = owner.getStore();
@@ -60,7 +69,10 @@ export function orphanedFrom(): string | null {
 
 export class OrphanedTestError extends Error {
 	constructor(from: string) {
-		super(`"${from}" timed out and kept running; its leftover work was stopped before it touched the next test's page`);
+		super(
+			`"${from}" had already finished when this Testing Library call ran (it timed out, or did not await a call); ` +
+				"the call was stopped before it touched the next test's page",
+		);
 		this.name = 'OrphanedTestError';
 	}
 }

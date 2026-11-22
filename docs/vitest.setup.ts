@@ -55,7 +55,8 @@ configure({ asyncUtilTimeout: 3_000 });
 // acting on the next test's page. React's own wrappers are kept and called inside. This file's `beforeEach` registers
 // first, so the claim runs before every other `beforeEach`; the release rides `onTestFinished`, which vitest runs after
 // every `afterEach` and `beforeEach` teardown, even when one of them throws or times out. So a test's own hooks count
-// as the test.
+// as the test, except `aroundEach` and `onTestFailed` (see the limits in orphan-guard.ts). A test that does not await a
+// `user.*` call can also trip it: the un-awaited call lands after the test ended, which is a real bug in that test.
 beforeEach((ctx) => {
 	const token = claimForCurrentTest(ctx.task);
 	ctx.onTestFinished(() => releaseTest(token));

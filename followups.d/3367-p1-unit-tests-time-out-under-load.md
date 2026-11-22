@@ -38,9 +38,14 @@ measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `doc
             43994458532 and 43999565415 (a real scoped-resync assertion). So G1 is local-only.
             Full docs suite on this 4-core sandbox (2026-11-22, with the G2 guard; the run stopped after three rows):
             default alone 492 s, 13731 passed; default beside the Playwright run 4084 s, 102 failed; `--maxWorkers=2` alone
-            703 s, 13731 passed. Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
+            703 s, 13731 passed (the flake desk's counts, on an earlier guard; #3398's own runs count 718 files and 13,664
+            tests, so read 13731 as doubtful). On #3398's final guard (`17b9c09`): alone 499 s, 13,663 passed; a run that
+            accidentally shared the box with a preview server and a Playwright run took 2,989 s with 64 failed: 56 Studio
+            timeouts, 5 corpus-wide timeouts (`rendered-index` x3 at its 240 s limit, `payload-elision.oracle`,
+            `deck-render.hole`) and 3 G4 misses. Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
 where     — `docs/vitest.config.ts` (`testTimeout`, pool, workers); the heaviest files are `studio.controls`, `StudioShell`,
-            `studio.theme-depth` and `studio.fuzz`.
+            `studio.theme-depth` and `studio.fuzz`; under heavy load the corpus-wide `rendered-index`, `payload-elision.oracle`
+            and `deck-render.hole` time out too.
 done when — the owner has picked a config (or "accept: unit tests do not share the box with a browser run") from the full
             table, and the chosen change is in with the suite green alone and under the same load.
 evidence  — the six-row table (wall time and failures for each config, alone and loaded), and the owner's answer.
