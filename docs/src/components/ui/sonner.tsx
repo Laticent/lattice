@@ -63,6 +63,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={mode}
       className="toaster group lx-ui"
       position="bottom-center"
+      // (5) ABOVE A PHONE PANEL'S DOCK. Sonner's phone offset is 16px from the bottom, which is where a phone panel
+      // docks its one field (PanelDock in components/ui/panel.tsx), so a toast hid the Library's search. A mounted dock
+      // publishes its height as `--panel-dock-lift`; with no dock it is unset and the offset is Sonner's own 16px.
+      mobileOffset={{ bottom: "calc(16px + var(--panel-dock-lift, 0px))" }}
       // (3) THE STACK IS CAPPED AT ONE PILL PER KIND. Sonner's default is 3
       // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411) and that three is a STACK — three
       // arbitrary messages, which is what a pile-up looks like. This three is not:

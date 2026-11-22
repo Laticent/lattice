@@ -124,6 +124,32 @@ test('a .lattice imported through the Library lands on Files and opens as a deck
 });
 
 /**
+ * The import's toast stands ABOVE the phone Library's search, not on it. The toaster sits at the bottom center and so
+ * does the phone panel's dock (PanelDock), so "Added 1 reference file." covered the field (toast y 774-828, search
+ * 801-823 at 390px) right after the import this PR asks phone readers to make. The dock now lifts the toaster by its
+ * own height (`--panel-dock-lift`, components/ui/panel.tsx).
+ */
+test('at a phone\'s width, the import toast stands above the Library\'s search field @mobile @webkit-phone', async ({ page }) => {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	await openLibrary(page);
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import files', exact: true }).click();
+	await (await chooser).setFiles({ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes });
+	const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Added 1 reference file.' });
+	await expect(toast).toBeVisible({ timeout: 30_000 });
+	const search = page.getByRole('textbox', { name: 'Search library' });
+	await expect(search).toBeVisible();
+	const searchTop = (await search.boundingBox())?.y ?? 0;
+	expect(searchTop).toBeGreaterThan(0);
+	// Polled, not slept: the toast slides up into place, and its settled bottom edge is what has to clear the field.
+	await expect.poll(async () => {
+		const box = await toast.boundingBox();
+		return box ? Math.round(box.y + box.height) : Number.POSITIVE_INFINITY;
+	}, { timeout: 10_000 }).toBeLessThanOrEqual(Math.floor(searchTop));
+});
+
+/**
  * A deck ATTACHED TO THE CHAT is read and kept exactly as the Library keeps one: the chat's paperclip saves through the
  * same reader (reference-doc-ui.tsx `addOne` → library-deck-ref.ts `readLibraryReference`), so the reference text is
  * the slide words and the `@note`, the file is kept, and the Library's "Open as deck" opens it as itself. Two files

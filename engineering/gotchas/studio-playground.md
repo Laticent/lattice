@@ -889,6 +889,19 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by:** any `toast(title, { description })` call. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
 
+## On a phone, a toast covers a panel's bottom search field
+
+- **Symptom:** at phone width, "Added 1 reference file." (or any toast) sits on the
+  Library's search field for as long as it shows. Measured at 390px: toast y 774-828,
+  field y 801-823.
+- **Cause:** the toaster is bottom-center with Sonner's 16px phone offset, and a phone
+  panel docks its one field at the bottom too (`PanelDock`, `docs/src/components/ui/panel.tsx`).
+- **Fix (shipped, #3356):** each mounted `PanelDock` publishes its height as
+  `--panel-dock-lift` on the root, and `sonner.tsx` sets
+  `mobileOffset={{ bottom: "calc(16px + var(--panel-dock-lift, 0px))" }}`. A new
+  bottom field outside `PanelDock` needs the same lift. Pinned by
+  `docs/e2e/library-deck-import.spec.ts` ("the import toast stands above").
+
 ## A status toast shows text from the message BEFORE it, or the wrong shape
 
 - **Symptom:** a one-line confirmation ("Deck saved.") renders as a tall card
