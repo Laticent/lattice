@@ -16,7 +16,7 @@ import { DEFAULT_MARKS, MARKS_NAMES } from '../../lib/marks-words';
 import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { registerValue } from './deck-preset';
 import { parseMarksValue } from './marks-value';
-import { parseSpectrum, type SpectrumAxis, type SpectrumKey, spectrumClass, spectrumDefault, spectrumWordOf, spectrumWords } from './spectrum-keys';
+import { renderedSpectrum, type SpectrumAxis, type SpectrumKey, spectrumClass, spectrumDefault, spectrumWordOf, spectrumWords } from './spectrum-keys';
 
 export type AxisState = 'inherited' | 'on' | 'off';
 export type Provenance = {
@@ -203,7 +203,7 @@ const OPT_OUT = new Set(['no-card-spectrum', 'trim-spectrum-quiet']);
 
 export function spectrumAxisProvenance(chunk: string, source: string, key: SpectrumKey, axis: SpectrumAxis): Provenance {
 	const own = getClassTokens(chunk).find((t) => spectrumWordOf(key, axis, t) !== null);
-	const deck = parseSpectrum(key, registerValue(source, key))[axis];
+	const deck = renderedSpectrum(key, registerValue(source, key))[axis];
 	const deckValue = deck && deck !== spectrumDefault(key, axis) ? deck : undefined;
 	const inheritable = deckValue !== undefined;
 	if (own && OPT_OUT.has(own)) return { state: 'off', deckValue, inheritable };

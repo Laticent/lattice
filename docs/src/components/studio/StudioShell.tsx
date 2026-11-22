@@ -172,7 +172,7 @@ import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { applyVariant } from './slide-variants';
 import { SPECTRA } from './spectrum-catalog';
 import { SPECTRUM_EDGES } from './spectrum-edge-catalog';
-import { parseSpectrum, type SpectrumAxis, type SpectrumKey, spectrumDefault } from './spectrum-keys';
+import { parseSpectrum, renderedSpectrum, type SpectrumAxis, type SpectrumKey, spectrumDefault } from './spectrum-keys';
 import { SPECTRUM_WEIGHTS } from './spectrum-weight-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
@@ -2825,7 +2825,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// or the default already gives (deck-preset.ts `writeSpectrumAxis`). `spectrumWord` reads what renders
 	// (the deck's own word, else the preset's, else the default); `spectrumAuto` what Auto means (the
 	// preset's word, else the default).
-	const spectrumWord = (key: SpectrumKey, axis: SpectrumAxis) => parseSpectrum(key, registerValue(source, key))[axis] ?? spectrumDefault(key, axis);
+	const spectrumWord = (key: SpectrumKey, axis: SpectrumAxis) => renderedSpectrum(key, registerValue(source, key))[axis] ?? spectrumDefault(key, axis);
 	const spectrumAuto = (key: SpectrumKey, axis: SpectrumAxis) => parseSpectrum(key, presetBaseline(source, key))[axis] ?? spectrumDefault(key, axis);
 	const setSpectrumWord = (key: SpectrumKey, axis: SpectrumAxis, label: string) => (value: string) =>
 		settingsWrite(`${label} → ${value}`, (s) => writeSpectrumAxis(s, key, axis, value));
@@ -7143,7 +7143,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</Field>
 					</SettingsScope>
 				)}
-				<Field label="Card spectrum" desc="A stripe on each card." find="card rail spectrum" help={<>Tunable apart from the slide edge. Off by default; <strong>Match</strong> follows the spectrum above, or pin Solid / Duo / Mono / Rainbow. Written as one line, <code>card-spectrum:</code>.</>}>
+				<Field label="Card spectrum" desc="A stripe on each card." find="card rail spectrum" help={<>Its own style, never copied from the slide edge. Off by default; Rainbow, Solid, Duo or Mono turns it on. Written as one line, <code>card-spectrum:</code>.</>}>
 					<CatalogSelect ariaLabel="Choose card spectrum" className="w-full" {...autoField(cardSpectrumStyle, spectrumAuto('card-spectrum', 'style'), setSpectrumWord('card-spectrum', 'style', 'Card spectrum'), [{ options: catalogOptions(CARD_SPECTRA) }])} />
 				</Field>
 				{cardSpectrumStyle !== 'off' && (
@@ -7156,8 +7156,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</Field>
 					</SettingsScope>
 				)}
-				<Field label="Trim spectrum" desc="Accent on in-content details." find="structural trim" help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the slide edge. Written as <code>trim-spectrum:</code>.</>}>
-					<CatalogSelect ariaLabel="Choose trim spectrum" className="w-full" {...autoField(spectrumWord('trim-spectrum', 'tier'), spectrumAuto('trim-spectrum', 'tier'), setSpectrumWord('trim-spectrum', 'tier', 'Trim spectrum'), [{ options: catalogOptions(TRIM_SPECTRA) }])} />
+				<Field label="Trim spectrum" desc="Accent on in-content details." find="structural trim" help={<>The style of table rails, the timeline spine, code strips and <code>hr</code>, never copied from the slide edge. <strong>Quiet</strong> (the default) keeps those an accent-tinted hairline. Written as <code>trim-spectrum:</code>.</>}>
+					<CatalogSelect ariaLabel="Choose trim spectrum" className="w-full" {...autoField(spectrumWord('trim-spectrum', 'style'), spectrumAuto('trim-spectrum', 'style'), setSpectrumWord('trim-spectrum', 'style', 'Trim spectrum'), [{ options: catalogOptions(TRIM_SPECTRA) }])} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
 					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />

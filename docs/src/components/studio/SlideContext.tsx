@@ -624,9 +624,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
-	// Card spectrum STYLE — a full off/match/rainbow/solid/duo/mono axis, INDEPENDENT of the slide
-	// edge. Auto follows the deck; every catalog value is an explicit per-slide choice (match/off
-	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
+	// Card spectrum STYLE — an off/rainbow/solid/duo/mono axis of its own, never copied from the slide
+	// edge. Auto follows the deck; every catalog value is an explicit per-slide choice (off included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
 	// previews each fill.
 	const cardProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'card-spectrum', 'style'), [chunk, source]);
 	const cardInherits = activeCardSpectrum(cardProv.inheritable ? cardProv.deckValue : 'off').name;
@@ -642,7 +641,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cardWeight = overrideAxis(cardWeightProv, SPECTRUM_WEIGHTS, 'regular', activeSpectrumWeight);
 	const onCardWeight = (v: string) => onMutate((c) => setSpectrumAxis(c, 'card-spectrum', 'weight', v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
-	// Trim spectrum — a three-tier axis (Quiet / Restrained / Full) with an explicit opt-out.
+	// Trim spectrum — a style axis of its own (Quiet / Rainbow / Solid / Duo / Mono), never the slide edge's.
 	// Auto follows the deck; every catalog value is an explicit per-slide choice.
 	const trimProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'trim-spectrum', 'style'), [chunk, source]);
 	const trimInherits = activeTrimSpectrum(trimProv.inheritable ? trimProv.deckValue : 'quiet').name;
@@ -1152,7 +1151,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Spectrum weight" hint={weightProv.state === 'inherited' ? 'from deck' : undefined} desc="How thick the stripe is." help={<>Regular, a one-pixel hairline, or a heavy band. The slide's content stays where it is.</>}>
 								<Picker ariaLabel="Spectrum weight" value={weight.value} onChange={onWeight} groups={weight.groups} />
 							</Row>
-							<Row label="Card spectrum" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A stripe on this slide's cards." help={<>Tunable apart from the slide edge. The head option follows the deck; <strong>Match</strong> follows the slide edge's spectrum, or pin a variant outright.</>}>
+							<Row label="Card spectrum" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A stripe on this slide's cards." help={<>Its own style, never copied from the slide edge. The head option follows the deck, or pick a style for this slide.</>}>
 								<Picker ariaLabel="Card spectrum" value={cardValue} onChange={onCard} groups={cardGroups} />
 							</Row>
 							{cardRailOn && (

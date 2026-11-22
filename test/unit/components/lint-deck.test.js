@@ -309,6 +309,11 @@ describe('deck linter', () => {
     );
     // With no style on the deck, the copied style was the rainbow; `restrained` was the single-hue ramp, `mono`.
     assert.equal(applyAllFixes(deck('spectrum-card: auto', 'spectrum-trim: restrained'), vocab), deck('card-spectrum: rainbow', 'trim-spectrum: mono'));
+    // A preset's style counts as what the deck was showing: Brand's slide edge is solid, so its cards and trim stay solid.
+    assert.equal(
+      applyAllFixes(deck('preset: brand', 'spectrum: left', 'spectrum-card: auto', 'spectrum-trim: on'), vocab),
+      deck('preset: brand', 'spectrum: left', 'card-spectrum: solid', 'trim-spectrum: solid'),
+    );
     // A word the old key never had is not deleted silently.
     assert.equal(applyAllFixes(deck('spectrum-edge: sideways'), vocab), deck('spectrum-edge: sideways'));
     assert.match(lintText(deck('spectrum-edge: sideways'), { vocab }).find((f) => f.rule === 'retired-spectrum-key').fix, /never a `spectrum-edge:` value/);

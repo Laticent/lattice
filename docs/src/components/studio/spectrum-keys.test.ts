@@ -37,6 +37,12 @@ describe('reading and writing one axis', () => {
 		expect(mergeSpectrum('spectrum', undefined, null)).toBe('');
 	});
 
+	it('turning a placed card stripe off keeps the off word, and a trim style is written', () => {
+		expect(writeSpectrumWord('card-spectrum', 'rainbow top band', null, 'style', 'off')).toBe('off top band');
+		expect(writeSpectrumWord('card-spectrum', 'rainbow', null, 'style', 'off')).toBe('');
+		expect(writeSpectrumWord('trim-spectrum', 'mono', null, 'style', 'solid')).toBe('solid');
+	});
+
 	it('a card line with an edge or a weight but no style renders the rainbow, exactly as the engine stamps it', () => {
 		for (const [own, want] of [['top band', 'rainbow top band'], ['off top', 'off top'], ['solid', 'solid'], ['', '']] as const) {
 			expect(mergeSpectrum('card-spectrum', own, null)).toBe(want);

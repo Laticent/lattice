@@ -56,6 +56,10 @@ export function mergeSpectrum(key: SpectrumKey, own: string | undefined, recomme
 	return axisLineValue(SPECTRUM_KEY_AXES[key], merged);
 }
 
+/** A deck line's words as the engine renders them, by axis: the line's own words plus the card's rainbow when it
+ *  names an edge or a weight and no style. The deck panel and the slide panel read a line through this. */
+export const renderedSpectrum = (key: SpectrumKey, value: string | undefined | null) => parseSpectrum(key, mergeSpectrum(key, value ?? '', null));
+
 /** What a value renders, with every default word left out: `rainbow top` and `` both read '' for `spectrum`. */
 export const spectrumRenders = (key: SpectrumKey, value: string): string => axisLineValue(SPECTRUM_KEY_AXES[key], parseSpectrum(key, value), true);
 
@@ -71,7 +75,10 @@ export function writeSpectrumWord(key: SpectrumKey, own: string | undefined, rec
 	else delete mine[axis];
 	for (const { axis: a, names } of SPECTRUM_KEY_AXES[key]) {
 		const given = theirs[a] ?? names[0];
-		if (mine[a] === given) delete mine[a];
+		// A card line that keeps an edge or a weight needs its `off` said out loud: left out, the engine reads the
+		// placed stripe as on, in rainbow.
+		const offHolds = key === 'card-spectrum' && a === 'style' && mine[a] === 'off' && Boolean(mine.edge || mine.weight);
+		if (mine[a] === given && !offHolds) delete mine[a];
 	}
 	return axisLineValue(SPECTRUM_KEY_AXES[key], mine);
 }
