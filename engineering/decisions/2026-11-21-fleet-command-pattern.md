@@ -195,6 +195,19 @@ twice. Every desk now starts from its lane's follow-ups, issues, `claim:` tags a
 deleting the follow-up a fix closes and writing new traps and leftovers back (`workflow.md` §Desks). The backlog
 desk stays the one that folds a follow-up into an issue or retires it.
 
+**Five more, from the owner on 2026-11-21, ahead of Lattice's disclosure day.** A census of the lanes tonight's
+work touched found three with no owner and two that matter at launch:
+
+| Desk | Owns | Why |
+|---|---|---|
+| ♿ Accessibility (`/desk-a11y`) | who a deck or the Studio leaves out | polish looks; nobody checked a screen reader or a color-blind viewer |
+| 📚 Docs (`/desk-docs`) | docs that say what ships | the key renames will leave every doc that names an old key stale |
+| 📱 Devices (`/desk-devices`) | claims left UNVERIFIED on a real device; macOS runner time | tonight's PRs left real-device claims open, and nobody uses `/harness` yet |
+| 🚢 Release (`/desk-release`) | launch readiness, release notes, the dry run | disclosure day; it never cuts a release, the owner's dispatch does |
+| 💬 Feedback (`/desk-feedback`) | outside reports: reproduce, route, draft replies | outside users arrive with disclosure; every reply is the owner's to send |
+
+All seven new desks exist as skills only. No desk session starts until the owner says so.
+
 **Open question for the owner.**
 - Whether a frontier desk may start sessions for feature work, which today only the owner does.
 

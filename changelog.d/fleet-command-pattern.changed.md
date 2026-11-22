@@ -2,3 +2,4 @@
 - `engineering/workflow.md` §Merge queue — the facts now says that drafting a queued PR does not dequeue it, and that direct merges are refused.
 - New `/desk-jank` and `/desk-polish` desks own layout motion and the 10/10 bar on shipped surfaces.
 - Every desk now reads its lane's follow-ups, issues, claims and gotcha file before its first pass, and writes fixes, traps and leftovers back when done (`engineering/workflow.md` §Desks).
+- Five more desks for launch: `/desk-a11y`, `/desk-docs`, `/desk-devices`, `/desk-release` (never cuts a release) and `/desk-feedback` (drafts every reply for the owner).

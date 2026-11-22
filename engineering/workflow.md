@@ -2645,6 +2645,11 @@ running it:
 | ⚡ Optimization | `/desk-optimize` | measured wins in engine speed and size, CI time, agent spend and code quality |
 | 〰️ Jank | `/desk-jank` | layouts that move as content grows: drift, collision, crowding (`engineering/jank.md`) |
 | ✨ Polish | `/desk-polish` | the 10/10 boardroom bar on what already ships: gallery, themes, examples, the docs site at three widths |
+| ♿ Accessibility | `/desk-a11y` | contrast, alt text, reading order, color as the only signal, keyboard and screen reader in decks and the Studio |
+| 📚 Docs | `/desk-docs` | every doc saying what ships: stale counts, phantom or undocumented features, docs that disagree |
+| 📱 Devices | `/desk-devices` | claims left UNVERIFIED on a real device, the platform suites and the `/harness` runner's time |
+| 🚢 Release | `/desk-release` | launch readiness: the blocker list, release notes from the fragments, the dry run; never cuts a release |
+| 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
 
 **Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
 first pass starts from the work already known in its lane, not only from live state:
