@@ -552,7 +552,7 @@
         "docs/scripts/android/probe.mjs",
         "docs/src/components/studio/Library.tsx"
       ],
-      "run": "bash docs/scripts/android/run.sh",
+      "run": "ANDROID_API=36 bash docs/scripts/android/run.sh",
       "why": "What Chrome on Android offers when the Studio's Library Import is tapped: the camera and a way to choose photos, videos and files, whatever `accept` list that input carries (#3356 drops it so iOS stops graying out a `.lattice`; the owner's iPhone showed the camera and photos still offered). It boots an Android emulator (Google APIs x86_64, API 34, Chrome 113) on a Linux runner with KVM, opens the Studio in Chrome, taps Menu, Library, Import files, and reads Android's chooser with `uiautomator dump`. It fails when the camera is missing, or when a .lattice pushed to Downloads is not listed where the chooser's files row leads (listed, not proven pickable: Files lists it for the PDF-only control too, and the dump cannot tell the two apart) (on this image the only non-camera row is \"Media\", which opens Files; a row's name is never taken as proof). The camera half is set by the permission the probe grants, not by Library.tsx; the tap-through is the half that depends on the input Library.tsx renders. Control: an application/pdf input, read while Chrome lacks the camera permission, must open Files with no camera, so the probe can see an option go missing (with the permission, Chrome 113 offers Camera on every file input). Evidence: the XML dumps (screencaps come back black under the software GPU). Not a real device: an emulator's chooser is Android's own, but a phone maker can replace it, and current Chrome may differ from 113.",
       "on_pull_request": false
     }
