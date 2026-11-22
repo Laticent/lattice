@@ -1,15 +1,15 @@
 /**
- * lib/core/first-spot-class.mjs
+ * docs/src/lib/first-spot-class.mjs
  *
- * The Playground picker's read of a deck's first spot class, from the source PREFIX. Its own module, not part of
- * class-entries.mjs: the Studio loads class-entries eagerly (the Coach reads it), and this function is only the
- * Playground's, which loads it on demand (docs/src/lib/playground-controller.ts `loadClassReader`), so it costs no
- * route eager bytes.
+ * The Playground picker's read of a deck's first spot class, from the source PREFIX. Its own module beside its one user
+ * (playground-controller.ts, which loads it on demand with `loadClassReader`), not part of lib/core/class-entries.mjs:
+ * the Studio loads class-entries eagerly (the Coach reads it), so a function only the Playground needs would cost the
+ * Studio's eager bytes there.
  *
  * Pure, fs-free, ESM.
  */
 
-import { classEntries } from './class-entries.mjs';
+import { classEntries } from '../../../lib/core/class-entries.mjs';
 
 /** A line that could hold a class setting: a `_class`/`class` comment or a record opener. A cheap superset. */
 const mayHoldClass = (line) => line.includes('<!--') && (line.includes('class') || line.includes('{'));

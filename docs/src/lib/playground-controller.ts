@@ -281,12 +281,12 @@ let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
 
 /** The shared reader, loaded on demand: a static import put the deck scanner (and the slide-boundary parser under it)
  *  in the Playground's and the home page's EAGER bundle, +21 KB gz on the route budget. The prefix read lives in its own
- *  lazy module (lib/core/first-spot-class.mjs `firstSpotClass`). Until it arrives the picker reads no class; the
+ *  lazy module (first-spot-class.mjs `firstSpotClass`, beside this file). Until it arrives the picker reads no class; the
  *  Playground calls `loadClassReader()` on mount and syncs its pickers again when it resolves. */
 let firstSpotClassFn: ((source: string) => string) | null = null;
 let classReaderLoad: Promise<void> | null = null;
 export function loadClassReader(): Promise<void> {
-	classReaderLoad ||= import('../../../lib/core/first-spot-class.mjs').then((m) => {
+	classReaderLoad ||= import('./first-spot-class.mjs').then((m) => {
 		firstSpotClassFn = m.firstSpotClass;
 		classMemo = { src: '\u0000', value: '' };
 	});
