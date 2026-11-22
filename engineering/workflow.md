@@ -1512,6 +1512,18 @@ it passes, that exact tree becomes `main`.
   warns. A rebase is still right on a real conflict, when you need a specific commit
   from `main` (name it in the commit message), or after a queue ejection. GitHub's
   "Update branch" costs the same CI run.
+- **Drafting does not stop a merge-group run already in flight.** On 2026-11-21
+  #3386 was converted to draft while its queue run was running; that run held the
+  branch locked, so the fix could not be pushed, and it merged the old head anyway
+  (#3409 restores it). Its session reported disabling auto-merge too (#3409), but
+  GitHub's event log for #3386 records no auto-merge or dequeue event before the merge,
+  so whether that took effect is unknown. **Disabling auto-merge and removing the PR
+  from the queue are both UNVERIFIED** as ways to stop an in-flight run. Until one is
+  tested, stop a PR BEFORE it is queued; once queued, plan for it to land and prepare
+  the follow-up fix.
+- **Direct merges are refused.** `merge_pull_request` returns 405 "Changes must be
+  made through the merge queue". After the owner's typed approval and the head
+  check, arm the queue (`enable_pr_auto_merge`, squash) instead.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
@@ -2637,6 +2649,36 @@ running it:
 | 📋 Backlog | `/desk-backlog` | open issues and `followups.d/` as one queue: fold, rank, dispatch `status:ready` work |
 | 🛡️ Security | `/desk-security` | CodeQL, the security dependency group, secret scanning, HARD RULES #22 and #24 |
 | ⚡ Optimization | `/desk-optimize` | measured wins in engine speed and size, CI time, agent spend and code quality |
+| 〰️ Jank | `/desk-jank` | layouts that move as content grows: drift, collision, crowding (`engineering/jank.md`) |
+| ✨ Polish | `/desk-polish` | the 10/10 boardroom bar on what already ships: gallery, themes, examples, the docs site at three widths |
+| ♿ Accessibility | `/desk-a11y` | contrast, alt text, reading order, color as the only signal, keyboard and screen reader in decks and the Studio |
+| 📚 Docs | `/desk-docs` | every doc saying what ships: stale counts, phantom or undocumented features, docs that disagree |
+| 📱 Devices | `/desk-devices` | claims left UNVERIFIED on a real device, the platform suites and the `/harness` runner's time |
+| 🚢 Release | `/desk-release` | launch readiness: the blocker list, release notes from the fragments, the dry run; never cuts a release |
+| 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
+| 📈 Stress | `/desk-stress` | the upper limits of what still passes (deck size, images, chart points, session length) without breaking anything; a limits table, and a dropped limit is a regression |
+| 🔥 Torture | `/desk-torture` | driving the Studio to crash, leak or rot on purpose with `perf-torture`, and naming the culprit by its retainer chain or listener add-site |
+
+**Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
+first pass starts from the work already known in its lane, not only from live state:
+- **follow-ups** (`npm run followups`, then the files about its lane) and **open issues**
+  in its lane: the starting queue, so it never rediscovers known work or opens a second fix;
+- **`claim:` tags** on live sessions (rule 5 below);
+- **the gotcha file or canonical doc for its lane** (`grep -rn <term> engineering/gotchas/`;
+  the jank desk reads `engineering/jank.md`, the flake desk the flaky-tests note), so it
+  does not pay for a trap twice.
+
+When it finishes, it writes back: a fix PR deletes the follow-up file it closes, a new trap
+becomes a gotcha entry, and work it found but will not do becomes a `followups.d/` file
+(`deferred: large|blocked|off-path`). **A desk writes back through a session it starts**
+(`create_session`, counted in its budget) or through the fix PR that found the item, never by
+pushing itself: committing is not on the verb list below. Two exceptions: the flake desk
+never files a follow-up for a test (HARD RULE #33 closes that exit; a test gets an owner and
+a fix), and the security desk never writes an unfixed finding anywhere public, which
+includes `followups.d/` (its embargo in `/desk-security`). The backlog desk alone folds a
+follow-up into an issue or retires one that is done or stale; the other desks claim and fix.
+Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
+deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action
