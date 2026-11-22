@@ -99,6 +99,15 @@ async function chooser(name) {
 	let screen;
 	for (;;) {
 		screen = nodes();
+		// Android's permission prompt is not the chooser: Chrome asks for the camera only when the input offers it. Answer it
+		// as a person would and keep waiting. run.sh grants the camera up front, so this should not show.
+		const allow = screen.out.find((n) => n.pkg === 'com.google.android.permissioncontroller' && /^While using the app$/i.test(n.text));
+		if (allow) {
+			console.log(`  ${name}: Android asked for Chrome's camera permission (Chrome wants the camera for this input); allowing`);
+			tap(allow);
+			await sleep(500);
+			continue;
+		}
 		if (screen.out.some((n) => n.pkg && !NOT_CHOOSER.test(n.pkg) && label(n))) break;
 		if (Date.now() - t0 > 30_000) {
 			fs.writeFileSync(path.join(OUT, `${name}-no-chooser.xml`), screen.xml);
