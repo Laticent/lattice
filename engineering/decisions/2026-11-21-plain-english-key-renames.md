@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The owner's naming rules and rename decisions for deck front-matter keys, their class tokens and Studio labels before GA. Old names are removed, not aliased; lint flags them and --fix migrates. Two names stay open (the chart intensity key, cards:). One PR per rename, lowest risk first.
+summary: The owner's naming rules and rename decisions for deck front-matter keys, their class tokens and Studio labels before GA. Old names are removed, not aliased; lint flags them and --fix migrates. marks: splits into chart-finish: and color-intensity:; cards: stays open. One PR per rename, lowest risk first.
 ---
 
 # Plain-English key renames before GA (2026-11-21)
@@ -93,9 +93,10 @@ It sets how the pass / warn / fail colors draw, and it pairs with `stamp-shape:`
 - `chart-finish: pigment | etch | tone` — the finish axis.
 - A separate intensity key, `muted | vivid`. It sets how loud the pass / warn / fail status colors
   are across the deck, under any chart finish (`lib/core/resolve-marks.js`), so it is a status key,
-  not a chart key. **Its name is OPEN.** The option the owner picked gave `status-intensity:` as an
-  example, not a decision. This session sends the command center three candidates with a
-  recommendation; the PR waits for the owner's pick.
+  not only a chart key. **It is `color-intensity: muted | vivid`** (owner, 2026-11-22 00:09 UTC),
+  chosen over `chart-intensity` (hides the status marks) and `status-intensity` (undersells the
+  charts): it says what it changes, how strong colors are, for checklist discs, KPI pills, policy
+  badges and charts alike.
 
 **This reverses an earlier rename.** `chart-finish:` is a retired key today: `deck-settings.js` lists
 it as `kind: 'retired'` with rule `marks-renamed`, which tells authors to write `marks:`. The rule
@@ -103,7 +104,7 @@ is info-level and says the old key "still works", so decks that still write `cha
 today. The Q4 PR
 deletes that retired row and rule, makes `chart-finish:` live again with the narrower meaning (finish
 only), and adds the new rule that migrates `marks:`. A deck that wrote `chart-finish: <intensity>`
-before the earlier rename gets a lint error that names the intensity key.
+before the earlier rename gets a lint error that names `color-intensity:`.
 
 ### Q5. `mode:` → `drawing:`
 
@@ -119,8 +120,9 @@ The `logo-finish:` key goes away. 4 repo decks set it today.
 
 `cards:` sets what a card or tile row does with spare height, like flexbox `align-content`. The owner
 was not sure of any name offered (`card-row-fill`, `card-row-align`, then `card-rows`,
-`spare-height` and `row-align`): "this requires more thought". No rename until a name is chosen. A
-better candidate goes to the command center as a suggestion only.
+`spare-height` and `row-align`, then `card-placement` and `card-spacing`): "this requires more
+thought", then "we need to think more" (2026-11-22 00:09 UTC). **OPEN: no rename until a name is
+chosen.**
 
 ### Q8. Repeated value words wait
 
@@ -138,7 +140,7 @@ retires it as a key.
 ## 4. How each rename ships
 
 One PR per rename, lowest risk first: D2, then D1 one key at a time, then Q1, Q2, Q3, Q5, Q6, then
-Q4 once its intensity name is chosen, then D3.
+Q4, then D3.
 
 Each PR:
 
