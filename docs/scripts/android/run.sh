@@ -36,7 +36,8 @@ mkdir -p "$ANDROID_AVD_HOME"
 echo no | "$AVDMANAGER" create avd --force -n probe -k "$IMAGE" -d pixel_6
 "$SDK/emulator/emulator" -list-avds | grep -qx probe || { echo "avdmanager did not make the 'probe' AVD in $ANDROID_AVD_HOME" >&2; exit 3; }
 
-# The docs site, as the iOS suite serves it, plus the probe's control page: one input that accepts only `.pdf`.
+# The docs site, as the iOS suite serves it, plus the probe's control page: one input that accepts only PDFs. By MIME type:
+# Chrome on Android does not filter on an extension (the ninth dispatch: accept=".pdf" offered Camera, Camcorder, Media).
 if [ -f docs/dist/.prebuilt ]; then
   echo "using the prebuilt docs site ($(cat docs/dist/.prebuilt))"
   (cd docs && npm ci)
@@ -45,7 +46,7 @@ else
 fi
 cat > docs/dist/__chooser-control.html <<'HTML'
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chooser control</title>
-<input type="file" accept=".pdf" aria-label="Pick a PDF" style="display:block;width:80vw;height:30vh;margin:10vh auto">
+<input type="file" accept="application/pdf" aria-label="Pick a PDF" style="display:block;width:80vw;height:30vh;margin:10vh auto">
 HTML
 # Bound to IPv4 127.0.0.1: the emulator's 10.0.2.2 is the runner's 127.0.0.1, and astro's default `localhost` bound IPv6
 # ::1 alone on the runner (the fourth dispatch: Chrome said ERR_CONNECTION_REFUSED while curl localhost passed over ::1).

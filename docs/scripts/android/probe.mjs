@@ -6,7 +6,7 @@
  *
  * It reads the screen with `uiautomator dump` (Chrome exposes a page's accessible names to it), taps an element at the
  * centre of its bounds, and judges what the system chooser lists. Two arms:
- *   - THE CONTROL: a page whose only input accepts `.pdf`. Chrome offers files there and no camera, so a reader that
+ *   - THE CONTROL: a page whose only input accepts application/pdf. Chrome offers files there and no camera, so a reader that
  *     cannot tell a camera option from a files option fails here first. A probe that passes its control can fail.
  *   - THE STUDIO: Library, Import. It must offer the camera and a way to choose files (photos and videos are in the
  *     same chooser, or in the files picker it opens).
@@ -78,6 +78,19 @@ async function until(re, ms, what) {
 	}
 }
 const tap = (n) => adb('shell', 'input', 'tap', String(n.x), String(n.y));
+/** Wait for `re`, then until it sits still (the same centre on two reads in a row), then tap it. A sheet that is still
+ *  sliding in moves its buttons; the ninth dispatch tapped Import files mid-slide and nothing opened. */
+async function tapWhenStill(re, ms, what) {
+	let a = await until(re, ms, what);
+	for (let i = 0; i < 20; i++) {
+		await sleep(250);
+		const b = await until(re, ms, what);
+		if (b.x === a.x && b.y === a.y) break;
+		a = b;
+	}
+	tap(a);
+	return a;
+}
 let opened = '';
 /** Open a URL in Chrome and wait (-W) until Android says the activity launched; print what it said. */
 let openedAt = 0;
@@ -122,7 +135,7 @@ async function chooser(name) {
 	const options = [...new Set(rows.map(label).filter(Boolean))];
 	console.log(`  ${name} chooser (${[...new Set(rows.map((n) => n.pkg))].join(', ')}): ${options.join(' · ')}`);
 	adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // close it, and leave the page as it was
-	// The files picker itself (DocumentsUI) is the files option when Chrome opens it directly, as it can for a .pdf input.
+	// The files picker itself (DocumentsUI) is the files option when Chrome opens it directly, as it can for a PDF-only input.
 	const pkgs = [...new Set(rows.map((n) => n.pkg))];
 	if (pkgs.some((p) => /documentsui/.test(p))) options.push('[the Files app is open]');
 	return { options };
@@ -134,16 +147,17 @@ const step = (name, pass, detail = '') => {
 	console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`);
 };
 const camera = (labels) => labels.some((l) => /camera|take (a )?photo|camcorder/i.test(l));
-const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose files|\[the Files app is open\]/i.test(l));
+// On this image the chooser's files row is labeled "Media" (Android's document picker); on others, Files or Browse.
+const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose files|^media$|\[the Files app is open\]/i.test(l));
 
 let error = '';
 try {
-	// THE CONTROL: an input that accepts only `.pdf`.
+	// THE CONTROL: an input that accepts only application/pdf.
 	open(`${BASE}/__chooser-control.html`);
-	tap(await until(/^Pick a PDF\b/, 60_000, 'the control page'));
+	await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
 	const control = await chooser('control');
-	step('control: a .pdf-only input offers files', files(control.options), control.options.join(' · '));
-	step('control: a .pdf-only input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
+	step('control: a PDF-only (application/pdf) input offers files', files(control.options), control.options.join(' · '));
+	step('control: a PDF-only (application/pdf) input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
 
 	// THE STUDIO: Library, then Import, the way a person on a phone gets there (Menu, Library, Import files).
 	open(`${BASE}/studio/`);
@@ -154,9 +168,9 @@ try {
 		console.log('  (the Studio showed its low-device notice: Continue anyway)');
 		tap(first);
 	}
-	tap(await until(/^Menu$/, 30_000, "the Studio's Menu button"));
-	tap(await until(/^Library/, 30_000, 'the Library row'));
-	tap(await until(/^Import files\b/, 30_000, "the Library's Import button"));
+	await tapWhenStill(/^Menu$/, 30_000, "the Studio's Menu button");
+	await tapWhenStill(/^Library/, 30_000, 'the Library row');
+	await tapWhenStill(/^Import files\b/, 30_000, "the Library's Import button");
 	const studio = await chooser('studio');
 	step("Library Import: Android offers the camera", camera(studio.options), studio.options.join(' · '));
 	step('Library Import: Android offers a way to choose files (photos and videos among them)', files(studio.options), studio.options.join(' · '));
