@@ -82,18 +82,35 @@ function open(url) {
 	console.log(`  open ${url}: ${said.match(/Status: \S+/)?.[0] || said.trim().split('\n').pop()}`);
 }
 
-/** What the system chooser lists once it is on screen: the rows that are not Chrome's page. */
+/** Packages that are never the chooser: Chrome's own page, the launcher, the status bar. */
+const NOT_CHOOSER = /^(com\.android\.chrome|com\.google\.android\.apps\.nexuslauncher|com\.android\.systemui)$/;
+
+/** What the chooser lists once it is on screen. It is another app's window (the system chooser, Files, the photo picker),
+ *  so it is found by PACKAGE, never by words: the sixth dispatch matched the page's own title ("Chooser control") and its
+ *  "No file chosen", and passed a control with no chooser open. Only that app's rows are judged. */
 async function chooser(name) {
-	// The chooser is the system's (or Chrome's own dialog), on top of the page: wait for any option that names a source.
-	await until(/camera|files|browse|documents|photos|gallery|images|media|choose/i, 30_000, `${name}: the file chooser`);
-	const { xml, out } = nodes();
-	fs.writeFileSync(path.join(OUT, `${name}-chooser.xml`), xml);
+	const t0 = Date.now();
+	let screen;
+	for (;;) {
+		screen = nodes();
+		if (screen.out.some((n) => n.pkg && !NOT_CHOOSER.test(n.pkg) && label(n))) break;
+		if (Date.now() - t0 > 30_000) {
+			fs.writeFileSync(path.join(OUT, `${name}-no-chooser.xml`), screen.xml);
+			throw new Error(`${name}: no chooser opened within 30000 ms (only ${[...new Set(screen.out.map((n) => n.pkg))].join(', ')} on screen)`);
+		}
+		await sleep(500);
+	}
+	fs.writeFileSync(path.join(OUT, `${name}-chooser.xml`), screen.xml);
+	// Kept as a pointer only: under the emulator's software GPU, screencap can come back black. The XML is the record.
 	fs.writeFileSync(path.join(OUT, `${name}-chooser.png`), execFileSync(ADB, ['exec-out', 'screencap', '-p'], { timeout: 60_000 }));
-	// The chooser's own rows: whatever is on screen that is not Chrome's page (the system chooser, the photo picker, Files).
-	const options = [...new Set(out.filter((n) => n.pkg !== 'com.android.chrome').map(label).filter(Boolean))];
-	const all = out.map(label).filter(Boolean);
+	const rows = screen.out.filter((n) => !NOT_CHOOSER.test(n.pkg));
+	const options = [...new Set(rows.map(label).filter(Boolean))];
+	console.log(`  ${name} chooser (${[...new Set(rows.map((n) => n.pkg))].join(', ')}): ${options.join(' · ')}`);
 	adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); // close it, and leave the page as it was
-	return { options, all };
+	// The files picker itself (DocumentsUI) is the files option when Chrome opens it directly, as it can for a .pdf input.
+	const pkgs = [...new Set(rows.map((n) => n.pkg))];
+	if (pkgs.some((p) => /documentsui/.test(p))) options.push('[the Files app is open]');
+	return { options };
 }
 
 const steps = [];
@@ -102,7 +119,7 @@ const step = (name, pass, detail = '') => {
 	console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${name}${detail ? ` (${detail})` : ''}`);
 };
 const camera = (labels) => labels.some((l) => /camera|take (a )?photo|camcorder/i.test(l));
-const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose files/i.test(l));
+const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose files|\[the Files app is open\]/i.test(l));
 
 let error = '';
 try {
@@ -110,17 +127,24 @@ try {
 	open(`${BASE}/__chooser-control.html`);
 	tap(await until(/^Pick a PDF\b/, 60_000, 'the control page'));
 	const control = await chooser('control');
-	step('control: a .pdf-only input offers files', files(control.all), control.options.join(' · '));
-	step('control: a .pdf-only input offers no camera (so this probe can see one missing)', !camera(control.all), control.options.join(' · '));
+	step('control: a .pdf-only input offers files', files(control.options), control.options.join(' · '));
+	step('control: a .pdf-only input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
 
 	// THE STUDIO: Library, then Import, the way a person on a phone gets there (Menu, Library, Import files).
 	open(`${BASE}/studio/`);
-	tap(await until(/^Menu$/, 150_000, "the Studio's Menu button"));
+	// The Studio warns on a device below its floor (the sixth dispatch: "This device reports 2 CPU cores") and offers Lite
+	// mode. run.sh gives the emulator 4 cores; if the notice still shows, continue as a person would.
+	const first = await until(/^(Menu|Continue anyway)$/, 150_000, "the Studio's Menu button");
+	if (/Continue anyway/.test(label(first))) {
+		console.log('  (the Studio showed its low-device notice: Continue anyway)');
+		tap(first);
+	}
+	tap(await until(/^Menu$/, 30_000, "the Studio's Menu button"));
 	tap(await until(/^Library/, 30_000, 'the Library row'));
 	tap(await until(/^Import files\b/, 30_000, "the Library's Import button"));
 	const studio = await chooser('studio');
-	step("Library Import: Android offers the camera", camera(studio.all), studio.options.join(' · '));
-	step('Library Import: Android offers a way to choose files (photos and videos among them)', files(studio.all), studio.options.join(' · '));
+	step("Library Import: Android offers the camera", camera(studio.options), studio.options.join(' · '));
+	step('Library Import: Android offers a way to choose files (photos and videos among them)', files(studio.options), studio.options.join(' · '));
 } catch (e) {
 	error = String(e.message || e).slice(0, 300);
 	step('the probe ran to the end', false, error);

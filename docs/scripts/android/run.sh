@@ -52,7 +52,7 @@ HTML
 (cd docs && PREVIEW_PORT=$PORT PREVIEW_HOST=127.0.0.1 node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
 server=$!
 
-"$SDK/emulator/emulator" -avd probe -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
+"$SDK/emulator/emulator" -avd probe -cores 4 -memory 4096 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
   -camera-back emulated -camera-front emulated > "$OUT/emulator.log" 2>&1 &
 emu=$!
 trap 'kill "$server" "$emu" 2>/dev/null || true' EXIT
