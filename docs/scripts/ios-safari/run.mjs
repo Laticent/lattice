@@ -850,6 +850,7 @@ async function runPresentKeepaliveProbe(id) {
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		await call('latticeKeepaliveArmErrors()');
 		// Present opens from a REAL touch: WebKit grants the wake lock only inside a user gesture.
 		// A slow simulator can stretch a WebDriver tap into a long press, which iOS never turns into a click (tap-guard.mjs,
 		// followups.d/3223-p1). Read the hold the page saw; a long press is delivered again ONCE, the shape tap-guard uses.
@@ -897,6 +898,7 @@ async function runPresentKeepaliveProbe(id) {
 		r.play = await call('latticeKeepalivePlay()');
 		r.next = await call('latticeKeepaliveNext()');
 		r.close = await call('latticeKeepaliveClose()');
+		r.voiceOn = await call('latticeKeepaliveVoiceOn()');
 	} catch (e) {
 		error = String(e.message || e).slice(0, 300);
 	}

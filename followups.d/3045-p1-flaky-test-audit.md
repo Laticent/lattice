@@ -167,8 +167,11 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             present-guide-handles, vetrina-cursor-caption and segno-playground is gone: the clock stays paused, and
             present-guide steps the Guide-off teardown frame by frame. Arms: segno's limit at 1.6 s, a caption dwell
             at a third, the team card's name handle, and a Guide that never tears down. Evidence: `--repeat-each=10`
-            alone, then `--workers=4 --repeat-each=5`, on desktop. LEFT: `docs/e2e/present-emphasis.spec.ts`
-            (`clock-resume` 1), held for #3278, which rewrites that spec.
+            alone, then `--workers=4 --repeat-each=5`, on desktop. LEFT then: `docs/e2e/present-emphasis.spec.ts`
+            (`clock-resume` 1), held for the spec's rewrite.
+            2026-11-21 (present-emphasis, #3384): that last row is gone and the baseline is EMPTY. The plain and the
+            bold passage are two slides of one deck read by one Play, so the paused clock is never resumed. What is
+            left before this file can be deleted is the F3-F9 sweep below (the shapes no line shows).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,

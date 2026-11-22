@@ -101,6 +101,14 @@ Acts on: chart-marks. Pick one.
 
 - `marks-muted` · `marks-vivid`
 
+### Marks source — `marks-source`
+
+The one hue `marks: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `marks:`.
+
+Acts on: chart-marks. Not offered. Pick one.
+
+- `marks-ink` · `marks-accent`
+
 ### Headline — `headline`
 
 The heading's treatment.
@@ -479,7 +487,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `backdrop:` | `backdrop` |  |
 | `tag:` | `card-tag` |  |
 | `agenda:` | `agenda` |  |
-| `marks:` | `marks`, `marks-intensity` |  |
+| `marks:` | `marks`, `marks-intensity`, `marks-source` |  |
 | `logo-finish:` | `logo` |  |
 | `progress-rail:` | `progress-rail` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |

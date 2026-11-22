@@ -2717,6 +2717,29 @@ for after a human has said the session is done, and an archived desk cannot be
 messaged. The command center proposes archiving finished worker sessions as a
 numbered action; the owner's `go` is that acknowledgment.
 
+**When a session can be archived.** Archiving frees the session's machine: its
+transcript survives and the session can be unarchived, but any file it never pushed
+is gone for good. So the command center proposes a session for archiving only when
+all four hold, and names the failing check for every session that stays:
+
+1. **The work is done.** Its PRs merged or closed, or it never had one and its task
+   is finished. A session with an open PR, a pending card, or a question to the
+   owner stays.
+2. **Nothing lives only in chat.** Every leftover item, open question and "next we
+   should" in its briefs is logged durably: a `followups.d/` file on `main`, an open
+   issue, or a comment on a PR a desk tracks. A continuation brief in a transcript is
+   not durable. If an item is missing, ask the session to log it (one small PR) and
+   archive after that merges.
+3. **Nothing unpushed.** The session reports a clean tree and no local commits ahead
+   of its remote (`git status -sb`), answered in its own reply, not inferred from an
+   old status line. No answer, or changes, means it stays.
+4. **No live desk or scheduled task depends on it.** The command center, a desk
+   session (both tagged `ui:pinned`), a session that is working now, and a session a
+   scheduled task wakes (`list_triggers`, `persistent_session_id`) stay.
+
+The owner's `go` on the board's numbered action archives exactly the sessions that
+passed. The audit is read-only and can run as one subagent; it never archives.
+
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the newest live session with that tag. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and

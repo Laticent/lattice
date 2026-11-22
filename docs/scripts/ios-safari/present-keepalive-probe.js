@@ -13,6 +13,11 @@
  *   latticeKeepaliveNext()        press Next while playing: the next slide comes up and PLAYS on its own (continuous play
  *                                 survives navigation); the lock is still held
  *   latticeKeepaliveClose()       close Present: the narration stops with it
+ *   latticeKeepaliveVoiceOn()     PR #3394: a phone that never picked a voice keeps `provider: ''` (it cannot run Kokoro).
+ *                                 Reopen Present with the Voice ON and play: the live cue must move past cue 0, and
+ *                                 preparing no voice must throw nothing (it threw `unknown key provider: ` and Present
+ *                                 sat on its first cue)
+ *   latticeKeepaliveArmErrors()   called once on load: records every uncaught `key provider` error from then on
  *
  * Every wait is for a state, with a bound (HARD RULE #32); no step judges a duration. Plain browser JS on purpose:
  * WebDriver's execute-script sends source text, not a module.
@@ -47,12 +52,21 @@ function latticeKeepaliveHelpers() {
 		return { text: now?.textContent?.trim() || '', lit: b.querySelectorAll('.latt-cc-line[data-state="now"] [data-spoken="1"]').length + b.querySelectorAll('.latt-cc-line[data-state="read"]').length };
 	};
 	const playing = () => !!button('Pause');
+	/** The Voice toggle in Present ("Voice on" / "Voice off"), and the voice the Studio has selected ('' = none). */
+	const voiceToggle = () => [...(dialog()?.querySelectorAll('button') || [])].find((b) => /^Voice (on|off)/.test((b.getAttribute('aria-label') || b.textContent || '').trim()));
+	const provider = () => {
+		try {
+			return JSON.parse(localStorage.getItem('lattice-studio-voice-selection') || '{}').provider ?? '';
+		} catch {
+			return 'unreadable';
+		}
+	};
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	/** The Studio's own Present button: the visible one (a phone keeps a second, hidden copy in another bar). */
 	const presentButton = () => [...document.querySelectorAll('button')].find((b) => visible(b) && (b.textContent.trim() === 'Present' || b.getAttribute('aria-label') === 'Present'));
 	/** The gesture layer behind the slide (the backdrop): its middle is the middle of the slide. */
 	const backdrop = () => [...document.querySelectorAll('div[aria-hidden="true"].lx-ui.fixed')].find((d) => getComputedStyle(d).zIndex === '100');
-	return { sleep, until, dialog, counter, button, opacity, top, frame, band, walked, playing, presentButton, backdrop };
+	return { sleep, until, dialog, counter, button, opacity, top, frame, band, walked, playing, presentButton, backdrop, voiceToggle, provider };
 }
 
 /** Where to tap the Studio's Present button. The DRIVER taps it with a real touch: WebKit grants the screen wake lock only
@@ -140,7 +154,8 @@ async function latticeKeepalivePlay() {
 		const w = h.walked();
 		return w.lit > 1 || (w.text && w.text !== first.text) ? w : null;
 	}, 20000, 'the caption highlight to move past the first word');
-	return { inside, caption: later.text.slice(0, 60), lit: later.lit, fontPx: Number.parseFloat(getComputedStyle(b).fontSize), frameW: Math.round(fr.width) };
+	const v = h.voiceToggle();
+	return { inside, caption: later.text.slice(0, 60), lit: later.lit, fontPx: Number.parseFloat(getComputedStyle(b).fontSize), frameW: Math.round(fr.width), provider: h.provider(), voice: v ? v.getAttribute('aria-pressed') : 'no toggle' };
 }
 
 async function latticeKeepaliveNext() {
@@ -170,6 +185,33 @@ async function latticeKeepaliveClose() {
 	return { stopped };
 }
 
+function latticeKeepaliveArmErrors() {
+	window.__kaErrors = [];
+	const keep = (m) => /key provider/.test(String(m || '')) && window.__kaErrors.push(String(m).slice(0, 120));
+	addEventListener('error', (e) => keep(e.message));
+	addEventListener('unhandledrejection', (e) => keep(e.reason?.message || e.reason));
+	return true;
+}
+
+/** PR #3394. Present reopened with the Voice ON, on a phone with no voice chosen: the read-along runs and nothing throws. */
+async function latticeKeepaliveVoiceOn() {
+	const h = latticeKeepaliveHelpers();
+	const provider = h.provider();
+	(await h.until(() => h.presentButton(), 15000, 'the Present button')).click();
+	await h.until(() => h.dialog() && h.counter(), 30000, 'Present to reopen');
+	const v = await h.until(() => h.voiceToggle(), 15000, 'the Voice toggle');
+	if (v.getAttribute('aria-pressed') !== 'true') v.click();
+	await h.until(() => h.voiceToggle()?.getAttribute('aria-pressed') === 'true', 5000, 'the Voice to read on');
+	h.button('Play the presentation').click();
+	await h.until(() => h.playing(), 15000, 'the transport to read Pause');
+	// Reopened without Fullscreen, the captions are not on the slide (that is the immersive layout), so read the live cue:
+	// the read-along clock moves it past cue 0. With the throw it never started, and Present sat on its first cue.
+	const cue = () => Number(document.querySelector('[data-cue][data-state="now"]')?.getAttribute('data-cue') ?? -1);
+	const reached = await h.until(() => (cue() > 0 ? cue() : null), 30000, 'the live cue to move past cue 0 with the Voice on');
+	h.button('Exit present', document).click();
+	return { provider, on: true, cue: reached, errors: (window.__kaErrors || []).slice(0, 3) };
+}
+
 /** The verdict, shared by run.mjs and probe.selftest.mjs. It judges states reached, never durations (HARD RULE #32). */
 function latticeKeepaliveChecks(r, { realSafari }) {
 	return [
@@ -181,7 +223,10 @@ function latticeKeepaliveChecks(r, { realSafari }) {
 		{ name: 'the captions ride inside the slide and their highlight walks the words', pass: r.play?.inside === true && r.play?.lit > 1, detail: `"${r.play?.caption}" ${r.play?.lit} lit, ${r.play?.fontPx}px on a ${r.play?.frameW}px slide` },
 		{ name: 'Next while playing: the next slide plays on its own and the lock is still held', pass: r.next?.to === r.next?.from + 1 && r.next?.still === true && r.next?.wake === 'held', detail: `${r.next?.from} -> ${r.next?.to}, "${r.next?.caption}", wake ${r.next?.wake}` },
 		{ name: 'closing Present stops the narration', pass: r.close?.stopped === true, detail: '' },
+		// PR #3394. The premise (no voice chosen) is reported, not judged: a simulator that kept a voice would test less, not fail.
+		{ name: 'with the Voice on and no voice chosen, the read-along moves past its first cue', pass: r.voiceOn?.on === true && r.voiceOn?.cue > 0, detail: `voice selected: ${JSON.stringify(r.voiceOn?.provider ?? r.play?.provider)}; first Play ran with Voice ${r.play?.voice}; live cue reached ${r.voiceOn?.cue}` },
+		{ name: 'preparing no voice throws nothing', pass: Array.isArray(r.voiceOn?.errors) && r.voiceOn.errors.length === 0, detail: (r.voiceOn?.errors || ['not read']).join(' | ') },
 	];
 }
 
-Object.assign(globalThis, { latticeKeepaliveWake, latticeKeepaliveArmTap, latticeKeepaliveOpened, latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
+Object.assign(globalThis, { latticeKeepaliveWake, latticeKeepaliveArmTap, latticeKeepaliveOpened, latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveArmErrors, latticeKeepaliveVoiceOn, latticeKeepaliveChecks });

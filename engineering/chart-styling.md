@@ -221,8 +221,35 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
-| **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart (a journey persona takes every other step) | one ink for every mark, 1× (2.5× on a text-bearing mark) |
+| **`etch`** | the **line and the letter** | a modern look | 30% of the hue on a light slide; 78% of the category **ink** on a dark one, so it clears 3:1 against the slide | ink, 2× (3× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart (a journey persona takes every other step). The hue is chart color one, or the deck's **source**: `tone ink` (the heading ink), `tone accent` (the accent) | one ink for every mark, 1× (2.5× on a text-bearing mark) |
+
+**Etch's dark body clears 3:1 (2026-11-20).** It was the category hue at 40% toward the canvas, which
+measured 1.14 to 1.57:1 against the slide at the worst slot of every built-in palette in dark: the outline
+carried the bar and the body all but vanished. No level of the hue fixes it and stays etch (onyx's darkest
+hue clears 3:1 only at 99%, which is pigment), so the dark body mixes the category **ink**, the lighter
+member of the hue the doubled edge is drawn in, at 78% (`ETCH_BODY_INK_D`): the least that holds 3:1 on
+every slot of every palette (onyx 3.19:1; most 3.5 to 4.5:1). The cost is a quieter edge: the edge is now
+about 1.45:1 against the body, where it was the only thing that read. The bullet measure takes the same
+dark level. The light face is unchanged. A text-bearing etch mark and a status mark keep their quieter
+levels (14/19%), because text sits on them; a dark etch status bar stays under 3:1, which is recorded in
+`followups.d/` (etch-dark-status-level). `test/unit/components/marks-finish-contrast.test.js` reads the levels
+out of the generated CSS and holds every slot.
+
+**Tone's source (`marks: tone ink`, `marks: tone accent`, 2026-11-20).** Every rule the generator writes for
+"the first hue" reads `--finish-one` and `--finish-one-ink`, which every finish block sets to chart color one
+(`--chart-cat-1-hue` / `-ink`). A source re-points those two tokens, and nothing else, on the slide and on every
+chart frame, under `section.marks-tone.marks-<source>`, so every tone rule follows without a rule of its own. It
+does not re-point `--chart-cat-1-hue` itself: the palette gates read the bundle as one flat list of declarations,
+where a scoped override would read as the palette's own slot one. A sequential ramp (heatmap, map) reads
+`--chart-ramp-hue` / `-ink` instead, which the chart declares from the palette's optional `--ramp-hue` / `--ramp-ink`
+hook (carbone names its green there), else chart color one. The source sets that hook in the same block, so a ramp
+follows the source the way it follows a palette that names one. A mark no finish reaches keeps its own paint. One
+color is both the hue and the ink, so the source must read as text: `--text-heading` and `--accent` hold 4.5:1 or better against the slide on every
+built-in palette in both modes, and the strongest step clears 3:1 (the same test). Both classes are in the
+selector because a source means nothing under pigment or etch, which draw each category in its own hue;
+deck-lint names one there (`marks-source-needs-tone`). A deck that names no source stamps no class, so its render does
+not move.
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
