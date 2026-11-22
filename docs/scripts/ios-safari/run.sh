@@ -9,6 +9,7 @@
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
 # photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=codec-support decodes and round-trips the narration codec fixtures on a blank page (codec-probe.js).
 # PROBE=present-landscape presents a 4K photo deck on an iPad Pro 13-inch and an iPhone turned sideways: the canvas, captions, memory.
+# PROBE=present-narration plays a 4K deck in Present with Guide on, voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs).
 # PROBE=present-keepalive opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
@@ -151,6 +152,8 @@ families='iPad iPhone'
 [ "$PROBE" = present-memory ] && families='iPhone'
 # The narration codec probe answers for the owner's iPhone: what Apple's media stack decodes and encodes.
 [ "$PROBE" = codec-support ] && families='iPhone'
+# The Present narration probe stands in for the owner's iPhone too, where Present with narration reloaded the tab.
+[ "$PROBE" = present-narration ] && families='iPhone'
 # The Present keep-alive probe is the owner's case too: Present on an iPhone, where full screen falls back to immersive (#3333).
 [ "$PROBE" = present-keepalive ] && families='iPhone'
 # The Present landscape probe turns the simulator sideways (#3304): the iPad Pro 13-inch, the widest iPad screen, and an

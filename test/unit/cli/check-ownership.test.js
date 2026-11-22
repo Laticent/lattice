@@ -1738,6 +1738,24 @@ describe('check-ownership', () => {
         fs.rmSync(root, { recursive: true, force: true });
       }
     });
+
+    test('catches the key under the names OpenRouter documents, and leaves endpoint constants alone', () => {
+      const root = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'lattice-or-alias-'));
+      // Joined at run time so this source file does not trip the gate itself.
+      const aliases = ['OPENROUTER' + '_API_KEY', 'OPENROUTER' + '_KEY', 'OPEN_ROUTER' + '_API_KEY'];
+      try {
+        fs.mkdirSync(path.join(root, 'docs/src/pages'), { recursive: true });
+        for (const [i, name] of aliases.entries()) fs.writeFileSync(path.join(root, `docs/src/pages/__or_alias_${i}__.ts`), `export const k = process.env.${name};\n`);
+        fs.writeFileSync(path.join(root, 'docs/src/pages/__or_url__.ts'), `export const u = 'x'; const ${'OPENROUTER' + '_KEY_URL'} = u;\n`);
+        fs.writeFileSync(path.join(root, 'package.json'), '{"scripts":{}}');
+        const errors = [];
+        checkOpenRouterBudget(errors, root);
+        for (const [i, name] of aliases.entries()) assert.ok(errors.some((e) => e.includes(`__or_alias_${i}__.ts`)), `${name} was not caught`);
+        assert.ok(!errors.some((e) => e.includes('__or_url__.ts')), 'an endpoint constant was flagged');
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('voice-sample asset gate (HARD RULE #24 §OpenRouter budget — TTS preview cache)', () => {

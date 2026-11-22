@@ -780,7 +780,10 @@ they are **separate**:
    script invokes a spender. **Playwright e2e / integration tests are welcome** — they MOCK the
    endpoint (`page.route('**/openrouter.ai/**', …)`) or drive the Playground on the user's own /
    a dedicated test key, none of which is our key. The gate keys on the key NAME, not the
-   `openrouter.ai` endpoint, so mocking it never trips the gate. **Throwaway prototype tests**
+   `openrouter.ai` endpoint, so mocking it never trips the gate. The name match covers the
+   spellings OpenRouter documents too (`OPENROUTER_KEY`, `OPENROUTER_API_KEY`,
+   `OPEN_ROUTER_API_KEY`), so our key under another name is caught; whole names only, so an
+   endpoint constant like `OPENROUTER_KEY_URL` is not. **Throwaway prototype tests**
    that hit the live API go in `.scratch/` (gitignored, not scanned, not shipped) — or run as an
    on-demand tool. The only thing barred is a *committed* `test/**` file reading our key, which
    would then spend on every CI run.
@@ -2811,6 +2814,9 @@ every brief opens with `[from desk:<lane> session_<id>, not the owner]` and says
 merge, arming auto-merge, a takeover and dropping work still need the owner's own
 word in this session; the desk's word is a request. Security briefs add the
 embargo in `/desk-security`.
+Every brief also carries the link rule: whenever the session names a PR or a
+session to the owner, it writes `[#N](pr url) ([session name](session url))`, both
+clickable (`house-style.md` §Per-surface contracts).
 
 **A merge the owner authorized somewhere else.** The owner may merge a worker's PR
 from the command center: the owner types `merge #N` there, the merge gate accepts it,
