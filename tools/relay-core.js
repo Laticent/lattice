@@ -71,17 +71,29 @@ function signature(name, session) {
 // ── The baton (D1) ─────────────────────────────────────────────────────────────────────────────
 // Who may push to a relay branch now. The lock itself is git: a push without --force lands only if
 // it fast-forwards, so of two sessions racing for a free baton exactly one push wins. This code only
-// answers "is it free?" from two records: the newest non-merge commit's trailers and time, and the
-// PR's living handoff comment (`<!-- relay-handoff -->`), its `baton:` line and its updated_at.
+// answers "is it free?" from three records:
+//   - the holder: the newest commit on the branch (merges included) that carries a Claude-Session
+//     trailer, so a merge of main renews the holder and a person's web commit does not unseat it;
+//   - the lease clock: GitHub's own timestamp for the push of the branch tip (the repository
+//     activity API), never a commit date, which the committer's clock sets and which can predate the
+//     push by hours; and the living comment's updated_at, also stamped by GitHub;
+//   - the release: `baton: released` in the living comment, valid only while the branch tip is still
+//     the `head:` it names, so any push after a release re-takes the baton.
 
 const LEASE_MS = 60 * 60 * 1000; // D1: 60 minutes, two missed 30-minute checkpoints
 const MARKER = '<!-- relay-handoff -->';
 
-/** The LAST `Relay-Actor:` and `Claude-Session:` trailer lines of a commit message. */
+/**
+ * The `Relay-Actor:` and `Claude-Session:` trailers of a commit message, read from its LAST paragraph
+ * only (the trailer block): a session id quoted in the body, or a cherry-pick's copied trailers above
+ * the real ones, must not name the author.
+ */
 function parseTrailers(message) {
+  const lines = String(message).trim().split(/\r\n?|\n/);
+  const blank = lines.findLastIndex((l) => !l.trim());
   let actor = null;
   let session = null;
-  for (const line of String(message).split(/\r?\n/)) {
+  for (const line of lines.slice(blank + 1)) {
     const a = /^Relay-Actor:\s*(\S.*?)\s*$/.exec(line);
     if (a) actor = a[1];
     const s = /^Claude-Session:.*?\b(session_[A-Za-z0-9]+)\b/.exec(line);
@@ -91,38 +103,40 @@ function parseTrailers(message) {
 }
 
 /**
- * Read the living comment's BATON block. Returns null when the body has no marker.
- * @returns {{released: boolean, holder: string|null, session: string|null, since: string|null}|null}
+ * Read the living comment's BATON block: the first fenced block of a body that STARTS with the
+ * marker. A comment that merely quotes the marker is not a living comment.
+ * @returns {{released: boolean, holder: string|null, session: string|null, since: string|null, head: string|null}|null}
  */
 function parseLiving(body) {
-  if (typeof body !== 'string' || !body.includes(MARKER)) return null;
+  if (typeof body !== 'string' || !body.startsWith(MARKER)) return null;
+  const block = /```\n([\s\S]*?)\n```/.exec(body);
+  const text = block ? block[1] : '';
   const line = (key) => {
-    const m = new RegExp(`^${key}:[ \\t]*(.*?)[ \\t]*$`, 'mi').exec(body);
-    return m ? m[1] : null;
+    const m = new RegExp(`^${key}: (.*)$`, 'm').exec(text);
+    return m ? m[1].trim() : null;
   };
-  const baton = (line('baton') || '').toLowerCase();
   const holder = line('holder');
   const sm = holder && /\b(session_[A-Za-z0-9]+)\b/.exec(holder);
+  const head = line('head');
   return {
-    released: baton.startsWith('released'),
+    released: line('baton') === 'released',
     holder: holder ? holder.replace(/\s*·\s*session_[A-Za-z0-9]+.*$/, '') || null : null,
     session: sm ? sm[1] : null,
     since: line('since'),
+    head: head && /^[0-9a-f]{7,40}$/.test(head) ? head : null,
   };
 }
 
 /**
  * Is the baton free?  Pure: every input is passed in, "now" included (HARD RULE #32).
  *
- * The holder is always the session in the newest non-merge commit's trailer: a push is what takes
- * the baton, so the record of who holds it is the one git already arbitrates. The living comment
- * adds two things only: `baton: released`, and its updated_at, which renews the lease like a push.
- *
  * @param {object} o
- * @param {{actor: string|null, session: string|null, time: number}|null} o.head newest non-merge
- *   commit beyond main (time in ms), or null when the branch has none
- * @param {{released: boolean, updatedAt: number}|null} o.living the living comment, or null when
- *   the PR has none (or there is no PR yet)
+ * @param {{sha: string, session: string|null, actor: string|null, pushedAt: number|null}|null} o.head
+ *   the branch tip beyond main, with the holder read from the newest trailer-carrying commit and
+ *   GitHub's push time for the tip (null when GitHub does not show it yet: read as "just pushed"),
+ *   or null when the branch has no commits beyond main
+ * @param {{released: boolean, head: string|null, updatedAt: number}|null} o.living the living
+ *   comment, or null when the PR has none (or there is no PR yet)
  * @param {string|null} o.me this session's `session_<id>`
  * @param {number} o.now ms
  * @param {boolean} [o.override] a person typed "take over <branch>" in this session
@@ -132,28 +146,32 @@ function batonVerdict({ head, living, me, now, override = false, leaseMs = LEASE
   if (!Number.isFinite(now)) throw new TypeError('batonVerdict needs now (ms)');
   const holder = head ? head.session : null;
   const actor = head ? head.actor : null;
-  const last = Math.max(head ? head.time : -Infinity, living ? living.updatedAt : -Infinity);
+  // An unknown push time is the safe reading: the push just happened, so the lease is fresh.
+  const pushed = head ? (Number.isFinite(head.pushedAt) ? head.pushedAt : now) : -Infinity;
+  const last = Math.max(pushed, living ? living.updatedAt : -Infinity);
   const leaseLeftMs = Number.isFinite(last) ? Math.max(0, leaseMs - (now - last)) : 0;
   const v = (state, reason) => ({ state, reason, holder, actor, leaseLeftMs });
 
   if (!head) return v('free', 'no commits beyond main: a new line of work');
-  // A release counts only if nothing was pushed after it: a later push re-took the baton.
-  const released = Boolean(living?.released && living.updatedAt >= head.time);
-  if (me && holder === me && !released) return v('yours', 'your session pushed the newest commit');
-  if (released) return v('free', 'the living comment says baton: released');
+  // A release holds only while the tip is still the commit it was written at.
+  const released = Boolean(living?.released && living.head && head.sha.startsWith(living.head));
+  if (me && holder === me && !released) return v('yours', 'your session holds it (the newest commit with a session trailer)');
+  if (released) return v('free', `the living comment says baton: released at ${living.head}, still the tip`);
   if (override) return v('free', 'a person typed "take over" in this session (the override)');
   if (leaseLeftMs === 0) {
     return v('free', `the lease expired: no push and no living-comment edit for ${Math.round(leaseMs / 60000)} minutes`);
   }
-  if (!holder) return v('held', 'the newest commit has no Claude-Session trailer (a person, or GitHub): wait out the lease or ask');
+  if (!holder) return v('held', 'no commit on the branch carries a Claude-Session trailer (a person\'s work): wait out the lease or ask');
   return v('held', `held by ${actor ? `${actor} · ` : ''}${holder}`);
 }
 
-/** Replace (or add) one `key: value` line inside the living comment's BATON block. */
+/** Replace one `key: value` line inside the living comment's BATON block. */
 function setLivingLine(body, key, value) {
-  const re = new RegExp(`^${key}:.*$`, 'mi');
-  if (re.test(body)) return body.replace(re, `${key}: ${value}`);
-  return body.replace(MARKER, `${MARKER}\n${key}: ${value}`);
+  const block = /```\n([\s\S]*?)\n```/.exec(body);
+  if (!block) throw new RelayError('the living comment has no BATON block to edit');
+  const re = new RegExp(`^${key}: .*$`, 'm');
+  const inner = re.test(block[1]) ? block[1].replace(re, `${key}: ${value}`) : `${block[1]}\n${key}: ${value}`;
+  return body.slice(0, block.index) + '```\n' + inner + '\n```' + body.slice(block.index + block[0].length);
 }
 
 /** The BATON block that heads the living comment. Plain `key: value` lines so parseLiving reads it. */
@@ -211,6 +229,13 @@ function ghApi(method, apiPath, { body, paginate = false } = {}) {
   return paginate ? data.flat() : data;
 }
 
+/** The login GitHub authenticates these calls as: the only author whose living comment counts. */
+function authLogin(api) {
+  const me = api('GET', 'user');
+  if (!me?.login) throw new RelayError('could not read the authenticated GitHub login');
+  return me.login;
+}
+
 /** The open PR whose head is `branch`, or null. */
 function prForBranch(api, branch) {
   const owner = REPO.split('/')[0];
@@ -218,17 +243,39 @@ function prForBranch(api, branch) {
   return Array.isArray(list) && list.length ? list[0] : null;
 }
 
-/** The PR's living comment `{id, body, updatedAt(ms), url}`, or null. The oldest marked one wins. */
-function livingComment(api, pr) {
+/**
+ * The PR's living comment `{id, body, updatedAt(ms), url}`, or null: the OLDEST comment that starts
+ * with the marker and was written by `login`. A stranger's comment, or a card that quotes the marker,
+ * never counts (the repository is public).
+ */
+function livingComment(api, pr, login) {
   const comments = api('GET', `repos/${REPO}/issues/${pr}/comments?per_page=100`, { paginate: true });
-  const c = comments.find((x) => typeof x.body === 'string' && x.body.includes(MARKER));
+  const c = comments.find((x) => typeof x.body === 'string' && x.body.startsWith(MARKER) && x.user?.login === login);
   return c ? { id: c.id, body: c.body, updatedAt: Date.parse(c.updated_at), url: c.html_url } : null;
 }
 
-/** The real git: fetch the branch and main, then read the newest non-merge commit beyond main. */
+/** GitHub's timestamp (ms) for the push that made `sha` the tip of `branch`, or null if not shown. */
+function pushTime(api, branch, sha) {
+  const ref = encodeURIComponent(`refs/heads/${branch}`);
+  const list = api('GET', `repos/${REPO}/activity?ref=${ref}&activity_type=push&per_page=30`);
+  const hit = Array.isArray(list) ? list.find((a) => a.after === sha) : null;
+  const t = hit ? Date.parse(hit.timestamp) : Number.NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
+/** The holder: the newest of `commits` (newest first, `{message}`) whose trailers name a session. */
+function holderOf(commits) {
+  for (const c of commits) {
+    const t = parseTrailers(c.message);
+    if (t.session) return t;
+  }
+  return { actor: null, session: null };
+}
+
+/** The real git: fetch the branch and main, then read the tip and the holder beyond main. */
 function readHead(branch, { fetch }) {
   const { spawnSync } = require('node:child_process');
-  const git = (...args) => spawnSync('git', args, { encoding: 'utf8', timeout: 60000 });
+  const git = (...args) => spawnSync('git', args, { encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024 });
   if (git('check-ref-format', '--branch', branch).status !== 0) throw new RelayError(`'${branch}' is not a valid branch name`, 64);
   if (fetch) {
     const ls = git('ls-remote', '--exit-code', '--heads', 'origin', branch);
@@ -240,13 +287,34 @@ function readHead(branch, { fetch }) {
   for (const ref of [`origin/${branch}`, 'origin/main']) {
     if (git('rev-parse', '--verify', '--quiet', ref).status !== 0) throw new RelayError(`no local ref ${ref}: cannot tell; run without --no-fetch`);
   }
-  const log = git('log', '--no-merges', '-1', '--format=%H%x1f%ct%x1f%B', `origin/main..origin/${branch}`);
+  const log = git('log', '-200', '--format=%H%x1f%B%x1e', `origin/main..origin/${branch}`);
   if (log.status !== 0) throw new RelayError(`git log origin/main..origin/${branch} failed (shallow clone?)`);
-  if (!log.stdout.trim()) return { exists: true, head: null };
-  const [sha, ct, body] = log.stdout.split('\x1f');
-  return { exists: true, head: { sha, time: Number(ct) * 1000, ...parseTrailers(body) } };
+  const commits = log.stdout
+    .split('\x1e')
+    .map((r) => r.replace(/^\n/, ''))
+    .filter((r) => r.includes('\x1f'))
+    .map((r) => {
+      const [sha, message] = r.split('\x1f');
+      return { sha, message };
+    });
+  if (!commits.length) return { exists: true, head: null };
+  return { exists: true, head: { sha: commits[0].sha, ...holderOf(commits) } };
 }
 
+/**
+ * Everything the baton commands need, read once: the tip and holder (git), GitHub's push time for
+ * the tip, the PR and its living comment, and the verdict. Shared by `npm run baton` and
+ * `npm run card -- --living` so they can never disagree.
+ */
+function readBaton({ branch, pr = null, me, now, override = false, fetch = true, api = ghApi, git = readHead }) {
+  const { exists, head: tip } = git(branch, { fetch });
+  const head = tip ? { ...tip, pushedAt: pushTime(api, branch, tip.sha) } : null;
+  const number = pr || (exists ? (prForBranch(api, branch)?.number ?? null) : null);
+  const comment = number ? livingComment(api, number, authLogin(api)) : null;
+  const parsed = comment ? parseLiving(comment.body) : null;
+  const living = comment ? { released: parsed.released, head: parsed.head, updatedAt: comment.updatedAt } : null;
+  return { exists, head, pr: number, comment, parsed, verdict: batonVerdict({ head, living, me, now, override }) };
+}
 
 // ── The living handoff comment (Tension 3) ──────────────────────────────────────────────────────
 
@@ -277,8 +345,8 @@ function buildLivingBody({ cardText, card, extra = {}, holder, since, checkpoint
 
 /**
  * Create or edit the PR's living comment for `npm run card -- --living <PR>`. Only the baton holder
- * writes it: the session that pushed the newest commit (so push first; the push takes the baton).
- * Every outside dependency is injected (HARD RULE #32).
+ * writes it: the session in the newest trailer-carrying commit (so push first; the push takes the
+ * baton). Every outside dependency is injected (HARD RULE #32).
  * @returns {{url: string, created: boolean}}
  */
 function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env, api = ghApi, git = readHead, now = Date.now() }) {
@@ -286,13 +354,11 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
   if (!session) throw new RelayError('--living needs your session id: set LATTICE_SESSION=session_<id>', 64);
   const pull = api('GET', `repos/${REPO}/pulls/${pr}`);
   if (pull.state !== 'open') throw new RelayError(`PR #${pr} is ${pull.state}; a living comment belongs on an open PR`, 1);
-  const { head } = git(pull.head.ref, { fetch: true });
-  const comment = livingComment(api, pr);
-  const prior = comment ? parseLiving(comment.body) : null;
-  const v = batonVerdict({ head, living: comment ? { released: prior.released, updatedAt: comment.updatedAt } : null, me: session, now });
-  if (v.state === 'held') throw new RelayError(`the baton on ${pull.head.ref} is ${v.reason}; only the holder writes its handoff`, 1);
+  const branch = pull.head.ref;
+  const { head, comment, parsed, verdict: v } = readBaton({ branch, pr, me: session, now, api, git });
+  if (v.state === 'held') throw new RelayError(`the baton on ${branch} is ${v.reason}; only the holder writes its handoff`, 1);
   if (head && head.session !== session) {
-    throw new RelayError(`the baton on ${pull.head.ref} is free (${v.reason}) but not yours yet: push a commit first, the push takes it`, 1);
+    throw new RelayError(`the baton on ${branch} is free (${v.reason}) but not yours yet: push a commit first, the push takes it`, 1);
   }
   const at = new Date(now).toISOString();
   const body = buildLivingBody({
@@ -300,9 +366,9 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
     card,
     extra,
     holder: `${holderName || 'unsigned (LATTICE_ACTOR not set)'} · ${session}`,
-    since: prior && prior.session === session && prior.since ? prior.since : at,
+    since: parsed && parsed.session === session && parsed.since ? parsed.since : at,
     checkpoint: at,
-    head: head ? head.sha.slice(0, 7) : pull.head.sha.slice(0, 7),
+    head: (head ? head.sha : pull.head.sha).slice(0, 7),
     signatureLine,
   });
   if (comment) {
@@ -316,6 +382,7 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
 module.exports = {
   ROSTER_PATH, loadRoster, resolveActor, sessionId, signature, HOW_TO_SET,
   LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes,
-  ghApi, prForBranch, livingComment, readHead, FOOTER, nextStep, buildLivingBody, postLiving,
+  ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton,
+  FOOTER, nextStep, buildLivingBody, postLiving,
 };
 

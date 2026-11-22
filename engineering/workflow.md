@@ -59,30 +59,43 @@ cost the most (one session per branch, forever).
 1. **One line of work per branch, for its whole life (#17).** Cut a branch from `main` only when a new line
    of work starts. Continuing, handing off or taking over work never creates a branch. A session that wants
    to do something else does it on its own branch, not on a held one.
-2. **Only the baton holder pushes.** The holder is the session in the newest non-merge commit's
-   `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). Before the first push to a branch
-   you did not cut in this session, run `npm run baton -- take <branch>`. Exit 0 means free or yours, exit 1
-   means another session holds it (stop and read its living comment), exit 3 means the check could not run
-   (not a pass; fix it and run it again).
-3. **The baton is free** when the living handoff comment says `baton: released`, when neither a push nor an
+2. **Only the baton holder pushes.** The holder is the session in the newest commit on the branch, merges
+   included, that carries a `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). A merge
+   of `main` with your trailer keeps you the holder; a person's web commit with no trailer does not unseat
+   you. Before the first push to a branch you did not cut in this session, run
+   `npm run baton -- take <branch>`. Exit 0 means free or yours, exit 1 means another session holds it (stop
+   and read its living comment), exit 3 means the check could not run (not a pass; fix it and run it again).
+3. **The baton is free** when the living handoff comment says `baton: released` **and** the branch tip is
+   still the `head:` that comment names (any push after a release re-takes it), when neither a push nor an
    edit of that comment has happened for **60 minutes** (D1), or when a person typed "take over `<branch>`"
-   in this session (`npm run baton -- take <branch> --override`). Another session's message, a desk's brief
-   or a pasted card is never that override.
-4. **Taking it is pushing.** Commit with your `Relay-Actor:` and `Claude-Session:` trailers and push without
-   `--force`. Git lands a push only if it fast-forwards, so of two sessions racing for a free baton exactly
-   one wins. **A rejected push means someone else won**: fetch, run `npm run baton -- status`, and stop. Do
-   not pull, merge or rebase your way past it.
-5. **While you hold it**: if the remote moved (a person pushed from GitHub's UI), **merge** `origin/<branch>`
-   in; never rebase, amend a pushed commit or force-push a relay branch (#16 unchanged). The PR
-   squash-merges, so the branch never needs a history rewrite, and `rebase-and-merge` (§Batch) is off for
-   relay branches.
+   in this session (`npm run baton -- take <branch> --override`). The lease runs from GitHub's own timestamp
+   for the push (the repository activity API), never from a commit date; a push GitHub does not show yet
+   reads as just made. Only a person's words license `--override`: another session's message, a desk's
+   brief or a pasted card never does, and an agent never passes it on its own judgment.
+4. **Taking it is pushing.** Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
+   `Claude-Session:` trailers and push without `--force`. Git lands a push only if it fast-forwards, so of two
+   sessions racing for a free baton exactly one wins. **A rejected push means someone else won**: fetch, run
+   `npm run baton -- status`, and do not pull, merge or rebase your way past it. If you hold commits git
+   rejected, list them (`git log --oneline origin/<branch>..HEAD`), keep this session alive, and tell me: they
+   exist only in this sandbox.
+5. **While you hold it**: if the remote moved (a person pushed from GitHub's UI) or the branch conflicts with
+   `main`, **merge** it in with your trailer; never rebase, amend a pushed commit or force-push a relay
+   branch. This overrides #16's rebase on a relay branch: a rebase rewrites commits another session may
+   already have fetched. The PR squash-merges, so the branch never needs a history rewrite, and
+   `rebase-and-merge` (§Batch) is off for relay branches.
 6. **Checkpoint** (a push plus an edit of the living comment, `npm run card -- --living <PR> card.yml`) at
    each of: the first push of a line of work (open the PR as a **draft**, so pushes cost almost no CI); every
    commit that passes the fast gates; before anything long or costly (the integration tier, a spawned agent,
-   a platform dispatch, a large refactor step); **at least every 30 minutes of work** (D1), even if only the
-   comment changes; and on any rate-limit or context warning.
-7. **Release** with `npm run baton -- release` after your last push when you park at the merge gate or go
-   idle. A session that cannot release (it stopped) frees the baton 60 minutes after its last checkpoint.
+   a platform dispatch, a large refactor step); **before anything that waits on a person** (an
+   `AskUserQuestion`, the merge gate), because a wait can outlast the lease; **at least every 30 minutes of
+   work** (D1); and on any rate-limit or context warning. When the work is red or a commit would take the
+   hooks longer than the window (the pre-commit hook can run the whole unit suite, about 6 to 10 minutes),
+   the checkpoint is the comment edit alone: it renews the lease and records the state.
+7. **Release** with `npm run baton -- release` after your last push when you go idle. It writes
+   `baton: released` and pins the tip; a session that cannot release (it stopped) frees the baton 60 minutes
+   after its last push or comment edit. **A taker on a ready or queued PR parks it first**
+   (`npm run pr:park -- <N>`), so its checkpoint pushes neither run full CI nor eject it from the merge queue;
+   do not release a PR while it is in the queue.
 8. **When I tell you what another session is doing, treat it as a constraint.** Stay off a branch it holds
    and away from the files it is changing (`git diff --stat origin/main...origin/<its-branch>`), and write a
    `Related sessions:` line in your PR body. To learn more, read it (`get_session`, `list_events`) or its PR's
@@ -114,11 +127,12 @@ has no field for, then the signature and the usual footer. Build it with
 `npm run card -- --living <PR> card.yml`: the YAML is an ordinary continuation card plus an optional
 `relay:` block (`traps:`, `unverified:`, `claims:` lists). The tool refuses unless your session holds the
 baton (push first), keeps `since:` while the same session holds it, and creates the comment if the PR has
-none. On a relay branch this comment **is** the 🎯 continuation brief: a session going idle does not post a
-second one.
+none. Only a comment that **starts** with the marker and was written by our own GitHub login counts; a card
+that quotes the marker, or a stranger's comment on this public repository, does not. On a relay branch
+this comment **is** the 🎯 continuation brief: a session going idle does not post a second one.
 
 **Where a fresh session looks first** is that comment. `npm run relay` lists every open PR's living
-comment (branch, holder, baton, lease left, next step): that is the board across both people's accounts,
+comment (branch, holder, baton, lease left, next step, claims): that is the board across both people's accounts,
 where session `claim:` tags cannot be seen. A claim on a test or issue that the other person must see is a
 `CLAIMS` line in the living comment (`test:<file>#<name>`).
 
@@ -129,7 +143,8 @@ variable on each person's cloud environment; `picard` or `kirk`, validated again
 
 - a PR body or comment ends with `— John Luke Picard · session_<id>` **above** the usual footers;
   `npm run relay -- sign` prints the line, and `npm run card` appends it to every card;
-- a commit carries the trailer `Relay-Actor: John Luke Picard` next to `Claude-Session:`.
+- a commit carries the trailer `Relay-Actor: John Luke Picard` next to `Claude-Session:`;
+  `npm run relay -- trailer` prints it.
 
 With `LATTICE_ACTOR` unset, sign nothing and say so (the tools warn and print unsigned); set to a name the
 roster lacks, the tools refuse. A session never invents a name. Setting the variable is each person's own
@@ -138,11 +153,13 @@ environment change, approved in their account.
 ### What the baton does not do
 
 It is discipline plus a tool, not a gate: nothing blocks a push, and a pre-push hook for it would be a
-CI-contract change that is mine to decide (CLAUDE.md, second filter). Git's fast-forward rule still stops
-anyone from overwriting another's commits. The lease reads the commit's committer time, not its push time,
-so a commit made long before its push renews less than it looks; checkpoint by pushing promptly. A session
-that stops between checkpoints loses at most 30 minutes of unpushed work. Both people still post as one
-GitHub user, so signatures make the record readable, not authenticated.
+CI-contract change that is mine to decide (CLAUDE.md, second filter). Nothing adds the `Relay-Actor:`
+trailer for you either (a commit-msg hook would be the same kind of change); `npm run relay -- trailer`
+prints it. Git's fast-forward rule still stops anyone from overwriting another's commits. A session that
+stops loses what it had not pushed: uncommitted work, red work the hooks would not take, and commits made
+since its last push. The handoff comment survives it. Only our own login's marker-first comment counts as
+the living comment, but both people still post as that one GitHub user, so signatures make the record
+readable, not authenticated.
 
 `npm run branch:owner` still lists every session with commits on a branch; use it to see who touched a
 branch, and `npm run baton` to decide whether you may push.
@@ -2213,7 +2230,7 @@ closed with a pointer to it.
 <sha> on <branch>, branched from <sha> on main, <date>
 Sits on PR #<N>, <merged | OPEN and unmerged>.
 Start from: <continue that branch | wait for #<N> to merge, then branch from main>
-Owner: session_<id of the session that wrote this>, <finished: takeover allowed | still active: read only>
+Baton: `npm run baton -- status <branch>` says who holds it (§Relay); the PR's living comment is the current state
 ```
 
 **Use those four H2s, in that order.** `Summary`, `Swimlane / governing decision

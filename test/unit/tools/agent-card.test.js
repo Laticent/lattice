@@ -10,6 +10,10 @@ const renderFleet = renderCard;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
+// npm run card signs from LATTICE_ACTOR (two-person relay, D3) and refuses an unknown one; pin it
+// unset so a value in the caller's environment cannot change what these tests see (HARD RULE #32).
+delete process.env.LATTICE_ACTOR;
+delete process.env.LATTICE_SESSION;
 const load = (name) => YAML.parse(fs.readFileSync(path.join(EXAMPLES, `${name}.yml`), 'utf8'));
 
 test('every shipped example renders, and no line is wider than the phone', () => {

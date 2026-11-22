@@ -9,12 +9,13 @@
  *                            PR, branch, holder, baton, lease left, next step
  *   npm run relay -- sign    print this session's signature line (`— <name> · session_<id>`) for
  *                            a PR body or comment; exit 1 with how to set LATTICE_ACTOR if it cannot
+ *   npm run relay -- trailer print the `Relay-Actor: <name>` commit trailer, or exit 1 the same way
  *
  * Exit codes: 0 printed · 1 sign could not sign · 3 GitHub could not be read · 64 bad arguments.
  */
 const relay = require('./relay-core');
 
-const cell = (text) => String(text ?? '').replace(/[\\|]/g, '\\$&').replace(/\r?\n/g, ' ');
+const cell = (text) => String(text ?? '').replace(/[\\|`]/g, '\\$&').replace(/\r?\n/g, ' ');
 
 /**
  * Build the board rows. Every outside dependency is injected (HARD RULE #32).
@@ -22,43 +23,49 @@ const cell = (text) => String(text ?? '').replace(/[\\|]/g, '\\$&').replace(/\r?
  */
 function board({ api = relay.ghApi, now = Date.now() } = {}) {
   const pulls = api('GET', `repos/${relay.REPO}/pulls?state=open&per_page=100`, { paginate: true });
+  const login = relay.authLogin(api);
   const rows = [];
   for (const pr of pulls) {
     if (pr.user && /\[bot\]$/.test(pr.user.login)) continue;
-    const comment = relay.livingComment(api, pr.number);
+    const comment = relay.livingComment(api, pr.number, login);
     if (!comment) continue;
     const living = relay.parseLiving(comment.body);
-    const commit = api('GET', `repos/${relay.REPO}/commits/${pr.head.sha}`);
-    const trailers = relay.parseTrailers(commit.commit?.message || '');
-    const head = { ...trailers, time: Date.parse(commit.commit?.committer?.date) };
+    // Same reading as `npm run baton`: holder from the newest trailer-carrying commit (merges
+    // included), lease from GitHub's push time for the tip.
+    const commits = api('GET', `repos/${relay.REPO}/pulls/${pr.number}/commits?per_page=100`, { paginate: true });
+    const trailers = relay.holderOf(commits.map((c) => ({ message: c.commit?.message || '' })).reverse());
+    const head = { sha: pr.head.sha, ...trailers, pushedAt: relay.pushTime(api, pr.head.ref, pr.head.sha) };
     const v = relay.batonVerdict({
       head,
-      living: { released: living.released, updatedAt: comment.updatedAt },
+      living: { released: living.released, head: living.head, updatedAt: comment.updatedAt },
       me: null,
       now,
     });
-    const next = (/^next:[ \t]*(.*)$/m.exec(comment.body) || [])[1] || '';
+    const next = (/^next: (.*)$/m.exec(comment.body) || [])[1] || '';
+    const claims = (/\*\*CLAIMS\*\*\n((?:- .*\n?)+)/.exec(comment.body) || [])[1] || '';
     const holder = [trailers.actor, trailers.session].filter(Boolean).join(' · ') || 'unattributed';
     const state = v.state === 'free' ? `free (${v.reason.startsWith('the living') ? 'released' : 'lease expired'})` : 'held';
-    rows.push(`| [#${pr.number}](${comment.url}) | \`${cell(pr.head.ref)}\` | ${cell(holder)} | ${state} | ${v.state === 'free' ? '—' : relay.minutes(v.leaseLeftMs)} | ${cell(next)} |`);
+    const lease = v.state === 'free' ? '—' : relay.minutes(v.leaseLeftMs);
+    const claimText = claims.trim().split('\n').filter(Boolean).map((l) => l.slice(2)).join('; ');
+    rows.push(`| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${lease} | ${cell(next)} | ${cell(claimText)} |`);
   }
   if (!rows.length) return ['No open PR has a living handoff comment (`<!-- relay-handoff -->`).'];
-  return ['| PR | branch | holder | baton | lease left | next |', '|---|---|---|---|---|---|', ...rows];
+  return ['| PR | branch | holder | baton | lease left | next | claims |', '|---|---|---|---|---|---|---|', ...rows];
 }
 
 function run(argv, { env = process.env, api = relay.ghApi, now = Date.now(), out = console.log, err = console.error } = {}) {
   try {
-    if (argv.length === 1 && argv[0] === 'sign') {
+    if (argv.length === 1 && (argv[0] === 'sign' || argv[0] === 'trailer')) {
       const actor = relay.resolveActor(env, relay.loadRoster());
       if (actor.status !== 'ok') {
         err(`relay: ${actor.message}`);
         return 1;
       }
-      out(relay.signature(actor.name, relay.sessionId(env)));
+      out(argv[0] === 'sign' ? relay.signature(actor.name, relay.sessionId(env)) : `Relay-Actor: ${actor.name}`);
       return 0;
     }
     if (argv.length) {
-      err('usage: npm run relay [-- sign]');
+      err('usage: npm run relay [-- sign | trailer]');
       return 64;
     }
     for (const line of board({ api, now })) out(line);

@@ -3,10 +3,11 @@
  * The relay baton: may this session push to a relay branch now? (HARD RULE #31, decision D1.)
  *
  * A relay branch belongs to its line of work, not to a session. Whoever holds the baton pushes:
- * the holder is the session in the newest non-merge commit's `Claude-Session:` trailer. The baton
- * is free when the PR's living handoff comment says `baton: released`, when neither a push nor an
- * edit of that comment has happened for 60 minutes, or when a person typed "take over <branch>" in
- * this session (`--override`). Taking it is pushing: a push without --force lands only if it
+ * the holder is the session in the newest commit (merges included) that carries a `Claude-Session:`
+ * trailer. The baton is free when the PR's living handoff comment says `baton: released` and the
+ * branch tip is still the `head:` it names, when neither a push (timed by GitHub, not the commit
+ * date) nor an edit of that comment has happened for 60 minutes, or when a person typed "take over
+ * <branch>" in this session (`--override`, which only a person's words license). Taking it is pushing: a push without --force lands only if it
  * fast-forwards, so of two sessions racing for a free baton exactly one wins, and the loser's push
  * is rejected. Design: engineering/decisions/2026-11-22-two-person-relay.md.
  *
@@ -20,7 +21,8 @@
  *
  * Exit codes (the dangerous direction is a false "free", so anything unclear is not 0):
  *   0  free, or yours (release: released)
- *   1  held by another session (release: you do not hold it)
+ *   1  held by another session (release: not released, because you do not hold it or the PR has
+ *      no living comment to write it in)
  *   3  could not check (remote, fetch, git log or GitHub failed)
  *  64  bad arguments, or no session id for take/release
  */
@@ -37,8 +39,10 @@ function parseArgs(argv) {
       o.pr = Number(argv[++i]);
       if (!Number.isInteger(o.pr) || o.pr <= 0) throw new relay.RelayError('--pr needs a pull request number', 64);
     } else if (a === '--now') {
-      o.now = Date.parse(argv[++i]);
-      if (!Number.isFinite(o.now)) throw new relay.RelayError('--now needs an ISO time, e.g. 2026-11-22T18:00:00Z', 64);
+      const raw = argv[++i] || '';
+      // An ISO time without a zone parses as local time; demand one so a dry run means the same everywhere.
+      o.now = /(?:Z|[+-]\d\d:?\d\d)$/.test(raw) ? Date.parse(raw) : Number.NaN;
+      if (!Number.isFinite(o.now)) throw new relay.RelayError('--now needs an ISO time with a zone, e.g. 2026-11-22T18:00:00Z', 64);
     } else if (a === '--no-fetch') o.fetch = false;
     else if (a === '--override') o.override = true;
     else if (a.startsWith('-')) throw new relay.RelayError(`unknown option ${a}`, 64);
@@ -69,14 +73,7 @@ function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi,
     if (!me && o.verb !== 'status') throw new relay.RelayError(`${o.verb} needs your session id: set LATTICE_SESSION=session_<id>`, 64);
     const at = o.now ?? now;
 
-    const { exists, head } = git(branch, { fetch: o.fetch });
-    let pr = o.pr;
-    if (!pr && exists) pr = relay.prForBranch(api, branch)?.number ?? null;
-    const comment = pr ? relay.livingComment(api, pr) : null;
-    const parsed = comment ? relay.parseLiving(comment.body) : null;
-    const living = comment ? { released: parsed.released, updatedAt: comment.updatedAt } : null;
-    const v = relay.batonVerdict({ head, living, me, now: at, override: o.override });
-
+    const { head, pr, comment, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, now: at, override: o.override, fetch: o.fetch, api, git });
     const where = `${branch}${pr ? ` (PR #${pr})` : ''}`;
     if (o.verb === 'status' || o.verb === 'take') {
       out(`baton for ${where}: ${v.state.toUpperCase()} — ${v.reason}`);
@@ -88,7 +85,9 @@ function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi,
           return 1;
         }
         out(
-          v.state === 'yours'
+          o.override && v.state !== 'yours'
+            ? '  Override used: only valid because a person typed "take over" in this session. Your next push takes it; say so in the living comment.'
+            : v.state === 'yours'
             ? '  You already hold it. Keep checkpointing.'
             : '  Free. Your next push takes it: commit with your Relay-Actor and Claude-Session trailers and push (fast-forward only).\n  If git rejects the push, someone else won the race: fetch, run status, do not force.',
         );
@@ -97,8 +96,8 @@ function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi,
     }
 
     // release
-    if (v.holder === me && living && living.released && living.updatedAt >= head.time) {
-      out(`baton for ${where}: already released.`);
+    if (comment && v.state === 'free' && v.holder === me && v.reason.startsWith('the living comment says baton: released')) {
+      out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}.`);
       return 0;
     }
     if (v.state !== 'yours') {
@@ -106,12 +105,15 @@ function run(argv, { env = process.env, git = relay.readHead, api = relay.ghApi,
       return 1;
     }
     if (!comment) {
-      out(`baton for ${where}: no living handoff comment to write the release in${pr ? '' : ' (no open PR)'}. The baton frees on its own ${relay.minutes(v.leaseLeftMs)} after your last push.`);
+      out(`baton for ${where}: not released: there is no living handoff comment to write it in${pr ? '' : ' (no open PR)'}. The baton frees on its own ${relay.minutes(v.leaseLeftMs)} after your last push or checkpoint.`);
       return 1;
     }
-    const body = relay.setLivingLine(relay.setLivingLine(comment.body, 'baton', 'released'), 'checkpoint', new Date(at).toISOString());
+    // The release names the tip it was written at: any later push re-takes the baton.
+    let body = relay.setLivingLine(comment.body, 'baton', 'released');
+    body = relay.setLivingLine(body, 'head', head.sha.slice(0, 7));
+    body = relay.setLivingLine(body, 'checkpoint', new Date(at).toISOString());
     api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
-    out(`baton for ${where}: RELEASED in ${comment.url}`);
+    out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)} in ${comment.url}`);
     return 0;
   } catch (e) {
     err(`baton: ${e.message}`);

@@ -27,6 +27,8 @@ function fakeGitHub({ comments = [], headRef = 'claude/x', state = 'open' } = {}
   const calls = [];
   const api = (method, p, opts = {}) => {
     calls.push({ method, p, body: opts.body });
+    if (p === 'user') return { login: 'saden1' };
+    if (p.includes('/activity?')) return [{ after: 'abc1234def', timestamp: new Date(T0 - 5 * MIN).toISOString() }];
     if (method === 'GET' && /pulls\/\d+$/.test(p)) return { state, head: { ref: headRef, sha: 'f00dfeed00' } };
     if (method === 'GET' && p.includes('/comments?')) return comments;
     if (method === 'PATCH') return {};
@@ -35,7 +37,7 @@ function fakeGitHub({ comments = [], headRef = 'claude/x', state = 'open' } = {}
   };
   return { api, calls };
 }
-const gitHead = (session, at = T0 - 5 * MIN) => () => ({ exists: true, head: { sha: 'abc1234def', session, actor: null, time: at } });
+const gitHead = (session) => () => ({ exists: true, head: { sha: 'abc1234def', session, actor: null } });
 const post = (o) =>
   relay.postLiving({ pr: 3427, card: CARD, extra: {}, cardText: '```\ncard\n```', signatureLine: '— John Luke Picard · session_ME01', holderName: 'John Luke Picard', env: { LATTICE_SESSION: ME }, now: T0, ...o });
 
@@ -52,7 +54,7 @@ describe('buildLivingBody', () => {
   });
   test('opens with the marker and a BATON block that parseLiving reads back', () => {
     assert.ok(body.startsWith(relay.MARKER));
-    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'S' });
+    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'S', head: 'abc1234' });
     assert.match(body, /^next: P1: wire the board$/m);
   });
   test('lists only non-empty extras, then the signature above the footer', () => {
@@ -75,7 +77,7 @@ describe('postLiving', () => {
 
   test('a living comment exists: PATCH it in place, keep since while I hold it', () => {
     const existing = relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 'EARLIER', checkpoint: 'c', head: 'h', next: 'n' });
-    const gh = fakeGitHub({ comments: [{ id: 7, body: existing, updated_at: new Date(T0 - 3 * MIN).toISOString(), html_url: 'u7' }] });
+    const gh = fakeGitHub({ comments: [{ id: 7, user: { login: 'saden1' }, body: existing, updated_at: new Date(T0 - 3 * MIN).toISOString(), html_url: 'u7' }] });
     const r = post({ api: gh.api, git: gitHead(ME) });
     assert.equal(r.created, false);
     const writes = gh.calls.filter((c) => c.method !== 'GET');
@@ -90,10 +92,20 @@ describe('postLiving', () => {
     assert.equal(gh.calls.filter((c) => c.method !== 'GET').length, 0);
   });
 
-  test('free (lease expired) but I have not pushed: refused, push first', () => {
-    const gh = fakeGitHub();
-    assert.throws(() => post({ api: gh.api, git: gitHead(THEM, T0 - 120 * MIN) }), (e) => e.code === 1 && /push a commit first/.test(e.message));
+  test('free (released) but I have not pushed: refused, push first', () => {
+    const released = relay.livingHeader({ baton: 'released', holder: `James Tiberius Kirk · ${THEM}`, since: 'S', checkpoint: 'c', head: 'abc1234', next: 'n' });
+    const gh = fakeGitHub({ comments: [{ id: 8, user: { login: 'saden1' }, body: released, updated_at: new Date(T0 - MIN).toISOString(), html_url: 'u8' }] });
+    assert.throws(() => post({ api: gh.api, git: gitHead(THEM) }), (e) => e.code === 1 && /push a commit first/.test(e.message));
     assert.equal(gh.calls.filter((c) => c.method !== 'GET').length, 0);
+  });
+
+  test('a new holder starts a new since: the last holder\'s since does not carry over', () => {
+    const theirs = relay.livingHeader({ baton: 'released', holder: `James Tiberius Kirk · ${THEM}`, since: 'THEIRS', checkpoint: 'c', head: 'fff0000', next: 'n' });
+    const gh = fakeGitHub({ comments: [{ id: 9, user: { login: 'saden1' }, body: theirs, updated_at: new Date(T0 - 2 * MIN).toISOString(), html_url: 'u9' }] });
+    post({ api: gh.api, git: gitHead(ME) });
+    const patch = gh.calls.find((c) => c.method === 'PATCH');
+    assert.match(patch.body.body, /^since: 2026-11-22T12:00:00\.000Z$/m);
+    assert.match(patch.body.body, /^holder: John Luke Picard · session_ME01$/m);
   });
 
   test('a closed PR, or no session id: refused', () => {
@@ -105,6 +117,7 @@ describe('postLiving', () => {
 describe('npm run relay', () => {
   const living = relay.livingHeader({ baton: 'held', holder: 'x', since: 's', checkpoint: 'c', head: 'h', next: 'run the trio' });
   const api = (method, p) => {
+    if (p === 'user') return { login: 'saden1' };
     if (p.includes('/pulls?')) {
       return [
         { number: 1, user: { login: 'saden1' }, head: { ref: 'claude/a', sha: 'aaa' } },
@@ -112,18 +125,30 @@ describe('npm run relay', () => {
         { number: 3, user: { login: 'saden1' }, head: { ref: 'claude/c', sha: 'ccc' } },
       ];
     }
-    if (p.includes('issues/1/comments')) return [{ id: 1, body: living, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
-    if (p.includes('issues/3/comments')) return [{ id: 3, body: 'no marker', updated_at: new Date(T0).toISOString() }];
-    if (p.endsWith('commits/aaa')) {
-      return { commit: { message: `x\n\nRelay-Actor: James Tiberius Kirk\nClaude-Session: https://claude.ai/code/${THEM}`, committer: { date: new Date(T0 - 20 * MIN).toISOString() } } };
+    if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body: `${living}\n\n**CLAIMS**\n- test:a.test.js#b\n`, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
+    if (p.includes('issues/3/comments')) return [{ id: 3, user: { login: 'saden1' }, body: 'no marker', updated_at: new Date(T0).toISOString() }];
+    if (p.includes('pulls/1/commits')) {
+      // oldest first, as GitHub lists them; the tip is a merge of main with no trailer
+      return [
+        { commit: { message: `feat: a\n\nRelay-Actor: James Tiberius Kirk\nClaude-Session: https://claude.ai/code/${THEM}` } },
+        { commit: { message: "Merge branch 'main' into claude/a" } },
+      ];
     }
+    if (p.includes('/activity?')) return [{ after: 'aaa', timestamp: new Date(T0 - 20 * MIN).toISOString() }];
     throw new Error(`unexpected ${method} ${p}`);
   };
 
   test('one row per PR with a living comment; bots and unmarked PRs skipped', () => {
     const lines = board.board({ api, now: T0 });
     assert.equal(lines.length, 3);
-    assert.match(lines[2], /^\| \[#1\]\(u1\) \| `claude\/a` \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \|$/);
+    assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \| test:a\.test\.js#b \|$/);
+  });
+
+  test('trailer prints the Relay-Actor line from the roster', () => {
+    const out = [];
+    assert.equal(board.run(['trailer'], { env: { LATTICE_ACTOR: 'picard' }, out: (s) => out.push(s), err: () => {} }), 0);
+    assert.deepEqual(out, ['Relay-Actor: John Luke Picard']);
+    assert.equal(board.run(['trailer'], { env: {}, out: () => {}, err: () => {} }), 1);
   });
 
   test('sign prints the line, or exits 1 when it cannot', () => {

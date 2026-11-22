@@ -255,9 +255,33 @@ comment for relay branches.
 No CI job or hook is added. A pre-push hook that enforces the baton is possible later; that is a
 CI-contract change and would be its own question.
 
+## As built (2026-11-22, PR #3427)
+
+The build follows D1-D4. Review by the adversarial trio (red team, inversion, checker) changed six
+things in the design above; where this section and the text above disagree, this section wins.
+
+| Design said | Built | Why |
+|---|---|---|
+| holder = newest **non-merge** commit's trailers | holder = newest commit, **merges included**, that carries a `Claude-Session:` trailer | rule 5 tells the holder to merge the remote in; skipping merges made a holder who had just pushed read as free, and a person's web commit read as an unknown holder for 60 minutes |
+| lease from the commit time | lease from **GitHub's push timestamp** for the tip (repository activity API), or the living comment's `updated_at`; a push GitHub does not list yet reads as just made | a commit date is set by the committer's clock and can predate the push by hours, so a commit made at 09:00 and pushed at 10:05 read as expired at once |
+| `baton: released` frees it until the next push | the release **pins the tip** (`head:` line); it holds only while the tip is unchanged | a time comparison let two sessions both read free after a release |
+| the living comment is any comment with the marker | the **oldest comment that starts with the marker, written by our own login** | the repository is public; a stranger, or one of our own cards quoting the marker, could become the living comment and free every baton |
+| `take` edits the living comment to name the new holder | `take` checks and writes nothing; **the push takes the baton**, and the holder's next checkpoint updates the comment | two racing `take` edits could name the loser as holder |
+| a checkpoint every 30 minutes caps loss at 30 minutes | the cap was false: the pre-commit hook can run the whole unit suite (about 6 to 10 minutes) and refuses red work. A comment-only checkpoint renews the lease; a session that stops loses what it had not pushed | the inversion review measured the hooks |
+
+Also added: `npm run relay -- trailer` prints the `Relay-Actor:` line (nothing writes it for you; a hook
+would be a CI-contract change), checkpoint before any wait on a person, and a taker parks a ready PR with
+`npm run pr:park` before pushing. The CLAUDE.md rule text is compressed from the proposal above to fit the
+file's 16,500-token ceiling, and #31 gained one clause: on a relay branch, merging a conflicting `main` in
+overrides #16's rebase.
+
+Open for the owner (the PR's ❓ card): what a session does with commits git rejected after a lost race
+(today: keep them in the sandbox and tell the owner), and whether a commit-msg hook should add
+`Relay-Actor:` and a SessionStart line should warn when `LATTICE_ACTOR` is unset.
+
 ## What this does not fix
 
-- A session that stops **between** checkpoints loses at most 30 minutes of unpushed work.
+- A session that stops loses what it had not pushed (see §As built).
 - The baton is discipline plus a tool, not a gate; a session that ignores it can still push. Git's
   fast-forward rule still stops it from overwriting another's commits.
 - The two people still share one GitHub login; signatures make the record readable, not authenticated.

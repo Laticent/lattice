@@ -3,10 +3,20 @@
  *
  * The dangerous direction is a false "free" while another session holds the branch, so most cases
  * are ways the verdict could wrongly free it. Every input is injected, "now" included (HARD RULE
- * #32): no clock, no network, no git.
+ * #32); the readHead cases run git against a throwaway bare "origin" in a temp directory, never this
+ * repo or the network.
  */
-const { describe, test } = require('node:test');
+const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// A git hook exports GIT_DIR and friends; strip them so the scratch repos below never touch the real
+// one (the leak #2404 found). `node --test` runs each file in its own process.
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
+
 const relay = require('../../../tools/relay-core');
 const { run } = require('../../../tools/baton');
 
@@ -14,24 +24,52 @@ const MIN = 60 * 1000;
 const T0 = Date.parse('2026-11-22T12:00:00Z');
 const ME = 'session_ME01';
 const THEM = 'session_TH02';
-const head = (session, at = T0, actor = 'James Tiberius Kirk') => ({ sha: 'abc1234', session, actor, time: at });
+const TIP = 'abc1234def567890';
+const head = (session, pushedAt = T0, actor = 'James Tiberius Kirk', sha = TIP) => ({ sha, session, actor, pushedAt });
+const trailer = (id, actor) => `${actor ? `Relay-Actor: ${actor}\n` : ''}Claude-Session: https://claude.ai/code/${id}`;
 
 describe('parseTrailers', () => {
-  test('reads the LAST Relay-Actor and Claude-Session trailer lines', () => {
-    const msg = 'feat(x): y\n\nmentions session_QUOTED in the body\n\nRelay-Actor: John Luke Picard\nClaude-Session: https://claude.ai/code/session_01AB\n';
+  test('reads the trailer block (the last paragraph) only', () => {
+    const msg = `feat(x): y\n\nmentions session_QUOTED in the body\n\n${trailer('session_01AB', 'John Luke Picard')}\n`;
     assert.deepEqual(relay.parseTrailers(msg), { actor: 'John Luke Picard', session: 'session_01AB' });
     assert.deepEqual(relay.parseTrailers('fix: no trailers'), { actor: null, session: null });
+  });
+
+  test("a cherry-pick's copied trailers above the real block do not name the author", () => {
+    const msg = `fix: z\n\n(cherry picked)\n${trailer('session_ORIG')}\n\nCo-Authored-By: someone\n`;
+    assert.equal(relay.parseTrailers(msg).session, null);
+  });
+});
+
+describe('holderOf', () => {
+  test('a merge commit with a trailer at the tip names the holder (merging main renews it)', () => {
+    const commits = [{ message: `Merge origin/main\n\n${trailer(ME)}` }, { message: `feat: a\n\n${trailer(THEM)}` }];
+    assert.equal(relay.holderOf(commits).session, ME);
+  });
+
+  test("a person's web commit at the tip does not unseat the holder below it", () => {
+    const commits = [{ message: 'Apply suggestion from review' }, { message: `feat: a\n\n${trailer(ME)}` }];
+    assert.equal(relay.holderOf(commits).session, ME);
   });
 });
 
 describe('parseLiving', () => {
-  const body = relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 'x', checkpoint: 'y', head: 'abc', next: 'z' });
-  test('reads baton and holder from the header it writes', () => {
-    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'x' });
+  const body = relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 'x', checkpoint: 'y', head: 'abc1234', next: 'z' });
+  test('reads baton, holder and head from the header it writes', () => {
+    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'x', head: 'abc1234' });
     assert.equal(relay.parseLiving(relay.setLivingLine(body, 'baton', 'released')).released, true);
   });
-  test('a comment without the marker is not a living comment', () => {
+
+  test('a body that only quotes the marker is not a living comment', () => {
+    assert.equal(relay.parseLiving('see `<!-- relay-handoff -->`\n\n```\nbaton: released\n```'), null);
     assert.equal(relay.parseLiving('baton: released'), null);
+  });
+
+  test('released means exactly "baton: released" inside the BATON block', () => {
+    assert.equal(relay.parseLiving(relay.setLivingLine(body, 'baton', 'Released-not')).released, false);
+    assert.equal(relay.parseLiving(relay.setLivingLine(body, 'baton', 'released-not')).released, false);
+    const outside = `${body}\n\nbaton: released`;
+    assert.equal(relay.parseLiving(outside).released, false);
   });
 });
 
@@ -39,7 +77,7 @@ describe('batonVerdict', () => {
   const v = (o) => relay.batonVerdict({ me: ME, living: null, now: T0, ...o });
 
   test('no commits beyond main: free', () => assert.equal(v({ head: null }).state, 'free'));
-  test('my session pushed the newest commit: yours', () => assert.equal(v({ head: head(ME) }).state, 'yours'));
+  test('my session holds it: yours', () => assert.equal(v({ head: head(ME) }).state, 'yours'));
 
   test('another session pushed 59 minutes ago: held, 1 minute left', () => {
     const r = v({ head: head(THEM, T0 - 59 * MIN) });
@@ -50,73 +88,164 @@ describe('batonVerdict', () => {
 
   test('exactly 60 quiet minutes: free (the lease is 60, not 61)', () => {
     assert.equal(v({ head: head(THEM, T0 - 60 * MIN) }).state, 'free');
+    assert.equal(v({ head: head(THEM, T0 - 60 * MIN + 1000) }).state, 'held');
+  });
+
+  test('GitHub has not shown the push yet: read as just pushed, never as expired', () => {
+    const r = v({ head: head(THEM, null) });
+    assert.equal(r.state, 'held');
+    assert.equal(r.leaseLeftMs, 60 * MIN);
   });
 
   test('a living-comment edit renews the lease like a push', () => {
-    const r = v({ head: head(THEM, T0 - 90 * MIN), living: { released: false, updatedAt: T0 - 10 * MIN } });
+    const r = v({ head: head(THEM, T0 - 90 * MIN), living: { released: false, head: null, updatedAt: T0 - 10 * MIN } });
     assert.equal(r.state, 'held');
     assert.equal(r.leaseLeftMs, 50 * MIN);
   });
 
-  test('released and nothing pushed since: free, even seconds later', () => {
-    assert.equal(v({ head: head(THEM, T0 - 5 * MIN), living: { released: true, updatedAt: T0 - 1 * MIN } }).state, 'free');
+  test('released at the current tip: free, even seconds later', () => {
+    const living = { released: true, head: TIP.slice(0, 7), updatedAt: T0 - MIN };
+    assert.equal(v({ head: head(THEM, T0 - 5 * MIN), living }).state, 'free');
   });
 
-  test('a push AFTER the release re-took the baton: held', () => {
-    assert.equal(v({ head: head(THEM, T0 - 1 * MIN), living: { released: true, updatedAt: T0 - 5 * MIN } }).state, 'held');
+  test('a push after the release (a new tip) re-took the baton, whatever the clocks say', () => {
+    const living = { released: true, head: 'fff0000', updatedAt: T0 - MIN };
+    assert.equal(v({ head: head(THEM, T0 - 5 * MIN), living }).state, 'held');
+  });
+
+  test('a release with no head line does not free anything', () => {
+    assert.equal(v({ head: head(THEM), living: { released: true, head: null, updatedAt: T0 } }).state, 'held');
   });
 
   test('my own released baton reads free, not yours', () => {
-    assert.equal(v({ head: head(ME, T0 - 5 * MIN), living: { released: true, updatedAt: T0 - 1 * MIN } }).state, 'free');
+    const living = { released: true, head: TIP.slice(0, 7), updatedAt: T0 - MIN };
+    assert.equal(v({ head: head(ME, T0 - 5 * MIN), living }).state, 'free');
   });
 
-  test('a commit with no session trailer is held for the lease, never free', () => {
+  test('no commit carries a session trailer: held for the lease, never free', () => {
     const r = v({ head: head(null, T0 - 5 * MIN, null) });
     assert.equal(r.state, 'held');
-    assert.match(r.reason, /no Claude-Session trailer/);
+    assert.match(r.reason, /no commit on the branch carries a Claude-Session trailer/);
   });
 
-  test('no session id of my own: another session cannot read as yours', () => {
+  test('no session id of my own: another session cannot read as yours, nor can an unattributed one', () => {
     assert.equal(relay.batonVerdict({ head: head(THEM), living: null, me: null, now: T0 }).state, 'held');
-    // null === null must not make an unattributed commit "yours"
     assert.equal(relay.batonVerdict({ head: head(null, T0, null), living: null, me: null, now: T0 }).state, 'held');
   });
 
-  test('the override frees a held baton', () => {
-    assert.equal(v({ head: head(THEM), override: true }).state, 'free');
-  });
+  test('the override frees a held baton', () => assert.equal(v({ head: head(THEM), override: true }).state, 'free'));
 
   test('no clock: refuses to guess', () => {
     assert.throws(() => relay.batonVerdict({ head: null, living: null, me: ME }), /now/);
   });
 });
 
+describe('livingComment', () => {
+  const marked = (id, login, at) => ({ id, user: { login }, body: `${relay.MARKER}\n\n\`\`\`\nbaton: held\n\`\`\``, updated_at: new Date(at).toISOString(), html_url: `u${id}` });
+  const api = (comments) => () => comments;
+
+  test('the OLDEST marker-first comment by our own login wins', () => {
+    const c = relay.livingComment(api([{ id: 1, user: { login: 'saden1' }, body: 'hello' }, marked(2, 'saden1', T0), marked(3, 'saden1', T0 + MIN)]), 1, 'saden1');
+    assert.equal(c.id, 2);
+  });
+
+  test("a stranger's comment, or a card quoting the marker, never counts", () => {
+    const stranger = marked(4, 'someone-else', T0);
+    const quoted = { id: 5, user: { login: 'saden1' }, body: `a card that says \`${relay.MARKER}\`\n\nbaton: released`, updated_at: new Date(T0).toISOString() };
+    assert.equal(relay.livingComment(api([stranger, quoted]), 1, 'saden1'), null);
+  });
+});
+
+describe('pushTime', () => {
+  test("GitHub's timestamp for the push whose `after` is the tip; null when it is not listed", () => {
+    const api = () => [
+      { after: 'zzz', timestamp: '2026-11-22T11:00:00Z' },
+      { after: TIP, timestamp: '2026-11-22T11:30:00Z' },
+    ];
+    assert.equal(relay.pushTime(api, 'claude/x', TIP), Date.parse('2026-11-22T11:30:00Z'));
+    assert.equal(relay.pushTime(api, 'claude/x', 'nope'), null);
+  });
+});
+
+describe('readHead (real git, throwaway origin)', () => {
+  let root;
+  let work;
+  let cwd;
+  const git = (...args) => execFileSync('git', args, { cwd: work, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const commit = (msg) => git('commit', '-q', '--allow-empty', '-m', msg);
+
+  before(() => {
+    cwd = process.cwd();
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-head-'));
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', path.join(root, 'origin.git')]);
+    work = path.join(root, 'work');
+    execFileSync('git', ['clone', '-q', path.join(root, 'origin.git'), work], { stdio: 'ignore' });
+    git('config', 'user.name', 't');
+    git('config', 'user.email', 't@example.test');
+    git('checkout', '-q', '-b', 'main');
+    commit('base');
+    git('push', '-q', 'origin', 'main');
+    git('checkout', '-q', '-b', 'claude/relay');
+    commit(`feat: mine\n\n${trailer(ME, 'John Luke Picard')}`);
+    commit('Apply suggestion from review');
+    git('push', '-q', 'origin', 'claude/relay');
+    process.chdir(work);
+  });
+  after(() => {
+    process.chdir(cwd);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('the tip is the newest commit; the holder is the newest one with a trailer', () => {
+    const r = relay.readHead('claude/relay', { fetch: true });
+    assert.equal(r.exists, true);
+    assert.equal(r.head.sha, git('rev-parse', 'HEAD').trim());
+    assert.equal(r.head.session, ME);
+    assert.equal(r.head.actor, 'John Luke Picard');
+  });
+
+  test('a branch the remote does not have reads as not existing, never as yours', () => {
+    assert.deepEqual(relay.readHead('claude/nowhere', { fetch: true }), { exists: false, head: null });
+  });
+
+  test('--no-fetch with no local ref: could not check (exit code 3)', () => {
+    assert.throws(() => relay.readHead('claude/also-nowhere', { fetch: false }), (e) => e.code === 3);
+  });
+
+  test('an invalid branch name: bad argument (64)', () => {
+    assert.throws(() => relay.readHead('bad..name', { fetch: false }), (e) => e.code === 64);
+  });
+});
+
 describe('npm run baton', () => {
   const COMMENT = {
     id: 99,
+    user: { login: 'saden1' },
     html_url: 'https://example.test/c/99',
     updated_at: new Date(T0 - 2 * MIN).toISOString(),
-    body: relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 's', checkpoint: 'c', head: 'abc', next: 'n' }),
+    body: relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 's', checkpoint: 'c', head: 'abc1234', next: 'n' }),
   };
-  const fakeApi = (comments = [COMMENT]) => {
+  const fakeApi = ({ comments = [COMMENT], pushedAt = T0 - 5 * MIN } = {}) => {
     const calls = [];
     const api = (method, p, opts = {}) => {
       calls.push({ method, p, body: opts.body });
+      if (p === 'user') return { login: 'saden1' };
       if (p.includes('/pulls?')) return [{ number: 3427 }];
-      if (p.endsWith('/comments?per_page=100')) return [{ id: 1, body: 'unrelated' }, ...comments];
+      if (p.includes('/activity?')) return [{ after: TIP, timestamp: new Date(pushedAt).toISOString() }];
+      if (p.endsWith('/comments?per_page=100')) return [{ id: 1, user: { login: 'saden1' }, body: 'unrelated' }, ...comments];
       if (method === 'PATCH') return {};
       throw new Error(`unexpected ${method} ${p}`);
     };
     return { api, calls };
   };
-  const go = (argv, { h = head(THEM, T0 - 5 * MIN), comments, env = { LATTICE_SESSION: ME }, git } = {}) => {
+  const go = (argv, { session = THEM, comments, pushedAt, env = { LATTICE_SESSION: ME }, git } = {}) => {
     const lines = [];
-    const { api, calls } = fakeApi(comments);
+    const { api, calls } = fakeApi({ comments, pushedAt });
     const code = run(argv, {
       env,
       api,
       now: T0,
-      git: git || (() => ({ exists: true, head: h })),
+      git: git || (() => ({ exists: true, head: { sha: TIP, session, actor: null } })),
       out: (s) => lines.push(s),
       err: (s) => lines.push(s),
     });
@@ -138,25 +267,34 @@ describe('npm run baton', () => {
 
   test('take after the lease ran out: exit 0, tells you the push takes it', () => {
     const old = { ...COMMENT, updated_at: new Date(T0 - 120 * MIN).toISOString() };
-    const r = go(['take', 'claude/x'], { h: head(THEM, T0 - 120 * MIN), comments: [old] });
+    const r = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN });
     assert.equal(r.code, 0);
     assert.match(r.text, /FREE .*lease expired/);
     assert.match(r.text, /next push takes it/);
   });
 
-  test('release when I hold it: one PATCH that says baton: released', () => {
-    const r = go(['release', 'claude/x'], { h: head(ME, T0 - 5 * MIN) });
+  test('release when I hold it: one PATCH that says released AND pins the tip', () => {
+    const r = go(['release', 'claude/x'], { session: ME });
     assert.equal(r.code, 0, r.text);
     const patch = r.calls.filter((c) => c.method === 'PATCH');
     assert.equal(patch.length, 1);
     assert.equal(patch[0].p, 'repos/Laticent/lattice/issues/comments/99');
-    assert.match(patch[0].body.body, /^baton: released$/m);
-    assert.equal(relay.parseLiving(patch[0].body.body).released, true);
+    const parsed = relay.parseLiving(patch[0].body.body);
+    assert.equal(parsed.released, true);
+    assert.equal(parsed.head, TIP.slice(0, 7));
   });
 
   test('release when another session holds it: exit 1 and no write', () => {
     const r = go(['release', 'claude/x']);
     assert.equal(r.code, 1);
+    assert.equal(r.calls.filter((c) => c.method === 'PATCH').length, 0);
+  });
+
+  test('release twice: the second is a no-op success', () => {
+    const released = { ...COMMENT, body: relay.setLivingLine(COMMENT.body, 'baton', 'released') };
+    const r = go(['release', 'claude/x'], { session: ME, comments: [released] });
+    assert.equal(r.code, 0);
+    assert.match(r.text, /already released/);
     assert.equal(r.calls.filter((c) => c.method === 'PATCH').length, 0);
   });
 
@@ -176,23 +314,24 @@ describe('npm run baton', () => {
   });
 
   test('GitHub could not be read: exit 3', () => {
-    const lines = [];
     const code = run(['status', 'claude/x'], {
       env: { LATTICE_SESSION: ME },
       now: T0,
-      git: () => ({ exists: true, head: head(THEM) }),
+      git: () => ({ exists: true, head: { sha: TIP, session: THEM, actor: null } }),
       api: () => {
         throw new relay.RelayError('gh api GET … failed');
       },
-      out: (s) => lines.push(s),
-      err: (s) => lines.push(s),
+      out: () => {},
+      err: () => {},
     });
     assert.equal(code, 3);
   });
 
-  test('bad arguments: exit 64', () => {
+  test('bad arguments: exit 64, including a --now with no zone', () => {
     assert.equal(go(['grab']).code, 64);
     assert.equal(go(['status', '--pr', 'x']).code, 64);
     assert.equal(go(['status', '--override']).code, 64);
+    assert.equal(go(['status', '--now', '2026-11-22T12:00:00']).code, 64);
+    assert.equal(go(['status', '--now', '2026-11-22T12:00:00Z']).code, 1);
   });
 });
