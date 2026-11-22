@@ -28,7 +28,6 @@ A story box at a hall venue splits these slides one member a page. Each header n
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
-| Tooling    | [!] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 ---
 
