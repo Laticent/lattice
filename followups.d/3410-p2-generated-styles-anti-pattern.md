@@ -20,5 +20,5 @@ outside presets:
 2. The finish generator (`lib/finishes/`, checked by `checkFinishPackages`) turns recipes into CSS;
    N2 and N5 of preset Waves 2 and 3 are planned on it.
 
-Done when each ships hand-written, checked-in CSS that a gate keeps in step with its data, with no
+done when — both ship hand-written, checked-in CSS that a gate keeps in step with its data, with no
 generated stylesheet left, or the owner records an exception with its reason.

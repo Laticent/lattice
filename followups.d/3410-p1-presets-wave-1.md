@@ -2,7 +2,7 @@
 origin: 3410
 priority: P1
 recorded: 2026-11-22
-area: presets
+area: theming
 severity: medium
 swimlane: engineering/decisions/2026-11-20-deck-preset-study.md §5–§8
 deferred: blocked — waits on #3410 (the spectrum keys, which supply `spectrum: solid left band`) merging first
@@ -29,3 +29,5 @@ Steps, in order:
    RULE #34 evidence, maker-checker. Agent budget for the wave: 5, of which #3410 used 3; ask the owner
    before more.
 5. Report to the coordinator (session_015KSkL7nmyGLB3eqQgaSLAb) at the gap stop, at PR open and at the card.
+
+done when — the five presets ship from `lib/presets/<name>/` in one PR, each judged 8.5 or better by both blind judges, with `preset-gate` and the overflow guard green.
