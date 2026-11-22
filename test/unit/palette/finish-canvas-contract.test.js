@@ -203,7 +203,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   }
   // NO REGISTER REPAINTS A FRAME'S OWN CANVAS ANY MORE (#2291), and this list being empty
   // is the assertion. Four rules used to: `section.dark.no-spectrum` (0,2,1),
-  // `section.dark:is(.spectrum-edge-*)` (0,3,1) and `section.accent.dark` (0,2,1) all
+  // `section.dark:is(.spectrum-<edge>)` (0,3,1) and `section.accent.dark` (0,2,1) all
   // out-specified a frame's (0,1,1) canvas, so `--fin-canvas` had to give way to them and
   // every arm below carried a mode-scoped exclusion group naming all six register classes.
   //

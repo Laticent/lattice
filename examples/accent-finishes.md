@@ -34,40 +34,40 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ---
 
-<!-- _class: code spectrum-trim-restrained -->
+<!-- _class: code trim-spectrum-mono -->
 
 `Spectrum · trim`
 
-## Three tiers on the structure — quiet by default
+## The structure keeps its own style — quiet by default
 
-By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow repeated on every line. `spectrum-trim:` dials the presence up in three tiers; this slide runs `restrained`, so the panel strip below is a quiet single-hue ramp.
+`trim-spectrum:` sets the style. By default the code strip, table rails and rules stay a quiet accent-tint hairline. This slide runs `mono`: the strip below is a single-hue ramp.
 
 ```js
-// spectrum-trim: off        gives a quiet accent-tint hairline (the default)
-//                restrained gives a single-hue accent ramp (this slide)
-//                on         flows the deck's full spectrum onto the structure
-const tiers = ['off', 'restrained', 'on'];
+// trim-spectrum: quiet    gives a quiet accent-tint hairline (the default)
+//                mono     gives a single-hue accent ramp (this slide)
+//                rainbow  solid · duo — the theme's own fills, never the bar's
+const styles = ['quiet', 'mono', 'rainbow', 'solid', 'duo'];
 ```
 
 ---
 
-<!-- _class: content spectrum-edge-left -->
+<!-- _class: content spectrum-left -->
 
 `Spectrum · placement`
 
 ## Move the bar to any edge
 
-`spectrum-edge:` places the section-edge ribbon on the top (default), left, right, or bottom — this slide runs it on the **left**. Placement touches only the bar; the structural accents stay put.
+The edge word on `spectrum:` places the section-edge ribbon on the top (default), left, right, or bottom — this slide runs it on the **left**. Placement touches only the bar; the structural accents stay put.
 
 ---
 
-<!-- _class: content spectrum-edge-bottom -->
+<!-- _class: content spectrum-bottom -->
 
 `Spectrum · placement`
 
 ## A bottom rail reads as a baseline
 
-The same `spectrum-edge:` control on the **bottom** edge. Use `off` to drop the bar entirely while keeping the deck's other accents intact.
+The same edge word on the **bottom** edge. Use `spectrum: off` to drop the bar entirely while keeping the deck's other accents intact.
 
 ---
 
@@ -106,16 +106,16 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid with-spectrum-card -->
+<!-- _class: cards-grid card-spectrum-duo -->
 
 `Spectrum · cards`
 
 ## Opt a spectrum rail onto card surfaces
 
 - Deck-wide or per slide
-  - `spectrum-card: auto` rails every card; `_class: spectrum-card` opts in one slide.
-- Follows the bar by default
-  - `auto` inherits the deck's `duo` — no per-card edit.
+  - `card-spectrum: duo` rails every card. One slide opts in with `card-spectrum-duo`.
+- Its own style
+  - The rail never copies the bar; this slide pins `duo` to sit beside it.
 - Off by default
   - No card gets a rail unless you ask — restraint over a stripe on everything.
 - Palette-blind
@@ -123,16 +123,16 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid spectrum-card-solid -->
+<!-- _class: cards-grid card-spectrum-solid -->
 
 `Spectrum · cards`
 
 ## The rail tunes independently of the bar
 
 - Pin any variant
-  - `spectrum-card: solid` here, while the bar stays `duo` — all variants are on-brand.
+  - `card-spectrum: solid` here, while the bar stays `duo` — all variants are on-brand.
 - Its own placement
-  - `spectrum-card-edge: top|right|bottom` moves the rail; `left` is the default.
+  - `card-spectrum: top`, `right` or `bottom` moves the rail; `left` is the default.
 - Independent axes
   - Style and placement each override per slide without touching the deck bar.
 - Same restraint
@@ -140,16 +140,16 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid spectrum-card-rainbow spectrum-card-edge-top -->
+<!-- _class: cards-grid with-card-spectrum card-spectrum-top -->
 
 `Spectrum · cards`
 
 ## Rainbow rail, on top
 
 - A pinned rainbow
-  - `spectrum-card: rainbow` shows the full theme ribbon even when the bar is quieter.
+  - `card-spectrum: rainbow` shows the full theme ribbon even when the bar is quieter.
 - Moved to the top edge
-  - `spectrum-card-edge: top` runs the rail across the card's head.
+  - `card-spectrum: rainbow top` runs the rail across the card's head.
 - Boardroom-safe
   - Solid or two-tone fills — no rainbow-alpha hazard in the exported PDF.
 

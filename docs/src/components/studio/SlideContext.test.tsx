@@ -159,21 +159,21 @@ describe('SlideContextBody controls', () => {
 		expect(toks).not.toContain('tone-warn');
 	});
 
-	it('sets a per-slide brand bar (spectrum) from the Accent tab', async () => {
+	it('sets a per-slide spectrum style from the Accent tab', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Accent');
-		await pickOption(/brand bar/i, 'None');
+		await pickOption(/^spectrum style$/i, 'None');
 		expect(applied()).toContain('no-spectrum');
 	});
 
 	// The head option is worded "Auto", never "Inherit" — `inherit` is a CSS keyword,
 	// not a word an author should have to know (#1293). It names what Auto RESOLVES to,
 	// so the deck's value is readable without opening the deck Inspector.
-	it('reads the brand bar as Auto, naming the deck `spectrum:` value it resolves to', async () => {
+	it('reads the spectrum style as Auto, naming the deck `spectrum:` value it resolves to', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
 		await goTab('Accent');
-		const label = await selectedOptionText(/brand bar/i);
+		const label = await selectedOptionText(/^spectrum style$/i);
 		expect(label).toMatch(/^Auto — Solid accent$/);
 		expect(label).not.toMatch(/inherit/i);
 	});
@@ -195,7 +195,7 @@ describe('SlideContextBody controls', () => {
 	it('every Accent head carries what it resolves to', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Accent');
-		for (const axis of [/brand bar/i, /bar placement/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
+		for (const axis of [/^spectrum style$/i, /^spectrum edge$/i, /^spectrum weight$/i, /^trim spectrum$/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
 			const label = await selectedOptionText(axis);
 			expect(label, `${axis} head`).toMatch(/^Auto — .+/);
 		}
@@ -615,7 +615,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'deck');
 		// The inherit hint is not a search term, so nothing is surfaced by the word alone.
 		expect(screen.queryByLabelText('Slide canvas')).toBeNull();
-		expect(screen.queryByLabelText('Brand bar')).toBeNull();
+		expect(screen.queryByLabelText('Spectrum style')).toBeNull();
 	});
 
 	it('a group label names the GROUP, so one row\'s name does not return its siblings', () => {

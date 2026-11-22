@@ -21,12 +21,12 @@ afterEach(() => {
 
 describe('a settings row in Follow', () => {
 	it('says which row has focus, and stops when focus leaves it', () => {
-		render(<Row label="Card rail placement" />);
+		render(<Row label="Card spectrum edge" />);
 		const seen: Array<string | null> = [];
 		followBus.onLocal((k, v) => k === 'focus' && seen.push(v as string | null));
-		fireEvent.focus(screen.getByLabelText('Card rail placement'));
-		fireEvent.blur(screen.getByLabelText('Card rail placement'));
-		expect(seen).toEqual(['card-rail-placement', null]);
+		fireEvent.focus(screen.getByLabelText('Card spectrum edge'));
+		fireEvent.blur(screen.getByLabelText('Card spectrum edge'));
+		expect(seen).toEqual(['card-spectrum-edge', null]);
 	});
 
 	it('says nothing for a row that is not on the list', () => {
