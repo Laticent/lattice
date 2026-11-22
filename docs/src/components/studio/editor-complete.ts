@@ -7,9 +7,9 @@ import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './deck-axes';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
 import { SPECTRUM_KEY_AXES } from './spectrum-keys';
 import { STUDIO_LANGUAGES } from './studio-language';
 
@@ -69,7 +69,7 @@ export { registerValueLists, VOCAB_VALUE_FIELDS } from '../../lib/front-matter-v
 // The keys that take one word per axis on ONE line (`tag:`, `backdrop:`, `image-card:`, the plugin
 // registers), so completion offers a second word after the first.
 const AXIS_KEYS = new Set(OFFERED_SETTINGS.filter((r) => r.kind === 'axis').map((r) => r.key));
-// The axes of the registers the Studio mirrors (slide-provenance.ts, each pinned to its kernel
+// The axes of the registers the Studio mirrors (deck-axes.ts and spectrum-keys.ts, each pinned to its kernel
 // by a test). A key not listed still completes, without the filled-axis filter.
 const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	backdrop: [BACKDROP_STRENGTHS, BACKDROP_MASKS],
