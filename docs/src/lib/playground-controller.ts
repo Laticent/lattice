@@ -6,7 +6,6 @@
 // the React layer through window.LatticePlayground / window.LatticeDeckPreview —
 // those irreducible, scar-tissued pieces are WRAPPED, never reimplemented.
 
-import { classEntries } from '../../../lib/core/class-entries.mjs';
 
 export type VariantDoc = { key: string; label: string; caption: string; sample: string };
 export type CatalogEntry = { skeleton: string; sample: string; variants: VariantDoc[] };
@@ -279,6 +278,20 @@ export function classTokenLine(src: string): string {
  *  through the shared reader (lib/core/class-entries.mjs). One entry of memo: both callers ask about the same
  *  source on a keystroke. */
 let classMemo: { src: string; value: string } = { src: '\u0000', value: '' };
+
+/** The shared reader, loaded on demand: a static import put the deck scanner (and the slide-boundary parser under it)
+ *  in the Playground's and the home page's EAGER bundle, +21 KB gz on the route budget. Until it arrives the picker
+ *  reads no class; the Playground calls `loadClassReader()` on mount and syncs its pickers again when it resolves. */
+type ClassEntry = { spot: boolean; value: string };
+let classEntriesFn: ((source: string) => ClassEntry[]) | null = null;
+let classReaderLoad: Promise<void> | null = null;
+export function loadClassReader(): Promise<void> {
+	classReaderLoad ||= import('../../../lib/core/class-entries.mjs').then((m) => {
+		classEntriesFn = m.classEntries;
+		classMemo = { src: '\u0000', value: '' };
+	});
+	return classReaderLoad;
+}
 function firstSpotClass(src: string): string {
 	const s = src || '';
 	if (classMemo.src !== s) classMemo = { src: s, value: readFirstSpotClass(s) };
@@ -294,6 +307,8 @@ const mayHoldClass = (line: string): boolean => line.includes('<!--') && (line.i
  *  whole-deck scan per keystroke; a class on the first slide now costs a few lines. After three candidates that set
  *  nothing (fenced examples, plain comments) it reads the whole source once. */
 function readFirstSpotClass(src: string): string {
+	const classEntries = classEntriesFn;
+	if (!classEntries) return '';
 	const lines = src.split('\n');
 	let tries = 0;
 	for (let i = 0; i < lines.length; i++) {

@@ -33,6 +33,7 @@ import {
 	INSERTED_HASH_KEY,
 	isPristine,
 	LENS_KEY,
+	loadClassReader,
 	MAP_KEY,
 	type Plan,
 	parsePlaygroundUrl,
@@ -1430,6 +1431,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			lastClassLineRef.current = line;
 		}
 	}, [catalog, getSource]);
+	// The class reader loads on demand (playground-controller.ts `loadClassReader`): sync once more when it is here.
+	React.useEffect(() => {
+		let live = true;
+		loadClassReader().then(() => {
+			if (live) syncPickers();
+		});
+		return () => {
+			live = false;
+		};
+	}, [syncPickers]);
 
 	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
 	const showToast = React.useCallback((msg: string, undo: boolean) => {

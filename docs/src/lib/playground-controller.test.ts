@@ -3,7 +3,7 @@
 // fallback, the startup-mode precedence rule, and the variant-sync
 // discriminator. DOM-free by design; the React layer only wires these.
 
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 import {
 	adjacentComponent,
 	type Catalog,
@@ -11,6 +11,7 @@ import {
 	detectComponent,
 	fingerprint,
 	isPristine,
+	loadClassReader,
 	makeHandoff,
 	parsePlaygroundUrl,
 	playgroundQuery,
@@ -33,6 +34,9 @@ const CATALOG: Catalog = {
 		variants: [{ key: 'spotlight', label: 'spotlight', caption: '', sample: '<!-- _class: kpi spotlight -->\n' }],
 	},
 };
+
+// The class reader loads on demand (`loadClassReader`); the Playground awaits it on mount, and so do these tests.
+beforeAll(() => loadClassReader());
 
 describe('fingerprint / isPristine (invariant I3)', () => {
 	test('an empty or whitespace draft is always pristine', () => {
