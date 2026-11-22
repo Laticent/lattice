@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { OrphanedTestError } from './orphan-guard';
 
 // A test's leftover work must not reach the next test's page (orphan-guard.ts). A timed-out test leaves its body
@@ -80,5 +80,100 @@ describe('a test that leaves work running cannot act on the next test', () => {
 		render(<p>mine</p>);
 		cleanup();
 		expect(screen.queryByText('mine')).toBeNull();
+	});
+});
+
+describe('fireEvent and renderHook are guarded too', () => {
+	let leftover: Promise<unknown>;
+	let gate = parked();
+
+	it('first: leaves a fireEvent behind', () => {
+		gate = parked();
+		render(<Counter />);
+		leftover = (async () => {
+			await gate.at;
+			fireEvent.click(screen.getByRole('button'));
+		})();
+		leftover.catch(() => {});
+	});
+
+	it('second: the leftover fireEvent throws, and this page is untouched', async () => {
+		render(<Counter />);
+		gate.release();
+		await expect(leftover).rejects.toBeInstanceOf(OrphanedTestError);
+		expect(screen.getByRole('button').textContent).toBe('count 0');
+	});
+
+	it('first: leaves a renderHook behind', () => {
+		gate = parked();
+		leftover = (async () => {
+			await gate.at;
+			renderHook(() => useState(0));
+		})();
+		leftover.catch(() => {});
+	});
+
+	it('second: the leftover renderHook throws', async () => {
+		gate.release();
+		await expect(leftover).rejects.toBeInstanceOf(OrphanedTestError);
+	});
+});
+
+// Between two tests vitest runs no test: the next suite's `beforeAll` runs there. A leftover released in that window is
+// still an orphan, and the hook's own Testing Library work is not.
+describe('the window between tests', () => {
+	let leftover: Promise<unknown>;
+	const gate = parked();
+
+	it('first: leaves a render behind', () => {
+		leftover = (async () => {
+			await gate.at;
+			render(<p>stray</p>);
+		})();
+		leftover.catch(() => {});
+	});
+
+	describe('a later suite', () => {
+		let hookRender: unknown = null;
+		beforeAll(async () => {
+			gate.release();
+			await leftover.catch(() => {});
+			try {
+				render(<p>from the hook</p>);
+				cleanup();
+			} catch (err) {
+				hookRender = err;
+			}
+		});
+
+		it('the leftover released in its beforeAll threw, so nothing stray is on this page', async () => {
+			await expect(leftover).rejects.toBeInstanceOf(OrphanedTestError);
+			expect(screen.queryByText('stray')).toBeNull();
+		});
+
+		it("the beforeAll's own render went through", () => {
+			expect(hookRender).toBeNull();
+		});
+	});
+});
+
+// Two tests running at once are both live: neither one's own work is taken for a timed-out test's.
+describe('concurrent tests', () => {
+	const both = parked();
+	let started = 0;
+	const meet = async () => {
+		started++;
+		if (started === 2) both.release();
+		await both.at;
+	};
+
+	it.concurrent('C1 renders after C2 has started', async ({ expect }) => {
+		await meet();
+		expect(() => render(<p>c1</p>)).not.toThrow();
+	});
+
+	it.concurrent('C2 renders after C1 has started', async ({ expect }) => {
+		await meet();
+		expect(() => render(<p>c2</p>)).not.toThrow();
 	});
 });

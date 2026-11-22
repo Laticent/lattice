@@ -17,7 +17,9 @@ why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) pas
             - G2, fixed (#3398, `docs/src/test/orphan-guard.ts`): a timed-out test's leftover work landed on the next
               test's page (about 10 collateral failures on an empty body).
             - G3, fixed (#3398, `docs/src/test/corpus.ts`): five tests each swept the whole shipped corpus; now one test
-              per deck.
+              per deck. Two corpus-wide tests stay whole because neither nears 20 s: `scoped-resync`'s "scoped resync
+              over every deck" (its own 600 s limit) and `raw-block`'s "opens every deck" (cheap). Split them too if G1's
+              answer is "unit tests share the box".
             - G1, OPEN: about 90 whole-Studio jsdom tests do real CPU work (about 10 re-renders of StudioShell each),
               1-4 s alone and 20-43 s under load, past the 20 s `testTimeout`. They wait on nothing, so no test-side fix
               exists short of less coverage or a bigger timeout, and the flake desk ruled out the bigger timeout.
