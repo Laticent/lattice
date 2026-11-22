@@ -210,3 +210,40 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 
 Status stays `proposed` until slice C lands.
 
+## 10. Option A, built (2026-11-22)
+
+§9 records the owner picking option A. This section records what was built.
+
+**The layout.** `packages/lattice/package.json` holds the sixteen published fields and a three-script
+pack lifecycle (`prepublishOnly`, `prepack`, `postpack`). The root `package.json` is now
+`lattice-workspace`, `"private": true`, with `scripts`, `devDependencies`, `workspaces` (plus
+`packages/lattice`) and `overrides`. No source moved.
+
+**How it packs.** `prepack` runs `npm run build` at the root, then `tools/stage-engine-package.js`
+hard-links each positive `files` entry into the folder (copying where a hard link fails), plus the
+README or LICENSE that npm adds from any folder it packs (`design/README.md` came along with
+`design/skill.md` at the root). `files` negations stay with npm, so the listing cannot drift from
+the `files` list. `postpack` removes the staged paths; `.gitignore` lists each one, not
+`/packages/lattice/*`, because a blanket ignore also hid the folder from Biome's lint-coverage probe.
+
+**Measured, main at `84bb080`.** The staged folder's `npm pack --dry-run` lists the same 2,202
+paths as the root's did (the diff of the two lists is empty), 34.2 MB packed and 112.2 MB unpacked.
+Only three files differ in size: `lattice.js` and `lib/core/pkg-root.js` (this change) and
+`package.json` (27,089 bytes shipped before, 3,765 now: the scripts and devDependencies no longer
+ship). `npm install` moved only the declarations in `package-lock.json`; no resolved version changed.
+
+**Readers re-pointed.** `lattice.js` `pkgVersion()` reads through `lib/core/pkg-root.js`
+`engineManifestPath()` (`packages/lattice/package.json` in the repository, the package's own
+manifest installed). `tools/release.js` bumps with `npm version --workspace packages/lattice` and
+stages that manifest. `build-release-zip.js`, `build-player-core.js`, `export-marp.js` and
+`structure.js` read the engine manifest. Tests that read `bin`, `version`, `dependencies` or
+`exports` read it too; two that resolved `@laticent/lattice/*` through the root's own name build a
+scratch package from the engine manifest instead.
+
+**One constraint found.** The root's `"$puppeteer"` override must name a root dependency, so the
+root keeps `puppeteer` as a devDependency at the engine's range. A unit test holds the two equal.
+
+**Not changed here (owner gates).** The release workflows read the root `package.json` and publish
+from the root; see the PR for the options put to the owner. `.github/dependabot.yml` already covers
+workspaces from `/`, so it needs no change. Slice C (Changesets, the fragment archive, the gate, the
+HARD RULE #10 rewrite) waits for its own decisions.

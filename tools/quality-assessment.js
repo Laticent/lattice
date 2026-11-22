@@ -140,14 +140,55 @@ function tallyKnip(data, status) {
   return totals;
 }
 
+/**
+ * Read the engine's publish folder as what it is: the manifest of the code at the repository root.
+ *
+ * `packages/lattice/package.json` declares the engine's dependencies, but the code that imports them
+ * (lattice.js, lib/) stays at the root, which knip reads as a different workspace
+ * (engineering/decisions/2026-10-07-first-npm-release.md §8, option A). Unfolded, knip calls each
+ * root import of an engine dependency "unlisted" and each engine dependency "unused" (400 and 28 on
+ * 2026-11-22). Folded: an import the engine declares is listed, and an engine dependency is used
+ * when the root imports it (knip's unlisted list), when it is a workspace package (knip resolves
+ * those internally and never lists them), or when the root also declares it (puppeteer, for the
+ * `$puppeteer` override), where knip already judges the root's copy. An import NOBODY declares
+ * stays unlisted, and an engine dependency nothing loads stays unused: the two findings the ratchet
+ * exists for.
+ */
+function foldEngineManifest(data, root = ROOT) {
+  const file = 'packages/lattice/package.json';
+  const read = (rel) => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
+  let engine;
+  try { engine = read(file); } catch { return data; }
+  const rootPkg = read('package.json');
+  const declared = new Set([...Object.keys(engine.dependencies || {}), ...Object.keys(engine.optionalDependencies || {})]);
+  const importedAtRoot = new Set();
+  for (const issue of data.issues) {
+    if (!issue.unlisted) continue;
+    for (const u of issue.unlisted) if (declared.has(u.name)) importedAtRoot.add(u.name);
+    issue.unlisted = issue.unlisted.filter((u) => !declared.has(u.name));
+  }
+  const rootDeclares = new Set([...Object.keys(rootPkg.dependencies || {}), ...Object.keys(rootPkg.devDependencies || {})]);
+  const isWorkspace = (name) => {
+    try { return fs.lstatSync(path.join(root, 'node_modules', name)).isSymbolicLink(); } catch { return false; }
+  };
+  for (const issue of data.issues) {
+    if (issue.file !== file || !issue.dependencies) continue;
+    issue.dependencies = issue.dependencies.filter((d) => !importedAtRoot.has(d.name) && !isWorkspace(d.name) && !rootDeclares.has(d.name));
+  }
+  return data;
+}
+
 function runDeadCode() {
   // Run knip's own entry through Node, not the extensionless node_modules/.bin shim, which Windows
   // cannot spawn without a shell (engineering/development.md).
   const knipEntry = path.join(ROOT, 'node_modules', 'knip', 'bin', 'knip.js');
   const raw = spawnSync(process.execPath, [knipEntry, '--reporter', 'json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 128 });
   if (raw.error) throw raw.error;
-  const data = parseKnipResult(raw);
-  const totals = tallyKnip(data, raw.status);
+  const reported = parseKnipResult(raw);
+  // The exit-1-but-nothing-counted guard reads knip's own report; the fold can empty it legitimately.
+  tallyKnip(reported, raw.status);
+  const data = foldEngineManifest(structuredClone(reported));
+  const totals = tallyKnip(data, 0);
   return { raw: data, totals, issueCount: data.issues.length };
 }
 
@@ -317,4 +358,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult, tallyKnip };
+module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult, tallyKnip, foldEngineManifest };

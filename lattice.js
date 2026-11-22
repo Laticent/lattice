@@ -39,7 +39,7 @@ const fs            = require('fs');
 const { themeEntries } = require('./lib/theme/files.js');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
-const { pkgRootFrom } = require('./lib/core/pkg-root');
+const { pkgRootFrom, engineManifestPath } = require('./lib/core/pkg-root');
 const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MODES } = require('./lib/cli/options.js');
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
@@ -97,8 +97,10 @@ const PKG_ROOT = pkgRootFrom(__dirname);
 // committed bundle byte-stale on any dependency bump — reddening `build:check`
 // on a diff no human wrote and no bot could repair, since Dependabot cannot
 // run `npm run build`. Only `version` is ever wanted; read just that.
+// In the repository the version lives in packages/lattice/package.json (the root is a private
+// workspace root); installed, the package's own package.json. engineManifestPath picks.
 const pkgVersion = () => {
-  try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
+  try { return JSON.parse(fs.readFileSync(engineManifestPath(PKG_ROOT), 'utf8')).version; }
   catch (_e) { return null; }
 };
 

@@ -24,8 +24,8 @@
 
 ## What a release is
 
-A release is a git tag `v<x.y.z>` whose number matches `package.json`
-`version`, pointing at a commit with a freshly built, in-sync `dist/` and a
+A release is a git tag `v<x.y.z>` whose number matches
+`packages/lattice/package.json` `version`, pointing at a commit with a freshly built, in-sync `dist/` and a
 `CHANGELOG.md` whose `## Unreleased` items — and every pending `changelog.d/`
 fragment, folded in and deleted by the same commit — have been rolled into a
 dated section. The tag is the source of truth; the GitHub Release (and, when
@@ -34,8 +34,26 @@ deterministically from `## Unreleased` + the fragments** — see Versioning.
 
 ## The distribution contract
 
-What ships is defined entirely by `package.json` — don't special-case
-it at release time:
+What ships is defined entirely by `packages/lattice/package.json`, the
+engine's publish folder — don't special-case it at release time.
+
+**Where the package lives.** The repository root `package.json` is a private
+workspace root: npm scripts, `devDependencies`, `workspaces` and `overrides`.
+`packages/lattice/package.json` carries every field the engine publishes
+(`name`, `version`, `bin`, `main`, `exports`, `files`, `dependencies`,
+`optionalDependencies`, `engines`, `license` and the metadata), and nothing
+else of the source moved: `lattice.js`, `lib/`, `themes/` and the docs stay at
+the root. Its `prepack` runs `npm run build` at the root, then
+`tools/stage-engine-package.js`, which hard-links every `files` entry (and the
+`design/README.md` npm adds from a packed folder) into `packages/lattice/`;
+its `postpack` removes them again. The staged paths are gitignored. The folder
+exists so Changesets can version `@laticent/lattice` as a workspace
+(`engineering/decisions/2026-10-07-first-npm-release.md` §8, option A). The
+dev CLI and the installed one read the version through
+`lib/core/pkg-root.js` `engineManifestPath`. Bump a runtime dependency in
+`packages/lattice/package.json`; bump `puppeteer` in both manifests, because
+the root's `$puppeteer` override needs a root dependency of the same range
+(`test/unit/tools/stage-engine-package.test.js` holds them equal).
 
 - **`exports`** — the public entry points, and at 1.0 every one of them is
   a promise. The root import (`.` and `main`) is the engine,
@@ -73,25 +91,31 @@ it at release time:
 Verify before any release:
 
 ```sh
-npm pack --dry-run        # inspect file list + size; no .pdf should appear
+npm pack --dry-run -w @laticent/lattice   # builds, stages, lists; no .pdf should appear
 ```
+
+That listing is the root tarball's, file for file: on 2026-11-22 both shipped
+2,202 files, 34.2 MB packed and 112.2 MB unpacked, and the two lists diffed
+empty. `test/integration/export/installed-package.test.js` stages a copy and
+installs from it on every PR.
 
 And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
 ```sh
-npm pack --pack-destination /tmp/p && npm pack --workspaces --pack-destination /tmp/p
+npm pack --workspaces --pack-destination /tmp/p   # the engine is a workspace too
 mkdir /tmp/room && cd /tmp/room && npm init -y && PUPPETEER_SKIP_DOWNLOAD=1 npm i /tmp/p/*.tgz
 npx @laticent/lattice deck.md deck.pdf   # also: npx lat deck.md deck.pdf (the short bin)
 ```
 
-`--workspaces` packs every `@laticent/*` workspace, so a new dependency can't be left out.
+`--workspaces` packs every `@laticent/*` workspace, the engine included, so a new dependency can't be left out.
 A hand-kept list here missed `@laticent/segno-markdown`, and the install then failed with a
 404 for a package that wasn't published yet (found 2026-11-11, PR #3142).
 
 ## Versioning
 
-Semver. `package.json` `version` is the single source of truth. **The bump
+Semver. `packages/lattice/package.json` `version` is the single source of
+truth; `tools/release.js` bumps it with `npm version --workspace packages/lattice`. **The bump
 level is computed from `CHANGELOG.md` `## Unreleased` plus every pending
 `changelog.d/` fragment** by `tools/changelog.js`, mapping Keep-a-Changelog
 categories to semver. A fragment's category is in its FILENAME
@@ -160,8 +184,8 @@ gh release create v<version> release/lattice-v<version>.zip \
 
 `npm run release` with no phase flag prints this menu rather than guessing.
 
-`prepublishOnly` re-runs `npm test` as a backstop before any registry
-upload.
+`packages/lattice/package.json`'s `prepublishOnly` re-runs the root build and
+`npm test` as a backstop before any registry upload.
 
 ## The GitHub release zip
 
