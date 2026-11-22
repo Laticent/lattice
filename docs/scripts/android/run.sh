@@ -75,7 +75,11 @@ done
 "$ADB" root >/dev/null; timeout 60 "$ADB" wait-for-device
 "$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
 "$ADB" shell am set-debug-app --persistent com.android.chrome
-"$ADB" shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS || true  # no "Chrome notifications" prompt
+# Chrome's own permissions, granted the way a phone in use has them: no notifications prompt, and no camera prompt in
+# front of the chooser (the eighth dispatch: Import asked "Allow Chrome to take pictures and record video?" first).
+for perm in POST_NOTIFICATIONS CAMERA RECORD_AUDIO READ_MEDIA_IMAGES READ_MEDIA_VIDEO; do
+  "$ADB" shell pm grant com.android.chrome "android.permission.$perm" || true
+done
 "$ADB" shell am force-stop com.android.chrome
 "$ADB" shell settings put global window_animation_scale 0
 "$ADB" shell settings put global transition_animation_scale 0
