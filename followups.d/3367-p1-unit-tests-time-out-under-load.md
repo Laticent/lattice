@@ -5,7 +5,7 @@ recorded: 2026-11-21
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: blocked — what is left (G1) waits on the owner's decision about the docs vitest pool or worker count, a change to the test contract (CLAUDE.md, decisions the owner makes, row 2)
+deferred: blocked — what is left (G1, and G4 with it) waits on the owner's decision about the docs vitest pool or worker count, a change to the test contract (CLAUDE.md, decisions the owner makes, row 2)
 source: https://github.com/Laticent/lattice/pull/3398#issuecomment-7074021849
 ---
 
@@ -25,6 +25,14 @@ why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) pas
               exists short of less coverage or a bigger timeout, and the flake desk ruled out the bigger timeout.
               `engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md` already measured that the work cannot be
               cheaply cut.
+            - G4, OPEN, found by #3398's reproduction runs: a handful of Studio assertions are tied to the wall clock and
+              miss under the same load, with the page fully rendered (so not G2). `studio.editor-hold`'s desktop test
+              (both loaded runs) waits 3 s for an editor that a 6 s real-time backstop (`FIRST_SLIDE_BACKSTOP_MS`) would
+              also build, and its phone test sees the backstop fire before its check. Others varied by run:
+              `studio.findings-fix` (a "Fix" button or "1 to address" not found), a `StudioShell` tablet tour row,
+              `studio.controls`' before/after door. Root fix: fake timers or a signal in place of the real backstop,
+              test by test (HARD RULE #32). They only fail when the box is shared, so G1's answer decides whether they
+              are in scope; HARD RULE #33 would otherwise ask for them to be fixed now.
 measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `docs-test` (`npm test -- --maxWorkers=4`, alone on
             its runner) failed 3 times, none of them G1: run 43376276820 (a persistent-surface focus assertion) and runs
             43994458532 and 43999565415 (a real scoped-resync assertion). So G1 is local-only.
