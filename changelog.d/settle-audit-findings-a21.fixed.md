@@ -1,0 +1,2 @@
+- **Fixed: the CLI's "refused … outside the deck folder" warning now names the path you wrote.** With `-o` pointing at another folder, the export's capture page asks for a deck's relative file from the output folder, so the warning named a path nobody wrote. It now adds the deck-folder path it also checked: `(from the deck folder: …)`.
+- The Studio's AI and voice requests now identify themselves to OpenRouter as `Lattice Studio` instead of the retired `Lattice Drawing Board`.
