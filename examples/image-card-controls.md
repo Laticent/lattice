@@ -17,7 +17,7 @@ Solid, medium, theme ink. Every control below changes one thing about it.
 
 <!-- _class: image spotlight image-card-top-right image-card-sm -->
 
-## image-card-sm, top right.
+## A small card, top right.
 
 The small card steps the type down, so the photo carries the slide.
 
