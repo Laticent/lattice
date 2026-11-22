@@ -125,20 +125,25 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-a
  * base.card-reflow.css declares on wide and square decks only, so no portrait or story deck got
  * it. This needs no query: it wraps on every box.
  *
- * The line box is exactly one pill tall: the pill plugin's own outer height (`1em` of type, both
- * paddings, both 1px borders), which holds here because `--lat-pill-cap:1` below sets the pill to
- * the label's size. A floated pill sits at the top of its line, so a shorter line put the label
+ * With a pill in it, the line box is exactly one pill tall (the `:has` rule below): the pill
+ * plugin's own outer height (`1em` of type, both paddings, both 1px borders), which holds here
+ * because `--lat-pill-cap:1` below sets the pill to the label's size. A floated pill sits at the top of its line, so a shorter line put the label
  * 1.5px above the pill's center (measured on a 16:9 default card; flex had it at 0.23px). With
  * one height, label and pill share a center, and a wrapped header spaces its lines by a pill. */
 section.statute-stack > .cell-stage > ul > li > strong:first-child,
 section.statute-stack > .cell-stage > ol > li > strong:first-child {
-  display:flow-root; line-height:calc(1em + 2 * var(--pill-pad-y) + 2px);
+  display:flow-root; line-height:var(--lh-base);
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
   letter-spacing:0.16em;
   text-transform:uppercase;
   color:var(--jur-ink, var(--accent));
+}
+/* Only a header that holds a pill takes the pill-tall line: a header without one (the citation
+ * written as its own line) has nothing to align, and the extra 2px per line only grew its card. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child:has(> .lat-pill) {
+  line-height:calc(1em + 2 * var(--pill-pad-y) + 2px);
 }
 /* Header pills (shared) — written `{15 U.S.C. §6501}` in inline code and drawn by the pills
  * plugin, neutral outline by default: the citation reads identical across cards (an identifier,
