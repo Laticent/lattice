@@ -23,5 +23,11 @@ done when — the cause is named: the flake desk's first lead is a read too earl
             overlay reached its settled state; and #3288 (merged 11-17, closing #3273's iOS empty-deck tap items) is read
             first so the fix extends its approach (#15). Fixed at the cause, or, if it does not reproduce, the probe logs
             what will name it next time, as 3368-p1 does for the first-render stall.
-evidence  — the run and job above; the tap log line in that job.
+            A second occurrence: run on 61a4949, job 137066156788 (ios-safari-studio-iphone), held 424 ms. Two make it real.
+also      — the same job's Compose tap failed after a re-send: the first tap was held 3184 ms, and after the re-send the
+            selection sat in the H2 "Probe slide" above the aim. 61a4949 does NOT carry #3368's tap guard (`pressMovedOut`,
+            merged 6db6b3e after #3385 branched), so that run judged the press with the old word-only rule. When this note
+            is taken, rerun the logged events through main's `tap-guard.mjs` and say whether it would have classified the
+            run differently (flake desk, 2026-11-22).
+evidence  — the runs and jobs above; the tap log lines in those jobs.
 verify    — the iPhone and iPad ios-safari-studio suites, dispatched ten times; the tap log on any failure.
