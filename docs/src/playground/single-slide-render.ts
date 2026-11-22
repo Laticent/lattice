@@ -2160,7 +2160,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// A slide the structural split does not cut calls off the host's pending pause measurement
 					// for the slide shown before it, once the lazy module has loaded; `previewPlan` (§17) does
 					// both, and builds the layout key, the frame size and the callbacks from these raw values.
-					const ms = r.changed
+					// A chart or diagram slide the structural split leaves whole can still give its key insight a page of its own
+					// under the measured split (fit-measure.js `insightCrowds`), as the PDF does; measure it too (checker,
+					// 2026-11-22: the preview kept the insight on the slide while the export moved it).
+					const mayMeasure = r.changed > 0 || (r.applies === true && PG.codaMayMove?.(r.html) === true);
+					const ms = mayMeasure
 						? await import('../lib/measured-split').catch((e) => (console.warn('lattice: the measured split did not load; keeping the structural split', e), null))
 						: measuredSplitModule;
 					if (ms) {
@@ -2168,7 +2172,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						const measured = await ms.previewPlan({
 							host,
 							opts,
-							changed: r.changed,
+							changed: mayMeasure ? Math.max(1, r.changed) : 0,
 							out,
 							pg: PG,
 							first: splitOpts.firstSlide,

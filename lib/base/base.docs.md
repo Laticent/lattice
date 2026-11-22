@@ -402,13 +402,15 @@ band position that does not crush it. The generated `layout-*` skeletons are exc
 by pattern. Everywhere else a trailing blockquote becomes the callout.
 
 **On a phone, a chart or diagram's key insight takes its own page.** On a square, tall or
-strip slide, a chart or diagram with a key insight (or below-note) under it always gives
-them the run's closing page, and the figure keeps the slide: a chart is drawn for the whole
-page, and a diagram scales up into it. The figure itself never splits, and a chart's own
-caption stays with it. A 16:9 slide never splits, so it is unchanged. The slide's footer
-line, if it has one, moves to that closing page too. The figure itself never
-splits. A one-line insight stays under its figure, and `lint:deck`'s `verbose-key-insight`
-still asks for about 18 words.
+strip slide split by measurement (the default), a chart or diagram with a key insight (or
+below-note) under it always gives them the run's closing page, however short the insight,
+and the figure keeps the slide: a chart is drawn for the whole page, and a diagram scales up
+into it. The figure itself never splits, and a chart's own caption stays with it. The slide's
+footer line, if it has one, moves to that closing page too. A deck that does not measure
+(`fit: heal`, `trim` or `report`), a `fit-report` slide, and the Studio's Present and slide
+overview keep the insight under the figure, and the chart is drawn for the room beside it. A
+16:9 slide never splits, so it is unchanged. `lint:deck`'s `verbose-key-insight` still asks
+for about 18 words.
 
 Don't derive the answer from that paragraph — read `authoring.blocks` in
 `dist/docs/components.json`, which is generated from the same predicate the RENDER

@@ -92,6 +92,21 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 	});
 });
 
+test.describe('@crosswidth @webkit-tablet @gecko a chart slide\'s key insight in the Studio preview', () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	// On a phone page the measured split gives a chart's key insight the run's closing page, as the PDF does
+	// (test/integration/parity/coda-move-pages.test.js). The structural split never cuts a chart slide, so the preview
+	// measured only after a structural cut and kept the insight on the slide (checker, 2026-11-22): the Studio showed one
+	// page where the export had two. A deck with nothing else to split measures it now (split-gate.js `codaMayMove`).
+	test('a square chart slide with a key insight shows two pages, the insight on the second', async ({ page }) => {
+		await gotoStudio(page);
+		await setEditorContent(page, '---\nmarp: true\ntheme: indaco\nsize: square\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five.\n');
+		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).some((v) => v && typeof v === 'object' && 'insightOwn' in (v as object)), { timeout: 20000 }).toBe(true);
+		await expect.poll(() => pagesInSlide(page), { timeout: 20000 }).toBe(2);
+	});
+});
+
 test.describe('@crosswidth @webkit-tablet @gecko typing in a fit: pack slide', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 

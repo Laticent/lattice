@@ -74,6 +74,9 @@ export interface LatticePlaygroundEngine {
 	 *  `splitForPreview`, or a portrait or square render comes back unsplit (`pending: true`). Optional, because an
 	 *  engine bundle older than this splits synchronously and does not carry it. */
 	splitReady?: (width?: number, height?: number) => Promise<void>;
+	/** Can a slide in this render give its key insight a page of its own (lib/engine/split-gate.js)? A host measures
+	 *  when it can, even if the structural split cut nothing. Optional: an older engine bundle lacks it. */
+	codaMayMove?: (html: string) => boolean;
 	/** Author CSS the host appends after the theme, widened so its `section.<component>` rules
 	 *  reach a pane of the rendered `html` (lib/core/pane-css.js). Unchanged without a pane.
 	 *  Optional, because an engine bundle older than this does not carry it. */
