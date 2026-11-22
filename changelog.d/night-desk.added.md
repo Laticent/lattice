@@ -1,0 +1,2 @@
+- New `/desk-night` acts for the owner while they are away: after the owner types "good night" or "afk" in its session, it raises review-ready PRs toward VERY HIGH and merges the ones the merge gate finds eligible on GitHub. A PR that cannot reach VERY HIGH, or that touches CI, hooks, canonical docs, export, a breaking change, security or a release, waits for the owner.
+- `tools/night-eligible.mjs` answers whether one PR may merge tonight, with every reason it may not.

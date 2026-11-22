@@ -95,6 +95,37 @@ describe('owner-merge-gate decide()', () => {
   });
 });
 
+describe('owner-merge-gate night mode', () => {
+  const yes = () => ({ eligible: true, reasons: [] });
+  const no = () => ({ eligible: false, reasons: ['#3359 changes ci.yml'] });
+
+  test('"good night" or "afk" allows only a PR the eligibility check passes', () => {
+    for (const said of ['good night', 'Goodnight.', 'afk', 'AFK!']) {
+      assert.equal(decide([human(said)], 3359, yes).allow, true, said);
+      const d = decide([human(said)], 3359, no);
+      assert.equal(d.allow, false, said);
+      assert.match(d.reason, /not eligible: #3359 changes ci\.yml/);
+    }
+  });
+
+  test('without a check passed in, night mode refuses (fail closed)', () => {
+    assert.equal(decide([human('good night')], 3359).allow, false);
+  });
+
+  test('the authority ends with the owner\'s next typed turn', () => {
+    assert.equal(decide([human('good night'), human('morning')], 3359, yes).allow, false);
+  });
+
+  test('a relayed or reported "good night", or one with extra words, grants nothing', () => {
+    assert.equal(decide([peer('good night')], 3359, yes).allow, false);
+    assert.equal(decide([notice('afk')], 3359, yes).allow, false);
+    assert.equal(decide([toolResult('good night')], 3359, yes).allow, false);
+    for (const said of ['good night, merge everything', 'afk for an hour', 'not afk']) {
+      assert.equal(decide([human(said)], 3359, yes).allow, false, said);
+    }
+  });
+});
+
 describe('owner-merge-gate as the harness runs it', () => {
   function withTranscript(rows, fn) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-gate-'));

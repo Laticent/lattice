@@ -1282,7 +1282,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   release (`release.yml`, where dispatching the workflow *is* the
   authorization), and patch/minor dependency bumps
   (`dependabot-auto-merge.yml`; majors wait). See
-  § Automation vs. the main ruleset.
+  § Automation vs. the main ruleset. **Night mode** is the one standing grant for
+  authored work: §Desks, "Night mode".
 - **A machine checks the authorization, not the model.** A `PreToolUse` hook,
   `.claude/hooks/owner-merge-gate.mjs`, runs before every `merge_pull_request` and
   `enable_pr_auto_merge` call. **Sessions merge only through those two tools.** The
@@ -2658,6 +2659,7 @@ running it:
 | 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
 | 📈 Stress | `/desk-stress` | the upper limits of what still passes (deck size, images, chart points, session length) without breaking anything; a limits table, and a dropped limit is a regression |
 | 🔥 Torture | `/desk-torture` | driving the Studio to crash, leak or rot on purpose with `perf-torture`, and naming the culprit by its retainer chain or listener add-site |
+| 🌙 Night | `/desk-night` | acting for the owner while they are away: raising cards and merging VERY HIGH PRs the gate finds eligible, after the owner's "good night" or "afk" (below) |
 
 **Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
 first pass starts from the work already known in its lane, not only from live state:
@@ -2679,6 +2681,27 @@ includes `followups.d/` (its embargo in `/desk-security`). The backlog desk alon
 follow-up into an issue or retires one that is done or stale; the other desks claim and fix.
 Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
 deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
+
+**Night mode** (owner's decision, 2026-11-21). The owner types exactly "good night" or
+"afk" in the `desk:night` session. Until their next typed turn there, the merge gate
+(`.claude/hooks/owner-merge-gate.mjs`) allows that session's `enable_pr_auto_merge` or
+`merge_pull_request` on a PR only when `tools/night-eligible.mjs`, run by the gate itself,
+finds on GitHub that:
+- the PR's newest 🚦 card reads VERY HIGH, names a checker in `graded by`, and is newer
+  than the head commit (VERY HIGH only: a PR that tops out at HIGH waits for the owner);
+- `ci` succeeded on the head, and GitHub reports the PR clean or only behind `main`;
+- it touches no never-merge class: CI and hooks (`.github/`, `lefthook`, `.claude/hooks`,
+  `.claude/settings`), canonical docs (`CLAUDE.md`, `AGENTS.md`, this file, the gate and the
+  eligibility tool themselves), the export pipeline and fonts, `package.json`, a
+  `**Breaking:**` changelog fragment, a `security`, `release`, `dependencies` or `breaking`
+  label, a release branch, a bot's PR, or a PR whose body names the night session.
+Anything else fails closed, including a GitHub read that fails. The night desk raises what
+it can, merges what passes, stops when it sees the owner back, and posts one morning ❓
+card. It reads `.claude/skills/desk-night/owner.md` for the owner's preferences on
+reversible choices, never to answer for the owner. What a machine does not check: whether
+the card's grader really was an independent checker (the gate reads the card's words), and
+whether the owner is back in ANOTHER session (the desk watches for that; the gate sees only
+its own session).
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

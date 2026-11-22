@@ -138,16 +138,15 @@ seen the options first.)*
    Use `.github/pull_request_template.md`. Open ready; iterate as a draft, then mark ready.
    Once open, subscribe and drive CI green / address review — never ask
    "should I watch?". When green + review-ready, **stop and ask me for merge
-   authorization** — a human approves every merge, and prior authorization does
-   **not** carry forward; it covers the head it was given on, and a new head beyond a
+   authorization** — a human approves every merge (or `desk:night` on my "good night"),
+   and prior authorization does **not** carry forward; it covers the head it was given on, and a new head beyond a
    clean rebase needs a fresh ask. While a `desk:merge` session is live, post your card
    on the PR; its digest is the ask. On my go-ahead, **squash-merge** by default.
-   Full procedure: `workflow.md` §Merging.
+   Procedure: `workflow.md` §Merging.
    *Scope: work you or I authored.* Four machine-generated PR classes
-   auto-merge themselves through the queue — the backlog mirror
-   (`sync-backlog.yml`, a generated view of issues), the release (`release.yml`,
-   where **the dispatch is the authorization**), **patch/minor dependency
-   bumps** (`dependabot-auto-merge.yml`; majors always wait for a human), and the
+   auto-merge through the queue — the backlog mirror (`sync-backlog.yml`), the release
+   (`release.yml`, where **the dispatch is the authorization**), **patch/minor dependency
+   bumps** (`dependabot-auto-merge.yml`, not majors), and the
    **nightly golden bless** (`golden-bless.yml`, per golden; a golden that adds,
    removes or resizes a page its source's slide count does not explain is held until
    the owner dispatches `bless_held` —
