@@ -1024,7 +1024,15 @@ export async function openSlideSettings(page: Page): Promise<void> {
 			await more.first().click({ timeout: 2_000 });
 			await page.getByRole('menuitem', { name: CHROME.slideSettings }).click({ timeout: 2_000 });
 		} else {
-			await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click({ timeout: 2_000 });
+			// The phone door is two steps, and an attempt can end between them: the sheet is open but its Slide | Deck switch
+			// is not ready yet (a nightly, webkit-phone, 2026-11-17). Pressing Settings again then fails, because the open
+			// sheet covers the bottom bar ("sheet-title … intercepts pointer events"). So the attempt asks whether the SHEET
+			// is open, by its title, the element that intercepts the press, and presses Settings only when it is not. Asking
+			// whether the switch is on screen instead still pressed Settings in that window and spent the attempt on it
+			// (checker, #3298). The switch sets the scope rather than toggling it (StudioShell `setInspectorScope`), so
+			// pressing Slide again is harmless.
+			const sheetOpen = page.locator('[data-slot="sheet-title"]').filter({ hasText: /^Settings$/, visible: true });
+			if (!(await sheetOpen.count())) await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click({ timeout: 2_000 });
 			await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click({ timeout: 2_000 });
 		}
 		await expect(slideScope).toBeVisible({ timeout: 2_000 });

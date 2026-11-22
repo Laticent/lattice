@@ -1,19 +1,16 @@
 /**
- * Unit: lib/authoring/notes-core.js — the pure presenter-notes extractor.
+ * Unit: lib/authoring/notes-core.js — the pure presenter-notes extractor and the privacy scrubs.
  *
- * notes-core is the SINGLE SOURCE for "a non-directive comment on a slide is
- * that slide's note" (LFM, Marp-faithful). The emulator extracts notes with it
- * from engine-rendered slide HTML. The block below pins notes-core's keep/drop
- * decision against hardcoded expected outputs for marp-core's documented
- * comment-collection behavior (no live marp-core comparison — marp-core isn't
- * a dependency), so the two render paths can never disagree on what counts as
- * a note.
+ * notes-core reads a slide's four notes (`<!-- @note{…} -->`, `@say`, `@alt`, `@handout`) from engine-rendered slide
+ * HTML and classifies every SOURCE comment for the `--strip-notes` / `--strip-say` scrubs. A plain comment is not a
+ * note and reaches no channel (engineering/decisions/2026-11-20-four-notes.md); the grammar is
+ * lib/core/note-grammar.mjs.
  */
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
-const { charReads } = require('../../helpers/work-count');
+const { charReads, scanWork } = require('../../helpers/work-count');
 const { assertLinearRegexes, normalKey } = require('../../helpers/regex-trace');
 
 // Work, not milliseconds (HARD RULE #32). A malformed-input guard here makes two checks: every regex the call runs is
@@ -232,9 +229,10 @@ describe('notes-core: isLatticePragma', () => {
 
   test('a pragma is not lifted as a note, and a real note beside it survives', () => {
     assert.equal(
-      core.notesFromHtml(sec('<!-- tier: short --><h1>A</h1><!-- Pause here. -->')),
+      core.notesFromHtml(sec('<!-- tier: short --><h1>A</h1><!-- @note{Pause here.} -->')),
       'Pause here.'
     );
+    assert.equal(core.isPrivateComment(' tier: short '), false, 'and the scrub keeps it in the source');
   });
 
   test('a slide carrying only pragmas has no note at all', () => {
@@ -252,34 +250,39 @@ describe('notes-core: isLatticePragma', () => {
       + '<!-- finish-override: --><h1>Q3</h1>'
     );
     assert.equal(core.notesFromHtml(html), null, 'a slide of nothing but logo/finish registers has no note');
-    assert.deepEqual(
-      core.noteBodiesFromHtml(sec('<!-- logo-finish: sm --><h1>Q3</h1><!-- Pause here. -->')),
-      ['Pause here.'],
+    assert.equal(
+      core.notesFromHtml(sec('<!-- logo-finish: sm --><h1>Q3</h1><!-- @note{Pause here.} -->')),
+      'Pause here.',
       'the author\'s own note still comes through'
     );
-    // The over-strip direction, at the extraction level: a prose value is a NOTE, and eating
-    // it would be silent — the author has no way to tell what removed it.
-    assert.equal(
-      core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-finish: the second half -->')),
-      'logo-finish: the second half'
-    );
+    // The over-strip direction: a register comment is kept by `--strip-notes`, but a prose value is not a register,
+    // so it is the author's plain comment and the scrub takes it. It is never a speaker note (four notes N3).
+    assert.equal(core.isPrivateComment(' logo-finish: sm '), false);
+    assert.equal(core.isPrivateComment(' logo-finish: the second half '), true);
+    assert.equal(core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-finish: the second half -->')), null);
   });
 });
 
 describe('notes-core: notesFromHtml', () => {
   test('single note', () => {
-    assert.equal(core.notesFromHtml(sec('<h1>A</h1><!-- speaker note -->')), 'speaker note');
+    assert.equal(core.notesFromHtml(sec('<h1>A</h1><!-- @note{speaker note} -->')), 'speaker note');
   });
-  test('multiple comments join with a blank line', () => {
+  test('a plain comment is not a note (four notes N3)', () => {
+    assert.equal(core.notesFromHtml(sec('<h1>A</h1><!-- speaker note -->')), null);
+    for (const old of ['note: say this', 'say: old', 'describe: old', 'reader: old', 'Note{x}']) {
+      assert.equal(core.notesFromHtml(sec(`<!-- ${old} -->`)), null, old);
+    }
+  });
+  test('several notes join in source order with a blank line', () => {
     assert.equal(
-      core.notesFromHtml(sec('<!-- first --><p>x</p><!-- second -->')),
+      core.notesFromHtml(sec('<!-- @note{first} --><p>x</p><!-- @note{second} -->')),
       'first\n\nsecond'
     );
   });
-  test('multi-line comment body is preserved', () => {
+  test('a multi-line body is dedented, its paragraphs kept', () => {
     assert.equal(
-      core.notesFromHtml(sec('<!-- line one\n   line two -->')),
-      'line one\n   line two'
+      core.notesFromHtml(sec('<!-- @note{\n   line one\n   line two\n\n   para two\n} -->')),
+      'line one\nline two\n\npara two'
     );
   });
   test('pragma-only slide → null', () => {
@@ -287,24 +290,35 @@ describe('notes-core: notesFromHtml', () => {
   });
   test('note alongside a pragma → only the note', () => {
     assert.equal(
-      core.notesFromHtml(sec('<!-- markdownlint-disable --><!-- the real note -->')),
+      core.notesFromHtml(sec('<!-- markdownlint-disable --><!-- @note{the real note} -->')),
       'the real note'
     );
   });
   test('no comments → null', () => {
     assert.equal(core.notesFromHtml(sec('<h1>A</h1>')), null);
   });
-  test('empty comment → null', () => {
+  test('empty comment, and an empty note → null', () => {
     assert.equal(core.notesFromHtml(sec('<!--  -->')), null);
+    assert.equal(core.notesFromHtml(sec('<!-- @note{  } -->')), null);
+  });
+  test('a near miss is not a note: wrong case, an unknown name, unbalanced braces, trailing text', () => {
+    for (const body of ['@Note{x}', '@speaker{x}', '@note{x', '@note{x} and more', '@note x']) {
+      assert.equal(core.notesFromHtml(sec(`<!-- ${body} -->`)), null, body);
+      assert.equal(core.noteOf(body), null, body);
+      assert.equal(core.isPrivateComment(body), true, `${body}: not a note, so the author's own, and scrubbed`);
+    }
+  });
+  test('the comment escape is undone where a person reads the note', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- @note{a --\\> b --!\\> c \\{d\\}} -->')), 'a --> b --!> c {d}');
   });
 });
 
 describe('notes-core: extractSlideNotes is index-aligned', () => {
   test('one entry per slide, null where empty', () => {
     const slides = [
-      sec('<!-- note A -->'),
-      sec('<h1>B</h1>'),
-      sec('<!-- markdownlint-disable --><!-- note C -->'),
+      sec('<!-- @note{note A} -->'),
+      sec('<h1>B</h1><!-- a plain comment -->'),
+      sec('<!-- markdownlint-disable --><!-- @note{note C} -->'),
     ];
     assert.deepEqual(core.extractSlideNotes(slides), ['note A', null, 'note C']);
   });
@@ -363,100 +377,110 @@ describe('notes-core: known comment-collection deltas vs marp-core', () => {
   // change to it is a conscious decision, not a silent drift.
   test('adjacent comments with no blank line are both collected', () => {
     // marp-core collects only the first here; the HTML scan sees both.
-    assert.equal(core.notesFromHtml('<section><!-- a --><!-- b --></section>'), 'a\n\nb');
+    assert.equal(core.notesFromHtml('<section><!-- @note{a} --><!-- @note{b} --></section>'), 'a\n\nb');
   });
   test('a comment inside a rendered block is still lifted', () => {
     // marp-core folds this into an HTML-block token and does not collect it.
-    assert.equal(core.notesFromHtml('<section><div><!-- x --></div></section>'), 'x');
+    assert.equal(core.notesFromHtml('<section><div><!-- @note{x} --></div></section>'), 'x');
   });
 });
 
-describe('notes-core: accessible-description channel (describe:)', () => {
-  test('isDescriptionComment recognizes the describe: prefix, not a note', () => {
-    assert.equal(core.isDescriptionComment('describe: A bar chart rising left to right.'), true);
-    assert.equal(core.isDescriptionComment('Describe:  case-insensitive'), true);
-    assert.equal(core.isDescriptionComment('note: say this'), false);
-    assert.equal(core.isDescriptionComment('describe the room'), false); // no colon → prose note
+describe('notes-core: the alt-text channel (@alt)', () => {
+  test('noteOf names the note; the retired describe: key is a plain comment', () => {
+    assert.deepEqual(core.noteOf(' @alt{A bar chart rising left to right.} '), { name: 'alt', text: 'A bar chart rising left to right.' });
+    assert.equal(core.noteOf('describe: A bar chart rising left to right.'), null);
+    assert.equal(core.isPublicNote(' @alt{A chart.} '), true, 'alt text ships with every export');
+    assert.equal(core.isPrivateComment(' @alt{A chart.} '), false);
   });
 
-  test('a describe: comment is NOT collected as a speaker note', () => {
-    assert.equal(core.notesFromHtml(sec('<!-- describe: Revenue up 40% over three quarters. -->')), null);
+  test('an @alt is NOT collected as a speaker note', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- @alt{Revenue up 40% over three quarters.} -->')), null);
   });
 
-  test('descriptionFromHtml returns the description, prefix stripped', () => {
+  test('descriptionFromHtml returns the alt text', () => {
     assert.equal(
-      core.descriptionFromHtml(sec('<!-- describe: Revenue up 40% over three quarters. -->')),
+      core.descriptionFromHtml(sec('<!-- @alt{Revenue up 40% over three quarters.} -->')),
       'Revenue up 40% over three quarters.',
     );
-    assert.equal(core.descriptionFromHtml(sec('<!-- a plain note -->')), null);
+    assert.equal(core.descriptionFromHtml(sec('<!-- a plain comment -->')), null);
+    assert.equal(core.descriptionFromHtml(sec('<!-- describe: the retired key -->')), null);
   });
 
-  test('note and description coexist on one slide without cross-contamination', () => {
-    const html = sec('<!-- Pause here. --><!-- describe: A pie chart, three equal slices. -->');
+  test('note and alt text coexist on one slide without cross-contamination', () => {
+    const html = sec('<!-- @note{Pause here.} --><!-- @alt{A pie chart, three equal slices.} -->');
     assert.equal(core.notesFromHtml(html), 'Pause here.'); // note only
-    assert.equal(core.descriptionFromHtml(html), 'A pie chart, three equal slices.'); // description only
+    assert.equal(core.descriptionFromHtml(html), 'A pie chart, three equal slices.'); // alt only
   });
 
-  test('extractSlideDescriptions is index-aligned; multiple describe join with a space', () => {
+  test('extractSlideDescriptions is index-aligned; several @alt join with a space', () => {
     const slides = [
-      sec('<!-- describe: First. --><!-- describe: Second. -->'),
-      sec('<!-- just a note -->'),
-      sec('<!-- describe: Third. -->'),
+      sec('<!-- @alt{First.} --><!-- @alt{Second.} -->'),
+      sec('<!-- @note{just a note} -->'),
+      sec('<!-- @alt{Third.} -->'),
     ];
     assert.deepEqual(core.extractSlideDescriptions(slides), ['First. Second.', null, 'Third.']);
   });
 });
 
-describe('notes-core: say channel (say:)', () => {
-  test('isSayComment recognizes the say: prefix, not a note', () => {
-    assert.equal(core.isSayComment('say: FY26 revenue grew forty percent.'), true);
-    assert.equal(core.isSayComment('say:  two spaces after the colon'), true);
-    // LOWERCASE ONLY: the channel is public, and "Say: …" is how a presenter might start a
-    // PRIVATE note. A capitalized one stays a note (lint-core `say-key-case` points it out).
-    assert.equal(core.isSayComment('Say: thank the ops team'), false);
-    assert.equal(core.isSayComment('SAY: thank the ops team'), false);
-    assert.equal(core.isSayComment('note: say this'), false);
-    assert.equal(core.isSayComment('describe: whats there'), false);
-    assert.equal(core.isSayComment('say this slowly'), false); // no colon → prose note
-    // RETIRED 2026-09-28: the old key is no longer the channel. It reads as a note, which is
-    // exactly why lint-core's `caption-key-retired` rule is an error rather than a warning.
-    assert.equal(core.isSayComment('caption: the old key'), false);
+describe('notes-core: the handout channel (@handout)', () => {
+  test('handoutFromHtml reads @handout, joined as paragraphs; never the speaker note', () => {
+    const html = sec('<!-- @note{Pause.} --><!-- @handout{For the reader.} --><p>x</p><!-- @handout{Second para.} -->');
+    assert.equal(core.handoutFromHtml(html), 'For the reader.\n\nSecond para.');
+    assert.equal(core.notesFromHtml(html), 'Pause.');
+    assert.equal(core.handoutFromHtml(sec('<!-- reader: the retired key -->')), null);
+    assert.deepEqual(core.extractSlideHandouts([html, sec('<h1>x</h1>')]), ['For the reader.\n\nSecond para.', null]);
   });
 
-  test('a caption: comment is NOT collected as a speaker note (never embedded in the PDF)', () => {
-    assert.equal(core.notesFromHtml(sec('<!-- say: The exact words this slide reads. -->')), null);
+  test('withHandoutNotes labels the handout after the speaker note, index-aligned', () => {
+    assert.deepEqual(core.withHandoutNotes(['N.', null, null, 'Only.'], ['H.', 'Alone.', null]), ['N.\n\nHandout: H.', 'Handout: Alone.', null, 'Only.']);
+  });
+});
+
+describe('notes-core: the say channel (@say)', () => {
+  test('noteOf reads @say lowercase only; the retired say: and caption: keys are plain comments', () => {
+    assert.deepEqual(core.noteOf('@say{FY26 revenue grew forty percent.}'), { name: 'say', text: 'FY26 revenue grew forty percent.' });
+    // LOWERCASE ONLY: the channel is public. A capitalized one is no note at all, so it is the author's plain comment
+    // (scrubbed by --strip-notes), and lint-core's `note-malformed` names it.
+    for (const body of ['@Say{thank the ops team}', '@SAY{thank the ops team}', 'say: FY26 revenue', 'caption: the old key', 'Say: thank the ops team']) {
+      assert.equal(core.noteOf(body), null, body);
+      assert.equal(core.isPrivateComment(body), true, body);
+    }
   });
 
-  test('sayLineFromHtml returns the caption, prefix stripped; last-wins on override', () => {
+  test('an @say is NOT collected as a speaker note (never embedded in the PDF)', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- @say{The exact words this slide reads.} -->')), null);
+  });
+
+  test('sayLineFromHtml returns the say line; several join on one line in source order', () => {
     assert.equal(
-      core.sayLineFromHtml(sec('<!-- say: Net dollar retention held at one twenty. -->')),
+      core.sayLineFromHtml(sec('<!-- @say{Net dollar retention held at one twenty.} -->')),
       'Net dollar retention held at one twenty.',
     );
-    assert.equal(core.sayLineFromHtml(sec('<!-- a plain note -->')), null);
-    // a caption REPLACES narration, so a second one supersedes (not concatenates)
-    assert.equal(core.sayLineFromHtml(sec('<!-- say: first -->\n<!-- say: second -->')), 'second');
+    assert.equal(core.sayLineFromHtml(sec('<!-- a plain comment -->')), null);
+    assert.equal(core.sayLineFromHtml(sec('<!-- @say{first} -->\n<!-- @say{second} -->')), 'first second');
   });
 
-  test('note, description, and caption coexist on one slide without cross-contamination', () => {
-    const html = sec('<!-- Pause here. --><!-- describe: A pie chart. --><!-- say: Three equal slices. -->');
-    assert.equal(core.notesFromHtml(html), 'Pause here.'); // note only (caption + describe excluded)
-    assert.equal(core.descriptionFromHtml(html), 'A pie chart.'); // description only
-    assert.equal(core.sayLineFromHtml(html), 'Three equal slices.'); // caption only
+  test('note, alt text and say line coexist on one slide without cross-contamination', () => {
+    const html = sec('<!-- @note{Pause here.} --><!-- @alt{A pie chart.} --><!-- @say{Three equal slices.} --><!-- @handout{Read on.} -->');
+    assert.equal(core.notesFromHtml(html), 'Pause here.');
+    assert.equal(core.descriptionFromHtml(html), 'A pie chart.');
+    assert.equal(core.sayLineFromHtml(html), 'Three equal slices.');
+    assert.equal(core.handoutFromHtml(html), 'Read on.');
   });
 
-  test('extractSlideSayLines is index-aligned; null where a slide has no caption', () => {
+  test('extractSlideSayLines is index-aligned; null where a slide has no say line', () => {
     const slides = [
-      sec('<!-- say: Opener. -->'),
-      sec('<!-- just a note -->'),
-      sec('<!-- describe: a chart --><!-- say: Closer. -->'),
+      sec('<!-- @say{Opener.} -->'),
+      sec('<!-- @note{just a note} -->'),
+      sec('<!-- @alt{a chart} --><!-- @say{Closer.} -->'),
     ];
     assert.deepEqual(core.extractSlideSayLines(slides), ['Opener.', null, 'Closer.']);
   });
 
   test('stripCommentNodes removes a caption comment from the rendered HTML (no double-render)', () => {
-    const html = sec('<!-- say: read this -->\n<p>Body</p>');
+    const html = sec('<!-- @say{read this} -->\n<p>Body</p>');
     const out = core.stripCommentNodes(html);
-    assert.doesNotMatch(out, /caption:/);
+    assert.doesNotMatch(out, /@say|read this/);
     assert.match(out, /<p>Body<\/p>/);
   });
 
@@ -473,30 +497,35 @@ describe('notes-core: say channel (say:)', () => {
   // landed still hands this function CRLF today. It is a PRIVACY strip (speaker notes leaking
   // into a shared HTML), so a silent failure here is the expensive kind.
   test('stripNotesFromSource strips a MULTI-LINE note from a raw CRLF source (no newline-mismatch leak)', () => {
-    // The note-body SET always arrives LF-normalized, because it is derived from rendered slide
-    // HTML where markdown-it already normalized newlines. The SOURCE being stripped may still be
-    // CRLF. That mismatch is the leak, so the fixture reproduces it exactly: an LF set against a
-    // genuinely CRLF source, both raw.
-    const crlf = ['# S', '', '<!-- Pause here.', 'Then CRLFLEAK ask the room. -->', '', 'Body.'].join('\r\n');
-    const bodiesFromRenderedHtml = new Set(['Pause here.\nThen CRLFLEAK ask the room.']);
-    const out = core.stripNotesFromSource(crlf, bodiesFromRenderedHtml);
+    // Until 2026-11-20 the strip matched LF-normalized bodies lifted from the render against the CRLF source, and that
+    // mismatch was the leak. The strip classifies the source comment now; a named note and a plain comment, each
+    // spanning a CRLF line break, must both still come off.
+    const crlf = ['# S', '', '<!-- @note{Pause here.', 'Then CRLFLEAK ask the room.} -->', '<!-- Mine.', 'CRLFPLAIN -->', '', 'Body.'].join('\r\n');
+    const out = core.stripNotesFromSource(crlf);
+    assert.doesNotMatch(out, /CRLFPLAIN/, 'a multi-line plain comment must not survive in a CRLF source');
     assert.doesNotMatch(out, /CRLFLEAK/, 'a multi-line note must not survive in a CRLF source');
     assert.match(out, /# S/, 'body content untouched');
   });
 
   // The privacy strip for the self-contained player's envelope (design doc §Notes on export).
-  test('stripNotesFromSource removes ONLY the known note comments — directives + tooling survive', () => {
+  test('stripNotesFromSource removes ONLY the private comments — directives, tooling and public notes survive', () => {
     const source = [
       '# Slide one',
       '',
       '<!-- _class: title -->',
-      '<!-- Remember to pause here. -->',
+      '<!-- @note{Remember to pause here.} -->',
+      '<!-- my own reminder -->',
       '<!-- prettier-ignore -->',
+      '<!-- @say{Read aloud.} -->',
+      '<!-- @alt{A chart.} -->',
+      '<!-- @handout{For later.} -->',
       '',
       'Body.',
     ].join('\n');
-    const out = core.stripNotesFromSource(source, new Set(['Remember to pause here.']));
+    const out = core.stripNotesFromSource(source);
     assert.doesNotMatch(out, /Remember to pause/, 'the note comment is gone');
+    assert.doesNotMatch(out, /my own reminder/, 'a plain comment is the author\'s, and gone');
+    for (const kept of ['@say{Read aloud.}', '@alt{A chart.}', '@handout{For later.}']) assert.ok(out.includes(kept), `${kept} ships`);
     assert.match(out, /_class: title/, 'a directive comment is preserved');
     assert.match(out, /prettier-ignore/, 'a tooling pragma is preserved');
     assert.match(out, /# Slide one/, 'body content untouched');
@@ -510,8 +539,8 @@ describe('notes-core: say channel (say:)', () => {
     // note after it is lost — while the slide COUNT still matches, which is exactly why a
     // count-parity check waves it through. `docs/src/lib/markup/sections.ts` is depth-aware.
     const NESTED =
-      '<section id="1" class="title"><h1>One</h1><section class="inner"><p>n</p></section><p>tail</p><!-- SECRETNEST --></section>' +
-      '<section id="2" class="content"><h2>Two</h2><!-- NOTETWO --></section>';
+      '<section id="1" class="title"><h1>One</h1><section class="inner"><p>n</p></section><p>tail</p><!-- @note{SECRETNEST} --></section>' +
+      '<section id="2" class="content"><h2>Two</h2><!-- @note{NOTETWO} --></section>';
     const flatSplit = (h) => {
       const out = [];
       const open = /<section\b[^>]*>/gi;
@@ -525,41 +554,31 @@ describe('notes-core: say channel (say:)', () => {
       return out;
     };
 
-    test('reads note, description and say line per slide', () => {
+    test('reads note, alt text, say line and handout per slide', () => {
       const rec = core.slideNoteRecord([
-        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --><!-- reader: For you. --></section>',
+        '<section><h1>A</h1><!-- @note{A note.} --><!-- @alt{A chart.} --><!-- @say{Read aloud.} --><!-- @handout{For you.} --><!-- plain --></section>',
         '<section><h1>B</h1></section>',
       ]);
-      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', say: 'Read aloud.', reader: 'For you.' });
-      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, say: null, reader: null });
+      assert.deepEqual(rec[0], { note: 'A note.', description: 'A chart.', say: 'Read aloud.', handout: 'For you.' });
+      assert.deepEqual(rec[1], { note: null, description: null, say: null, handout: null });
     });
 
-    // The privacy contract behind `noteBodies`. `note` JOINS a slide's notes with a blank
-    // line, so splitting it back on '\n\n' is not the inverse: a SINGLE note containing a
-    // blank line shatters into fragments, and `stripNotesFromSource` matches a comment's
-    // WHOLE trimmed body — so nothing matches and the note ships in a --strip-notes export.
-    // That shipped in the Studio while the CLI, which passes the bodies, was correct.
-    test('noteBodies survives a note that contains a blank line — the strip set the join cannot rebuild', () => {
+    // The privacy contract the record used to carry as `noteBodies`: a note that contains a blank line. The strip
+    // classifies the source comment now, so nothing is matched back and nothing can shatter.
+    test('a note that contains a blank line reads whole, and the strip takes it whole', () => {
       const body = 'Board only.\n\nDo not share.';
-      const rec = core.slideNoteRecord([`<section><h1>Q3</h1><!--\n${body}\n--></section>`]);
-      assert.deepEqual(rec[0].noteBodies, [body], 'the pre-join body is carried whole');
+      const rec = core.slideNoteRecord([`<section><h1>Q3</h1><!-- @note{\n${body}\n} --></section>`]);
+      assert.equal(rec[0].note, body, 'the note is read whole');
 
-      const source = `---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!--\n${body}\n-->\n`;
-      const stripped = core.stripNotesFromSource(source, new Set(rec.flatMap((r) => r.noteBodies)));
+      const source = `---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- @note{\n${body}\n} -->\n`;
+      const stripped = core.stripNotesFromSource(source);
       assert.ok(!stripped.includes('Do not share'), 'the note is scrubbed from the envelope source');
       assert.ok(stripped.includes('_class: title'), 'and the directive beside it survives');
-
-      const rebuilt = new Set(rec.flatMap((r) => (r.note ? r.note.split('\n\n') : [])));
-      assert.ok(
-        core.stripNotesFromSource(source, rebuilt).includes('Do not share'),
-        'guard: rebuilding the set by splitting the joined note really does leak (this is the bug)',
-      );
     });
 
-    test('noteBodies still separates two notes authored on one slide', () => {
-      const rec = core.slideNoteRecord(['<section><!-- First note. --><!-- Second note. --></section>']);
-      assert.deepEqual(rec[0].noteBodies, ['First note.', 'Second note.'], 'each comment is its own body');
-      assert.equal(rec[0].note, 'First note.\n\nSecond note.', 'and the display join is unchanged');
+    test('two notes authored on one slide join as paragraphs', () => {
+      const rec = core.slideNoteRecord(['<section><!-- @note{First note.} --><!-- @note{Second note.} --></section>']);
+      assert.equal(rec[0].note, 'First note.\n\nSecond note.');
     });
 
     test('a depth-aware split keeps the note a flat split loses — with the COUNT identical', () => {
@@ -579,7 +598,7 @@ describe('notes-core: say channel (say:)', () => {
   // The SEPARATE privacy strip for the caption channel (`--strip-say`), orthogonal
   // to the note strip: captions are structurally identified (the `caption:` prefix), so
   // no rendered-body set is needed.
-  test('stripSayFromSource removes caption COMMENTS + the front-matter captions: block — notes, describe, directives, other keys survive', () => {
+  test('stripSayFromSource removes say lines + a retired front-matter say: block — notes, alt text, directives, other keys survive', () => {
     const source = [
       '---',
       'theme: indaco',
@@ -594,9 +613,9 @@ describe('notes-core: say channel (say:)', () => {
       '',
       '<!-- _class: title -->',
       '<!-- Remember to pause here. -->',
-      '<!-- describe: A pie chart with three equal slices. -->',
-      '<!-- say: Three equal slices, one third each. -->',
-      '<!-- say:a SECOND say line, no space after the colon. -->',
+      '<!-- @alt{A pie chart with three equal slices.} -->',
+      '<!-- @say{Three equal slices, one third each.} -->',
+      '<!-- say:a SECOND say line, the retired key with no space after the colon. -->',
       '',
       'Body.',
     ].join('\n');
@@ -612,8 +631,8 @@ describe('notes-core: say channel (say:)', () => {
     assert.match(out, /theme: indaco/, 'a sibling front-matter key before captions survives');
     assert.match(out, /acronyms:/, 'a sibling front-matter key after captions survives');
     assert.match(out, /ARR: annual recurring revenue/, "the acronyms block's body survives");
-    assert.match(out, /Remember to pause/, 'the speaker note is preserved');
-    assert.match(out, /describe: A pie chart/, 'the describe: a11y comment is preserved');
+    assert.match(out, /Remember to pause/, 'the private comment is left to --strip-notes');
+    assert.match(out, /@alt\{A pie chart/, 'the alt text is preserved');
     assert.match(out, /_class: title/, 'a directive comment is preserved');
     assert.match(out, /# Slide one/, 'body content untouched');
   });
@@ -622,17 +641,20 @@ describe('notes-core: say channel (say:)', () => {
   // script to `--strip-say` must not start shipping an old deck's public lines in the envelope
   // source. A checker measured exactly that leak (a stale `captions:` map in the player envelope
   // and the embedded PDF source) before this was added.
-  test('stripSayFromSource ALSO scrubs the retired caption: comment and captions: map', () => {
+  test('stripSayFromSource ALSO scrubs the retired say:/caption: comments and say:/captions: maps', () => {
+    // Each retired form is a plain comment or an unread front-matter key since 2026-11-20 (four notes N6), and
+    // `--strip-notes` takes the comments; `--strip-say` takes them too, so a script that runs only `--strip-say` on an
+    // unmigrated deck does not ship its old public lines. A capitalized one goes as well: scrubbing more is the safe side.
     const src = [
-      '---', 'theme: indaco', 'captions:', '  1: OLD MAP LINE', 'say:', '  2: NEW MAP LINE', '---', '',
+      '---', 'theme: indaco', 'captions:', '  1: OLD MAP LINE', 'say:', '  2: SAY MAP LINE', '---', '',
       '# S', '', '<!-- caption: OLD INLINE LINE -->', '<!-- Caption: OLD CAPITALIZED LINE -->',
-      '<!-- say: NEW INLINE LINE -->', '<!-- Say: a private note -->', '', 'Body.',
+      '<!-- say: OLD SAY LINE -->', '<!-- Say: OLD CAPITALIZED SAY -->', '<!-- @say{NEW SAY LINE} -->', '<!-- @note{a private note} -->', '', 'Body.',
     ].join('\n');
     const out = core.stripSayFromSource(src);
-    for (const gone of ['OLD MAP LINE', 'NEW MAP LINE', 'OLD INLINE LINE', 'OLD CAPITALIZED LINE', 'NEW INLINE LINE']) {
+    for (const gone of ['OLD MAP LINE', 'SAY MAP LINE', 'OLD INLINE LINE', 'OLD CAPITALIZED LINE', 'OLD SAY LINE', 'OLD CAPITALIZED SAY', 'NEW SAY LINE']) {
       assert.doesNotMatch(out, new RegExp(gone), `${gone} is scrubbed`);
     }
-    assert.match(out, /Say: a private note/, 'a capitalized Say: is a NOTE, left to --strip-notes');
+    assert.match(out, /@note\{a private note\}/, 'the speaker note is left to --strip-notes');
     assert.match(out, /theme: indaco/);
   });
 
@@ -741,13 +763,12 @@ describe('notes-core: say channel (say:)', () => {
     assert.equal(core.stripSayFromSource(shipped), shipped, 'themes/palette-audit.md round-trips unchanged');
   });
 
-  test('reverse orthogonality: stripNotesFromSource PRESERVES a caption comment', () => {
-    // The note strip must never touch the caption channel (the trio flagged this direction
-    // was unpinned). A caption body is never in the note-strip set (noteBodiesFromHtml excludes it).
-    const src = '# S\n\n<!-- Pause here. -->\n<!-- say: The exact read-as line. -->\n\nBody.';
-    const out = core.stripNotesFromSource(src, new Set(['Pause here.']));
+  test('reverse orthogonality: stripNotesFromSource PRESERVES the say line', () => {
+    // The note strip must never touch the say channel (the trio flagged this direction was unpinned).
+    const src = '# S\n\n<!-- @note{Pause here.} -->\n<!-- @say{The exact read-as line.} -->\n\nBody.';
+    const out = core.stripNotesFromSource(src);
     assert.doesNotMatch(out, /Pause here/, 'the note is stripped');
-    assert.match(out, /say: The exact read-as line\./, 'the caption comment survives the NOTE strip');
+    assert.match(out, /@say\{The exact read-as line\.\}/, 'the say line survives the NOTE strip');
   });
 
   test('stripSayFromSource is a no-op on a deck with no captions; safe on null', () => {
@@ -758,39 +779,36 @@ describe('notes-core: say channel (say:)', () => {
     assert.equal(core.stripSayFrontMatter('# No front matter\n\nsay: in prose\n'), '# No front matter\n\nsay: in prose\n');
   });
 
-  test('noteBodiesFromHtml returns INDIVIDUAL bodies — a note with an internal blank line stays whole', () => {
-    // The leak that was: joining then splitting on \n\n shattered a single blank-line
-    // note. noteBodiesFromHtml keeps each comment's full body, so the strip set matches
-    // the source comment and removes it.
-    const html = sec('<!-- Line one.\n\nLine two. --><!-- A second note. -->');
-    assert.deepEqual(core.noteBodiesFromHtml(html), ['Line one.\n\nLine two.', 'A second note.']);
-    // and the strip set built from it removes the blank-line note from source
-    const src = '# S\n\n<!-- Line one.\n\nLine two. -->\n\nBody.';
-    const out = core.stripNotesFromSource(src, new Set(core.noteBodiesFromHtml(html)));
+  test('a note with an internal blank line is read whole and stripped whole', () => {
+    // The leak that was: joining then splitting on \n\n shattered a single blank-line note, so the strip set built
+    // from the render matched nothing. The strip reads the source comment itself now.
+    const html = sec('<!-- @note{Line one.\n\nLine two.} --><!-- @note{A second note.} -->');
+    assert.equal(core.notesFromHtml(html), 'Line one.\n\nLine two.\n\nA second note.');
+    const src = '# S\n\n<!-- @note{Line one.\n\nLine two.} -->\n\nBody.';
+    const out = core.stripNotesFromSource(src);
     assert.doesNotMatch(out, /Line one|Line two/, 'the blank-line note is fully stripped (no leak)');
   });
 
   test('stripNotesFromSource strips a MULTI-LINE note in a CRLF source (Windows-authored deck)', () => {
-    // The leak the checker caught: the strip set is \n-normalized (from the render),
-    // but a raw CRLF comment body never matched it → the note shipped. Normalize both.
-    const set = new Set(['Pause here.\nThen ask the room.']); // \n form, as from the render
-    const crlf = '# S\r\n\r\n<!-- Pause here.\r\nThen ask the room. -->\r\n\r\nBody.\r\n';
-    const out = core.stripNotesFromSource(crlf, set);
+    // The leak the checker caught when the strip matched render-normalized bodies: a raw CRLF comment body never
+    // matched, so the note shipped. The source is classified where it stands now.
+    const crlf = '# S\r\n\r\n<!-- @note{Pause here.\r\nThen ask the room.} -->\r\n\r\nBody.\r\n';
+    const out = core.stripNotesFromSource(crlf);
     assert.doesNotMatch(out, /ask the room/, 'the CRLF multi-line note is stripped (no leak)');
     // lone-CR too
     const cr = '<!-- Pause here.\rThen ask the room. -->';
-    assert.equal(core.stripNotesFromSource(cr, set), '', 'a lone-CR note also strips');
+    assert.equal(core.stripNotesFromSource(cr), '', 'a lone-CR note also strips');
   });
 
-  test('stripNotesFromSource never strips a directive that happens to read like prose', () => {
-    // Safety: it matches EXACT note bodies, so a "Remember:" directive-shaped comment
-    // that was NOT extracted as a note is never removed.
+  test('stripNotesFromSource never strips a directive, even beside prose shaped like one', () => {
+    // A "Remember:" comment reads like `key: value` but names no directive, so it is the author's plain comment and
+    // goes; the `_footer:` directive beside it stays, or the recipient's slide loses its footer.
     const source = '<!-- Remember: this is a note --><!-- _footer: page -->';
-    const out = core.stripNotesFromSource(source, new Set(['Remember: this is a note']));
+    const out = core.stripNotesFromSource(source);
     assert.doesNotMatch(out, /this is a note/);
-    assert.match(out, /_footer: page/, 'the unrelated comment stays');
-    // Empty set → identity (nothing to strip).
-    assert.equal(core.stripNotesFromSource(source, new Set()), source);
+    assert.equal(out, '<!-- _footer: page -->', 'the directive stays, byte for byte');
+    // A source with nothing private is returned as given.
+    assert.equal(core.stripNotesFromSource(out), out);
   });
 
   test('stripNotesFromSource is POSITION-aware — a note body inside a code sample survives (#1636)', () => {
@@ -816,7 +834,7 @@ describe('notes-core: say channel (say:)', () => {
       '<!-- Remember to pause here. -->',
       '',
     ].join('\n');
-    const out = core.stripNotesFromSource(source, new Set(['Remember to pause here.']));
+    const out = core.stripNotesFromSource(source);
     assert.equal((out.match(/Remember to pause here/g) || []).length, 2, 'the fenced and inline samples both survive');
     assert.match(out, /```markdown\n<!-- Remember to pause here\. -->\n```/, 'the fenced sample is byte-intact');
     assert.doesNotMatch(out.split('# The real slide')[1], /Remember to pause here/, 'the real note is still scrubbed');
@@ -849,9 +867,8 @@ describe('notes-core: say channel (say:)', () => {
   // envelope and the `--embed-source` attachment; the render already had a guard (#2006).
   describe('#2012: code after raw HTML, and indented code, keeps its note-shaped text', () => {
     const NOTE = 'SECRETNOTE r';
-    const set = new Set([NOTE]);
     const sample = 'let a = "<!-- SECRETNOTE r -->";';
-    const scrub = (src) => core.stripNotesFromSource(src, set);
+    const scrub = (src) => core.stripNotesFromSource(src);
     const realNoteGone = (out) => assert.equal(out.split(`<!-- ${NOTE} -->`).length - 1, 1, 'only the sample copy survives');
 
     test('a fence directly under a one-line note (HTML block type 2 ends on its own line)', () => {
@@ -929,7 +946,7 @@ describe('notes-core: say channel (say:)', () => {
         '[r]: x\n    a\n<x-y>\n```\n<!-- S -->\n',
         '| a |\n|---|\n    b\n<x-y>\n```\n<!-- S -->\n',
       ];
-      for (const src of cases) assert.doesNotMatch(core.stripNotesFromSource(src, new Set(['S'])), /S -->/, JSON.stringify(src));
+      for (const src of cases) assert.doesNotMatch(core.stripNotesFromSource(src), /S -->/, JSON.stringify(src));
     });
 
     // The invariant, measured against markdown-it itself: over generated documents built from the
@@ -969,8 +986,8 @@ describe('notes-core: say channel (say:)', () => {
       ];
       for (const src of cases) {
         assert.match(core.maskCodeRegions(src), /S/, JSON.stringify(src));
-        assert.doesNotMatch(core.stripNotesFromSource(src, new Set(['S'])), /S/, JSON.stringify(src));
-        assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(['S']))), [], JSON.stringify(src));
+        assert.doesNotMatch(core.stripNotesFromSource(src), /S/, JSON.stringify(src));
+        assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src)), [], JSON.stringify(src));
       }
     });
 
@@ -990,14 +1007,14 @@ describe('notes-core: say channel (say:)', () => {
         '---\ntitle: a\n---<div>\n---\n```\n<!-- S -->\n```\n',
       ];
       for (const src of cases) {
-        const out = core.stripNotesFromSource(src, new Set(['S']));
+        const out = core.stripNotesFromSource(src);
         assert.doesNotMatch(out, /\bS\b/, JSON.stringify(src));
       }
     });
 
     test('runs of unclosed openers and long look-alike tags stay fast', () => {
       const openers = `x ${'<!-- '.repeat(30_000)}`;
-      linearWork(() => core.stripNotesFromSource(openers, new Set(['a'])), openers.length, 150, 'a run of unclosed openers');
+      linearWork(() => core.stripNotesFromSource(openers), openers.length, 150, 'a run of unclosed openers');
       const lookalike = `zq0lcn${'x'.repeat(100_000)}\n\n<!-- a -->\n`;
       linearWork(() => core.maskCodeRegions(lookalike), lookalike.length, 64, 'a look-alike tag');
     });
@@ -1125,7 +1142,6 @@ describe('notes-core: say channel (say:)', () => {
     // The position model's one dangerous direction: a phantom code region hides a real note
     // and it ships in the shared file. Both vectors below leaked before the scan learned that
     // markdown-it does not read a fence line inside an HTML block or inside a comment.
-    const set = new Set(['SECRET: do not say the layoffs number', 'Wrap up in two minutes.']);
     const htmlBlock = [
       '# Quarterly review',
       '',
@@ -1142,13 +1158,13 @@ describe('notes-core: say channel (say:)', () => {
       '<!-- Wrap up in two minutes. -->',
       '',
     ].join('\n');
-    const out = core.stripNotesFromSource(htmlBlock, set);
+    const out = core.stripNotesFromSource(htmlBlock);
     assert.doesNotMatch(out, /SECRET/, 'the note after a phantom fence is still scrubbed');
     assert.doesNotMatch(out, /Wrap up/, 'and so is every note after it');
     // A note that QUOTES an unclosed fence used to blank the rest of the document.
     const quoted = '<!--\nShow them this:\n```js\nchart(1)\n-->\n\n---\n\n<!-- SECRET: do not say the layoffs number -->\n';
     assert.doesNotMatch(
-      core.stripNotesFromSource(quoted, new Set(['Show them this:\n```js\nchart(1)', 'SECRET: do not say the layoffs number'])),
+      core.stripNotesFromSource(quoted),
       /SECRET/,
       'a fence inside a comment body opens nothing',
     );
@@ -1156,16 +1172,16 @@ describe('notes-core: say channel (say:)', () => {
 
   test('a note-shaped comment inside a NESTED fence survives the scrub', () => {
     const source = '````markdown\n```js\n<!-- Board only -->\n```\n````\n\n<!-- Board only -->\n';
-    const out = core.stripNotesFromSource(source, new Set(['Board only']));
+    const out = core.stripNotesFromSource(source);
     assert.equal((out.match(/Board only/g) || []).length, 1, 'the sample survives, the real note goes');
     assert.match(out, /```js\n<!-- Board only -->\n```/);
   });
 
   test('stripSayFromSource is POSITION-aware for the same reason', () => {
-    const source = '```markdown\n<!-- say: Read this aloud. -->\n```\n\n<!-- say: Read this aloud. -->\n';
+    const source = '```markdown\n<!-- @say{Read this aloud.} -->\n```\n\n<!-- @say{Read this aloud.} -->\n';
     const out = core.stripSayFromSource(source);
     assert.equal((out.match(/Read this aloud/g) || []).length, 1, 'the documented sample survives, the real caption goes');
-    assert.match(out, /```markdown\n<!-- say: Read this aloud\. -->\n```/);
+    assert.match(out, /```markdown\n<!-- @say\{Read this aloud\.\} -->\n```/);
   });
 
   // ── The caption channel takes the note channel's cut (#2003) ──────────────────────────────
@@ -1177,51 +1193,51 @@ describe('notes-core: say channel (say:)', () => {
     // comment sat names WHICH slides carried one, in the source the envelope ships AND — since
     // the export re-renders that source — in the rendered bytes.
     assert.equal(
-      core.stripSayFromSource('# Slide\n\n<!-- say: Read this aloud. -->\n\nBody.\n'),
+      core.stripSayFromSource('# Slide\n\n<!-- @say{Read this aloud.} -->\n\nBody.\n'),
       '# Slide\n\nBody.\n',
       'the caption line and one of its blank neighbors go; one blank line remains'
     );
     // No `\n\n\n` run left behind — the cheaper tell, readable with `grep -c` and no re-render.
     assert.doesNotMatch(
-      core.stripSayFromSource('a\n\n<!-- say: x -->\n\nb\n\n<!-- say: y -->\n\nc\n'),
+      core.stripSayFromSource('a\n\n<!-- @say{x} -->\n\nb\n\n<!-- @say{y} -->\n\nc\n'),
       /\n\n\n/,
       'two captions between blank lines leave no blank-line run'
     );
     assert.equal(
-      core.stripSayFromSource('a\n  <!-- say: x -->\nb\n'),
+      core.stripSayFromSource('a\n  <!-- @say{x} -->\nb\n'),
       'a\n\nb\n',
       'the leading indent goes with the line, and the block boundary it was providing stays'
     );
     // CRLF: the `\r` travels with its line rather than being left dangling.
     assert.equal(
-      core.stripSayFromSource('a\r\n\r\n<!-- say: x -->\r\n\r\nb\r\n'),
+      core.stripSayFromSource('a\r\n\r\n<!-- @say{x} -->\r\n\r\nb\r\n'),
       'a\r\n\r\nb\r\n',
       'a CRLF deck keeps CRLF throughout'
     );
     // An INLINE caption keeps its author-typed spaces — deleting one would join two words.
-    assert.equal(core.stripSayFromSource('a <!-- say: x --> b'), 'a  b');
+    assert.equal(core.stripSayFromSource('a <!-- @say{x} --> b'), 'a  b');
   });
 
   test('stripSayFromSource keeps the BLOCK BOUNDARY a caption comment was providing (#2003)', () => {
     // A caption comment is an HTML block just as a note comment is, so removing it outright
     // re-cuts the deck the same way: `Some text\n---` is a setext H2, not a slide break.
     assert.equal(
-      core.stripSayFromSource('Some text\n<!-- say: Read this. -->\n---\n'),
+      core.stripSayFromSource('Some text\n<!-- @say{Read this.} -->\n---\n'),
       'Some text\n\n---\n',
       'the `---` stays a thematic break rather than becoming a setext underline'
     );
     assert.equal(
-      core.stripSayFromSource('First paragraph.\n<!-- say: Read this. -->\nSecond paragraph.\n'),
+      core.stripSayFromSource('First paragraph.\n<!-- @say{Read this.} -->\nSecond paragraph.\n'),
       'First paragraph.\n\nSecond paragraph.\n',
       'two paragraphs stay two paragraphs'
     );
     // Both cuts offered, for the same reason the note strip offers them: inside a list item an
     // empty line turns a tight list loose, so the caller measures which reproduces the deck.
-    const list = '- one\n  <!-- say: x -->\n- two\n';
+    const list = '- one\n  <!-- @say{x} -->\n- two\n';
     assert.equal(core.stripSayFromSource(list, { boundary: 'drop' }), '- one\n- two\n');
     assert.equal(core.stripSayFromSource(list, { boundary: 'preserve' }), '- one\n\n- two\n');
     // `preserve` is the default, so a caller that does not opt in gets the conservative cut.
-    const setext = 'Some text\n<!-- say: x -->\n---\n';
+    const setext = 'Some text\n<!-- @say{x} -->\n---\n';
     assert.equal(core.stripSayFromSource(setext), core.stripSayFromSource(setext, { boundary: 'preserve' }));
     assert.equal(core.stripSayFromSource(setext, { boundary: 'drop' }), 'Some text\n---\n');
   });
@@ -1233,7 +1249,6 @@ describe('notes-core: say channel (say:)', () => {
     // whole interaction: once both cuts became line-aware they meet through BLANK-LINE
     // ACCOUNTING. The first scrub takes a line and may leave an empty one in its place, so the
     // second reads neighbors the author never wrote.
-    const bodies = new Set(['n']);
     // The divergence needs the pair at the END of the input, where "end of file counts as blank
     // on the right" meets a blank the first scrub just emitted on the left. Mid-deck the two
     // orders agree, which is why a plausible-looking fixture does not measure this.
@@ -1250,7 +1265,7 @@ describe('notes-core: say channel (say:)', () => {
     // `' '` — a WHITESPACE-ONLY line — is load-bearing in this alphabet. The surviving
     // divergence is now mid-deck rather than at the end, and it is the two orders disagreeing
     // about whether the author's whitespace-only line survives between the comments.
-    const LINES = ['Text.', '', '<!-- n -->', '<!-- say: c -->', ' '];
+    const LINES = ['Text.', '', '<!-- n -->', '<!-- @say{c} -->', ' '];
     const divergent = [];
     // Depth 5: the shape is `text / note / caption / whitespace-line / text`, which four lines
     // cannot express. Measured at ~160ms for the whole sweep, so the depth is affordable.
@@ -1258,8 +1273,8 @@ describe('notes-core: say channel (say:)', () => {
       if (depth === 0) {
         for (const trail of ['', '\n']) {
           const s = acc.join('\n') + trail;
-          const notesFirst = core.stripSayFromSource(core.stripNotesFromSource(s, bodies));
-          const sayFirst = core.stripNotesFromSource(core.stripSayFromSource(s), bodies);
+          const notesFirst = core.stripSayFromSource(core.stripNotesFromSource(s));
+          const sayFirst = core.stripNotesFromSource(core.stripSayFromSource(s));
           if (notesFirst !== sayFirst) divergent.push(s);
         }
         return;
@@ -1274,23 +1289,23 @@ describe('notes-core: say channel (say:)', () => {
       + 'shape — do not delete the test, widen it and re-measure.'
     );
     // The shape the search finds today, pinned so a reader can see what it is without running it.
-    const src = 'Text.\n<!-- n -->\n<!-- say: c -->\n \nText.';
+    const src = 'Text.\n<!-- n -->\n<!-- @say{c} -->\n \nText.';
     assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
-      core.stripSayFromSource(core.stripNotesFromSource(src, bodies)),
-      core.stripNotesFromSource(core.stripSayFromSource(src), bodies)
+      core.stripSayFromSource(core.stripNotesFromSource(src)),
+      core.stripNotesFromSource(core.stripSayFromSource(src))
     );
     // ONE PASS judges every comment against the SOURCE's own neighbors, so there is no order.
-    const onePass = core.stripChannelsFromSource(src, { noteBodies: bodies, say: true });
-    assert.equal(onePass, core.stripChannelsFromSource(src, { say: true, noteBodies: bodies }));
+    const onePass = core.stripChannelsFromSource(src, { notes: true, say: true });
+    assert.equal(onePass, core.stripChannelsFromSource(src, { say: true, notes: true }));
     // Both channels gone, and the same answer whichever way the chained version would have gone.
     assert.doesNotMatch(onePass, /<!--/, 'no comment survives the combined scrub');
 
     // The ordinary shape, where the two agree: the composed result is the deck as if neither
     // comment had been typed.
-    const plain = '# Slide\n\n<!-- say: Read this aloud. -->\n\nBody.\n\n<!-- Pause here. -->\n\nMore.\n';
+    const plain = '# Slide\n\n<!-- @say{Read this aloud.} -->\n\nBody.\n\n<!-- @note{Pause here.} -->\n\nMore.\n';
     assert.equal(
-      core.stripChannelsFromSource(plain, { noteBodies: new Set(['Pause here.']), say: true }),
+      core.stripChannelsFromSource(plain, { notes: true, say: true }),
       '# Slide\n\nBody.\n\nMore.\n'
     );
   });
@@ -1308,16 +1323,16 @@ describe('notes-core: say channel (say:)', () => {
     // what the second one misreads. Take ONE comment with a blank line already above it and
     // both cuts left the blank — `'A\n\n<!-- n -->\n'` came out `'A\n\n'` either way. No choice
     // of tie-break reaches that, because the boundary argument is not consulted on this branch.
-    const opts = { noteBodies: new Set(['n']), say: true };
+    const opts = { notes: true, say: true };
     for (const boundary of core.SCRUB_BOUNDARIES) {
       assert.equal(
-        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- say: c -->\n<!-- n -->\n', { ...opts, boundary }),
+        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- @say{c} -->\n<!-- @note{n} -->\n', { ...opts, boundary }),
         '## Third slide\n\nClosing.\n',
         `two comments at end of input reproduce the counterfactual under \`${boundary}\``
       );
       // The single-comment shape, which the tie-break reading did not cover at all.
       assert.equal(
-        core.stripNotesFromSource('A\n\n<!-- n -->\n', new Set(['n']), { boundary }),
+        core.stripNotesFromSource('A\n\n<!-- n -->\n', { boundary }),
         'A\n',
         `one comment with a blank above it, at end of input, under \`${boundary}\``
       );
@@ -1329,44 +1344,44 @@ describe('notes-core: say channel (say:)', () => {
       // end-of-input variant now lands on `A\n`, whichever side the author's blank was on.
       for (const tail of ['\n', '\n\n', '\n \n', '\n\n\n', '']) {
         assert.equal(
-          core.stripNotesFromSource(`A\n\n<!-- n -->${tail}`, new Set(['n']), { boundary }),
+          core.stripNotesFromSource(`A\n\n<!-- n -->${tail}`, { boundary }),
           'A\n',
           `blank above, ${JSON.stringify(tail)} after, under \`${boundary}\``
         );
       }
       // Text above rather than a blank, same tails — no blank line is invented at the end.
       for (const tail of ['\n', '\n\n', '']) {
-        assert.equal(core.stripNotesFromSource(`A\n<!-- n -->${tail}`, new Set(['n']), { boundary }), 'A\n');
+        assert.equal(core.stripNotesFromSource(`A\n<!-- n -->${tail}`, { boundary }), 'A\n');
       }
       // A RUN of blank lines on either side goes too, and this is the rule the first two cuts of
       // the fix got wrong in opposite directions: one took a single blank and left `A\n\n`, the
       // next took every blank BELOW but only one above, so the branch was asymmetric and the
       // comment describing it was false. At end of input the whole trailing run goes, from
       // whichever side — there is no block below for any of it to be separating.
-      assert.equal(core.stripNotesFromSource('A\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
-      assert.equal(core.stripNotesFromSource('A\n\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
-      assert.equal(core.stripNotesFromSource('A\n<!-- n -->\n\n\n', new Set(['n']), { boundary }), 'A\n');
-      assert.equal(core.stripNotesFromSource('A\r\n\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      assert.equal(core.stripNotesFromSource('A\n\n\n<!-- n -->\n', { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n\n\n\n<!-- n -->\n', { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n<!-- n -->\n\n\n', { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n\r\n<!-- n -->\r\n', { boundary }), 'A\r\n');
       // Trailing spaces on the last CONTENT line are the author's and stay — the trim takes
       // blank LINES, not whitespace.
-      assert.equal(core.stripNotesFromSource('A  \n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A  \n');
+      assert.equal(core.stripNotesFromSource('A  \n\n<!-- n -->\n', { boundary }), 'A  \n');
       // `[ \t\r\n]`, NOT `\s`: a non-breaking space is a paragraph to markdown, not a blank line.
       // With `\s` the deck below lost a whole `<p>`, and a fuzz oracle written with `\s` could
       // not see it — the bug and the check shared a character class.
       assert.equal(
-        core.stripNotesFromSource('A\n\n<!-- n -->\n \n', new Set(['n']), { boundary }),
+        core.stripNotesFromSource('A\n\n<!-- n -->\n \n', { boundary }),
         'A\n\n \n',
         'a non-breaking-space line is content, so this is not end of input at all'
       );
       // A CRLF deck takes its own terminator with it rather than leaving a lone carriage return.
-      assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', { boundary }), 'A\r\n');
       // Start-of-file is the same branch with nothing emitted yet — there is no blank to take,
       // and trimming an empty output must not throw or invent one.
-      assert.equal(core.stripNotesFromSource('<!-- n -->\n', new Set(['n']), { boundary }), '');
+      assert.equal(core.stripNotesFromSource('<!-- n -->\n', { boundary }), '');
       // NOT at end of input: the blank BELOW still goes, exactly as before. This is the half of
       // the branch that was always right, and the fix must not move it.
       assert.equal(
-        core.stripNotesFromSource('# S\n\n<!-- n -->\n\nBody.\n', new Set(['n']), { boundary }),
+        core.stripNotesFromSource('# S\n\n<!-- n -->\n\nBody.\n', { boundary }),
         '# S\n\nBody.\n'
       );
     }
@@ -1382,13 +1397,10 @@ describe('notes-core: say channel (say:)', () => {
     const path = require('node:path');
     const read = (rel) => fs.readFileSync(path.join(__dirname, '..', '..', '..', 'test', 'fixtures', rel), 'utf8');
     const noted = read('strip-notes-deck.md');
-    const bodies = new Set(
-      [...noted.matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1].trim()).filter((b) => !/^[a-zA-Z-]+:/.test(b))
-    );
-    assert.ok(bodies.size >= 3, 'guard: the fixture still carries the notes this measures');
+    assert.ok((noted.match(/<!-- @note\{/g) || []).length >= 3, 'guard: the fixture still carries the notes this measures');
     for (const boundary of core.SCRUB_BOUNDARIES) {
       assert.equal(
-        core.stripNotesFromSource(noted, bodies, { boundary }),
+        core.stripNotesFromSource(noted, { boundary }),
         read('strip-notes-deck-no-notes.md'),
         `the stripped source is byte-identical to the note-free twin under \`${boundary}\``
       );
@@ -1406,20 +1418,30 @@ describe('notes-core: say channel (say:)', () => {
 
   test('stripChannelsFromSource throws on the pre-rename `captions` option instead of returning the say text', () => {
     // A privacy call that ignored the old key would ship the say lines unstripped (fail open).
-    const src = '---\nsay:\n  1: secret fm\n---\n\n# A\n\n<!-- say: secret inline -->\n';
+    const src = '---\nsay:\n  1: secret fm\n---\n\n# A\n\n<!-- say: secret inline -->\n<!-- @say{secret named} -->\n';
     assert.throws(() => core.stripChannelsFromSource(src, { captions: true }), /renamed to `say`/);
     assert.doesNotMatch(core.stripChannelsFromSource(src, { say: true }), /secret/);
   });
 
+  test('stripChannelsFromSource throws on the removed `noteBodies` option instead of returning the notes', () => {
+    // `noteBodies` was the note set lifted from the render until 2026-11-20. An ignored key would return the notes
+    // UNSTRIPPED from a privacy call, so it throws, present but empty or undefined alike.
+    const src = '# A\n\n<!-- @note{secret} -->\n';
+    for (const noteBodies of [new Set(['secret']), [], undefined]) {
+      assert.throws(() => core.stripChannelsFromSource(src, { noteBodies }), /`noteBodies` was replaced by `notes: true`/);
+    }
+    assert.doesNotMatch(core.stripChannelsFromSource(src, { notes: true }), /secret/);
+  });
+
   test('stripChannelsFromSource is a no-op when neither channel is asked for', () => {
-    const src = '# S\n\n<!-- a note -->\n\n<!-- say: x -->\n';
+    const src = '# S\n\n<!-- @note{a note} -->\n\n<!-- a plain comment -->\n\n<!-- @say{x} -->\n';
     assert.equal(core.stripChannelsFromSource(src, {}), src, 'no flags — verbatim');
-    assert.equal(core.stripChannelsFromSource(src, { noteBodies: new Set() }), src, 'an empty note set is not a strip');
+    assert.equal(core.stripChannelsFromSource(src, { notes: false, say: false }), src, 'both flags off — verbatim');
     assert.equal(core.stripChannelsFromSource(null, { say: true }), '');
     // Each channel alone matches its own single-channel entry point, so the flags stay orthogonal.
     assert.equal(
-      core.stripChannelsFromSource(src, { noteBodies: new Set(['a note']) }),
-      core.stripNotesFromSource(src, new Set(['a note']))
+      core.stripChannelsFromSource(src, { notes: true }),
+      core.stripNotesFromSource(src)
     );
     assert.equal(core.stripChannelsFromSource(src, { say: true }), core.stripSayFromSource(src));
   });
@@ -1630,38 +1652,38 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // `\n\n\n` run to 16 of them, which is a cheaper tell than the one #1985 closed —
     // `grep -c` on the shipped file, no re-render needed. This rule adds one to none.
     assert.equal(
-      core.stripNotesFromSource('# Slide\n\n<!-- Pause here. -->\n\nBody.\n', new Set(['Pause here.'])),
+      core.stripNotesFromSource('# Slide\n\n<!-- Pause here. -->\n\nBody.\n'),
       '# Slide\n\nBody.\n',
       'the note line and one of its blank neighbors go; one blank line remains'
     );
     // Indented, as a nested-list author would write it.
     assert.equal(
-      core.stripNotesFromSource('a\n  <!-- n -->\nb\n', new Set(['n'])),
+      core.stripNotesFromSource('a\n  <!-- n -->\nb\n'),
       'a\n\nb\n',
       'the leading indent goes with the line, and the block boundary it was providing stays'
     );
     // Last line, no trailing newline: there is no terminator to take, and the PRECEDING
     // one belongs to the line above and must survive.
     assert.equal(
-      core.stripNotesFromSource('a\n<!-- n -->', new Set(['n'])),
+      core.stripNotesFromSource('a\n<!-- n -->'),
       'a\n',
       'a note on the final line leaves the previous line intact'
     );
     // CRLF: the `\r` is part of this line's terminator and travels with it, rather than
     // being left dangling as a lone carriage return in a Windows-authored deck.
     assert.equal(
-      core.stripNotesFromSource('a\r\n\r\n<!-- n -->\r\n\r\nb\r\n', new Set(['n'])),
+      core.stripNotesFromSource('a\r\n\r\n<!-- n -->\r\n\r\nb\r\n'),
       'a\r\n\r\nb\r\n',
       'a CRLF deck keeps CRLF throughout'
     );
     // TWO notes on ONE line, with nothing else on it: the line goes.
     assert.equal(
-      core.stripNotesFromSource('a\n\n<!-- one --><!-- two -->\n\nb\n', new Set(['one', 'two'])),
+      core.stripNotesFromSource('a\n\n<!-- one --><!-- two -->\n\nb\n'),
       'a\n\nb\n',
       'two notes sharing a line take the line with them'
     );
     // The whole file.
-    assert.equal(core.stripNotesFromSource('<!-- n -->', new Set(['n'])), '');
+    assert.equal(core.stripNotesFromSource('<!-- n -->'), '');
   });
 
   test('stripNotesFromSource offers BOTH cuts, because the right one is deck-dependent (#1985 checker)', () => {
@@ -1671,20 +1693,20 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // holds: an empty line turns a tight list loose, and simply taking the line reproduces the
     // author's own tight list. Same neighbors, opposite answers, so the caller measures.
     const setext = 'Some text\n<!-- n -->\n---\n';
-    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' }), 'Some text\n\n---\n');
-    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'drop' }), 'Some text\n---\n');
+    assert.equal(core.stripNotesFromSource(setext, { boundary: 'preserve' }), 'Some text\n\n---\n');
+    assert.equal(core.stripNotesFromSource(setext, { boundary: 'drop' }), 'Some text\n---\n');
     const list = '- one\n  <!-- n -->\n- two\n';
-    assert.equal(core.stripNotesFromSource(list, new Set(['n']), { boundary: 'drop' }), '- one\n- two\n');
+    assert.equal(core.stripNotesFromSource(list, { boundary: 'drop' }), '- one\n- two\n');
     // `preserve` is the default, so a caller that does not opt in gets the pre-existing shape.
     assert.equal(
-      core.stripNotesFromSource(setext, new Set(['n'])),
-      core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' })
+      core.stripNotesFromSource(setext),
+      core.stripNotesFromSource(setext, { boundary: 'preserve' })
     );
     // Neither mode touches the other branches: a blank on both sides still takes one blank with
     // the line, and an inline note still loses only its span.
     for (const boundary of ['preserve', 'drop']) {
-      assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\n\nb\n', new Set(['n']), { boundary }), 'a\n\nb\n');
-      assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n']), { boundary }), 'a  b');
+      assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\n\nb\n', { boundary }), 'a\n\nb\n');
+      assert.equal(core.stripNotesFromSource('a <!-- n --> b', { boundary }), 'a  b');
     }
   });
 
@@ -1718,19 +1740,19 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // phantom; the second collapsed two paragraphs into one with a `<br>`. A privacy flag
     // must not restructure a deck.
     assert.equal(
-      core.stripNotesFromSource('Some text\n<!-- Remember the numbers. -->\n---\n', new Set(['Remember the numbers.'])),
+      core.stripNotesFromSource('Some text\n<!-- Remember the numbers. -->\n---\n'),
       'Some text\n\n---\n',
       'the `---` stays a thematic break rather than becoming a setext underline'
     );
     assert.equal(
-      core.stripNotesFromSource('First paragraph.\n<!-- Pause. -->\nSecond paragraph.\n', new Set(['Pause.'])),
+      core.stripNotesFromSource('First paragraph.\n<!-- Pause. -->\nSecond paragraph.\n'),
       'First paragraph.\n\nSecond paragraph.\n',
       'two paragraphs stay two paragraphs'
     );
     // Only where it is load-bearing. With a blank line already on one side there is nothing
     // to preserve, so the line simply goes and no run is left.
-    assert.equal(core.stripNotesFromSource('a\n<!-- n -->\n\nb\n', new Set(['n'])), 'a\n\nb\n');
-    assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\nb\n', new Set(['n'])), 'a\n\nb\n');
+    assert.equal(core.stripNotesFromSource('a\n<!-- n -->\n\nb\n'), 'a\n\nb\n');
+    assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\nb\n'), 'a\n\nb\n');
   });
 
   test('stripNotesFromSource leaves an INLINE note\'s surrounding whitespace alone (#1985)', () => {
@@ -1739,17 +1761,17 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // `a <!-- n --> b` scrubs to `a  b` — which is also exactly what the counterfactual
     // source (the author never typing the comment) contains, so the span-only cut is
     // already the right answer here.
-    assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n'])), 'a  b');
-    assert.equal(core.stripNotesFromSource('a<!-- n -->b', new Set(['n'])), 'ab');
+    assert.equal(core.stripNotesFromSource('a <!-- n --> b'), 'a  b');
+    assert.equal(core.stripNotesFromSource('a<!-- n -->b'), 'ab');
     // A comment that ENDS a line of prose is not a whole-line comment either: the prose
     // before it is not whitespace, so the line stays and only the span goes.
-    assert.equal(core.stripNotesFromSource('a <!-- n -->\nb\n', new Set(['n'])), 'a \nb\n');
+    assert.equal(core.stripNotesFromSource('a <!-- n -->\nb\n'), 'a \nb\n');
     // TWO inline notes after real text. "Own line" is judged against what has been EMITTED,
     // not against source offsets — otherwise the second note sees nothing since the cursor,
     // concludes whole-line, and eats the terminator, joining `hello` to the line below. With
     // `---` on that next line it destroyed a slide on the real CLI (#1985 checker).
     assert.equal(
-      core.stripNotesFromSource('hello <!-- a --> <!-- b -->\nworld\n', new Set(['a', 'b'])),
+      core.stripNotesFromSource('hello <!-- a --> <!-- b -->\nworld\n'),
       'hello  \nworld\n',
       'the line terminator survives two inline notes'
     );
@@ -1781,12 +1803,13 @@ describe('notes-core: a directive is never a note', () => {
     }
   });
 
-  test('a directive surviving into rendered HTML is not lifted as a note, so the scrub cannot eat it', () => {
-    const html = '<section data-lattice-slide><!-- _class: title --><h1>Q3</h1><!-- A real note. --></section>';
-    assert.deepEqual(core.noteBodiesFromHtml(html), ['A real note.'], 'only the note is lifted');
+  test('a directive surviving into rendered HTML is not lifted as a note, and the scrub cannot eat it', () => {
+    const html = '<section data-lattice-slide><!-- _class: title --><h1>Q3</h1><!-- @note{A real note.} --></section>';
+    assert.equal(core.notesFromHtml(html), 'A real note.', 'only the note is lifted');
+    assert.equal(core.isPrivateComment(' _class: title '), false, 'and the scrub classifies the directive out itself');
 
-    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- A real note. -->\n';
-    const out = core.stripNotesFromSource(source, new Set(core.noteBodiesFromHtml(html)));
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- @note{A real note.} -->\n';
+    const out = core.stripNotesFromSource(source);
     assert.match(out, /_class: title/, 'the directive survives --strip-notes');
     assert.doesNotMatch(out, /A real note\./, 'and the note is still scrubbed');
   });
@@ -1798,18 +1821,18 @@ describe('notes-core: a directive is never a note', () => {
     assert.ok(core.isDirectiveComment('_backgroundColor: #fff'));
   });
 
-  test('the DECK-SCOPE form is not treated as a directive — it is ambiguous with prose', () => {
-    // The bare form is real directive syntax, but it is indistinguishable from a speaker
-    // note that happens to open with the word: `<!-- color: we should discuss the palette -->`.
-    // Classifying it as a directive holds it OUT of the scrub set, so --strip-notes never
-    // removes it and it ships in the exported file. Leaking is the worse direction, so only
-    // the unambiguous `_`-prefixed spot form gets the protection.
+  test('the DECK-SCOPE form is not a spot directive; the scrub keeps it, and the audit reports a prose value', () => {
+    // The bare form is real directive syntax, but it is indistinguishable from prose that happens to open with the
+    // word: `<!-- color: we should discuss the palette -->`. `isDirectiveComment` takes only the unambiguous `_`-prefixed
+    // spot form. The scrub keeps the deck-scope form all the same, because the engine consumes it as a directive and
+    // deleting `<!-- paginate: true -->` would change the recipient's deck; a value that reads as prose is the audit's
+    // to report (`directiveShapedProse`), and lint's.
     assert.ok(!core.isDirectiveComment('color: we should discuss the palette'));
     assert.ok(!core.isDirectiveComment('class: title'));
     assert.ok(!core.isDirectiveComment('footer: ask about the discount'));
-
-    const html = '<section data-lattice-slide><!-- color: SECRET discuss the palette --></section>';
-    assert.deepEqual(core.noteBodiesFromHtml(html), ['color: SECRET discuss the palette'], 'it stays scrubbable');
+    assert.equal(core.isPrivateComment('paginate: true'), false);
+    assert.equal(core.isPrivateComment('color: SECRET discuss the palette'), false);
+    assert.equal(core.auditStrippedSource('<!-- color: SECRET discuss the palette -->').length, 1);
   });
 
   test('prose is still a note — the classifier does not open a leak', () => {
@@ -1822,8 +1845,8 @@ describe('notes-core: a directive is never a note', () => {
     assert.ok(!core.isDirectiveComment('_class: title\nAnd then say this.'), 'mixed → treated as a note');
     assert.ok(!core.isDirectiveComment(''), 'empty is not a directive');
 
-    const html = '<section data-lattice-slide><!-- Note: mention the caveat --></section>';
-    assert.deepEqual(core.noteBodiesFromHtml(html), ['Note: mention the caveat'], 'still scrubbable');
+    assert.equal(core.isPrivateComment('Note: mention the caveat'), true, 'still scrubbable');
+    assert.equal(core.isPrivateComment('_class: title\nAnd then say this.'), true, 'mixed is scrubbable too');
   });
 });
 
@@ -1837,15 +1860,19 @@ describe('notes-core: auditStrippedSource', () => {
     assert.deepEqual(core.auditStrippedSource(src), ['The CFO thinks the deal is dead']);
   });
 
-  test('the four consumed channels are not reported', () => {
+  test('what ships by design is not reported: directives, pragmas, records and the three public notes', () => {
     const src = [
       '<!-- _class: title -->',            // spot directive
       '<!-- markdownlint-disable MD033 -->', // tooling pragma
-      '<!-- describe: A cover slide. -->',  // a11y description
-      '<!-- say: Read this aloud. -->', // read-as caption
+      '<!-- {layout=cards, footer=Q3} -->',  // record
+      '<!-- @alt{A cover slide.} -->',      // alt text
+      '<!-- @say{Read this aloud.} -->',     // the voice
+      '<!-- @handout{For later.} -->',       // the handout
       '<!--   -->',                          // empty
     ].join('\n');
     assert.deepEqual(core.auditStrippedSource(src), []);
+    // A retired key is a plain comment now, so one that survived the scrub IS a leak.
+    assert.deepEqual(core.auditStrippedSource('<!-- describe: A cover slide. -->\n<!-- @note{Pause.} -->'), ['describe: A cover slide.', '@note{Pause.}']);
   });
 
   // The pragma exclusion has TWO call sites and this is the second one. Excluding a pragma
@@ -1897,11 +1924,8 @@ describe('notes-core: auditStrippedSource', () => {
     assert.equal(found.length, 1);
     assert.match(found[0], /we should discuss the palette/);
     assert.match(found[0], /"color" directive/, 'and it names what the engine did with it');
-    // The scrub half of that contract, unchanged: reaching rendered HTML still makes it a note.
-    assert.deepEqual(
-      core.noteBodiesFromHtml('<section><!-- color: we should discuss the palette --></section>'),
-      ['color: we should discuss the palette'],
-    );
+    // The scrub half of that contract: it is directive syntax, so the scrub keeps it, and this report is the backstop.
+    assert.equal(core.isPrivateComment(' color: we should discuss the palette '), false);
   });
 
   test('directiveShapedProse fires only on a TIGHT value domain that the value misses', () => {
@@ -1951,9 +1975,9 @@ describe('notes-core: auditStrippedSource', () => {
   });
 
   test('a fully scrubbed source audits clean — no false alarm on the happy path', () => {
-    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n';
-    const bodies = core.noteBodiesFromHtml('<section><!-- A real note. --></section>');
-    assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(bodies))), []);
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- @note{A real note.} -->\n<!-- a plain one -->\n<!-- @say{Spoken.} -->\n';
+    assert.equal(core.auditStrippedSource(src).length, 2, 'guard: the unscrubbed source does report its two private comments');
+    assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src)), []);
   });
 });
 
@@ -1966,15 +1990,14 @@ describe('notes-core: the comment matcher reads `--!>` as a terminator', () => {
     // `-->`, swallowing the following comment — and that merged body then entered the
     // --strip-notes scrub set, so the whole span was deleted from the envelope source,
     // taking the directive with it.
-    const html = '<section data-lattice-slide><!-- First note. --!><!-- Second note. --></section>';
-    assert.deepEqual(core.noteBodiesFromHtml(html), ['First note.', 'Second note.']);
+    const html = '<section data-lattice-slide><!-- @note{First note.} --!><!-- @note{Second note.} --></section>';
+    assert.equal(core.notesFromHtml(html), 'First note.\n\nSecond note.');
   });
 
   test('a `--!>`-terminated note still scrubs, and the directive beside it survives', () => {
-    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- Board only. --!>\n';
-    const bodies = core.noteBodiesFromHtml('<section><!-- Board only. --!></section>');
-    assert.deepEqual(bodies, ['Board only.'], 'the body is lifted despite the typo');
-    const out = core.stripNotesFromSource(source, new Set(bodies));
+    const source = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3\n\n<!-- @note{Board only.} --!>\n';
+    assert.equal(core.notesFromHtml('<section><!-- @note{Board only.} --!></section>'), 'Board only.', 'the note is read despite the typo');
+    const out = core.stripNotesFromSource(source);
     assert.doesNotMatch(out, /Board only/, 'the note is scrubbed');
     assert.match(out, /_class: title/, 'the directive is untouched');
   });
@@ -2010,7 +2033,7 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
     const noteSrc = 'Some text\n<!-- a note -->\n---\n\nMore text\n';
     const saySrc = 'Some text\n<!-- say: read this -->\n---\n\nMore text\n';
     const noteCuts = new Set(
-      core.SCRUB_BOUNDARIES.map((boundary) => core.stripNotesFromSource(noteSrc, new Set(['a note']), { boundary })),
+      core.SCRUB_BOUNDARIES.map((boundary) => core.stripNotesFromSource(noteSrc, { boundary })),
     );
     const sayCuts = new Set(
       core.SCRUB_BOUNDARIES.map((boundary) => core.stripSayFromSource(saySrc, { boundary })),
@@ -2053,4 +2076,102 @@ test('isLatticePragma: lat-meta comments are tooling, a hyphenated word that beg
   assert.equal(core.isLatticePragma('lat-meta-analysis says churn is up'), false);
   assert.equal(core.isLatticePragma('stress-slide'), true);
   assert.equal(core.isLatticePragma('stress-slide is the next topic'), false);
+});
+
+// ── What `--strip-notes` takes: the private comments (engineering/decisions/2026-11-20-four-notes.md N5) ─────────
+describe('notes-core: isPrivateComment', () => {
+  test('a speaker note and a plain comment are private; so is a near miss, which is no note at all', () => {
+    for (const body of [' @note{Pause.} ', ' my own todo ', '\nmulti-line\nplain\n', ' @Say{x} ', ' @note{unclosed ', ' say: a retired key ', '']) {
+      assert.equal(core.isPrivateComment(body), true, JSON.stringify(body));
+    }
+  });
+
+  test('what the engine reads or what is meant to ship is never private', () => {
+    const kept = {
+      'a spot directive': ' _class: lead ',
+      'a deck-scope directive': ' paginate: true ',
+      'a pane marker': ' _pane: bar ',
+      'a pane layout marker': ' panes: 60/40 ',
+      'a record': ' {layout=cards} ',
+      'a long-form record': ' @meta{layout=cards} ',
+      'an internal record': ' lat-meta: {} ',
+      'a tooling pragma': ' markdownlint-disable ',
+      'a Lattice pragma': ' tier: short ',
+      'a marker': ' stress-slide ',
+      'the voice': ' @say{Spoken.} ',
+      'alt text': ' @alt{A chart.} ',
+      'the handout': ' @handout{Later.} ',
+    };
+    for (const [what, body] of Object.entries(kept)) assert.equal(core.isPrivateComment(body), false, what);
+  });
+});
+
+// ── Export to Marp: the four notes as Marp reads them ──────────────────────────────────────────────────────────
+describe('notes-core: notesToMarp', () => {
+  test('@note is a plain Marp note, @handout a labeled one; @say, @alt and plain comments are dropped', () => {
+    const src = [
+      '# A', '', '<!-- _class: lead -->', '<!-- {layout=cards} -->', '<!-- @note{Pause here.} -->', '<!-- @say{Spoken.} -->',
+      '<!-- @alt{Alt.} -->', '<!-- @handout{For later.} -->', '<!-- my own todo -->', '<!-- markdownlint-disable -->', '', 'Body.', '',
+    ].join('\n');
+    assert.equal(
+      core.notesToMarp(src),
+      ['# A', '', '<!-- _class: lead -->', '<!-- {layout=cards} -->', '<!-- Pause here. -->', '', '<!-- Handout: For later. -->', '', '<!-- markdownlint-disable -->', '', 'Body.', ''].join('\n'),
+    );
+  });
+
+  test('a note whose words Marp would read as a directive or a record says `Note:`', () => {
+    assert.equal(core.notesToMarp('<!-- @note{_class: not a directive} -->\n'), '<!-- Note: _class: not a directive -->\n');
+    assert.equal(core.notesToMarp('<!-- @note{footer: ask about it} -->\n'), '<!-- Note: footer: ask about it -->\n');
+    assert.equal(core.notesToMarp('<!-- @note{{layout=x} is the record} -->\n'), '<!-- Note: {layout=x} is the record -->\n');
+    assert.equal(core.notesToMarp('<!-- @note{Remember the chart} -->\n'), '<!-- Remember the chart -->\n');
+  });
+
+  test('a note’s escaped arrow becomes Marp’s `-- >`, which ends nothing; an escaped brace is a brace', () => {
+    const out = core.notesToMarp('<!-- @note{a --\\> b \\{c\\}} -->\n');
+    assert.equal(out, '<!-- a -- > b {c} -->\n');
+    assert.equal(/--!?>/.test(out.slice(4, -4)), false);
+  });
+
+  test('code is left as written, and a deck with no comments is the same string', () => {
+    const src = '# A\n\n```md\n<!-- @say{sample} -->\n<!-- plain sample -->\n```\n';
+    assert.equal(core.notesToMarp(src), src);
+    assert.equal(core.notesToMarp(null), '');
+  });
+});
+
+// The red team on PR 3351 (head 0493189): each shape below was a speaker note before the four notes, or was rewritten
+// by a scrub that must not touch it.
+describe('notes-core: the red team on the four notes', () => {
+  // PR 3351 put every comment of a `--strip-notes` export through `maskCodeRegions`, whose give-back of live comments
+  // restored the whole span from every opener nested in one comment: quadratic on a line of openers. The give-back
+  // counts what it restores into `work`, so the guard counts work, not milliseconds (HARD RULE #32; its first cut was a
+  // stopwatch). Linear restores each character at most once; the old loop restored about n²/10 on this input.
+  test('the scrub stays linear on a line of openers inside one comment', () => {
+    const src = `# A\n\n${'<!-- '.repeat(40000)}\n-->\n`;
+    const work = { n: 0 };
+    core.maskCodeRegions(src, work);
+    assert.ok(work.n <= src.length, `${work.n} characters restored for ${src.length}`);
+    // The rest of the scrub (the fence and line scan, CommentScan, the live-opener read) is string search, which
+    // `scanWork` counts: about 55 characters per input character today; a search from every opener to the end of the
+    // text covers about n / 2 per character, 100,000 and up (the bound the lint linearity test uses).
+    const { result: out, scanned } = scanWork(() => core.stripChannelsFromSource(src, { notes: true }));
+    assert.ok(!out.includes('<!--'), 'the one comment is scrubbed');
+    assert.ok(scanned <= 1500 * src.length, `${scanned} characters scanned for ${src.length}`);
+  });
+
+  test('prose shaped like a pane marker is private; a real pane marker is structure', () => {
+    for (const b of [' pane: Pane two needs a better chart ', ' panes: remember the numbers ']) assert.equal(core.isPrivateComment(b), true, b);
+    for (const b of [' _pane: bar ', ' pane: list ', ' pane: list no-title ', ' panes: 60/40 stack ', ' _pane: anything at all ']) assert.equal(core.isPrivateComment(b), false, b);
+    const out = core.stripNotesFromSource('# A\n\n<!-- pane: Pane two SECRETV -->\n\nText\n');
+    assert.doesNotMatch(out, /SECRETV/);
+    assert.deepEqual(core.auditStrippedSource('<!-- panes: 50/50 -->\n\n<!-- _pane: right -->\n'), [], 'a real pane marker is not a suspected leak');
+  });
+  test('a comment that opens in the front matter is part of a YAML value: never scrubbed, never reported', () => {
+    const src = '---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n\n<!-- mine -->\n';
+    assert.equal(core.stripNotesFromSource(src), '---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n');
+    assert.deepEqual(core.auditStrippedSource('---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n'), []);
+  });
+  test('the Marp bridge labels a note that opens with a quoted key, which Marp would read as a directive', () => {
+    assert.match(core.notesToMarp('# A\n\n<!-- @note{"_class": evil} -->\n'), /<!-- Note: "_class": evil -->/);
+  });
 });

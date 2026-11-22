@@ -5,7 +5,7 @@ import { expect, test } from './studio-fixture';
 // A note edits in its panel, and the Insert menu's Motion item opens the Library on its scenes.
 // followups.d/2846-p5; engineering/decisions/2026-10-21-compose-point-and-click.md §7.
 
-const DECK = ['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '<!-- say: the slide reads as this. -->', '', '<!-- a plain note. -->', '', 'Second paragraph.'].join('\n');
+const DECK = ['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- @note{a plain note.} -->', '', 'Second paragraph.'].join('\n');
 
 const pill = (page: Page, name: RegExp) => page.locator('.cs-host .cs-comment', { hasText: name });
 
@@ -26,18 +26,18 @@ test.describe('notes and motion in Compose', () => {
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.type('it reads as that.');
 		await page.keyboard.press('ControlOrMeta+Enter');
-		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('say: the slide reads as this.', 'say: it reads as that.'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('@say{the slide reads as this.}', '@say{it reads as that.}'));
 		// A note that would end its own comment is refused, with the words kept.
 		await expect(field).toBeFocused();
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.type('bad --> <b>');
 		await page.keyboard.press('ControlOrMeta+Enter');
-		await expect(page.getByRole('alert').filter({ hasText: 'end its comment early' })).toBeVisible();
+		await expect(page.getByRole('alert').filter({ hasText: 'end the comment early' })).toBeVisible();
 		await expect(field).toHaveValue('bad --> <b>');
-		expect(await savedDeck(page)).toBe(DECK.replace('say: the slide reads as this.', 'say: it reads as that.'));
+		expect(await savedDeck(page)).toBe(DECK.replace('@say{the slide reads as this.}', '@say{it reads as that.}'));
 		// Remove is the one other control.
 		await page.getByRole('button', { name: 'Remove' }).click();
-		await expect.poll(() => savedDeck(page)).not.toContain('say:');
+		await expect.poll(() => savedDeck(page)).not.toContain('@say{');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet typing in the slide above an open note stays in the slide, and a half-typed note is kept', async ({ page }) => {
@@ -108,7 +108,7 @@ test.describe('notes and motion in Compose', () => {
 		await page.keyboard.press('End');
 		await page.keyboard.type(' hello there');
 		await page.getByText('Second paragraph.').click();
-		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('say: the slide reads as this.', 'say: the slide reads as this. hello there'));
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('@say{the slide reads as this.}', '@say{the slide reads as this. hello there}'));
 	});
 
 	test('@crosswidth @gecko @webkit-tablet typing straight after Ctrl+Enter continues at the caret', async ({ page }) => {
@@ -143,7 +143,7 @@ test.describe('notes and motion in Compose', () => {
 		// Whatever the undo did, an open field and the saved note never disagree.
 		await expect
 			.poll(async () => {
-				const note = (await savedDeck(page)).match(/<!-- (a plain note\.[^>]*?) -->/)?.[1] ?? '';
+				const note = (await savedDeck(page)).match(/<!-- @note\{(a plain note\.[^}]*?)\} -->/)?.[1] ?? '';
 				return (await field.count()) ? (await field.inputValue()).trim() === note : true;
 			})
 			.toBe(true);
@@ -156,8 +156,8 @@ test.describe('notes and motion in Compose', () => {
 		await page.keyboard.type('QQ');
 		await expect.poll(() => savedDeck(page)).toContain('QQ');
 		const saved = await savedDeck(page);
-		expect(saved).toContain('<!-- a plain note. -->');
-		expect(saved).toContain('say: the slide reads as this.');
+		expect(saved).toContain('<!-- @note{a plain note.} -->');
+		expect(saved).toContain('@say{the slide reads as this.}');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet an undo pressed on the pill button cannot make the field and the deck disagree', async ({ page }) => {
@@ -169,23 +169,23 @@ test.describe('notes and motion in Compose', () => {
 		const field = page.getByRole('textbox', { name: 'say text' });
 		await expect
 			.poll(async () => {
-				const note = (await savedDeck(page)).match(/<!-- say: ([^>]*?) -->/)?.[1] ?? '';
+				const note = (await savedDeck(page)).match(/<!-- @say\{([^}]*?)\} -->/)?.[1] ?? '';
 				return (await field.count()) ? (await field.inputValue()).trim() === note : true;
 			})
 			.toBe(true);
 	});
 
 	test('@crosswidth @gecko @webkit-tablet a note alone in the last slide is not deleted by the key after Escape', async ({ page }) => {
-		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- lonely last. -->');
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- @note{lonely last.} -->');
 		await pill(page, /note/).click();
 		await page.keyboard.press('Escape');
 		await page.keyboard.type('QQ');
 		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
-		expect(await savedDeck(page)).toContain('<!-- lonely last. -->');
+		expect(await savedDeck(page)).toContain('<!-- @note{lonely last.} -->');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet Remove on a quoted note that ends its slide keeps the next keys in that slide', async ({ page }) => {
-		await openDeckInCompose(page, '## A\n\nPara a.\n\n> <!-- quoted last. -->\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n> <!-- @note{quoted last.} -->\n\n---\n\n## B\n\nPara b.');
 		await pill(page, /note/).click();
 		await page.getByRole('button', { name: 'Remove' }).click();
 		await page.keyboard.type('QQ');
@@ -194,7 +194,7 @@ test.describe('notes and motion in Compose', () => {
 	});
 
 	test('@crosswidth @gecko @webkit-tablet a note at the top of the deck is not deleted by typing after a slide control refocuses the editor', async ({ page }) => {
-		await openDeckInCompose(page, '<!-- first note. -->\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '<!-- @note{first note.} -->\n\n---\n\n## B\n\nPara b.');
 		await page.getByRole('button', { name: /Collapse slide/ }).last().click();
 		await page.keyboard.type('x');
 		await expect.poll(() => savedDeck(page)).toContain('first note.');
@@ -202,14 +202,14 @@ test.describe('notes and motion in Compose', () => {
 	});
 
 	test('@crosswidth @gecko @webkit-tablet a note on a folded slide opens a panel you can see', async ({ page }) => {
-		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '<!-- @note{folded note.} -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
 		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
 		await pill(page, /note/).click();
 		await expect(page.getByRole('textbox', { name: 'note text' })).toBeVisible();
 	});
 
 	test('@crosswidth @gecko @webkit-tablet picking a slide in the rail never leaves its leading note selected for the next key to delete', async ({ page }) => {
-		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.');
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- @note{n2.} -->\n\nPara two.');
 		const rail = page.locator('nav[aria-label="Slide navigator"] button[data-unit]').nth(1);
 		test.skip(!(await rail.isVisible()), 'the desktop slide rail is not shown at this width');
 		await page.getByText('Para a.').click();
@@ -218,7 +218,7 @@ test.describe('notes and motion in Compose', () => {
 		// The caret sits just after the note: the first Backspace selects it, and only a second one removes it.
 		await page.keyboard.press('Backspace');
 		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
-		expect(await savedDeck(page)).toContain('<!-- n2. -->');
+		expect(await savedDeck(page)).toContain('<!-- @note{n2.} -->');
 		// Firefox leaves focus on the rail button after a click, so these keys never reach the editor and nothing is deleted at all.
 		const inEditor = await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'));
 		await page.keyboard.press('Backspace');
@@ -226,7 +226,7 @@ test.describe('notes and motion in Compose', () => {
 	});
 
 	test('@crosswidth @gecko @webkit-tablet on a folded slide Escape keeps the caret in the note, so the next keys never reach the next slide', async ({ page }) => {
-		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '<!-- @note{folded note.} -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
 		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
 		await pill(page, /note/).click();
 		await page.keyboard.press('Escape');
@@ -244,32 +244,36 @@ test.describe('notes and motion in Compose', () => {
 		await page.keyboard.press('ArrowLeft');
 		await page.keyboard.type('x');
 		await expect.poll(() => savedDeck(page)).toContain('x');
-		expect(await savedDeck(page)).toContain('<!-- a plain note. -->');
+		expect(await savedDeck(page)).toContain('<!-- @note{a plain note.} -->');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet folding a slide while a note is half typed keeps the words', async ({ page }) => {
-		await openDeckInCompose(page, '## A\n\n<!-- old words. -->\n\nPara a.\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '## A\n\n<!-- @note{old words.} -->\n\nPara a.\n\n---\n\n## B\n\nPara b.');
 		await pill(page, /note/).click();
 		const field = page.getByRole('textbox', { name: 'note text' });
 		await field.press('Control+a');
 		await field.pressSequentially('HALF TYPED');
 		await page.getByRole('button', { name: /Collapse slide/ }).last().click();
-		await expect.poll(() => savedDeck(page)).toContain('<!-- HALF TYPED -->');
+		await expect.poll(() => savedDeck(page)).toContain('<!-- @note{HALF TYPED} -->');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet deleting another slide while a note is half typed keeps the words', async ({ page }) => {
-		await openDeckInCompose(page, '## One\n\nBody one.\n\n<!-- old note -->\n\n---\n\n## Two\n\nBody two.');
+		await openDeckInCompose(page, '## One\n\nBody one.\n\n<!-- @note{old note} -->\n\n---\n\n## Two\n\nBody two.');
 		await pill(page, /note/).click();
 		await page.getByRole('textbox', { name: 'note text' }).pressSequentially(' EDITED');
 		// Slide Two's own control (the toolbar's Delete slide acts on the slide with the caret).
 		await page.locator('.cs-slide', { hasText: 'Body two.' }).getByRole('button', { name: 'Delete slide' }).click();
 		await page.getByRole('button', { name: 'Confirm delete slide' }).click();
-		await expect.poll(() => savedDeck(page)).toContain('<!-- old note EDITED -->');
-		expect(await savedDeck(page)).not.toContain('## Two');
+		await expect.poll(() => savedDeck(page)).toContain('<!-- @note{old note EDITED} -->');
+		// The note's words and the deletion reach the saved deck in two writes, so wait for the second one too. A single read
+		// right after the first found slide Two still saved in 4 of 30 runs at 4 workers, and the deletion landed within half a
+		// second each time (2026-11-17; 1 in 15 on the code before the Compose caret fixes, whose timing made it likelier).
+		await expect.poll(() => savedDeck(page)).not.toContain('## Two');
+		expect(await savedDeck(page)).toContain('<!-- @note{old note EDITED} -->');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet Remove on a folded slide never sends the next keys into its hidden text', async ({ page }) => {
-		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await openDeckInCompose(page, '<!-- @note{folded note.} -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
 		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
 		await pill(page, /note/).click();
 		await page.getByRole('button', { name: 'Remove' }).click();
@@ -295,10 +299,10 @@ test.describe('notes and motion in Compose', () => {
 		await expect.poll(() => savedDeck(page)).toContain('a plain note. more');
 	});
 
-	test('the three channels draw three different icons', async ({ page }) => {
-		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
+	test('the four notes and a plain comment draw five different icons', async ({ page }) => {
+		await openDeckInCompose(page, DECK.replace('<!-- @note{a plain note.} -->', '<!-- @alt{a bar chart.} -->\n\n<!-- @handout{later.} -->\n\n<!-- a plain comment. -->\n\n<!-- @note{a plain note.} -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));
-		expect(new Set(glyphs).size).toBe(3);
+		expect(new Set(glyphs).size).toBe(5);
 	});
 
 	test('@crosswidth @gecko @webkit-tablet the Insert menu has a Motion item that opens the Library on its scenes', async ({ page }) => {
@@ -325,7 +329,7 @@ test.describe('a note half written when the deck changes', () => {
 		await page.getByRole('menuitem', { name: 'New deck' }).click();
 		await expect(page.getByRole('button', { name: /Untitled deck/ })).toBeVisible();
 		const decks = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')).map((k) => localStorage.getItem(k) ?? ''));
-		expect(decks.some((d) => d.includes('say: half typed, never blurred.'))).toBe(true);
+		expect(decks.some((d) => d.includes('@say{half typed, never blurred.}'))).toBe(true);
 		// The new deck shows none of it.
 		await expect(page.locator('.cs-host .cs-comment', { hasText: /half typed/ })).toHaveCount(0);
 		expect(decks.filter((d) => d.includes('half typed')).length).toBe(1);

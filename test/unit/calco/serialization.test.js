@@ -15,7 +15,7 @@ const { skipUnlessCI } = require('../../helpers/chrome');
 const DIST = path.join(__dirname, '../../../docs/src/lib/calco/dist/index.cjs');
 
 // The functions a headless page receives as source.
-const SHIPPED = [calco.readSlide, calco.restoreSlide, calco.splitSlide, calco.restoreSplit, calco.splitKey, calco.isContinuousTone, calco.describeBackground, calco.readsBackdrop, calco.splitError, calco.cropPictures, calco.logoKey];
+const SHIPPED = [calco.readSlide, calco.restoreSlide, calco.splitSlide, calco.restoreSplit, calco.splitKey, calco.isContinuousTone, calco.describeBackground, calco.readsBackdrop, calco.splitError, calco.cropPictures, calco.logoKey, calco.resolvePalette];
 
 describe('calco — serialization', () => {
   test('the package resolves to the built dist/, not the TypeScript source', () => {

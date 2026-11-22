@@ -10,10 +10,11 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
-import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { closeFiloGroup, closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
@@ -27,6 +28,7 @@ import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, typ
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { takePendingSelection } from '@/lib/compose/pending-selection';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
+import { pointerFocusCaret } from '@/lib/compose/pointer-focus-caret';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
@@ -43,7 +45,6 @@ import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/checks-registry.js';
 import { CodeControls, FencePicker } from './code-controls';
-import { carrySay } from './deck-ops';
 import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
@@ -1142,17 +1143,6 @@ class SlideView {
 		const caretSlide = $from.depth >= 1 ? $from.node(1) : null;
 		const offsetInSlide = caretSlide ? $from.pos - $from.before(1) : 0;
 		const tr = state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true);
-		// The front-matter `say:` narration moves with its slides, as the strip's ops move it (deck-ops `carrySay`). The
-		// nodes are the SAME instances, so a node's identity says where each old slide went; the front matter is a doc
-		// attribute, so the new one goes in on this transaction and every later emit keeps it.
-		const fm = (state.doc.attrs.frontMatter as string) || '';
-		if (/^say:[ \t]*$/m.test(fm)) {
-			const moved: number[] = [];
-			state.doc.forEach((n) => void moved.push(nodes.indexOf(n)));
-			const after = docToDeck(tr.doc);
-			const carried = carrySay(docToDeck(state.doc), after, moved);
-			if (carried !== after) tr.setDocAttribute('frontMatter', carried.slice(0, carried.length - (after.length - fm.length)));
-		}
 		if (caretSlide) {
 			let start = -1;
 			tr.doc.forEach((n, off) => {
@@ -1572,7 +1562,7 @@ class CodeBlockView {
 // line of very small type and removes both.
 //
 // A RUN OF COMMENTS IS ONE CONTROL, not N stacked ones. Adjacent comments are extremely common —
-// a `say:`, a `describe:` and a note all belong to the same slide — and rendering each as its
+// an `@say`, an `@alt` and an `@note` all belong to the same slide — and rendering each as its
 // own block with its own panel and its own Remove button produced three identical "NOTE" boxes
 // down the page (the shipped screenshot). So the run reads as a TAB BAR: the pills sit on one row,
 // exactly one is open at a time, and the open one's text appears in a single panel BELOW the row.
@@ -1616,17 +1606,19 @@ function commentRuns(doc: PMNode) {
 	return runs.map(({ from, to, nodes, positions }) => ({ from, to, nodes, positions }));
 }
 
-/** The label a pill carries, by channel. `say:` and `describe:` are not notes — they are the
- *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
- *  "note" mislabels what the author is looking at. */
-// Each channel has its own DRAWN shape (HARD RULE #29), so the three read differently before the label does: say is a speech bubble,
-// describe is an eye (what a reader who cannot see the slide is told), note is a folded note.
+/** The label a pill carries, by kind: one of the four notes, each named for where its words show up, or a plain
+ *  `comment`, which reaches nothing (engineering/decisions/2026-11-20-four-notes.md). */
+// Each kind has its own DRAWN shape (HARD RULE #29), so they read differently before the label does: note is a folded
+// note, say a speech bubble, alt an eye (what a reader who cannot see the slide is told), handout an open book, and a
+// plain comment the code-comment brackets.
 const KIND_GLYPH: Record<CommentKind, string> = {
-	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
-	describe: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
 	note: '<path d="M3 2.5h7.5l3 3v8H3z"/><path d="M10.5 2.5v3h3M5.5 8h5M5.5 10.5h3"/>',
+	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
+	alt: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
+	handout: '<path d="M8 4.2C6.5 3.2 4.5 2.8 2 2.8v9c2.5 0 4.5.4 6 1.4 1.5-1 3.5-1.4 6-1.4v-9c-2.5 0-4.5.4-6 1.4zM8 4.2v9"/>',
+	comment: '<path d="M6 4.5 2.5 8 6 11.5M10 4.5l3.5 3.5L10 11.5"/>',
 };
-const KIND_LABEL: Record<CommentKind, string> = { say: 'say', describe: 'describe', note: 'note' };
+const KIND_LABEL: Record<CommentKind, string> = { note: 'note', say: 'say', alt: 'alt', handout: 'handout', comment: 'comment' };
 
 /** The open panel's id, PER EDITOR INSTANCE.
  *
@@ -1670,7 +1662,7 @@ function readableNote(text: string): string {
 		})
 		.filter(Boolean)
 		.join('\n\n');
-	// The channel prefix selects the channel; it is not part of what the author wrote. Shared with
+	// A note's `@name{…}` frame names the note; it is not part of what the author wrote. Shared with
 	// `commentText` so the two can never disagree about what a prefix is.
 	return stripChannelPrefix(prose, text);
 }
@@ -1884,9 +1876,8 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// does not behave like one — no roving focus, no arrow-key cycle — so claiming `tablist` would
 	// promise keyboard behavior that is not implemented.)
 	wrap.setAttribute('role', 'region');
-	// Named for its CHANNEL alone. The label used to end "— authoring note", which put the word this
-	// feature exists to stop using back on the caption and describe channels, where only a
-	// screen-reader user would ever meet it.
+	// Named for its KIND alone: one of the four notes, or a plain comment. The label used to end
+	// "— authoring note", which put that word on every kind, where only a screen-reader user would meet it.
 	wrap.setAttribute('aria-label', KIND_LABEL[commentKind(node.attrs.text as string)]);
 
 	const body = document.createElement('div');
@@ -1970,7 +1961,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	}
 	// The words write when the author leaves the field or presses Ctrl/Cmd+Enter; Escape puts the original back and returns to the
 	// slide. Nothing is written for words that did not change, so a note that is opened and left keeps its bytes. `writeNote` keeps
-	// the opener, closer and channel prefix, and refuses a result that would not be the same kind of comment: the panel says why and
+	// the opener, closer and a note's `@name{…}` frame, and refuses a result that would not be the same kind of comment: the panel says why and
 	// keeps the author's words in the field. Remove stays its own control, a second deliberate act.
 	const actions = document.createElement('div');
 	actions.className = 'cs-comment-actions';
@@ -1986,7 +1977,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const nested = view.state.doc.resolve(open.at).depth >= 2;
 			const next = nested && field.value.trim().includes('\n') ? null : writeNote(open.node.attrs.text as string, field.value);
 			if (next === null) {
-				why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+				why.textContent = field.value.trim() ? 'These words cannot end the comment early, open with a directive word such as footer: or _class:, change what kind of note it is (a note\'s braces must balance), or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
 				why.hidden = false;
 				return;
 			}
@@ -2255,7 +2246,7 @@ export class CommentView {
 		this.dom.dataset.kind = kind;
 		this.glyph.innerHTML = KIND_GLYPH[kind];
 		this.dom.title = readableNote(text);
-		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
+		// The pill NAMES a kind; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
 		this.dom.setAttribute('aria-label', `open the ${KIND_LABEL[kind]} comment`);
@@ -3318,6 +3309,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the add-slide gallery, a Markdown round trip), and each one used to silently unfold
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
+		// A resync can start with no key or click (a co-editor's change in a live session, a held change settling on a
+		// timer), and the caret it keeps is read from the state below: read a click ProseMirror has not taken in yet first,
+		// or the rebuilt state puts the caret back on the slide the author just left (pending-selection.ts).
+		takePendingSelection(view);
 		const folded = collapsedKeys(view.state);
 		const before = view.state.doc;
 		const doc = deckToDoc(src);
@@ -3422,6 +3417,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const at = mountAt;
 			const onFocus = !!at && at.slide >= 0 && at.slide < doc.childCount;
 			if (onFocus) lastSlideRef.current = at.slide;
+			const clickCaret = pointerFocusCaret();
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
@@ -3558,6 +3554,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 				},
 				handleDOMEvents: {
+					// A click that focuses the editor keeps its caret: prosemirror-view's own focus timer could write the old caret
+					// back before WebKit delivered the click's `selectionchange` (pointer-focus-caret.ts pins the internal it races).
+					mousedown: clickCaret.mousedown,
+					focus: clickCaret.focus,
 					// Shift-Enter adds one line inside a paragraph (line-break-command.ts). A DOM handler, not a keymap entry: on iOS
 					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
 					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.
@@ -3742,10 +3742,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			<div className="cs-frame">
 				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
 				<div ref={hostRef} className="cs-host" data-filo-owned="" />
+				{/* Jump to the deck's top or bottom: appears while a long deck scrolls (components/ui/quick-scroll.tsx). */}
+				<QuickScroll root={hostRef} label="deck" />
 				{flashChip && (
 					<button
 						type="button"
 						className="cs-flash-chip"
+						data-quick-scroll-avoid=""
 						data-dir={flashChip.dir}
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => {
@@ -3858,6 +3861,16 @@ function ComposeStyles() {
 			   deck still ends flush, with no phantom empty scroll. */
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(clamp(72px,38vh,520px) + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
+			/* Keep each slide's right-hand controls (the delete button) out of the jump rail's column. On a
+			   mouse the rail (components/ui/quick-scroll.tsx) sits 8px inside the scrollbar and is 28px wide, so
+			   everything keeps 44px clear of the scrollbar: 8 + 28 + 8. The slide pads its text that far; its
+			   bar bleeds into that padding (the negative margin below), so the bar pads its own controls back
+			   by the same 44px. Measured before, at 1440 / 1100 / 820px windows: the delete button overlapped
+			   the rail column by 5, 2 and 0px. Wide panes already pad 64px, so nothing moves there. A touch
+			   screen gets the corner stack, which needs no column, and a window under 641px pins the bar inside
+			   the slide (the MOBILE block), where the slide's own padding is enough. */
+			@media (pointer:fine){.cs-host .cs-slide{padding-right:max(clamp(24px,6cqw,64px),44px)}}
+			@media (pointer:fine) and (min-width:641px){.cs-host .cs-slide-bar{margin-right:calc(-1 * max(clamp(24px,6cqw,64px),44px));padding-inline:max(clamp(16px,4cqw,44px),44px)}}
 			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
 			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded
@@ -3977,9 +3990,9 @@ function ComposeStyles() {
 			/* the open pill is the selected tab — solid, accent, and visually joined to its panel */
 			.cs-host .cs-comment-open,.cs-host .cs-comment-open:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);border-style:solid;border-color:var(--accent,#006fa8)}
 			.cs-host .cs-comment-open svg{opacity:1}
-			/* CHANNEL, not decoration: caption and describe are different registers from a note — the
-			   slide's narration text and its WCAG alternative — so they read differently at rest. */
-			.cs-host .cs-comment-say:not(.cs-comment-open),.cs-host .cs-comment-describe:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
+			/* KIND, not decoration: a note reaches a reader (the presenter, the voice, a screen reader, the
+			   handout) and a plain comment reaches nobody, so the four notes read differently at rest. */
+			.cs-host .cs-comment-note:not(.cs-comment-open),.cs-host .cs-comment-say:not(.cs-comment-open),.cs-host .cs-comment-alt:not(.cs-comment-open),.cs-host .cs-comment-handout:not(.cs-comment-open){border-style:solid;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--accent,#006fa8) 45%)}
 			/* the shared panel — one per run, below the row, never one per pill */
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}

@@ -82,6 +82,12 @@
   ],
   "description": "2–4 parallel items, similar weight, scannable in a grid.",
   "purpose": "Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.",
+  "variantKinds": {
+    "numbered": {
+      "kind": "source",
+      "means": "Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing."
+    }
+  },
   "variants": [
     "four",
     "three",
@@ -97,21 +103,31 @@
       ]
     }
   ],
+  "lists": "numbered-tags",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "cards": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule)."
     },
     "insight": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": false,
       "description": "Optional key-insight panel above the cards."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
   "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
@@ -136,7 +152,7 @@
     },
     {
       "title": "Order is decorative",
-      "body": "When sequence carries meaning, use list-steps or `list takeaway numbered` instead. cards-grid is for parallel options."
+      "body": "When sequence carries meaning, use list-steps or `list takeaway` over a `1.` list instead. cards-grid is for parallel options."
     }
   ],
   "antiPatterns": [
@@ -146,7 +162,7 @@
     },
     {
       "title": "Order carries meaning",
-      "body": "Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences."
+      "body": "Use list-steps or `list takeaway` over a `1.` list. cards-grid is for parallel options, not sequences."
     },
     {
       "title": "Lopsided density",

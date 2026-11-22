@@ -79,7 +79,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: content -->
 
 ## A portrait deck is a different box, not a smaller slide.
 

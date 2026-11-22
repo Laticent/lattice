@@ -626,3 +626,93 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
   });
 
 });
+
+// REAP ON WINDOWS (followups.d/3276-p4). The integration half, a real browser reaped on each platform (a worker killed
+// mid-render, and a browser still running), is `REAPED` in test/integration/export/os-sandbox-measure.test.js.
+describe('killBrowserTree: the whole browser, on every platform', () => {
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const DIR = path.join(os.tmpdir(), 'lattice-code-sandbox-Ab12Cd');
+  const record = (platform, dir, result = { status: 0, stdout: 'swept\r\n' }) => {
+    const ran = [];
+    const killed = [];
+    const how = killBrowserTree(4242, dir, {
+      platform,
+      run: (cmd, args) => {
+        ran.push([path.basename(cmd), ...args]);
+        return result;
+      },
+      kill: (p, s) => killed.push([p, s]),
+    });
+    return { ran, killed, how };
+  };
+
+  test('on Windows, every process naming the profile is stopped, and the pid, which may be stale, is not killed', () => {
+    const { ran, killed, how } = record('win32', DIR);
+    assert.equal(how, 'sweep');
+    assert.equal(ran.length, 1);
+    assert.equal(ran[0][0], 'powershell.exe');
+    assert.match(ran[0].at(-1), /CommandLine LIKE '%lattice-code-sandbox-Ab12Cd%'/);
+    assert.match(ran[0].at(-1), /Stop-Process -Id \$_\.ProcessId -Force/);
+    assert.deepEqual(killed, []);
+  });
+
+  test('on Windows, the sweep lists and stops again until a pass finds nothing, and the passes are capped', () => {
+    // One pass left a helper the live browser started mid-sweep (windows-2025 run 44789928753). The real race runs in
+    // os-sandbox-measure's REAPED, SPAWNING arm; this pins the shape that answers it, in ONE PowerShell process.
+    const { ran } = record('win32', DIR);
+    assert.equal(ran.length, 1);
+    assert.match(ran[0].at(-1), /^\$n = 0; do \{ \$n\+\+; .* \} while \(\$p\.Count -gt 0 -and \$n -lt 8\); exit 0$/);
+    // The first query failing exits 3 (no pass ran: the pid fallback applies); a later one ends the loop.
+    assert.match(ran[0].at(-1), /Get-CimInstance .* -ErrorAction Stop .*catch \{ if \(\$n -eq 1\) \{ exit 3 \} else \{ break \} \}/);
+    assert.match(ran[0].at(-1), /if \(\$n -eq 1\) \{ 'swept' \}/);
+  });
+
+  test('on Windows, once a pass ran (`swept`), the pid is never killed, even if PowerShell then fails or times out', () => {
+    // A timeout or a failed later pass after a sweep must not fall back to the pid: it may have been freed and reused.
+    // The exit code cannot tell (the reviewer's finding on #3358: `-Command` exits 0 after a failed query), the line can.
+    for (const result of [{ status: 0, stdout: 'swept\r\n' }, { status: null, error: Object.assign(new Error('spawnSync powershell.exe ETIMEDOUT'), { code: 'ETIMEDOUT' }), stdout: 'swept\r\n' }, { status: 1, stdout: 'swept\r\n' }]) {
+      const { killed, how } = record('win32', DIR, result);
+      assert.equal(how, 'sweep', JSON.stringify(result));
+      assert.deepEqual(killed, [], JSON.stringify(result));
+    }
+  });
+
+  test('on Windows, a sweep that cannot run falls back to the pid, and no `-pid`, which throws there', () => {
+    // No `swept`: PowerShell would not start, the first query threw (exit 3), or it exited 0 having swept nothing.
+    for (const result of [{ status: 1 }, { error: new Error('ENOENT') }, { status: null }, { status: 3, stdout: '' }, { status: 0, stdout: '' }]) {
+      const { killed, how } = record('win32', DIR, result);
+      assert.deepEqual(killed, [[4242, 'SIGKILL']], JSON.stringify(result));
+      assert.equal(how, 'pid', JSON.stringify(result));
+    }
+  });
+
+  test('on Windows, a folder name that is not one mkdtemp made never reaches PowerShell', () => {
+    for (const dir of [null, path.join(os.tmpdir(), "lattice-code-sandbox-a'; Remove-Item x -Recurse #"), path.join(os.tmpdir(), 'lattice-code-sandbox-%'), path.join(os.tmpdir(), 'other-Ab12Cd')]) {
+      const { ran, killed } = record('win32', dir);
+      assert.deepEqual(ran, [], String(dir));
+      assert.deepEqual(killed, [[4242, 'SIGKILL']], String(dir));
+    }
+  });
+
+  test('elsewhere, the process group and then the process, and nothing is spawned', () => {
+    for (const platform of ['linux', 'darwin']) {
+      const { ran, killed, how } = record(platform, DIR);
+      assert.equal(how, 'group', platform);
+      assert.deepEqual(ran, [], platform);
+      assert.deepEqual(killed, [[-4242, 'SIGKILL'], [4242, 'SIGKILL']], platform);
+    }
+  });
+
+  test('a kill that throws (the process is already gone) does not stop the next one', () => {
+    const killed = [];
+    killBrowserTree(4242, DIR, {
+      platform: 'linux',
+      run: () => ({ status: 0 }),
+      kill: (p) => {
+        killed.push(p);
+        throw Object.assign(new Error('gone'), { code: 'ESRCH' });
+      },
+    });
+    assert.deepEqual(killed, [-4242, 4242]);
+  });
+});

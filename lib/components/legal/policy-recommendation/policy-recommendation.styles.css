@@ -33,9 +33,9 @@
     --stance-signal: transparent;
     --stance-label: "Recommendation";
   }
-  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-badge-bg: var(--state-pass-hue); --stance-badge-ink: var(--on-mark); --stance-label: "Adopt"; }
-  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-badge-bg: var(--state-warn-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--warn-signal-mark); --stance-label: "Amend"; }
-  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-badge-bg: var(--state-fail-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--fail-signal-mark); --stance-label: "Oppose"; }
+  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-badge-bg: var(--state-pass-hue); --stance-badge-ink: var(--state-pass-on-ink); --stance-badge-edge: var(--state-pass-edge); --stance-label: "Adopt"; }
+  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-badge-bg: var(--state-warn-hue); --stance-badge-ink: var(--state-warn-on-ink); --stance-badge-edge: var(--state-warn-edge); --stance-signal: var(--warn-signal-mark); --stance-label: "Amend"; }
+  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-badge-bg: var(--state-fail-hue); --stance-badge-ink: var(--state-fail-on-ink); --stance-badge-edge: var(--state-fail-edge); --stance-signal: var(--fail-signal-mark); --stance-label: "Oppose"; }
   section.policy-recommendation.defer  { --stance: var(--text-secondary); --stance-bg: var(--bg-alt); --stance-label: "Defer"; }
 
   /* ── Masthead: the legislative letterhead. A stance hairline under the band, and

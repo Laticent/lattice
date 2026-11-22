@@ -130,29 +130,35 @@
       "sample": "<!-- _class: slope signal -->\n\n## Adoption rose everywhere but the two legacy regions.\n\n- APAC\n  - 2024 `41%`\n  - 2026 `58%`\n- North America\n  - 2024 `62%`\n  - 2026 `71%`\n- EMEA North\n  - 2024 `55%`\n  - 2026 `49%`\n- LATAM\n  - 2024 `28%`\n  - 2026 `44%`\n- EMEA South\n  - 2024 `47%`\n  - 2026 `39%`\n"
     }
   },
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name the change, not the chart ('Two suppliers swapped places on unit cost', not 'Slope chart')."
     },
     "entities": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per entity, and the entity's own name is the lead text. It carries NO value of its own — the values live in the nested sublist, so a slope is always authored two levels deep."
     },
     "points": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": true,
       "description": "Two nested items per entity: lead text = the point's name, trailing inline-code = its value — `2024 \\`31%\\``. The point NAMES become the two column headers, so every entity must name its points the same way; name them differently and the chart falls back to reading them positionally. Commas, currency and magnitude suffixes are tolerated (`$1.2M` is 1 200 000). A third point renders as a third column, but past two, `line` is the better component."
     },
     "emphasis": {
       "selector": "li > code",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "An optional status pill on the ENTITY's own lead — `- Northwind \\`fail\\`` — from the chart family's status vocabulary (`on-track` `done` `live` `at-risk` `warn` `blocked` `fail` `pilot` `decision` `deferred`). Mark one or two and every unmarked line recedes, so the author names the story rather than the chart guessing it. This is the emphasis register to use whenever UP IS BAD."
     },
     "detail": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "A nested item with NO numeric pill is per-mark detail, not a data point. It drives the Present-mode reveal popover and folds into the slide's speaker note (`Atlas 12 to 19: Won the Rhodes contract`); the printed chart is byte-identical with or without it."
     }

@@ -176,7 +176,7 @@ section.compare-code-block .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--accent); border-bottom: 1px solid var(--border);
+  color: var(--accent); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 /* The block page reuses the SAME code frame as the unsplit layout (`section.compare-code

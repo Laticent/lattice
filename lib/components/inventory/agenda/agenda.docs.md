@@ -18,10 +18,10 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
-| `items` | `ol > li` | yes | Ordered list of section titles. |
+| `title` | a `## ` heading | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
+| `items` | a list | no | A list of section titles (`1.` or `-`; the ledger numbers itself). Leave it out and the agenda fills itself from the deck's `divider` headings. |
 
 ### Variant decision rule
 
@@ -46,7 +46,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ## When NOT to use
 
 - **Sub-bullets per section.** The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here.
-- **Unnumbered list.** Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax.
+- **Typing the section numbers.** Do not write `01`, `02` into the items: the ledger numbers itself. Either list marker works (`1.` or `-`, the list contract renders both the same), so pick the one you type fastest and let the layout count.
 - **Single-section decks.** If the deck has no sections to enumerate, skip the agenda. Empty wayfinding is more friction than no wayfinding.
 - **More than six sections.** A single agenda slide holds up to six sections at a legible row height; beyond that the rows crowd the footer. Group related items under fewer headings, or split the agenda across two slides.
 
@@ -217,7 +217,7 @@ Done gets a tick, current an arrow.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

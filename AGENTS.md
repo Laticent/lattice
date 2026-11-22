@@ -6,7 +6,11 @@ engine — and each slide opts into a **component** via a
 `<!-- _class: <name> -->` directive and fills its slots with ordinary
 Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,
-read `CLAUDE.md` and the `engineering/` docs instead — and before building any
+read `CLAUDE.md` and the `engineering/` docs instead. To find **where code lives**,
+grep `dist/engineering/codemap.md` first: one line per folder, code part, plugin and
+workspace library, with its purpose and layer (no clone? it is on the
+[`dist-kits`](https://github.com/Laticent/lattice/blob/dist-kits/engineering/codemap.md)
+branch). It stops at folders, so grep inside the folder it names. And before building any
 script or tool, **grep** `dist/engineering/capabilities.md` (the generated index of
 every script, tool, and framework) for what you were about to build, then open
 the script or tool the row names — its own header is the long form. Extend what
@@ -121,13 +125,16 @@ incrementally; when absent, fall back to the narrative `whenToUse` /
 edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
 ```
 
-- **`npm run lint:deck -- <file.md>`** — fast, no-render check for the
-  markdown footguns the docs warn about. Run it on every draft and fix all
-  errors before rendering. Rules: card-style slides forbid the inline
+- **`npm run lint:deck -- <file.md>`** — fast, no-render check for many of
+  the markdown footguns the docs warn about. Run it on every draft and fix all
+  errors before rendering. Rules include: card-style slides forbid the inline
   `- **Title.** body` shape (use the nested `- Title` / `  - body` shape);
-  ordered-list "statement" components forbid `**bold**` inside items; class
-  typos are flagged. `--json` gives machine-readable output; `--strict`
-  fails on warnings too.
+  ordered-list "statement" components forbid `**bold**` inside items; unknown
+  class words are flagged. `--json` gives machine-readable output; `--strict`
+  fails on warnings too. **A clean lint is not a correct slide:** it does not
+  yet check a slide against its component's slots (a missing `##` heading, `#`
+  in place of `##`, or `-` where the layout reads `1.` all lint clean), so
+  follow the component's `.docs.md` for those.
 - **Render** (needs a Chromium; set `CHROME_PATH` in the cloud sandbox —
   see `engineering/gotchas.md`):
 

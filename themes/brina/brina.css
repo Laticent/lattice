@@ -101,22 +101,47 @@
   --pass: light-dark(#004331, #b4ffd1);
   --warn: light-dark(#7d5201, #f4bf63);
   --fail: light-dark(#43000d, #f07f92);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
-   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `marks: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
-   * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
-   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-mark: light-dark(#234939, #446B5A);
-  --warn-mark: light-dark(#834A07, #A2672E);
-  --fail-mark: light-dark(#98150A, #BE3F30);
-  --pass-vivid-mark: light-dark(#004C35, #007151);
-  --warn-vivid-mark: light-dark(#854A00, #AD6200);
-  --fail-vivid-mark: light-dark(#9D0800, #C93021);
-  --warn-signal-mark: light-dark(#E7A02B, #E39C24);
-  --fail-signal-mark: light-dark(#EF7F57, #F08058);
-  --info-mark: light-dark(#1A5F79, #3B7C98);
-  --info-vivid-mark: light-dark(#00607E, #007EA4);
-  --mute-mark: light-dark(#4E5057, #696B73);
+  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status. On the light face a deep fill that
+   * clears 4.5:1 against every surface it sits on, so it reads at the back of a lit hall (`npm run check:glance`). On
+   * the dark face a chart solid like the categories beside it (lib/theme/chart-solids.js): white at 4.6:1 on it, 3:1
+   * off the slide, done deepest and at risk lightest. `marks: pigment muted|vivid` picks the intensity. The hues are
+   * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
+   * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
+   * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
+  --pass-mark: light-dark(#384D31, #4D6A51);
+  --warn-mark: light-dark(#8A5600, #A2672E);
+  --fail-mark: light-dark(#902826, #BE3D39);
+  --pass-vivid-mark: light-dark(#304C26, #287038);
+  --warn-vivid-mark: light-dark(#8A5600, #AD6200);
+  --fail-vivid-mark: light-dark(#9E0012, #C92E2F);
+  --warn-signal-mark: light-dark(#F4AD4A, #E29D23);
+  --fail-signal-mark: light-dark(#F0816B, #F27A7D);
+  --info-mark: light-dark(#005475, #3F7B9A);
+  --info-vivid-mark: light-dark(#005475, #087DAB);
+  --mute-mark: light-dark(#4D5359, #717171);
+  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
+   * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
+   * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
+   * Solved by tools/curate-status-triplets.js. */
+  --pass-on-mark: light-dark(#F2F5F7, #FFFFFF);
+  --warn-on-mark: light-dark(#F2F5F7, #FFFFFF);
+  --fail-on-mark: light-dark(#F2F5F7, #FFFFFF);
+  --info-on-mark: light-dark(#F2F5F7, #FFFFFF);
+  --mute-on-mark: light-dark(#F2F5F7, #FFFFFF);
+  --pass-edge-mark: light-dark(#384D31, var(--pass));
+  --warn-edge-mark: light-dark(#8A5600, var(--warn));
+  --fail-edge-mark: light-dark(#902826, var(--fail));
+  --info-edge-mark: light-dark(#005475, var(--info));
+  --mute-edge-mark: light-dark(#4D5359, var(--mute));
+  --pass-vivid-edge-mark: light-dark(#304C26, var(--pass));
+  --warn-vivid-edge-mark: light-dark(#8A5600, var(--warn));
+  --fail-vivid-edge-mark: light-dark(#9E0012, var(--fail));
+  --info-vivid-edge-mark: light-dark(#005475, var(--info));
+  /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
+   * (risk-matrix's critical band, a state-chart status row's chip). */
+  --status-shade-mark: light-dark(#000000, #000000);
+  /* The shade under the ONE ink (category and neutral tiles): white text, so it steps toward black. */
+  --on-mark-shade: #000000;
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

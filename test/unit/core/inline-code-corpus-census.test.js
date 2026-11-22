@@ -126,6 +126,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/kpi-allowance.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/kpi-row-rules.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/kpi-stats-lift.md', 'a kpi slide: a `{status}` pill ends each tile row'],
+  ['examples/status-triplets.md', 'the status-triplets demo: a kpi slide ends each tile row with a `{status}` pill, and the policy slide cites each claim with a `{source}` pill'],
   ['examples/mobile-landscape.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/social-grid.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/stage-console-split.md', 'a kpi slide: a `{status}` pill ends each tile row'],

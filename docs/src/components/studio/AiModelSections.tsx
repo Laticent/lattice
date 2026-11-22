@@ -10,6 +10,7 @@ import { notify } from '@/lib/notify';
 import { openRouterKeyActivating, openRouterKeyHint, providerKeyHint, providerKeyState } from '@/lib/openrouter-key.js';
 import { providerLabel } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
+import { voiceCaveat } from '@/lib/voice-caveats';
 import { ApiKeyPanel } from './ApiKeyPanel';
 import { switchProvider } from './api-key';
 import { type ArchitectStatus, type ChatReadiness, type CloudProvider, listRouteModels } from './architect';
@@ -296,6 +297,8 @@ export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; us
 	const r = avail?.readiness;
 	const model = r?.model || sel.model;
 	const voice = r?.voice || sel.voice;
+	// A voice measured to misread a word by its place in the sentence says so where it is chosen (lib/voice-caveats.ts).
+	const caveat = sel.provider ? voiceCaveat(model) : null;
 	const name = !sel.provider ? 'No voice model yet' : sel.provider === 'kokoro' ? `Kokoro · ${voiceDisplayName(voice)}` : `${modelDisplayName({ id: model, provider: sel.provider })} · ${voiceDisplayName(voice)}`;
 	const meta = !sel.provider ? 'Connect OpenRouter or a Gemini key, or choose the free on-device voice' : r?.state === 'needs-key' ? 'Add a key or choose on-device' : sel.source === 'device' ? 'On this device · free and private' : `${providerLabel(sel.provider)} · ${sel.provider === 'openrouter' ? 'your account' : 'your own key'}`;
 	return (
@@ -312,6 +315,11 @@ export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; us
 				open={open}
 			/>
 			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}
+			{caveat ? (
+				<p role="note" data-testid="voice-caveat" className="mt-2 rounded-md border border-border px-2.5 py-1.5 text-[11.5px] leading-relaxed text-[var(--text-body)]">
+					{caveat.note}
+				</p>
+			) : null}
 			<CollapsibleContent className="mt-3">
 				<TtsSettings />
 			</CollapsibleContent>

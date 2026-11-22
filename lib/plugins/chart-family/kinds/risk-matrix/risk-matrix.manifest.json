@@ -65,19 +65,23 @@
   ],
   "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first.",
   "purpose": "Use for a risk register a board or risk committee reviews: enterprise risk, a project's top risks, an underwriting portfolio's exposures. Each risk is placed by its likelihood and impact (1 to 5); the cell's shade is its band (low, medium, high, critical from likelihood × impact); an optional second position shows where mitigation should take it.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name what is in the red and what is being done ('Cyber and hurricane risk sit in the red; both have a plan'), not 'Risk matrix'."
     },
     "risks": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per risk: its name, then a point record `{likelihood, impact}`, each a whole number from 1 to 5 — `Cyber outage \\`{4, 5}\\``. An optional second record is where mitigation takes it: `\\`{4, 5}\\` \\`{2, 4}\\``. Risks are numbered in the order written; the key lists them worst first."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
     }

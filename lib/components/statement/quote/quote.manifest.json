@@ -29,11 +29,13 @@
   "slots": {
     "quotation": {
       "selector": "blockquote > p",
+      "match": { "kind": "blockquote" },
       "required": true,
       "description": "The quoted text."
     },
     "attribution": {
-      "selector": "section > p:last-child",
+      "selector": "blockquote + p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Attribution line below the quote."
     }

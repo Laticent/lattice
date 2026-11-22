@@ -59,10 +59,13 @@
       "markers": ["stress-slide"],
       "comments": {
         "pane": { "kind": "structure", "describe": "Where a pane begins, naming its component (`<!-- _pane: list no-title -->`, or the `pane:` alias). Read by the pane carve (lib/core/panes.js) before directives are applied." },
-        "panes": { "kind": "structure", "describe": "A slide's pane layout (`<!-- panes: 60/40 stack -->`). Read by the pane carve." },
-        "say": { "kind": "channel", "describe": "The slide's read-as text, the highest-precedence narration source. A separate channel from the speaker note; lowercase only." },
-        "reader": { "kind": "channel", "describe": "The slide's reader note: text for whoever opens the exported file, not for the presenter. PPTX and PDF carry it as a labeled `Reader:` paragraph after the speaker note; the HTML player's read view shows it under the slide. Written as a record's `reader` field (`<!-- {reader=\"…\"} -->`, or a `reader: |` block); lowercase only. Design: engineering/decisions/2026-10-17-meta-record.md §4.4." },
-        "describe": { "kind": "channel", "describe": "The slide's accessible description (WCAG 1.1.1), an objective equivalent of what the slide shows. A separate channel from the speaker note." }
+        "panes": { "kind": "structure", "describe": "A slide's pane layout (`<!-- panes: 60/40 stack -->`). Read by the pane carve." }
+      },
+      "notes": {
+        "note": { "describe": "Speaker notes: `<!-- @note{…} -->`. For you while you present. Reaches Present mode, the PPTX notes field and the PDF note annotation; `--strip-notes` removes it." },
+        "say": { "describe": "The voice and the captions: `<!-- @say{…} -->`. The words the slide speaks, aloud and on screen: TTS, read-along and the `.vtt` sidecar. Replaces the slide's generated narration; `--strip-say` removes it." },
+        "alt": { "describe": "Alt text: `<!-- @alt{…} -->`. What the slide shows, for someone who cannot see it: screen readers, PPTX alt text and `aria-describedby`." },
+        "handout": { "describe": "The handout: `<!-- @handout{…} -->`. For someone reading the deck alone, later: the handout PDF, the player's read view, and a `Handout:` paragraph after the speaker note in PPTX and PDF." }
       }
     }
   }

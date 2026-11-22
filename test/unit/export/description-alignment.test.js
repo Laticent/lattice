@@ -43,7 +43,7 @@ function sectionsOf(html) {
 }
 
 describe('description alignment (front-matter phantom regression)', () => {
-  test('a front-matter deck maps each describe to its own rendered slide (no phantom shift)', () => {
+  test('a front-matter deck maps each @alt to its own rendered slide (no phantom shift)', () => {
     const src = [
       '---',
       'theme: indaco',
@@ -52,19 +52,19 @@ describe('description alignment (front-matter phantom regression)', () => {
       '',
       '# Slide one',
       '',
-      '<!-- describe: The first slide. -->',
+      '<!-- @alt{The first slide.} -->',
       '',
       '---',
       '',
       '# Slide two',
       '',
-      '<!-- describe: The second slide. -->',
+      '<!-- @alt{The second slide.} -->',
       '',
       '---',
       '',
       '# Slide three',
       '',
-      '<!-- describe: The third slide. -->',
+      '<!-- @alt{The third slide.} -->',
       '',
     ].join('\n');
 

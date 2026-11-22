@@ -1,0 +1,41 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "read_component",
+	"title": "Read a component",
+	"describe": {
+		"chat": "Read one Lattice component (layout): its authoring skeleton, slot contracts, word budget, variant decision rule, when to use it and its anti-patterns. The variant examples and the rest are listed by section; call again with `section` for one."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"name": {
+				"type": "string",
+				"description": "The component name, e.g. kpi, cards-grid."
+			},
+			"section": {
+				"type": "string",
+				"description": "Optional: one section of the doc, e.g. Variants, Anatomy."
+			}
+		},
+		"required": [
+			"name"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 10,
+		"activity": "Reading a component…"
+	}
+}

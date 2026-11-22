@@ -10,6 +10,10 @@ summary: >
 
 # Status is one system (2026-10-24)
 
+> **Amended 2026-11-16** (`2026-11-16-status-triplets.md`): a brand theme now curates the ink ON each status solid
+> and its border per status (the status triplet), so "its drawn mark in the one ink (`--on-mark`)" below holds only
+> for a theme that curates none, the a11y palettes among them. Every other rule here stands.
+
 ## 1. The question
 
 The chart family paints a status as a deep flat fill, white text, a drawn mark and, on the two exceptions, a signal

@@ -57,12 +57,12 @@ test('a speaker note is written into the slide source on blur', async ({ page })
 	// Open Slide settings (which points the panel at slide scope), then the Notes tab.
 	await page.getByRole('button', { name: 'Slide settings' }).click();
 	await openSection(page, 'Notes');
-	const note = page.getByRole('textbox', { name: 'Speaker note for this slide' });
+	const note = page.getByRole('textbox', { name: 'Speaker notes for this slide' });
 	await note.click();
 	await note.fill('Open with the headline number.');
 	await note.blur();
 
-	await expect.poll(() => persistedSource(page)).toContain('note: Open with the headline number.');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @note{Open with the headline number.} -->');
 });
 
 test('saving a version records a checkpoint', async ({ page }) => {

@@ -1,4 +1,4 @@
-// chart_from_data: the tool definition and the slide it writes. Its own module, imported only by the
+// chart_from_data: the slide it writes (its definition is the use case lib/use-cases/chart_from_data). Its own module, imported only by the
 // lazily loaded chat agent, because it carries the chart family's number reader and chat-actions.ts is
 // also imported by the chat panel (autoHold), whose bundle should not pay for it.
 
@@ -8,30 +8,6 @@ import { readNumber } from '@laticent/segno/values';
 export const CHART_KINDS = ['bar', 'line', 'piechart', 'stacked-bar'] as const;
 export type ChartKind = (typeof CHART_KINDS)[number];
 const CHART_VARIANTS: Readonly<Record<ChartKind, readonly string[]>> = { bar: ['row', 'diverging'], line: [], piechart: ['donut'], 'stacked-bar': [] };
-
-export const CHART_TOOL = {
-	type: 'function',
-	function: {
-		name: 'chart_from_data',
-		description:
-			'Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. Read the chart guide (read_component) if unsure.',
-		parameters: {
-			type: 'object',
-			properties: {
-				after: { type: 'integer', description: 'Insert after this slide number (0 puts it first).' },
-				kind: { type: 'string', enum: [...CHART_KINDS] },
-				variant: { type: 'string', enum: ['row', 'diverging', 'donut'], description: 'Optional: bar row (long names) or diverging (signed values); piechart donut.' },
-				heading: { type: 'string', description: 'The claim, as a sentence.' },
-				rows: {
-					type: 'array',
-					items: { type: 'object', properties: { label: { type: 'string' }, value: { type: 'string' }, parts: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, value: { type: 'string' } }, required: ['label', 'value'] } } }, required: ['label'] },
-				},
-				summary: { type: 'string' },
-			},
-			required: ['after', 'kind', 'heading', 'rows'],
-		},
-	},
-} as const;
 
 // A value is what the chart family's own reader reads (Segno's readNumber, the test isValuePill uses):
 // one grammar for the engine and this tool (HARD RULE #1), so a value the engine draws is never refused

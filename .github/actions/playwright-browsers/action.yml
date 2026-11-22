@@ -43,10 +43,28 @@ runs:
       # Playwright's own package list for these browsers, the one `--with-deps` installs, so the two never drift (local,
       # no network). The image VERSION is in the key too, so a new image saves an entry of its own; it falls back to the
       # last image's entry, which apt-cached.sh repairs only if it does not fit.
+      #
+      # Through Playwright 1.56 `--dry-run` PRINTED the `apt-get install -y --no-install-recommends <list>` command. From
+      # 1.65 it RUNS `apt-get install -s --no-install-recommends <list>` and reports only what is missing, exiting 1 when
+      # anything is. So a stand-in `apt-get`, first on PATH for this one call, records the list it is handed and
+      # simulates nothing; the printed form is still read for an older Playwright.
       run: |
         browsers=$(printf '%s\n' $BROWSERS | sort -u | tr '\n' ' ')
-        list=$(npx playwright install-deps --dry-run $browsers)
-        pkgs=$(printf '%s\n' "$list" | sed -n 's/.*apt-get install -y --no-install-recommends \([^"&;]*\).*/\1/p' | head -1)
+        shim=$(mktemp -d)
+        trap 'rm -rf "$shim"' EXIT
+        printf '#!/bin/sh\nprintf "%%s\\n" "$*" > "%s/args"\n' "$shim" > "$shim/apt-get"
+        chmod +x "$shim/apt-get"
+        list=$(PATH="$shim:$PATH" npx playwright install-deps --dry-run $browsers)
+        if [ -s "$shim/args" ]; then
+          # Only the call this was written for: anything else may carry an option value that would read as a package.
+          case "$(cat "$shim/args")" in
+            'install -s --no-install-recommends '*) ;;
+            *) echo "playwright-browsers: unexpected apt-get call from install-deps --dry-run: $(cat "$shim/args")" >&2; exit 1 ;;
+          esac
+          pkgs=$(tr ' ' '\n' < "$shim/args" | grep -v -e '^-' -e '^install$' -e '^$' | tr '\n' ' ' | sed 's/ $//')
+        else
+          pkgs=$(printf '%s\n' "$list" | sed -n 's/.*apt-get install -y --no-install-recommends \([^"&;]*\).*/\1/p' | head -1)
+        fi
         [ -n "$pkgs" ] || { echo "no package list in: $list" >&2; exit 1; }
         version=$(node -p "require('playwright-core/package.json').version")
         # Each browser's own folders, so two calls in one job (chromium, then webkit) cache only what each installs.

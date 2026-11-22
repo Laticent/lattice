@@ -1,4 +1,4 @@
-import { FRAME_MS, pauseFrames, stepFrame } from './frame-clock';
+import { FRAME_MS, pauseFrames, stepFrame, stepFramesUntil } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE GUIDE RUNG on the real Present surface (#1397).
@@ -131,7 +131,8 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 	// The whole reading, plus room: 45 s of virtual time. The paragraph slide reads in well under that.
 	for (let i = 0; i < Math.ceil(45_000 / FRAME_MS); i++) await stepFrame(page);
-	await page.clock.resume();
+	// The clock stays paused to the end: the teardown below is stepped, not waited out. A `resume()` stood here, and a
+	// resumed clock lets a frame born later run ahead of this one (testing.md §fake clock).
 	const { rests, hits } = await page.evaluate(() => (window as unknown as { __guide: { rests: { x: number; y: number; onSlide: boolean; awayFromSpawn: boolean }[]; hits: string[] } }).__guide);
 	const resting = [...new Set(hits)];
 	expect(rests.length, 'the Guide cursor never came to rest anywhere visible — it resolved no target').toBeGreaterThanOrEqual(1);
@@ -141,6 +142,9 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 
 	// Switching Guide off tears the stage down; the real pointer is never left hidden.
 	await guide.click();
+	const limit = Math.ceil(5_000 / FRAME_MS);
+	const teardown = await stepFramesUntil(page, async () => (await page.locator(CURSOR).count()) === 0 && (await backdropCursor(page)) !== 'none', limit);
+	expect(teardown, 'Guide off did not tear the stage down inside 5 s of virtual time').toBeLessThan(limit);
 	await expect(page.locator(CURSOR)).toHaveCount(0);
 	await expect.poll(async () => page.evaluate(() => getComputedStyle(document.querySelector('.lx-ui.fixed.inset-0.z-\\[100\\]') as Element).cursor)).not.toBe('none');
 });
@@ -195,7 +199,7 @@ test('with nothing on the slide to point at, the cursor hides and the real point
 			'',
 			'## Margins expanded across every region.',
 			'',
-			'<!-- note: The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself. -->',
+			'<!-- @note{The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself.} -->',
 			'',
 		].join('\n'),
 	);

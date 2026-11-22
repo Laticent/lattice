@@ -6,9 +6,9 @@ header: "Lattice · spectrum edge cases"
 footer: "Edge-case deck"
 ---
 
-<!-- Open this deck in the Studio. Open Deck settings, change the spectrum edge (top, left, right, bottom, off) and
+<!-- @note{Open this deck in the Studio. Open Deck settings, change the spectrum edge (top, left, right, bottom, off) and
      page through every slide. The bar changes sides; no word, mark, stamp or photo may move, and nothing may sit
-     on top of the bar. Each slide below is an edge case; its eyebrow names what it checks. -->
+     on top of the bar. Each slide below is an edge case; its eyebrow names what it checks.} -->
 
 <!-- _class: title -->
 
@@ -159,9 +159,16 @@ Each pair starts as a last carved to one foot.
 
 <!-- _class: premise -->
 
-`Premise · centered statement`
+## The claim holds the left, its rows the right.
 
-## One sentence, centered, never nudged.
+The spectrum rail runs above both, and neither column nudges it.
+
+1. Claim
+   - One sentence on the left.
+2. Rows
+   - Parallel evidence on the right.
+3. Rail
+   - The spectrum runs above both.
 
 ---
 

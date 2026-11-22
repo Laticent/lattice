@@ -189,6 +189,31 @@ async function latticePhotoProbe() {
 		}
 		throw new Error(`the preview did not follow the caret to "${heading}" (it shows "${shown()}")`);
 	};
+	/** The Source editor's view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts). */
+	const editorView = () => document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+	/**
+	 * Wait until the editor's lint has answered for the text it holds NOW: the editor stamps the length of the text each
+	 * pass linted on its root (`data-linted-chars`, Editor.tsx `reportLint`) for exactly this. Every editor underline,
+	 * the photo warning included, waits on that pass. In the iOS Simulator the first answer for the probe's deck came
+	 * up to 14.9 s after this probe began its 20 s wait for the photo underline, about 20 s after the slide first showed
+	 * (a cold lint worker loading the lint core; traced dispatches on #3326, where the plain lint warning on slide 2
+	 * and the photo warning on slide 1 always appeared in the same instant), so that wait ran out on an iPad (run
+	 * 44526306430) and an iPhone (run 44149207107) before lint had said anything.
+	 * The length tells texts of different lengths apart only (Editor.tsx's own note): a re-run on the SAME text, as
+	 * when the preview's measured verdict changes, is not seen here, so a check that needs it waits on its effect. The deadline is the probe's cold-start hang guard, as for the first render: the signal ends the wait.
+	 */
+	const linted = async (what) => {
+		const t0 = Date.now();
+		await until(() => {
+			const view = editorView();
+			return view && view.dom.dataset.lintedChars === String(view.state.doc.length);
+		}, 150000, `the editor's lint to answer for ${what}`).catch((e) => {
+			// Read when the wait ran out, not when it began.
+			const view = editorView();
+			throw new Error(`${e.message} (it last linted ${view?.dom.dataset.lintedChars ?? 'nothing'} characters of ${view?.state.doc.length ?? '?'})`);
+		});
+		return Date.now() - t0;
+	};
 	/** Open the editor's lint tooltip on the range on the line holding `text`, with a pointer move over it, and read it. */
 	const editorTooltip = async (text) => {
 		await openSource();
@@ -198,13 +223,15 @@ async function latticePhotoProbe() {
 		// underline were not in the page at all, so the wait ran out with the warning present. The editor's own document
 		// says where the text is; its scroll effect puts the line's start at the top of the view.
 		await until(() => {
-			// The view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts).
-			const view = document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+			const view = editorView();
 			const at = view ? view.state.doc.toString().indexOf(text) : -1;
 			if (at < 0) return null;
 			view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
 			return true;
 		}, 10000, `the editor's document to hold "${text}"`);
+		const lintMs = await linted('the deck');
+		// Lint has answered for this text; the photo warning also needs the preview's measured verdict, which the Coach
+		// has already shown, and the one re-run of lint it sets off. 20 s is that, not the lint worker's cold start.
 		const range = await until(() => {
 			const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text));
 			return line?.querySelector('.cm-lintRange-warning');
@@ -216,25 +243,53 @@ async function latticePhotoProbe() {
 		content.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false, clientX: 0, clientY: 0 }));
 		await until(() => !document.querySelector('.cm-tooltip-lint'), 5000, 'the earlier tooltip to close').catch(() => null);
 		await sleep(400);
-		const box = range.getBoundingClientRect();
+		// WHERE THE RANGE IS NOW, read at every move. The editor can scroll after the range is found (the Studio follows
+		// the caret, a late layout pass), and a point measured once then lands on another line: a phone run under load
+		// hovered "![A dark lake]" 250 px below the warning it was after for the whole 20 s. A range CodeMirror redrew is
+		// found again by its line's text.
+		let live = range;
+		const where = () => {
+			if (!live.isConnected) live = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text))?.querySelector('.cm-lintRange-warning') ?? live;
+			const box = live.getBoundingClientRect();
+			// The range's FIRST ROW, not the middle of its box. A range that wraps (the spotlight's class comment on a phone,
+			// the photo's data: line everywhere) has a box whose middle can fall in the gap between two rows, and CodeMirror
+			// opens no hover tooltip for a pointer above the character it maps to (HoverPlugin.startHover).
+			const row = [...live.getClientRects()].find((r) => r.width > 0 && r.height > 0) ?? box;
+			return { box, row };
+		};
+		let movedAt = 0;
 		const hover = (dx) => {
-			const at = { clientX: box.left + Math.min(8 + dx, box.width / 2), clientY: box.top + box.height / 2, bubbles: true };
-			range.dispatchEvent(new PointerEvent('pointermove', at));
-			range.dispatchEvent(new MouseEvent('mousemove', at));
+			movedAt = Date.now();
+			let { row } = where();
+			// Out of view means out of the editor's scroller, which clips it, not only out of the window.
+			const port = document.querySelector('.cm-scroller')?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+			if (row.top < Math.max(0, port.top) || row.bottom > Math.min(innerHeight, port.bottom)) {
+				live.scrollIntoView({ block: 'center' });
+				({ row } = where());
+			}
+			const at = { clientX: row.left + Math.min(8 + dx, row.width / 2), clientY: row.top + row.height / 2, bubbles: true };
+			live.dispatchEvent(new PointerEvent('pointermove', at));
+			live.dispatchEvent(new MouseEvent('mousemove', at));
 		};
 		hover(0);
 		const t0 = Date.now();
 		// The lint gutter's marker for the same line opens the same tooltip from a plain mouseover: the fallback when a
 		// synthetic pointer move does not open the hover tooltip (CodeMirror can ignore one that follows another).
-		const marker = () =>
-			[...document.querySelectorAll('.cm-lint-marker')].find((m) => {
+		const marker = () => {
+			const { box } = where();
+			return [...document.querySelectorAll('.cm-lint-marker')].find((m) => {
 				const r = m.getBoundingClientRect();
 				return r.bottom > box.top - 2 && r.top < box.top + box.height + 2;
 			});
+		};
 		let markerTried = false;
 		const tip = await until(() => {
-			// CodeMirror opens a hover tooltip only for a pointer that has rested; nudge it while waiting.
-			if (Date.now() - t0 > 1500 && !document.querySelector('.cm-tooltip-lint')) hover((Date.now() / 500) % 2);
+			// CodeMirror opens a hover tooltip only for a pointer that has RESTED: each move restarts its 300 ms check
+			// (@codemirror/view HoverPlugin.checkHover). So move again only after the last move had a full second to open
+			// one. This used to nudge on every 50 ms poll after 1.5 s, which restarted the check every time, so a first move
+			// that missed could never be followed by one that worked, and when the gutter marker below did not line up with
+			// the range either, the wait ran out with the underline in place (webkit, iPhone shape: 2 of 120 under load).
+			if (!document.querySelector('.cm-tooltip-lint') && Date.now() - movedAt > 1000) hover(((Date.now() / 1000) | 0) % 2);
 			if (Date.now() - t0 > 3000 && !markerTried && !document.querySelector('.cm-tooltip-lint') && marker()) {
 				markerTried = true;
 				marker().dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -242,7 +297,7 @@ async function latticePhotoProbe() {
 			const t = document.querySelector('.cm-tooltip-lint');
 			return t && !/Checking the photo/.test(t.textContent) && t.querySelector('.cm-diagnosticAction') ? t : null;
 		}, 20000, 'the editor tooltip with its fix');
-		return { text: tip.textContent, button: tip.querySelector('.cm-diagnosticAction')?.textContent?.trim() };
+		return { text: tip.textContent, button: tip.querySelector('.cm-diagnosticAction')?.textContent?.trim(), lintMs };
 	};
 
 	try {
@@ -266,7 +321,7 @@ async function latticePhotoProbe() {
 		step('slide 1: the Coach flags the statement under 4.5:1', /reads at [0-3]\.\d:1 \(needs 4\.5:1\)/.test(said1), said1);
 		step('slide 1: the Coach offers the dark card ink', coachButton()?.textContent.trim() === 'Set card ink dark', coachButton()?.textContent);
 		const tip1 = await editorTooltip('![A bright harbor](data:');
-		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), tip1.text);
+		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), `${tip1.text} (lint answered ${tip1.lintMs} ms after the probe looked)`);
 		step('slide 1: the editor offers the same button', tip1.button === 'Set card ink dark', tip1.button);
 
 		// 2. The Coach's button fixes it, and the preview never leaves slide 1 on the way.
@@ -289,9 +344,22 @@ async function latticePhotoProbe() {
 		seen.delete('');
 		step('slide 1: the preview never left the slide while the fix landed', seen.size === 1 && seen.has(HEADINGS[0]), [...seen].join(' | '));
 		await openSource();
-		await sleep(1500);
-		const left = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
-		step('slide 1: the editor warning clears too', !left, left ? 'still underlined' : '');
+		// Wait for lint to answer for the text with the fix in it (its length changed), then for the underline to go: the
+		// pass on the new text can still hold the photo verdict from before the fix, and the re-run the new verdict sets
+		// off has the same length, so the stamp cannot show it. Not a fixed sleep: on the simulator a pass outlasts any guess.
+		// 20 s is the same allowance the underline had to appear: the verdict and one re-run.
+		await linted('the fixed deck');
+		// The line must be in the page for its absence of an underline to mean anything: CodeMirror draws only lines near
+		// the view, so bring it there first, as for the warning itself.
+		const photoLine = () => [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'));
+		const view = editorView();
+		const at = view ? view.state.doc.toString().indexOf('![A bright harbor](data:') : -1;
+		if (at >= 0) view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
+		const cleared = await until(() => {
+			const line = photoLine();
+			return line && !line.querySelector('.cm-lintRange-warning');
+		}, 20000, 'the editor warning to clear').then(() => true, () => false);
+		step('slide 1: the editor warning clears too', cleared, cleared ? '' : photoLine() ? 'still underlined after 20 s' : 'the photo line was not in the page for 20 s');
 
 		// 3. A thin spotlight card: the Coach and the editor tooltip agree word for word.
 		await caretTo('A dark photo.', HEADINGS[1]);

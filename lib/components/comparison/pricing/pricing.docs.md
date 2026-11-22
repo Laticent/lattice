@@ -16,11 +16,11 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
-| `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
-| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not included (muted, struck through — not on this plan), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
+| `title` | a `## ` heading | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
+| `tiers` | a list | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
+| `features` | a list nested 1 level under an item | yes | Feature rows, each led by a state marker, with the same meaning it has in every layout: `[x]` included (green check), `[-]` limited (dash), `[/]` not included (muted, struck through — not on this plan), `[ ]` coming (open ring), `[?]` ask sales (question mark in a ring), `[!]` missing (red cross — for a competitor's column, not your own tiers). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
 
 ### Variant decision rule
 
@@ -134,7 +134,7 @@ The whole ladder, compact.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

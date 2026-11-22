@@ -71,6 +71,10 @@ import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './Galleries
 import { PlaygroundTourCard } from './PlaygroundTourCard';
 import { WalkBar } from './WalkBar';
 
+// Lazy: the control is needed only once a long pane scrolls, so it stays out of the Playground's startup
+// JS (it measured +2,830 gzip bytes eager; docs/route-budget.json).
+const QuickScroll = React.lazy(() => import('@/components/ui/quick-scroll').then((m) => ({ default: m.QuickScroll })));
+
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
 // rail are a separate chunk the Playground never fetches otherwise.
 const PlaygroundMap = React.lazy(() => import('./PlaygroundMap'));
@@ -3437,6 +3441,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+							{/* Jump to the first or last slide: binds to the frame's own document and rebinds on each load. */}
+							<React.Suspense fallback={null}>
+								<QuickScroll root={frameRef} label="slides" />
+							</React.Suspense>
 						</div>
 						{mapEver && mapRendered && hub && (!mapStacked || walkMapEl) && (
 							<div className="pg-map" hidden={!mapOn}>

@@ -237,6 +237,41 @@ async function chipReachesEverySource(page: Page) {
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', model: 'test/model' });
 }
 
+// The chip's popover prices a turn once the model catalog lands, in rows ABOVE the source switch.
+// If those rows arrive between a press and its release, the switch slides away under the pointer:
+// the radio takes focus but never the click, and "On-device" stays unpicked (model-spine:206 on
+// mobile in a loaded full Chromium run, 2026-11-20). Hold the catalog, aim, release it, compare.
+test('@crosswidth @webkit-phone @webkit-tablet @gecko the source switch stays where it was when the turn prices land', async ({ page }) => {
+	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
+	await mockOpenRouter(page);
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	// Registered after mockOpenRouter, so it answers the catalog first: same body, held until released.
+	await page.route(/openrouter\.ai\/api\/v1\/models/, async (route) => {
+		await held;
+		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MODELS }) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
+	await page.getByTestId('chat-model-chip-name').click();
+	const onDevice = page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'On-device' });
+	await expect(onDevice).toBeVisible();
+	// Aim once the popover's opening zoom has finished, as a person's eye and Playwright's click both do.
+	// Only the popover's own finite animations: the page keeps endless ones (a spinner) that never finish.
+	await onDevice.evaluate((el) => {
+		const pop = el.closest('[data-radix-popper-content-wrapper]') ?? el;
+		const finite = pop.getAnimations({ subtree: true }).filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+		return Promise.all(finite.map((a) => a.finished));
+	});
+	const before = await onDevice.boundingBox();
+	release();
+	// The prices are what moved it: wait for the figure itself (the label stands from the first frame).
+	await expect(page.getByText('Ask a question', { exact: true }).locator('xpath=following-sibling::span[@data-usd]')).toBeVisible();
+	expect(await onDevice.boundingBox()).toEqual(before);
+});
+
 test('@webkit-tablet @gecko another tab follows a selection change without a reload', async ({ page, context }) => {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
 	await mockOpenRouter(page);
@@ -305,7 +340,7 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) });
 	const seen = await mockOpenRouter(page);
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The selected voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The selected voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -366,7 +401,7 @@ test(`${tags} Present decodes a Gemini clip on a worker and plays it at the decl
 	// A phone shows the slides first; its Markdown source tab reveals the editor.
 	const source = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 	if (await source.isVisible()) await source.click();
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The decoded clip reads this line. -->\n\n---\n\n# Two\n\n<!-- say: The decoded clip reads this line. -->\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The decoded clip reads this line.} -->\n\n---\n\n# Two\n\n<!-- @say{The decoded clip reads this line.} -->\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -462,7 +497,7 @@ test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off an
 		return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
 	});
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: First line. Second line. Third line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{First line. Second line. Third line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -504,13 +539,17 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'device', provider: 'kokoro', model: '', voice: 'af_heart' }) }, { promptApi: false });
 	await context.route('https://esm.run/kokoro-js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: FAKE_KOKORO }));
 	await mockOpenRouter(page);
-	await gotoStudio(page);
+	// THE TIER IS PINNED FULL. A LITE device does not offer the on-device voice (voice-model.js `kokoroSupported`), so Present
+	// reads captions, as it should. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`), which
+	// device-tier.ts applies only after the first slide shows, so on a loaded machine LITE landed before Play: 3 in 24 runs at
+	// 4 workers read "Captions" instead of "Loading voice… 42%". A `?tier=` pin applies before first paint and outranks it.
+	await gotoStudio(page, { query: '?tier=full' });
 	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
 	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
 	await page.evaluate(() => {
 		window.Worker = Object.getPrototypeOf(window.Worker);
 	});
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The on-device voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The on-device voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });

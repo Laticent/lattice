@@ -117,11 +117,11 @@ describe('a ruled list draws its rule between rows, never as an outer edge', () 
     // the census passes on an empty tree. Each of these renders as a ruled ledger.
     const carries = {
       'inventory/inventory/inventory': /ul > li \+ li \{\s*border-top: 1px solid var\(--border\)/,
-      'inventory/list-tabular/list-tabular': /ol > li \+ li \{ border-top:1px solid var\(--border\)/,
+      'inventory/list-tabular/list-tabular': /ol(?::where\(\.cell-stage > \*\))? > li \+ li \{ border-top:1px solid var\(--border\)/,
       // list draws a softer, inset rule as a background (so it can start at the text column),
       // and only on `li:not(:last-child)`, so it is interior by construction.
       'inventory/list/list': /:is\(\.takeaway, \.principles\) > \.cell-stage > :is\(ul,ol\) > li:not\(:last-child\) \{\s*background:linear-gradient\(var\(--list-rule\)/,
-      'progression/list-steps/list-steps': /\.ghost ol > li \+ li \{\s*\n?\s*border-top:1px solid var\(--border\)/,
+      'progression/list-steps/list-steps': /\.ghost ol(?::where\(\.cell-stage > \*\))? > li \+ li \{\s*\n?\s*border-top:1px solid var\(--border\)/,
     };
     for (const [rel, re] of Object.entries(carries)) {
       const src = fs.readFileSync(path.join(COMPONENTS, `${rel}.styles.css`), 'utf8');

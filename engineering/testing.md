@@ -203,6 +203,19 @@ Every new test, and every test whose assertion or wait changed, carries three th
 
 A rename or a selector-only edit owes only the failing arm.
 
+**From CI, when you cannot run the suite locally.** Dispatch `studio-e2e-nightly.yml` on your branch
+with `spec`, and `repeat` and `workers` for the two runs:
+
+```bash
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=10
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=5 -f workers=4
+```
+
+Send the second once the first has started: the workflow keeps one pending run per branch, so a
+dispatch made while another is still pending replaces it. Each runs the test on
+every project its tags reach. `repeat` (1 to 20) and `workers` (1 to 8) need a `spec`; the step
+refuses anything else before Playwright starts.
+
 A failing arm must go red on the old code and green on the new. If the race is too rare to hit by
 load, inject the stall directly, as #3250 did with a temporary 2.5 s wait. List any arm that stayed
 green on both in the PR body, so nobody repeats it.
@@ -254,6 +267,24 @@ Every frame, including one born later, then sits at the same time (#3250).
 
 **Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
 
+## Playwright's fake clock: a frame-by-frame walk outruns the test's limit, and a chunk can commit late
+
+**Trap.** Stepping the fake clock one 16 ms frame at a time costs two round trips a frame
+(`frame-clock.ts` `stepFrame`). Under four workers that is about 110 ms a frame, so a walk of a
+few hundred frames crosses a 60 s test limit with every assertion passing (F4). A bigger step
+(`runFor(250)`) is cheap, and usually exact, because the clock awaits a real task after each
+timer and React commits there. But not always: React can commit a timer's state a frame or two
+after the timer fired, so a hold that starts inside a chunk can read up to 32 ms short.
+
+**Example.** `present-beat.spec.ts`, "every handoff holds the finished slide", stepped about 390
+frames and ran at a median of 55 s against 60 s at `--workers=4` (1 timeout in 8). Moved wholly
+to 250 ms chunks, its 400 ms leave beat read 368 ms in 2 of 10 runs alone.
+
+**Do instead.** Chunk where nothing is measured, and step frame by frame only across the window
+the assertion reads, with a page-side frame sampler doing the timing. The test there chunks
+until a slide's read passes 60% on the rail, then steps frames to the flip, and fails loudly if
+a hold began too soon after the switch for the chunks to be ruled out (2026-11-21).
+
 ## The device tier drops to Lite under load
 
 **Trap.** The Studio's device-tier probe drops from Full to Lite when the main thread stalls at
@@ -289,6 +320,24 @@ failures, where a 739 ms gesture selected text and a 939 ms gesture did not.
 touch-event log (the touchstart-to-touchend interval) rather than on WebDriver's gesture time. The
 fix is tracked in `followups.d/3223-p1-ipad-compose-tap-lands-off-point.md`, written before this
 measurement, whose coordinate theory these logs rule out.
+
+## A simulated long press moves its selection on release
+
+**Trap.** On the iOS Simulator, a WebDriver long press (`pointerDown`, a hold, `pointerUp`) selects the word under the
+finger, as a real one does. When the finger lifts, the selection then moves to text above and left of the finger. A test
+that reads the selection after the lift sees text the finger never touched, and the jump looks like a product defect.
+
+**Example.** In the Studio that text is the screen-reader-only legend "Workspace stop" on the iPad and the hidden
+"Lattice Studio" heading on the iPhone (nightly 44744978068, followups.d/3241-p1). It is not the Studio: on a bare page with
+no Studio code, the same long press on an editable paragraph ended on the whole plain paragraph above it (dispatch
+44856765533). A `pointerMove` back onto the point before the lift does not stop it (44850293408). Every logged `pointerup`
+reaches the page at 0,0, which may be why. Because the simulator also stretches a tap into a long press (the gotcha above),
+a slow tap can end with a caret in the legend.
+
+**Do instead.** Do not assert on a selection after a simulated long press. A tap's precondition is `tap-guard.mjs`: a
+gesture held 500 ms or more that left no caret in its target is re-delivered once when Safari acted on it, and a selection
+that moved out of every editor after the lift counts as acting on it. Whether a real finger does the same is unverified,
+and that check is tracked in `followups.d/3241-p1-compose-long-press-selects-sr-legend.md`.
 
 ## Testing Library's hidden 3 s clock and lazy panels
 
@@ -357,6 +406,42 @@ start while the editor was scrolled to its tail, and the warning it waited for w
 
 **Do instead.** Find text through the editor's own document (the `cmTile` view handle) and dispatch
 the editor's `scrollIntoView` for the line before waiting on it (#3213).
+
+## An editor underline waited for before lint has answered
+
+**Trap.** Every CodeMirror underline in the Source editor comes from a lint pass, and the pass runs
+in a worker that can take far longer than any fixed wait. A test that gives an underline N seconds
+from some unrelated moment races the worker, not the product.
+
+**Example.** The iOS photo probe gave the photo warning 20 s from the moment it scrolled to the
+line. In the iOS Simulator the editor's first lint answer for the probe's deck came up to 14.9 s
+after that scroll, about 20 s after the slide first showed (a cold lint worker loading the lint core). Lint-only warnings arrived in the
+same instant as the photo warning, so lint was the slow step. Two runs in about 300 (an iPad and an
+iPhone) ran out before lint had answered.
+
+**Do instead.** Wait until the editor's root has `data-linted-chars` equal to the length of the
+text it now holds (`Editor.tsx` `reportLint` stamps it for this). Then give the underline its own
+short wait. Size the lint wait as a hang guard, not as a guess at speed. The stamp is a length, so
+it cannot see a re-run on the same text (a new preview measurement): to see an underline go after
+one, wait for the underline itself to go.
+
+## A hover at the middle of a wrapped range opens nothing
+
+**Trap.** CodeMirror opens a hover tooltip only for a pointer over a character that has rested
+for 300 ms (`HoverPlugin.startHover` and `checkHover`). The middle of a wrapped range's bounding box
+can fall in the gap between two rows, where CodeMirror finds no character, and a move every poll
+keeps restarting the 300 ms.
+
+**Example.** At phone width the photo probe hovered the middle of a class comment that wrapped onto
+two rows. Only the lint gutter's marker rescued it, and the probe failed 2 of 120 runs under load
+when that missed too.
+
+A point measured once also goes stale: the editor can scroll after the range is found, and a
+phone run under load hovered a line 250 px below the warning for the whole wait.
+
+**Do instead.** Point at the middle of the range's first row (its first non-empty client rect), read
+where it is at every move, and move again only after the last move had a full second to open a
+tooltip.
 
 ## A test-set selection reaches ProseMirror late
 

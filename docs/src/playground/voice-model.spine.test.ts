@@ -103,14 +103,13 @@ describe('model spine — voice', () => {
 
 	it('with no voice chosen, preparing resolves false instead of asking the key store about no provider', async () => {
 		// The real store (openrouter-key.js `slot`) throws on a provider it does not know, and '' is one. read-aloud.ts
-		// awaits this before it starts the read-along, so a throw here left Present's Play stuck on slide 1 for a
-		// first-time author with no voice picked (2026-11-17).
+		// awaits this before it starts the read-along, so a throw here left Present on its first cue on every phone.
 		const keyState = vi.fn((p: string) => {
 			if (!p) throw new Error(`unknown key provider: ${p}`);
 			return 'ready';
 		});
-		// Not set, as a phone reads it: the Studio's migration fills in on-device Kokoro only where it can run, and a
-		// touch device cannot (voice-model.js `kokoroSupported`), so a phone that never picked a voice stays here.
+		// Unset, as a phone reads it: the Studio's migration fills in on-device Kokoro only where it can run, and a touch
+		// device cannot (voice-model.js `kokoroSupported`), so a phone that never picked a voice stays here.
 		localStorage.setItem(VOICE_SELECTION_KEY, JSON.stringify(UNSET_VOICE));
 		const v = createVoiceModel({ getOpenRouterKey: () => '', keyPrefix: 'studio', selection: { read: readVoiceSelection, select: selectVoice, keyState, openKey: async () => {} } }) as unknown as V;
 		expect(readVoiceSelection().provider).toBe('');

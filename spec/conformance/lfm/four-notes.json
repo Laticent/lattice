@@ -1,0 +1,17 @@
+{
+  "title": "A slide's four notes are @note, @say, @alt and @handout; a plain comment is not a note",
+  "spec": "LFM-2.0",
+  "section": "3.5",
+  "L0": { "visible": ["The one claim"], "hidden": ["Open cold", "plain comment", "read aloud", "centered", "appendix", "markdownlint"] },
+  "L1": {
+    "slides": [{
+      "notes": {
+        "note": "Open cold. Pause before the first word.\n\nThen land the number.",
+        "say": "The one claim, read aloud.",
+        "alt": "A single sentence, centered on the slide.",
+        "handout": "The claim is sourced in the appendix."
+      }
+    }]
+  },
+  "L2": { "findings": [{ "rule": "note-malformed", "severity": "error", "slide": 1 }] }
+}

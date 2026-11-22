@@ -163,10 +163,12 @@ opens the presenter's second window; Esc leaves.
    `fix-findings.md`.
 4. **Ask the chat**: open Chat and say what you want. The chat has three
    modes on its composer bar: **Talk** (reads and answers, changes nothing),
-   **Review** (the default: edits arrive as one diff card per turn and wait
-   for Apply) and **Auto** (for this visit only: a clean edit applies at once,
+   **Review** (the default: edits arrive as one card per turn and wait for
+   Apply; each slide in the card has its own Apply, Discard, Preview and,
+   once applied, Undo, and Apply all sits at the card's bottom right) and **Auto** (for this visit only: a clean edit applies at once,
    undo from History; an edit that deletes slides or rewrites most of the deck
-   still waits for Apply). From Review, one press of the mode button reaches
+   still waits for Apply). A message sent before a model is connected waits, and the chat
+   answers it once one is. From Review, one press of the mode button reaches
    Talk and two reach Auto.
 5. **Change the look**: the Deck panel, or ask the chat. See `restyle-deck.md`.
 6. **Present**: ⌘K → "Present".
@@ -196,15 +198,19 @@ or a browser that evicts storage loses them. "Backup & restore" downloads
 `lattice-workspace.zip`: the Studio's store, a readable `decks/<slug>.md` for
 every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 
-**What the chat can do** (`AGENT_TOOLS` in
-`docs/src/components/studio/architect-agent.ts`; which tools each mode allows is
-`TOOL_TIERS` in `chat-actions.ts` — Talk gets only the reads):
+**What the chat can do** (one manifest per tool in `lib/use-cases/<id>/`, compiled
+into `docs/src/components/studio/chat-tools.generated.ts`; which tools each mode
+allows is each manifest's `tier` — Talk gets only the reads):
 
 | Tool | Does |
 |---|---|
 | `read_slides` | Reads the exact Markdown of slides in the open deck |
 | `edit_slides` | Stages `replace`, `insert` or `delete` on whole slides |
-| `set_front_matter` | Stages setting or removing one front-matter key |
+| `find_text` | Finds words across the deck: each match's slide, field (heading, body, spoken line, note, alt text…) and the words around it; front-matter matches listed apart. With `regex` it searches by pattern (a JavaScript regular expression, run off the page's main thread and stopped after 2 s) |
+| `replace_text` | Stages a find-and-replace across the deck's text, one diff row per slide, the way a word processor does it: the words change and their formatting stays. Characters Markdown reads as markup (`$`, `*`, `[`…) are escaped, so `$5` shows as $5. Never touches link or image targets, URLs, directives, code blocks, math, HTML, records or the front matter; a match that crosses formatting is left alone and reported. `preserve_case` keeps each match's case (`OCT` → `OCTOBER` in an all-caps eyebrow, `Oct` → `October`); `regex` replaces by pattern, with `$1`, `$<name>` and `$&` in the replacement |
+| `set_front_matter` | Stages setting or removing one single-line front-matter key |
+| `set_terms` | Stages adding, changing or removing deck terms (`terms:`, which absorbs `acronyms:` and `lexicon:`): how a word is spoken, what it stands for |
+| `preview_speech` | Shows what the voice says for up to 10 slides, read the way Present and the export read them (spoken line first, then the slide text, labeled approximate); lists the terms that fired and the odd words nothing covers |
 | `check_deck` | Runs the linter, the review and Mermaid's parser on the draft |
 | `read_component` | Reads one component's contract and skeleton |
 | `read_front_matter` | Reads how one front-matter key works |
@@ -232,7 +238,6 @@ A starter deck to paste into "New deck" (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: laguna
 paginate: true

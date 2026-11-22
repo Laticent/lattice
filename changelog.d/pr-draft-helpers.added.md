@@ -1,0 +1,1 @@
+- **`npm run pr:park -- <PR>` and `npm run pr:ready -- <PR>`** drive the draft-iterate CI procedure. `pr:ready` waits out the push's draft run before marking the PR ready and confirms a real CI run started, closing a race that left a ready PR with only a skipped `ci` run. Both are allowed in `.claude/settings.json`, so a session's permission check no longer refuses them.

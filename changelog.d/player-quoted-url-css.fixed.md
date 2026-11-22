@@ -1,0 +1,1 @@
+- An exported HTML player no longer loses its dark-mode styles when a deck's CSS holds a quoted `url("…")` with a `)` inside it.

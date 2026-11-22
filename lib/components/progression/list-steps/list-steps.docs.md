@@ -18,10 +18,11 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the process. |
-| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
+| `title` | a `## ` heading | yes | Slide heading naming the process. |
+| `steps` | a list | yes | Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title. |
+| `body` | a list nested 1 level under an item | no | The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body. |
 
 ### Variant decision rule
 
@@ -32,12 +33,17 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 - **`ghost`.** The argument is the point and the process is secondary — a faint chevron watermark behind one hero description, editorial in tone.
 - **`timeline`.** Steps are light labels with no body copy — dots on a spine, not full description cards.
 - **`phase`.** The audience already thinks of the sequence as phases rather than steps — swaps the badge prefix word; `stage`/`milestone`/`rank`/`tier` swap it to match other vocabularies the same way.
+- **`stage`.** The audience calls the units stages — swaps the badge prefix to STAGE.
+- **`milestone`.** Each step is a checkpoint you reach rather than work you do — swaps the badge prefix to MILESTONE.
+- **`rank`.** The order is a standing (first, second, third), not a sequence in time — swaps the badge prefix to RANK.
+- **`tier`.** The items are service or pricing tiers in ascending order — swaps the badge prefix to TIER.
 - **`lettered`.** The audience reads order as letters (A, B, C) rather than numbers — swaps the counter format; combine with a prefix-word variant (e.g. `milestone lettered`).
 - **`roman`.** The sequence reads as eras or acts rather than a numbered checklist — swaps the counter format to roman numerals; typically paired with `phase`.
 
 ### Common mistakes
 
-- **Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).** The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge.
+- **Writing `-` and expecting STEP numbers.** `1.` numbers the cards (STEP 01, the badge and its counter); `-` renders the same cards and connectors with no number tag. Use `-` only when the steps genuinely have no order.
+- **Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`** The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it. A whole sentence on the `1.` line with no nested body is flagged too, with no fix, because there is no point to split it at: write a short title and move the sentence under it.
 - **Deleting or reordering a step and not re-reading the other steps' prose for a stale reference to its old position (e.g. "as covered in step 3").** The STEP/PHASE/… badge is generated purely from a CSS `counter()` on the `ol` position — it renumbers automatically, but any prose that names a step by number does not.
 
 ## When to use
@@ -59,10 +65,14 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ## How to roll this out.
 
-1. First step — a sentence describing what you do here.
-2. Second step — a sentence describing what you do here.
-3. Third step — a sentence describing what you do here.
-4. Fourth step — a sentence describing what you do here.
+1. First step
+   - One sentence on what happens in this step.
+2. Second step
+   - One sentence on what happens in this step.
+3. Third step
+   - One sentence on what happens in this step.
+4. Fourth step
+   - One sentence on what happens in this step.
 ```
 
 ## Anatomy
@@ -308,13 +318,13 @@ Centered, editorial: pill badges, serif titles, no connectors.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — phase label + heading on the left, steps on the right
 - [`roadmap`](../../../plugins/chart-family/kinds/roadmap/roadmap.docs.md) — phased grid across multiple workstreams
-- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions
+- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `list takeaway` over a `1.` list for gating requirements rather than a sequence of actions
 - [`funnel`](../../../plugins/chart-family/kinds/funnel/funnel.docs.md) — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant
 
 ## Demo deck

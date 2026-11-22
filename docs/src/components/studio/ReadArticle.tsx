@@ -16,6 +16,7 @@
 
 import { ArrowLeft, FileText } from 'lucide-react';
 import * as React from 'react';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { type ArticleToc, projectDeckArticle } from './article-projection';
 import type { ExtraTheme } from './share-export';
@@ -50,6 +51,9 @@ export const READ_ARTICLE_CSS = `
    margin-inline:auto does, lines them up on their centers and ragged on their left. */
 .st-read-article{--st-prose:68ch;--st-fig-max:1100px;
  display:grid;
+ /* The pane stretches the article to its height, and a grid shares spare height among its rows: a one-slide deck drew
+    its heading, its list and its handout rule hundreds of pixels apart. Rows stack from the top instead. */
+ align-content:start;
  grid-template-columns:[fig-start] minmax(0,1fr) [prose-start] min(var(--st-prose),100%) [prose-end] minmax(0,1fr) [fig-end];
  color:var(--text-body);font-size:17px;line-height:1.7}
 .st-read-article>*{grid-column:prose-start/prose-end;min-width:0}
@@ -80,6 +84,12 @@ export const READ_ARTICLE_CSS = `
 .st-read-article .lp-insight>*{margin:0}
 .st-read-article .lp-insight>:last-child{padding-bottom:0}
 .st-read-article .lp-note{border-top:1px solid var(--border);padding:.6em 0 1.2em;color:var(--text-muted);font-size:.92rem}
+/* THE HANDOUT (an @handout note): the words a slide leaves for someone reading the deck alone, after the slide's body.
+   A quiet rule on the left, in body color, so it reads as the author's aside without competing with a quote; the same
+   shape the player's Read view and the CLI's read shell give .lp-handout. */
+.st-read-article .lp-handout{border-left:3px solid var(--border);margin:0 0 1.2em;padding:.1em 0 .1em 1em;color:var(--text-body)}
+.st-read-article .lp-handout>p{margin:0;padding:0 0 .6em}
+.st-read-article .lp-handout>p:last-child{padding-bottom:0}
 /* A video: a link card in the prose column, the play mark drawn (HARD RULE #29), never typed. */
 .st-read-article .lp-video{margin:0;padding:.2em 0 1.2em}
 .st-read-article .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border);border-radius:12px;background:var(--bg-alt);color:var(--text-heading);font-weight:600;text-decoration:none}
@@ -172,6 +182,7 @@ export const READ_ARTICLE_CSS = `
 
 export function ReadArticle({ options, source, palette, mode, extraTheme, extraCss, onClose }: Props) {
 	const [state, setState] = React.useState<'loading' | 'ready' | 'failed'>('loading');
+	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [html, setHtml] = React.useState('');
 	const [toc, setToc] = React.useState<ArticleToc[]>([]);
 	// The deck sheet for the figures: flat, pruned and fenced to the figures by
@@ -244,7 +255,8 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					This deck could not be turned into an article. The slides are still there — go back to the deck.
 				</div>
 			) : (
-				<div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-[230px_minmax(0,1fr)]">
+				<div ref={scrollRef} className="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-[230px_minmax(0,1fr)]">
+					<QuickScroll root={scrollRef} label="article" />
 					{/* The rail is chrome, not the article: it is hidden below lg so the prose keeps
 					    the full measure on a phone, where it would otherwise eat a third of the width. */}
 					<nav aria-label="Slides" className="hidden self-start overflow-auto border-r px-3 py-6 lg:block">

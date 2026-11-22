@@ -486,7 +486,8 @@ export function hasMotionToken(chunk: string): boolean {
 // never a register token, so it is not in either list.
 export const BACKDROP_STRENGTHS = ['20', '40', '60', '80', 'full'] as const;
 export const BACKDROP_SPOTS = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'] as const;
-export const BACKDROP_MASKS = ['clear', 'open', ...BACKDROP_SPOTS.map((p) => `spot-${p}`)] as const;
+// Order mirrors lib/core/resolve-backdrop.js BACKDROP_MASK_NAMES: the keep-outs come last.
+export const BACKDROP_MASKS = ['clear', 'open', ...BACKDROP_SPOTS.map((p) => `spot-${p}`), 'clear-footer', 'clear-hero'] as const;
 export type BackdropAxis = 'strength' | 'mask';
 const backdropValues = (axis: BackdropAxis): readonly string[] => (axis === 'strength' ? BACKDROP_STRENGTHS : BACKDROP_MASKS);
 

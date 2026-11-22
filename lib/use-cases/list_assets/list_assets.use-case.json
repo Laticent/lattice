@@ -1,0 +1,49 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "list_assets",
+	"title": "Search the Library",
+	"describe": {
+		"chat": "Search the Library photos and videos the author added. The prompt lists the newest; use this to find others by name, caption, shape (portrait, landscape, square, panorama) or kind. Returns name, shape, pixel size, scope and caption."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"query": {
+				"type": "string",
+				"description": "Words to match against name, caption and shape."
+			},
+			"kind": {
+				"type": "string",
+				"enum": [
+					"image",
+					"video",
+					"all"
+				]
+			},
+			"limit": {
+				"type": "integer",
+				"minimum": 1,
+				"maximum": 100
+			}
+		}
+	},
+	"requires": [
+		"library"
+	],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "library",
+	"legacy": true,
+	"chat": {
+		"position": 170,
+		"activity": "Searching the Library…"
+	}
+}

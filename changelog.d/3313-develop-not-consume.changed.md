@@ -1,0 +1,2 @@
+- CLAUDE.md now says Lattice is developed here and never consumed: a session measures, tests, renders and audits only on this repo's own install and `npm run build`, and stops and tells the owner when either fails.
+- The cloud SessionStart hook now prints a plain "Lattice cannot be built in this session" banner when `npm install` or `npm run build` fails, and exits 0 so the banner reaches the session. It adds a likely-cause line only when `npm ping` cannot reach the registry, and withholds the "sandbox ready" line after a failed build.

@@ -93,10 +93,10 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: compare-prose banner-tag -->
-<!-- _footer: "banner-tag · compare-prose banner-tag — Corner tags become banners." -->
+<!-- _class: compare-prose tag-band -->
+<!-- _footer: "tag-band · compare-prose tag-band — Corner tags become banners." -->
 
-## banner-tag fills the corner tags at banner weight.
+## tag-band fills the corner tags at banner weight.
 
 - OPTION A
   - The tag takes the accent fill and full contrast.

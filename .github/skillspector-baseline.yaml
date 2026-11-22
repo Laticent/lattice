@@ -23,13 +23,13 @@ rules:
     message: "*'npx @laticent/lattice'*"
     reason: "Our own package on npm (owner decision 2026-11-11); the unscoped name is NOT excused"
 
-  # YARA tool-poisoning (YR4) on a slide's alt-text comment, `<!-- describe: … -->`, which
-  # is Lattice's accessibility syntax (lib/base/base.docs.md). Scoped to that file and
-  # that syntax.
+  # YARA tool-poisoning (YR4) on a slide's alt-text note, `<!-- @alt{…} -->`, which is
+  # Lattice's accessibility syntax (engineering/decisions/2026-11-20-four-notes.md). Scoped
+  # to that file and that syntax.
   - id: "YR4"
     path: "*accessibility-review.md"
-    message: "*<!-- describe:*"
-    reason: "Lattice's alt-text comment syntax, quoted as a teaching example"
+    message: "*<!-- @alt{*"
+    reason: "Lattice's alt-text note syntax, quoted as a teaching example"
 
   # Analysis evasion (AE1) is a COVERAGE note: the scanner's bounded parser could not
   # fully resolve one expression in the referenced file. Its own remediation reads

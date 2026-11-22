@@ -852,11 +852,11 @@ describe('Studio — Inspector controls respond', () => {
 		// Inspector), opened from the editor row, under the Notes tab.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
 		await clickSection(user, 'Notes');
-		const notes = await screen.findByRole('textbox', { name: 'Speaker note for this slide' });
+		const notes = await screen.findByRole('textbox', { name: 'Speaker notes for this slide' });
 		await user.click(notes);
 		await user.type(notes, 'Open on the room, then the number.');
 		await user.tab(); // blur commits the note
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/note: Open on the room, then the number\./);
+		expect(screen.getByLabelText('Deck source').textContent).toContain('<!-- @note{Open on the room, then the number.} -->');
 	});
 
 	it('version history saves a checkpoint and restores it', async () => {

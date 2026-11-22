@@ -1,0 +1,46 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "view_asset",
+	"title": "Look at Library photos",
+	"describe": {
+		"chat": "Look at up to {{MAX_VIEWS_PER_TURN}} Library photos you need to choose by what they show. A photo that already has a caption comes back as its caption, not as a picture. Pictures arrive in the next message; then call caption_asset for each so you never look at it again. Do not look at photos you can pick by name and shape."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"names": {
+				"type": "array",
+				"items": {
+					"type": "string"
+				},
+				"maxItems": "{{=MAX_VIEWS_PER_TURN}}"
+			},
+			"again": {
+				"type": "boolean",
+				"description": "Look at a captioned photo anyway, for example to correct its caption."
+			}
+		},
+		"required": [
+			"names"
+		]
+	},
+	"requires": [
+		"library"
+	],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "library",
+	"legacy": true,
+	"chat": {
+		"position": 180,
+		"activity": "Looking at photos…"
+	}
+}

@@ -100,7 +100,8 @@ downloads and runs someone else's code. In a clone of this repository, run `node
 6. **Look at the result.** Open the PDF or a PNG of a slide and check it. A
    clean exit proves the render finished, not that it is right.
 7. **Strip before you share.** Anything that leaves the author's hands gets
-   `--strip-notes`, and `--strip-say` too if the `say:` lines are private.
+   `--strip-notes` (every `@note` and every plain comment), and `--strip-say` too if
+   the `@say` lines are private.
 
 ## The contract — copy, then change the names
 

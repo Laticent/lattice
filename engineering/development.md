@@ -78,7 +78,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
+| `test:integration:pr` | The render slice the merge queue gates on (PR CI stopped running it on 2026-11-21; a `code` PR runs it locally before the merge ask, `workflow.md` §Merge queue — the facts): cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) + the type-set gate (`type-voices/`) |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
@@ -241,7 +241,7 @@ and a bless rewrites only the decks it opened. Re-bless with `npm run contrast:p
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette contract
 and is reported in its own bucket, never as a failure.
 
-`[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
+`[PR]` suites gate every merge-queue entry via `test:integration:pr` (and run locally before a `code` PR's merge ask; PR CI stopped running them on 2026-11-21) (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style
 correctness gate blocking, and moves the slow fresh-render regression suites off
@@ -378,6 +378,8 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
+- `dead-code` — knip held at 0 unused files, exports and packages and 0 undeclared imports, in `.js`
+  files (~5 s; `engineering/quality-assessment.md` §Running it)
 - `docs-typecheck` — `tsc --noEmit` over the docs workspace (~36-40s), skipped
   when a push touches no `docs/` files. It is here because a docs TYPE error is
   invisible to every other local gate — biome does not typecheck, and vitest
@@ -578,6 +580,21 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   with or without the flag, so a new one cannot land on PRs by forgetting it.
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
+- **Iterate on one with the warm harness** instead of dispatching again per round. A dispatch pays about 17 minutes
+  before its first test on an iOS suite (queue wait, install, build, docs build); the harness pays that once. Open the PR,
+  then dispatch `platform-suites.yml` on your branch with `harness=<PR number>` (and `harness_os=windows-2025` for
+  Windows). When it replies **harness ready** on the PR, post commands as PR comments:
+  `/harness suite <name> [KEY=value ...]`, `/harness sh` with a `bash` fenced block, `/harness rerun`,
+  `/harness watch on|off`, `/harness status`, `/harness stop`; add `--no-build` to skip a rebuild. Each push to the branch
+  is synced before the next job (a change to the iOS probes, `followups.d/` or `changelog.d/` alone skips the rebuild;
+  anything else rebuilds), and with watch on (the default) a push re-runs the last job by itself, once. Results come back
+  as PR comments. Only comments by the person who dispatched the run are executed, and never one that was edited: post a fresh comment instead of fixing a typo in place (the harness replies when it refuses an edited command). A suite's own inline variables (e.g.
+  `DEVICES=iPhone` in its `run`) cannot be overridden; write the command out with `/harness sh`. It stops 90 minutes
+  after it started (a running job is killed then), after 15 idle minutes, or on `/harness stop` once the current job ends;
+  one harness runs at a time per OS (one macOS and one Windows may run together). When both serve the same PR, each runs every command and each reply starts with its OS; add `--on=macos-26` or `--on=windows-2025` to the first line to send a command to one. A second dispatch for the same OS waits, and a third replaces the waiting second without a word, so after dispatching, wait on the run's status (`tools/wait-for.sh`), not only on the ready comment. A reply names the commit it ran on, and the build's commit too when they differ (after `--no-build`); a job that moves HEAD or edits a tracked file is reported and undone before the next one. Logs and `platform-suite-artifacts/` upload
+  as `harness-<os>` when it ends. Evidence for the card is still a real suite run: once the harness has it green, link that
+  harness run (its reply comment and artifact) or dispatch the suite once more. Contract and threat model:
+  `engineering/decisions/2026-11-17-platform-harness.md`; the loop is `tools/platform-harness.js`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
 - **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the
@@ -599,7 +616,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`followups.d/3034-p7-review-runner-image-pins.md`).
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-2025` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
-  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
+  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
+  `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
+  to prove it fails. `docs-scrollbars-windows` serves the docs site built on Linux (`E2E_PREBUILT=1`; the site does not
+  build on Windows yet, `followups.d/3345-p3-docs-build-on-windows.md`) and runs `scrollbar-width.spec.ts` and
+  `wheel-sideways.spec.ts` in Chromium and Firefox against Windows' classic scrollbars. It prints the measured bar widths to the
+  log and writes them to the `platform-suite-docs-scrollbars-windows-windows-2025` artifact. Its Firefox test launches a HEADED
+  Firefox on an UNSIZED page (`viewport: null`): Playwright's headless Firefox reports `scrollbar-width: none` for every element,
+  and a sized page runs in Firefox's Responsive Design Mode, which draws overlay bars 0px wide whatever the prefs say (#3345). `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
@@ -610,10 +634,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `DEVICES`) are the one place CI reaches real Mobile Safari. Each builds and serves the docs, boots a fresh iPad or iPhone iOS Simulator, writes the remote-automation defaults inside it, reboots it,,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
   The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
-  that must fire. `ios-safari-photo` runs the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
+  that must fire. `ios-safari-photo-ipad` and `ios-safari-photo-iphone` run the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
   Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
   that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
-  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
+  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Every iOS suite that runs both devices except `ios-safari-font-cache` (one job with a 40-minute limit, by design) now runs
+  one device per job through `DEVICES` (studio, undo and player-charts first, then photo, jpeg, photo-memory and chat-storage on 2026-11-20, after 6 of their nightly jobs were cancelled at the 30-minute
+  limit, 5 of them with no test failed), so a slow second boot cannot cost the first device's result. Each iOS
   suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs` (and `show-editor.js` for the suites that load it), so a probe edit runs one suite, not all of them.
   On the iPhone, the Studio suite also runs `icon-grid-probe.js` (#2578): Menu → Search / commands → Insert an icon…, a pick
   from the source pane (the span lands at the caret) and one from the Preview pane (copied, with a toast), each pick a real
@@ -632,11 +658,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
-  `ios-safari-jpeg` runs the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
+  `ios-safari-jpeg-ipad` and `ios-safari-jpeg-iphone` run the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
   committed screenshots with the shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
-  `ios-safari-photo-memory` runs it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with
+  `ios-safari-photo-memory-ipad` and `ios-safari-photo-memory-iphone` run it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with
   `sips` and shows them in ten small frames, first by their own addresses, then through the Studio's preview-sized copies
   (`preview-image-scale.ts`, #2998). Each arm runs on a site of its own (`127.0.0.1`, then `[::1]`), because WebKit picks a content
   process per site and a port is not part of the site. `vmmap --summary` reads each simulator WebKit process's physical footprint
@@ -648,7 +674,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
   text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
   the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
-  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory` reads it, before
+  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory-*` reads it, before
   Present, after it opens and after the steps. A step whose photo does not decode, a reload, or more than
   `PRESENT_MEMORY_CAP_MB` (300) fails it; the times are reported and never judged (HARD RULE #32: the first run read a
   1,965 ms step that a 2 s limit would have passed by 35 ms). The production site runs as a second arm
@@ -657,7 +683,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
   `ios-safari-present-narration` runs it with `PROBE=present-narration`, on the iPhone alone: the owner's iPhone reloaded
   the tab when Present played a 4K deck with narration and Guide on, and not with narration off (2026-11-17).
-  `present-narration.mjs` builds a 30-slide `size: 4k` deck with a `say:` on every slide (about ten minutes of narration);
+  `present-narration.mjs` builds a 30-slide `size: 4k` deck with an `@say{…}` note on every slide (about ten minutes of narration);
   `present-narration-probe.js` imports it, then, AFTER boot, installs a stand-in cloud voice: a selection, a stored key, and the
   speech call answered inside the page with silent WAV of the sentence's length. `NARRATION_VOICE=openrouter-gemini` (the
   default, the owner's: the reload happens with Gemini 3.1 Flash TTS through OpenRouter and not with Kokoro) is asked for
@@ -699,9 +725,15 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   emoji, a code block and `finish: sketch`, and counts every font request after the edit: none on the warm arm, some on
   the control arm, which proves the probe can see a miss. (A first cut told the frame's loads from the warm-up's fetches
   by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
+  `run.mjs` seeds the Studio settings on the server's blank page (`/__probe/blank`), which fetches no font, and the probe
+  fails the run if any face reached the server between the runner's first visit to the origin and the Studio's start. It
+  used to seed on the landing page, whose slide previews fetch 8 faces at the iPad's 1032 px: on the warm port the Studio
+  then read those from the cache, so the server saw 23 of 31 and the iPad's warm arm timed out (#3095). Counting them
+  instead would let the warm arm pass on faces the Studio never warmed.
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
-  `ios-safari-chat-storage` runs it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  It seeds on the same blank page first, as `run.mjs` does.
+  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
   minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB
@@ -1220,7 +1252,15 @@ runs after `astro build` and fails when a page and the list disagree, or when a 
 its canonical link. The sitemap's `lastmod` is each page's last content commit
 (`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
 plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
-`.docs.md`) and fails the build on a copy that leaks markup.
+`.docs.md`), points each copy's site links at the other pages' copies, and fails the build on a
+copy that leaks markup or still links an HTML page that has a copy.
+
+**The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
+(built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
+`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
+outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
+decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).
@@ -1313,7 +1353,9 @@ locally from `docs/`:
   building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
   `check:route-budget` reports it as not checked. Numbers move only through
   `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
-  (`decisions/2026-09-29-route-budget-soft-hard.md`).
+  (`decisions/2026-09-29-route-budget-soft-hard.md`). `--metric` and `--route` narrow a reset
+  to the metrics and routes the OK covers, so an OK for one route moves no other route that
+  also sits above its soft target.
 
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.
@@ -1359,6 +1401,34 @@ nightly by hand on your branch with its `spec` input (Actions → Studio E2E nig
 workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only those specs,
 across every project, and files nothing on the rolling issue (only a scheduled or unfiltered
 run on `main` does).
+
+**The nightly's eight `e2e` legs are dealt by measured time, not by Playwright's `--shard`.**
+`--shard=K/N` cuts the test list into equal counts in project order, so every WebKit and Gecko
+test landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min against the
+45-minute step, leg 1 at 22.1). Each leg sets `E2E_SHARD=K/8` instead, and
+`playwright.config.ts` gives every project the spec files it runs in that leg
+(`docs/e2e/shard-plan.mjs`). The unit is one (project, spec file) pair. A pair with a weight in
+`docs/e2e/shard-weights.json` (seconds) is dealt longest-first by `tools/shard-tests.js`'s
+`plan()`, the balancer the unit and integration legs use, **one project at a time, into the
+legs' running totals** (`plan()`'s `seed`), lightest project first. Dealing per project keeps
+each big engine even: on the committed weights desktop, gecko, webkit-tablet and webkit-phone
+each sit within 0.1 min per leg, and a small project with one big pair (compose-default's 6-minute
+`lessons`) lands early, with the big engines' many small pairs filling around it. It matters
+because an engine's speed moves from night to night: on 2026-11-17 webkit-tablet ran about 30%
+over its weights, and one plan over all pairs had put 1.7 min of webkit-tablet in one leg and 6.4
+in another. Replays of five nights' measured seconds read 1.01-1.03x the mean, but treat that as
+optimistic: **heavy specs that share a leg slow each other** (about +55% on 2026-11-17), so a
+plan's own run measures worse than a replay predicts. A pair with no weight goes to the leg a
+hash of its name picks, so a new spec spreads out rather than piling into one leg. Every pair
+lands in exactly one leg: check with `E2E_SHARD=K/8 npx playwright test --list` for each K, whose
+union is the unsharded `--list` with no duplicates. Unset, nothing changes, so a laptop and the
+per-PR jobs run as before.
+
+**Re-bless the weights** when the legs drift past about 1.5x their mean. Download
+`studio-e2e-text-1` to `-8` from three or more recent **scheduled** runs (a dispatch can run a
+subset, and its pairs would read as cheap), unzip each into `r<run id>-<K>/`, then run
+`node scripts/e2e-shard-bless.mjs <dir>` from `docs/`. It prints each run's measured legs and the
+plan the new weights would give (test seconds over 2 workers), and `--write` rewrites the weights.
 
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —

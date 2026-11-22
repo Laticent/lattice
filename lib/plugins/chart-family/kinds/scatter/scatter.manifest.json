@@ -68,24 +68,29 @@
   "description": "An XY plot with real units on both axes — one dot per entity, showing how two measures relate.",
   "purpose": "Use when the argument is that two measures move together (or against each other) and both numbers matter: cost against value, price against adoption, risk against return. Both axes carry a nice-number tick ladder in the author's own units, so a reader sees the shape of the relationship and can still take a value off the chart. For a unitless 2x2 scoring, use `quadrant`.",
   "axisSet": {"members": ["x", "y", "size"], "body": "list", "keyBelow": false},
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name the relationship the dots show, not the chart type."
     },
     "axes": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": true,
       "description": "The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`."
     },
     "points": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per entity: the name, then ONE point pill — ``Atlas `{$420k, 18%}` ``. Its first number is x, the second y; a named size (`{$420k, 18%, size=140}`) sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "bullet" },
       "required": false,
       "description": "Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without."
     }

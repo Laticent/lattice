@@ -15,7 +15,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-brackets -->
 
-# mark-brackets
+## mark-brackets
 
 - Edge
   - Two heavier brackets in the right margin.
@@ -28,7 +28,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-threads -->
 
-# mark-threads
+## mark-threads
 
 - Stroke
   - Two px, was one.
@@ -41,7 +41,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-ticks -->
 
-# mark-ticks
+## mark-ticks
 
 - Length
   - About 31 px, was 18.
@@ -54,7 +54,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-seeds -->
 
-# mark-seeds
+## mark-seeds
 
 - Size
   - Larger specks, at or under the 28% ceiling.
@@ -67,7 +67,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-asterisks -->
 
-# mark-asterisks
+## mark-asterisks
 
 - Size
   - About a third larger, heavier strokes.
@@ -80,7 +80,7 @@ header: "Lattice · Marks"
 
 <!-- _class: cards-grid mark-orbit -->
 
-# mark-orbit
+## mark-orbit
 
 - Position
   - Moved left, out of the page number's column.

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
+import { pageSettler } from './barriers';
 
 /**
  * AXE — the WCAG rule set over the WEBSITE (`lattice.style`): the half of G10 that
@@ -101,8 +102,52 @@ const ROUTES = [
  * COVERAGE NOTE: it follows that a `client:visible` island is scanned in its SERVER-RENDERED
  * form, never its hydrated one. Two on the landing page today.
  */
-const HYDRATED = () =>
-	document.querySelectorAll('astro-island[ssr][client="load"], astro-island[ssr][client="only"]').length === 0;
+/**
+ * The route is READY TO SCAN: hydrated (its first clause is the island rule just above, inline because
+ * `waitForFunction` sends this function's source to the page), every live slide preview in view has rendered, and the Studio's editor
+ * pane has its editor. The product's own signals, not the network's: `iframe.live` is revealed (opacity, the hand-off
+ * single-slide-render.ts makes), a host has gone `is-live`, the Nacre loader is `is-done`.
+ *
+ * WHY NOT `networkidle`. It waits for the Studio's background chunk loads (Library, Lenses, the photo dialog: panels not
+ * on screen), which under load ran 20 to 29 s after a `load` that fired at 1.5 to 7.8 s, with the Studio long usable; and
+ * twice in about 120 loads (4 cores pinned, 8 contexts) it never fired at all within 40 s although no request was open.
+ * That is the `page.goto('/studio/'): Timeout 40000ms` this sweep reported under the whole project (flake desk, 2026-11-21).
+ *
+ * SAME PAGE SCANNED. Measured on all 13 routes, light mode, at 1280, 820 and 390 px (156 loads, a build:e2e preview):
+ * `load` + `settle` + READY + `settle` gave the same element count, text length and frame count as `networkidle` +
+ * the island rule on every one. Without the Studio editor clause, the 390 px Studio was scanned before its (hidden) Compose
+ * editor mounted, 285 elements against 697, once in three; without READY at all, settle returned during the Studio's
+ * first wave (1275 elements against 770: the skeleton) on every pass.
+ *
+ * EXPRESSIVE CODE HAS CAUGHT UP, TOO. Its client script (`@expressive-code/core`, tabindex-js-module) gives an
+ * overflowing `pre` `tabindex="0"` and `role="region"` from a ResizeObserver, a 250 ms debounce, then an idle callback:
+ * later than any network signal. Without this clause the first run of this wait failed /getting-started/ on
+ * `scrollable-region-focusable`, scanning a terminal block a few hundred ms before the script made it focusable. If the
+ * script ever stops doing that, this wait times out and the route reports SCAN FAILED: still red, never hidden. The
+ * fonts clause keeps layout-dependent rules (contrast, target size, scroll regions) on the page's real font.
+ *
+ * Offscreen preview hosts are left out: they render only when scrolled into view (IntersectionObserver), and the old
+ * wait scanned them un-rendered too.
+ */
+const READY = () =>
+	document.querySelectorAll('astro-island[ssr][client="load"], astro-island[ssr][client="only"]').length === 0 &&
+	document.fonts.status === 'loaded' &&
+	[...document.querySelectorAll('.expressive-code pre')].every((p) => p.scrollWidth > p.clientWidth === p.hasAttribute('tabindex')) &&
+	[...document.querySelectorAll('.live-host:not(.is-live), .specimen-preview-host:not(.is-live), .pg-preview-wrap:not(.is-live)')].every((h) => {
+		const r = h.getBoundingClientRect();
+		return r.bottom <= 0 || r.top >= innerHeight || r.width === 0;
+	}) &&
+	[...document.querySelectorAll<HTMLIFrameElement>('iframe.live')].every((f) => !!f.style.opacity && f.style.opacity !== '0') &&
+	document.querySelectorAll('.nacre-loader:not(.is-done)').length === 0 &&
+	[...document.querySelectorAll('#studio-pane-editor')].every((p) => !!p.querySelector('.ProseMirror, .cm-editor'));
+
+/** Open a route and wait until it is ready to scan (READY above), the network and main thread quiet on both sides. */
+async function openReady(page: Page, settle: () => Promise<void>, route: string): Promise<void> {
+	await page.goto(route, { waitUntil: 'load' });
+	await settle();
+	await page.waitForFunction(READY);
+	await settle();
+}
 
 /**
  * Wait for an element to STOP MOVING, not merely to be "visible".
@@ -293,6 +338,7 @@ test('@a11y the website has no axe findings at this width, in either color mode'
 	const width = page.viewportSize()?.width ?? 0;
 	const found: string[] = [];
 	const hit = new Set<string>();
+	const settle = pageSettler(page);
 
 	for (const scheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme: scheme });
@@ -305,10 +351,8 @@ test('@a11y the website has no axe findings at this width, in either color mode'
 			// and the stale-sanction check below never runs at all. A failed route is now a
 			// finding in its own right and the sweep carries on.
 			try {
-				await page.goto(route, { waitUntil: 'networkidle' });
-				// `networkidle` returns before React has mounted an island, and a scan of the
-				// un-mounted shell is a scan of nothing. Bounded poll on a real signal.
-				await page.waitForFunction(HYDRATED);
+				// The product's ready signal, not `networkidle` (READY above says why and what was measured).
+				await openReady(page, settle, route);
 				const { results, ariaHidden } = await runAxe(page);
 				for (const f of collect(results, hit, width, ariaHidden)) {
 					found.push(`${scheme} ${width}px ${route}\n    ${f.rule} @ ${f.target}\n    ${f.detail.replace(/\n/g, ' | ').slice(0, 240)}`);
@@ -339,7 +383,7 @@ test('@a11y the website has no axe findings at this width, in either color mode'
 	// On a plain content page, not whatever the sweep happened to end on: the Studio's
 	// shell is a fixed, overflow-hidden viewport, and an element appended past its bottom
 	// edge is not visible, so axe skips it and the self-check tests nothing.
-	await page.goto('/', { waitUntil: 'networkidle' });
+	await openReady(page, settle, '/');
 	await page.evaluate(() => {
 		const probe = document.createElement('div');
 		probe.id = 'axe-self-check';
@@ -372,11 +416,12 @@ test('@a11y the site menu has no axe findings when open', async ({ page }, testI
 	testInfo.setTimeout(5 * 60 * 1000);
 	const width = page.viewportSize()?.width ?? 0;
 	const trigger = page.locator('button[aria-label="Menu"]').first();
+	const settle = pageSettler(page);
 	const found: string[] = [];
 
 	for (const scheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme: scheme });
-		await page.goto('/features/', { waitUntil: 'networkidle' });
+		await openReady(page, settle, '/features/');
 		// The trigger EXISTS at every width and is merely hidden above tablet, so `attached`
 		// is the signal that the header island has mounted; visibility is the question asked
 		// next, not the thing being waited for.

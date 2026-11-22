@@ -16,12 +16,12 @@ Use when the argument is that two measures move together (or against each other)
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the relationship the dots show, not the chart type. |
-| `axes` | `p > code` | yes | The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
-| `points` | `ul > li` | yes | One li per entity: the name, then ONE point pill — ``Atlas `{$420k, 18%}` ``. Its first number is x, the second y; a named size (`{$420k, 18%, size=140}`) sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis. |
-| `detail` | `li > ul` | no | Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without. |
+| `title` | a `## ` heading | yes | Slide heading — name the relationship the dots show, not the chart type. |
+| `axes` | a line of `inline code` | yes | The axis captions, as ONE bracketed list in its own paragraph ABOVE the points — x first, then y; a THIRD member names the bubble size measure. The paragraph is consumed and painted on the axes, so it never prints twice. Double quotes are optional and protect a comma inside a name; a stray `]` right after a quoted name closes the list early, and `lint:deck` warns (`bracket-list-closed-early`). A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone, so a slide can carry both. Same idiom as `matrix-grid`. |
+| `points` | a list | yes | One li per entity: the name, then ONE point pill — ``Atlas `{$420k, 18%}` ``. Its first number is x, the second y; a named size (`{$420k, 18%, size=140}`) sizes the dot under `bubble`. Magnitude suffixes are scale (`1.2M` is 1 200 000) and the affix every value agrees on is carried onto that axis, so a series authored in `$` gets a `$` axis. |
+| `detail` | a list nested 1 level under an item | no | Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without. |
 
 ### Variant decision rule
 
@@ -135,7 +135,7 @@ A least-squares line through the cloud.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

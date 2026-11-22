@@ -1,8 +1,8 @@
 /**
  * The PRESENT NARRATION fixture for the iOS Simulator suite (PROBE=present-narration). The owner's report (2026-11-17):
  * Present with narration and Guide on reloaded the tab on an iPhone, partway through a 38-slide `size: 4k` deck whose
- * every slide carries a `say:` line; with narration off it did not. This deck has the same shape: a 4K canvas, Guide-able
- * prose on every slide, and a `say:` of about the owner's length, so about ten minutes of narration in all. The text is
+ * every slide carries a spoken note; with narration off it did not. This deck has the same shape: a 4K canvas, Guide-able
+ * prose on every slide, and an `@say{…}` note of about the owner's length, so about ten minutes of narration in all. The text is
  * generated and seeded (HARD RULE #32): the same deck every run, and no one's talk committed as a fixture.
  *
  * The probe (present-narration-probe.js, driven by run.mjs) imports it, installs a stand-in cloud voice that answers in
@@ -33,12 +33,12 @@ function sentence(seed, n) {
 	return `${out.join(' ')}.`;
 }
 
-/** The deck: a title, then content slides of a heading and three bullets, each with a `say:` of about 55 words. */
+/** The deck: a title, then content slides of a heading and three bullets, each with an `@say{…}` note of about 55 words (lib/core/note-grammar.mjs). */
 export function narrationDeckSource(n = NARRATION_SLIDES) {
 	const say = (k) => [sentence(k, 14), sentence(k + 101, 13), sentence(k + 211, 15), sentence(k + 307, 13)].join(' ');
-	const slides = [`---\ntheme: indaco\nsize: 4k\ntitle: ${NARRATION_TITLE}\n---\n\n<!-- _class: title -->\n\n# ${NARRATION_TITLE}.\n\nTen minutes of narration on a 4K canvas.\n\n<!-- say: ${say(0)} -->`];
+	const slides = [`---\ntheme: indaco\nsize: 4k\ntitle: ${NARRATION_TITLE}\n---\n\n<!-- _class: title -->\n\n# ${NARRATION_TITLE}.\n\nTen minutes of narration on a 4K canvas.\n\n<!-- @say{${say(0)}} -->`];
 	for (let k = 1; k < n; k++) {
-		slides.push(`## Slide ${k} names one claim.\n\n- ${sentence(k + 401, 7)}\n- ${sentence(k + 503, 8)}\n- ${sentence(k + 601, 7)}\n\n<!-- say: ${say(k)} -->`);
+		slides.push(`## Slide ${k} names one claim.\n\n- ${sentence(k + 401, 7)}\n- ${sentence(k + 503, 8)}\n- ${sentence(k + 601, 7)}\n\n<!-- @say{${say(k)}} -->`);
 	}
 	return slides.join('\n\n---\n\n');
 }

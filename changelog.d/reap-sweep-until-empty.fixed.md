@@ -1,0 +1,1 @@
+- On Windows, ending a code-package export's sandbox browser no longer leaves a helper process behind. `reap()` lists every process naming the browser's profile and stops it, and a live browser could start a helper between the list and the stop. The sweep now repeats until a pass finds nothing, up to 8 passes in one PowerShell run.

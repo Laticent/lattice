@@ -67,11 +67,19 @@ const SURFACES = [
 		why: 'the player is a surface a human holds; a unit test cannot tap it',
 	},
 	{
-		surface: 'rendered slides: integration tier and golden regress',
+		// Since 2026-11-21 PR CI no longer runs this slice: it runs in the merge queue only (D2,
+		// engineering/decisions/2026-11-21-ci-load-plan.md). So the match is ci.yml's own `code`
+		// path filter, the paths that put the slice in CI, minus prose a render cannot read. A miss
+		// here is a render break that first shows as a queue ejection.
+		surface: 'rendered slides: the PR render slice and golden regress',
 		kind: 'local',
-		match: (f) => f === 'lattice.js' || (/^(lib|themes)\//.test(f) && !f.endsWith('.docs.md') && !f.startsWith('lib/runtime/')),
-		command: 'npm run test:integration && npm run regress',
-		why: 'cross-renderer parity and page counts; regress pixel-diffs every committed deck',
+		match: (f) =>
+			['lattice.js', 'package.json', 'package-lock.json', '.github/workflows/ci.yml'].includes(f) ||
+			(/^(lib|themes|tools|test|assets\/fonts|examples|exemplars|kit)\//.test(f) && !f.endsWith('.docs.md')),
+		// The venue ratchet rode on CI's shard 4 and is blocking there, so it travels with the slice.
+		command:
+			'tools/wait-for.sh --job integration --timeout 3600 -- npm run test:integration:pr && tools/wait-for.sh --job venue --timeout 1800 -- npm run --silent check:venue-conformance -- --strict && tools/wait-for.sh --job regress --timeout 3600 -- npm run regress',
+		why: 'PR CI no longer renders; the queue does, and a miss there ejects the PR and the group behind it',
 	},
 	{
 		surface: 'visual taste: demo deck, light and dark',

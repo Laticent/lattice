@@ -8,7 +8,8 @@
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
 # photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=present-narration plays a 4K deck in Present with Guide on,
-# voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs). PROBE=player-charts
+# voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs). PROBE=present-keepalive
+# opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
@@ -148,6 +149,8 @@ families='iPad iPhone'
 [ "$PROBE" = present-memory ] && families='iPhone'
 # The Present narration probe stands in for the owner's iPhone too, where Present with narration reloaded the tab.
 [ "$PROBE" = present-narration ] && families='iPhone'
+# The Present keep-alive probe is the owner's case too: Present on an iPhone, where full screen falls back to immersive (#3333).
+[ "$PROBE" = present-keepalive ] && families='iPhone'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
@@ -241,7 +244,7 @@ for family in $families; do
           # Relaunch Safari in the simulator first: a session that timed out (or a safaridriver that died) leaves Safari
           # paired with it, and the next session is then refused with "The Safari instance is already paired with another
           # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
-          xcrun simctl terminate "$udid" com.apple.mobilesafari || true
+          bounded 10 xcrun simctl terminate "$udid" com.apple.mobilesafari || true
           sleep 2
           bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18

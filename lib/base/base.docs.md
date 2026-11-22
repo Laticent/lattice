@@ -117,7 +117,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   heading inside a pane, use `####`. The exception is a component whose own anatomy uses `###`
   (`team-profile sides`, its roster labels): a pane of it keeps every `###` it holds.
 - **A marker names the component, then its modifiers, then `no-title`:**
-  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list numbered no-title -->`. The modifiers
+  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list takeaway no-title -->`. The modifiers
   reach the pane as a slide's `_class` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
@@ -356,20 +356,24 @@ audience should remember from a card-grid slide.
 
 ## The framework has four components.
 
-- **Signal Intake.** Body text.
-- **Scoring Model.** Body text.
-- **Decision Log.** Body text.
-- **Calibration Loop.** Body text.
+- Signal Intake
+  - Every request is logged with its source.
+- Scoring Model
+  - Each signal gets a weight and a score.
+- Decision Log
+  - The call, the owner and the reason, in one place.
+- Calibration Loop
+  - Outcomes feed back into the weights.
 
-> Key insight: signals without decisions are noise.
+> Signals without decisions are noise.
 ```
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
 the callout unless it declares `coda: { claims: ["blockquote"] }` in its manifest.
-Ten do: `quote` (the quotation itself), `math` (a display equation),
+These do: `quote` (the quotation itself), `math` (a display equation),
 `citation-card`, `redline`, `inventory`, `policy-recommendation` and `split-panel`
 (its `pullquote` variant) all use the element for their own anatomy; `split-compare`
-paints the same `--insight-label` on its verdict card. `contact` and `wifi` claim it
+paints the same `--insight-label` on its verdict card. `contact`, `wifi` and `gift-card` claim it
 for a different reason — they are posters whose card fills the stage, so there is no
 band position that does not crush it. The generated `layout-*` skeletons are excluded
 by pattern. Everywhere else a trailing blockquote becomes the callout.
@@ -410,9 +414,10 @@ and after the 2026-09-01 audit every surviving claim is one the layout's own ana
 really uses: the bookend lede (`title`, `closing`, `divider`), `quote`'s attribution,
 `stats`' italic lede, `image` and `split-panel`'s body regions, `split-compare`'s
 verdict, `math`'s equation grid, the two QR posters (`contact`, `wifi` — a 527px card
-in a 524px stage; there is no band position that does not crush it), and the fourteen
-chart-frame layouts that turn a final paragraph into `.chart-caption` (twelve as the
-caption proper, `matrix-grid` and `state-chart` as their swatch `legend`).
+in a 524px stage; there is no band position that does not crush it), and every
+chart-frame layout, which turns a final paragraph into `.chart-caption` (`matrix-grid` and
+`state-chart` into their swatch `legend`). Each claim is in that component's manifest
+(`coda.claims`), which is the list to trust; this paragraph names examples.
 Everything else promotes, **including `content`**, which means any slide that names no
 component at all, since that is what an un-classed slide resolves to (#1292).
 
@@ -676,11 +681,11 @@ Authors don't carry presentational markup.
   as siblings (kpi.trajectory = top accent, decision = bottom accent).
 - Composes with `compare-prose` modifiers `chosen` / `decision` — the
   corner tag inherits the modifier's editorial signal.
-- **`banner-tag` modifier** flips each card from a flush-corner tag
+- **`tag-band` modifier** (formerly `banner-tag`) flips each card from a flush-corner tag
   into a full-width header strip:
 
   ```markdown
-  <!-- _class: decision banner-tag -->
+  <!-- _class: decision tag-band -->
   ```
 
   The card becomes a vertical column-flex: tag fits its content height
@@ -698,12 +703,40 @@ Authors don't carry presentational markup.
   because their card titles are editorial sentences, not categorical
   labels.
 
-### Auto-Numbered cards
+### Auto-Numbered cards — and what `1.` versus `-` means everywhere
 
-A card-bearing layout authored as `ol` (`1. … 2. … 3.`) instead of
-`ul` (`- … - … - …`) automatically stamps an accent corner tag on each
-card with the index. Use whenever the cards carry a sequence —
-problem → cause → fix, or step 1 → step 2 → step 3.
+Every layout answers one question the same way: **does the marker you type mean anything here?**
+The component's manifest declares the answer (`lists`), and the engine enforces it before the
+layout sees the slide (`lib/core/list-contract.js`), so the docs, the render and `lint:deck` agree.
+
+| Contract | Layouts | `1.` | `-` |
+|---|---|---|---|
+| **prose** (R1) | `content`, `list` (every register) | a numbered list: `01 02 03`, or the `principles` counter | a bulleted list: pills, plain takeaway rows, or `principles` dots |
+| **numbered tags** (R2) | `cards-grid`, `cards-stack`, `list-steps`, `split-panel steps`, `split-panel watermark` | each card gets its number tag (corner tag, STEP 01, circle) | the same cards, no tag |
+| **neutral** (R3) | everything else that reads a list: `agenda`, `kpi`, `stats`, `premise`, `list-tabular`, `cycle`, `pricing`, every chart kind, … | renders the same as `-` | renders the same as `1.` |
+
+So write `1.` when the order is the point, on any layout. On a neutral layout it changes nothing at
+every level the layout reads: a chart's nested `1.` rows draw the same chart as nested `-` rows, and a
+KPI's label lines read the same either way. A `2.` start still counts: it continues a numbered run
+from the slide before.
+
+Each layout reads as many list levels as it was designed for: the item, then its body or detail
+line (a card's text, a KPI's detail, a step's body), and on a few layouts one level more (a kanban
+card's tag line, a flowchart connection inside a group). The contract covers exactly those levels.
+
+**A list shape the layout was not designed for gets a warning, not a look.** `lint:deck` and the
+Studio report `list-depth-unsupported` for:
+
+- **a list nested deeper than the layout reads**, such as a sublist under an `agenda` section;
+- **an aside**: a second list after a line of prose ("Open risks:") with no heading in between.
+  Lists separated only by a heading (`### Added`, `### Amended`) are all the layout's.
+
+Fold the extra list into the line above, or give it its own `content` slide: `content` and
+`list` are prose layouts and take any list. A list inside a blockquote (a Key Insight callout) or
+inside raw HTML (`<div>` … `</div>`) is left as you wrote it.
+
+A deck-wide `class:` in front matter counts like a slide's own: `class: steps` makes every
+`split-panel` slide a numbered-tags layout.
 
 ```markdown
 <!-- _class: cards-grid -->
@@ -718,18 +751,14 @@ problem → cause → fix, or step 1 → step 2 → step 3.
    - The source of truth for the calibration loop…
 ```
 
-> **Indentation rule for `ol`:** sublists must be indented **3 spaces**
+> **Indentation rule for `1.`:** sublists must be indented **3 spaces**
 > to clear the `1. ` prefix. 2 spaces breaks the nesting — Markdown
 > treats it as a sibling list, not a child list.
 
-**Layouts that auto-number when authored as `ol`:** `cards-grid`,
-`cards-stack` (incl. `horizontal`), `list`,
-`list-steps`, `list-tabular`, `split-panel`, `timeline`,
-`principles`.
-
-Each layout owns its own counter style (corner tag, header pill, mono
-rail, "STEP 01" prefix, large accent block, circle node — see each
-component's `<name>.docs.md`).
+There is no class that numbers a list: the `numbered` word on `list` retired (2026-11-19), and on
+`cards-grid` and `cards-stack` it is the `1.` marker, never a class. Each layout owns its own
+counter style (corner tag, header pill, "STEP 01" prefix, large accent block, circle node — see
+each component's `<name>.docs.md`).
 
 ---
 
@@ -954,10 +983,15 @@ the table and the rule are `lib/core/switches.mjs`. The old spellings
 (`callout-off`, `spectrum-on`, `row-label`, `finish-none`, …) were retired outright,
 and `lint:deck` rewrites each one.
 
-## Universal variants
+## Common modifiers
 
-Opt-in via `_class:`. Compose with any layout. The full set is defined
-in `lib/components/index.js` as `UNIVERSAL_GROUPS`.
+Opt-in via `_class:`. Compose with any layout. This section explains the common
+ones. The full set is declared in `lib/base/base.manifest.json` and listed, group
+by group, in the generated [base modifier reference](./base.modifiers.docs.md),
+which also gives the one-line test for each kind of word: a **modifier** is in a
+group of that manifest; a **variant** is in one component's own `variants`; a few
+words such as `mirror` and `numbered` are both, accepted on any slide but acting
+only on the components that list them (the `aliases` group).
 
 ### `dark`
 
@@ -1102,7 +1136,7 @@ numbered` keeps both the index and its page number.
 
 ### `silent`
 
-Suppresses header, footer, and pagination on a single slide. Use on
+Suppresses header, footer, pagination and the section rail on a single slide. Use on
 bookend slides (`title`, `divider`, `closing`) where the dark canvas
 should read uninterrupted, or to omit chrome from a single section
 break.
@@ -1111,12 +1145,12 @@ break.
 <!-- _class: title silent -->
 ```
 
-Equivalent to `no-pagination` plus `<!-- _header: "" -->` and
-`<!-- _footer: "" -->`, in one token.
+Equivalent to `no-header no-footer no-pagination no-progress`, in one
+token (`SILENCED_NAMES` in `lib/core/switches.mjs`).
 
 ### `sketch`
 
-The hand-drawn **finish** — a deck-wide skin that swaps Lattice into a
+The hand-drawn **mode** (`mode: sketch` in front matter, or the `sketch` class on one slide) — a deck-wide skin that swaps Lattice into a
 hand-drawn register: felt-tip headings (`--sketch-font-display`, Caveat),
 a legible hand-sans for prose (`--sketch-font-body`, Shantell Sans), and
 the card surface of
@@ -1222,6 +1256,37 @@ a checker pass caught — the list above is derived from the class names in
 to a register's default and so have no CSS to be derived from. They are added by hand; what
 they do is under "Back to the default on one slide" in `base.registers.docs.md`.
 
+### Preset hooks — `--rule-w` · `--rule-style` · `--rule-mark` · `--rail-w` · `--radius-card`
+
+Five tokens that change a deck's weight without a new register. **Unset, they change nothing:**
+every consumer reads its hook with today's value as the fallback, so no existing deck moves.
+Presets set them internally; they are not public settings (deck-preset study, decision D10). An
+author who wants one today writes it in a deck `style:` block, on `section`:
+
+```yaml
+style: |
+  section { --rule-w: 3px; --rule-style: double; --rail-w: 6px; --radius-card: 0; }
+```
+
+| Token | Unset value | What reads it |
+|---|---|---|
+| `--rule-w` | `1px` (the short segment: `0.22cqi`) | The heading rule: the `form` masthead hairline, `rule: full`, the `rule: short` / `accent` segment's height, the `split-panel` kicker, and the split-page runheads (`split-panel`, `compare-prose`, `decision`, `list-tabular`, `compare-code`) |
+| `--rule-style` | `solid` | The same rules, except the short / accent segment, which is a filled bar |
+| `--rule-mark` | `var(--border)` | The same rules, except `rule: accent` (always `--accent`) and the dark `split-panel metric` kicker |
+| `--rail-w` | `0.35cqi` of the slide | The `spectrum-card:` rail on every card it paints |
+| `--radius-card` | `var(--radius-md)` | The cards, meaning the bordered or filled tiles that can carry a card tag: `cards-grid`, `cards-stack`, `stats`, `pricing`, `verdict-grid`, `list-steps`, `list` (ordered), `actors`, `decision`, `compare-prose`, `split-compare` options and verdict, `split-panel` proof and watermark tiles, `citation-card` triptych tiles, `statute-stack`. Also what sits in a card's corner: the card tag's flush corner and band, and `pricing`'s badge, so a tag always matches its card |
+
+`--radius-card` is not `corners:`, which shapes the slide's own surface and is square by
+default. Pills keep `--radius-full`. Quote and callout panels, and diagram-like tiles
+(`matrix-2x2` quadrants, `cycle`, `authority-chain`, `regulatory-update`), keep `--radius-md`.
+
+**Two limits.** Under `mode: sketch` the `form` masthead rule is redrawn in rough ink at its own
+width, so the three rule hooks have no visible effect on it; the `split-panel` kicker and the
+runheads still follow them. The CLI PDF writer leaves a `double` or `dashed` rule in the page's
+background photo instead of drawing it as a vector. It still prints, as a raster.
+
+The full contract is the comment beside `--radius-*` in `base.tokens.css`.
+
 ### `scale-l` / `scale-xl` / `scale-2xl`
 
 Bump the readable fonts on the slide up in lockstep. The typography
@@ -1240,15 +1305,14 @@ token for that).
 | `scale-xl`  | ×1.3  | ~21 pt |
 | `scale-2xl` | ×1.5  | 24 pt  |
 
-Scope is native Marp class scoping — the same class does both:
+Scope works like every other class: `_class:` scopes it to one slide, front-matter `class:` to the whole deck.
 
 ```markdown
-<!-- _class: cards-grid scale-xl -->   <!-- this slide only -->
+<!-- _class: cards-grid scale-xl -->
 ```
 
 ```yaml
 ---
-marp: true
 class: scale-xl                        # whole deck (front-matter directive)
 ---
 ```
@@ -1358,7 +1422,7 @@ its rail and label the slide ink (`--pass` …), and its row the theme's `--pass
 
 | Variant | Disc treatment |
 |---|---|
-| *(default)* | the deck's status fill, its mark in the one ink, a hairline rim in the status ink (the row's rail color); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
+| *(default)* | the deck's status fill, its mark in the status's own ink (`--X-on-mark`), a hairline rim in the status's edge (`--X-edge-mark`; the slide ink on a theme that curates no triplet); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
 | `checks-ringed` | the same, with a heavier 1.6px rim taken halfway to black. |
 | `checks-knockout` | the same as the default; kept so a deck that names it can reset an inherited variant. |
 | `checks-bold` | larger disc + heavier marks, the hairline ink rim kept. Reads across a room. |

@@ -6,8 +6,29 @@
 // exactly `PG.render` (docs/route-budget.json holds the Studio's first load to its bytes).
 
 import type { Renderer } from './door';
+import type { Entry as WaitEntry } from './wait';
 
 type Door = typeof import('./door');
+
+/** What the Studio shows in a listed plugin's place before the plugin draws (wait.ts, D1). */
+export type Waits = { withWaits: (source: string) => string; waitMarkup: (e: WaitEntry, body: string) => string | null; waitKey: (sha16: string, body: string) => string };
+// Only the Studio sets it (StudioShell), so the other routes that render through here, and the door's own chunks, reach
+// the placeholder code through this one reference and never carry it themselves.
+let waits: Waits | null = null;
+export function setWaits(w: Waits): void {
+	waits = w;
+}
+export const getWaits = (): Waits | null => waits;
+
+/** The event a preview fires each time it paints, with its document (wait-capture.ts records the plugin drawings). */
+export const PREVIEW_PAINTED = 'lattice-preview-painted';
+
+/**
+ * The localStorage key that holds this browser's code-package and plugin approvals (door.ts). Here, in the eager entry,
+ * so the Studio shell can hear an approval given in another tab (a `storage` event) without loading the door, and
+ * without a chunk of its own on the Studio's first load (the route budget).
+ */
+export const CODE_APPROVALS_KEY = 'lattice-code-package-approvals';
 let door: Door | null = null;
 let loading: Promise<Door> | null = null;
 const load = () => {
@@ -45,7 +66,13 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  */
 export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; returns?: unknown; css?: string }[]): Promise<void> {
 	if (!list.length && !door && !loading) return;
-	await (await load()).setPlugins(list);
+	try {
+		await (await load()).setPlugins(list);
+	} catch (e) {
+		// The door did not load (offline, a renamed chunk): no plugin can draw on this page, so no wait may stand in for one.
+		waits = null;
+		throw e;
+	}
 }
 
 /** door.ts `codePackagesStamp`: empty until the door has loaded, as it is with no package. */
@@ -53,13 +80,17 @@ export function codePackagesStamp(): string {
 	return door ? door.codePackagesStamp() : '';
 }
 
-/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flag. */
+/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flags. */
 export async function renderWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, opts: Record<string, unknown> | undefined): Promise<R> {
 	if (door) return door.renderWithCodePackages<R>(PG, source, theme, opts);
 	let engineOpts = opts;
-	if (opts && 'codeStatus' in opts) {
-		const { codeStatus: _flag, ...rest } = opts;
+	// A preview carries a door flag (`codeStatus` or `codeApproval`); an export carries neither.
+	const preview = !!opts && ('codeStatus' in opts || 'codeApproval' in opts);
+	if (preview) {
+		const { codeStatus: _status, codeApproval: _approval, ...rest } = opts;
 		engineOpts = rest;
 	}
-	return PG.render(source, theme, engineOpts) as R;
+	// A listed plugin's block shows its wait (wait.ts), not its fence source, before the door holds the plugins: in a
+	// preview only, so an export taken before the door loads never prints a wait.
+	return PG.render(waits && preview ? waits.withWaits(source) : source, theme, engineOpts) as R;
 }

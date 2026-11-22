@@ -129,6 +129,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-capabilities.js',
   'build-decisions-index.js',
   'build-gotchas-index.js',
+  // Measured 2026-11-19 (touch a marker, run it alone, `find -newer`): its whole write set is
+  // dist/engineering/codemap.md. A fourth index, also `validates`.
+  'build-codemap.js',
   // Measured 2026-10-16: its whole write set is dist/schemas/front-matter.schema.json.
   'build-front-matter-schema.js',
   // Measured 2026-10-16: its whole write set is dist/engineering/conformance.md.
@@ -141,6 +144,7 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
+  'build-use-cases.js', // chat-tools.generated.ts + chat-tool-tiers.generated.ts, compiled from lib/use-cases manifests
   // Re-measured 2026-10-07: its whole write set is lib/packages/packages.generated.json,
   // lib/finishes/presets.generated.js, lib/motion/scenes.generated.js,
   // lib/base/base.finish.css and lib/packages/reserved-classes.generated.js, all tracked —
@@ -245,7 +249,7 @@ test('built-not-committed build steps', async (t) => {
     // `uncommitted` AND `validates`, and `build:check` runs every `validates` step's
     // --check even though it skips other uncommitted steps. Lose `validates` and the
     // gate shrinks silently. Component docs stay a committed, PR-owned artifact.
-    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js']) {
+    for (const s of ['build-decisions-index.js', 'build-capabilities.js', 'build-gotchas-index.js', 'build-codemap.js']) {
       const step = STEPS.find((x) => x.script === s);
       assert.ok(step, `${s} missing from STEPS`);
       assert.ok(step.uncommitted && step.validates, `${s} must be uncommitted + validates`);

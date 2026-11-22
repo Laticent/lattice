@@ -34,12 +34,21 @@
  *   2  --only target not found
  */
 
+const { describeMatch: describeRaw } = require('../lib/authoring/slot-contract-pack');
+// The page says what an author writes. On a component with a list contract (`lists`) either list
+// marker works (the engine renders it as the contract says, lib/core/list-contract.js), so a list
+// slot reads "a list" rather than naming the element the engine rewrites it to — the same relaxing
+// tools/build-stage-catalog.js does before it packs the `slot-contract` lint table.
+let docsManifest = null;
+const relaxList = (mt) => (docsManifest?.lists && mt?.kind === 'list' && mt.marker && mt.marker !== 'any' ? { ...mt, marker: 'any' } : mt);
+const describeMatch = (match) => describeRaw(Array.isArray(match) ? match.map(relaxList) : relaxList(match));
 const fs = require('node:fs');
 const path = require('node:path');
 const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');
 const { MARKER_CLASS } = require('../lib/core/checks-registry');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
+const MODIFIER_EFFECTS = require('../lib/core/modifier-effects.generated.json');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -331,15 +340,39 @@ function emitAgentContract(m, lines) {
   }
 
   if (hasSlots) {
+    docsManifest = m;
     lines.push('### Slots');
     lines.push('');
-    lines.push('| Slot | Selector | Required | Description |');
+    // `Write` is the slot's `match` in an author's words, from the same reader `lint:deck`'s
+    // `slot-contract` rule runs, so the page lists exactly what lint checks.
+    lines.push('| Slot | Write | Required | Description |');
     lines.push('|---|---|---|---|');
     for (const [slotName, slot] of Object.entries(m.slots)) {
       const req = slot.required ? 'yes' : 'no';
-      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
+      lines.push(`| \`${slotName}\` | ${slot.match ? tableCell(describeMatch(slot.match)) : `\`${slot.selector}\``} | ${req} | ${tableCell(slot.description)} |`);
     }
     lines.push('');
+    const overrides = Object.entries(m.variantSlots || {});
+    if (overrides.length) {
+      lines.push('Under a variant, a slot changes shape:');
+      lines.push('');
+      for (const [variant, over] of overrides) {
+        for (const [slotName, slot] of Object.entries(over)) {
+          const what = slot === null
+            ? 'is not used'
+            : [slot.match ? `is written as ${describeMatch(slot.match)}` : null, slot.required === false ? 'is optional' : slot.required ? 'is required' : null].filter(Boolean).join(' and ');
+          lines.push(`- \`${variant}\`: \`${slotName}\` ${what}.`);
+        }
+      }
+      lines.push('');
+    }
+    const kinds = Object.entries(m.variantKinds || {});
+    for (const [variant, k] of kinds) {
+      lines.push(k.kind === 'source'
+        ? `- \`${variant}\` is not a class: ${k.means}`
+        : `- \`${variant}\` acts only with ${k.requires.map((r) => `\`${r}\``).join(' or ')}.`);
+    }
+    if (kinds.length) lines.push('');
   }
 
   if (hasVariantRule) {
@@ -469,7 +502,15 @@ function emitDocsVariants(m, lines) {
   }
   lines.push('## Universal modifiers');
   lines.push('');
-  lines.push(`This component accepts all universal variants (\`dark\`, \`compact\`, \`accent\`, state markers, treatments). See [design/design-system.md §6.5](${linkFrom(m, path.join(ROOT, 'design', 'design-system.md'))}#65-universal-variants--three-tiers) for the catalog.`);
+  // What the universal modifiers DO here comes from the measured record (tools/check-modifier-effects.js), not a
+  // blanket "accepts all": a poster that rebuilds its slide has no heading or eyebrow for a heading modifier to act on.
+  const inert = MODIFIER_EFFECTS.components[m.name]?.inert || [];
+  const catalog = `[the base modifier reference](${linkFrom(m, BASE_REFERENCE)})`;
+  lines.push(`Universal modifiers (\`dark\`, \`compact\`, \`accent\`, state markers, treatments) compose onto this component's class. Every one, by group, is in ${catalog}, generated from \`lib/base/base.manifest.json\`.`);
+  if (inert.length) {
+    lines.push('');
+    lines.push(`On this layout, modifiers that style the ${inert.map((s) => `**${s}**`).join(', ').replace(/, ([^,]*)$/, ' and $1')} have no effect: measured by \`npm run check:modifier-effects\` (\`lib/core/modifier-effects.generated.json\`).`);
+  }
   lines.push('');
 }
 
@@ -937,6 +978,61 @@ function checkOne(m) {
   return { name: m.name, stale: docsStale || galleryStale, docsStale, galleryStale };
 }
 
+// The base modifier reference, generated from lib/base/base.manifest.json and the groups
+// lib/components/index.js builds from it (W5 of
+// engineering/decisions/2026-11-19-deterministic-authoring-audit.md). Hand-written docs explain;
+// this page lists, so a word the engine accepts cannot be missing from it.
+const BASE_REFERENCE = path.join(__dirname, '..', 'lib', 'base', 'base.modifiers.docs.md');
+function renderBaseReference() {
+  const base = require('../lib/base/base.manifest.json');
+  const { MODIFIER_GROUPS } = require('../lib/components');
+  const summaries = new Map(base.groups.filter((g) => g.name).map((g) => [g.name, g.summary]));
+  const code = (t) => `\`${t}\``;
+  const lines = [
+    '<!-- GENERATED by tools/build-component-docs.js from lib/base/base.manifest.json — do not edit; edit the manifest. -->',
+    '',
+    '# Base modifiers and registers — the reference',
+    '',
+    'Every class word a slide accepts without a component declaring it, by group, and every front-matter register with the groups it stamps. `lint:deck` knows exactly these words: a word in none of them is an `unknown-class`. The explanations live in [base.docs.md](./base.docs.md) and [base.registers.docs.md](./base.registers.docs.md); this page is the list.',
+    '',
+    '## Which kind of word is it',
+    '',
+    '| Kind | The test |',
+    '|---|---|',
+    ...base.kinds.map((k) => `| ${k.kind} | ${tableCell(k.test)} |`),
+    '',
+    '## Modifier groups',
+    '',
+    'A group that **acts on** a surface is offered only after a component that has that surface (`lib/components/surfaces.js`). A group that is **not offered** is accepted but never suggested.',
+    '',
+  ];
+  for (const g of MODIFIER_GROUPS) {
+    lines.push(`### ${g.label} — ${code(g.name)}`);
+    lines.push('');
+    const summary = summaries.get(g.name) || (g.plugin ? `The \`${g.name}:\` register the ${code(g.plugin)} plugin declares.` : '');
+    if (summary) lines.push(summary, '');
+    const surface = !g.surface ? 'the slide' : typeof g.surface === 'string' ? g.surface : Object.entries(g.surface).map(([t, s]) => `${t === '*' ? 'the rest' : code(t)} → ${s}`).join(', ');
+    const facts = [`Acts on: ${surface}.`];
+    if (g.offer === false) facts.push('Not offered.');
+    if (g.exclusive) facts.push('Pick one.');
+    lines.push(facts.join(' '), '');
+    if (g.axes) {
+      for (const axis of g.axes) lines.push(`- one of ${axis.map(code).join(' · ')}`);
+      const loose = g.tokens.filter((t) => !g.axes.some((a) => a.includes(t)));
+      if (loose.length) lines.push(`- and ${loose.map(code).join(' · ')}`);
+    } else {
+      lines.push(`- ${g.tokens.map(code).join(' · ')}`);
+    }
+    for (const [t, deps] of Object.entries(g.follows || {})) lines.push(`- after ${code(t)}: ${deps.map(code).join(' · ')}`);
+    lines.push('');
+  }
+  lines.push('## Registers', '', 'A register is a front-matter key. It stamps its value as class words on every slide; a slide writes the same words to change one slide.', '');
+  lines.push('| Key | Stamps the words of | Note |', '|---|---|---|');
+  for (const r of base.registers) lines.push(`| ${code(`${r.key}:`)} | ${r.groups.length ? r.groups.map(code).join(', ') : '—'} | ${tableCell(r.why || '')} |`);
+  lines.push('', 'Plugins declare their own registers (`spark:`, `icon:`, `avatar:` and the image and video registers) in their manifests; their groups are listed above under the plugin\'s name.', '');
+  return lines.join('\n');
+}
+
 function main(argv) {
   const args = new Set(argv.filter((a) => a.startsWith('--')));
   const onlyIdx = argv.indexOf('--only');
@@ -968,6 +1064,13 @@ function main(argv) {
         staleCount += 1;
       }
     }
+    if (!only) {
+      const cur = fs.existsSync(BASE_REFERENCE) ? fs.readFileSync(BASE_REFERENCE, 'utf8') : '';
+      if (cur !== renderBaseReference()) {
+        process.stderr.write('stale: lib/base/base.modifiers.docs.md\n');
+        staleCount += 1;
+      }
+    }
     if (staleCount) {
       process.stderr.write(`\n${staleCount} component(s) stale. Run \`node tools/build-component-docs.js\` to regenerate.\n`);
       return 1;
@@ -978,6 +1081,10 @@ function main(argv) {
 
   let wrote = 0;
   let skipped = 0;
+  if (!only && writeIfChanged(BASE_REFERENCE, renderBaseReference()).wrote) {
+    wrote += 1;
+    process.stdout.write('wrote lib/base/base.modifiers.docs.md\n');
+  }
   for (const m of filtered) {
     const r = buildOne(m);
     if (r.skipped) {

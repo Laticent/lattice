@@ -633,8 +633,8 @@ describe('hub-spoke under a chart finish', () => {
   test('under tone, a group\'s band, arrowhead and name join the one hue through --hs-group-*', () => {
     const rule = finishCss.match(/section\.marks-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
     assert.ok(rule, 'no tone re-point for hub-spoke');
-    assert.match(rule[1], /--hs-group-hue: var\(--chart-cat-1-hue\) !important/);
-    assert.match(rule[1], /--hs-group-ink: var\(--chart-cat-1-ink\) !important/);
+    assert.match(rule[1], /--hs-group-hue: var\(--finish-one\) !important/);
+    assert.match(rule[1], /--hs-group-ink: var\(--finish-one-ink\) !important/);
     assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
     const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     // The band, arrowhead and name read the member property, never the family slot table,
@@ -809,11 +809,15 @@ describe('hub-spoke — icon ink under a chart finish', () => {
   test('each finish gives the icon the ink its disc body clears, for every slot and for a status', () => {
     // A finish repaints the disc; a fixed ink measured 1.62:1 on an etch status disc. Under etch and tone the generator
     // derives the icon's ink from the same body it gives the disc (inkOn). Pigment's disc is the slot's solid, so its
-    // icon takes the solid ink curated for it (chart-solids.test.js), which is the finish's ink. One rule serves every
+    // icon takes the solid ink curated for it (chart-solids.test.js), which is the finish's ink for a slot. One rule serves every
     // slot: the slot's body is already a value on the icon (`--finish-mark-body`), so the rule names no slot.
     assert.equal(decl(bodyOf(PIGMENT, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, every slot');
     assert.match(decl(bodyOf(MOVERS, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), /^light-dark\(color\(from var\(--finish-mark-body-l\) xyz-d65 [\s\S]*?\), color\(from var\(--finish-mark-body-d\) xyz-d65 /, 'etch and tone, every slot: each arm reads its own level');
-    assert.equal(decl(bodyOf(PIGMENT, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, a status');
+    // A STATUS disc under pigment is the theme's status solid, so its icon takes that status's own ink (THE STATUS
+    // TRIPLET, engineering/decisions/2026-11-16-status-triplets.md), picked by the finish's percent: 0% under pigment.
+    // The rule names every finish and sits outside @supports, so an engine without relative color (WebKit 17.4) still
+    // gets each finish's curated status ink; etch's and tone's picked ink below overrides it where the guard passes.
+    assert.equal(decl(bodyOf(ALL, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink)))', 'every finish, a status');
     assert.match(decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), /var\(--hs-state-hue\)/, 'etch and tone, a status');
   });
 

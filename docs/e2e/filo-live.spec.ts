@@ -98,7 +98,7 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 	return b;
 }
 
-/** An init script for Firefox: hold a (fake) microphone capture, so ICE offers host candidates. */
+/** An init script for Firefox and WebKit: hold a (fake) microphone capture, so ICE offers host candidates. */
 function captureFakeMic() {
 	const log = () => ((window as unknown as { __ice?: string[] }).__ice ??= []);
 	if (!navigator.mediaDevices) {
@@ -107,6 +107,8 @@ function captureFakeMic() {
 	}
 	navigator.mediaDevices
 		.getUserMedia({ audio: true, video: true })
+		// A browser with a microphone but no camera refuses the pair; the microphone alone is enough.
+		.catch(() => navigator.mediaDevices.getUserMedia({ audio: true }))
 		.then((s) => {
 			(window as unknown as { __mic: MediaStream }).__mic = s;
 			log().push(`mic: held ${s.getTracks().map((t) => `${t.kind}:${t.readyState}`).join(',')}`);
@@ -170,7 +172,15 @@ function iceReport(page: Page): Promise<string> {
 async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	const relay = localRelay();
 	// The project's own box: WebKit runs at the tablet box its project exists for.
-	const opts = { baseURL: info.project.use.baseURL, viewport: info.project.use.viewport ?? { width: 1440, height: 900 } };
+	// WebKit, like Firefox, hides a page's addresses behind mDNS names unless it is capturing, and from Playwright 1.65.1
+	// (WebKit build 2388) the two contexts here never resolve each other's names: the guest's lobby never came, 3 of 3
+	// (build 2215 passed). A page that holds a microphone gets its real host candidates, so grant it and hold one.
+	const webkit = browser.browserType().name() === 'webkit';
+	const opts = {
+		baseURL: info.project.use.baseURL,
+		viewport: info.project.use.viewport ?? { width: 1440, height: 900 },
+		...(webkit ? { permissions: ['microphone', 'camera'] } : {}),
+	};
 	const hctx = await browser.newContext(opts);
 	const gctx = await browser.newContext(opts);
 	open.push(hctx, gctx);
@@ -178,7 +188,7 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	await relay.attach(gctx);
 	// Keep every peer connection the pages make, so a failed connection can say why (below).
 	for (const c of [hctx, gctx]) await c.addInitScript(keepPeerConnections);
-	if (browser.browserType().name() === 'firefox') for (const c of [hctx, gctx]) await c.addInitScript(captureFakeMic);
+	if (webkit || browser.browserType().name() === 'firefox') for (const c of [hctx, gctx]) await c.addInitScript(captureFakeMic);
 	const host = await hctx.newPage();
 	const guest = await gctx.newPage();
 
@@ -343,6 +353,40 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
 		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('ニ') && !s.includes('Body one'), "the host's change did not survive the refused edit");
 		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose shows the host's change").toContainText('Gone');
+	});
+
+	// THE EMPTY STATE THROUGH A REFUSED MERGE (engineering/decisions/2026-11-17-compose-empty-deck.md §4). Compose's empty
+	// flag follows the text its editor shows, not the deck it is handed: while the guest's composition is held, the host
+	// empties the deck, and the guest's editor still shows text, so its start grid must stay hidden; when the refused edit
+	// settles and the host's empty deck lands, the grid must appear. A flag that followed the deck put the grid over the
+	// guest's composing text.
+	test('a refused edit while the co-editor empties the deck: the start grid follows what the editor shows', async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		const grid = guest.locator('[data-start-grid]');
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
+		// The host empties the whole deck in Source while the guest is still composing.
+		await setEditorContent(host, '');
+		// On BOTH sides before the guest's next keystroke, as the test above waits. With only the host's side checked, a
+		// keystroke that beats the empty deck to the guest is an ordinary edit, not a refused one, and no notice comes: the
+		// likely cause of the 1 failure in 10 repeats on PR 3288, whose error that run did not keep.
+		await bothHold(pair, (s) => s === '', 'the host emptied the deck');
+		// Held for the composition: the guest's deck is empty, but its editor still shows its text, so no start grid over it.
+		await expect(guest.locator('.cs-host .cs-slide').first(), 'the guest still sees its composing text').toContainText('に');
+		await expect(grid, 'the start grid appeared over the guest\'s composing text').toBeHidden();
+		// The guest's IME turns its character into another: an edit to text the host has removed, refused.
+		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });
+		await ime.send('Input.insertText', { text: 'ニ' });
+		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
+		// Settled: the guest's editor now shows the host's empty deck, so the start grid is up and the slide bar is not.
+		// (The guest's saved deck was already empty above, so it proves nothing here.)
+		await expect(guest.getByRole('region', { name: 'Start your deck' }), 'the start grid did not come back with the empty deck').toBeVisible({ timeout: 20_000 });
+		await expect(guest.locator('.cs-slide-bar').first()).toBeHidden();
 	});
 
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {

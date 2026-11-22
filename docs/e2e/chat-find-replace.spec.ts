@@ -1,0 +1,189 @@
+import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
+
+// FIND AND REPLACE FROM THE CHAT, ON THE REAL SURFACE (#3208 items 6 and 25).
+//
+// The model is MOCKED, not spent (HARD RULE #24). It reads slide 1's title from the deck brief the Studio really
+// sends, calls find_text for it, then replace_text on slide 1. The spec checks that the tool ran in the page (its
+// result comes back in the next request), that the author gets ONE card to apply, and that applying it changes the
+// stored deck.
+
+const MODELS = [{ id: 'test/model', name: 'Test Model', context_length: 100000, pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: ['text'] }, top_provider: { max_completion_tokens: 8000 } }];
+const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
+const USAGE = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0.01 };
+type Msg = { role: string; content: unknown };
+const text = (c: unknown): string => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => (p && typeof p === 'object' && 'text' in p ? String((p as { text: unknown }).text) : '')).join('') : '');
+const toolCall = (name: string, args: unknown) => [
+	{ id: 'g', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: `call-${name}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] } }] },
+	{ id: 'g', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: USAGE },
+];
+const say = (t: string) => [
+	{ id: 'g', choices: [{ index: 0, delta: { content: t } }] },
+	{ id: 'g', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: USAGE },
+];
+
+for (const [w, h] of [
+	[1440, 900],
+	[820, 1180],
+	[390, 844],
+] as const) {
+test(`the chat finds a title and replaces it on one card the author applies at ${w}px`, async ({ page }) => {
+	test.setTimeout(90_000);
+	await page.setViewportSize({ width: w, height: h });
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-or-model', 'test/model');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	});
+	const requests: Msg[][] = [];
+	let title = '';
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+			return;
+		}
+		const body = JSON.parse(route.request().postData() || '{}') as { messages: Msg[] };
+		requests.push(body.messages);
+		let frames: unknown[];
+		if (requests.length === 1) {
+			// The deck brief's outline line for slide 1: `[1] "class" — "Title" · Nw`.
+			const brief = body.messages.map((m) => text(m.content)).join('\n');
+			title = JSON.parse(/\[1\] "[^"\n]*" — ("(?:[^"\\]|\\.)+")/.exec(brief)?.[1] ?? '""');
+			frames = toolCall('find_text', { text: title });
+		} else if (requests.length === 2) {
+			frames = toolCall('replace_text', { find: title, replace: `${title} today`, slides: [1], summary: 'Added "today" to the title.' });
+		} else frames = say('Added "today" to the title.');
+		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, w);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
+	await expect(apply).toBeVisible({ timeout: 30_000 });
+	expect(title).not.toBe('');
+	// find_text ran in the page: its result is the tool message in the second request.
+	const found = text(requests[1].find((m) => m.role === 'tool')?.content);
+	expect(found).toContain(`${JSON.stringify(title)}: 1 match in 1 slide`);
+	expect(found).toContain('[slide 1] heading:');
+	// replace_text ran too: its result reached the model, or the turn settled on its summary.
+	expect(requests.length).toBeGreaterThanOrEqual(2);
+	await page.screenshot({ path: test.info().outputPath(`chat-find-replace-card-${w}.png`) });
+	await apply.click();
+	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(`${t} today`)), title)).toBe(true);
+});
+}
+
+// A PATTERN, ON THE REAL SURFACE (#3208 item 6). A pattern runs only in a module Worker (deck-find-pattern.ts):
+// with no Worker, replace_text refuses ("not available"); one that never loads or answers is ended ("could not
+// start", "was stopped"). The title is searched as a pattern that captures it, `(Title)`, which as literal words
+// would match nothing, and `$1` writes it back. So the applied `Title today` is the page's Worker answering and
+// the groups expanding. preserve_case has its own pair of tests below.
+// Tagged for Gecko and WebKit too (@crosswidth keeps its Chromium desktop and mobile runs): whether a module Worker loads and answers is an engine question (module
+// Workers reached Firefox and Safari late), so Chromium alone cannot certify it.
+test('the chat replaces by pattern, through the page’s Worker @crosswidth @gecko @webkit-phone @webkit-tablet', async ({ page }) => {
+	test.setTimeout(90_000);
+	// The project's own viewport (a phone on webkit-phone); the chat opens at its width.
+	const w = page.viewportSize()?.width ?? 1440;
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-or-model', 'test/model');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	});
+	const requests: Msg[][] = [];
+	let title = '';
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+			return;
+		}
+		const body = JSON.parse(route.request().postData() || '{}') as { messages: Msg[] };
+		requests.push(body.messages);
+		let frames: unknown[];
+		if (requests.length === 1) {
+			const brief = body.messages.map((m) => text(m.content)).join('\n');
+			title = JSON.parse(/\[1\] "[^"\n]*" — ("(?:[^"\\]|\\.)+")/.exec(brief)?.[1] ?? '""');
+			// The title as a pattern, captured as group 1, and `$1` in the replacement.
+			const pattern = `(${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`;
+			frames = toolCall('replace_text', { find: pattern, replace: '$1 today', regex: true, slides: [1], summary: 'Added "today" to the title.' });
+		} else frames = say('Added "today" to the title.');
+		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, w);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
+	await expect(apply).toBeVisible({ timeout: 30_000 });
+	expect(title).not.toBe('');
+	// A replace that settles its turn ends on its summary, so the result may not reach a second request; the card
+	// is the proof it ran. When a second request did go out, its tool message must be the Worker's answer.
+	const result = text(requests[1]?.find((m) => m.role === 'tool')?.content);
+	if (result) expect(result).toContain('Replaced 1 match in 1 slide');
+	await page.screenshot({ path: test.info().outputPath('chat-pattern-replace-card.png') });
+	await apply.click();
+	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(`${t} today`)), title)).toBe(true);
+});
+
+// PRESERVE-CASE, ON THE REAL SURFACE (#3208 item 6), with its failing arm committed beside it. The mocked model
+// replaces the title's first word, found in lower case, with a lower-case word. With preserve_case the title keeps
+// its case (`Lattice` → `Renamed`); without it the word is written exactly as given (`renamed`). The same call
+// either way, so the two arms can only differ by the flag.
+for (const preserve of [true, false])
+	test(`replace_text ${preserve ? 'keeps' : 'does not keep'} the title's case with preserve_case ${preserve} @crosswidth @gecko @webkit-phone @webkit-tablet`, async ({ page }) => {
+		test.setTimeout(90_000);
+		const w = page.viewportSize()?.width ?? 1440;
+		await page.addInitScript(() => {
+			try {
+				localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+				localStorage.setItem('lattice-db-or-model', 'test/model');
+				localStorage.setItem('lattice-db-dedup', 'off');
+			} catch {
+				/* storage unavailable: the spec fails loudly on the missing control */
+			}
+		});
+		let calls = 0;
+		let word = '';
+		let rest = '';
+		await page.route('https://openrouter.ai/**', async (route) => {
+			const url = route.request().url();
+			if (!url.includes('/chat/completions')) {
+				await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+				return;
+			}
+			const body = JSON.parse(route.request().postData() || '{}') as { messages: Msg[] };
+			calls++;
+			let frames: unknown[];
+			if (calls === 1) {
+				const brief = body.messages.map((m) => text(m.content)).join('\n');
+				const title: string = JSON.parse(/\[1\] "[^"\n]*" — ("(?:[^"\\]|\\.)+")/.exec(brief)?.[1] ?? '""');
+				const m = /^(\p{L}+)(.*)$/u.exec(title);
+				word = m?.[1] ?? '';
+				rest = m?.[2] ?? '';
+				frames = toolCall('replace_text', { find: word.toLowerCase(), replace: 'renamed', whole_word: true, preserve_case: preserve, slides: [1], summary: 'Renamed the first word of the title.' });
+			} else frames = say('Renamed the first word of the title.');
+			await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+		});
+		await gotoStudio(page);
+		await openChatAtWidth(page, w);
+		await page.getByRole('textbox', { name: 'Message the Architect' }).fill('rename the first word of the title');
+		await page.getByRole('button', { name: 'Send', exact: true }).click();
+		const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
+		await expect(apply).toBeVisible({ timeout: 30_000 });
+		// The arms differ only if the title's first word is not already lower case.
+		expect(word).not.toBe('');
+		expect(word).not.toBe(word.toLowerCase());
+		const isCaps = word.length >= 2 && word === word.toUpperCase();
+		const written = !preserve ? 'renamed' : isCaps ? 'RENAMED' : 'Renamed';
+		await apply.click();
+		await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(t)), `${written}${rest}`)).toBe(true);
+	});

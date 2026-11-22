@@ -16,12 +16,12 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name what the decomposition shows (‘Services is carrying the growth’), not the chart type. |
-| `categories` | `ul > li` | yes | One li per category, in the order they should read left to right (or top to bottom under `row`). Lead text is the category label. Optionally a trailing inline-code value — the authored TOTAL, printed instead of the computed sum when the two agree. |
-| `parts` | `li > ul > li` | yes | The nested sublist under each category: one li per part, lead text = the series name, trailing inline-code = its value (`Product \`2.4\``). Series order is taken from the FIRST category that names each one and is then held identical in every bar. A part a category does not name is simply absent from that bar, and a part valued zero draws nothing; nothing is inferred. |
-| `detail` | `li > ul > li` | no | A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without. |
+| `title` | a `## ` heading | yes | Slide heading — name what the decomposition shows (‘Services is carrying the growth’), not the chart type. |
+| `categories` | a list | yes | One li per category, in the order they should read left to right (or top to bottom under `row`). Lead text is the category label. Optionally a trailing inline-code value — the authored TOTAL, printed instead of the computed sum when the two agree. |
+| `parts` | a list nested 1 level under an item | yes | The nested sublist under each category: one li per part, lead text = the series name, trailing inline-code = its value (`Product \`2.4\``). Series order is taken from the FIRST category that names each one and is then held identical in every bar. A part a category does not name is simply absent from that bar, and a part valued zero draws nothing; nothing is inferred. |
+| `detail` | a list nested 1 level under an item | no | A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without. |
 
 ### Variant decision rule
 
@@ -144,7 +144,7 @@ The stack runs horizontally, so long category names sit in a left column instead
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -15,6 +15,11 @@ export class WakeKeeper {
 	private pending = false;
 	private wanted = false;
 	private bound = false;
+	/** Told whenever `state` may have changed (a lock arrived, was released, or was dropped by the browser). */
+	onChange: ((state: 'held' | 'not held' | 'unsupported') => void) | null = null;
+	private tell() {
+		this.onChange?.(this.state);
+	}
 	private readonly onVisible = () => {
 		// A hidden page loses its lock; take it again when the page is back.
 		if (this.doc?.visibilityState === 'visible' && this.wanted) this.keep(true);
@@ -38,6 +43,7 @@ export class WakeKeeper {
 			void held?.release().catch(() => {});
 			if (this.bound) this.doc?.removeEventListener('visibilitychange', this.onVisible);
 			this.bound = false;
+			if (held) this.tell();
 			return;
 		}
 		if (!this.nav?.wakeLock) return;
@@ -54,8 +60,12 @@ export class WakeKeeper {
 				if (!this.wanted) return void lock.release().catch(() => {});
 				this.lock = lock;
 				lock.addEventListener('release', () => {
-					if (this.lock === lock) this.lock = null;
+					if (this.lock === lock) {
+						this.lock = null;
+						this.tell();
+					}
 				});
+				this.tell();
 			})
 			.catch(() => {
 				this.pending = false;

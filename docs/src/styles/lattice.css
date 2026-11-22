@@ -306,3 +306,12 @@ starlight-menu-button[aria-expanded='true'] button {
 		margin-inline-start: calc(-1 * var(--craft-bleed));
 	}
 }
+
+/* Starlight's table-of-contents column hides its scrollbar (`.right-sidebar { scrollbar-width: none }` in
+ * TwoColumnContent.astro), but from inside `@layer starlight.core`. native-widgets.css's unlayered
+ * `* { scrollbar-width: thin }` beats any layered rule at any specificity (engineering/cascade.md), so it
+ * turned that bar back on: measured `thin` on /getting-started/ at 1440px, where Starlight intended `none`.
+ * Restated here, unlayered, so Starlight's choice stands. */
+.right-sidebar {
+	scrollbar-width: none;
+}
