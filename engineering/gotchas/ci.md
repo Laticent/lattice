@@ -987,3 +987,18 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Proof the step fails:** `.github/workflows/puppeteer-chrome-selftest.yml` runs the action on Linux, Windows and
   macOS with `PUPPETEER_CACHE_DIR` below a regular file, and passes only when the action fails. It runs on any PR that
   changes the action or `package-lock.json` (a puppeteer upgrade could change the exit code it relies on), and on demand.
+
+## A queued PR reads `auto_merge: null`, and its session concludes nothing is queued
+
+- **Symptom:** after the owner's `merge #N` and a successful `enable_pr_auto_merge`, `GET /pulls/<N>` returns
+  `"auto_merge": null` and `merged: false`. A session reading that decides the PR is not queued, or that the arm
+  "didn't take". Seen on #3410, #3414 and #3412 on 2026-11-22: all three were armed, and #3410 and #3414 were already
+  building in the queue.
+- **Cause:** `main` is governed by a merge queue. The REST `auto_merge` field does not reliably reflect a PR's queue
+  entry. A PR can also be armed but not yet building, because the queue builds at most `max_entries_to_build` (3)
+  entries at once (`workflow.md` §Merge queue — the facts).
+- **How to check:** `git ls-remote origin 'refs/heads/gh-readonly-queue/*'` lists one
+  `gh-readonly-queue/main/pr-<N>-<base-sha>` branch per entry that is building. An armed PR with a green `ci` and no
+  such branch is waiting for a slot. Its merge shows up as a squash commit on `main` naming `(#N)`.
+- **Do not:** disable and re-arm auto-merge over a `null`, merge directly to "make sure" (that skips the queue's
+  re-test), or ask the owner to re-confirm a merge they already typed.
