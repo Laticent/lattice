@@ -7784,11 +7784,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no mousedown and no
 					// click, so the editor never took the focus (three simulator runs on PR #3385, listener lag up to +288 ms;
 					// followups.d/3385-p2-ios-empty-deck-tap-focus.md). A scroll ends in pointercancel, not pointerup, so this
-					// release is a tap. The click that does follow is then the same tap and is skipped.
+					// release is a tap. The mouse events that do follow are then the same tap: its mousedown is cancelled, because
+					// a mousedown on this plain div moves the focus off the editor (iPhone simulator, PR #3436's first head: focus
+					// at pointerup, then mousedown 136 ms later took it away), and its click is skipped.
 					onPointerUp={(e) => {
 						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
 						startGridTapAt.current = e.timeStamp;
 						composeRef.current?.focusEmptyLine();
+					}}
+					onMouseDown={(e) => {
+						if (e.timeStamp - startGridTapAt.current < 800) e.preventDefault();
 					}}
 					onClick={(e) => {
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;

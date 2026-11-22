@@ -98,6 +98,25 @@ test('@parity @webkit-phone a touch tap on the grid canvas puts the caret even w
 	expect(await page.evaluate(() => (window as unknown as { __clicks: number }).__clicks), 'the browser did withhold the click').toBe(0);
 });
 
+test('@parity @webkit-phone a plain touch tap on the grid canvas leaves the caret on the empty line', async ({ page }) => {
+	// The other half: when the browser DOES send the tap's mouse events, they arrive after the release that put the caret.
+	// A mousedown on the grid (a plain div) would move the focus off the editor, so the grid cancels that tap's mousedown.
+	// iPhone simulator, PR 3436's first head: focus came at pointerup, then mousedown 136 ms later took it away.
+	await openEmptyDeck(page);
+	const box = await page.locator('[data-start-grid]').boundingBox();
+	if (!box) throw new Error('the start grid has no box');
+	await page.evaluate(() => {
+		const w = window as unknown as { __clicks: number };
+		w.__clicks = 0;
+		document.addEventListener('click', () => w.__clicks++, true);
+	});
+	await page.touchscreen.tap(box.x + 6, box.y + box.height / 2);
+	// Wait for the tap's own click, the last of its late mouse events, then judge the focus.
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __clicks: number }).__clicks)).toBe(1);
+	await expect(editor(page)).toBeFocused();
+	expect(await page.evaluate(() => document.getSelection()?.anchorNode?.parentElement?.closest('p') != null || document.getSelection()?.anchorNode?.nodeName === 'P'), 'the caret is in the empty line').toBe(true);
+});
+
 test('@crosswidth keys that write nothing leave the deck empty, and Tab reaches the grid', async ({ page }) => {
 	await openEmptyDeck(page);
 	await caretOnEmptyLine(page);

@@ -122,8 +122,10 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   (twice on the iPhone, once on the iPad) Safari delivered the tap's `pointerdown`, `touchstart`, `pointerup` and
   `touchend` to the grid, then no `mousedown` and no `click`, with listener lag of up to +288 ms; the editor never took
   the focus. The grid now puts the caret on a primary touch `pointerup` off its controls (a scroll ends in
-  `pointercancel`, so that release is a tap) and skips the click that follows within 800 ms.
-  `compose-empty-deck.spec.ts` cancels `touchend`, which withholds the click on every engine, and checks the focus.
+  `pointercancel`, so that release is a tap). When the tap's mouse events do follow, they are the same tap: the grid
+  cancels their `mousedown`, which on this plain div moved the focus off the editor (iPhone simulator, focus at
+  `pointerup` and lost to `mousedown` 136 ms later), and skips their `click`, both within 800 ms.
+  `compose-empty-deck.spec.ts` checks both: a tap whose click is withheld (it cancels `touchend`) and a plain tap.
   WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
   by the empty rule.
   On the iPhone simulator (runs 44087025343 and 44092405081) every tap check passed both times. The probe's clean-up,
