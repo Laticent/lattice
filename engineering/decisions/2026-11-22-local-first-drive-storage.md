@@ -57,13 +57,13 @@ summary: Local-first storage with Google Drive sync, decided by the owner on 202
 | Deck list | localStorage `lattice-studio-deck-index` | `S/studio-store.ts:21` |
 | Deck text | localStorage `lattice-studio-src-<id>`, one JSON string per deck | `S/studio-store.ts:25` |
 | Versions | IndexedDB `lattice-studio-versions/checkpoints`, a full copy of the deck per version, 25 per deck | `S/checkpoint-store.ts:50` |
-| Undo history (Filo) | IndexedDB `lattice-filo` | `docs/src/lib/filo/store.ts:278` |
+| Undo history (Filo) | IndexedDB `lattice-filo` | `S/studio-filo-persist.ts:51` |
 | Chats | IndexedDB `lattice-studio-chats/chats`, one record per deck | `S/chat-store.ts:55` |
 | Photos, videos, themes, components, finishes, motion scenes, reference PDFs, plugins | IndexedDB `lattice-workbench/assets`, **each record holds its Blob** | `S/library/asset-db.js:23`, `S/media-store.ts`, `S/library/asset-store.js` |
 | Fonts | No user font files. Only a per-deck embedding choice in localStorage | `S/FontsControl.tsx:35` |
 | Narration audio | IndexedDB `lattice-narration`, an LRU cache | `docs/src/playground/narration-store.js:24` |
 | Settings and preferences | localStorage, about 30 keys | `S/studio-store.ts:1320-1388` |
-| AI keys | localStorage, AES-GCM sealed; the wrapping key is non-extractable in IndexedDB `lattice-secrets` | `docs/src/lib/openrouter-key.js:28` |
+| AI keys | localStorage, AES-GCM sealed; the wrapping key is non-extractable in IndexedDB `lattice-secrets` | `docs/src/lib/openrouter-key.js:40` |
 | Live session (Tavola) | sessionStorage: one `Y.Text('source')`, base64 of the state | `S/live/live-controller.ts:991`, `:1436` |
 
 **OPFS is not used anywhere.** Cache Storage serves only the service worker and model caches.
@@ -73,7 +73,7 @@ summary: Local-first storage with Google Drive sync, decided by the owner on 202
 The Studio calls the browser directly: about 257 localStorage calls in 78 files, and 32 call sites of `openDB()` across
 12 files that open a database. The nearest things to an interface are `S/library/asset-db.js` (one connection that
 about 18 modules share), Filo's `Backend` interface with IndexedDB and in-memory implementations
-(`docs/src/lib/filo/store.ts:283`), and `PosterStore` (`docs/src/components/map-rail/poster-store.ts:20`). The desktop
+(`docs/src/lib/filo/store.ts:283`), and `PosterStore` (`docs/src/components/map-rail/poster-store.ts:21`). The desktop
 follow-up `2354-p1-desktop-decks-as-files` already names the fix: "put a storage interface behind" `studio-store.ts`'s
 free functions.
 
@@ -108,7 +108,7 @@ free functions.
   (peers over WebRTC, found through Nostr relays). It is session state, not storage. Sync does not use it, and it does
   not need sync.
 - **`2026-06-16-lattice-export-format.md` and #3183.** `.lattice` is a zip of `deck.md`, `manifest.json` and optional
-  `packages/` and `media/` (`lib/core/reopenable.js:43`, read by `lib/packages/lattice-read.mjs:61`). It is the right
+  `packages/` and `media/` (`lib/core/reopenable.js:49`, read by `lib/packages/lattice-read.mjs:61`). It is the right
   format to **share** a deck as one file. It is the wrong format to **sync**, because one edited character rewrites the
   whole zip and Drive cannot show what is inside it.
 - **`2026-05-10-tauri-exploration.md` and PR #2354.** #2354 (open, 5 weeks quiet, no merge base with `main`) built a
@@ -121,7 +121,7 @@ free functions.
 - **`followups.d/3356-p1-library-decks-section.md`.** A Decks section in the Library, after #3356 merges. Slice 4
   takes it over.
 - **#3427 is not about data.** The brief listed "the two-person relay (#3427)" under conflicts. #3427
-  (`2026-11-22-two-person-relay.md`) is about two **people relaying a branch** of agent work (a baton, signed commits).
+  (`2026-11-22-two-person-relay.md`, on that PR, not yet on `main`) is about two **people relaying a branch** of agent work (a baton, signed commits).
   It does not touch deck storage. The data case that does matter is the same person on two devices, offline, and §6.3
   covers it.
 
