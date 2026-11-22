@@ -328,6 +328,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// The pointer as last written, for a pick to hand its walk: a pick writes the pointer before the plan loads, so a
 	// plan that fails to load puts back the one the pick replaced (`startWalk`'s `revertTo`).
 	const pointerRef = React.useRef(readerComponent);
+	// The component whose walk LANDED last (or the boot's): what a failed pick puts back. Not `pointerRef`, which an earlier
+	// pick still loading has already moved to a component nobody is reading, and not the walk on screen, which is a deck
+	// and names no component when a gallery is open.
+	const settledRef = React.useRef(readerComponent);
 	/** Point the persisted pointer at `name`: the label the picker shows in Explore, and the key a reload reads. */
 	const rememberComponent = React.useCallback((name: string) => {
 		pointerRef.current = name;
@@ -1690,10 +1694,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// pick (playground-state.spec.ts:52, red under load on a phone). The pointer changes only on a pick, so the pick
 			// is the moment to write it; a plan that lands after a newer pick still returns before it writes anything. A
 			// plan that fails to load puts the previous pointer back, so the picker never names a component nobody is reading.
-			// What goes back is the component ON SCREEN, not the pointer as last written: an earlier pick whose plan has not
-			// landed already moved the pointer to a component nobody is reading.
-			const w = walkRef.current;
-			const revertTo = w?.kind === 'plan' ? w.plan.name : pointerRef.current;
+			// What goes back is the component last SETTLED (`settledRef`), not the pointer as last written: an earlier pick
+			// whose plan has not landed already moved the pointer to a component nobody is reading.
+			const revertTo = settledRef.current;
 			rememberComponent(name);
 			void startWalkRef.current(name, null, { revertTo });
 		},
@@ -2108,10 +2111,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// 390px, red under load).
 			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
-				// A pick wrote the pointer before its plan loaded (`onPickComponent`). The deck on screen is still the one
-				// before the pick, so the pointer goes back to the one the pick replaced: a reload then opens what the reader
-				// was reading, and the picker names it. A newer pick already returned above, so this never undoes one.
-				if (revertTo !== undefined && revertTo !== name) rememberComponent(revertTo);
+				// A pick wrote the pointer before its plan loaded (`onPickComponent`), so the pointer goes back to the component
+				// last settled: a reload then opens it, and the picker names it. A newer pick already returned above, so this
+				// never undoes one. When NO walk is on screen (the pick came before the boot's own walk landed, and superseded
+				// it), that component is walked again, so the reader is not left with an empty Explore and an address that
+				// lost its `?c=`.
+				if (revertTo !== undefined && revertTo !== name) {
+					rememberComponent(revertTo);
+					if (walkRef.current === null) void startWalkRef.current(revertTo, null, { warm: viewRef.current !== 'read' });
+				}
 				// The designed 404 path: the staged tree was rewritten by a deploy while
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)
@@ -2124,6 +2132,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			const planSource = plan.slides.map((s) => s.md).join('\n\n---\n\n');
 			rememberComponent(name);
+			settledRef.current = name;
 			// EXPLORE ENTERED BEFORE ANY WALK HAD LANDED shows what the editor holds when it is not the plan, the same
 			// answer `setViewMode` gives once a walk exists (its save-back). Without this the answer to one click on
 			// Explore depended on how fast a plan fetch was: the draft, or the component's gallery.
@@ -2479,6 +2488,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// The address outranks the stored pointer at boot, so it is the pointer now: a pick whose plan then fails puts
 			// back the component the address opened, not the one storage held before.
 			pointerRef.current = r.name;
+			settledRef.current = r.name;
 			setReaderComponent(r.name);
 			if (r.fallback) setWalkNotice(`“${url.c}” is not a component any more — showing ${r.name}.`);
 		}

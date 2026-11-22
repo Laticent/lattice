@@ -165,6 +165,52 @@ test('@crosswidth after a ?c= boot, a pick whose plan fails puts the address com
 	await failed;
 	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
 	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	// The failed pick superseded the boot's walk, so nothing was on screen: the address component is walked again, and
+	// once its plan arrives it is the deck and the address keeps its `?c=` (it used to be stripped, Explore left empty).
+	release();
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	await expect(page.locator('#pg-template-trigger')).toContainText('big-number');
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// A gallery on screen names no component, so what a failed pick puts back is the component last settled, not the
+// pointer an earlier pick still loading has moved.
+test('@crosswidth with a gallery on screen, a failed pick behind a pick still loading puts back the last settled component', async ({ page }) => {
+	await gotoPlayground(page);
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	const galleries = page.locator('#pg-galleries-trigger');
+	await controlReady(galleries);
+	await galleries.click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog).toBeVisible();
+	await dialog.locator('button', { hasText: /\d+\s+slides?/ }).first().click();
+	await expect(dialog).toBeHidden();
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	const asked = page.waitForRequest((r) => /\/plans\/kpi\.json/.test(r.url()));
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {});
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await asked;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+	await page.route(/\/plans\/cards-stack\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/cards-stack\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('cards-stack');
+	await page.getByRole('option', { name: 'cards-stack', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
 	release();
 	await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
