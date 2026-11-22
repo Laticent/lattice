@@ -33,7 +33,8 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    published build): `npm run torture -- --scenario studio --cycle <actions> --k 40 --cpu 4`.
    Use only cycles `tools/perf-torture/scenarios/studio.mjs` defines (an unknown name throws):
    start with what an author repeats all day: `typing`, `compose`, `palette`, `present`,
-   `deckswitch2`, `insert`, `mixed`. Live, export and chat have no cycle yet: adding one is
+   `deckswitch2`, `insert`, `mixed`. Live, export and chat have no cycle yet
+   (`followups.d/3411-p1-torture-cycles-live-export-chat.md`, the desk's first job): adding one is
    a new scenario cycle in a fix session, written against a local stand-in (the Live e2e
    harness, `docs/e2e/live-panel-harness/`, and a fake model), before it can be tortured.
    `--cpu 4` approximates a slow device; a crash that only a real iPhone shows goes to the
