@@ -773,8 +773,9 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	await fixAll.click();
 	await expect.poll(() => editorDoc(page)).toContain('- Alpha\n  - the body text');
 
-	// An unknown component with no near candidate: nothing to apply, so nothing is offered.
-	await setDeck(page, '<!-- _class: zzznotacomponent -->\n\n# Stray\n');
+	// An unknown component with no near candidate: nothing to apply, so nothing is offered. In a `@meta` record, because
+	// an old `<!-- _class: … -->` comment is itself fixable now (`legacy-directive-comment`, record note §15).
+	await setDeck(page, '<!-- @meta{class=zzznotacomponent} -->\n\n# Stray\n');
 	// Witness that the deck really is flagged — otherwise "disabled" would be true for the
 	// uninteresting reason that the linter never ran.
 	await expect(page.locator('.cm-lint-marker')).toHaveCount(1);
@@ -785,7 +786,8 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
 	await expect.poll(() => fixAll.isEnabled()).toBe(true);
 	await fixAll.click();
-	await expect.poll(() => editorDoc(page)).toContain('<!-- _class: kpi -->');
+	// Fix all fixes the typo, then (last) writes the old comment as a record, typing `kpi` as the layout.
+	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{layout=kpi} -->');
 });
 
 // ── The walk itself ─────────────────────────────────────────────────────────

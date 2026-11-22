@@ -81,7 +81,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
 const FIX_ALL_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
 	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
@@ -155,7 +155,7 @@ test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @m
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
 // Run from the command palette, which every width offers (the phone layout has no "Fix all" button).
 const REFUSED_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');
