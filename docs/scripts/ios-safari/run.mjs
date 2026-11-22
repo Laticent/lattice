@@ -490,7 +490,7 @@ async function composeTouchTap(id) {
 		// still scrolling or settling the page when the point was read, so the tap landed beside the paragraph: nothing was
 		// selected, the editor never took the focus, and the caret stayed where it was. The point is read after the box has
 		// stayed put for five frames (a signal, not a sleep), and only when the paragraph is the element under it.
-		const at = await wd('POST', `/session/${id}/execute/async`, {
+		const aimAt = () => wd('POST', `/session/${id}/execute/async`, {
 			args: [],
 			script: `const done = arguments[arguments.length - 1];
 				const t0 = performance.now();
@@ -511,6 +511,7 @@ async function composeTouchTap(id) {
 				};
 				look();`,
 		});
+		let at = await aimAt();
 		if (!at.hit) return { ok: false, steps, error: `the paragraph never held still under its tap point: at ${at.x},${at.y} the page shows ${at.under} (still for ${at.still} frames)` };
 		// ONE DELIVERY: the touch, then what the page saw of it. WHAT THE PAGE SEES is a capture-phase log of every touch, pointer
 		// and mouse event (time, clientX/clientY, target) and of each selectionchange and contextmenu, read back beside the point
@@ -545,7 +546,7 @@ async function composeTouchTap(id) {
 			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
 			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
-			return { seen, tapMs, hold, selected, landed };
+			return { seen, tapMs, hold, selected, landed, at: { x: at.x, y: at.y } };
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
 		// held for LONG_PRESS_MS or more was a long press, not the tap this step tests, and is delivered once more after the
@@ -556,6 +557,13 @@ async function composeTouchTap(id) {
 		if (decision === 'redeliver') {
 			console.log(`${LABEL}: compose tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 			await new Promise((r) => setTimeout(r, 1000));
+			// AIM AGAIN. A long press selects, and iOS can scroll the editor to show that selection, so the first point can sit
+			// on another block by now: on job 137066156788 the re-sent tap at the same point landed in H2 "Probe slide two",
+			// above the paragraph (followups.d/3385-p2-ios-empty-deck-tap-focus.md). Read the paragraph's point again, held
+			// still five frames as before.
+			const again = await aimAt();
+			if (again.hit) at = again;
+			else console.log(`${LABEL}: compose tap re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
 			tries.push(await deliver(2));
 			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 		}
@@ -571,7 +579,7 @@ async function composeTouchTap(id) {
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
-		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${at.x},${at.y}; ${t.landed}`).join(' || '));
+		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${t.at.x},${t.at.y}; ${t.landed}`).join(' || '));
 		// A POSITIVE CONTROL for the guard, after the verdict and deciding nothing: one long press made on purpose (a 500 ms hold,
 		// which the simulator stretches further), then the re-delivery the guard asks for. It shows, on the real simulator, that
 		// the page's log reads a long press as one and that the tap delivered after it puts the caret back. It costs 9 to 14 s
@@ -583,6 +591,9 @@ async function composeTouchTap(id) {
 			let recovered = null;
 			if (forcedCall === 'redeliver') {
 				await new Promise((r) => setTimeout(r, 1000));
+				// Aim again, as the guarded tap above does: the forced long press can have scrolled the paragraph away.
+				const again = await aimAt();
+				if (again.hit) at = again;
 				recovered = await deliver('control-2');
 			}
 			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
