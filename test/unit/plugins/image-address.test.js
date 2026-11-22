@@ -157,6 +157,16 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
     assert.match(html(out), /class="lattice-bg /);
   });
 
+  test('a carried class is never the slide\'s own: the fix writes a record of its own, so later slides stay as they were', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{class=dark, carry} -->\n\n## T\n\n![bg](photo.jpg "The lake")\n\n---\n\n## Next\n';
+    const out = fixed(md);
+    assert.match(out, /<!-- @meta\{class=dark, carry\} -->/, 'the carry record is untouched');
+    const next = html(out).split('<section').slice(2).join('<section');
+    assert.doesNotMatch(next, /class="[^"]*\bbleed\b/, 'the next slide does not gain bleed');
+    assert.equal(classLineWith('<!-- @meta{class=dark, carry} -->', 'bleed'), null);
+    assert.equal(classLineWith('<!-- @meta{pane=bar} -->', 'bleed'), null);
+  });
+
   test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {
     const { placedPictureInSlide } = require('../../../lib/core/placed-picture.js');
     const { boundaryParser } = require('../../../lib/core/boundary-parser.js');

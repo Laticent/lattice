@@ -22,7 +22,9 @@ test('fields, flags, carry, quoting and the comment end', () => {
   assert.equal(metaComment({ class: 'stats', footer: 'Q3, review', build: true, backgroundColor: '#fff' }), '<!-- @meta{layout=stats, footer="Q3, review", build, background-color=#fff} -->');
   assert.equal(metaComment({ footer: 'x' }, { carry: true }), '<!-- @meta{footer=x, carry} -->');
   assert.equal(metaComment({ footer: 'a\n  b' }), '<!-- @meta{footer=a b} -->');
-  assert.equal(metaComment({ footer: 'a --> b' }), '<!-- @meta{footer="a --\\> b"} -->');
+  // A value never ends the comment: `-->` folds to `->`, as the structured edit folds it, and the record still reads.
+  assert.equal(metaComment({ footer: 'a --> b' }), '<!-- @meta{footer="a -> b"} -->');
+  assert.match(createEngine().render(`${metaComment({ footer: 'a --> b --!> c' })}\n\n# A`).html, /data-footer="a -(?:&gt;|>) b -!(?:&gt;|>) c"/);
   assert.equal(metaComment({ footer: '', build: false, header: null }), '');
   assert.equal(metaRecord([['pane', 'bar']]), '{pane=bar}');
 });

@@ -305,6 +305,11 @@ describe('writeMeta writes @meta only, and a moved setting renders the same', ()
     ['<!-- backgroundColor: #123456 -->\n\n# A', { backgroundColor: '#123456' }],
     ['<!-- _backgroundColor: #123456 -->\n\n# A', { backgroundColor: '#123456' }],
     ['<!-- _paginate: false -->\n\n# A', { paginate: 'false' }],
+    // An old comment beside a record (what the gallery generator writes for every sample slide): the attributes keep
+    // their order, so the HTML stays byte for byte (the checker on this change).
+    ['<!-- _footer: Q3 -->\n<!-- @meta{layout=stats} -->\n\n# A', { footer: 'Q3' }],
+    ['<!-- _class: lead -->\n<!-- @meta{footer=x} -->\n\n# A', { class: 'lead' }],
+    ['<!-- @meta{layout=stats} -->\n<!-- _footer: Q3 -->\n\n# A', { footer: 'Q3' }],
   ];
   for (const [slide, patch] of cases) {
     test(`${JSON.stringify(slide)} → a record, same HTML and CSS`, () => {
@@ -322,6 +327,26 @@ describe('writeMeta writes @meta only, and a moved setting renders the same', ()
     const slide = '<!-- backgroundColor: #123456 -->\n\n# A';
     const spot = '<!-- @meta{background-color=#123456} -->\n\n# A';
     assert.notEqual(engine.render(deck(spot)).html, engine.render(deck(slide)).html);
+  });
+  test('a comment inside a quote or a list, and a deck-wide key, are left to the markdown', () => {
+    // A record there applies nothing, and a slide record cannot hold `lang`: moving either would drop it from the render.
+    for (const [slide, patch, reason] of [
+      ['> <!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }, 'nested'],
+      ['- <!-- _class: lead -->\n\n# A', { class: 'lead invert' }, 'nested'],
+      ['<!-- _lang: fr -->\n\n# A', { lang: 'de' }, 'deck'],
+      ['# A', { lang: 'de' }, 'deck'],
+    ]) {
+      const key = Object.keys(patch)[0];
+      assert.equal(edit.readMetaField(slide, key).reason, reason, slide);
+      assert.equal(edit.readMetaField(slide, key).editable, false, slide);
+      assert.equal(edit.writeMeta(slide, patch), slide, slide);
+      const out = engine.render(deck(slide)).html;
+      assert.equal(engine.render(deck(edit.writeMeta(slide, patch))).html, out);
+    }
+  });
+  test('the failing arm: a nested record applies nothing', () => {
+    assert.match(engine.render(deck('> <!-- _footer: Q3 -->\n\n# A')).html, /data-footer="Q3"/);
+    assert.doesNotMatch(engine.render(deck('> <!-- @meta{footer=Q3} -->\n\n# A')).html.split('</section>')[0], /data-footer=/);
   });
   test('no write anywhere in the edit produces the old form or the bare form', () => {
     const outs = [

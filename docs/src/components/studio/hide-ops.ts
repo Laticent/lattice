@@ -31,7 +31,8 @@ function withoutHideLines(text: string): string {
 		// A record that sets more than `hide` (`<!-- @meta{hide, footer=Q3} -->`, which a drawer edit makes by joining the
 		// record Hide wrote) loses only its `hide` field: its other settings are the slide's, not the hide's.
 		const rest = setCommentField(t.content.trim(), 'hide', '');
-		if (rest && rest !== t.content.trim() && /^<!--\s*(?:\{|@meta\{)/.test(rest)) kept.set(t.map[0], rest);
+		// A record left with nothing but `carry` sets nothing, so it goes too.
+		if (rest && rest !== t.content.trim() && /^<!--\s*(?:\{|@meta\{)/.test(rest) && !/^<!--\s*(?:@meta)?\{\s*carry\s*\}\s*-->$/.test(rest)) kept.set(t.map[0], rest);
 		cut.push(t.map);
 	}
 	const blank = (i: number) => i < 0 || i >= lines.length || lines[i].trim() === '';

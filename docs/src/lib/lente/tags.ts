@@ -53,6 +53,28 @@ function isBlank(s: string): boolean {
 	return true;
 }
 
+/** A record body's items, split on the commas outside double quotes (`footer="Q3, review"` stays one item). */
+function splitItems(body: string): string[] {
+	const out: string[] = [];
+	let cur = '';
+	let quoted = false;
+	for (let i = 0; i < body.length; i++) {
+		const c = body[i];
+		if (c === '\\' && quoted) {
+			cur += c + (body[i + 1] ?? '');
+			i++;
+			continue;
+		}
+		if (c === '"') quoted = !quoted;
+		if (c === ',' && !quoted) {
+			out.push(cur);
+			cur = '';
+		} else cur += c;
+	}
+	out.push(cur);
+	return out;
+}
+
 /** The layout a slide's settings RECORD names (`<!-- @meta{layout=cards-grid, class=dark} -->`, the form the Studio writes
  *  since the clean break; the bare `<!-- {…} -->` too), OUTSIDE any fenced code block, by plain string scanning: the
  *  `layout` field, else the first word of `class`. Null when no record names one. */
@@ -74,7 +96,7 @@ export function findRecordLayout(src: string, ranges?: Array<[number, number]>):
 		if (end < 0) continue;
 		let layout: string | null = null;
 		let cls: string | null = null;
-		for (const item of inner.slice(1, end).split(',')) {
+		for (const item of splitItems(inner.slice(1, end))) {
 			const eq = item.indexOf('=');
 			if (eq < 0) continue;
 			const name = item.slice(0, eq).trim();

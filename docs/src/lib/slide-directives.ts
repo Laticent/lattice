@@ -1,10 +1,11 @@
 // Per-slide directive editing — the substrate under the "This slide" drawer.
 //
-// The drawer edits a single slide's `<!-- _class: … -->` token list (and reads its
-// four notes, via slide-notes.ts, which shares this module's fence + note
-// helpers). Every edit is a PURE, SPAN-SURGICAL string transform: it rewrites ONLY
-// the `_class:` value's character range and leaves every other byte — other
-// directives, the body, whitespace, unknown/hand-authored tokens — untouched. It
+// The drawer edits a single slide's class token list (and reads its four notes, via
+// slide-notes.ts, which shares this module's fence + note helpers). Every edit is a
+// PURE string transform through lib/core/meta-edit.mjs: it writes the class into the
+// slide's `<!-- @meta{…} -->` record (moving it out of an old `<!-- _class: … -->`
+// comment, in that comment's place) and leaves every other byte — other settings,
+// the body, whitespace, unknown/hand-authored tokens — untouched. It
 // never splits-mutates-rejoins the deck, never normalizes, and never edits inside a
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
@@ -124,7 +125,7 @@ export type ClassDirective = {
 	 *  duplicate `_class` comment) — the drawer goes read-only ("edit in markdown"). */
 	editable: boolean;
 	/** Why editable is false, for the UI hint. */
-	reason?: 'array-form' | 'duplicate' | 'record';
+	reason?: 'array-form' | 'duplicate' | 'record' | 'nested' | 'deck';
 	/** The class comes from a record (`<!-- {layout=cards} -->`), edited in it (lib/core/meta-edit.mjs). */
 	record?: boolean;
 	/** Absolute [start, end) of the token VALUE to splice (present + editable only). */
@@ -139,9 +140,9 @@ export type ClassDirective = {
 export function readClassDirective(chunk: string): ClassDirective {
 	const f = readMetaField(chunk, 'class');
 	if (!f.present || !f.editable) {
-		// A record that does not read shows its class (what the slide renders with) but is not rewritten: the linter
-		// names it (`meta-record`). A record that reads is edited in place, below.
-		const tokens = f.reason === 'record' ? f.value.split(/\s+/).filter(Boolean) : [];
+		// A record that does not read, or a class comment inside a quote or a list, shows its class (what the slide renders
+		// with) but is not rewritten: the linter names it. A record that reads is edited in place, below.
+		const tokens = f.reason === 'record' || f.reason === 'nested' ? f.value.split(/\s+/).filter(Boolean) : [];
 		return f.present ? { tokens, present: true, editable: false, reason: f.reason } : { tokens: [], present: false, editable: true };
 	}
 	if (f.record) return { tokens: f.value.split(/\s+/).filter(Boolean), present: true, editable: true, record: true, commentSpan: f.commentSpan };
@@ -167,13 +168,15 @@ export function canEditClass(chunk: string): boolean {
 
 /**
  * Set the slide's `_class` tokens to EXACTLY `tokens`, span-surgically:
- *   • present + editable → splice the value range, touching nothing else;
+ *   • in an old `_class` comment → moved into a record in the comment's place (or into the slide's record when
+ *     that comes first), so the slide renders as before;
  *   • empty tokens + sole-directive comment → remove the whole comment (+ a blank line);
  *   • empty tokens + compound comment → drop just the `_class:` line;
  *   • from a record → edited in the record, its typed fields kept where they can be (lib/core/meta-edit.mjs);
- *   • absent + non-empty → joins the slide's record if it has one, else prepends `<!-- _class: … -->` (the form
- *     follows the slide: a deck written in comments stays readable in Marp until the cut);
- *   • not editable → returned unchanged (caller gates on canEditClass()).
+ *   • absent + non-empty → joins the slide's record if it has one, else prepends `<!-- @meta{layout=…} -->`
+ *     (record note §15: the Studio writes `@meta` only);
+ *   • not editable (a duplicate, a YAML array, a comment inside a quote or list) → returned unchanged
+ *     (caller gates on canEditClass()).
  * Tokens are written verbatim in the given order — the caller preserves unknown /
  * hand-authored tokens by reading getClassTokens() first and mutating that array.
  */
