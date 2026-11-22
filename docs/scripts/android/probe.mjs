@@ -9,7 +9,8 @@
  * centre of its bounds, and judges what the system chooser lists. Two arms:
  *   - THE CONTROL: a page whose only input accepts application/pdf, read while Chrome lacks the camera permission. Chrome
  *     then opens Files with no camera, so a reader that cannot tell a camera option from a files option fails here
- *     first. A probe that passes its control can fail. (With the permission, this image's Chrome 113 offers Camera on
+ *     first. In that Files window it also looks for a deck that was never pushed, which must be reported missing: the
+ *     failing arm of the Studio's listing step. A probe that passes its control can fail. (With the permission, this image's Chrome 113 offers Camera on
  *     every file input, a PDF-only one included, so the control cannot run with it.)
  *   - THE STUDIO: Library, Import. It must offer the camera (set by the permission this probe grants, so it guards the
  *     chooser, not Library.tsx), and a .lattice pushed to Downloads must be LISTED where its files row leads: the probe
@@ -169,7 +170,7 @@ async function chooser(name, { keepOpen = false } = {}) {
 
 /** From an open chooser, follow the files route and wait for DECK on screen. Files opens on Recent; if the deck is not
  *  there, open the roots drawer once and pick Downloads. Bounded at 45 s; every screen it reads is saved. */
-async function reachDeck(open) {
+async function reachDeck(open, deck = DECK, ms = 45_000) {
 	const rows = open.rows.filter((n) => label(n));
 	if (!open.options.includes('[the Files app is open]')) {
 		const route = rows.find((n) => files([label(n)])) || [...rows].reverse().find((n) => !camera([label(n)]));
@@ -181,12 +182,12 @@ async function reachDeck(open) {
 	let drawer = false;
 	let went = false;
 	let last;
-	while (Date.now() - t0 < 45_000) {
+	while (Date.now() - t0 < ms) {
 		last = nodes();
-		if (last.out.some((n) => n.text === DECK || n.desc.includes(DECK))) {
-			fs.writeFileSync(path.join(OUT, 'studio-deck.xml'), last.xml);
+		if (last.out.some((n) => n.text === deck || n.desc.includes(deck))) {
+			fs.writeFileSync(path.join(OUT, `deck-${deck}.xml`), last.xml);
 			adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
-			return { ok: true, detail: `${DECK} listed by ${[...new Set(last.out.filter((n) => n.text === DECK).map((n) => n.pkg))].join(', ')}` };
+			return { ok: true, detail: `${deck} listed by ${[...new Set(last.out.filter((n) => n.text === deck).map((n) => n.pkg))].join(', ')}` };
 		}
 		const downloads = last.out.find((n) => /documentsui/.test(n.pkg) && /^Downloads$/.test(n.text));
 		const roots = last.out.find((n) => /documentsui/.test(n.pkg) && /^Show roots$/.test(n.desc));
@@ -200,10 +201,10 @@ async function reachDeck(open) {
 		}
 		await sleep(500);
 	}
-	fs.writeFileSync(path.join(OUT, 'studio-deck-missing.xml'), last?.xml || '');
+	fs.writeFileSync(path.join(OUT, `deck-${deck}-missing.xml`), last?.xml || '');
 	adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
 	const seen = [...new Set((last?.out || []).map(label).filter(Boolean))].slice(0, 20);
-	return { ok: false, detail: `not on screen within 45 s (${[...new Set((last?.out || []).map((n) => n.pkg))].join(', ')}): ${seen.join(' · ')}` };
+	return { ok: false, detail: `${deck} not on screen within ${ms / 1000} s (${[...new Set((last?.out || []).map((n) => n.pkg))].join(', ')}): ${seen.join(' · ')}` };
 }
 
 const steps = [];
@@ -235,9 +236,13 @@ try {
 	adb('shell', 'pm', 'revoke', 'com.android.chrome', 'android.permission.CAMERA');
 	open(`${BASE}/__chooser-control.html`);
 	await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
-	const control = await chooser('control');
+	const control = await chooser('control', { keepOpen: true });
 	step('control: a PDF-only (application/pdf) input offers files', files(control.options), control.options.join(' · '));
 	step('control: a PDF-only (application/pdf) input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
+	// The failing arm of the Studio's listing step, on every run: the same reachDeck, in the same Files window, asked for a
+	// deck that was never pushed. It must come back "not listed", or the listing step could never fail.
+	const absent = await reachDeck(control, 'never-pushed.lattice', 15_000);
+	step('control: a deck that is not in Downloads is reported missing (so the listing step can fail)', !absent.ok, absent.detail);
 
 	// The camera back, as on a phone in use, so Android's chooser, not its permission prompt, is what the Studio arm reads.
 	adb('shell', 'pm', 'grant', 'com.android.chrome', 'android.permission.CAMERA');
