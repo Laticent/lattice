@@ -59,11 +59,18 @@ const editorBuilt = () => document.querySelector('.cm-editor') !== null;
 // check below reads the gate, not the time. The filter matches the backstop's delay AND its caller, because other
 // Studio timers also use 6 s.
 const realSetTimeout = window.setTimeout;
+// How many backstop timers this test dropped: the phone case asserts it, so a renamed module or a changed delay fails
+// loudly here instead of quietly bringing the race back.
+let droppedBackstops = 0;
 beforeEach(() => {
-	vi.spyOn(window, 'setTimeout').mockImplementation(((fn: TimerHandler, ms?: number, ...rest: unknown[]) =>
-		ms === FIRST_SLIDE_BACKSTOP_MS && /first-slide/.test(new Error().stack ?? '')
-			? 0
-			: realSetTimeout(fn, ms, ...rest)) as typeof window.setTimeout);
+	droppedBackstops = 0;
+	vi.spyOn(window, 'setTimeout').mockImplementation(((fn: TimerHandler, ms?: number, ...rest: unknown[]) => {
+		if (ms === FIRST_SLIDE_BACKSTOP_MS && /first-slide/.test(new Error().stack ?? '')) {
+			droppedBackstops++;
+			return 0;
+		}
+		return realSetTimeout(fn, ms, ...rest);
+	}) as typeof window.setTimeout);
 });
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -106,6 +113,7 @@ describe('the editor waits for the first slide only where it is hidden', () => {
 	it('phone: held until the first slide, then built, and it stays built', async () => {
 		setViewport('mobile');
 		const { StudioShell, slide } = await fresh();
+		expect(droppedBackstops, 'the backstop filter matched nothing: first-slide renamed or its timer changed').toBe(1);
 		render(<StudioShell options={options} />);
 		await screen.findByTestId('deck-preview');
 		// The window a wrongly-built editor would need: its lazy chunk loaded, and every render that follows from it done.

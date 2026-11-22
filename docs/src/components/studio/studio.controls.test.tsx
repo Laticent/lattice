@@ -71,11 +71,18 @@ afterEach(() => {
 // caller, so every other timer runs. No test here checks the fade itself.
 const NOTE_FADE_MS = new Set([6000, 1800]);
 const realSetTimeout = globalThis.setTimeout;
+// Which fade timers this test dropped, by delay: two note-writing tests assert it, so a changed delay fails loudly
+// there instead of quietly bringing the race back.
+const droppedFades: number[] = [];
 beforeEach(() => {
-	vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) =>
-		ms !== undefined && NOTE_FADE_MS.has(ms) && /StudioShell\.tsx/.test(new Error().stack ?? '')
-			? (0 as unknown as ReturnType<typeof setTimeout>)
-			: realSetTimeout(fn, ms, ...rest)) as typeof setTimeout);
+	droppedFades.length = 0;
+	vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+		if (ms !== undefined && NOTE_FADE_MS.has(ms) && /StudioShell\.tsx/.test(new Error().stack ?? '')) {
+			droppedFades.push(ms);
+			return 0 as unknown as ReturnType<typeof setTimeout>;
+		}
+		return realSetTimeout(fn, ms, ...rest);
+	}) as typeof setTimeout);
 });
 afterEach(() => {
 	vi.restoreAllMocks();
@@ -467,6 +474,7 @@ describe('Studio — every top-bar control responds', () => {
 		await stripAction(user, /^Duplicate/);
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 2);
+		expect(droppedFades, 'the strip-note fade filter matched nothing: its delay or caller changed').toContain(6000);
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start + 1));
 	});
@@ -571,6 +579,7 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(firstHeading()).not.toBe(before));
 		expect(document.querySelector('[data-confirming]')?.textContent).toMatch(/Added before “/);
 		expect(screen.queryByRole('button', { name: /^Move before$/i })).toBeNull();
+		expect(droppedFades, 'the door-note fade filter matched nothing: its delay or caller changed').toContain(1800);
 	});
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {
