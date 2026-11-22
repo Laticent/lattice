@@ -9840,7 +9840,8 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
 // `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
-// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml.
+// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
+// checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
 const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
@@ -10074,6 +10075,9 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     seen.add(s.name);
     if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
       errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
+    }
+    if (Array.isArray(s.os) && s.os.includes('ubuntu-24.04') && !/(^|\s)(bash\s+)?docs\/scripts\/android\//.test(String(s.run || ''))) {
+      errors.push(`${at}: \`ubuntu-24.04\` is for the Android emulator suite only (a \`run\` under docs/scripts/android/); a Linux check that needs no emulator belongs in ci.yml.`);
     }
     if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
       errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
