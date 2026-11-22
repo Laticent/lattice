@@ -279,6 +279,42 @@ Open for the owner (the PR's ❓ card): what a session does with commits git rej
 (today: keep them in the sandbox and tell the owner), and whether a commit-msg hook should add
 `Relay-Actor:` and a SessionStart line should warn when `LATTICE_ACTOR` is unset.
 
+## Usage checkpoints (decided 2026-11-22)
+
+The owner added a requirement and answered a second `AskUserQuestion` round in the workflow desk's
+session (about 20:12 UTC): every running session hands off at 25, 50, 75 and 90% of the account's weekly
+usage, and past 75% only critical work continues.
+
+- **U1 Source: the owner calls each level.** The owner types, for example, `usage 50` in the command
+  center, which sends one line to each live session on that account. Measured facts:
+  - `get_session`'s `external_metadata.rate_limit_info` is `{status, rateLimitType: "seven_day",
+    resetsAt, isUsingOverage}`, with **no percentage**. `status` turned from `allowed` to
+    `allowed_warning` at about 25%, by the owner's reading, so it warns early and is not a near-limit
+    alarm.
+  - The installed CLI computes `rate_limits.seven_day.used_percentage` for the status line. **Whether a
+    cloud session can read it: UNVERIFIED.** The probe (a status-line command in an uncommitted
+    `.claude/settings.local.json` that copies its input to a file) did not run: this worker session's
+    permission check refused the settings write, and the worker did not work around it. If the owner
+    wants it tried, the probe runs in a session whose permissions allow it, and any committed status-line
+    change is its own question to the owner.
+- **U2 At a level.** At 25, 50 and 75%: checkpoint now (push, edit the living handoff comment), then
+  continue. At 90%: the same, then `npm run baton -- release`, so a session on the other person's account
+  (a separate weekly limit) can take the branch at once. **90% is mandatory.**
+- **U3 Past 75%.** The command center proposes keep or pause, one line per session, with the reason.
+  - Critical: release-gate work (meta, Segno), red-on-main fixes (#33), and work needed to reach a merge
+    the owner already asked for.
+  - Not critical: census and cleanup, raise rounds nobody waits on, design competitions, new desks.
+  - **Nothing pauses until the owner replies.** Pausing is: checkpoint, `npm run baton -- release`, the
+    line `paused at 75%, resume after <resetsAt as UTC>` in the living comment, then idle. Resuming is
+    after the reset, on the owner's word, or sooner if the other person's session takes the baton.
+- **U4 Spend past 75%.** The raise loop is capped at 1 round; no new multi-agent fan-outs; only the
+  mandated card checker runs. Work that needs the adversarial trio is **not started** past 75%: it waits
+  for the reset, and the trio is never skipped. A card that could not be raised says so.
+- **Accounts.** Each account's meter is separate, and Kirk's sessions are invisible to Picard's command
+  center, so each person's command center broadcasts to its own sessions only.
+
+These are workflow rules in `engineering/workflow.md` §Relay; no tool, hook or CI step changes.
+
 ## What this does not fix
 
 - A session that stops loses what it had not pushed (see §As built).

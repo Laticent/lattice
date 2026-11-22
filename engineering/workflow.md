@@ -150,6 +150,30 @@ With `LATTICE_ACTOR` unset, sign nothing and say so (the tools warn and print un
 roster lacks, the tools refuse. A session never invents a name. Setting the variable is each person's own
 environment change, approved in their account.
 
+### Usage checkpoints — 25, 50, 75, 90% of the weekly limit
+
+Each account has its own weekly meter, and no tool can read its percentage today (`get_session` shows
+only `allowed` / `allowed_warning`, which flips at about 25%). So **the owner calls each level**: typing
+`usage 50` in the command center sends one line to every live session on that account. Each person's
+command center reaches only its own sessions. Decision: `2026-11-22-two-person-relay.md` §Usage
+checkpoints.
+
+| Level | Every session |
+|---|---|
+| 25, 50, 75% | checkpoint now (push, edit the living comment), then continue |
+| **90% (mandatory)** | checkpoint, then `npm run baton -- release`, so the other person's session can take the branch at once |
+
+**Past 75%, only critical work continues.** The command center proposes keep or pause, one line per
+session with the reason; **nothing pauses until the owner replies**. Critical: release-gate work,
+red-on-main fixes (#33), work needed to reach a merge the owner already asked for. Not critical: census
+and cleanup, raise rounds nobody waits on, design competitions, new desks. A paused session checkpoints,
+releases, writes `paused at 75%, resume after <resetsAt as UTC>` in its living comment and goes idle; it
+resumes after the reset on the owner's word, unless the other person's session takes the baton first.
+
+**Spend past 75%:** the raise loop runs at most 1 round, no new multi-agent fan-out starts, and only the
+mandated card checker runs. Work that needs the adversarial trio does not start until the reset; the
+trio is never skipped. A card that could not be raised says so.
+
 ### What the baton does not do
 
 It is discipline plus a tool, not a gate: nothing blocks a push, and a pre-push hook for it would be a
