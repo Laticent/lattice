@@ -955,14 +955,17 @@ describe('PreviewPool — a tile of another shape', () => {
 		expect(last.capacity, 'the spare is not more tiles on screen').toBe(4);
 	});
 
-	it('gives the spare back once the grid holds one shape again, and never passes HARD_MAX_SLOTS', () => {
+	it('keeps the Mermaid frame through a filter round trip, and gives the spare back on a look change', () => {
+		// A filter (or a looks panel remounted per open) unregisters the Mermaid tile for a while. Its frame must survive
+		// that: reading staleness from the registered tiles trimmed it, or gave it to a plain tile, and a new frame was
+		// made on every round trip (checker 18, measured: mounts and unmounts +1 each per round trip).
 		const MER = '```mermaid\ngraph TD\n```';
 		const reports: PoolReport[] = [];
-		const Pool = ({ withMer }: { withMer: boolean }) => (
+		const Pool = ({ withMer, palette = 'a' }: { withMer: boolean; palette?: string }) => (
 			<PreviewPool maxSlots={4} onSettle={(r) => reports.push(r)}>
 				{['# 0', '# 1', '# 2', '# 3', ...(withMer ? [MER] : [])].map((sample, i) => (
 					<div key={sample} data-testid={`tile-${i}`}>
-						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} className="aspect-video w-full" />
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} paletteOverride={palette} className="aspect-video w-full" />
 					</div>
 				))}
 			</PreviewPool>
@@ -978,16 +981,31 @@ describe('PreviewPool — a tile of another shape', () => {
 				intersect(face(container, i), true);
 			}
 		};
-		show([0, 1, 2, 4], []);
+		// Four plain frames first, so the Mermaid tile's frame is the spare at the END of the list, where the trim pops.
+		show([0, 1, 2, 3], []);
 		settle();
-		show([3], [4]);
+		show([4], [3]);
 		settle(RELEASE_GRACE + APPLY_MS + 50);
 		expect(reports[reports.length - 1].slots).toBe(4 + SHAPE_SPARE);
-		// The Mermaid tile leaves the grid: its frame is now stale, and the pool trims back to the ceiling.
-		rerender(<Pool withMer={false} />);
+		reshapes = 0;
+		const [m0, u0] = [mounts, unmounts];
+		for (let round = 0; round < 3; round++) {
+			rerender(<Pool withMer={false} />);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			rerender(<Pool withMer />);
+			show([0, 1, 2, 4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			expect(showing(container)).toContain(MER);
+		}
+		expect([mounts - m0, unmounts - u0], 'a filter round trip destroyed or made a frame').toEqual([0, 0]);
+		expect(reshapes, 'a filter round trip rewrote a frame across the Mermaid boundary').toBe(0);
+		// A look change with the Mermaid tile gone: every old frame is stale, the grid is one shape, the spare goes back.
+		rerender(<Pool withMer={false} palette="b" />);
+		show([0, 1, 2, 3], []);
+		settle();
 		show([], [0, 1, 2, 3]);
 		settle(RELEASE_GRACE + APPLY_MS + 50);
-		expect(reports[reports.length - 1].slots, 'the spare outlived the grid that needed it').toBe(4);
+		expect(reports[reports.length - 1].slots, 'the spare outlived the look that needed it').toBe(4);
 		expect(slotRoom(12, false)).toBe(12);
 		expect(slotRoom(12, true)).toBe(12 + SHAPE_SPARE);
 		expect(slotRoom(HARD_MAX_SLOTS, true)).toBe(HARD_MAX_SLOTS);

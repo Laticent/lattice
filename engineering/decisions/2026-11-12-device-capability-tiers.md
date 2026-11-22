@@ -306,11 +306,13 @@ as an argument with that read as the default, so its tests pass the tier in and 
   the twelfth plain tile took the Mermaid frame, and the Mermaid tile rewrote a plain one, on every reopen, with no bound
   (MR-3 under `?tier=lite`: 31 steals in 12 runs, about two documents per reopen, each permanent on WebKit). With the
   spare: 0 steals, and the document count flat across reopens in 12 of 12 runs. The spare is not one more tile on
-  screen: the pool's reported `capacity` stays the ceiling. "Mixes" is read from the TILES in the grid, never from the
-  frames: a palette, mode or theme change leaves every free frame keyed to a shape no tile has now, and the pool reuses
-  those stale frames before it grows (growing past them doubled a one-shape grid on FULL, 10 frames to 20, the
-  checker's find). So a one-shape grid never uses the spare, and a grid the Mermaid tile leaves trims back to the
-  ceiling. It applies on every tier and to a host's own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
+  screen: the pool's reported `capacity` stays the ceiling. A frame is STALE when no tile has its LOOK (palette, mode,
+  theme) any more: a look change leaves every free frame stale, and the pool reuses stale frames before it grows
+  (growing past them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is never read from which tiles are
+  registered, because a filter or a remounted panel unregisters the Mermaid tile for a while, and calling its frame
+  stale then cost a new frame on every round trip (both found by the checker). So a one-shape grid never uses the
+  spare, and a grid that once mixed shapes keeps it until a look change retires it. It applies on every tier and to a
+  host's own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
 - **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
   yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
   earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a

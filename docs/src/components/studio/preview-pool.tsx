@@ -206,6 +206,12 @@ function shapeKey(p: PooledPreviewProps): string {
  * docstring above exists to warn about, reappearing inside the pool. Every grid today is uniform,
  * so this partitions nothing; it is here so that stays true when one is not.
  */
+/** The part of `shapeKey` that is the deck's LOOK rather than the tile's kind: a palette, mode or theme change moves
+ *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). */
+function lookKey(p: PooledPreviewProps): string {
+	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
+}
+
 function identityKey(p: PooledPreviewProps): string {
 	const o = p.options;
 	return `${p.specimen ? 'S' : '-'}|${o.themeBase}|${o.runtimeUrl}|${o.engineUrl}|${o.katexUrl || ''}`;
@@ -577,12 +583,16 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				.map((x) => x.t);
 			const next = slotsRef.current.map((s) => ({ ...s }));
 			const held = new Set<number>();
-			// The shapes the GRID holds now, as opposed to the shapes its frames were built for. A palette, mode or theme
-			// change leaves every free frame keyed to a shape no tile has any more: such a frame is STALE, the first to
-			// reuse, and never a reason to grow (the SHAPE_SPARE rule below would otherwise double a one-shape grid's
-			// frames on every palette change). `mixed` is the grid mixing shapes, the only case the spare is for.
-			const live = new Set([...tiles.current.values()].map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`));
-			const mixed = live.size > 1;
+			// A STALE frame is one built for a LOOK (palette, mode, theme) no tile has any more: a palette change leaves every
+			// free frame keyed to the old look, and such a frame is the first to reuse and never a reason to grow (growing past
+			// them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is read from the look and never from which
+			// tiles happen to be registered: a filter or a remounted panel unregisters the Mermaid tile for a while, and
+			// calling its frame stale then handed it to a plain tile, or trimmed it, on every round trip (checker 18).
+			const looks = new Set([...tiles.current.values()].map((t) => lookKey(t.props)));
+			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props));
+			// `mixed`: the grid holds more than one shape of the current look, counting the frames a filtered-out tile left
+			// behind. Only then is the spare for anything; a look change retires the rest and the trim gives it back.
+			const mixed = new Set([...[...tiles.current.values()].map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`), ...next.filter((x) => !stale(x)).map((x) => `${x.id}\u0000${x.key}`)]).size > 1;
 			// 1. A tile keeps the slot it already has — but ONLY if it survived the cap above.
 			//
 			//    Testing `holding()` here instead was a real bug and a visible one: a tile that had
@@ -637,10 +647,10 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				// document count flat across reopens in 12 of 12 runs. Owner's call, 2026-11-22
 				// (2026-11-12-device-capability-tiers.md §4.2). Still bounded by HARD_MAX_SLOTS.
 				//
-				// A STALE frame (built for a shape no tile has now, see `live`) goes before any new one: its document is
-				// lost to this grid either way, so reusing it costs the same write and keeps the frame count where it was.
+				// A STALE frame (built for a look no tile has now, see `stale`) goes before any new one: no tile can patch
+				// into it, so reusing it costs the same write and keeps the frame count where it was.
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
-				let slot = free.find((s) => s.key === k) ?? free.find((s) => !live.has(`${s.id}\u0000${s.key}`));
+				let slot = free.find((s) => s.key === k) ?? free.find(stale);
 				if (!slot && next.length < slotRoom(ceilingRef.current, mixed)) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
@@ -670,8 +680,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
 			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
 			// tile leaves, since the cap above already keeps `want` within the ceiling. A pool that holds more than one shape keeps
-			// its SHAPE_SPARE while its TILES mix shapes: trimming it would hand the steal straight back on the next traversal.
-			// Once the grid holds one shape again (the Mermaid tile left it), the spare goes back with the rest.
+			// its SHAPE_SPARE while `mixed`: trimming it would hand the steal straight back on the next traversal.
+			// Once a look change leaves the grid one shape, the spare goes back with the rest.
 			while (next.length > slotRoom(ceilingRef.current, mixed) && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
