@@ -7,7 +7,8 @@ summary: The owner's naming rules and rename decisions for deck front-matter key
 
 **Decided.** The owner answered each naming question in the command-center session
 (`session_015KSkL7uv5r7CPSaDnS9F2c`), through its question dialogs between 23:30 and 23:42 UTC, and
-said "go renames" at 23:49 UTC on 2026-11-21. This note
+said "go renames" at 23:49 UTC on 2026-11-21. Two later answers came the same way at 00:09 UTC on
+2026-11-22 (the Q4 key name, Q7 still open), and one in the naming session itself (§4 step 1). This note
 records those answers so each rename PR can point here instead of at a chat transcript. Nothing in
 this note is built yet; each rename ships as its own PR (§4).
 
@@ -94,9 +95,9 @@ It sets how the pass / warn / fail colors draw, and it pairs with `stamp-shape:`
 - A separate intensity key, `muted | vivid`. It sets how loud the pass / warn / fail status colors
   are across the deck, under any chart finish (`lib/core/resolve-marks.js`), so it is a status key,
   not only a chart key. **It is `color-intensity: muted | vivid`** (owner, 2026-11-22 00:09 UTC),
-  chosen over `chart-intensity` (hides the status marks) and `status-intensity` (undersells the
-  charts): it says what it changes, how strong colors are, for checklist discs, KPI pills, policy
-  badges and charts alike.
+  over the other two options the dialog offered, `chart-intensity` ("suggests charts only") and
+  `status-intensity` ("undersells the charts"). In the dialog's words, it "says what it changes
+  (how strong colors are) for charts and status marks alike".
 
 **This reverses an earlier rename.** `chart-finish:` is a retired key today: `deck-settings.js` lists
 it as `kind: 'retired'` with rule `marks-renamed`, which tells authors to write `marks:`. The rule
