@@ -780,7 +780,10 @@ they are **separate**:
    script invokes a spender. **Playwright e2e / integration tests are welcome** — they MOCK the
    endpoint (`page.route('**/openrouter.ai/**', …)`) or drive the Playground on the user's own /
    a dedicated test key, none of which is our key. The gate keys on the key NAME, not the
-   `openrouter.ai` endpoint, so mocking it never trips the gate. **Throwaway prototype tests**
+   `openrouter.ai` endpoint, so mocking it never trips the gate. The name match covers the
+   spellings OpenRouter documents too (`OPENROUTER_KEY`, `OPENROUTER_API_KEY`,
+   `OPEN_ROUTER_API_KEY`), so our key under another name is caught; whole names only, so an
+   endpoint constant like `OPENROUTER_KEY_URL` is not. **Throwaway prototype tests**
    that hit the live API go in `.scratch/` (gitignored, not scanned, not shipped) — or run as an
    on-demand tool. The only thing barred is a *committed* `test/**` file reading our key, which
    would then spend on every CI run.
