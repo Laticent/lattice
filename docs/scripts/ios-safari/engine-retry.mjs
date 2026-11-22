@@ -17,7 +17,8 @@
 // THE STEPS, each waiting on a signal in the page (the card, the engine global, the button's word), never a duration:
 //   1. Sub-files failing, open the Studio: the failure card must appear.
 //   2. Sub-files reachable again, press Retry: the engine loads, or the card offers Reload.
-//   3. If it offered Reload: reload the page (what the button does). The engine loads, or the card is back.
+//   3. If it offered Reload: press the card's Reload button (it marks the tab, then reloads). The engine loads, or the
+//      card is back.
 //   4. If the reload did not recover it, the card's button now reads "New tab" (DeckPreview `reloaded`): press it, with
 //      a WebDriver element click (a real gesture, so Safari lets it open a tab), and the engine must load in that tab.
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
@@ -106,6 +107,17 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		});
 		return res || 'none';
 	};
+	/** Press the card's button with a WebDriver element click: a real gesture, as Safari needs for a new tab. */
+	const pressCardButton = async () => {
+		// On a phone the card can sit in a hidden pane: show the preview first, or the element click is "not interactable".
+		await wd('POST', `/session/${id}/execute/sync`, {
+			script: `const b = document.querySelector('${PREVIEW} .nacre-failed__retry');
+				if (b && !b.offsetParent) [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Preview' && x.offsetParent)?.click();`,
+			args: [],
+		});
+		const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: `${PREVIEW} .nacre-failed__retry` });
+		await wd('POST', `/session/${id}/element/${el[Object.keys(el)[0]]}/click`, {});
+	};
 	const r = { card: false, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
 		proxy.state.fail = true;
@@ -124,7 +136,9 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		if (r.afterRetry !== 'reload') return finish();
 
 		const beforeReload = proxy.state.subFiles;
-		await wd('POST', `/session/${id}/refresh`, {});
+		// The product's own Reload button, not WebDriver's refresh: the button marks the tab first, and the reloaded page
+		// reads that mark to offer a new tab. A plain refresh skipped it (run 44972018871: no New tab offered).
+		await pressCardButton();
 		const reloaded = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab'`, 150000);
 		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'newtab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
@@ -139,10 +153,8 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		}
 		try {
 			const before = await wd('GET', `/session/${id}/window/handles`);
-			const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: `${PREVIEW} .nacre-failed__retry` });
-			const ref = el[Object.keys(el)[0]];
 			const beforeTab = proxy.state.subFiles;
-			await wd('POST', `/session/${id}/element/${ref}/click`, {});
+			await pressCardButton();
 			let handle = null;
 			for (let i = 0; i < 40 && !handle; i++) {
 				const now = await wd('GET', `/session/${id}/window/handles`);
