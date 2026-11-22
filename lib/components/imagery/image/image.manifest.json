@@ -62,16 +62,19 @@
   "slots": {
     "image": {
       "selector": ".lattice-bg",
+      "match": [{ "kind": "image" }, { "kind": "code-line", "prefix": "@image" }],
       "required": true,
       "description": "The photo, as Markdown's picture alone on its line: `![A name](path \"A longer description\")`. The slide places it on its photo panel (`mirror` moves the panel to the left). To try a composition before you have the photo, use a sample: `![A lake at dusk](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). The `@image{…}` record places the same way and takes a frame, a finish and a tone."
     },
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional heading in the text slot."
     },
     "body": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional caption or body text."
     }

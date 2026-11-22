@@ -82,7 +82,7 @@ for that slide.
   every valid name.
 - **Register reference**: `lib/base/base.registers.docs.md` — every register,
   its values and default.
-- **Per-slide modifiers**: `lib/base/base.docs.md` § Universal variants (`dark`,
+- **Per-slide modifiers**: `lib/base/base.docs.md` § Common modifiers (`dark`,
   `light`, `mirror`, `silent`, `scale-l` / `scale-xl` / `scale-2xl`,
   `no-pagination`, tone tokens, `tint-*` / `mark-*`) and § Switches (`no-X` /
   `with-X`).
@@ -138,7 +138,6 @@ Deck-level restyle — the content below the front matter did not change:
 
 ```yaml
 ---
-marp: true
 size: 4k
 theme: cuoio
 color-mode: dark
@@ -183,7 +182,6 @@ A full restyled deck (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: cuoio
 color-mode: dark
@@ -323,7 +321,7 @@ We recommend a monthly cap before renewals open in March.
 - `lib/base/base.registers.docs.md` — every front-matter register: `preset:`,
   `mode:`, `finish:`, `fit:`, `split:`, `rule:`, `eyebrow:`, `headline:`,
   `lift:`, `venue:`, `corners:` and the rest.
-- `lib/base/base.docs.md` § Universal variants and § Switches — per-slide modifiers.
+- `lib/base/base.docs.md` § Common modifiers and § Switches — per-slide modifiers.
 - `design/theming.md` — palettes and the four ways to a dark canvas.
 - `lib/core/deck-settings.js` — the list of front-matter keys the linter knows.
 - `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md` — why

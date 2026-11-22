@@ -97,7 +97,7 @@ section .lat-state {
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
     inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-edge, var(--state-ink)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
   /* The same sanctioned horizontal margin as the inline pill (pills.styles.css), and for the same measured
    * reason. On the disc padding is worse than useless: the box is a fixed 1em square
@@ -141,12 +141,12 @@ section .lat-pill[data-shape] > .lat-pill-lead > .lat-state {
    * through its bolder marks and the larger disc up to the cap. */
   --_disc:min(calc(0.85em * var(--state-disc-scale)), 0.9em);
 }
-section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
-section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
-section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
-section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge); }
+section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge); }
+section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge); }
+section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
 section .lat-state.todo,
-section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
 section .lat-state::after {
   content:'';
   position:absolute;

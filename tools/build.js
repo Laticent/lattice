@@ -35,6 +35,7 @@
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
  *   -  skill index           tools/skill-index.js (design/skills/index.json, README table, .claude/skills)
  *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
+ *  13a. code map              tools/build-codemap.js (dist/engineering/codemap.md)
  *  13b. third-party licenses  tools/build-third-party-licenses.js (dist/THIRD-PARTY-LICENSES.txt)
  *  13c. VS Code stylesheet    tools/build-marp-vscode-css.js (dist/lattice-vscode{,-bundle}-min.css + the engine stubs; packed by marp-core)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
@@ -156,6 +157,10 @@ const STEPS = [
   // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
+  // The Studio chat's tool catalog, compiled from lib/use-cases/*/*.use-case.json (one manifest per
+  // tool). Committed: architect-agent.ts and chat-actions.ts import it as ordinary modules.
+  // engineering/decisions/2026-11-17-use-case-layer.md §3.4.
+  { label: 'use-case catalog (studio chat tools)', script: 'build-use-cases.js' },
   // The one index of every shipped package (lib/packages/), walked through the package
   // spine. Committed, like the catalogs around it: later phases import it as a module.
   { label: 'package index (lib/packages)', script: 'build-packages-index.js' },
@@ -303,6 +308,10 @@ const STEPS = [
   // `--check` that reads sources only. test/unit/tools/uncommitted-steps.test.js holds the
   // TAGS; the decision and gotcha index tests run their --check with no output on disk.
   { label: 'capability index (dist/engineering/capabilities.md)', script: 'build-capabilities.js', uncommitted: true, validates: true },
+  // The code map — one line per folder, code part, plugin and workspace library, from PARTS in
+  // tools/structure.js, the plugin and library manifests, and its own FOLDERS table. --check
+  // reads those sources and the tracked file list only.
+  { label: 'code map (dist/engineering/codemap.md)', script: 'build-codemap.js', uncommitted: true, validates: true },
   // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
   // the split decision note. Reads manifests + that map; order-independent.
   { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },

@@ -8,8 +8,8 @@
  *      on a phone, which opens on the preview, the Compose cell brings the rich editor up;
  *   2. Compose is listed before Source;
  *   3. Compose's slide toolbar keeps its place and width while the caret moves inside a slide (the owner's screen
- *      recording: it grew, shrank and jumped on every move): on up to two slides of whatever deck is open (the
- *      Simulator keeps the earlier probes' deck), through its heading, eyebrow, paragraph and list item, each read once
+ *      recording: it grew, shrank and jumped on every move): on up to two slides of the first-visit deck (run.mjs
+ *      clears every stored deck before this page, as a new visitor has none), through its heading, eyebrow, paragraph and list item, each read once
  *      two frames agree, and only passing when the stops offered different styles;
  *   4. the caret Compose draws while it is not focused stays on its text through a real re-flow of the column (the slide's
  *      Slide settings docking a column beside the editor) and a scroll (2026-11-15-one-side-pane.md §3c).
@@ -69,21 +69,85 @@ async function latticeComposeProbe() {
 		const sx = button(SOURCE)?.getBoundingClientRect().left;
 		step('Compose is listed before Source', cx !== undefined && sx !== undefined && cx < sx, `Compose x ${Math.round(cx)}, Source x ${Math.round(sx)}`);
 
+		/** Where focus and the caret are, against the block the probe aimed at and its slide, for a wait's timeout message. */
+		const caretState = (target, slide) => {
+			const all = pm() ? [...pm().querySelectorAll(':scope > .cs-slide')] : [];
+			const n = (el) => (el ? all.indexOf(el.closest?.('.cs-slide') ?? el.parentElement?.closest('.cs-slide')) + 1 || 'none' : 'none');
+			const ae = document.activeElement;
+			const sel = getSelection();
+			const a = sel?.anchorNode;
+			const at = !a ? 'none' : `${a.nodeType === 3 ? `text "${a.data.slice(0, 24)}"` : `<${a.nodeName.toLowerCase()}>`} @${sel.anchorOffset}${sel.isCollapsed ? '' : ` (a SELECTION: "${String(sel).slice(0, 24)}")`}`;
+			return [
+				`active element <${ae?.nodeName.toLowerCase() ?? 'none'}${ae?.className && typeof ae.className === 'string' ? ` .${ae.className.split(' ')[0]}` : ''}>${pm()?.contains(ae) ? ' inside Compose' : ''}`,
+				`caret ${at}, in slide ${n(a?.nodeType === 3 ? a.parentElement : a)}${a && target.contains(a) ? ' (the aimed block)' : ''}`,
+				`aimed at slide ${n(slide)}`,
+				`active slide ${all.filter((s) => s.classList.contains('cs-slide-active')).map((s) => all.indexOf(s) + 1).join(',') || 'none'}`,
+			].join('; ');
+		};
+		/**
+		 * Ask the runner for a real touch tap on `el` (run.mjs over WebDriver actions, probe.selftest.mjs through Playwright) and
+		 * wait for it. The point is read once the block has held still for five frames and is the element under it, as
+		 * run.mjs `composeTouchTap` reads its own. The runner delivers the tap, applies the long-press guard (tap-guard.mjs),
+		 * and hands back whether a caret landed in the block under the point. The block is NOT marked: an attribute set on a
+		 * node ProseMirror draws makes it redraw the node, which would replace `el` under the probe.
+		 */
+		const tapInto = async (el, what) => {
+			if (!window.__latticeTapBridge) throw new Error(`${what}: the stop that focuses the editor is a real tap, and no runner on this page delivers one (run.mjs, probe.selftest.mjs)`);
+			let last = '';
+			let still = 0;
+			let at = null;
+			const t0 = Date.now();
+			while (!at) {
+				await frame();
+				const r = el.getBoundingClientRect();
+				const x = Math.round(r.left + Math.min(r.width / 2, 40));
+				const y = Math.round(r.top + r.height / 2);
+				const key = `${x},${y}`;
+				still = key === last ? still + 1 : 0;
+				last = key;
+				const under = document.elementFromPoint(x, y);
+				if (still >= 5 && under && el.contains(under)) at = { x, y };
+				else if (Date.now() - t0 > 10000) throw new Error(`${what} never held still under its tap point (at ${key} the page shows ${under ? under.nodeName.toLowerCase() : 'nothing'})`);
+			}
+			const verdict = await new Promise((resolve) => {
+				window.__latticeTapDone = resolve;
+				window.__latticeTapRequest = { ...at, what };
+			});
+			window.__latticeTapRequest = null;
+			step(`${what}: a real tap put the first caret, focusing the editor`, verdict?.ok, verdict?.detail ?? 'the runner returned nothing');
+		};
 		// Put the caret in the first text of `el`, as a tap does, and return the active slide's pill box once two frames agree.
 		const pillAt = async (el, what) => {
 			el.scrollIntoView({ block: 'center' });
 			const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) });
 			const text = walker.nextNode();
 			if (!text) throw new Error(`no text in ${what}`);
-			pm().focus();
-			const range = document.createRange();
-			range.setStart(text, Math.min(1, text.data.length));
-			range.collapse(true);
-			const sel = getSelection();
-			sel.removeAllRanges();
-			sel.addRange(range);
 			const slide = el.closest('.cs-slide');
-			await until(() => slide?.classList.contains('cs-slide-active'), 10000, `${what}'s slide to become active`);
+			if (!pm().contains(document.activeElement)) {
+				// THE STOP THAT FOCUSES THE EDITOR IS A REAL TAP (#3291). Focusing an unfocused editor from script and setting a
+				// caret in the same task races prosemirror-view's 20 ms focus timer, which writes its own selection back before a
+				// slow engine reports the caret (iOS Simulator, run 44119244333). A person taps, and a tap that focuses Compose is
+				// what pointer-focus-caret.ts covers, so this stop asks the runner for one. Every later stop finds the editor
+				// focused, fires no focus event, and places its caret from script.
+				await tapInto(el, what);
+			} else {
+				pm().focus();
+				const range = document.createRange();
+				range.setStart(text, Math.min(1, text.data.length));
+				range.collapse(true);
+				const sel = getSelection();
+				sel.removeAllRanges();
+				sel.addRange(range);
+			}
+			// On a timeout, say what the page held (#3291): a caret ProseMirror never read leaves no slide active, and the
+			// message alone cannot tell that from a focus that never landed or a caret that was moved back.
+			await until(() => slide?.classList.contains('cs-slide-active'), 10000, `${what}'s slide to become active`).catch((e) => {
+				throw new Error(`${e.message} (${caretState(el, slide)})`);
+			});
+			// A caret, and in the block aimed at: an active slide alone would also pass a long-press selection, or a caret the
+			// focus timer moved to another block of the same slide.
+			const sel = getSelection();
+			if (!sel?.isCollapsed || !el.contains(sel.anchorNode)) throw new Error(`the caret did not land in ${what} (${caretState(el, slide)})`);
 			const pill = () => slide.querySelector(':scope > .cs-slide-bar > .cs-sb-pill');
 			let last = '';
 			const t0 = Date.now();
@@ -95,12 +159,12 @@ async function latticeComposeProbe() {
 				// The chip count proves the caret moved: a heading offers one style, an eyebrow line three, a list item none.
 				if (now && now === last) return `${now} (${slide.querySelectorAll(':scope > .cs-slide-bar .cs-fmt-btn').length} chips)`;
 				last = now;
-				if (Date.now() - t0 > 10000) throw new Error(`the toolbar never settled at ${what} (last ${now})`);
+				if (Date.now() - t0 > 10000) throw new Error(`the toolbar never settled at ${what} (last ${now}; ${caretState(el, slide)})`);
 			}
 		};
 		const slides = () => [...pm().querySelectorAll(':scope > .cs-slide')];
 		await until(() => slides().length >= 1, 30000, 'a slide in Compose');
-		// Whatever deck is open (on the Simulator the earlier probes leave theirs in storage): each slide's first heading,
+		// The first-visit deck (the runner stores none, so no earlier probe's deck reaches here): each slide's first heading,
 		// eyebrow line, plain paragraph and list item. A slide with two or more of them offers different styles at different
 		// stops, which is what made the toolbar move.
 		const stopsOf = (s) => {
@@ -135,12 +199,28 @@ async function latticeComposeProbe() {
 		heading.scrollIntoView({ block: 'center' });
 		const headText = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) }).nextNode();
 		pm().focus();
+		// THE MOVE'S OWN selectionchange, not only the caret-line mark: the mark is on the heading already when the last toolbar
+		// stop above was this same heading (a one-slide deck), so it would pass before Compose read the move, and the caret
+		// it then draws sits one letter right (16 to 19 px on studio-probe.js's checklist deck, iPad run 44850293408). Compose's
+		// own listener was registered first, so it has read the caret by the time this one runs.
+		const was = getSelection();
+		const moves = !(was?.isCollapsed && was.anchorNode === headText && was.anchorOffset === 0);
+		let moved = !moves;
+		if (moves) document.addEventListener('selectionchange', () => (moved = true), { once: true });
 		const at = document.createRange();
 		at.setStart(headText, 0);
 		at.collapse(true);
 		getSelection().removeAllRanges();
 		getSelection().addRange(at);
-		await frame();
+		await until(() => moved, 10000, "the caret move's selectionchange").catch((e) => {
+			throw new Error(`${e.message} (${caretState(heading, heading.closest('.cs-slide'))})`);
+		});
+		// Wait until Compose has READ that caret (its caret-line mark, ComposeView.tsx, on the block holding its own selection),
+		// not a frame: WebKit can report the selection change later than one frame, and then the caret Compose draws once
+		// focus leaves sits at the previous stop's place (seen 2 of 21 on the selftest's iPad-Safari width, 221 px below).
+		await until(() => pm()?.querySelector('h1, h2, h3')?.classList.contains('cs-active-line'), 10000, 'Compose to read the caret in the first heading').catch((e) => {
+			throw new Error(`${e.message} (${caretState(heading, heading.closest('.cs-slide'))})`);
+		});
 		button(COMPOSE)?.focus(); // focus off the editor: Compose draws its caret now
 		const ghost = () => {
 			const g = document.querySelector('#studio-pane-editor .lx-ghost-caret');

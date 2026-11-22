@@ -44,7 +44,7 @@ export const MANIFEST_CAP = 40;
 export const MAX_VIEWS_PER_TURN = 6;
 /** What the Library costs a turn before any picture is sent, for the cost readout: the header and the
  *  capped list, in estimated tokens (the same `chars / 4` as `estTokens`). The three tool definitions are
- *  priced separately by the caller, who holds `ASSET_TOOLS`. Measured against `assetManifest` in the tests
+ *  priced separately by the caller, who offers them (`chatOfferedTools`). Measured against `assetManifest` in the tests
  *  so the constants cannot drift below the real block. Zero for an empty Library: nothing is sent then. */
 export const MANIFEST_HEADER_TOKENS = 130;
 // The WORST case for one line: a 40-character name and a full 140-character caption. An uncaptioned photo is

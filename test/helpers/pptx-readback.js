@@ -1,7 +1,8 @@
 // Read a .pptx back into what a person sees and edits: per slide, every object in paint order (groups flattened,
 // with the group path), its frame in EMU, geometry, fill, outline, shadow, picture bytes (as a hash), alt text,
 // placeholder role, and its text, paragraph by paragraph and run by run (font, size, weight, slant, color,
-// spacing, caps, field). The layout each slide uses is read the same way, with its background. Ids, XML
+// spacing, caps, field). The layout each slide uses is read the same way, with its background and whether it shows
+// the master's own shapes (`showMaster`, false for `showMasterSp="0"`), and the slide master once per package. Ids, XML
 // formatting, attribute order and part names are left out on purpose: they may change, the content may not.
 //
 // Used by the parity test (test/unit/calco/pptx-parity.test.js) and the structure test. jsdom's DOMParser parses
@@ -238,10 +239,16 @@ async function readPptx(bytes) {
       const body = [...nd.getElementsByTagName('p:sp')].find((sp) => sp.getElementsByTagName('p:ph')[0]?.getAttribute('type') === 'body');
       notes = body ? [...body.getElementsByTagName('a:p')].map((p) => [...p.getElementsByTagName('a:t')].map((t) => t.textContent).join('')).join('\n') : '';
     }
-    slides.push({ layout: { bg: layout.bg, objects: layout.objects }, objects: slide.objects, notes: notes.trim() });
+    const showMaster = layout.doc.documentElement.getAttribute('showMasterSp') !== '0';
+    slides.push({ layout: { bg: layout.bg, showMaster, objects: layout.objects }, objects: slide.objects, notes: notes.trim() });
   }
+  // A slide draws the master's non-placeholder shapes (a running header, a rule) wherever its layout shows the master.
+  const masterName = [...presRels.values()].find((r) => r.type === 'slideMaster')?.target;
+  const masterPart = masterName ? await readPart(zip, masterName) : undefined;
+  const master = masterPart ? { bg: masterPart.bg, objects: masterPart.objects } : undefined;
   return {
     size: [num(sz.getAttribute('cx')), num(sz.getAttribute('cy'))],
+    master,
     title: coreText('dc:title'),
     subject: coreText('dc:subject'),
     creator: coreText('dc:creator'),

@@ -1,7 +1,9 @@
 'use strict';
 // The status role bundle is written by hand in every component that draws a status disc
 // (engineering/decisions/2026-10-24-status-is-one-system.md §3): each class mapping sets
-// `--state-color`, `--state-ink`, `--state-signal` and `--state-glyph-mark` on one line. CSS has no shared
+// `--state-color`, `--state-ink`, `--state-signal`, `--state-glyph-mark` and `--state-edge` on one line. The glyph mark
+// and the edge are the status's own ink and border (THE STATUS TRIPLET, engineering/decisions/2026-11-16-status-triplets.md):
+// a heat-inverted line reads the INVERTED status's pair, because it follows the solid it paints. CSS has no shared
 // selector vocabulary to own that mapping once (`.pass`, `.state-shipped`, `[data-s]` …), so this test owns
 // it instead: every copy must be one of the four role sets below, word for word. A fifth set is a status
 // that paints differently in one component, which is the drift the decision exists to end.
@@ -21,17 +23,17 @@ const FILES = [
 ];
 
 const ROLE_SETS = new Set([
-  '--state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark);',
-  '--state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark);',
-  '--state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark);',
-  '--state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);',
+  '--state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge);',
+  '--state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge);',
+  '--state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge);',
+  '--state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial;',
 ]);
 
-// The four declarations, in order, as one run.
-const BUNDLE = /--state-color\s*:[^;]*;\s*--state-ink\s*:[^;]*;\s*--state-signal\s*:[^;]*;\s*--state-glyph-mark\s*:[^;]*;/g;
+// The five declarations, in order, as one run.
+const BUNDLE = /--state-color\s*:[^;]*;\s*--state-ink\s*:[^;]*;\s*--state-signal\s*:[^;]*;\s*--state-glyph-mark\s*:[^;]*;\s*--state-edge\s*:[^;]*;/g;
 const norm = (s) => s.replace(/\s*:\s*/g, ':').replace(/\s*;\s*/g, '; ').trim();
 
-test('every status role bundle is one of the four role sets', () => {
+test('every status role bundle is one of the four role sets, all five roles', () => {
   let seen = 0;
   const strays = [];
   for (const rel of FILES) {
@@ -49,7 +51,7 @@ test('every status role bundle is one of the four role sets', () => {
   assert.deepEqual(strays, [], 'a status role bundle outside the four role sets');
 });
 
-test('a role bundle declared without all four roles is caught as a partial copy', () => {
+test('a role bundle declared without all five roles is caught as a partial copy', () => {
   // Each file that sets --state-color sets it only inside a full bundle.
   const partial = [];
   for (const rel of FILES) {

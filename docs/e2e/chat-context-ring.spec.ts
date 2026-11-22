@@ -53,7 +53,8 @@ for (const [w, h] of [
 		// On the model that wrote the reply: 18.4K of 200K.
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
-		await expect(menu.getByText('18K of 200K · 9%')).toBeVisible();
+		await expect(menu.getByText('9% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(menu).toBeHidden();
 
@@ -62,15 +63,19 @@ for (const [w, h] of [
 		await expect(page.getByRole('searchbox', { name: 'Search OpenRouter models' })).toBeVisible();
 		await page.getByRole('tab', { name: 'All', exact: true }).click();
 		await page.getByRole('searchbox', { name: 'Search OpenRouter models' }).fill('Big');
-		await page.getByRole('radio', { name: /Big Model/ }).check();
+		// `.click()`, not `.check()`: picking closes the picker, so the radio is gone before `.check()` can
+		// confirm it is checked, and under load that read timed out (4 of 20 at --workers=6). The two
+		// lines below assert the pick itself.
+		await page.getByRole('radio', { name: /Big Model/ }).click();
 		// Picking closes the picker by itself.
 		await expect(page.getByRole('searchbox', { name: 'Search OpenRouter models' })).toBeHidden();
 		await expect(page.getByRole('button', { name: /^Model: Big Model/ })).toBeVisible();
 
 		// The same tokens, measured against the window of the model picked now.
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
-		await expect(menu.getByText('18K of 1.0M · 2%')).toBeVisible();
-		await expect(menu.getByText('18K of 200K · 9%')).toHaveCount(0);
+		await expect(menu.getByText('2% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 1.0M tokens', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toHaveCount(0);
 		await page.screenshot({ path: test.info().outputPath(`ring-after-switch-${w}.png`) });
 	});
 }

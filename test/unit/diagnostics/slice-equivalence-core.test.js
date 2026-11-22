@@ -67,8 +67,9 @@ test('synthesizePrelude ignores a spot directive — it applies to its own slide
 
 test('synthesizePrelude ignores a key the engine does not know', () => {
   // The bug this pins: treating any `name: value` comment as a running global injected
-  // slide-local `describe:` notes into every later slide — 32 mismatches the probe caused.
-  const slides = ['<!-- describe: a note -->\n# One', '# Two'];
+  // slide-local `describe:` notes into every later slide — 32 mismatches the probe caused. (`describe:` is a plain
+  // comment since 2026-11-20; `alt:` stands in for any key the engine does not know.)
+  const slides = ['<!-- alt: a note -->\n# One', '# Two'];
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });
 

@@ -31,7 +31,9 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, PREVIEW_PAINTED, setCodePackages, setPlugins, setWaits } from '@/lib/code-packages/entry';
+import { forgetWaits, waitKey, waitMarkup, withWaits } from '@/lib/code-packages/wait';
+
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -84,6 +86,7 @@ import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './Co
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import type { ChatApplyOpts, ChatDraft } from './change-card-types';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -95,7 +98,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -161,6 +164,11 @@ import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, set
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
+
+// The chat's draft preview, loaded on first use: it is a second renderer, and only an author previewing an AI
+// change needs it (the Studio's eager bundle is budgeted, docs/route-budget.json).
+const ChatDraftPreview = React.lazy(() => import('./ChatDraftPreview').then((m) => ({ default: m.ChatDraftPreview })));
+
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -171,7 +179,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasAnswerAfterConnect, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, CHAT_CARD_NO_ENTRY as NO_ENTRY, onSourceWriteError, type Posture, relabelCheckpoint, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveCheckpointWithId, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -188,6 +196,15 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// A listed plugin's block waits as its afterimage, not its fence source, until the door holds the plugins (D1).
+setWaits({ withWaits, waitMarkup, waitKey });
+
+/** A `storage` event that can change this browser's code approvals: the approvals key, or `null`, which is another tab
+ *  clearing this browser's storage, approvals with it (#3292). */
+export function approvalsMayHaveChanged(key: string | null): boolean {
+	return key === CODE_APPROVALS_KEY || key === null;
+}
 
 // The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
 const warmPanels = heldWarmPanels(warmPanelsNow);
@@ -1750,8 +1767,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
 		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
-			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
+			.then((list) => {
+				// No plugin in the Library: no wait may stand in for one (code-packages/wait.ts).
+				if (!list.length) forgetWaits();
+				setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list));
+			})
+			.catch(() => {
+				forgetWaits();
+				setLocalPlugins((prev) => (prev.length ? [] : prev));
+			});
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
@@ -1786,6 +1810,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localPlugins]);
 	const removePlugin = React.useCallback((id: string) => { deleteStudioPlugin(id).then(() => refreshComponents()); }, [refreshComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// An approval given or withdrawn in another tab of this browser: the stamp decides what this tab's previews draw
+	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
+	React.useEffect(() => {
+		const heard = (e: StorageEvent) => {
+			if (approvalsMayHaveChanged(e.key)) setCodeStamp(codePackagesStamp());
+		};
+		window.addEventListener('storage', heard);
+		return () => window.removeEventListener('storage', heard);
+	}, []);
 	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
 	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
 	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders
@@ -2701,17 +2734,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// authoritative: the deck stays that way regardless of the site mode. This is the
 	// deck-scoped sibling of the website mode toggle — it writes front matter, saved
 	// with the deck. Resolution precedence lives in @/lib/deck-theme.
-	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
+	const deckClassList = deckScalar(source, 'class').split(/\s+/).filter(Boolean);
 	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
-	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	const deckThemeRaw = deckScalar(source, 'theme');
+	// What Auto renders when the deck's preset recommends a palette or a mode (D1,
+	// engineering/decisions/2026-11-20-deck-preset-study.md): Auto FOLLOWS the preset, and its label says so.
+	const presetTheme = presetRecommendation(source, 'theme');
+	const presetColorMode = presetRecommendation(source, 'color-mode');
 	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
 	// The deck's first-class `color-mode:` value — light/dark PIN a side, `system` follows
 	// the viewer's OS, `inherited` adopts the host (site/player) mode. It is the authored
 	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
-	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
+	const rawColorMode = deckScalar(source, 'color-mode').toLowerCase();
 	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
 		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode
@@ -2834,14 +2871,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
 	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
 	// baseline ''.
-	// The value carries one word per axis (`tone vivid`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
+	// The value carries one word per axis (`tone vivid ink`), so it is read by axis, and choosing a finish keeps the
+	// deck's intensity, and tone's source while the finish stays tone. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
 	// (the old line goes, so the deck never carries both).
 	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
 	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
 	const setMarks = (value: string) =>
 		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
-			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity) || null), 'chart-finish', null),
+			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity, parseMarksValue(marksOf(s)).source) || null), 'chart-finish', null),
 		);
 	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
 	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.
@@ -4172,9 +4209,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once, on load, which is when the sign-in returns; setActiveAssistant is stable.
 	React.useEffect(() => {
 		resumePendingAuth().then((r) => {
-			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			if (r?.status === 'connected') {
+				notify('OpenRouter connected — the Architect can now edit your deck.');
+				// A message was waiting for this connection: reopen the chat, which answers it (the answer-after-connect mark in studio-store.ts).
+				if (hasAnswerAfterConnect(deckIdRef.current)) setActiveAssistant('chat');
+			}
 			// A failed return used to say nothing, so Connect looked like it did nothing.
 			else if (r?.status === 'failed')
 				notifyAction(r.note, {
@@ -5362,6 +5404,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// read on the commit could still see the old slide (DeckPreview `firePaint`).
 	const onLivePreviewPaint = React.useCallback(() => {
 		for (const listener of previewPaintListeners.current) listener();
+		// Record the live preview's plugin drawings for the next reload's wait (code-packages/wait.ts), on every paint
+		// path (a full write, a patch, an adopted bake), not only the one onFrameLoad sees.
+		try {
+			window.dispatchEvent(new CustomEvent(PREVIEW_PAINTED, { detail: previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument }));
+		} catch {}
 	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
@@ -6192,16 +6239,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		noteAiEdit(cur, next);
 		return true;
 	};
-	const applyChatEdit = (next: string) => {
+	// The chat's change card applies and undoes one slide at a time. Its card keeps ONE History entry: the first
+	// action saves the deck as it was before the card, and later ones only relabel that entry, so a busy card never
+	// pushes the author's own versions out of the 25 slots (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6).
+	// Returns that entry's id for the card to keep. Each action is still its own undo step (⌘Z), named by `step`.
+	const applyChatEdit = (next: string, opts?: ChatApplyOpts): string | null => {
 		const cur = sourceRef.current;
-		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
-		setSource(next, { label: 'AI chat edit', origin: 'ai' });
+		let entry: string | null = opts?.checkpoint ?? null;
+		// NO_ENTRY: this card must never save an entry of its own (Auto saved one before it applied, or the card's
+		// first save was skipped), because a later save would hold a deck the AI already changed under "Before AI edit".
+		if (entry === NO_ENTRY) {
+			/* the undo step below is the way back; History already holds the right entry */
+		} else if (entry && loadCheckpoints(deck.id).some((c) => c.id === entry) && opts) setCheckpoints(relabelCheckpoint(deck.id, entry, opts.label));
+		else if (!entry) {
+			const saved = saveCheckpointWithId(deck.id, cur, opts?.label ?? 'Before AI chat edit', Date.now());
+			setCheckpoints(saved.list);
+			// Skipped (the deck already matched the newest entry): that entry IS the way back, and no later action
+			// of this card may save one.
+			entry = saved.id ?? NO_ENTRY;
+		}
+		// An entry that fell out of the 25 is not replaced: the deck it held is gone, and a new one would not be it.
+		setSource(next, { label: opts?.step ?? 'AI chat edit', origin: 'ai' });
 		noteAiEdit(cur, next);
-		goToChunk(0, { after: next });
-		// The AI edit jumps the preview to the top — reveal a collapsed preview so
+		goToChunk(Math.max(0, (opts?.slide ?? 1) - 1), { after: next });
+		// The AI edit jumps the preview to the changed slide — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
 		splitApiRef.current.expand('b');
+		return entry;
 	};
+	// The chat's draft preview (ChatDraftPreview): a proposed deck shown, not applied. The chat clears it whenever
+	// the deck changes; a deck switch clears it here.
+	const [chatDraft, setChatDraft] = React.useState<ChatDraft | null>(null);
+	const chatDraftRef = React.useRef(chatDraft);
+	chatDraftRef.current = chatDraft;
+	// Tell the card, so its preview buttons read true. Read from a ref, not inside the state update, which React
+	// may run twice.
+	const closeChatDraft = React.useCallback(() => {
+		const d = chatDraftRef.current;
+		setChatDraft(null);
+		d?.onClosed?.();
+	}, []);
+	// A preview into a collapsed pane would show nothing: reveal it first, as an applied edit does.
+	const showChatDraft = React.useCallback((d: ChatDraft | null) => {
+		if (d) splitApiRef.current.expand('b');
+		setChatDraft(d);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a deck switch is the trigger.
+	React.useEffect(() => setChatDraft(null), [deck.id]);
 
 	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
 	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
@@ -6612,7 +6696,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
+			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onPreview={showChatDraft} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
 		</PanelLoader>
 	);
 
@@ -6677,7 +6761,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// word — the same shape every auto head in both scopes now uses. It is
 				// safe to be this long again because the control owns a fixed half of
 				// its row and truncates (SETTING_ROW); it used to widen the whole row.
-				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(presetAutoLabel(source, 'theme', paletteLabel(palette), paletteLabel, (n) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n))), icon: <AutoIcon />, title: presetTheme && (BUILTIN_PALETTES.includes(presetTheme) || savedThemes.some((t) => t.name === presetTheme)) ? `Automatic — the preset's palette, ${paletteLabel(presetTheme)}. Pick another theme to override it.` : 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 			/>
 		</Field>
 	);
@@ -6706,7 +6790,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				className="w-full"
 				value={deckColorMode === 'default' ? AUTO_VALUE : deckColorMode}
 				onValueChange={(v) => setDeckColorMode(v === AUTO_VALUE ? 'default' : (v as typeof deckColorMode))}
-				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: "Theme's own" }, { title: 'The mode the theme was designed in.' })}
+				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: presetAutoLabel(source, 'color-mode', "Theme's own", (v) => COLOR_MODE_META[v as keyof typeof COLOR_MODE_META]?.label ?? v) }, { title: presetColorMode ? 'The color mode the preset recommends. Pick another mode to override it.' : 'The mode the theme was designed in.' })}
 			/>
 		</Field>
 	);
@@ -6808,7 +6892,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								value={deckBd.mask ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckBackdrop('mask', v)}
 								className="w-full"
-								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
+								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : m === 'clear-footer' ? 'Clear the footer' : m === 'clear-hero' ? 'Clear footer and hero' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
 							/>
 						</Field>
 					</>
@@ -7826,7 +7910,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+			<div ref={previewHolderRef} className={cn('relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+				{chatDraft && !mobile && (
+					<React.Suspense fallback={null}>
+						<ChatDraftPreview
+							draft={chatDraft}
+							current={source}
+							variant="pane"
+							onClose={closeChatDraft}
+							render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }}
+							frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`, width: previewPaneSize ? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px` : '100%' }}
+						/>
+					</React.Suspense>
+				)}
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -9368,6 +9464,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{welcomeMode && (
 				<React.Suspense fallback={null}>
 					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} end={endCard} onNext={startNextTour} />
+				</React.Suspense>
+			)}
+			{chatDraft && mobile && (
+				<React.Suspense fallback={null}>
+					<ChatDraftPreview draft={chatDraft} current={source} variant="sheet" onClose={closeChatDraft} frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }} render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }} />
 				</React.Suspense>
 			)}
 			<Toaster />

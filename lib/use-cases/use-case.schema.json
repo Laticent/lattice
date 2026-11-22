@@ -1,0 +1,70 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://lattice.laticent.io/use-case.schema.json",
+	"title": "Lattice use-case manifest",
+	"description": "One action a host offers: its contract, and per-host wording. engineering/decisions/2026-11-17-use-case-layer.md §3.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["id", "title", "describe", "tier", "effects", "destructive", "idempotent", "confirm", "input", "requires", "hosts", "toolset"],
+	"properties": {
+		"$schema": { "type": "string", "description": "The editor hint to this schema." },
+		"id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$", "maxLength": 64, "description": "snake_case verb-noun, stable forever; the folder and file are named for it." },
+		"title": { "type": "string", "minLength": 1, "maxLength": 60, "description": "A short human name." },
+		"describe": {
+			"type": "object",
+			"additionalProperties": false,
+			"minProperties": 1,
+			"properties": {
+				"default": { "type": "string", "minLength": 1, "description": "What it does and when to use it, for any host." },
+				"chat": { "type": "string", "minLength": 1, "description": "The Studio chat's wording; it may name the draft and the turn." },
+				"mcp": { "type": "string", "minLength": 1, "description": "Wording for an MCP client." }
+			},
+			"description": "What it does, when to use it and when not, per host."
+		},
+		"tier": { "enum": ["read", "draft", "act"], "description": "read changes nothing; draft stages a change for review; act does something a person confirms." },
+		"effects": {
+			"type": "array",
+			"minItems": 1,
+			"uniqueItems": true,
+			"items": { "enum": ["none", "deck.slides", "deck.structure", "deck.frontmatter", "library", "workspace", "network"] },
+			"description": "What it may change; [\"none\"] for a read."
+		},
+		"destructive": { "type": "boolean", "description": "May a call remove or overwrite author content?" },
+		"idempotent": { "type": "boolean", "description": "Does running it twice change nothing further?" },
+		"confirm": { "enum": ["never", "act", "always"], "description": "When a person must confirm it." },
+		"input": {
+			"type": "object",
+			"required": ["type", "properties"],
+			"properties": { "type": { "const": "object" } },
+			"description": "The arguments, as JSON Schema (an object). A {{NAME}} placeholder is filled by the host at runtime (tools/build-use-cases.js)."
+		},
+		"requires": {
+			"type": "array",
+			"uniqueItems": true,
+			"items": { "enum": ["render", "images", "library", "network", "dom"] },
+			"description": "Host capabilities it needs before it is offered."
+		},
+		"hosts": {
+			"type": "array",
+			"minItems": 1,
+			"uniqueItems": true,
+			"items": { "enum": ["chat", "palette", "mcp"] },
+			"description": "Where it is offered."
+		},
+		"toolset": { "enum": ["read", "deck", "narration", "lens", "library", "look"], "description": "The group it belongs to." },
+		"legacy": { "type": "boolean", "description": "One of the chat tools that predate the manifests, held by SANCTIONED_LEGACY_USE_CASES in tools/check-ownership.js." },
+		"chat": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["position", "activity"],
+			"properties": {
+				"position": { "type": "integer", "minimum": 1, "description": "Where the tool sits in the chat's list; the order is the cached prompt prefix." },
+				"activity": { "type": "string", "minLength": 1, "maxLength": 60, "description": "What the transcript says while it runs." },
+				"drafting": { "type": "string", "minLength": 1, "maxLength": 60, "description": "What the transcript says while its arguments arrive." }
+			},
+			"description": "How the Studio chat presents it."
+		}
+	},
+	"if": { "type": "object", "properties": { "hosts": { "type": "array", "contains": { "const": "chat" } } } },
+	"then": { "type": "object", "required": ["chat"], "properties": { "describe": { "anyOf": [{ "type": "object", "required": ["chat"] }, { "type": "object", "required": ["default"] }] } } }
+}

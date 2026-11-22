@@ -1,0 +1,67 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "edit_slides",
+	"title": "Edit slides",
+	"describe": {
+		"chat": "Stage slide edits on the draft. replace: `body` is the WHOLE new slide (its `<!-- _class -->` line through its last line), exactly one slide. insert: new slide(s) after slide `slide` (0 = before the first); separate several with a line containing only `---`. delete: removes slide `slide`. Edits apply in order; numbers refer to the draft as it stands. The result includes the checker’s verdict on the draft."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.slides",
+		"deck.structure"
+	],
+	"destructive": true,
+	"idempotent": false,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"edits": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"action": {
+							"type": "string",
+							"enum": [
+								"replace",
+								"insert",
+								"delete"
+							]
+						},
+						"slide": {
+							"type": "integer",
+							"minimum": 0
+						},
+						"body": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"action",
+						"slide"
+					]
+				}
+			},
+			"summary": {
+				"type": "string",
+				"description": "One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn."
+			}
+		},
+		"required": [
+			"edits",
+			"summary"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "deck",
+	"legacy": true,
+	"chat": {
+		"position": 50,
+		"activity": "Editing the draft…",
+		"drafting": "Drafting the edit…"
+	}
+}

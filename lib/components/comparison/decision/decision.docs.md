@@ -16,15 +16,16 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the decision. |
-| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
+| `title` | a `## ` heading | yes | Slide heading framing the decision. |
+| `options` | a list | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
+| `body` | a list nested 1 level under an item | no | The option's body lines, nested under its title. `-` or `1.` read the same here: the layout styles them as the card body. |
 
 ### Variant decision rule
 
 - **default (no modifier).** The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading.
-- **`banner-tag`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout.
+- **`tag-band`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout.
 
 ### Common mistakes
 
@@ -74,14 +75,14 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 ## Variants (component-specific)
 
-### `banner-tag` — banner-tag
+### `tag-band` — tag-band
 
 Headlines each card with its camp.
 
 ```markdown
-<!-- _class: decision banner-tag -->
+<!-- _class: decision tag-band -->
 
-## banner-tag headlines each card with its camp.
+## tag-band headlines each card with its camp.
 
 - DECIDE
   - The banner carries the stance; the body carries the reason.
@@ -91,7 +92,7 @@ Headlines each card with its camp.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

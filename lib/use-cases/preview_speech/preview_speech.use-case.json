@@ -1,0 +1,44 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "preview_speech",
+	"title": "Preview speech",
+	"describe": {
+		"chat": "Show what the voice will say aloud, before you guess a pronunciation. For slides (`from`, optional `to`, up to {{PREVIEW_SPEECH_MAX_SLIDES}} at a time) it reads each slide the way Present and the export do: its spoken line (say:) first, then a front-matter say: entry, then chart narration, then the slide text. It names which one it read, lists each deck term that fired as written → as spoken (a possessive or plural is listed on its own), and lists words no term covers that a voice may stumble on (all-caps runs, a dot inside a word, odd capitals; names from other languages are not detected). Speaker notes are never read aloud. Or pass `text` to hear any words, for example a term before you add it with set_terms."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"from": {
+				"type": "integer",
+				"minimum": 1,
+				"description": "First slide, 1-based."
+			},
+			"to": {
+				"type": "integer",
+				"minimum": 1,
+				"description": "Last slide; defaults to from."
+			},
+			"text": {
+				"type": "string",
+				"description": "Any words to hear instead of slides."
+			}
+		}
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "narration",
+	"legacy": true,
+	"chat": {
+		"position": 80,
+		"activity": "Listening to the slides…"
+	}
+}

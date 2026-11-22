@@ -79,6 +79,15 @@ Spawn the makers (then the checkers) **concurrently**: one message, multiple
 
 Write all PNGs under `.scratch/` (gitignored, 14-day GC).
 
+**One thing a still render cannot show: the room.** Every render, and every contrast gate, is the
+slide as painted. A boardroom sees it through a projector in a lit room and from several
+screen-heights away, which lifts the blacks and blurs every edge. When the question is "does status
+read at a glance from the back row", run `npm run check:glance -- <deck> --venues=conference,hall`:
+it simulates both losses from the venue's own back-row distance (`VENUE_BACK_ROW`), measures every
+status mark on what is left (3:1 separation floor; the closest two statuses by OKLab distance), and
+writes a contact sheet with the failures boxed. Hand that sheet to a reviewer instead of a blurred
+screenshot you made by hand. The model and its numbers are in the header of `tools/check-glance.js`.
+
 **One thing a reviewer agent cannot see, by construction: jank.** A mark that wanders as
 the heading wraps, or a box that reaches another box without overflowing anything, looks
 correct on every slide you hand an agent — the defect is the *difference between* slides,
@@ -117,6 +126,16 @@ worker, html-to-image usage, fonts embedding):
    run it locally before pushing; it fails on a regression by probe timeout.
 3. "It downloaded and the toast fired" is a presence check, not fidelity —
    never accept it as verification of a rendering change.
+
+## Judging a deck preset
+
+A preset is not reviewed slide by slide like a gallery. It is gated on the fixed 30-slide
+corpus deck (`test/fixtures/preset-corpus.md`) by `node tools/preset-gate.js`, which renders own,
+flip and house rows as PNG and as the exported PDF and runs overflow, text and mark-fill
+contrast, `check-jank` and `pixel-check` before any agent looks. Only a preset that passes goes
+to two fresh judges, who score its worst slide beside the Classic and Editorial anchors. The
+procedure is "The judge protocol" in
+`engineering/decisions/2026-11-20-deck-preset-study.md` §8; follow it there.
 
 ## Output
 

@@ -6,6 +6,7 @@ import {
 	editsFix,
 	type FixEngine,
 	fix,
+	fixAsync,
 	lint,
 	type Producer,
 	parseFixtures,
@@ -462,6 +463,42 @@ describe('fix', () => {
 		const res = fix(rules, src('a\n'), { producers: [chain], maxPasses: 1 });
 		expect(res.text).toBe('b\n');
 		expect(res.skipped).toEqual([{ rule: 'legacy/b', span: { from: 0, to: 1 }, reason: 'max-passes', data: {} }]);
+	});
+
+	it('fixAsync gives the page back before every pass, the first included, and returns fix\'s result', async () => {
+		// A chain that needs one pass per letter: a -> b -> c -> d, then nothing.
+		const chain: Producer = {
+			id: 'chain',
+			produce: (s) => {
+				const m = /[abc]/.exec(s.text);
+				if (!m) return [];
+				const to = String.fromCharCode(m[0].charCodeAt(0) + 1);
+				return [{ rule: `legacy/${m[0]}`, severity: 'warning', span: { from: m.index, to: m.index + 1 }, message: m[0], fixes: [editsFix(to, { op: 'replace', span: { from: m.index, to: m.index + 1 }, text: to })] }];
+			},
+		};
+		// The work done between two pauses, counted in lint rounds: the producer runs once per round.
+		const rounds: number[] = [];
+		let produced = 0;
+		const counted: Producer = {
+			id: 'chain',
+			produce: (s) => {
+				produced++;
+				return chain.produce(s);
+			},
+		};
+		const sync = fix(rules, src('a\n'), { producers: [chain], maxPasses: 10 });
+		const res = await fixAsync(rules, src('a\n'), { producers: [counted], maxPasses: 10 }, async () => {
+			rounds.push(produced);
+		});
+		expect(res).toEqual(sync);
+		expect(res.text).toBe('d\n');
+		// Paused before pass 1 with nothing linted yet, so a caller's click ends before any work.
+		expect(rounds[0]).toBe(0);
+		// One pause per pass: three passes applied a fix and a fourth found nothing.
+		expect(rounds.length).toBe(4);
+		// No stretch between two pauses linted more than one pass needs (its own round and the resolution check,
+		// which the next pass reuses), so no single task holds more than a pass of work.
+		for (let i = 1; i < rounds.length; i++) expect(rounds[i] - rounds[i - 1]).toBeLessThanOrEqual(2);
 	});
 
 	it('applies only fixes at or under the requested safety, and refuses unsafe without `only`', () => {

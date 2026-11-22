@@ -139,7 +139,7 @@ jobs:
       matrix:
         include:
           - runs-on: ubuntu-24.04
-            container: mcr.microsoft.com/playwright:v1.56.1-noble
+            container: mcr.microsoft.com/playwright:v1.65.1-noble
             packages: gh
     steps:
       # No git step first, unlike the job this row stands in for (studio-e2e-nightly.yml's firefox-webrtc): the image

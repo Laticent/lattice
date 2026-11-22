@@ -92,16 +92,31 @@
   "excludes": [
     "claim-bleed"
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "lanes": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Three levels. Outer li = column header as plain text (e.g. Backlog). Each inner li = a card: title then a trailing inline-code size badge (S/M/L/XL; other codes are left in the title). Each card may carry its own nested bullet = a categorical lane label, optionally with a trailing status pill, e.g. - platform `at-risk`. A column titled Done / Completed / Shipped / Closed dims its cards. Status vocabulary matches the shared chart set (on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision)."
+    },
+    "cards": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "The cards in a lane, one per line, with an optional size tag in inline code."
+    },
+    "card-tags": {
+      "selector": "li > ul > li > ul > li",
+      "match": { "kind": "list", "depth": 3, "marker": "any" },
+      "required": false,
+      "description": "A card's tag line under it: its workstream, and a status such as `at-risk` in inline code."
     }
   },
   "skeleton": "<!-- _class: kanban -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",

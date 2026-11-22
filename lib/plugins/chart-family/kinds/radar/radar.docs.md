@@ -16,12 +16,13 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `axes` | `p > code` | no | Optional value axis, as ONE bracketed list in its own paragraph ABOVE the heading: `[{Scale, 0..100}]` pins the scale the rings and ticks are drawn on. Without it the scale derives from the data, rounded up to a clean ceiling. The paragraph is consumed: the ring ticks already print the scale, so it never prints twice. `small-multiples`, whose mini radars print no ticks, shows a pinned scale as an eyebrow instead (`Scale · 0–10`), unless the slide has an eyebrow of its own. Same idiom as `quadrant`, `scatter` and `gantt`. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. |
-| `series` | `ul > li` | yes | One li per series (option): its name, then one nested li per axis, the axis name and its score: `- Performance `9``. Every series names the same axes; a later series is matched to the first by axis name. Under the `quadrant` variant the axes nest one level deeper, under named groups. A `>` under the series name describes nothing (a series has no mark of its own; lint `chart-row-quote-unread`): put it under an axis, where it is that axis's description. |
-| `detail` | `li > ul > li > ul` | no | Optional nested sublist under an AXIS in the first series (radar reveals per-axis — the mark is the axis). For the `quadrant` variant, one level deeper (under each axis within a group). Drives two surfaces from one source (shared with pie/funnel/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the axis label `<text>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail folds into the slide's speaker note (`Axis: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. Detail sublists must use `-`/`*` bullets, not a numbered (`1.`) list. A radar with no sublists emits no note and is unchanged. |
+| `title` | a `## ` heading | yes | Slide heading framing the comparison. |
+| `axes` | a line of `inline code` | no | Optional value axis, as ONE bracketed list in its own paragraph ABOVE the heading: `[{Scale, 0..100}]` pins the scale the rings and ticks are drawn on. Without it the scale derives from the data, rounded up to a clean ceiling. The paragraph is consumed: the ring ticks already print the scale, so it never prints twice. `small-multiples`, whose mini radars print no ticks, shows a pinned scale as an eyebrow instead (`Scale · 0–10`), unless the slide has an eyebrow of its own. Same idiom as `quadrant`, `scatter` and `gantt`. A paragraph that is not a bracketed list is the ordinary chart eyebrow and is left alone. |
+| `series` | a list | yes | One li per series (option): its name, then one nested li per axis, the axis name and its score: `- Performance `9``. Every series names the same axes; a later series is matched to the first by axis name. Under the `quadrant` variant the axes nest one level deeper, under named groups. A `>` under the series name describes nothing (a series has no mark of its own; lint `chart-row-quote-unread`): put it under an axis, where it is that axis's description. |
+| `scores` | a list nested 1 level under an item | no | The series' score on each axis, one nested `-` item per axis. |
+| `detail` | a list nested 2 levels under an item | no | Optional nested sublist under an AXIS in the first series (radar reveals per-axis — the mark is the axis). For the `quadrant` variant, one level deeper (under each axis within a group). Drives two surfaces from one source (shared with pie/funnel/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the axis label `<text>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail folds into the slide's speaker note (`Axis: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. Detail sublists must use `-`/`*` bullets, not a numbered (`1.`) list. A radar with no sublists emits no note and is unchanged. |
 
 ### Variant decision rule
 
@@ -35,7 +36,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 ### Common mistakes
 
-- **Authoring a detail sublist as a numbered list (`1.`) instead of `-`/`*` bullets.** Detail sublists must use `-`/`*` bullets — a numbered list isn't recognized as the axis's detail content.
+- **Writing a detail line as prose under the score instead of a nested list item.** A detail is a nested list item under the series (`-` or `1.`, read the same). A paragraph under the series is not part of the chart.
 - **Giving a series a different number of values than there are axes.** Each series must supply exactly one number per axis, using the SAME axis labels every other series uses — later series align to the first series's axes by label (case-insensitive), falling back to position only when a label doesn't match, so reordering axes across series is safe as long as the labels agree. A genuinely mismatched count or label desyncs which value maps to which spoke.
 
 ## When to use
@@ -282,7 +283,7 @@ Rings stripped to the shape.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -20,7 +20,7 @@ acronyms:
 
 Add `glossary: auto` to the front matter and the acronym registry's definitions become a reference appendix — on every surface, no extra authoring.
 
-<!-- Bienvenue is elsewhere; this is English. This deck writes its own glossary from the acronyms you already defined. -->
+<!-- @note{Bienvenue is elsewhere; this is English. This deck writes its own glossary from the acronyms you already defined.} -->
 
 ---
 

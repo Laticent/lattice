@@ -297,6 +297,12 @@ export type OrVoiceModel = { id: string; name: string; promptPerM: number | null
 let voicePromise: Promise<VoiceModel | null> | null = null;
 /** The rungs that synthesize bytes with measured onsets (a clocked voice). */
 const CLOCKED_RUNGS = new Set(['openrouter-tts', 'gemini-tts', 'kokoro']);
+/** How long a read waits for the selected voice to be ready before reading the slide on captions alone. */
+export const PREPARE_WAIT_MS = 2500;
+/** Voices whose preparation outlasted PREPARE_WAIT_MS and is still pending. A later slide skips the wait for them,
+ *  instead of freezing its first word for another 2.5 s each time (#3333's maker-checker, F3). Keyed by the voice
+ *  object, so a fresh voice (and every test's stub) starts clean; an entry is dropped when preparation settles. */
+const stalledVoices = new WeakSet<object>();
 /** The tier alias a voice selection names for the explicit-identity calls. */
 export type VoiceTier = 'openrouter' | 'gemini' | 'kokoro';
 
@@ -1161,7 +1167,58 @@ export function useReadAloud(
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then(async (voice) => {
-			if (voice) await Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+			// THE CAPTIONS NEVER WAIT ON A VOICE THAT IS NOT COMING. Preparing the selected voice can take as
+			// long as an on-device model download (~80 MB), and on a slow or blocked link it never finishes —
+			// measured: `prepareSelectedVoice` still pending after 6 s, the highlight frozen on word one with the
+			// voice MUTED, on every surface (2026-11-20, owner report from an iPhone). So:
+			//   · muted — nothing is going to speak, so the estimate starts NOW. Preparation still finishes in
+			//     the background, so an unmute mid-slide can resume the clocked voice as before.
+			//   · unmuted — wait for the voice up to PREPARE_WAIT_MS. Past that, this slide is read on the
+			//     estimate (captions) and the voice joins at the next slide's play, once it is ready. It does
+			//     NOT join mid-slide: that is the race-ahead-then-snap-back the deferred start exists to prevent.
+			//   · whichever way the slide started on the estimate, the voice, once ready, attaches MUTE-SUPPRESSED:
+			//     a presenter who unmutes on this slide gets the voice from the CURRENT sentence (the unmute path),
+			//     never a reset to word 0, and a mute tapped during the wait never freezes the captions
+			//     (#3333's maker-checker, F1 and F2).
+			//   · a voice that already stalled skips the wait on later slides until it is ready (F3).
+			let estimateStarted = false;
+			const startEstimate = () => {
+				if (estimateStarted || ctl.signal.aborted) return;
+				estimateStarted = true;
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+			};
+			const mutedAtPlay = mutedRef.current;
+			if (voice) {
+				const ready = Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+				let prepared = false;
+				const settled = () => {
+					prepared = true;
+					stalledVoices.delete(voice);
+				};
+				ready.then(settled, settled);
+				if (mutedAtPlay) startEstimate();
+				let timedOut = stalledVoices.has(voice);
+				if (!timedOut) {
+					let timer: ReturnType<typeof setTimeout> | undefined;
+					timedOut = await Promise.race([ready.then(() => false), new Promise<boolean>((res) => { timer = setTimeout(() => res(true), PREPARE_WAIT_MS); })]);
+					clearTimeout(timer);
+					if (timedOut && !prepared) stalledVoices.add(voice);
+				}
+				if (ctl.signal.aborted) return;
+				if (timedOut) {
+					setRung('silent');
+					startEstimate();
+				}
+				if (estimateStarted) {
+					try {
+						await ready;
+					} catch {
+						/* a voice that cannot prepare stays on the estimate: its rung() reads silent below */
+					}
+					if (ctl.signal.aborted) return;
+				}
+			}
 			if (ctl.signal.aborted) return;
 			if (!voice) {
 				// Voice model failed to load — the silent estimate still runs the
@@ -1217,11 +1274,17 @@ export function useReadAloud(
 			// runs" path as a failed voice load, but chosen deliberately by the user. If a CLOCKED voice
 			// is behind the mute, remember the audio is only mute-suppressed — a later unmute resumes it
 			// on THIS slide (Present opens muted-by-default, so play-muted → unmute is the common path).
-			if (mutedRef.current) {
+			// A slide that already started on the estimate (muted at play, or a voice that kept it waiting) takes the
+			// same path: the voice attaches suppressed and the running estimate is left alone. If the presenter
+			// unmuted after a muted start, resume from the current sentence now (the unmute itself landed before the
+			// voice was attached, so it could not). An unmuted slide that timed out keeps its estimate: the voice joins
+			// at the next slide, by the rule above.
+			if (mutedRef.current || estimateStarted) {
 				setRung('silent');
 				if (clocked) audioSuppressedRef.current = true;
 				armedRef.current = true;
-				if (!pausedRef.current) startLoop();
+				if (!estimateStarted && !pausedRef.current) startLoop();
+				if (estimateStarted && mutedAtPlay && !mutedRef.current) resumeClockedFromCurrentRef.current();
 				return;
 			}
 			setRung(r);

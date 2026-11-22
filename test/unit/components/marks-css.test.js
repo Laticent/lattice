@@ -50,8 +50,11 @@ describe('marks.generated.css', () => {
     // The head is one finish, or an :is() of several: :is() takes its most specific argument, a class, so (0,1,1) holds.
     const head = '(?:\\.marks-(?:pigment|etch|tone)|:is\\(\\.marks-(?:pigment|etch|tone)(?:, \\.marks-(?:pigment|etch|tone))*\\))';
     const tokenHeads = [];
+    const sourceHeads = [];
     for (const s of selectors) {
       if (/^(section|figure)\.marks-(pigment|etch|tone)$|^:is\(section, figure\)\.marks-(pigment|etch|tone) \.chart-frame$/.test(s)) { tokenHeads.push(s); continue; }
+      // Tone's source blocks (`marks: tone ink`): the same three heads, with the source class beside tone's.
+      if (/^(section|figure)\.marks-tone\.marks-(ink|accent)$|^:is\(section, figure\)\.marks-tone\.marks-(ink|accent) \.chart-frame$/.test(s)) { sourceHeads.push(s); continue; }
       // A rule may add a slide-level GUARD (`:not(:has(...))`, `:not(.keyline)`) after the head, so a first-hue neutral mark waits for a
       // slide whose own markup does not already use that hue for a category.
       const guard = '(?::(?:not|has)\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))*';
@@ -60,6 +63,7 @@ describe('marks.generated.css', () => {
     }
     // One token block per finish (the slide, the re-hosted figure, the chart frame inside a pane), plus tone's guarded base block.
     assert.equal(tokenHeads.length, 12, 'one token block per finish, plus tone\'s guarded light base');
+    assert.equal(sourceHeads.length, 6, 'one block per tone source, on the same three heads');
   });
 
   test('every painting declaration is !important — member paint arrives as inline url() fills — and every token is plain', () => {
@@ -124,7 +128,89 @@ describe('marks.generated.css', () => {
   // A ROADMAP is a status chart, so its filled status discs take the finish's one status level, like a gantt bar
   // (#2908's P2 follow-up: they stayed solid under etch and tone). The discs are pseudo-elements, so the finish sets the
   // member's disc channel on the cell and key item; pigment's level is the solid, so it emits nothing.
-  test('a roadmap status disc takes the one status level under etch and tone', () => {
+  // Critical steps toward the shade on a light slide and toward the slide on a dark one: an a11y palette's dark shade is
+  // white, which lifted critical onto high (1.07:1, the 2026-11-16 maker-checker review).
+  test('a dark risk-matrix critical band steps toward the slide, not the shade', () => {
+    const rules = [...css.matchAll(/risk-cell\[data-band="critical"\][^{]*\{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /fill:/.test(b));
+    assert.ok(rules.length >= 1, 'a critical band fill');
+    for (const body of rules) {
+      if (!/--risk-critical-shade-keep, 82%\)/.test(body)) continue;
+      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-shade-keep, 82%\), var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
+    }
+  });
+
+  // On an a11y palette's dark face the bands are bright, so the default 18% step landed critical between low and medium
+  // (achromatopsia 0.49 against low 0.39 and medium 0.59, after #3232). A palette whose bands need it keeps less of the
+  // fail fill (`--risk-critical-keep`), so critical is the DARKEST band, last in the order as on the light face and in print.
+  // The critical band's fill and its key number's fallback ink, read from the GENERATED rules so a change to either
+  // reaches these tests: the light-dark() pair the cells paint, and the ink a browser without relative color uses.
+  const criticalRule = (sel) => {
+    const m = css.match(new RegExp(`:where\\(\\.${sel}\\[data-band="critical"\\]\\)\\s*\\{\\s*fill:\\s*([^;]+?)\\s*!important;`));
+    assert.ok(m, `a generated ${sel} critical fill`);
+    return m[1];
+  };
+  const CRITICAL_FILL = criticalRule('risk-cell');
+
+  test('on every a11y palette\'s dark face the risk matrix\'s critical band is the darkest band', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { relativeLuminance: lum, hexToRgb } = require('../../../lib/core/color.js');
+    const relativeLuminance = (h) => lum(hexToRgb(h));
+    const palettes = fs.readdirSync(path.join(__dirname, '../../../themes')).filter((t) => t.startsWith('a11y-'));
+    assert.ok(palettes.length >= 5, 'the a11y palettes');
+    for (const theme of palettes) {
+      const V = mergedVars(theme);
+      const hex = (expr) => String(resolveTokenExpr(expr, V, true)).trim();
+      const critical = hex(CRITICAL_FILL);
+      const Y = { critical: relativeLuminance(critical) };
+      for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) Y[band] = relativeLuminance(hex(`var(--${st}-mark)`));
+      const next = Math.min(Y.low, Y.medium, Y.high);
+      const step = (next + 0.05) / (Y.critical + 0.05);
+      assert.ok(step >= 1.5, `${theme} dark: critical (${critical}, ${Y.critical.toFixed(3)}) sits ${step.toFixed(2)}:1 below the darkest other band (${next.toFixed(3)}); it must be the darkest band by at least 1.5:1`);
+    }
+  });
+
+  // A monochromacy reads severity by lightness alone, so on a11y-achromatopsia's LIGHT face the four bands darken in
+  // order (followups.d/3232-p4, closed). Before the re-solve, medium (0.098) was lighter than low (0.039) and critical sat
+  // 1.09:1 under high. The follow-up asked for 1.3:1 per step; the palette's own gates cap the last one: three fills 0.11
+  // apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is then 1.29:1
+  // under it. So the floor here is the order plus 1.15:1, and the steps measure 1.59, 1.47 and 1.20.
+  test('on a11y-achromatopsia\'s light face the risk bands darken in order, low to critical', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { relativeLuminance: lum, hexToRgb } = require('../../../lib/core/color.js');
+    const V = mergedVars('a11y-achromatopsia');
+    const Y = (expr) => lum(hexToRgb(String(resolveTokenExpr(expr, V, false)).trim()));
+    const bands = [['low', Y('var(--pass-mark)')], ['medium', Y('var(--warn-mark)')], ['high', Y('var(--fail-mark)')], ['critical', Y(CRITICAL_FILL)]];
+    for (let i = 1; i < bands.length; i++) {
+      const [[a, ya], [b, yb]] = [bands[i - 1], bands[i]];
+      const step = (ya + 0.05) / (yb + 0.05);
+      assert.ok(step >= 1.15, `light: ${b} (${yb.toFixed(4)}) must sit at least 1.15:1 under ${a} (${ya.toFixed(4)}); it sits ${step.toFixed(2)}:1`);
+    }
+  });
+
+  // Where relative color is missing the @supports ink pick does not apply, so the plain rule's ink must clear the
+  // critical band by itself: the one curated a11y ink sat at 2.97-4.42:1 on the dark band (#3312's review).
+  test('the risk matrix\'s critical key number clears 4.5:1 without relative color, on both faces of every a11y palette', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { contrastRatio } = require('../../../lib/core/color.js');
+    const ink = criticalRule('risk-key-number');
+    assert.equal(ink, 'var(--risk-critical-on-ink)', 'the plain rule reads the critical ink token');
+    const palettes = fs.readdirSync(path.join(__dirname, '../../../themes')).filter((t) => t.startsWith('a11y-'));
+    for (const theme of palettes) {
+      const V = mergedVars(theme);
+      for (const dark of [false, true]) {
+        const hex = (expr) => String(resolveTokenExpr(expr, V, dark)).trim();
+        const fill = hex(CRITICAL_FILL);
+        const text = hex(ink);
+        const ratio = contrastRatio(fill, text);
+        assert.ok(ratio >= 4.5, `${theme} ${dark ? 'dark' : 'light'}: the critical key number ${text} on ${fill} is ${ratio.toFixed(2)}:1, under 4.5:1`);
+      }
+    }
+  });
+
+  test('a roadmap status disc takes the one status level under etch and tone; only etch inks its glyph', () => {
     const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state');
     assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
     const head = css.slice(at, css.indexOf('{', at));
@@ -134,7 +220,14 @@ describe('marks.generated.css', () => {
     assert.match(head, /\.roadmap-legend-item/, 'the key follows its discs');
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--state-fill: light-dark\(color-mix\(in oklab, var\(--state-color\) var\(--finish-status-text\), var\(--finish-status-base\)\)/);
-    assert.match(body, /--state-glyph-mark: var\(--finish-ink\)/);
+    assert.doesNotMatch(body, /--state-glyph-mark/, 'the glyph ink is not set for tone: its disc is the curated fill');
+    // Only etch's disc is a pale wash, so only etch gives its glyph the finish ink. Under tone the disc is the curated
+    // fill (TONE_STATUS), and a heading-ink glyph on it read 1.46-3.56:1 (the 2026-11-16 maker-checker review).
+    const glyph = [...css.matchAll(/section([^{]*):where\(\.roadmap :is\(td\.cell-state[^{]*\{([^}]*)\}/g)]
+      .filter(([, , decls]) => /--state-glyph-mark/.test(decls));
+    assert.equal(glyph.length, 1, 'one glyph-ink rule for the roadmap discs');
+    assert.match(glyph[0][1], /^\.marks-etch /, 'etch alone');
+    assert.match(glyph[0][2], /--state-glyph-mark: var\(--finish-ink\)/);
     assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
     const member = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css'), 'utf8');
     assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
@@ -147,7 +240,7 @@ describe('marks.generated.css', () => {
     const card = [...css.matchAll(/section\.marks-(\w+)\.kanban[^{]*\.kanban-card:not\(\[data-s\]\)[^{]*\{([^}]*)\}/g)];
     assert.ok(card.length >= 2, 'a card rule per washed finish');
     for (const [, finish, body] of card) {
-      const bg = body.match(/background: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) (\d+)%/);
+      const bg = body.match(/background: light-dark\(color-mix\(in oklab, var\(--finish-one\) (\d+)%/);
       if (finish === 'pigment') { assert.equal(bg, null, 'pigment takes no tint'); continue; }
       assert.ok(bg, `${finish}: a light-dark card wash`);
       assert.ok(Number(bg[1]) <= KANBAN_CODE_CAP, `${finish}: light wash ${bg[1]}% is over the ${KANBAN_CODE_CAP}% cap`);
@@ -173,11 +266,11 @@ describe('marks.generated.css', () => {
     assert.match(body('etch', '.slope-svg.slope-slopegraph .slope-dot[data-s]'), /--slope-dot-ink: var\(--mark-ink\)/);
     assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])'), /--slope-dot-ink: var\(--state-pass-ink\)/);
     assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])'), /--slope-dot-ink: var\(--state-fail-ink\)/);
-    assert.match(css, /marks-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--chart-cat-1-ink\) 62%/);
+    assert.match(css, /marks-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--finish-one-ink\) 62%/);
     const dot = body('etch', '.slope-svg.slope-slopegraph .slope-dot');
     assert.match(dot, /fill: color-mix\(in oklab, var\(--slope-dot-ink\) 18%, var\(--bg\)\)/);
     assert.match(dot, /stroke: var\(--slope-dot-ink\)/);
-    assert.match(body('tone', '.slope-svg .slope-line[data-s]'), /stroke: var\(--chart-cat-1-ink\)/);
+    assert.match(body('tone', '.slope-svg .slope-line[data-s]'), /stroke: var\(--finish-one-ink\)/);
   });
 
   // THE TONE LADDER (#2908 audit). Dark slides take their own ladder with a floor, so a low step never sinks into the navy
@@ -191,7 +284,7 @@ describe('marks.generated.css', () => {
     assert.ok(Math.min(...TONE_D) >= 29, 'the dark ladder keeps its floor');
     assert.equal(t['--finish-base'], 'var(--bg)', 'unguarded, the light base is the canvas');
     assert.equal(t['--finish-base-d'], 'var(--bg)');
-    assert.match(css, /@supports \(color: color\(from red[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--chart-cat-1-hue\) /);
+    assert.match(css, /@supports \(color: color\(from light-dark\(red, red\)[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--finish-one\) /);
     assert.doesNotMatch(css, /--cat-1-fill/, 'the tone base comes from the tone hue, never the palette slot fill');
   });
 
@@ -304,7 +397,7 @@ describe('marks.generated.css', () => {
     const blocks = css.match(/@supports[^{]*\{[\s\S]*?\n\}\n\}/g) || [];
     // The guard tests the ink's own expression, channel math included, so an engine that parsed
     // relative color but not a clamp on a channel cannot pass it and then drop the ink.
-    for (const b of blocks) assert.ok(b.startsWith('@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1))'), b.slice(0, 100));
+    for (const b of blocks) assert.ok(b.startsWith('@supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1))'), b.slice(0, 100));
     assert.equal(blocks.filter((b) => b.includes('.heatmap-value')).length, 5, 'one per step, shared by etch and tone; pigment is the member\'s own span and emits none');
     const outside = css.replace(/@supports[\s\S]*?\n\}\n\}/g, '');
     assert.doesNotMatch(outside, /(?:oklch|color)\(from/, 'every relative color is behind the guard');
@@ -326,8 +419,29 @@ describe('marks.generated.css', () => {
     // Another is tone's word-cloud words, whose ink is a mix toward the heading ink (text on the slide, not on a body).
     // The other is tone's hub-spoke HUB, a disc body (not text on a body) that goes back to the full heading ink beside group discs.
     // The finish's text ink is a VALUE in its token block, which paints nothing; what matters is that no rule outside the guard reads it.
-    assert.doesNotMatch(outside, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
-    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '');
+    // The one exception reads no picked ink: a hub-spoke ICON. Its disc carries no text, so it moves on every engine, and
+    // an icon ink that waited kept the plain slide's ink on the finished disc (WebKit 17.4: 1.11:1 at worst, #3232 P1).
+    // Pigment's group ink and every finish's status ink are curated inks with no relative color, so they apply
+    // everywhere, as does tone's first slot, whose pick is white on every light face; the picked inks behind the guard
+    // still win where it passes.
+    // Strip exactly these four rules before the two ink checks below, so any OTHER icon rule that leaves the guard
+    // still trips them (checker finding: a strip of every `.hub-spoke-icon` rule hid a deleted or rewritten one).
+    const HUB_ICON_FALLBACKS = [
+      /section\.marks-pigment :where\(\.hub-spoke-icon:is\(\[data-hue="1"\][^{]*\{\s*--hs-icon-ink: var\(--finish-ink\) !important;\s*\}/,
+      /section\.marks-pigment :where\(\.hub-spoke-icon:not\(\[data-s\]\):not\(\[data-hue\]\)\)[^{]*\{\s*--hs-icon-ink: var\(--chart-on-mark\) !important;\s*\}/,
+      /section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(\.hub-spoke-icon\[data-s\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k\), var\(--status-on-ink\)\), color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k-d\), var\(--status-on-ink\)\)\) !important;\s*\}/,
+      /section\.marks-tone :where\(\.hub-spoke-icon\[data-hue="1"\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(var\(--chart-on-mark\), var\(--text-heading\)\) !important;\s*\}/,
+    ];
+    const names = ['pigment\'s group icon ink', 'pigment\'s neutral icon ink', 'every finish\'s status icon ink', 'tone\'s first-slot icon ink'];
+    let withoutHubIcons = outside;
+    HUB_ICON_FALLBACKS.forEach((re, i) => {
+      assert.match(outside, re, `${names[i]} applies on every engine`);
+      withoutHubIcons = withoutHubIcons.replace(re, '');
+    });
+    assert.doesNotMatch(withoutHubIcons, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
+    const withoutTicks = withoutHubIcons.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '')
+      // And `marks: tone ink`, whose block names the heading ink as tone's one HUE (a value the ladder mixes), not as text on a body.
+      .replace(/[^}]*\.marks-tone\.marks-ink[^}]*\}/g, '');
     assert.doesNotMatch(withoutTicks, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     assert.match(outside, /\.radar-tick[^}]*fill: var\(--text-heading\)/, 'the radar tick takes the heading ink under every finish');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -335,6 +449,30 @@ describe('marks.generated.css', () => {
     // A mark with no text still moves on every engine.
     assert.match(outside, /\.gantt-milestone\[data-s\]/);
     assert.match(outside, /\.waterfall-bar\[data-s="up"\]/);
+  });
+
+  // The fallback icon inks above apply on every engine, and the picked inks behind the guard must still WIN where it
+  // passes. Both sets are `!important` at the same specificity, so source order alone decides it: a fallback that moved
+  // after its picked rule would change every etch and tone icon in Chromium while every value test stayed green
+  // (checker finding). Pin the order.
+  test('a hub-spoke icon\'s fallback ink comes before the picked ink that overrides it', () => {
+    const at = (head) => {
+      const i = css.indexOf(head);
+      assert.ok(i >= 0, `a rule headed ${head}`);
+      return i;
+    };
+    const guarded = (i) => {
+      const open = css.lastIndexOf('@supports', i);
+      return open >= 0 && !css.slice(open, i).includes('\n}\n}');
+    };
+    const pickedStatus = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
+    const pickedSlot = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"]');
+    assert.ok(guarded(pickedStatus) && guarded(pickedSlot), 'the picked inks sit behind the guard');
+    const fallbackStatus = at('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
+    const fallbackSlot = at('section.marks-tone :where(.hub-spoke-icon[data-hue="1"])');
+    assert.ok(!guarded(fallbackStatus) && !guarded(fallbackSlot), 'the fallback inks sit outside the guard');
+    assert.ok(fallbackStatus < pickedStatus, 'the status fallback precedes the picked status ink');
+    assert.ok(fallbackSlot < pickedSlot, 'tone\'s first-slot fallback precedes the picked slot ink');
   });
 
   test('every status mark\'s member declares the hue and ink the status table reads', () => {
@@ -389,7 +527,7 @@ describe('marks.generated.css', () => {
     // lightness (1.003:1 on rgb(210 40 70)). Measured over a 52-per-channel sRGB grid, the luminance
     // switch is never worse than 4.58:1 (the measurement is recorded beside `inkOn` in the generator).
     assert.doesNotMatch(css, /oklch\(from/, 'no OKLCH-lightness ink is left');
-    assert.match(css, /color\(from [^)]*xyz-d65 calc\(0\.95047 \* clamp\(0, \(0\.1791 - y\) \* 1000000, 1\)\)/);
+    assert.match(css, /color\(from [^;{}]*? xyz-d65 calc\(0\.95047 \* clamp\(0, \(0\.1791 - y\) \* 1000000, 1\)\)/);
   });
 
   // Pigment is the DEFAULT and carries a ramp's own span, so it changes nothing about a heatmap: no cell
@@ -430,14 +568,14 @@ describe('marks.generated.css', () => {
   // status color. Pigment and etch keep the category hue per series, and etch draws the line heavier.
   test('tone draws a series stroke in steps of the one ink with a dash; pigment and etch keep the category hue', () => {
     const stroke = (n) => headed('tone').find((r) => r.sel.includes(`.line-path, .ep-path)[data-hue="${n}"]`));
-    assert.match(stroke(1)?.body || '', /stroke: color-mix\(in oklab, var\(--chart-cat-1-ink\) 100%, var\(--bg\)\) !important/);
+    assert.match(stroke(1)?.body || '', /stroke: color-mix\(in oklab, var\(--finish-one-ink\) 100%, var\(--bg\)\) !important/);
     assert.match(stroke(1)?.body || '', /stroke-dasharray: none !important/);
     assert.match(stroke(2)?.body || '', /stroke-dasharray: 7 3\.5 !important/);
     assert.match(stroke(3)?.body || '', /stroke-dasharray: 1\.8 3\.2 !important/);
     const dot = headed('tone').find((r) => r.sel.includes('.line-dot, .ep-dot)[data-hue="2"]'));
-    assert.match(dot?.body || '', /fill: color-mix\(in oklab, var\(--chart-cat-1-ink\) 88%, var\(--bg\)\)/, 'a dot matches its stroke');
+    assert.match(dot?.body || '', /fill: color-mix\(in oklab, var\(--finish-one-ink\) 88%, var\(--bg\)\)/, 'a dot matches its stroke');
     const name = headed('tone').find((r) => r.sel.includes('.cart-series'));
-    assert.match(name?.body || '', /fill: var\(--chart-cat-1-ink\) !important/);
+    assert.match(name?.body || '', /fill: var\(--finish-one-ink\) !important/);
     const quiet = headed('tone').find((r) => r.sel.includes('.slope-svg:not(.slope-signal) .slope-line:not([data-s])'));
     assert.ok(quiet, 'tone quiets the slope lines that carry no status');
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.body.includes('stroke-dasharray: 7 3.5')), `${f} does not dash a series`);
@@ -447,7 +585,7 @@ describe('marks.generated.css', () => {
   // A word cloud's color is arbitrary by default (categorical inks in rank order) while its size already carries the weight.
   // Tone makes color repeat the weight, on the palette's own contrast-gated ramp (`spectrum`'s stops), tier by tier.
   test('tone and etch color a word by its weight tier in the first hue; pigment leaves the words alone', () => {
-    const want = { 5: /fill: light-dark\(var\(--chart-cat-1-ink\), color-mix\(in oklab, var\(--chart-cat-1-ink\) 65%, var\(--text-heading\)\)\) !important/, 4: /\) 75%, var\(--text-muted\)\)/, 3: /\) 50%, var\(--text-muted\)\)/, 2: /\) 25%, var\(--text-muted\)\)/, 1: /fill: var\(--text-muted\) !important/ };
+    const want = { 5: /fill: light-dark\(var\(--finish-one-ink\), color-mix\(in oklab, var\(--finish-one-ink\) 65%, var\(--text-heading\)\)\) !important/, 4: /\) 75%, var\(--text-muted\)\)/, 3: /\) 50%, var\(--text-muted\)\)/, 2: /\) 25%, var\(--text-muted\)\)/, 1: /fill: var\(--text-muted\) !important/ };
     for (const [tier, re] of Object.entries(want)) {
       const r = headed('tone').find((x) => x.sel.startsWith(`section.marks-tone :where(.wc-word[data-tier="${tier}"])`));
       assert.match(r?.body || '', re, `tier ${tier}`);
@@ -466,9 +604,9 @@ describe('marks.generated.css', () => {
   test('every finish gives the neutral tile and the waterfall anchors the first hue', () => {
     for (const f of ['pigment', 'etch', 'tone']) {
       const tile = serving(f).find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
-      assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/, `${f} re-points the neutral tile`);
+      assert.match(tile?.body || '', /--fc-hue: var\(--finish-one\) !important/, `${f} re-points the neutral tile`);
       const wf = headed(f).find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
-      assert.match(wf?.body || '', /var\(--chart-cat-1-hue\)/, `${f} paints the anchors from the first hue`);
+      assert.match(wf?.body || '', /var\(--finish-one\)/, `${f} paints the anchors from the first hue`);
     }
   });
 
@@ -476,12 +614,12 @@ describe('marks.generated.css', () => {
   // (they are the member's own properties). Tone re-points them, so a tone grid is one hue like the heatmap and the tower.
   test('tone re-points a matrix grid row to the one hue; the other finishes leave rows alone', () => {
     const r = headed('tone').find((x) => x.sel.startsWith('section.marks-tone :where(.matrix-grid-figure tbody tr)'));
-    assert.match(r?.body || '', /--row-hue: var\(--chart-cat-1-hue\) !important/);
-    assert.match(r?.body || '', /--row-ink: var\(--chart-cat-1-ink\) !important/);
+    assert.match(r?.body || '', /--row-hue: var\(--finish-one\) !important/);
+    assert.match(r?.body || '', /--row-ink: var\(--finish-one-ink\) !important/);
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
     const cell = headed('tone').find((x) => x.sel.includes('.cell-filled') && x.body.includes('background-color'));
     // Ladder step 6 in both modes: the light ladder over tone's base (`--finish-base`), the dark ladder over the canvas.
-    assert.match(cell?.body || '', /background-color: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, var\(--finish-base\)\), color-mix\(in oklab, var\(--chart-cat-1-hue\) 40%, var\(--bg\)\)\) !important/);
+    assert.match(cell?.body || '', /background-color: light-dark\(color-mix\(in oklab, var\(--finish-one\) 22%, var\(--finish-base\)\), color-mix\(in oklab, var\(--finish-one\) 40%, var\(--bg\)\)\) !important/);
     assert.match(cell?.body || '', /color: var\(--text-heading\) !important/);
   });
 
@@ -495,7 +633,7 @@ describe('marks.generated.css', () => {
       assert.match(slot.body, new RegExp(`--finish-mark-edge: var\\(--chart-cat-${n}-ink\\);`), `slot ${n}`);
     }
     const toneEdge = headed('tone').find((r) => /^section\.marks-tone :where\(:is\(\[data-hue="1"\], \[data-key-hue="1"\], /.test(r.sel) && r.body.includes('--finish-mark-edge'));
-    assert.match(toneEdge?.body || '', /--finish-mark-edge: var\(--chart-cat-1-ink\)/, 'tone re-points every slot\'s edge to the one ink');
+    assert.match(toneEdge?.body || '', /--finish-mark-edge: var\(--finish-one-ink\)/, 'tone re-points every slot\'s edge to the one ink');
     // The tone rule is a plain declaration like the slot rules and comes AFTER them, so at equal specificity it wins.
     const slot8 = rules.findIndex((r) => r.sel.startsWith('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="8"], [data-key-hue="8"]))'));
     assert.ok(rules.indexOf(toneEdge) > slot8, 'after the slot rules');
@@ -567,8 +705,8 @@ describe('marks.generated.css', () => {
     const at = css.indexOf(head);
     assert.ok(at >= 0, 'a tone rule for the roadmap phase containers');
     const body = css.slice(at, css.indexOf('}', at));
-    assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
-    assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
+    assert.match(body, /--phase-accent: var\(--finish-one\)/);
+    assert.match(body, /--phase-ink: var\(--finish-one-ink\)/);
     // Etch reaches a roadmap's status discs only (the next test); its phases keep their colors.
     assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap (thead|td:first-child|\.horizon)/, 'etch leaves a roadmap phase alone');
     // Pigment reaches ONE roadmap surface: the workstream row header goes to the neutral ground (REGIONS), and
@@ -582,7 +720,7 @@ describe('marks.generated.css', () => {
     const open = css.lastIndexOf('@supports', at);
     assert.ok(open >= 0 && !css.slice(open, at).includes('\n}\n}'), 'the re-point sits inside @supports');
     const block = css.slice(open, css.indexOf('\n}\n}', at));
-    assert.match(block, /:where\(:is\(\.roadmap \.horizon-head > \.lat-pill[^{]*\{\s*--lat-pill-ink: color\(from var\(--chart-cat-1-hue\)/);
+    assert.match(block, /:where\(:is\(\.roadmap \.horizon-head > \.lat-pill[^{]*\{\s*--lat-pill-ink: color\(from var\(--finish-one\)/);
   });
 
   // The body a finish gives the status mark selected by `sel` (its first paint declaration). The rule is shared, so

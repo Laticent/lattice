@@ -1,0 +1,1 @@
+- **`npm run merge:order` no longer aborts on one PR it cannot measure.** A PR git cannot size or check (no merge base in a shallow clone, a deleted branch) is listed under `unmeasured` with git's reason and left out; the rest are still ordered, and the run exits 1 instead of 3. Found on the merge desk's first live run.

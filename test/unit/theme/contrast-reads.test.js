@@ -71,8 +71,16 @@ test('resolveVars: the same map as the regexes on every shipped palette, both mo
   }
   assert.ok(palettes > 20, `only ${palettes} palettes`);
   // Measured on main dbc4d73a: carbone's --fail-bg, --pass-bg and --warn-bg were each read as `color-mix(in srgb`.
+  // concrete joined on 2026-11-22: #3232 gave it the same `light-dark(color-mix(in srgb, …), …)` status tints.
   // Pinned, so a new case is seen.
-  assert.deepEqual([...fixed].sort(), ['carbone --fail-bg', 'carbone --pass-bg', 'carbone --warn-bg']);
+  assert.deepEqual([...fixed].sort(), [
+    'carbone --fail-bg',
+    'carbone --pass-bg',
+    'carbone --warn-bg',
+    'concrete --fail-bg',
+    'concrete --pass-bg',
+    'concrete --warn-bg',
+  ]);
   assert.ok(lightDark > 0, 'no palette holds a light-dark() value, so the comparison reached nothing');
 });
 

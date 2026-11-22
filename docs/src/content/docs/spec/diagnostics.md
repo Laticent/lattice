@@ -124,9 +124,11 @@ distinct, stable ID.
 | `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
 | `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on. |
-| `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
-| `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
-| `ledger-inline-title` | error | ✓ | The unordered inline-bold shape on a ledger/numbered layout — autofixes to the ordered `1. Name` / `   - body` shape the layout wants. |
+| `list-modifier-inert` | warning | — | On a list slide, a counter word that does nothing: `lettered`/`roman`/`bullet` without `principles`, or `numbered`, which retired from `list` in W2 (2026-11-19): the `1.` marker numbers the rows in every register, so a `-` list is told to switch to `1.`. |
+| `list-depth-unsupported` | warning | — | A list shape the slide's layout was not designed for: a list nested deeper than the levels its manifest's list slots declare (a sublist under an `agenda` section), or a second top-level list after a line of prose with no heading between them (an aside). `content` and `list` are prose layouts and take any list; a list in a blockquote or raw HTML is skipped. Fix: fold it into the line above, or give it its own `content` slide. |
+| `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style or ledger layout (agenda, kpi, list-steps, …) — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`, keeping the author's marker. |
+| `ledger-inline-title` | — | — | **Deprecated (2026-11-19), no longer emitted.** It reported the unordered inline-bold shape on a ledger layout and autofixed it to `1. Name` / `   - body`. The list contract (W2) makes the marker irrelevant on those layouts, so the inline bold title is now `card-style-inline-title`, with either marker. |
+| `list-steps-inline-body` | warning | ✓ | A `list-steps` step with its title and body on one step line (`1.` or `-`), joined by a dash — the whole line renders as the bold title. Autofixes to `1. Title` / `   - Body` (or `- Title` / `  - Body`, keeping the marker). |
 | `chart-list-split-quote` | warning | ✓ | A `>` at the left margin between two items of a chart's list. It ends the list, so every row after it drops out of the chart. On a chart that reads a row's `>` (flowchart, state-chart and the 13 detail charts) the fix indents a one-line quote under the item above, where it becomes that row's description (a quote of several lines gets no machine fix: indent each line by hand); on a list chart that reads no detail under its rows there is no machine fix. |
 | `chart-row-quote-unread` | warning | — | A `>` under a row with no mark of its own: a radar series (its marks are its axes) or a quadrant group (its marks are its points). The chart lifts it out, so it is shown nowhere; move it under an axis or a point, where it is that mark's description. |
 | `chart-value-malformed` | warning | — | A value in a chart's rows or cells that is shaped like a number but is not one: two signs (`--5`, `(-5)`), an unpaired parenthesis (`(5`, `5)`), or digits that are not one number (`1,2,3`, `1.2.3.4x`). The chart reads it as no value (a point chart draws no mark, a pie wedge or funnel stage reads as zero, a bullet prints it as typed); before, each read as a different number with no warning. Only charts that read numbers check it, so a dotted date on a timeline is not flagged. Which number was meant is the author's call, so there is no machine fix. |
@@ -136,6 +138,9 @@ distinct, stable ID.
 | `chart-description-unread` | warning | ✓ | A `{> prose}` description where the chart does not read one. In a list row it is not read, and written after the row's record it leaves the row with no value (`- North `{40}` `{> grew fast}`` draws no bar); a list row's description is a `>` quote indented under it. On a chart whose rows take a quote the fix moves the prose into that quote; elsewhere, and for a description in a table cell of a chart that does not read one (only heatmap does), the finding has no fix On a heatmap table it also warns on a header description with no column name before it (the whole span is then the column's name), a `{>}` that shares its header cell, a second `{>}` column (dropped), a description in the label column or in the `{>}` column (read as its own text). |
 | `statement-ol-bold` | error | — | A `**bold**` span inside an ordered-list statement, which splits the counter-grid row (e.g. `principles`). |
 | `split-bodyless-item` | error | ✓ | A right-panel item with no nested body on a split layout — the title won't lift to bold. |
+| `slot-contract` | error | — | A slide that misses its layout's slot contract (the component manifest's `slots[*].match`): a required slot is missing or the heading is written at the wrong level (`#` where the layout reads `##`). The slide renders without the part the layout is built on. A list marker is never a finding on a layout that declares a list contract (every one that reads a list, since W2 on 2026-11-19): the engine renders `1.` and `-` as that contract says. |
+| `variant-inert` | warning | — | A variant that does nothing as written (the manifest's `variantKinds`): a `source` variant written as a class (`cards-grid numbered`; the numbers come from a `1.` list), or a `requires` variant without the variant it acts beside. |
+| `foreign-variant` | warning | — | A word that is another layout's variant, written on a layout that does not declare it (`kpi gallery`). It renders as if the word were absent. |
 | `split-missing-headline` | warning | — | An h2-anchored split slide (`split-panel`/`split-compare`) with no `## ` headline — the left panel renders empty. |
 | `split-statement-missing-quote` | warning | — | A `split-panel pullquote` with no `> ` blockquote — the pull-quote (the variant's point) renders empty. |
 | `split-compare-option-count` | warning | — | `split-compare` without exactly two top-level options — the layout assumes a two-up and highlights the 2nd as preferred. |
@@ -252,7 +257,8 @@ distinct, stable ID.
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
 | `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
-| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. |
+| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
+| `marks-source-needs-tone` | warning | — | A `marks:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `marks: tone ink`, or drop the word. |
 | `unknown-cards` | warning | ✓ | A `cards:` value the engine does not know; each layout keeps its own card spacing. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
@@ -287,10 +293,12 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `caption-key-retired` | error / warning | — | Front-matter `captions:` (renamed `say:`; ignored, so an error) or a `caption:` comment (now a speaker note: an error in lowercase, a warning when capitalized). |
-| `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
+| `note-key-retired` | error / warning | — | An old note key, which the engine no longer reads, so the line reaches nothing: a `say:` or `caption:` comment (now `@say`), a `describe:` comment (now `@alt`), a `reader:` comment (now `@handout`), or a front-matter `say:` / `captions:` map (each line now `@say` on its slide), all errors; a lowercase `note:` comment (now `@note`) is a warning, because it is also how an author opens a comment to themselves. `lattice migrate notes` rewrites a deck. |
+| `note-malformed` | error / warning | — | A comment that almost is a note (LFM-2.0 §3.5): `@Say{…}` (the names are lowercase), braces that never close, or text after the closing brace, each an error; an `@word{…}` whose word is not one of the four notes, a warning. |
+| `plain-comment-notes` | info | ✓ | A deck with no named note and two or more plain comments: the shape of an LFM 1.x deck whose plain comments were its speaker notes, which now exports with none. The fix runs the notes migration over the whole deck (`lattice migrate notes`), turning each plain comment into `@note`. |
 | `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
 | `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
+| `terms-entry-ignored` | warning | — | A `terms:` line the reader skips, so the term is never spoken as written: an unknown field (`pronunciation:`, `say:`; the fields are `pronounce`, `expansion` and `definition`), a list item (`- Yearn: yurn`), an entry with no value, or a line indented under no term. The message names the field that was probably meant. |
 | `greeting-hardcoded-period` | warning | — | A greeting that names a time of day; `{greeting}` adapts to the listener's clock. |
 | `greeting-not-english` | warning | — | `{greeting}` (always English) in a deck whose `lang:` is not English. |
 | `unknown-bookend-placeholder` | warning | — | A `{placeholder}` in a greeting or closing that the voice would read aloud as written. |
@@ -415,7 +423,8 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
+| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. A plural is reported as its singular (`IRBs` as `IRB`), the key one entry covers. |
+| `narration-acronym-ambiguous` | suggestion | — | An all-caps token with more than one known meaning (`AP`: accounts payable, Advanced Placement, Associated Press). The built-in dictionary never expands one; the message names the meanings, and the deck's `terms:` entry says which it means. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
 ### 3.11 Slide metadata comments
@@ -432,12 +441,12 @@ literal text and is never reported.
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
 | `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
-| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field. The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `unterminated-record`, …). |
+| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
 | `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
-> source line. `card-style-inline-title`, `ledger-inline-title`, and
+> source line. `card-style-inline-title` and
 > `split-bodyless-item` autofix the bold inline shape (`- **Title.** body`); the
 > gantt span rule `gantt-retired-delimiter` autofixes the retired delimiter to
 > `..`; `quadrant-retired-axis` rewrites the old axis format; `spark-too-big`
@@ -512,7 +521,7 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   changes how an existing deck renders). Some findings also omit `classToken` or
   `line`, which §1 lists as required: the review tier's slide- and deck-level
   findings and the CLI's `--discover` findings carry no `line`. And three
-  front-matter findings (`autosplit-retired`, `caption-key-retired`,
+  front-matter findings (`autosplit-retired`, `note-key-retired`,
   `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
   `slide: 0`. Specifying these is the
   next minor version's work.

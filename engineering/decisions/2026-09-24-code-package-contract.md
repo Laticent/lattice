@@ -368,8 +368,14 @@ engine-namespaced attribute it was not handed), and `video`'s poster link `href`
 render, across every pass (`--strip-notes` renders twice; a section already drawn is not run
 again), checked before each package's page opens and before each slide. The host kills the worker
 30 s past that; the worker writes one result per line, so a kill keeps every slide that finished,
-and the host kills any browser it left behind (it runs as `nobody`, in its own process group) and
-removes its profile.
+and the host kills any browser it left behind and removes its profile. Off Windows the browser runs
+in its own process group (as `nobody` when the host is root), so one kill reaches its helpers.
+Windows has no process groups, so the host stops every process whose command line names the profile
+folder (`killBrowserTree` in `lib/cli/code-door.js`; Chromium hands `--user-data-dir` to each
+helper), so no helper is left to hold a file and make the removal fail with EBUSY (#3276). It does
+not kill by pid there: the killed worker's job object usually ends the browser first (windows-2025
+measured 0 of 9 processes left, #3310), and Windows may reuse a freed pid. (Chromium also ends its
+own helpers on Windows once the main process dies, measured in #3310; the sweep does not rely on it.)
 
 **Never blank, never silent.** A slide whose package failed keeps the engine's section with a
 visible note naming the package and the reason. Every line from a stranger reaches the terminal as
@@ -678,7 +684,29 @@ read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206)
 - **Caches.** A result is remembered by what the package was handed, so typing re-runs only the
   slides whose input changed. The package-and-approval state rides in the preview's extra CSS as an
   inert comment (`codePackagesStamp`), because every preview and export cache keys on that CSS, so
-  a new package or approval re-renders everything that showed the old state.
+  a new package or approval re-renders everything that showed the old state. A render handed the CSS
+  it paints with (`codeApproval`) draws a package or plugin as approved only when that stamp says so
+  as well as the live approval (`approvalsInStamp`, 2026-11-17, #3292): an approval given while a
+  render was in flight had filled a plugin's block in a render whose CSS lacked the plugin's sheet,
+  and the first frame painted unstyled. The stamp only narrows, so code still runs on a live yes;
+  it carries a per-page nonce, so look-alike text in a Library component's CSS is not the stamp; and
+  the Studio refreshes it on a `storage` event, so another tab's approval reaches this tab. CSS
+  handed with no stamp of this page draws a plugin that has a stylesheet only when that CSS
+  carries the plugin's sheet (door-run.ts `unstamped`, 2026-11-19); otherwise that render shows
+  the block as the engine drew it, while the plugin still runs and its result is remembered, so
+  the next render, with the stamp, draws at once. On a reload a
+  render could begin in the moment between `setPlugins` filling the door and the shell committing
+  the stamp, and drawing the plugin by its live approval painted the badge's words with no fill (a
+  per-frame watcher saw it in 8 of 20 Chromium and 7 of 20 Gecko reloads on `main`). The rule reads
+  the CSS the render paints with, not the shell's timing: a first version that read every
+  stamp-less CSS as "draw no plugin" showed the block's source in the print preview (whose export
+  CSS carries the sheets but a nonce-free stamp) while the printed PDF drew it, and a second that
+  waited for the shell to report its stamp raced renders that began with older CSS. A stamp that
+  does not list a name at all (the Studio sets it from two effects, so the first stamp after a
+  reload can lack the packages' or the plugins' names) is not an "unapproved" for that name: it is
+  drawn as with no stamp (`stampEntries`). An export writes the stamp without the nonce
+  (`withoutStampNonce`, share-export.ts), so the same deck exports the same text after a reload;
+  an export passes no `codeApproval` and keeps the live approvals.
 
 **Classes: the package's own name, or what the slide carried** (`doorFilterAttr`, both doors). A
 later registry pass and the viewer's runtime act on classes they know: a package that added `video`

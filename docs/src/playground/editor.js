@@ -302,10 +302,11 @@ const latticeTheme = EditorView.theme({
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
 	// (Coarse-pointer rules live in the `@media` block at the END of this object —
 	// its position is load-bearing; see the note there.)
-	// The editor's own scroller does not inherit the page's thin scrollbar (an ancestor resets it), so it is
-	// stated here, with the SAME mix native-widgets.css puts on :root: the preview frame is handed the page's
-	// resolved value, and the e2e spec holds the two equal.
-	'.cm-scroller': { overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent' },
+	// The scrollbar's WIDTH comes from native-widgets.css's `*` rule (`scrollbar-width` is not inherited, so a
+	// :root rule never reached this scroller; that, not an ancestor reset, is why it once needed its own). The
+	// COLOR is stated here with the SAME mix native-widgets.css puts on :root: the preview frame is handed the
+	// page's resolved value, and the e2e spec holds the two equal.
+	'.cm-scroller': { overflow: 'auto', scrollbarColor: 'color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent' },
 	// THE SLIDE BAND. Two drawn boxes, not line decorations (see `bandPlugin`): the text stays selectable and a
 	// click anywhere in the band puts the caret exactly where it landed, because the band is paint, never a hit
 	// target. The wash has an edge top and bottom, which frames the slide including its `---` fences.
@@ -639,17 +640,24 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			onFix: (v, f) => {
 				const cur = v.state.doc.toString();
 				followAdmission(cur);
-				const out = lintCoreMod.applyFix(cur, f);
-				if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
+				// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
+				const doc = v.state.doc;
+				void lintCoreMod.applyFixWhenReady(cur, f).then((out) => {
+					if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out } });
+				});
 			},
 		});
 	};
 	// Fix-all command (Alt-Shift-F) — apply every autofixable finding in the deck
 	// in one undoable pass, via the SAME lint-core the panel's "Fix all" uses.
 	// Returns true so the key is consumed only when validation is live for this deck.
+	let fixAllRunning = false;
 	const fixAllCommand = (view) => {
 		if (!vocab) return false;
 		if (!readFrontMatter(view.state.doc.toString()).validate) return false;
+		// One run at a time (the passes are awaited): a held or repeated key consumes the press and starts nothing.
+		if (fixAllRunning) return true;
+		fixAllRunning = true;
 		(async () => {
 			if (!lintCoreMod) {
 				try {
@@ -665,16 +673,27 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			// the await, so compute the fix against the CURRENT document, not a stale one.
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
+			// Marks the page from the moment the run has read the deck it fixes until it ends: what an e2e waits on before it
+			// types "during the run" (HARD RULE #32), since the driver's chunk loads first and a keystroke before the read is kept.
+			document.documentElement.dataset.fixAllRunning = '';
+
 			followAdmission(cur);
-			const res = lintCoreMod.fixAllDetailed(cur, buildVocabSets(vocab));
-			if (res.text !== cur) {
+			// One task per driver pass (lint-core `fixAllDetailed` with a pause), so the page keeps painting; the author may
+			// type meanwhile, so the result is written only onto the text it was computed from.
+			const res = await lintCoreMod.fixAllDetailed(cur, buildVocabSets(vocab), true);
+			// Stale also when the view was torn down meanwhile: a destroyed view keeps its old text and takes a dispatch silently.
+			const stale = !view.dom.isConnected || view.state.doc.toString() !== cur;
+			if (!stale && res.text !== cur) {
 				view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: res.text } });
 			}
 			// Name each fix the driver refused, as the Studio's Fix all does: a refused fix keeps its underline.
 			// Loaded here, not imported: a static import added this chunk to the Playground island's
 			// preload list, which is first-paint JS (docs/route-budget.json, playground eagerJsGz).
-			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped });
-		})();
+			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped, stale });
+		})().finally(() => {
+			fixAllRunning = false;
+			delete document.documentElement.dataset.fixAllRunning;
+		});
 		return true;
 	};
 	// A caret outside the rendered lines: a preview scroll can carry the editor a screen or more away from it, and

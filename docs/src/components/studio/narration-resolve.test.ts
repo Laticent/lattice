@@ -13,11 +13,10 @@ import { applyChartNarration, resolveNarration } from './narration-resolve';
 
 describe('resolveNarration', () => {
 	it('takes the highest non-blank rung', () => {
-		const full = { say: 'cap', fmSay: 'fm', chart: 'chart', projected: 'proj', fallback: 'flat' };
+		const full = { say: 'cap', chart: 'chart', projected: 'proj', fallback: 'flat' };
 		expect(resolveNarration(full)).toBe('cap');
-		expect(resolveNarration({ ...full, say: null })).toBe('fm');
-		expect(resolveNarration({ ...full, say: null, fmSay: null })).toBe('chart');
-		expect(resolveNarration({ ...full, say: null, fmSay: null, chart: null })).toBe('proj');
+		expect(resolveNarration({ ...full, say: null })).toBe('chart');
+		expect(resolveNarration({ ...full, say: null, chart: null })).toBe('proj');
 		expect(resolveNarration({ fallback: 'flat' })).toBe('flat');
 	});
 
@@ -46,7 +45,6 @@ describe('resolveNarration', () => {
 		// through — so the two surfaces narrated that slide differently, which is exactly the
 		// shape that makes a clip lookup miss forever.
 		expect(resolveNarration({ say: '   ', chart: 'chart' })).toBe('chart');
-		expect(resolveNarration({ fmSay: ' ', chart: 'chart' })).toBe('chart');
 		expect(resolveNarration({ chart: '\n\t ', projected: 'proj' })).toBe('proj');
 	});
 
@@ -96,9 +94,9 @@ describe('applyChartNarration', () => {
 describe('an author say line is read as the words it says', () => {
 	// The same kernel the CLI's mergeNarration applies (lib/core/read-along-build.js plainSay),
 	// so Present, the bake and the .vtt agree on `**x**` → `x`.
-	it('strips inline Markdown from both say rungs, not from the projection', () => {
+	it('strips inline Markdown from the say rung, not from the projection', () => {
 		expect(resolveNarration({ say: 'It **costs** more.', projected: 'p' })).toBe('It costs more.');
-		expect(resolveNarration({ fmSay: '_Front_ matter', projected: 'p' })).toBe('Front matter');
+		expect(resolveNarration({ say: '_Front_ matter', projected: 'p' })).toBe('Front matter');
 		expect(resolveNarration({ projected: 'a **kept** projection' })).toBe('a **kept** projection');
 	});
 });

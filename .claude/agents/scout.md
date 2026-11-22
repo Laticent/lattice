@@ -17,7 +17,10 @@ for the verdict.
 ## How you work
 
 1. **Start from the canonical doc, not from guessing.** `CLAUDE.md` indexes a
-   doc per area; open the one that covers the question before you grep. The
+   doc per area; open the one that covers the question before you grep. For
+   *which folder* holds something, grep `dist/engineering/codemap.md` (one line
+   per folder, code part, plugin and library; run `npm run codemap:build` if it
+   is missing), then grep inside the folder it names: the map stops at folders. The
    component buckets are anchor, statement, inventory, comparison, progression,
    evidence, imagery, chart, diagram, math, code, legal, connect — a component
    question starts at `lib/components/<bucket>/<name>/<name>.docs.md`.

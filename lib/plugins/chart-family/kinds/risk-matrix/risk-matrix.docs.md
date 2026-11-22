@@ -16,11 +16,11 @@ Use for a risk register a board or risk committee reviews: enterprise risk, a pr
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name what is in the red and what is being done ('Cyber and hurricane risk sit in the red; both have a plan'), not 'Risk matrix'. |
-| `risks` | `ul > li` | yes | One li per risk: its name, then a point record `{likelihood, impact}`, each a whole number from 1 to 5 — `Cyber outage \`{4, 5}\``. An optional second record is where mitigation takes it: `\`{4, 5}\` \`{2, 4}\``. Risks are numbered in the order written; the key lists them worst first. |
-| `detail` | `li > ul` | no | Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF. |
+| `title` | a `## ` heading | yes | Slide heading — name what is in the red and what is being done ('Cyber and hurricane risk sit in the red; both have a plan'), not 'Risk matrix'. |
+| `risks` | a list | yes | One li per risk: its name, then a point record `{likelihood, impact}`, each a whole number from 1 to 5 — `Cyber outage \`{4, 5}\``. An optional second record is where mitigation takes it: `\`{4, 5}\` \`{2, 4}\``. Risks are numbered in the order written; the key lists them worst first. |
+| `detail` | a list nested 1 level under an item | no | Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF. |
 
 ### Common mistakes
 
@@ -72,7 +72,7 @@ Use for a risk register a board or risk committee reviews: enterprise risk, a pr
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -115,7 +115,10 @@ section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="str
   column-gap: var(--qc-pad, calc(var(--_sec-1cqi, 1cqi) * 3));
   align-content: center;
   align-items: center;
-  justify-items: center;
+  /* The heading column follows the `headline:` seam like the stack does, so a left-set closing
+   * (`headline: left`, or a left cover composition) sets its eyebrow left with its heading instead
+   * of centering it over them. Unset, it is `center`, as before. */
+  justify-items: var(--headline-justify, center);
 }
 section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > :not(.qr-figure):not(.marker-rail):not(.fixme-tab):not(.slide-edge) {
   grid-column: 1;

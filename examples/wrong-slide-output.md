@@ -103,9 +103,12 @@ Before the fix, the parser read the separator above as text inside the block, so
 
 ## Check a deck after these fixes.
 
-1. Render it at a tall size such as `story` and count the pages.
-2. Look at the slide after any **bold** split title.
-3. Search the HTML for `data-footer` and read what it holds.
+1. Count the pages
+   - Render it at a tall size such as `story` and count what comes out.
+2. Check the split titles
+   - Look at the slide after any **bold** split title.
+3. Read the footers
+   - Search the HTML for `data-footer` and read what it holds.
 
 ---
 

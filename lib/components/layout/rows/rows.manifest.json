@@ -31,11 +31,13 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "The slide's title, above both panes. It makes the point; the panes support it."
     },
     "pane": {
       "selector": "lat-pane",
+      "match": { "kind": "pane" },
       "required": true,
       "description": "Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds."
     }

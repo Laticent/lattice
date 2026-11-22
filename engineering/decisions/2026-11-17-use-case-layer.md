@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: The use-case layer — every Lattice capability as one manifest plus a pure kernel, run through one dispatcher by hosts (the Studio chat first, then the palette and an MCP server) — so any agent reads a deck semantically and deterministically and changes it through typed ops the slide spine owns, with staging, confirmation and state sync defined once.
 ---
 
@@ -432,6 +432,49 @@ unminified; the first slice measures what it costs gzipped in the Studio's route
 6. **`lattice mcp`**: the read toolset and the docs resources first, then the editing toolsets with
    staging, confirmation and the file-host safety of §8.
 7. **The palette's deck-editing commands.**
+
+### 10.1 Step 1, as built (2026-11-19)
+
+Step 1 shipped as planned, with these differences, each found while building it:
+
+- **19 tools, not 15.** #3318 added `find_text`, `replace_text`, `set_terms` and the range form of
+  `preview_speech` after this note was written. All 19 are `legacy` (`SANCTIONED_LEGACY_USE_CASES`).
+- **No model-visible byte changed, and a test proves it.** `chat-tools.golden.test.ts` was captured from
+  the hand-written lists before the move: all 12 combinations of mode, pictures and Library, plus the
+  tiers, the deck-edit set and the labels. It passed unchanged after. The manifests were extracted from
+  the live tool objects, so key order and wording carried over.
+- **Two generated files, not one.** `chat-actions.ts` is in the chat panel's startup code, so the tiers
+  sit alone in `chat-tool-tiers.generated.ts`; the schemas stay in the lazily loaded
+  `chat-tools.generated.ts`.
+- **Placeholders do `enumFrom`'s job**, and more: `{{NAME}}`, `{{NAME|join}}`, `{{=NAME}}` and
+  `{{...NAME}}` name runtime values (themes, finishes, guide topics, chart kinds, two length caps and three per-turn limits)
+  instead of copying them. `{{list}}` without `|join`, a carriage return, and a chat tool that needs a
+  capability the chat lacks all fail the build.
+- **A `chat` block per manifest** (`position`, `activity`, `drafting`) holds the chat's presentation, so
+  adding a tool is adding a folder, not editing a host list too.
+- **Removed, not migrated:** `READ_TOOLS`, which only fed a toolbox `isRead()` nothing called.
+- **The dispatcher returns codes** (`UNKNOWN`, `NOT_OFFERED`, `BAD_ARGS`), and the chat words them as
+  before. The deck-edit verdict reset and check, which six switch cases (seven tools) did by hand, are now its one
+  path; `set_theme` / `set_finish` keep their one quirk as an explicit `check: false`.
+- **Validation** is the shared ajv gate (`tools/manifest-schemas.js`, family `use case`), not a
+  separate validator; the runtime validators of §7 are still step 2. The rules a schema cannot state are
+  `checkUseCaseManifests` in `tools/check-ownership.js`.
+
+- **The adversarial trio** (red team, inversion, checker) confirmed no model-visible or behavior change:
+  all 12 combinations matched `main` on the real themes and finishes, and 222 differential calls through
+  the old and new toolbox matched. It changed the gates:
+  - **A new use case ships a kernel.** Legacy now means "handler in `createToolbox`", and a tool leaves
+    the list only with a kernel and a compliant schema, so the list cannot reach zero while the
+    handlers stay put.
+  - **The input gate is a keyword allowlist.** `allOf`, `$ref`, `not` and `patternProperties` hid
+    unbounded values from the first version; nested objects, untyped values, absurd bounds and long
+    property descriptions are refused too.
+  - **Every input, legacy included, must compile** as strict JSON Schema.
+  - **The golden fixture stores definitions once,** pretty-printed, so a wording change is a readable
+    diff. The new form was proven to rebuild the old one byte for byte.
+  - **A test holds every chat tool to a handler,** so a tool is never offered and then refused.
+
+How to work in the folder: `lib/use-cases/README.md`.
 
 ## 11. What this note does not do
 

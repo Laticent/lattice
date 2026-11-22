@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pictureStill } from './barriers';
 import { BARS_RENDERER, ganttZip } from './plugin-fence-fixture';
 import { CHROME, expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
 
@@ -138,7 +139,14 @@ for (const placement of ['chip', 'figure', 'stage'] as const) {
 				}
 				if (EVIDENCE) {
 					fs.mkdirSync(EVIDENCE, { recursive: true });
-					await livePreview(page).locator('section').first().screenshot({ path: path.join(EVIDENCE, `placeholder-${placement}-${name}-${width}.png`) });
+					// A PAGE screenshot clipped to the preview frame, once the picture holds still. A handle to the slide inside the
+					// srcdoc frame, or to the frame element, dies when the preview redraws after the resize (about 330 ms after the
+					// fit settles on webkit-phone): "Unable to adopt element handle from a different document" failed 6 of 10 runs.
+					// A page screenshot holds no handle, and `pictureStill` waits out the redraw.
+					await pictureStill(page);
+					const box = await page.locator(LIVE_PREVIEW).first().boundingBox();
+					expect(box, 'the live preview frame is on screen').not.toBeNull();
+					await page.screenshot({ path: path.join(EVIDENCE, `placeholder-${placement}-${name}-${width}.png`), clip: box ?? undefined });
 				}
 			}
 		});

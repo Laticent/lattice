@@ -20,6 +20,8 @@
       "Bash(git rev-parse*)",
       "Bash(git rev-list*)",
       "Bash(npm run lint*)",
+      "Bash(npm run pr:park*)",
+      "Bash(npm run pr:ready*)",
       "Bash(npm test*)",
       "Bash(npm run test:*)",
       "Bash(npm run build*)",
@@ -55,6 +57,15 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/warn-needless-catchup.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__merge_pull_request|mcp__github__enable_pr_auto_merge",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/owner-merge-gate.mjs\""
           }
         ]
       }

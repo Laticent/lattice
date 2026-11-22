@@ -280,11 +280,11 @@ Per-slide tags mirror the `_class` grammar (lowercase, space-separated tokens):
 ```markdown
 <!-- _class: kpi -->
 <!-- _lens: brief ask -->
-# Revenue up 38% YoY
+## Revenue up 38% YoY
 ```
 
 ```markdown
-<!-- _class: appendix-detail -->
+<!-- _class: table -->
 <!-- _lens: -evidence -->     ← opt this slide OUT of the base:all evidence lens
 ```
 

@@ -3,7 +3,7 @@
 // on, and the render wrapper's two passes. The sandboxed frame itself is proven on the real Studio
 // (docs/e2e/code-packages.spec.ts).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { approveCodePackage, codeDigest, codePackagesStamp, isApproved, renderWithCodePackages, revokeCodePackage, setCodePackages, unapprovedIn } from './door';
+import { approveCodePackage, codeDigest, codePackagesStamp, isApproved, renderWithCodePackages, revokeCodePackage, setCodePackages, setPlugins, unapprovedIn } from './door';
 
 const CODE = 'function t(s){return s.html}export{t as default};';
 
@@ -45,7 +45,7 @@ describe('which packages a deck needs approved', () => {
 	});
 
 	it('the stamp names each package, its code and its approval, and is empty with none', async () => {
-		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages: tally@[0-9a-f]{16}- \*\/$/);
+		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages [0-9a-z]+: tally@[0-9a-f]{16}- \*\/$/);
 		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
 		expect(codePackagesStamp()).toMatch(/tally@[0-9a-f]{16}\+/);
 		await setCodePackages([]);
@@ -83,6 +83,28 @@ describe('the render wrapper', () => {
 		expect(out.html).toContain('its code has not been approved in this browser');
 	});
 
+	it('a component package draws by the stamp in the CSS it paints with too: approved live, an older stamp still draws it unapproved (#3292)', async () => {
+		const before = codePackagesStamp();
+		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
+		const old = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: before });
+		expect(old.html).toContain('its code has not been approved in this browser');
+		const now = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: codePackagesStamp() });
+		expect(now.html).not.toContain('its code has not been approved in this browser');
+		revokeCodePackage('tally');
+	});
+
+	it('a stamp that does not list a package at all (the first stamp after a reload, set before the packages) leaves it to the live approval (#3292)', async () => {
+		await setCodePackages([]);
+		await setPlugins([{ name: 'other', fence: 'other', code: CODE }]);
+		const pluginsOnly = codePackagesStamp();
+		await setCodePackages([{ name: 'tally', code: CODE }]);
+		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
+		const out = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: pluginsOnly });
+		expect(out.html).not.toContain('its code has not been approved in this browser');
+		revokeCodePackage('tally');
+		await setPlugins([]);
+	});
+
 	it('the preview flag never reaches the engine', async () => {
 		let seen: Record<string, unknown> | undefined;
 		const PGseen = {
@@ -91,9 +113,10 @@ describe('the render wrapper', () => {
 				return { html: '' };
 			},
 		};
-		await renderWithCodePackages(PGseen, 'x', 'indaco', { codeStatus: true, baseUrl: '/b/' });
+		await renderWithCodePackages(PGseen, 'x', 'indaco', { codeStatus: true, codeApproval: '', baseUrl: '/b/' });
 		expect(seen).toMatchObject({ baseUrl: '/b/' });
 		expect(seen && 'codeStatus' in seen).toBe(false);
+		expect(seen && 'codeApproval' in seen).toBe(false);
 	});
 });
 

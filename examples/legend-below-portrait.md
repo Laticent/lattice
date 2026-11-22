@@ -117,7 +117,7 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: content -->
 
 ## Landscape unchanged. Portrait, finally whole.
 

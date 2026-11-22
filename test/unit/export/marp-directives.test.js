@@ -52,8 +52,14 @@ test('a record field holding `-->` is left out and reported with its line, never
   const out = recordsToComments('# A\n\n<!-- {layout=kpi, footer="a --\\> b"} -->\n', report);
   assert.equal(out, '# A\n\n<!-- _class: kpi -->\n');
   assert.deepEqual(report.map((d) => [d.code, d.line]), [['meta-comment-unsafe', 3]]);
-  // A note may hold one: the bridge writes it `-- >`, which ends nothing.
-  assert.equal(recordsToComments('<!-- {note="a --\\> b"} -->\n'), '<!-- a -- > b -->\n');
+  // A record holds no note (engineering/decisions/2026-11-20-four-notes.md N4): a retired `note=` field is reported and
+  // dropped, never written to Marp as a speaker note.
+  const noteReport = [];
+  assert.equal(recordsToComments('<!-- {note="a --\\> b"} -->\n', noteReport), '\n');
+  assert.deepEqual(noteReport.map((d) => [d.code, d.line]), [['meta-note-field', 1]]);
+  // A note may hold one: `notesToMarp` writes it `-- >`, which ends nothing.
+  const { notesToMarp } = require('../../../lib/authoring/notes-core.js');
+  assert.equal(notesToMarp('<!-- @note{a --\\> b} -->\n'), '<!-- a -- > b -->\n');
 });
 
 test('both Marp producers run the one pass list, in order (record note §7: one compile, first, in both producers)', () => {

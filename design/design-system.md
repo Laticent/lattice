@@ -439,24 +439,13 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognizes four tiers:
 
-**Tier 1 — Universal (51 variants).** Apply to every component. Added
-automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Eleven
-categories:
-
-| Category | Variants |
-|---|---|
-| Mood (1) | `dark` |
-| Decoration (6) | `no-treatment`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
-| Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
-| Chrome (5) | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
-| Social (1) | `safe` |
-| State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
-| Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
-| Insight (11) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
-| Claim (3) | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
-| Note (2) | `no-note`, `note-warn` |
-| Table (3) | `table-plain`, `table-fill`, `state-cells` |
+**Tier 1 — Universal.** Apply to every component. `effectiveVariants()` adds
+the `UNIVERSAL_GROUPS` subset automatically; manifests must NOT list them. The
+full set is declared in `lib/base/base.manifest.json`, which builds
+`MODIFIER_GROUPS` (`lib/components/index.js`), and is listed group by group in
+the generated [base modifier reference](../lib/base/base.modifiers.docs.md),
+with the test that tells a component, a variant, a modifier, a switch and a
+register apart. The list is generated, so this page does not repeat it.
 
 The State variants are the team-collaboration vocabulary — visible
 markers for slides that are in-progress, confidential, or otherwise

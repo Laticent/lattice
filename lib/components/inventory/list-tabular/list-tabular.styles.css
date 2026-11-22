@@ -70,7 +70,7 @@
  * wraps inside its own track instead of shouldering the description off the
  * slide. The caps are properties too, so a deck can retune without a new class.
  * ───────────────────────────────────────────────────────────────────────── */
-section.list-tabular ol {
+section.list-tabular ol:where(.cell-stage > *) {
   --lt-name-max:34cqi;
   --lt-meta-max:26cqi;
   --lt-counter:auto;
@@ -89,7 +89,7 @@ section.list-tabular ol {
      cut tail announces itself, a cut head does not (#1299, stage.css). */
   flex:1; min-height:0; align-content:safe center;
 }
-section.list-tabular ol > li {
+section.list-tabular ol:where(.cell-stage > *) > li {
   counter-increment:tabular-counter;
   display:grid;
   grid-column:1 / -1;
@@ -117,8 +117,8 @@ section.list-tabular ol > li {
  * is no outer edge to suppress and no `:last-child` override to keep in sync.
  * It is the shape `list-steps.ghost` and `list.principles` already use.
  * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
-section.list-tabular ol > li + li { border-top:1px solid var(--border); }
-section.list-tabular ol > li::before {
+section.list-tabular ol:where(.cell-stage > *) > li + li { border-top:1px solid var(--border); }
+section.list-tabular ol:where(.cell-stage > *) > li::before {
   content:counter(tabular-counter, decimal-leading-zero);
   font-family:var(--font-label);
   font-size:var(--fs-body);
@@ -127,9 +127,9 @@ section.list-tabular ol > li::before {
   letter-spacing:0.06em;
   align-self:baseline;
 }
-section.list-tabular ol > li > ul { display:contents; }
-section.list-tabular ol > li > ul > li::marker { content:''; }
-section.list-tabular ol > li > ul > li:first-child {
+section.list-tabular ol:where(.cell-stage > *) > li > ul { display:contents; }
+section.list-tabular ol:where(.cell-stage > *) > li > ul > li::marker { content:''; }
+section.list-tabular ol:where(.cell-stage > *) > li > ul > li:first-child {
   grid-column:3; grid-row:1;
   font-family:var(--font-body);
   font-size:var(--fs-body);
@@ -141,7 +141,7 @@ section.list-tabular ol > li > ul > li:first-child {
  * (the 3-line authoring contract), treat it as the meta column. The new
  * 2-line contract uses inline <code> instead and never produces a second
  * nested li. */
-section.list-tabular ol > li > ul > li:nth-child(2) {
+section.list-tabular ol:where(.cell-stage > *) > li > ul > li:nth-child(2) {
   grid-column:4; grid-row:1;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -152,8 +152,8 @@ section.list-tabular ol > li > ul > li:nth-child(2) {
   text-align:right;
   overflow-wrap:break-word;
 }
-section.list-tabular ol > li > ul > li:nth-child(2) em { font-style:normal; }
-section.list-tabular ol > li > code {
+section.list-tabular ol:where(.cell-stage > *) > li > ul > li:nth-child(2) em { font-style:normal; }
+section.list-tabular ol:where(.cell-stage > *) > li > code {
   grid-column:4; grid-row:1;
   background:none;
   border:none;
@@ -199,31 +199,31 @@ section.list-tabular ol > li > code {
  * a span at all. A `spec` row mixing a `code` key with a pill type-chip gets the
  * trailing cell here, which is the common shape; a row whose KEY is a pill is not
  * expressible. `lint:deck` does not flag it — it renders, just not in the key slot. */
-section.list-tabular ol > li > .lat-pill[data-shape] {
+section.list-tabular ol:where(.cell-stage > *) > li > .lat-pill[data-shape] {
   grid-column:4; grid-row:1;
   justify-self:end;
   align-self:center;
 }
 /* def has three tracks and its `code` is an EYEBROW above the name, so a pill goes
  * where that eyebrow goes rather than to a trailing column def does not have. */
-section.list-tabular.def ol > li > .lat-pill[data-shape] {
+section.list-tabular.def ol:where(.cell-stage > *) > li > .lat-pill[data-shape] {
   grid-column:2; grid-row:1;
   justify-self:start;
 }
 /* spec.stacked re-points its trailing chip to column 3 on row 1; match it. */
-section.list-tabular.spec.stacked ol > li > .lat-pill[data-shape] {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li > .lat-pill[data-shape] {
   grid-column:3; grid-row:1;
   justify-self:end;
 }
 /* In block flow (tall / strip families) the row is not a grid, so drop the placement
  * and let the pill sit in the text run like the meta shapes above it. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > .lat-pill[data-shape] {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li > .lat-pill[data-shape] {
   grid-column:auto; grid-row:auto;
   justify-self:start;
 }
 
 /* ── Variant: def (editorial) ─────────────────────────────────────────── */
-section.list-tabular.def ol {
+section.list-tabular.def ol:where(.cell-stage > *) {
   /* Three tracks, no meta: def's `code` is an EYEBROW above the name, not a
    * trailing column. `align-content`, not `justify-content` — the ol is a grid
    * now, and on a grid `justify-content` distributes the TRACKS horizontally
@@ -233,7 +233,7 @@ section.list-tabular.def ol {
   row-gap:var(--sp-md);
   flex:1; align-content:safe center;
 }
-section.list-tabular.def ol > li {
+section.list-tabular.def ol:where(.cell-stage > *) > li {
   grid-template-rows:auto auto;
   row-gap:0.3125cqi;
   padding:0;
@@ -245,7 +245,7 @@ section.list-tabular.def ol > li {
   letter-spacing:-0.01em;
   line-height:var(--lh-tight);
 }
-section.list-tabular.def ol > li::before {
+section.list-tabular.def ol:where(.cell-stage > *) > li::before {
   grid-column:1; grid-row:1 / span 2;
   font-family:var(--font-display);
   font-size:var(--fs-h2);
@@ -256,7 +256,7 @@ section.list-tabular.def ol > li::before {
   align-self:center;
   justify-self:start;
 }
-section.list-tabular.def ol > li > code {
+section.list-tabular.def ol:where(.cell-stage > *) > li > code {
   grid-column:2; grid-row:1;
   display:block;
   width:fit-content;
@@ -276,7 +276,7 @@ section.list-tabular.def ol > li > code {
   align-self:end;
   justify-self:start;
 }
-section.list-tabular.def ol > li > ul > li {
+section.list-tabular.def ol:where(.cell-stage > *) > li > ul > li {
   grid-column:3; grid-row:1 / span 2;
   font-family:var(--font-body);
   font-size:var(--fs-body);
@@ -288,7 +288,7 @@ section.list-tabular.def ol > li > ul > li {
 }
 
 /* def.rule — single continuous full-height accent rail */
-section.list-tabular.def.rule ol {
+section.list-tabular.def.rule ol:where(.cell-stage > *) {
   border-left:4px solid var(--accent);
   padding-left:var(--sp-md);
 }
@@ -300,11 +300,11 @@ section.list-tabular.def.rule ol {
  * the counter stayed pinned to the first baseline while the name sat at the
  * midline. `auto` computes to the row's own `align-items`, so the counter now
  * tracks whatever its variant chose. */
-section.list-tabular.metric ol > li::before,
-section.list-tabular.register ol > li::before { align-self:auto; }
+section.list-tabular.metric ol:where(.cell-stage > *) > li::before,
+section.list-tabular.register ol:where(.cell-stage > *) > li::before { align-self:auto; }
 
 /* ── Variant: metric (tile) ───────────────────────────────────────────── */
-section.list-tabular.metric ol > li {
+section.list-tabular.metric ol:where(.cell-stage > *) > li {
   align-items:center;
   font-family:var(--font-body);
   font-size:var(--fs-body);
@@ -312,7 +312,7 @@ section.list-tabular.metric ol > li {
   color:var(--text-heading);
   letter-spacing:-0.01em;
 }
-section.list-tabular.metric ol > li > code {
+section.list-tabular.metric ol:where(.cell-stage > *) > li > code {
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-radius:var(--radius-md);
@@ -330,7 +330,7 @@ section.list-tabular.metric ol > li > code {
 }
 
 /* metric.solid — filled accent tile */
-section.list-tabular.metric.solid ol > li > code {
+section.list-tabular.metric.solid ol:where(.cell-stage > *) > li > code {
   background:var(--accent);
   border-color:var(--accent);
   color:var(--on-accent, var(--on-dark-primary));
@@ -341,19 +341,19 @@ section.list-tabular.metric.solid ol > li > code {
  * columns shrink below their content so a long mono key / API path wraps
  * inside its cell instead of overflowing the slide edge (which corrupted the
  * trailing glyphs). overflow-wrap on the code makes the wrap point clean. */
-section.list-tabular.spec ol {
+section.list-tabular.spec ol:where(.cell-stage > *) {
   /* The key can be a long API path, so it gets a wider cap than a prose label. */
   --lt-name-max:38cqi;
   --lt-meta-max:22cqi;
 }
-section.list-tabular.spec ol > li {
+section.list-tabular.spec ol:where(.cell-stage > *) > li {
   font-family:var(--font-label);
   font-size:var(--fs-body);
   font-weight:600;
   color:var(--text-heading);
   letter-spacing:0;
 }
-section.list-tabular.spec ol > li > code {
+section.list-tabular.spec ol:where(.cell-stage > *) > li > code {
   color:var(--accent);
   font-weight:700;
   min-width:0;
@@ -363,41 +363,41 @@ section.list-tabular.spec ol > li > code {
  * rule sends every `> code` to column 4, which stacked them in one cell (the
  * "LATTICESTRENG" glyph pile-up). Place the key in the name column and the
  * type in the trailing column. */
-section.list-tabular.spec ol > li > code:first-of-type { grid-column:2; grid-row:1; justify-self:start; }
-section.list-tabular.spec ol > li > code:nth-of-type(2) { grid-column:4; grid-row:1; justify-self:start; }
+section.list-tabular.spec ol:where(.cell-stage > *) > li > code:first-of-type { grid-column:2; grid-row:1; justify-self:start; }
+section.list-tabular.spec ol:where(.cell-stage > *) > li > code:nth-of-type(2) { grid-column:4; grid-row:1; justify-self:start; }
 
 /* spec.stacked — description below name; counter spans rows */
-section.list-tabular.spec.stacked ol {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) {
   /* The key moves ONTO the body track (row 1) and the clause sits under it, so
    * this variant is three tracks: counter · body · meta. */
   grid-template-columns:var(--lt-counter) var(--lt-body) var(--lt-meta);
 }
-section.list-tabular.spec.stacked ol > li {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li {
   grid-template-rows:auto auto;
   row-gap:var(--sp-xs);
   font-size:var(--fs-body);
 }
-section.list-tabular.spec.stacked ol > li::before {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li::before {
   grid-row:1 / span 2;
   align-self:center;
   font-size:var(--fs-h2);
   line-height:1;
   letter-spacing:-0.02em;
 }
-section.list-tabular.spec.stacked ol > li > ul > li {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li > ul > li {
   grid-column:2; grid-row:2;
 }
-section.list-tabular.spec.stacked ol > li > code {
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li > code {
   min-width:0;
   overflow-wrap:anywhere;
 }
 /* Two codes again: key name on row 1 next to the counter, type at the row-1
  * trailing edge; the description (nested ul) sits on row 2 (base stacked rule). */
-section.list-tabular.spec.stacked ol > li > code:first-of-type { grid-column:2; grid-row:1; justify-self:start; align-self:baseline; }
-section.list-tabular.spec.stacked ol > li > code:nth-of-type(2) { grid-column:3; grid-row:1; justify-self:end; align-self:baseline; }
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li > code:first-of-type { grid-column:2; grid-row:1; justify-self:start; align-self:baseline; }
+section.list-tabular.spec.stacked ol:where(.cell-stage > *) > li > code:nth-of-type(2) { grid-column:3; grid-row:1; justify-self:end; align-self:baseline; }
 
 /* ── Variant: register (pill) ─────────────────────────────────────────── */
-section.list-tabular.register ol > li {
+section.list-tabular.register ol:where(.cell-stage > *) > li {
   align-items:center;
   font-family:var(--font-body);
   font-size:var(--fs-body);
@@ -407,12 +407,12 @@ section.list-tabular.register ol > li {
 /* The tag is a pill — the author writes it `{META}` and the pills plugin draws it; register asks
  * for its stamp look through the plugin's color, case and tracking properties and places it at
  * the row's end. */
-section.list-tabular.register ol > li > .lat-pill:not([data-c])[data-shape] {
+section.list-tabular.register ol:where(.cell-stage > *) > li > .lat-pill:not([data-c])[data-shape] {
   --lat-pill-bg: var(--accent-soft);
   --lat-pill-edge: var(--accent-soft);
   --lat-pill-ink: var(--accent);
 }
-section.list-tabular.register ol > li > .lat-pill[data-shape] {
+section.list-tabular.register ol:where(.cell-stage > *) > li > .lat-pill[data-shape] {
   --lat-pill-case: uppercase;
   --lat-pill-tracking: 0.1em;
   justify-self:end;
@@ -420,7 +420,7 @@ section.list-tabular.register ol > li > .lat-pill[data-shape] {
 }
 
 /* register.outline — hairline-bordered tag */
-section.list-tabular.register.outline ol > li > .lat-pill:not([data-c])[data-shape] {
+section.list-tabular.register.outline ol:where(.cell-stage > *) > li > .lat-pill:not([data-c])[data-shape] {
   --lat-pill-bg: transparent;
   --lat-pill-edge: var(--border);
   --lat-pill-ink: var(--text-label);
@@ -445,14 +445,14 @@ section.list-tabular.register.outline ol > li > .lat-pill:not([data-c])[data-sha
  * ───────────────────────────────────────────────────────────────────────── */
 /* `fit-name` / `fit-meta` hug ONE column and leave the slack where it is — the
  * body still absorbs it, so the trailing column stays on the right edge. */
-section.list-tabular.list-tabular.fit-name ol { --lt-name:max-content; }
-section.list-tabular.list-tabular.fit-meta ol { --lt-meta:max-content; }
+section.list-tabular.list-tabular.fit-name ol:where(.cell-stage > *) { --lt-name:max-content; }
+section.list-tabular.list-tabular.fit-meta ol:where(.cell-stage > *) { --lt-meta:max-content; }
 /* `fit-body` hugs the clause, which leaves nothing absorbing the slack — so the
  * trailing column takes it (`minmax(max-content, 1fr)`, its content still
  * `justify-self:end`). Without that hand-off every track would be content-sized,
  * the tracks would total less than the list, and the trailing column would strand
  * itself mid-slide instead of holding the right edge. */
-section.list-tabular.list-tabular.fit-body ol {
+section.list-tabular.list-tabular.fit-body ol:where(.cell-stage > *) {
   --lt-body:max-content;
   --lt-meta:minmax(max-content, 1fr);
 }
@@ -461,38 +461,38 @@ section.list-tabular.list-tabular.fit-body ol {
  * (still `1fr` by default) and strand the row's tail mid-slide. They come after
  * `fit-body` on purpose — `flex-name fit-body` means "the label takes it", and
  * source order is what settles the trailing track between the two rules. */
-section.list-tabular.list-tabular.flex-name ol {
+section.list-tabular.list-tabular.flex-name ol:where(.cell-stage > *) {
   --lt-name:minmax(0, 1fr);
   --lt-body:max-content;
   --lt-meta:fit-content(var(--lt-meta-max));
 }
-section.list-tabular.list-tabular.flex-meta ol {
+section.list-tabular.list-tabular.flex-meta ol:where(.cell-stage > *) {
   --lt-name:fit-content(var(--lt-name-max));
   --lt-body:max-content;
   --lt-meta:minmax(0, 1fr);
 }
 /* `fixed` restores the exact tracks each variant carried before the responsive
  * pass, so a deck tuned against them renders unchanged. */
-section.list-tabular.list-tabular.fixed ol {
+section.list-tabular.list-tabular.fixed ol:where(.cell-stage > *) {
   --lt-counter:3.4375cqi;
   --lt-name:15.625cqi;
   --lt-meta:minmax(0, 0.9fr);
 }
-section.list-tabular.list-tabular.def.fixed ol {
+section.list-tabular.list-tabular.def.fixed ol:where(.cell-stage > *) {
   --lt-counter:5cqi;
   --lt-name:17.1875cqi;
 }
-section.list-tabular.list-tabular.spec.fixed ol {
+section.list-tabular.list-tabular.spec.fixed ol:where(.cell-stage > *) {
   --lt-name:minmax(0, 20.3125cqi);
   --lt-meta:minmax(0, 15.625cqi);
 }
-section.list-tabular.list-tabular.spec.stacked.fixed ol {
+section.list-tabular.list-tabular.spec.stacked.fixed ol:where(.cell-stage > *) {
   --lt-body:minmax(0, 1fr);
   --lt-meta:minmax(0, 15.625cqi);
 }
 
 /* ── Universal modifier: compact ──────────────────────────────────────── */
-section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
+section.list-tabular.compact ol:where(.cell-stage > *) > li { padding:var(--sp-xs) 0; }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The row is a four-track grid (counter · name · description · meta); in a tall box
@@ -503,33 +503,33 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    order — a block flow lays them out in that order without fighting it.) Keyed on
    the deck's `data-family` stamp; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) {
   display: block;
   grid-template-columns: none;
 }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li {
   display: block;
   grid-template-columns: none;
 }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li::before {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li::before {
   padding-right: var(--sp-sm);
 }
 /* meta code → inline after the name (no longer a right-aligned column). */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > code {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li > code {
   display: inline-block;
   padding-left: var(--sp-sm);
   text-align: left;
 }
 /* description (nested list) → its own line below the name. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul { display: block; }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:first-child {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li > ul { display: block; }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li > ul > li:first-child {
   display: block;
   padding-top: var(--sp-2xs);
 }
 /* the 3-line authoring contract carries meta as a second nested li (not inline
    `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
    it right-aligned, so left-align it onto its own line like the inline-code meta. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > *) > li > ul > li:nth-child(2) {
   display: block;
   text-align: left;
   padding-top: var(--sp-2xs);
@@ -568,7 +568,7 @@ section.list-tabular-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 /* The gap below the runhead's underline rides as padding-top on the rows list (not a

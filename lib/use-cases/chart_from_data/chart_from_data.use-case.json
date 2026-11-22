@@ -1,0 +1,98 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "chart_from_data",
+	"title": "Chart from data",
+	"describe": {
+		"chat": "Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. Read the chart guide (read_component) if unsure."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.slides",
+		"deck.structure"
+	],
+	"destructive": false,
+	"idempotent": false,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"after": {
+				"type": "integer",
+				"description": "Insert after this slide number (0 puts it first)."
+			},
+			"kind": {
+				"type": "string",
+				"enum": [
+					"{{...chartKinds}}"
+				]
+			},
+			"variant": {
+				"type": "string",
+				"enum": [
+					"row",
+					"diverging",
+					"donut"
+				],
+				"description": "Optional: bar row (long names) or diverging (signed values); piechart donut."
+			},
+			"heading": {
+				"type": "string",
+				"description": "The claim, as a sentence."
+			},
+			"rows": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"label": {
+							"type": "string"
+						},
+						"value": {
+							"type": "string"
+						},
+						"parts": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"label": {
+										"type": "string"
+									},
+									"value": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"label",
+									"value"
+								]
+							}
+						}
+					},
+					"required": [
+						"label"
+					]
+				}
+			},
+			"summary": {
+				"type": "string"
+			}
+		},
+		"required": [
+			"after",
+			"kind",
+			"heading",
+			"rows"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "deck",
+	"legacy": true,
+	"chat": {
+		"position": 140,
+		"activity": "Building a chart…"
+	}
+}

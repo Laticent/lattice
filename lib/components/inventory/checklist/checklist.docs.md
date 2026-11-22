@@ -18,10 +18,10 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing pill, written `{status}` in inline code, floats right as a status tag. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `items` | a list | yes | Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing pill, written `{status}` in inline code, floats right as a status tag. |
 
 ### Common mistakes
 
@@ -73,7 +73,7 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

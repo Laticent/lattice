@@ -89,11 +89,11 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 }
 
 /* ── status: re-points the local state channel of a flagged spoke ─────────── */
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-ink: var(--state-pass-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-ink: var(--state-warn-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="blocked"], [data-s="fail"]) { --hs-state-hue: var(--state-fail-hue); --hs-state-ink: var(--state-fail-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-ink: var(--state-info-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-ink: var(--state-mute-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-ink: var(--state-pass-edge); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-ink: var(--state-warn-edge); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="blocked"], [data-s="fail"]) { --hs-state-hue: var(--state-fail-hue); --hs-state-ink: var(--state-fail-edge); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-ink: var(--state-info-edge); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-ink: var(--state-mute-edge); }
 
 /* ── bodies. The EDGE WIDTH is the family's (chart-family.styles.css, the shared
  *    --chart-edge rule every declared fill mark joins); this file sets only paint. ── */
@@ -199,10 +199,14 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 section.icon-etch .hub-spoke-icon-svg { stroke-width: 1.5; }
 /* Plain inks first, for an engine without relative color: a custom property is not checked
  * when declared, so an `oklch(from …)` such an engine cannot parse would leave the stroke unset
- * and the icon undrawn. The measured inks replace them where the engine can compute them. */
+ * and the icon undrawn. The measured inks replace them where the engine can compute them.
+ * The guard's origin is a light-dark() pair because `--text-heading` is one: WebKit 17.4 (Safari
+ * 17.5-17.6) computes `oklch(from red …)` but drops the same color over a light-dark() origin, and
+ * a guard on `red` let it in, where the stroke computed to `none` and every icon went undrawn.
+ * This guard sends it to the plain inks; Chromium 153 and WebKit 26 pass it unchanged. */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon { --hs-icon-ink: var(--text-heading); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon[data-s] { --hs-icon-ink: light-dark(var(--text-heading), var(--bg)); }
-@supports (color: oklch(from red calc(l * 0.55) c h)) {
+@supports (color: oklch(from light-dark(red, red) calc(l * 0.55) c h)) {
   :is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon {
     --hs-icon-ink: light-dark(oklch(from var(--text-heading) calc(l * 0.55) c h), var(--text-heading));
   }

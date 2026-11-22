@@ -129,10 +129,24 @@ const FAMILIES = Object.freeze([
     ext: '.manifest.json',
   },
   {
+    family: 'base',
+    schema: 'lib/base/base.manifest.schema.json',
+    dir: 'lib/base',
+    ext: '.manifest.json',
+    // One file, not a folder per member: lib/base/base.manifest.json holds the modifier groups
+    // and the registers (engineering/decisions/2026-11-19-deterministic-authoring-audit.md W5).
+    files: ['lib/base/base.manifest.json'],
+  },
+  {
     family: 'plugin',
     schema: 'lib/plugins/plugin.schema.json',
     dir: 'lib/plugins',
     ext: '.manifest.json', // lib/plugins/<name>/<name>.manifest.json
+  },  {
+    family: 'use case',
+    schema: 'lib/use-cases/use-case.schema.json',
+    dir: 'lib/use-cases',
+    ext: '.use-case.json', // lib/use-cases/<id>/<id>.use-case.json (engineering/decisions/2026-11-17-use-case-layer.md §3)
   },
 ]);
 
@@ -235,7 +249,9 @@ function listFamilyManifests(fam, root = ROOT) {
       .map((d) => d.name);
 
   // <dir>/<name>/<name><ext>, or <dir>/<bucket>/<name>/<name><ext> when nested.
-  const leaves = fam.nested
+  const leaves = fam.files
+    ? [...fam.files]
+    : fam.nested
     ? subdirs(base).flatMap((b) =>
         subdirs(path.join(base, b)).flatMap((d) => [
           `${fam.dir}/${b}/${d}/${d}${fam.ext}`,
@@ -267,6 +283,20 @@ function listFamilyManifests(fam, root = ROOT) {
  */
 function makeAjv() {
   return new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
+}
+
+/**
+ * Compile one JSON Schema that is not a manifest family's (a use case's `input`), and say why it is not
+ * a valid schema, or null. Strict, so a misspelled keyword (`requried`) is an error rather than ignored;
+ * union types are allowed because the chat's tools take `["string", "null"]`.
+ */
+function compileInputSchema(schema) {
+  try {
+    new Ajv2020({ allErrors: true, strict: true, strictRequired: false, strictTypes: false, allowUnionTypes: true }).compile(schema);
+    return null;
+  } catch (e) {
+    return e.message;
+  }
 }
 
 /** The value an ajv `instancePath` (a JSON Pointer) points at, or undefined. */
@@ -517,6 +547,7 @@ function family(name) {
 }
 
 module.exports = {
+  compileInputSchema,
   FAMILIES,
   checkManifestSchemas,
   checkFamily,

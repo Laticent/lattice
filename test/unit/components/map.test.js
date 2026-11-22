@@ -388,9 +388,9 @@ describe('map kernel', () => {
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
     });
 
-    test('the same detail folds into a Marp-faithful speaker-note comment', () => {
+    test('the same detail folds into a speaker note (`@note{…}`)', () => {
       const html = buildMap(parseMap(withDetail, BASEMAP), 'choropleth', ['us']);
-      assert.match(html, /<!-- California \(4\.2\): West coast · Tech hub hi -->/);
+      assert.match(html, /<!-- @note\{California \(4\.2\): West coast · Tech hub hi\} -->/);
     });
   });
 });

@@ -22,6 +22,10 @@
  * design: on the dark face every chart fill is BRIGHT under a near-black ink (still one ink per slide), and they solve
  * their status fills as a trio that clears every colorblind floor (test/unit/palette/cvd-trio-floor.test.js).
  *
+ * A BRAND theme that curates THE STATUS TRIPLET (it declares `--pass-on-mark`; engineering/decisions/2026-11-16-status-
+ * triplets.md) owns its status fills, rings and inks through tools/curate-status-triplets.js, so this tool leaves its
+ * status block alone and solves only its categories and neutral. The `a11y-*` palettes are solved here as before.
+ *
  * CURATED, NOT GENERATED. This rewrites the seed literals in the theme file that OWNS them. It is not part of
  * `npm run build`; the palette gates (test/unit/palette/chart-solids.test.js, chart-one-ink.test.js) hold every
  * theme to the bar, so a value an author hand-tunes afterwards stays tuned as long as it clears them. After a run,
@@ -35,7 +39,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr');
-const { contrastRatio, hexToOklch, oklchToHex, oklabDistance } = require('../lib/core/color.js');
+const { contrastRatio, hexToOklch, oklchToHex, oklabDistance, relativeLuminance, hexToRgb } = require('../lib/core/color.js');
+const lum = (hex) => relativeLuminance(hexToRgb(hex));
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { simulate, SIMULATED_TYPES, ACHROMATOPSIA } = require('../lib/theme/cvd.js');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
@@ -123,8 +128,12 @@ function floorMultiple(a, b, type) {
  * THE COLORBLIND TRIO (the a11y palettes only): pass, warn and fail, each deep under white at `min` and 3:1 off the
  * slide (`surfaces`: a fill stands off the slide by itself, chart-solids.test.js), as far apart under the palette's own condition as its floor
  * asks, and each as close to the scheme's own fill (`aim`) as that allows.
+ *
+ * `ordered` asks for pass lighter than warn lighter than fail, by luminance. A monochromacy reads a status by its
+ * lightness alone, so on its light face the risk matrix's bands (low pass, medium warn, high fail, then critical a
+ * step past fail) must darken in that order (engineering/decisions/2026-11-16-status-triplets.md § 4, Achromatopsia's light ramp).
  */
-function solveCvdTrio(hue, aim, min, type, surfaces, ink = WHITE) {
+function solveCvdTrio(hue, aim, min, type, surfaces, ink = WHITE, ordered = false) {
   if (!SIMULATED_TYPES.includes(type)) throw new Error(`unknown condition ${type}`);
   const candidates = (s) => {
     const out = [];
@@ -144,7 +153,9 @@ function solveCvdTrio(hue, aim, min, type, surfaces, ink = WHITE) {
       if (best && dp + df >= best.cost) continue;
       const pf = floorMultiple(p, f, type);
       if (pf < FLOOR_MARGIN) continue;
+      if (ordered && !(lum(p) > lum(f))) continue;
       for (const [w, dw] of W) {
+        if (ordered && !(lum(p) > lum(w) && lum(w) > lum(f))) continue;
         const cost = dp + dw + df;
         if (best && cost >= best.cost) break;
         if (Math.min(pf, floorMultiple(p, w, type), floorMultiple(w, f, type)) >= FLOOR_MARGIN) { best = { cost, pass: p, warn: w, fail: f }; break; }
@@ -188,7 +199,8 @@ function solveTheme(theme) {
   // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
   // fills carry `--on-mark`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
   // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
-  if (owns('pass') || a11y) {
+  const triplet = !a11y && owns('pass-on-mark');
+  if ((owns('pass') || a11y) && !triplet) {
     const darkFace = [R(raw.bg, true), R(raw['bg-alt'], true)].filter(isHex);
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
     const accent = R(raw.accent, false);
@@ -202,7 +214,7 @@ function solveTheme(theme) {
       // trio's hues are its own (a colorblind palette picks hues for its condition, not for a band). One set serves
       // both intensities.
       const type = theme.slice('a11y-'.length);
-      const trio = [false, true].map((dark) => solveCvdTrio(hue, Object.fromEntries(TRIO.map((s) => [s, set[FILL(s)][dark ? 1 : 0]])), TEXT_ON_SOLID, type, [R(raw.bg, dark)], dark ? darkInk : WHITE));
+      const trio = [false, true].map((dark) => solveCvdTrio(hue, Object.fromEntries(TRIO.map((s) => [s, set[FILL(s)][dark ? 1 : 0]])), TEXT_ON_SOLID, type, [R(raw.bg, dark)], dark ? darkInk : WHITE, !dark && type === ACHROMATOPSIA));
       const override = Object.fromEntries(TRIO.map((s) => [s, [trio[0][s], trio[1][s]]]));
       set = solveStatusSet({ hue, strength, dark: darkFace, override, darkInk });
     }

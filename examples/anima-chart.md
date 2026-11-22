@@ -32,11 +32,9 @@ Set `motion:` once in the front matter — or pick it in **Deck Settings › Mot
 - Activated `2,160`
 - Paid `864`
 
-<!--
-This deck sets `motion: on` in the front matter (default Style build), so this funnel
+<!-- @note{This deck sets `motion: on` in the front matter (default Style build), so this funnel
 animates with no per-slide marker — the bands build in top-to-bottom and the worst drop-off emphasizes.
-In the PDF it renders as the finished still, unchanged.
--->
+In the PDF it renders as the finished still, unchanged.} -->
 
 ---
 
@@ -49,10 +47,8 @@ In the PDF it renders as the finished still, unchanged.
 - SMB `15`
 - Self-serve `10`
 
-<!--
-`motion-together` overrides the deck default for this one slide: the disc fades in as a
-whole (never a slice short), and the gradient fills come through intact.
--->
+<!-- @note{`motion-together` overrides the deck default for this one slide: the disc fades in as a
+whole (never a slice short), and the gradient fills come through intact.} -->
 
 ---
 
@@ -66,10 +62,8 @@ whole (never a slice short), and the gradient fills come through intact.
 - Offer `96`
 - Hired `71`
 
-<!--
-`motion-rise motion-fast` overrides two axes at once — Style and Speed: the bands lift into
-place AND the build runs quick.
--->
+<!-- @note{`motion-rise motion-fast` overrides two axes at once — Style and Speed: the bands lift into
+place AND the build runs quick.} -->
 
 ---
 
@@ -93,10 +87,8 @@ Set `motion:` in the front matter (or **Deck Settings › Motion**) and every ch
 - Paid `1,240`
 - Retained `900`
 
-<!--
-`no-motion` forces this one slide static even though the deck says `motion: on`. Opt-out
-is always available — a single slide can stand still inside an animated deck.
--->
+<!-- @note{`no-motion` forces this one slide static even though the deck says `motion: on`. Opt-out
+is always available — a single slide can stand still inside an animated deck.} -->
 
 ---
 

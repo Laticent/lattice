@@ -1,6 +1,10 @@
 import * as React from 'react';
 import type { createEditor as CreateEditor } from '@/playground/editor.js';
 
+// Lazy: the control is needed only once a long pane scrolls, so it stays out of the Playground's startup
+// JS (it measured +2,830 gzip bytes eager; docs/route-budget.json).
+const QuickScroll = React.lazy(() => import('@/components/ui/quick-scroll').then((m) => ({ default: m.QuickScroll })));
+
 type Editor = ReturnType<typeof CreateEditor>;
 
 /** An Edit load is about to show the editor, so its chunk starts downloading now, in parallel with hydration, rather
@@ -72,6 +76,7 @@ export function EditorHost({
 	vocab?: unknown;
 }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
+	const paneRef = React.useRef<HTMLDivElement>(null);
 	const adapterMade = React.useRef(false);
 	const viewRef = React.useRef<Editor | null>(null);
 	// Show an SSR text placeholder (the starter source) until CodeMirror mounts,
@@ -245,8 +250,11 @@ export function EditorHost({
 	// so CM's imperative DOM and React don't fight); the <pre> overlay paints the
 	// starter source immediately for LCP and is removed once CM is up.
 	return (
-		<div className="pg-editor-host" id="editor-host">
+		<div className="pg-editor-host" id="editor-host" ref={paneRef}>
 			<div className="pg-editor-mount" ref={hostRef} />
+			<React.Suspense fallback={null}>
+				<QuickScroll root={paneRef} label="Markdown" />
+			</React.Suspense>
 			{!mounted && (
 				<pre ref={placeholderEl} className="pg-editor-placeholder" aria-hidden="true" suppressHydrationWarning>
 					{placeholderRef.current}

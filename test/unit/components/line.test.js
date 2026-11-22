@@ -407,7 +407,7 @@ describe('line kernel', () => {
       const html = build(withDetail);
       assert.match(html, /<rect class="line-hit" data-mark="0"/);
       assert.match(html, /<template class="chart-detail" data-mark="0">/);
-      assert.match(html, /<!-- Q1 \(4\): Closed two weeks early -->/);
+      assert.match(html, /<!-- @note\{Q1 \(4\): Closed two weeks early\} -->/);
     });
 
     test('a chart with no detail emits neither the hit band nor the note', () => {

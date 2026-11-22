@@ -36,6 +36,6 @@ export function rulesetOf(opts: {
 
 export { apply, EditError, editsConflict, mapOffset, plan } from './edits.js';
 export { type EditOp, type EditsPayload, editsEngine, editsFix } from './engine.js';
-export { fix, shapeChanges } from './fix.js';
+export { fix, fixAsync, fixSteps, nextTask, shapeChanges } from './fix.js';
 export type { Ruleset } from './ruleset.js';
 export type * from './types.js';

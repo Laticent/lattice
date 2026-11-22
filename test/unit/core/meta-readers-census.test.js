@@ -72,12 +72,11 @@ const CENSUS = [
   ['lib/layout/gate.js', S, 'a gate on model-written skeletons that matches a _class prefix on purpose'],
   ['lib/packages/rename.js', S, 'rewrites class tokens in place inside the comment bytes; the shared reader unquotes'],
   ['lib/playground/index.js', M, 'chartsNeeded reads comment text through commentBodies'],
-  // ── Strip, skip, tokenize or escape only (18) ───────────────────────────
+  // ── Strip, skip, tokenize or escape only (17) ───────────────────────────
   ['docs/src/components/studio/architect-agent.ts', S, 'only strips, skips or tokenizes comments'],
   ['docs/src/lib/caret-probe.ts', S, 'only strips, skips or tokenizes comments'],
   ['docs/src/lib/deck-outline/deck-outline.ts', S, 'only strips, skips or tokenizes comments'],
   ['docs/src/lib/playground-controller.ts', S, 'only strips, skips or tokenizes comments'],
-  ['lib/authoring/fact-check-core.js', S, 'only skips comment lines; its class read is already shared'],
   ['lib/plugins/chart-family/shared/mark-detail.js', S, 'only strips, skips or tokenizes comments'],
   ['lib/core/closed-comments.js', S, 'the linear comment tokenizer'],
   ['lib/core/flowchart-html.js', S, 'only strips, skips or tokenizes comments'],

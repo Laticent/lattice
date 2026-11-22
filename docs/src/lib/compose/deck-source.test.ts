@@ -67,7 +67,7 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	});
 	it('does NOT fire on inline HTML or HTML comments (they round-trip byte-exact)', () => {
 		expect(hasLossyConstruct('A line with <br> inside it.')).toBe(false);
-		expect(hasLossyConstruct('## Slide\n\n<!-- note: speaker aside -->\n\nBody.')).toBe(false);
+		expect(hasLossyConstruct('## Slide\n\n<!-- @note{speaker aside} -->\n\nBody.')).toBe(false);
 	});
 	it('does NOT fire on a big-number / KPI slide (dollar figures are not tables)', () => {
 		expect(hasLossyConstruct('## Revenue\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Margin')).toBe(false);
@@ -198,7 +198,7 @@ describe('the Compose round trip never changes what the engine applies', async (
 		'<!-- _class: split-compare -->',
 		'<!-- _pane: right -->',
 		'<!-- {pane=left} -->',
-		'<!-- {class=dark, note=hi} -->',
+		'<!-- {class=dark, footer=hi} -->',
 		'- a\n<!-- _pane: right -->',
 		'1. a',
 		'1. a\n<!-- _footer: z -->',
@@ -316,9 +316,12 @@ describe('splitSlideDirectives and the lock: the second review of #3136', () => 
 		const { prose } = splitSlideDirectives('<!-- _class: split-compare -->\n\n## T\n\n- a\n<!-- _pane: right -->\n\nb');
 		expect(hasLossyConstruct(prose)).toBe(true);
 	});
-	it('a record that carries a speaker note stays where it is, so the notes keep their order', () => {
-		const { directives } = splitSlideDirectives('## T\n\n<!-- first note -->\n\ntext\n\n<!-- {class=dark, note=second} -->');
-		expect(directives).toEqual([]);
+	it('a record holds settings only, so it moves past a note like any directive, and the note stays', () => {
+		// Until 2026-11-20 a record could carry a speaker note, and lifting it reordered the slide's notes. A note is its
+		// own comment now (engineering/decisions/2026-11-20-four-notes.md), so nothing in a record is order-bound.
+		const { directives, prose } = splitSlideDirectives('## T\n\n<!-- @note{first} -->\n\ntext\n\n<!-- {class=dark} -->');
+		expect(directives).toEqual(['<!-- {class=dark} -->']);
+		expect(prose).toContain('<!-- @note{first} -->');
 	});
 	it('nothing after a pane marker moves out of its pane', () => {
 		const slide = '<!-- _class: split-compare -->\n\n## T\n\n<!-- {pane=right} -->\n\n<!-- {class=dark} -->\n\nbody\n\n<!-- {pane=left} -->\n\nx';

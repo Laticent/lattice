@@ -544,8 +544,10 @@ section.chart-frame,
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
-   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-on-mark`, which is `--on-mark`: white on a
-   * category, the neutral and a status alike, and near-black on an `a11y-*` dark face. ONE INK, so two charts on one slide never wear two text colors. Where a category
+   * mark with neither `--chart-neutral-hue`. Text on a category and the neutral is `--chart-on-mark`, which is `--on-mark`:
+   * white, and near-black on an `a11y-*` dark face. ONE INK, so two charts on one slide never wear two text colors. Text on
+   * a STATUS solid is that status's own ink, `--status-on-ink` (§ THE STATUS TRIPLET, per member, below), which is the same
+   * one ink on a theme that curates no triplet. Where a category
    * and a status share a hue, the status is told apart by its drawn MARK and, for an exception, its SIGNAL ring.
    * Each theme curates the seeds (`--chart-catN`, the base's status fills, edges and signals, `--chart-neutral-mark`, and
    * the inks) so white clears 7:1 on every light-face solid and 4.6:1 on every dark-face one, and every solid has a
@@ -553,6 +555,9 @@ section.chart-frame,
    * and chart-one-ink.test.js hold every palette to it. No chart mixes or grades its own fill. */
   --chart-neutral-hue: var(--chart-neutral-mark, light-dark(#4F5863, #697686));
   --chart-on-mark: var(--on-mark);
+  /* The ink ON a status solid, per member (§ THE STATUS TRIPLET, per member, below). The frame's own value is the one
+   * ink, so an element that names no status (a neutral bar's caption, an unstated tile's numeral) still has one. */
+  --status-on-ink: var(--chart-on-mark);
 
   /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue
@@ -1185,9 +1190,12 @@ section.chart-frame .chart-caption::before {
   /* A word outside the status table draws in the info fill, as the docs promise; each status below re-points it.
    * Without this default an unknown word ("slipped", "at risk" with a space) painted white text on no fill. */
   --chart-status-hue: var(--state-info-hue);
+  --status-on-ink: var(--state-info-on-ink);
   background: var(--chart-status-hue);
   border: var(--_status-bw) solid transparent;
-  color: var(--chart-on-mark);
+  /* The text ON the status solid is that status's curated ink (THE STATUS TRIPLET, base.tokens.css), which is
+   * `--chart-on-mark` wherever a theme curates none. */
+  color: var(--status-on-ink);
 }
 /* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring. Its transparent border
  * would let that wash show through as a pale halo OUTSIDE the ink edge, so the finish drops the border by setting
@@ -1201,12 +1209,20 @@ section.chart-frame .chart-caption::before {
 /* THE STATUS MARK (lib/core/status-marks.js): the drawn shape an SVG member inlines on a status mark, stroked in that
  * status's text ink, so it reads with the label beside it. */
 :is(section.chart-frame, figure.chart-frame) .chart-status-mark {
-  stroke: var(--chart-on-mark);
+  stroke: var(--status-on-ink);
   pointer-events: none;
 }
 
 /* The same marks on the HTML members, masked from the `--mark-*-bold` tokens: a status pill leads with its mark. A
  * progress bar draws none: its row's status pill carries the mark, and the bar stays pure length from zero. `--status-mark` names the shape per status; every status draws one. */
+/* THE STATUS TRIPLET, per member: the ink a status's text and drawn mark take ON its solid (`--status-on-ink`), read by
+ * the pill, the SVG status mark, a gantt caption inside its bar, a state tile's name and numeral and a hub-spoke icon,
+ * through the finish's `--finish-status-k` (tools/build-marks-css.js). Set beside `--status-mark`, from the same words. */
+:is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --status-on-ink: var(--state-pass-on-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --status-on-ink: var(--state-warn-on-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --status-on-ink: var(--state-fail-on-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"]) { --status-on-ink: var(--state-info-on-ink); }
+:is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --status-on-ink: var(--state-mute-on-ink); }
 :is(section.chart-frame, figure.chart-frame) [data-s] { --status-mark: none; }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="pass"]) { --status-mark: var(--mark-check-bold); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --status-mark: var(--mark-dash-bold); }
@@ -1267,22 +1283,22 @@ section.chart-frame .chart-caption::before {
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="on-track"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="done"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="live"] {
-  --chart-status-hue: var(--state-pass-hue); --chart-status-ink: var(--state-pass-ink);
+  --chart-status-hue: var(--state-pass-hue); --chart-status-ink: var(--state-pass-edge);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="at-risk"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="warn"] {
-  --chart-status-hue: var(--state-warn-hue); --chart-status-ink: var(--state-warn-ink);
+  --chart-status-hue: var(--state-warn-hue); --chart-status-ink: var(--state-warn-edge);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="blocked"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="fail"] {
-  --chart-status-hue: var(--state-fail-hue); --chart-status-ink: var(--state-fail-ink);
+  --chart-status-hue: var(--state-fail-hue); --chart-status-ink: var(--state-fail-edge);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="pilot"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="decision"] {
-  --chart-status-hue: var(--state-info-hue); --chart-status-ink: var(--state-info-ink);
+  --chart-status-hue: var(--state-info-hue); --chart-status-ink: var(--state-info-edge);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="deferred"] {
-  --chart-status-hue: var(--state-mute-hue); --chart-status-ink: var(--state-mute-ink);
+  --chart-status-hue: var(--state-mute-hue); --chart-status-ink: var(--state-mute-edge);
 }
 
 /* (Dark-canvas progress-fill overrides removed — the --state-*-ink tokens are

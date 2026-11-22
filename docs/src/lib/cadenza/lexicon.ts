@@ -73,6 +73,13 @@ const BASE: Record<string, string> = {
   // whole-token PAUSE rule in normalize.ts. Keeping single-glyph copies here would be a dead,
   // contradicting duplicate.
   '§§': 'sections',
+  // DOTTED abbreviations with ONE meaning in any deck. The period is part of the key, so the whole
+  // token matches before the terminator peel. Left out because each has two readings a deck really
+  // writes: `Dr.` (Doctor · Drive), `St.` (Saint · Street), `No.` (number · the word), `Fig.` (figure ·
+  // the fruit), `est.` (estimated · established), `Inc.`/`Ltd.` (said several ways). A deck that means
+  // one declares it in `terms:`. Capital letters joined by dots (`U.S.`, `D.C.`) are spelled by a rule
+  // in normalize.ts, not listed here.
+  'e.g.': 'for example', 'i.e.': 'that is', 'etc.': 'et cetera', 'vs.': 'versus', 'approx.': 'approximately',
 };
 
 // ── BASE_CASED — EXACT-CASE keys, always on (letters that also spell a word) ──
@@ -114,6 +121,23 @@ const BASE_CASED: Record<string, string> = {
   // beside a date — `contextualMonth` in normalize.ts owns them.
   Feb: 'February', Apr: 'April', Jul: 'July', Aug: 'August', Sep: 'September',
   Sept: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
+  // Clock and degree abbreviations, exact case (a bare `PM` is also "product manager"; only the
+  // dotted forms are the clock), and the courtesy titles, exact case so an all-caps `MS.` (a product,
+  // a disease) never reads "miz".
+  // `A-M`, not `A M`: Kokoro's phonemizer reads a lone `A` before another word as the article "uh"
+  // ("ten uh em"), while `A-M` is the letter name in every position. `AM` is no better: espeak reads
+  // "ten AM" as the verb "am". (`spellLetters` in normalize.ts guards the same trap for `U.A.E.`.)
+  'a.m.': 'A-M', 'p.m.': 'P-M', 'A.M.': 'A-M', 'P.M.': 'P-M',
+  'Ph.D.': 'P H D', PhD: 'P H D',
+  'Mr.': 'mister', 'Mrs.': 'missus', 'Ms.': 'miz', 'Prof.': 'professor',
+  // From the exemplar census (engineering/decisions/2026-11-19-segment-acronyms.md): the acronyms the
+  // five audience segments write that have ONE meaning across all five. Exact case, as the rest of
+  // this tier: the lower-case run is never one of these. Each was checked against the other four
+  // segments; a token with a second reading in any of them is in lib/authoring/ambiguous-terms.js instead.
+  GPA: 'grade point average', AUC: 'area under the curve', // academic
+  CRM: 'customer relationship management', QBR: 'quarterly business review', VP: 'vice president', // corporate
+  RFP: 'request for proposal', OIG: 'Office of Inspector General', GIS: 'geographic information system', // government-public
+  WCAG: 'Web Content Accessibility Guidelines',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
@@ -171,6 +195,34 @@ export function lookupLexicon(token: string, domains: readonly LexDomain[] = [])
  *  beside a date or another month — see `contextualMonth` in normalize.ts. */
 export const CONTEXT_MONTHS: Readonly<Record<string, string>> = { Jan: 'January', Mar: 'March', Jun: 'June' };
 
+/**
+ * The plural of a built-in expansion where adding `s` to its last word is wrong English: an RFP is a
+ * "request for proposal", and two are "requests for proposal", not "request for proposals". Keyed by
+ * the SPOKEN singular, the form the endings path holds. A data edit per entry, never a rule.
+ */
+const HOUSE_PLURALS: Readonly<Record<string, string>> = {
+  'request for proposal': 'requests for proposal',
+  'Office of Inspector General': 'Offices of Inspector General',
+};
+
+// The built-in expansions whose plural IS the last word plus `s`, checked one by one. Only these, and
+// the stated plurals above, take a plural: `AUCs` is "areas under the curve", not "area under the
+// curves", and `UIs` would be voiced "you is". Any other built-in term with an `s` reads as written.
+const PLURAL_BY_S = new Set([
+  'application programming interface', 'software development kit', 'key performance indicator', 'objectives and key results',
+  'chief executive officer', 'chief financial officer', 'chief technology officer', 'chief operating officer',
+  'service level agreement', 'service level objective', 'non-disclosure agreement', 'frequently asked questions',
+  'daily active users', 'monthly active users', 'skew', 'quarterly business review', 'vice president',
+  'grade point average', 'geographic information system', 'key performance indicator',
+]);
+
+/** The plural of a built-in term's spoken form, or null when it takes none (the token reads as written). */
+export function housePlural(spoken: string): string | null {
+  if (Object.hasOwn(HOUSE_PLURALS, spoken)) return HOUSE_PLURALS[spoken];
+  if (!PLURAL_BY_S.has(spoken)) return null;
+  return /s$/.test(spoken) ? spoken : `${spoken}s`; // `objectives and key results` is plural already
+}
+
 /** The set of domain pack names, for validation / docs. */
 export const LEX_DOMAINS: readonly LexDomain[] = ['legal', 'finance'];
 
@@ -200,7 +252,22 @@ const HOUSE_EXPANSIONS: Record<string, string> = {
 const HOUSE_DISPLAY: Record<string, string> = { saas: 'SaaS', capex: 'CapEx', opex: 'OpEx' };
 
 // Entries in the tables that are not terms an author defines: quarters, durations, months, glyphs.
-const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec)$/;
+// A key with a period in it is an abbreviation (`e.g.`, `a.m.`, `Mr.`), not a term an author defines.
+const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec|PhD|.*\..*)$/;
+
+/**
+ * Every always-on built-in term as WRITTEN on a slide → what the voice SAYS (BASE + BASE_CASED, the
+ * same rows `houseTerms` lists). normalize.ts builds a terms.ts index from it, so a built-in term gets
+ * the same endings and compounds an author's `terms:` entry gets (`APIs`, `CEO’s`, `KPI-driven`) from
+ * the ONE matcher, rather than a second copy of its rules. Exact whole-token matches still go through
+ * `lookupLexicon`, which is also case-insensitive for BASE; this map only adds what that lookup cannot.
+ */
+export function houseSpokenMap(): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, spoken] of Object.entries(BASE)) if (!NOT_A_TERM.test(key)) out.set(HOUSE_DISPLAY[key] ?? key.toUpperCase(), spoken);
+  for (const [key, spoken] of Object.entries(BASE_CASED)) if (!NOT_A_TERM.test(key)) out.set(key, spoken);
+  return out;
+}
 
 /** One built-in term: how it is written, what it stands for, and how it is said when that differs. */
 export interface HouseTerm {

@@ -14,10 +14,10 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the code shows. |
-| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
+| `title` | a `## ` heading | yes | Slide heading framing what the code shows. |
+| `code` | a fenced code block | yes | Fenced code block — language tag drives syntax highlighting. |
 
 ### Common mistakes
 
@@ -70,7 +70,7 @@ app.post('/api/v2/auth', async (req, res) => {
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -16,6 +16,11 @@
    * dark: a low value can never sink darker than an empty region the way a
    * mix-toward-`--bg` ramp does on a dark canvas. */
   --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  /* THE RAMP'S HUE AND INK: a sequential ramp rides one hue, the first category unless a palette names another with
+   * --ramp-hue / --ramp-ink. Carbone does: its chart cycle leads with blue so a chart's "no status" does not read as
+   * on track (#3360 D2), and its ramps keep the green they were tuned for. The finishes' ramp rules read these too. */
+  --chart-ramp-hue: var(--ramp-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6)));
+  --chart-ramp-ink: var(--ramp-ink, var(--chart-cat-1-ink, light-dark(#0053B3, #2B73D6)));
   width: 100%;
   height: 100%;
   display: flex;
@@ -28,6 +33,8 @@
    * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
    * regions need the base anchor on an ancestor that survives the re-host. */
   --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  --chart-ramp-hue: var(--ramp-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6)));
+  --chart-ramp-ink: var(--ramp-ink, var(--chart-cat-1-ink, light-dark(#0053B3, #2B73D6)));
   min-width: 0;
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).
@@ -68,12 +75,12 @@
   stroke-linejoin: round;
 }
 
-/* Choropleth — one sequential ramp off --chart-cat-1-hue, mixed into the neutral
+/* Choropleth — one sequential ramp off --chart-ramp-hue (the first category unless the palette names another), mixed into the neutral
  * base (--map-base) so low values read as a faint tint of the hue OVER the
  * empty fill, never below it. The kernel sets --mix (a color-mix percentage)
  * per region: low → faint hue, high → saturated. Low→high on the ramp. */
 :is(section.map, figure.chart-frame) .map-region--on {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
+  fill: color-mix(in oklab, var(--chart-ramp-hue) var(--mix), var(--map-base));
 }
 
 /* Categories (a set, not a magnitude): each named region is its category SOLID, the same flat color a pie wedge or

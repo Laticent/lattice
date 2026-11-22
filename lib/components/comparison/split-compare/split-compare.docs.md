@@ -18,13 +18,14 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `frame` | `p:first-of-type > code` | no | Optional inline-code frame label above the heading (e.g. 'Decision Required'). |
-| `heading` | `h2` | yes | Decision framing in the dark left panel. |
-| `context` | `p` | yes | One-sentence context paragraph under the heading. |
-| `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
-| `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
+| `frame` | a line of `inline code` | no | Optional inline-code frame label above the heading (e.g. 'Decision Required'). |
+| `heading` | a `## ` heading | yes | Decision framing in the dark left panel. |
+| `context` | a paragraph | no | One-sentence context paragraph under the heading. |
+| `options` | a list | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
+| `verdict` | a `>` blockquote | no | The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
+| `points` | a list nested 1 level under an item | no | Each option's points, one line per row. Rows stay parallel across the options. |
 
 ### Common mistakes
 
@@ -84,7 +85,9 @@ One-sentence context paragraph explaining the stakes.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
+
+On this layout, modifiers that style the **eyebrow** and **heading** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 
 ## Related components
 

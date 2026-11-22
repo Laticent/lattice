@@ -37,7 +37,13 @@ export function unpackVocabNames(packed: string | null | undefined): Record<stri
  * needs nothing.
  */
 export function withUnpackedNames<T extends Record<string, unknown> | null | undefined>(vocab: T): T {
-	if (!vocab || typeof vocab.packedNames !== 'string') return vocab;
-	const { packedNames, ...rest } = vocab;
-	return { ...rest, ...unpackVocabNames(packedNames) } as unknown as T;
+	if (!vocab) return vocab;
+	const { packedNames, modifiersPacked, universalModifiersPacked, ...rest } = vocab as Record<string, unknown>;
+	if (typeof packedNames !== 'string' && typeof modifiersPacked !== 'string' && typeof universalModifiersPacked !== 'string') return vocab;
+	const out: Record<string, unknown> = { ...rest, ...unpackVocabNames(typeof packedNames === 'string' ? packedNames : '') };
+	// The two modifier lists ship as space-joined strings; `modifiers` carries only the words
+	// `universalModifiers` does not, so the full set is their union.
+	if (typeof universalModifiersPacked === 'string') out.universalModifiers = universalModifiersPacked ? universalModifiersPacked.split(' ') : [];
+	if (typeof modifiersPacked === 'string') out.modifiers = [...((out.universalModifiers as string[]) ?? []), ...(modifiersPacked ? modifiersPacked.split(' ') : [])];
+	return out as unknown as T;
 }

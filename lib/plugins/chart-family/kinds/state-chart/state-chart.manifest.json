@@ -118,41 +118,55 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the state machine."
     },
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional eyebrow naming the machine or domain."
     },
     "states": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One list item per state, named by its text (matched case-insensitively; a `#id` at the lead of its span names it for long text or twins). Numbered and bulleted lists mean the same thing; the badge shows the state's place in the list. A trailing code span styles the state: `start` or `end` (the machine's entry and end), a status word (on-track, done, live, at-risk, warn, blocked, fail, pilot, decision, deferred), a palette slot `c1`…`c8`, one channel `fill=cN` `border=cN` `text=cN`, or a shape word such as `diamond`; several go in one record, in any order: `\\{#id, diamond, c2}`. An icon from the icons plugin draws beside the name: `\\{on-track, icon=send}` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A status PAINTS the state — its tinted fill, edge and leading accent, as on a gantt bar — and wins over a slot on the same state, as on the flowchart; a state with neither is a neutral tile. With no `start`, the first state is the start; with no `end`, every state with no way out is an end."
     },
     "transitions": {
-      "selector": "ul > li > ul > li (starts with an arrow)",
+      "selector": "ul > li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "A sub-item that starts with an arrow is a transition from its state: `- -submit-> Submitted` (the event label sits inside the arrow), `- -> Done` (no label), `- =ship=> Shipped` (heavy: the main path). A state's own name as the target is a self-loop. The flowchart's arrows and line words apply: `<-`, `<->`, `--`, a trailing `dashed` `dotted` `open` `dot` `cross` `cN` span, several in one record (`\\{dashed, cross}`). The label sits ON its line, which is cut under it."
     },
     "composites": {
-      "selector": "ul > li > ul > li (starts with a name)",
+      "selector": "ul > li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "A sub-item that starts with a NAME is a member state, which makes its parent a composite state (a group), drawn as a box around its members. Groups nest; a transition may leave or enter a group."
     },
     "detail": {
       "selector": "ul > li > blockquote",
+      "match": { "kind": "blockquote", "inList": true },
       "required": false,
       "description": "A `>` blockquote under a state is its HIDDEN DETAIL: the slide never shows it. It appears when the state is hovered or tapped in Present, Practice and Preview (the chart family's detail substrate: the tile carries `data-mark`, the text rides an inert `<template class=\"chart-detail\">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption."
     },
     "key": {
-      "selector": "p > code ([…] after the list)",
+      "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "The key is derived from what the chart uses (statuses, heavy and patterned lines, slots on composites); one bracketed span after the list renames entries, `[{=>, Happy path}]`, as on the flowchart. Words that paint the same tone share one entry."
+    },
+    "composite-transitions": {
+      "selector": "li > ul > li > ul > li",
+      "match": { "kind": "list", "depth": 3, "marker": "any" },
+      "required": false,
+      "description": "A transition from a substate inside a composite state, written under that substate."
     }
   },
   "segno": {

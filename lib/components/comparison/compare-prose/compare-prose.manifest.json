@@ -51,13 +51,26 @@
   ],
   "description": "Two prose options side-by-side with a labeled corner tag on each.",
   "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.",
+  "variantSlots": {
+    "axis": {
+      "options": {
+        "selector": "ol > li",
+        "match": {
+          "kind": "list",
+          "depth": 1,
+          "marker": "ordered"
+        },
+        "description": "The options. The axis numbers them whichever marker you write (the list contract renders `-` as `1.` here)."
+      }
+    }
+  },
   "variants": [
     "transition",
     "mirror",
     "chosen",
     "decision",
     "vertical",
-    "banner-tag",
+    "tag-band",
     "rejected",
     "axis"
   ],
@@ -88,26 +101,37 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the comparison."
     },
     "options": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, number the two items (`1. Own the verb`) and nest one description bullet under each: the lead is the facet's title, and its numeral (`I` / `II`) is generated from the ordered list."
+      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, nest one description bullet under each of the two items (`1. Own the verb` or `- Own the verb`, read the same): the lead is the facet's title, and its numeral (`I` / `II`) is generated."
     },
     "lede": {
       "selector": "h2 + p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "`axis` only. A framing sentence between the heading and the two facet cards."
     },
     "note": {
       "selector": ":is(ul, ol) + p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
   "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
@@ -194,10 +218,10 @@
       "summary": "Stacks the panes for longer cases.",
       "sample": "<!-- _class: compare-prose vertical -->\n\n## vertical stacks the panes for longer cases.\n\n- The top option\n  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.\n- The bottom option\n  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.\n"
     },
-    "banner-tag": {
-      "label": "banner-tag",
+    "tag-band": {
+      "label": "tag-band",
       "summary": "Corner tags become banners.",
-      "sample": "<!-- _class: compare-prose banner-tag -->\n\n## banner-tag fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
+      "sample": "<!-- _class: compare-prose tag-band -->\n\n## tag-band fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
     },
     "rejected": {
       "label": "Rejected",
@@ -245,8 +269,8 @@
       "useWhen": "Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side."
     },
     {
-      "variant": "banner-tag",
-      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout."
+      "variant": "tag-band",
+      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout."
     },
     {
       "variant": "rejected",

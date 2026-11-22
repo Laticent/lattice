@@ -82,6 +82,29 @@ describe('buildVocabSets', () => {
 		expect(silent, `a bad value on these registers draws no warning in the Studio: ${silent.join(', ')}`).toEqual([]);
 	});
 
+	// The slot contract rides the vocabulary as one packed string, not lint-core's bundle. Take it
+	// down the road studio.astro ships it (modifier lists packed, contract as-is) and prove the
+	// three contract rules fire in the Studio exactly as they do in `lint:deck`.
+	it('carries the slot contract, so slot-contract, variant-inert and foreign-variant fire in the Studio', () => {
+		const { loadAll } = require('../../../lib/components/index.js');
+		const { buildVocab } = require('../../../lib/authoring/lint.js');
+		const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
+		const live = buildVocab(loadAll());
+		const uni = [...live.universalModifiers];
+		const shipped = withUnpackedNames({
+			names: [...live.names],
+			modifiersPacked: [...live.modifiers].filter((t: string) => !uni.includes(t)).join(' '),
+			universalModifiersPacked: uni.join(' '),
+			packedNames: packVocabNames(live),
+			slotContract: live.slotContract,
+		});
+		const deck = '---\ntheme: indaco\n---\n\n<!-- _class: agenda -->\n\n# A\n\n1. one\n2. two\n\n---\n\n<!-- _class: cards-grid numbered -->\n\n## B\n\n1. x\n   - y\n\n---\n\n<!-- _class: kpi gallery -->\n\n## C\n\n1. 3\n   - x\n';
+		const rules = (v: unknown) => lintTextWith(deck, v).map((f: { rule: string; slide: number }) => `${f.slide} ${f.rule}`).filter((r: string) => /slot-contract|variant-inert|foreign-variant/.test(r)).sort();
+		expect(rules(buildVocabSets(shipped))).toEqual(['1 slot-contract', '2 variant-inert', '3 foreign-variant']);
+		expect(rules(buildVocabSets(shipped))).toEqual(rules(live));
+		expect(new Set((shipped as unknown as { modifiers: string[] }).modifiers)).toEqual(live.modifiers);
+	});
+
 	it('tolerates an empty/missing vocab', () => {
 		const sets = buildVocabSets(undefined);
 		expect(sets.names.size).toBe(0);

@@ -98,7 +98,7 @@ test.describe('an outside change shown in Compose', () => {
 		await expect(page.getByText('Moved the launch to Tuesday morning.').first()).toBeVisible({ timeout: 60_000 });
 		await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
 		await page.locator('.cs-host .ProseMirror').waitFor();
-		await page.getByRole('button', { name: /^Apply/ }).first().click();
+		await page.getByRole('button', { name: /^Apply( all)?$/ }).click();
 		const span = page.locator('.cs-host .cs-flash-span');
 		await expect(span).toHaveText('Tuesday morning');
 		await expect(page.locator('.cs-host .cs-flash-block')).toContainText('The launch is on Tuesday morning.');

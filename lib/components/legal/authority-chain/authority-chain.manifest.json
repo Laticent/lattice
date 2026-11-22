@@ -72,16 +72,25 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the rule whose chain is being walked."
     },
     "tiers": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss."
+      "description": "A list of authority tiers (`1.` or `-`) (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
   "skeleton": "<!-- _class: authority-chain -->\n\n## Rule name — the chain, tier by tier.\n\n1. Statute\n   - `Citation reference`\n   - One-line gloss naming the body that issued it and what it does.\n2. Regulation\n   - `Citation reference`\n   - One-line gloss naming the agency rule.\n3. Guidance\n   - `Citation reference`\n   - One-line gloss naming the staff guidance.\n4. Case\n   - `Citation reference`\n   - One-line gloss naming the precedent.\n",
@@ -108,7 +117,7 @@
   "antiPatterns": [
     {
       "title": "Flat list of citations",
-      "body": "If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
+      "body": "If the rows have no tier hierarchy, use `list takeaway` over a `1.` list or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
     },
     {
       "title": "Missing citation chip",
@@ -126,7 +135,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: flat enumeration of requirements without tier hierarchy"
+      "when": "`list takeaway` over a `1.` list: flat enumeration of requirements without tier hierarchy"
     },
     {
       "name": "list-steps",

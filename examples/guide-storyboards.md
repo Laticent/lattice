@@ -20,10 +20,14 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ## How the rollout reaches every region.
 
-1. Pilot in one region with a named owner.
-2. Measure adoption weekly against the target.
-3. Extend to the next two regions in the quarter.
-4. Hand the playbook to regional leads.
+1. Pilot one region
+   - A named owner runs it, start to finish.
+2. Measure weekly
+   - Adoption against the target, every Monday.
+3. Extend to two more
+   - The next two regions join within the quarter.
+4. Hand it over
+   - Regional leads take the playbook and run it.
 
 ---
 

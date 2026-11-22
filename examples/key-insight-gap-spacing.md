@@ -83,12 +83,14 @@ function harvest(section) {
 
 ## Three structures cover every layout.
 
-- Column `57 layouts`
-  - The band is simply the last child, so nothing is declared.
-- Row `3 layouts`
-  - The band breaks to a full line, never a third column.
-- Grid `1 layout`
-  - The band spans every track in an implicit final row.
+Each takes the band in its own way, and none names a component.
+
+1. Column `57 layouts`
+   - The band is simply the last child, so nothing is declared.
+2. Row `3 layouts`
+   - The band breaks to a full line, never a third column.
+3. Grid `1 layout`
+   - The band spans every track in an implicit final row.
 
 > Key insight: measured, not assumed — so the CSS has three arms and names no component.
 

@@ -695,6 +695,30 @@ test("an author's describe: beats the component's own description", () => {
 	assert.doesNotMatch(articleHtml, /<p>Actors — prospect, user\.<\/p>/, 'not both — one description per slide');
 });
 
+// The handout (`<!-- @handout{…} -->`, engineering/decisions/2026-11-20-four-notes.md) is written for someone reading
+// the deck alone, which is what the Read article is. The exporter carries it as a hidden `aside.lattice-handout`, and
+// the article prints it after the slide's body: blank lines are paragraphs, its text is escaped, and a split run that
+// carries it on every page prints it once.
+test('a slide\'s handout prints after its body, as paragraphs, escaped', () => {
+	const { articleHtml } = project(sections(
+		'<section data-lattice-slide data-class="content" class="content"><h2>Pipeline</h2><p>Body.</p><aside class="lattice-handout" hidden data-slide="1">Measured over 30 days &lt;b&gt;.\n\nSee the appendix.</aside><aside class="lattice-notes" hidden>Speaker only.</aside></section>',
+	));
+	assert.match(articleHtml, /<aside class="lp-handout"><p>Measured over 30 days &lt;b&gt;\.<\/p><p>See the appendix\.<\/p><\/aside>/);
+	assert.ok(articleHtml.indexOf('Body.') < articleHtml.indexOf('lp-handout'), 'after the slide body');
+	assert.doesNotMatch(articleHtml, /Speaker only/, 'the speaker note is not the handout');
+});
+
+test('a split run prints its handout once; a second run prints its own; a slide with none adds nothing', () => {
+	const page = (run, words) =>
+		`<section data-lattice-slide data-class="content" class="content" data-split-run="${run}"><h2>Long list</h2><p>Part.</p><aside class="lattice-handout" hidden>${words}</aside></section>`;
+	const { articleHtml } = project(sections(page('r1', 'Run one handout.'), page('r1', 'Run one handout.'), page('r1', 'Run one handout.'), page('r2', 'Run two handout.')));
+	assert.equal((articleHtml.match(/Run one handout\./g) || []).length, 1, 'three pages of one run print it once');
+	assert.equal((articleHtml.match(/Run two handout\./g) || []).length, 1);
+	const plain = sections('<section data-lattice-slide data-class="content" class="content"><h2>A</h2><p>Body.</p></section>');
+	assert.doesNotMatch(project(plain).articleHtml, /lp-handout/);
+	assert.equal(project(plain).articleHtml.endsWith('\n'), false, 'no empty part is joined in for a slide with no handout');
+});
+
 test('divider is an h2 sub-entry, not an h1 competing with the cover (§A2)', () => {
 	const secs = sections(
 		'<section data-lattice-slide data-class="title" class="title"><h1>Cover</h1></section>',

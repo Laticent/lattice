@@ -20,12 +20,7 @@
     "agenda": {
       "surfaces": [
         "heading"
-      ],
-      "variants": {
-        "cards": [
-          "card-row"
-        ]
-      }
+      ]
     },
     "authority-chain": {
       "surfaces": [
@@ -94,6 +89,22 @@
         "heading"
       ]
     },
+    "collage": {
+      "surfaces": [
+        "eyebrow",
+        "heading"
+      ]
+    },
+    "columns": {
+      "surfaces": [
+        "card-row",
+        "card-surface",
+        "chart-marks",
+        "eyebrow",
+        "heading",
+        "table"
+      ]
+    },
     "compare-code": {
       "surfaces": [
         "card-row",
@@ -156,6 +167,13 @@
         "numbered"
       ]
     },
+    "ep-curve": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
+      ]
+    },
     "flowchart": {
       "surfaces": [
         "chart-marks",
@@ -176,6 +194,16 @@
         "heading"
       ]
     },
+    "gift-card": {
+      "surfaces": [
+        "card-row"
+      ],
+      "inert": [
+        "eyebrow",
+        "heading",
+        "table"
+      ]
+    },
     "glossary": {
       "surfaces": [
         "heading"
@@ -187,6 +215,13 @@
         "eyebrow",
         "heading",
         "table"
+      ]
+    },
+    "histogram": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
       ]
     },
     "hub-spoke": {
@@ -322,10 +357,11 @@
       ]
     },
     "premise": {
-      "surfaces": [],
-      "inert": [
-        "eyebrow",
+      "surfaces": [
         "heading"
+      ],
+      "inert": [
+        "eyebrow"
       ]
     },
     "pricing": {
@@ -356,10 +392,8 @@
     "quadrant": {
       "surfaces": [
         "chart-marks",
+        "eyebrow",
         "heading"
-      ],
-      "inert": [
-        "eyebrow"
       ]
     },
     "quote": {
@@ -389,6 +423,13 @@
         "heading"
       ]
     },
+    "risk-matrix": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
+      ]
+    },
     "roadmap": {
       "surfaces": [
         "eyebrow",
@@ -396,13 +437,18 @@
         "table"
       ]
     },
+    "rows": {
+      "surfaces": [
+        "card-row",
+        "heading",
+        "table"
+      ]
+    },
     "scatter": {
       "surfaces": [
         "chart-marks",
+        "eyebrow",
         "heading"
-      ],
-      "inert": [
-        "eyebrow"
       ]
     },
     "scene": {
@@ -425,8 +471,7 @@
       ],
       "inert": [
         "eyebrow",
-        "heading",
-        "table"
+        "heading"
       ]
     },
     "split-panel": {
@@ -507,6 +552,13 @@
         "heading"
       ]
     },
+    "tower": {
+      "surfaces": [
+        "chart-marks",
+        "eyebrow",
+        "heading"
+      ]
+    },
     "verdict-grid": {
       "surfaces": [
         "card-rail",
@@ -516,7 +568,9 @@
       ]
     },
     "video": {
-      "surfaces": [],
+      "surfaces": [
+        "eyebrow"
+      ],
       "inert": [
         "heading",
         "table"

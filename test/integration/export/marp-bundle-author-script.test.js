@@ -61,7 +61,7 @@ Quoted: \`<script>alert(1)</script>\` stays code.
 
 ---
 
-<!-- Say the number slowly. -->
+<!-- @note{Say the number slowly.} -->
 
 # Drawings
 

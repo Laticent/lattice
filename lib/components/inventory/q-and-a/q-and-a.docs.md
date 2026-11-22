@@ -18,12 +18,12 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`. |
-| `title` | `h2` | no | Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A'). |
-| `question` | `ul > li, ol > li` | yes | One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same. |
-| `answer` | `ul > li > ul > li, ol > li > ol > li` | yes | The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`. |
+| `title` | a `## ` heading | no | Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A'). |
+| `question` | a list | yes | One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same. |
+| `answer` | a list nested 1 level under an item | yes | The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one. |
 
 ### Variant decision rule
 
@@ -49,7 +49,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 - **A flat FAQ of one-liners.** Six or more terse question/answer pairs you flip back to as a reference belong in `list-tabular` or `glossary`, which are built to stack many short look-ups. q-and-a is for a few defended answers, not a help page.
 - **Rhetorical questions with no answer.** Every question needs a nested answer that genuinely closes it. A bare question used as a section header or a hook is a `divider` or a `statement`, not a Q&A pair.
-- **Evaluation criteria in disguise.** If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates.
+- **Evaluation criteria in disguise.** If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway` over a `1.` list, not a question you expect to be asked. q-and-a defends; a numbered `list takeaway` evaluates.
 
 ## Authoring
 
@@ -170,13 +170,13 @@ One pair, the whole slide.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 
 - [`list-tabular`](../../inventory/list-tabular/list-tabular.docs.md) — many terse question/answer look-ups to flip back to, not a few weighty defenses
 - [`glossary`](../../inventory/glossary/glossary.docs.md) — term/definition reference pairs rather than question/answer pairs
-- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: numbered criteria with rationale — evaluation, not anticipated objections
+- [`list`](../../inventory/list/list.docs.md) — `list takeaway` over a `1.` list: numbered criteria with rationale — evaluation, not anticipated objections
 - [`cards-stack`](../../inventory/cards-stack/cards-stack.docs.md) — parallel co-equal cards with no question/answer role split
 - [`decision`](../../comparison/decision/decision.docs.md) — a single verdict to state rather than a set of questions to defend
 

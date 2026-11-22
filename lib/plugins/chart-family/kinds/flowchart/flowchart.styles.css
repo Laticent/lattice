@@ -228,10 +228,10 @@ section.flowchart .fc-name {
 }
 
 /* The status table: one tone per word, the chart family's (gantt's) mapping. */
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-edge); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-edge); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-edge); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-edge); }
 section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch)[data-s]:not([data-s="deferred"]) {
   --fc-status-fill: light-dark(color-mix(in oklab, var(--fc-hue) 22%, var(--bg)), color-mix(in oklab, var(--fc-hue) 46%, black));
 }

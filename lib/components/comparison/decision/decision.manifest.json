@@ -46,16 +46,29 @@
   ],
   "description": "The verdict slide — one chosen path, named explicitly.",
   "purpose": "Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the decision."
     },
     "options": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The option's body lines, nested under its title. `-` or `1.` read the same here: the layout styles them as the card body."
     }
   },
   "skeleton": "<!-- _class: decision -->\n\n## What we are doing.\n\n- Chosen path\n  - One-line rationale for the decision.\n- Rejected option\n  - One-line rationale for why this didn't fit.\n",
@@ -112,13 +125,13 @@
     }
   ],
   "variants": [
-    "banner-tag"
+    "tag-band"
   ],
   "variantDocs": {
-    "banner-tag": {
-      "label": "banner-tag",
+    "tag-band": {
+      "label": "tag-band",
       "summary": "Headlines each card with its camp.",
-      "sample": "<!-- _class: decision banner-tag -->\n\n## banner-tag headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
+      "sample": "<!-- _class: decision tag-band -->\n\n## tag-band headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
     }
   },
   "commonMistakes": [
@@ -137,8 +150,8 @@
       "useWhen": "The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading."
     },
     {
-      "variant": "banner-tag",
-      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout."
+      "variant": "tag-band",
+      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout."
     }
   ],
   "specimenVoice": true,

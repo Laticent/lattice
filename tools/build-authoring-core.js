@@ -74,8 +74,12 @@ import { boundaryRulesGeneration, setBoundaryPluginsOff } from '../core/boundary
 // can turn the playground's admission (the plugins a deck loads) into the set left off, without
 // pulling the registry into its own eager chunk. Already in the bundle: the parser imports it.
 import { PLUGIN_NAMES } from '../plugins/blocks.generated.mjs';
+// The engine's own answer to "does this backtick span render as Lattice syntax (a pill, an icon, a
+// spark…)?", so the Studio chat's find and replace never writes words into one as if it were code
+// (docs/src/lib/deck-find.ts). Already in the bundle: lint-core reads it.
+import { diagnose as inlineCodeDiagnose, dispatches as inlineCodeDispatches } from '../core/inline-code-directives.js';
 
-export { lintCore, reviewCore, scorecard, notesCore, inlineEditors, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES };
+export { lintCore, reviewCore, scorecard, notesCore, inlineEditors, deckCanon, deckProfiles, splitSectionsCore, setBoundaryPluginsOff, boundaryRulesGeneration, PLUGIN_NAMES, inlineCodeDispatches, inlineCodeDiagnose };
 `;
 
 const BUILD_OPTIONS = {

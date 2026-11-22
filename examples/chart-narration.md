@@ -14,7 +14,7 @@ footer: "Laticent · chart narration parity"
 
 A chart's real insight is a number the render computes — a conversion rate, an axis scale, an inferred start state. Those now narrate identically in Studio Present and in the exported `.vtt`.
 
-<!-- Welcome. This deck is about chart narration parity: the computed facts a chart shows now speak the same way live in Present and in the exported captions. -->
+<!-- @note{Welcome. This deck is about chart narration parity: the computed facts a chart shows now speak the same way live in Present and in the exported captions.} -->
 
 ---
 
@@ -24,7 +24,7 @@ A chart's real insight is a number the render computes — a conversion rate, an
 
 A funnel slide lists stage counts, but the number that matters — how much of each stage carries to the next — is computed at render time and drawn into the chart. A caption built from the slide's prose alone never sees it.
 
-<!-- The key idea: a chart's most important number is often one it computes and draws, not one you typed. Prose-only captions miss it entirely. -->
+<!-- @note{The key idea: a chart's most important number is often one it computes and draws, not one you typed. Prose-only captions miss it entirely.} -->
 
 ---
 
@@ -98,6 +98,6 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ## One kernel, two surfaces — no drift.
 
-The narrators live once in `lib/core`; live Present and the `--captions` export both call the same kernel. An inline `<!-- say: -->` or a front-matter `say:` entry still wins — the chart narrator only speaks when the author has not overridden the slide.
+The narrators live once in `lib/core`; live Present and the `--captions` export both call the same kernel. The slide's own `<!-- @say{…} -->` still wins — the chart narrator only speaks when the author has not overridden the slide.
 
-<!-- say: That's the whole feature: charts narrate their computed facts, identically live and in the export, because both surfaces read from one shared kernel. -->
+<!-- @say{That's the whole feature: charts narrate their computed facts, identically live and in the export, because both surfaces read from one shared kernel.} -->

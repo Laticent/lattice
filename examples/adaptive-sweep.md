@@ -337,7 +337,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 <!-- _class: title silent -->
 
-## One contract, every frame.
+# One contract, every frame.
 
 `engineering/decisions/2026-06-18-component-adaptive-sizing.md`
 

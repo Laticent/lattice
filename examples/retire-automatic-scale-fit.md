@@ -54,9 +54,7 @@ Every slide renders at 1.5x. A slide too full for the room clips and is named, a
 
 <!-- stress-slide -->
 
-<!--
-This slide clips on purpose: it is the one the demo is about. Without the stress-slide marker lint:deck warns (capacity-scale); the Studio rings it and offers "Split slide" or "Use Conference", and the export's OVERFLOW line lists this page.
--->
+<!-- @note{This slide clips on purpose: it is the one the demo is about. Without the stress-slide marker lint:deck warns (capacity-scale); the Studio rings it and offers "Split slide" or "Use Conference", and the export's OVERFLOW line lists this page.} -->
 
 ---
 

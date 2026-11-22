@@ -17,7 +17,7 @@ theme: indaco
 
 ## Our recommendation: exit SMB.
 
-<!-- say: We did look hard at the fix. **It costs more than the segment earns.** -->
+<!-- @say{We did look hard at the fix. **It costs more than the segment earns.**} -->
 `;
 
 test('a say: line with **bold** shows its words in the caption band, not its asterisks', async ({ page }, testInfo) => {

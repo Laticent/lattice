@@ -4,8 +4,7 @@ theme: indaco
 paginate: true
 ---
 
-<!--
-  Measurement fixture for the three sub-fallback glyph entries — `―` `→` `　`.
+<!-- @note{Measurement fixture for the three sub-fallback glyph entries — `―` `→` `　`.
 
   No shipped deck's quadrant/radar labels contain these characters (measured: 24
   decks, 66 billed label strings, zero non-ASCII), so the question "what does
@@ -17,8 +16,7 @@ paginate: true
 
   Not a gallery and not a demo deck: nothing enumerates test/fixtures/*.md, and
   this deck exists to be rendered twice and diffed. See
-  engineering/decisions/2026-08-12-sketch-label-voice.md, "Found, and now CLOSED".
--->
+  engineering/decisions/2026-08-12-sketch-label-voice.md, "Found, and now CLOSED".} -->
 
 <!-- _class: quadrant -->
 

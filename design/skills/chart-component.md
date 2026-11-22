@@ -132,8 +132,10 @@ palette:
   that gets retyped wrong.
 - **Semantic / status — `--state-{pass,warn,fail,info,mute}-*`**, seeded from the
   base status fills `--pass-mark` … `--mute-mark` (the hue) and inks `--pass` … `--mute`
-  (a status drawn as a line or text) that every theme curates. Text on any chart fill, a
-  category or a status, reads `--chart-on-mark`, which is `--on-mark`: one ink (`engineering/chart-styling.md` §3). A status is told apart by its drawn mark
+  (a status drawn as a line or text) that every theme curates. Text on a category fill reads
+  `--chart-on-mark`, which is `--on-mark`: one ink (`engineering/chart-styling.md` §3). Text on a STATUS fill reads that
+  status's own ink, `--status-on-ink` (set per `[data-s]` member, the theme's `--X-on-mark`), and a status shape's border
+  reads `--state-X-edge`: the theme's status triplet (`engineering/decisions/2026-11-16-status-triplets.md`). A status is told apart by its drawn mark
   (`lib/core/status-marks.js`) and, for at risk and blocked, the signal ring; draw the mark on any new status shape.
   Encodes meaning: green=good, amber=caution, red=stop, blue=info/pilot,
   gray=deferred. Used by gantt bars, progress fills, status pills.

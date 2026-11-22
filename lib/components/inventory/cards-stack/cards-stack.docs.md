@@ -18,10 +18,13 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `cards` | a list | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
+
+- `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
 
 ### Variant decision rule
 
@@ -43,7 +46,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 - **Five or more items.** Past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
 - **One-line cards.** If each card is a single short phrase, the stack reads as a padded list. Drop to `list` (or its `takeaway` variant) and reclaim the vertical space.
-- **Forced sequence.** Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway numbered`.
+- **Forced sequence.** Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway` over a `1.` list.
 
 ## Authoring
 
@@ -116,7 +119,7 @@ Corner numbers make rank explicit.
 
 ## Universal modifiers
 
-This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

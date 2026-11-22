@@ -220,7 +220,7 @@ test('seeded fuzz: block-parse and full-parse agree on every generated deck', ()
 		'  - nested', '   1. nested ord', '-\tfoo', '1.\tbar', '> quote', '> > deep',
 		'| a | b |', '|---|---|', '|---|---|---|', '| 1 | 2 |', 'h1 | h2', '--- | ---', '|:-:|--:|',
 		'```', '```js', '~~~', '~~~md', '````', '$$', '$$ x $$', 'x = y',
-		'<!-- _class: text -->', '<!-- note:', '-->', '<div>', '</div>', '<span>inline</span>',
+		'<!-- _class: text -->', '<!-- @note{', '-->', '<div>', '</div>', '<span>inline</span>',
 		'<custom-el>', '<script>', '</script>', '<pre>', '</pre>', '<br/>', '<hr>',
 		'    indented code', '\ttab code', '[ref]: /url', '[ref]:', '[]: /url', '[a]: <span>hi</span>',
 		'"Title"', '<!-- one-liner -->', 'text with --- inside', 'the plan --- v2',

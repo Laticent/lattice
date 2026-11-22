@@ -14,7 +14,6 @@
   "test/unit/authoring/deck-settings-lint.test.js": 0.5,
   "test/unit/authoring/diagnostics-registry.test.js": 0.2,
   "test/unit/authoring/empty-section-lint.test.js": 0.5,
-  "test/unit/authoring/fact-check-core.test.js": 0.3,
   "test/unit/authoring/legend-span-lint.test.js": 0.5,
   "test/unit/authoring/lint-fenced-lines.test.js": 0.6,
   "test/unit/authoring/logo-finish-lint.test.js": 0.9,

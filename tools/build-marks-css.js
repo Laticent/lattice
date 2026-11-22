@@ -70,7 +70,7 @@ const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // `--cat-1-fill` is the palette's slot-1 fill, a different hue from `--chart-cat-1-hue` on most themes (atelier, laguna,
 // crepuscolo), and a base of another hue dragged every pale step toward it (the checker, #2908). The dark ladder mixes
 // toward the canvas.
-const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3))';
+const TONE_BASE_REL = 'oklab(from var(--finish-one) 0.97 calc(a * 0.3) calc(b * 0.3))';
 // a pie's wedges on a DARK slide: wedges touch, so each needs a lightness gap to the next, and TONE_D's steps (a mix of the
 // hue toward the canvas, which tops out at the hue's own lightness) left adjacent wedges 0.032 to 0.047 OKLab apart on
 // indaco (wedge 3 beside wedge 4 read as one blue). The pie mixes the hue's INK (the lighter member of the same hue) toward
@@ -81,6 +81,28 @@ const TONE_PIE_D = [100, 83, 66, 50, 36, 28, 22, 18];
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
 const TONE_TEXT = [30, 27, 24, 21, 18, 15, 12, 9];
 const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
+/**
+ * TONE'S ONE STATUS LEVEL, per mode (#2908: one status level per finish). A status keeps its own hue under tone; this
+ * is how strongly. It was the text level (30% light, 35% dark), a pale wash beside tone's category shades (which start at
+ * 92%), and on a dark slide a wash that all but vanished. The 2026-11-16 status triplets made each status a curated
+ * solid that sits with the categories, so tone keeps it near that solid on both faces, under the status's own ink
+ * (`--finish-status-k` / `-k-d` at 0%): the curated fill itself on light (100%; any mix toward the paper would take the
+ * paper ink under the fill's 4.5:1), and 88% on dark (the least at which the ink keeps 5:1 on every palette, a11y
+ * included). A first cut held light at a 40% wash under the heading ink, which read as pastel beside tone's 92% shades
+ * and turned blocked a soft pink. tools/chart-finish-reach.mjs holds every text run. engineering/decisions/2026-11-16-status-triplets.md §4.
+ */
+const TONE_STATUS = [100, 88];
+
+/**
+ * ETCH'S DARK BODY clears 3:1 against the slide (WCAG 1.4.11). It was the category hue at 40% toward the canvas, and
+ * on every built-in dark face that measured 1.14 to 1.57:1 at its worst slot (onyx the lowest, indaco 1.57): the outline
+ * carried the bar and the fill all but vanished. The hue cannot fix it at any level that is still etch: onyx's darkest
+ * hue clears 3:1 only at 99%, which is pigment. So the dark body mixes the category INK (the lighter member of the same
+ * hue, the one the doubled edge is drawn in) toward the canvas instead. 78% is the least that holds 3:1 on every slot of
+ * every built-in palette in dark (onyx slot 3, 3.19:1; most land 3.5 to 4.5:1), and it keeps the edge a step lighter
+ * than the body. test/unit/components/marks-finish-contrast.test.js holds it. The light face is unchanged (the hue at 30%).
+ */
+const ETCH_BODY_INK_D = 78;
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
@@ -100,7 +122,8 @@ const F = {
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable. On a dark slide a text-free ramp
   // (a map) starts at 24% and climbs faster, as tone's starts at 40%: from 6% a region sat within a hair of the land and the scale vanished.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
+  // Etch's dark body is the category INK at 78%, not the hue at 40% (ETCH_BODY_INK_D, below).
+  etch: { body: [30, ETCH_BODY_INK_D], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -180,8 +203,22 @@ const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: '
 const BODY_BASE_L = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
-const ONE = 'var(--chart-cat-1-hue)';
-const ONE_INK = 'var(--chart-cat-1-ink)';
+/**
+ * THE FIRST HUE, as a finish token. Every rule that draws in "the first hue" (tone's one hue, a neutral tile, a waterfall
+ * total) reads `--finish-one` and `--finish-one-ink`, which every finish block sets to chart color one
+ * (`--chart-cat-1-hue` / `-ink`). Tone's SOURCE re-points the two tokens (sourceBlocks, below). They are tokens rather
+ * than a re-pointed `--chart-cat-1-hue` because the palette gates and tools read the bundle as one flat list of
+ * declarations, where a scoped `--chart-cat-1-hue: var(--accent)` would read as the palette's own slot one.
+ *
+ * A sequential ramp (heatmap, map) reads `--chart-ramp-hue` / `-ink`, which heatmap.styles.css and map.styles.css
+ * declare on the figure from the palette's optional `--ramp-hue` / `--ramp-ink` hook, else chart color one. Tone's
+ * source sets that hook (sourceBlocks), so a ramp follows the source the same way it follows a palette that names one.
+ */
+const ONE = 'var(--finish-one)';
+const ONE_INK = 'var(--finish-one-ink)';
+/** A sequential ramp's hue and ink: the first category unless the palette (or tone's source) names its own. */
+const RAMP = 'var(--chart-ramp-hue)';
+const RAMP_INK = 'var(--chart-ramp-ink)';
 /**
  * The ink for TEXT on a mark, one per finish and never picked per body (a per-body black-or-white cleared 4.5:1,
  * read as mud at a median of 5.6:1, and changed the text color from chart to chart).
@@ -191,6 +228,18 @@ const ONE_INK = 'var(--chart-cat-1-ink)';
  *            chart-contrast.test.js holds `--text-heading` (at least 6.9:1 on a category fill, 5.46:1 on a status).
  */
 const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'var(--text-heading)');
+/**
+ * The ink for TEXT on a STATUS mark (engineering/decisions/2026-11-16-status-triplets.md). Under pigment a status body is
+ * the theme's curated solid, so its text is that status's curated ink, `--status-on-ink` (set per member from `data-s`,
+ * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch a status body
+ * is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
+ * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` (light) and
+ * `--finish-status-k-d` (dark) are 100% under etch (a pale wash, under the heading ink) and 0% under pigment and tone,
+ * whose status body is the curated fill or near it (TONE_STATUS) and so takes the status's own ink. A
+ * color-mix at 0% or 100% IS the one color it names. One expression, every finish.
+ */
+const statusInk = () => 'light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), '
+  + 'color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink)))';
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
@@ -224,8 +273,15 @@ const inkOn = (cell) => {
  * guard, apply the body and drop the ink (checker finding). Checked in the real engines:
  * Chromium 131, Firefox 142 and WebKit 26 pass it and pick white on rgb(205 60 63); Chrome 118
  * predates relative color and fails it.
+ *
+ * The origin is a light-dark() pair because every real origin resolves to one (the status and fill
+ * tokens are light-dark() pairs). WebKit 17.x (Safari 17.5-17.6) parses relative color and
+ * light-dark() but drops a relative color whose origin holds light-dark(): CSS.supports() says
+ * false for it, and on a page the ink computed to black, 1.0:1 on the light critical band
+ * (#3312). Guarding with that origin sends WebKit 17.x to the plain rules' curated inks; Chromium
+ * 153, Firefox 142 and WebKit 26 pass the guard, so nothing changes there.
  */
-const SUPPORTS = `@supports (color: ${inkOn('red')})`;
+const SUPPORTS = `@supports (color: ${inkOn('light-dark(red, red)')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
 
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
@@ -380,10 +436,10 @@ function strokeMemberClasses() {
 // because nothing here paints.
 const T = {
   base: '--finish-base', baseD: '--finish-base-d', statusBase: '--finish-status-base', ink: '--finish-ink', edge: '--finish-edge', edgeText: '--finish-edge-text',
-  hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
+  hue: (n) => `--finish-hue-${n}`, hueD: (n) => `--finish-hue-d-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
   text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
   layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
-  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d',
+  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d', statusK: '--finish-status-k', statusKD: '--finish-status-k-d',
   rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k', rampDLo: '--finish-ramp-d-lo', rampDK: '--finish-ramp-d-k',
   rampTextLo: '--finish-ramp-text-lo', rampTextK: '--finish-ramp-text-k',
   rampTextDLo: '--finish-ramp-text-d-lo', rampTextDK: '--finish-ramp-text-d-k',
@@ -405,6 +461,14 @@ function finishTokens(name) {
     `${T.baseD}: ${BODY_BASE_D[name]}`,
     `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
+    // The first hue and its ink (ONE, ONE_INK): chart color one, unless tone names a source.
+    '--finish-one: var(--chart-cat-1-hue)',
+    '--finish-one-ink: var(--chart-cat-1-ink)',
+    // Etch draws a status as a pale wash, so its text is the heading ink. Pigment and tone paint the status body at (or
+    // near) the curated fill (TONE_STATUS), so their text is that status's own ink, curated for the fill: the slide's
+    // paper on a brand theme's light face, white on its dark one, near-black on an a11y palette's bright dark face.
+    `${T.statusK}: ${name === 'etch' ? '100%' : '0%'}`,
+    `${T.statusKD}: ${name === 'etch' ? '100%' : '0%'}`,
     `${T.edge}: ${num(f.edge)}`,
     `${T.edgeText}: ${num(f.edgeBackdrop)}`,
     // 1 keeps a pill's, bar's and key tile's border; 0 drops it, so an ink edge drawn as an inset ring has no halo outside it.
@@ -413,6 +477,8 @@ function finishTokens(name) {
   for (const n of SLOTS) {
     const i = n - 1;
     d.push(`${T.hue(n)}: ${tone ? ONE : hueOf(n)}`);
+    // The color a DARK body mixes toward the canvas: the hue, except under etch, whose dark body is the ink (ETCH_BODY_INK_D).
+    d.push(`${T.hueD(n)}: ${tone ? ONE : name === 'etch' ? inkOf(n) : hueOf(n)}`);
     d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE_D[i] : f.body[1]}%`);
     d.push(`${T.text(n)}: ${tone ? TONE[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE_D[i] : f.backdrop[1]}%`);
     // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
@@ -430,8 +496,8 @@ function finishTokens(name) {
   // marks share one strength: a progress bar has no text on it, but nothing about it earns a louder status than a gantt
   // bar that does, so the plain level IS the text level (owner's rule on #2908: stronger only for an evidenced reason with
   // no alternative). Pigment's two levels were already one (100%).
-  d.push(`${T.status}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
-  d.push(`${T.statusText}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
+  d.push(`${T.status}: ${tone ? TONE_STATUS[0] : f.backdrop[0]}%`, `${T.statusD}: ${tone ? TONE_STATUS[1] : f.backdrop[1]}%`);
+  d.push(`${T.statusText}: ${tone ? TONE_STATUS[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_STATUS[1] : f.backdrop[1]}%`);
   d.push(`${T.rampLo}: ${f.ramp[0]}%`, `${T.rampK}: ${f.ramp[1]}`);
   // A text-free ramp on a dark slide: tone lifts its floor, so a map's low regions stand off the navy land (the tone audit).
   d.push(`${T.rampDLo}: ${(f.rampD || f.ramp)[0]}%`, `${T.rampDK}: ${(f.rampD || f.ramp)[1]}`);
@@ -444,6 +510,31 @@ function finishTokens(name) {
   // resolves the values where the variables are.
   const heads = [`section.marks-${name}`, `figure.marks-${name}`, `:is(section, figure).marks-${name} .chart-frame`];
   return [`${heads.join(',\n')} {`, ...d.map((x) => `  ${x};`), '}'].join('\n');
+}
+
+/**
+ * TONE'S SOURCE — which one hue tone draws in (`marks: tone ink`, `marks: tone accent`; resolve-marks.js). Tone reads its
+ * hue as `--finish-one` and its ink as `--finish-one-ink` everywhere above (ONE, ONE_INK, TONE_BASE_REL), and a ramp as
+ * `--chart-ramp-hue`, which reads the `--ramp-hue` / `--ramp-ink` hook. So a source re-points those four on the same
+ * three heads as the finish's own block, after it, and every tone rule follows without one of its own. Both classes are in the selector: a source means nothing under pigment or etch, which draw every
+ * category in its own hue. A mark no finish reaches keeps its member's own paint, as under plain tone.
+ *
+ *   ink     `--text-heading`: a monochrome chart in the deck's own ink, at 14:1 or more on every built-in palette.
+ *   accent  `--accent`: the theme's emphasis color, which each theme already holds at AA or better as text on the slide.
+ *
+ * One color is both the hue and the ink: each source is curated for text on the slide, so a name in it reads, and the
+ * ladder's steps are mixes of it. marks-finish-contrast.test.js measures both against every palette, in both modes.
+ */
+const TONE_SOURCES = { ink: 'var(--text-heading)', accent: 'var(--accent)' };
+function sourceBlocks() {
+  const { MARKS_SOURCE_REGISTER, MARKS_SOURCE_FINISH } = require('../lib/core/resolve-marks');
+  const out = ['\n/* ══ TONE\'S SOURCE — the one hue tone draws in, when the deck names one ══ */'];
+  for (const [word, cls] of Object.entries(MARKS_SOURCE_REGISTER)) {
+    const on = `.marks-${MARKS_SOURCE_FINISH}.${cls}`;
+    const heads = [`section${on}`, `figure${on}`, `:is(section, figure)${on} .chart-frame`];
+    out.push(`${heads.join(',\n')} {\n  --finish-one: ${TONE_SOURCES[word]};\n  --finish-one-ink: ${TONE_SOURCES[word]};\n  --ramp-hue: ${TONE_SOURCES[word]} !important;\n  --ramp-ink: ${TONE_SOURCES[word]} !important;\n}`);
+  }
+  return out.join('\n');
 }
 
 const ALL = MARKS_FINISHES;
@@ -472,6 +563,7 @@ function build() {
   // Tone's light base: the tone hue lifted to near-white, where the engine has relative color (see TONE_BASE_REL).
   const toneHeads = ['section.marks-tone', 'figure.marks-tone', ':is(section, figure).marks-tone .chart-frame'];
   w(supports(`${toneHeads.join(',\n')} {\n  ${T.base}: ${TONE_BASE_REL};\n}`));
+  w(sourceBlocks());
 
   const MARK_BODY = 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))';
   const MARK_TEXT = 'light-dark(var(--finish-mark-text-l), var(--finish-mark-text-d))';
@@ -493,7 +585,7 @@ function build() {
       // custom property to :root, where a mark's own value beats it, so dark mode kept the light level. In a real
       // property (the fill, below) it is scoped to its own rule and survives.
       `--finish-mark-body-l: ${tmix(tv(T.hue(n)), T.body(n))}`,
-      `--finish-mark-body-d: ${tmix(tv(T.hue(n)), T.bodyD(n), T.baseD)}`,
+      `--finish-mark-body-d: ${tmix(tv(T.hueD(n)), T.bodyD(n), T.baseD)}`,
       `--finish-mark-text-l: ${tmix(tv(T.hue(n)), T.text(n))}`,
       `--finish-mark-text-d: ${tmix(tv(T.hue(n)), T.textD(n), T.baseD)}`,
       // The edge is the mark's own category ink under EVERY finish, tone included: tone has one hue for bodies, and the
@@ -558,14 +650,14 @@ function build() {
     if (s.paint === 'bg') decls.push(`--chart-ring: ${tRing(kTok)}`);
     // A status pill's gradient is a background-IMAGE; the shorthand clears it.
     if (s.bears && s.paint === 'bg') {
-      decls.push(`color: ${tv(T.ink)}`);
+      decls.push(`color: ${statusInk()}`);
       // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
       // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
       // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
       // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
       // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-      if (s.nodeInk) decls.push(`--state-node-ink: ${tv(T.ink)}`);
-      if (s.indexInk) decls.push(`--state-index-ink: ${tv(T.ink)}`);
+      if (s.nodeInk) decls.push(`--state-node-ink: ${statusInk()}`);
+      if (s.indexInk) decls.push(`--state-index-ink: ${statusInk()}`);
     }
     // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
     // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
@@ -587,8 +679,11 @@ function build() {
     const stated = `.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped)`;
     w(supports(rule(MOVERS, stated, [
       `--state-fill: ${tld('var(--state-color)', T.statusText, T.statusTextD, T.statusBase)}`,
-      `--state-glyph-mark: ${tv(T.ink)}`,
     ])));
+    // The glyph takes the finish ink only where the disc is a pale wash: etch. Tone paints a status at its curated fill
+    // (TONE_STATUS), so its glyph keeps the component's own curated ink (`--state-X-on-ink`), as under pigment; the
+    // heading ink there drew a near-black check on a deep fill (1.46-3.56:1, 2026-11-16 maker-checker review).
+    w(supports(rule('etch', stated, [`--state-glyph-mark: ${tv(T.ink)}`])));
   }
 
   // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
@@ -612,14 +707,14 @@ function build() {
     '.state-index-t[data-s]',
     '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
     '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
-  ].join(', '), [`fill: ${tv(T.ink)}`])));
+  ].join(', '), [`fill: ${statusInk()}`])));
 
   // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
   // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
   // (the cell gap) is the member's, except under etch, where the line is the identity.
   w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
-  const rampAt = (lo, k, base) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
-  const rampStroke = [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
+  const rampAt = (lo, k, base) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
+  const rampStroke = [`stroke: color-mix(in oklab, ${RAMP_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
   for (const m of ramps) {
     // A ramp that prints its value takes the shorter text band (see `rampText`), as two whole colors inside
     // light-dark(), never a percentage. Pigment's text band IS the member's own span ([0, 1]: `--mix` as shipped), so it
@@ -651,7 +746,7 @@ function build() {
   // fill and the ink the theme solved for it.
   const STEP_MIX = [18, 36.5, 55, 73.5, 92];
   STEP_MIX.forEach((pct, i) => {
-    const at = (lo, k) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
+    const at = (lo, k) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
     w(supports(rule(MOVERS, `.heatmap-value[data-ramp="${i + 1}"]`, [
       `fill: light-dark(${inkOn(at(T.rampTextLo, T.rampTextK))}, ${inkOn(at(T.rampTextDLo, T.rampTextDK))})`,
     ])));
@@ -671,12 +766,23 @@ function build() {
   // 1.62:1). So under etch and tone the icon picks black or white from the SAME body its disc gets (the
   // finish tokens the group rule and the status rule read, so the two cannot drift), and waits on relative
   // color like every text ink here. Pigment's disc is a curated solid, so its icon takes the curated ink.
+  //
+  // Two of these inks need no relative color, so they apply on every engine (#3232 P1, measured in WebKit 17.4, which
+  // fails the guard). The disc moves everywhere, because it carries no text; an icon whose ink waited behind the guard
+  // kept the plain slide's ink on the finished disc, and 218 of 528 icons over 32 palettes and three finishes fell
+  // under 3:1, the worst 1.11:1 (Chromium 153: none). Pigment's group ink is its curated `--finish-ink`, and every
+  // finish's status ink is statusInk(), a percent mix of curated inks. The picked inks below still win where the guard
+  // passes: same selector, later in the sheet.
   w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
-  w(supports(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`])));
+  w(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`]));
+  w(rule(ALL, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`]));
+  // Tone's first slot is its deepest step, and the picked ink is white there on every light face (Chromium 153, all 18
+  // light faces); WebKit 17.4 kept the heading ink, 2.25-2.93:1 on 11 brand themes. Its other slots and every dark face
+  // already take the plain ink the pick lands on, so this one fixed ink is the whole fallback.
+  w(rule('tone', '.hub-spoke-icon[data-hue="1"]', ['--hs-icon-ink: light-dark(var(--chart-on-mark), var(--text-heading))']));
   // The disc's body is the mark's own (THE SLOT), and the icon is a mark of the same slot: one rule for every slot.
   w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
   const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
-  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${tv(T.ink)}`])));
   w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status, T.statusBase))}, ${inkOn(tmix(hsStatus.hue, T.statusD, T.statusBase))})`])));
 
   // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
@@ -774,7 +880,7 @@ function build() {
       w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${tstep(5)}`, `stroke: ${ONE_INK}`]));
       // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
       // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
-      w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
+      w(rule(name, SLOT_SEL, [`--finish-mark-edge: ${ONE_INK}`], false));
       // ONE LADDER. A text-bearing mark takes the same eight steps as every other body, so category N is the same shade on
       // a tower, a matrix grid and a pie. Its text picks black or white from its OWN body (inkOn clears 4.58:1 on any
       // body), instead of one fixed ink curated for a pale ladder.
@@ -875,8 +981,9 @@ function build() {
     }
     if (name === 'etch') {
       // A bullet's measure is the datum; its range bands are a 36/22/10/4% grey wash. At etch's 30% body the bar was paler
-      // than the band it sits on, so the row read upside down. The measure takes the category ink at half strength.
-      w(rule(name, '.bullet-measure[data-hue]', ['fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) 60%, var(--bg)))']));
+      // than the band it sits on, so the row read upside down. The measure takes the category ink at half strength, and on a
+      // dark slide at etch's dark body level, so it clears 3:1 like every other etch bar (ETCH_BODY_INK_D).
+      w(rule(name, '.bullet-measure[data-hue]', [`fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) ${ETCH_BODY_INK_D}%, var(--bg)))`]));
     }
 
     {
@@ -998,7 +1105,9 @@ function build() {
       w(ruleIf(name, HS_GROUPED, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
         'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
-      w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
+      // The neutral solid's curated ink needs no relative color, so it applies on every engine, like the group and status
+      // icon inks above (#3232 P1: WebKit 17.4 kept the plain heading ink on this solid, 2.33:1 on concrete).
+      w(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`]));
     }
 
     // ── A JOURNEY STAGE BAR — one constant ground (`encodes: none`), the heaviest mark on the slide ────
@@ -1019,7 +1128,7 @@ function build() {
     }
     if (tone) {
       // Tone's stage bar is a pale step of the one hue with the one ink on its top rule: the shipped slate was a second color.
-      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, '--section-accent: var(--chart-cat-1-ink)']));
+      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, `--section-accent: ${ONE_INK}`]));
       // A journey persona is a small disc, and four adjacent ladder steps on a disc that size read as one blue (the tone audit).
       // Personas take every other step (slots 1-4 are steps 1, 3, 5, 7): the same ladder, spaced for a mark too small for adjacent steps.
       // Slots 5-8 (a fifth persona and on) take the odd steps, so all eight stay distinct.
@@ -1043,29 +1152,45 @@ function build() {
       // the slide by itself and seamed with the canvas. Critical is the DEEPEST step, the vivid fail fill taken 18%
       // toward black, so it outranks `high` in both intensities; its ring and marks come from the kernel
       // (risk-matrix.styles.css says the same).
+      // The band is the theme's CURATED status fill on both faces, unmodified: each brand theme tunes it to stand off its
+      // slide (engineering/decisions/2026-11-16-status-triplets.md). A dark-face dim, from when the fills were one vivid
+      // set no theme had tuned, is gone; only the finishes (etch, tone) change a status's strength.
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        // On a dark slide the vivid status hue is a fire-engine block, louder than every other pigment chart, so dark takes it 28%
-        // toward the slide (light keeps the full solid).
-        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      // Critical is blocked one designed step deeper: toward the shade on a light slide, and toward the SLIDE on a dark
+      // one. On a brand theme's dark face the two are one (near black); on an a11y palette's bright dark face the shade
+      // is white, which lifted critical onto high (1.07:1, the 2026-11-16 maker-checker review), so it steps toward the
+      // slide, as it did before the status triplets. How far it steps on the dark face is `--risk-critical-keep`
+      // (the share of the fail fill kept, 82% by default). An a11y palette whose dark-face bands are so bright that 18%
+      // only lands critical between low and medium (achromatopsia: low 0.39, critical 0.49, medium 0.59 luminance) keeps
+      // less, so critical is the DARKEST band there, last in the order as it is on the light face and in print.
+      const CRITICAL_DARK = 'color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))';
+      // On the light face the step's size is `--risk-critical-shade-keep` (82% by default): a monochromacy palette, which
+      // reads severity by lightness alone, keeps less so critical clears high (a11y-achromatopsia, 40%).
+      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), ${CRITICAL_DARK})`;
+      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
-      // The risk KEY's discs wear the same band fill as the cells (tamed on dark), not the vivid status hue.
+      // The risk KEY's discs wear the same band fill as the cells, and each number its status's curated ink.
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        const kl = `var(--state-${st}-hue)`;
-        const kd = `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`;
-        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: ${ld(kl, kd)}`]));
-        // The number picks black or white from its OWN disc: the shipped ink assumes the vivid solid, which the dark mix is not.
-        w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
+        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`]));
+        w(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: var(--state-${st}-on-ink)`]));
       }
-      const cl = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))';
-      const cd = 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))';
-      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld(cl, cd)}`]));
-      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: ${ld(inkOn(cl), inkOn(cd))}`])));
-      // A slope's signal lines wear the status hue, not its text ink (which is neon on a dark slide): the same solid a risk cell takes.
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', [`stroke: ${ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))')}`])));
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', [`stroke: ${ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))')}`])));
+      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${CRITICAL}`]));
+      // Where relative color is missing (Safari 17.5-17.x, Firefox 120-127; an older engine only where light-dark() is
+      // flattened first, as the HTML player does),
+      // the @supports pick below does not apply. The number takes `--risk-critical-on-ink` (base.tokens.css, declared per
+      // slide so it follows print's ink): the fail ink, and on an a11y palette's dark band black, because its one curated
+      // ink sits at 2.97-4.42:1 there.
+      w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--risk-critical-on-ink)']));
+      // On the dark face critical steps toward the slide, so on an a11y palette's bright fill it is darker than the fill
+      // its curated near-black ink was chosen for (4.42:1 on a11y-protanopia); its number picks its own ink there.
+      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: light-dark(var(--state-fail-on-ink), ${inkOn(CRITICAL_DARK)})`])));
+      // A slope's signal lines wear the curated status fill, not its text ink (which is neon on a dark slide): the same
+      // solid a risk cell takes, unmodified on both faces.
+      w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', ['stroke: var(--state-pass-hue)']));
+      w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', ['stroke: var(--state-fail-hue)']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       // The hub-spoke HUB is the one mark with no category and no status: the first hue, or the neutral solid on a chart whose
@@ -1130,4 +1255,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, ETCH_BODY_INK_D, TONE_SOURCES, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, TONE_STATUS, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

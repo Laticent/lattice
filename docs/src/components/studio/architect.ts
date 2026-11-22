@@ -1378,6 +1378,9 @@ export type ProposedEdit = {
 	before: string;
 	after: string;
 	diff: DiffRow[];
+	/** Insert: the text of the slide it goes after. Delete: the text of the slide before it. Lets the change card
+	 *  find where a new or restored slide belongs by CONTENT once the deck has moved (change-card.ts). */
+	anchor?: string;
 };
 export type ChatResult =
 	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace; /** An act the turn queued for the author to confirm (chat-actions.ts). */ action?: import('./chat-actions').ChatAction; /** Which path answered: the tool agent, or the one-shot fallback (on-device, or a model that refuses tools). */ via?: 'agent' | 'oneshot'; /** The agent turn ran to its own end and left no checker errors. Only such a turn may auto-apply. */ clean?: boolean }
@@ -1696,7 +1699,8 @@ function finalizeChat(reply: string, source: string, truncated = false): ChatRes
 		const before = e.action === 'insert' ? '' : sliceSlide(source, e.slide);
 		const after = e.action === 'delete' ? '' : String(e.body || '').trim();
 		const label = e.action === 'insert' ? `Insert after slide ${e.slide}` : e.action === 'delete' ? `Delete slide ${e.slide}` : `Slide ${e.slide}`;
-		return { label, slide: e.slide, action: e.action as ProposedEdit['action'], raw: e, before, after, diff: diffLines(before, after) as DiffRow[] };
+		const anchor = e.action === 'insert' && e.slide > 0 && e.slide !== Number.MAX_SAFE_INTEGER ? sliceSlide(source, e.slide) : e.action === 'delete' && e.slide > 1 ? sliceSlide(source, e.slide - 1) : undefined;
+		return { label, slide: e.slide, action: e.action as ProposedEdit['action'], raw: e, before, after, diff: diffLines(before, after) as DiffRow[], ...(anchor ? { anchor } : {}) };
 	});
 	const count = proposedEdits.length;
 	// Every block was refused — offering an Apply button here is the exact lie this change
@@ -1814,6 +1818,7 @@ export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 	return {
 		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine, frontMatterBlockText, setFrontMatterTerms,
 		adjustSpend, recordSpend, deckCanon: loadedAuthoring().deckCanon, deckProfiles: loadedAuthoring().deckProfiles,
+		inlineDirective: (text: string) => !!(loadedAuthoring().inlineCodeDispatches(text, null) || loadedAuthoring().inlineCodeDiagnose(text, null)),
 		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
 		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
 	};

@@ -73,9 +73,11 @@
  *   next hue over, so series 1-2-3 read as three greens and a flowchart as mint on
  *   mint. The closest adjacent pair measured 0.056 OKLab on the diagram marks and
  *   0.094 on the chart cycle, where indaco and cuoio -- which alternate warm and
- *   cool -- hold 0.105+. The same hues now run most-distinct-first, lime-green
- *   leading as the brand anchor: 0.196 / 0.250 on the marks (light / dark) and
- *   0.198 on the chart cycle. The light fills also moved from near-white (L 0.97,
+ *   cool -- hold 0.105+. The same hues now run most-distinct-first: lime-green
+ *   leads the diagram marks as the brand anchor (0.196 / 0.250, light / dark), and
+ *   blue leads the chart cycle with the green second, because a chart paints "no
+ *   status" in its first category (#3360 D2). Chart cycle: 0.195 / 0.188, the
+ *   closest adjacent pair by lib/core/color.js oklabDistance over the first six. The light fills also moved from near-white (L 0.97,
  *   invisible on the canvas) to the wash band indaco uses (L 0.89). *
  * WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG
  * ───────────────────────────────────────────────
@@ -163,22 +165,47 @@
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
   --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
-   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `marks: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
-   * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
-   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-mark: light-dark(#254A28, #4A704B);
-  --warn-mark: light-dark(#8B4600, #B65D00);
-  --fail-mark: light-dark(#9D0800, #DA1000);
-  --pass-vivid-mark: light-dark(#004E11, #007820);
-  --warn-vivid-mark: light-dark(#8B4600, #B65D00);
-  --fail-vivid-mark: light-dark(#9D0800, #DA1000);
-  --warn-signal-mark: light-dark(#FD9900, #FD9800);
-  --fail-signal-mark: light-dark(#FF7744, #FF7A4A);
-  --info-mark: light-dark(#005E85, #1E7CA9);
-  --info-vivid-mark: light-dark(#005E85, #007DAF);
-  --mute-mark: light-dark(#4B5157, #686E74);
+  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status. On the light face a deep fill that
+   * clears 4.5:1 against every surface it sits on, so it reads at the back of a lit hall (`npm run check:glance`). On
+   * the dark face a chart solid like the categories beside it (lib/theme/chart-solids.js): white at 4.6:1 on it, 3:1
+   * off the slide, done deepest and at risk lightest. `marks: pigment muted|vivid` picks the intensity. The hues are
+   * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
+   * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
+   * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
+  --pass-mark: light-dark(#365D3B, #48704C);
+  --warn-mark: light-dark(#855612, #AD6200);
+  --fail-mark: light-dark(#9C0012, #D02C2E);
+  --pass-vivid-mark: light-dark(#265F2F, #007828);
+  --warn-vivid-mark: light-dark(#8E5300, #AD6200);
+  --fail-vivid-mark: light-dark(#9E0012, #DB001E);
+  --warn-signal-mark: light-dark(#F0AE46, #F6B500);
+  --fail-signal-mark: light-dark(#FF7177, #FF777B);
+  --info-mark: light-dark(#0056AA, #1E7CA9);
+  --info-vivid-mark: light-dark(#0056AA, #007DAF);
+  --mute-mark: light-dark(#586273, #696D74);
+  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
+   * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
+   * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
+   * Solved by tools/curate-status-triplets.js. */
+  --pass-on-mark: light-dark(#F6F6F7, #FFFFFF);
+  --warn-on-mark: light-dark(#F6F6F7, #FFFFFF);
+  --fail-on-mark: light-dark(#F6F6F7, #FFFFFF);
+  --info-on-mark: light-dark(#F6F6F7, #FFFFFF);
+  --mute-on-mark: light-dark(#F6F6F7, #FFFFFF);
+  --pass-edge-mark: light-dark(#365D3B, var(--pass));
+  --warn-edge-mark: light-dark(#855612, var(--warn));
+  --fail-edge-mark: light-dark(#9C0012, var(--fail));
+  --info-edge-mark: light-dark(#0056AA, var(--info));
+  --mute-edge-mark: light-dark(#586273, var(--mute));
+  --pass-vivid-edge-mark: light-dark(#265F2F, var(--pass));
+  --warn-vivid-edge-mark: light-dark(#8E5300, var(--warn));
+  --fail-vivid-edge-mark: light-dark(#9E0012, var(--fail));
+  --info-vivid-edge-mark: light-dark(#0056AA, var(--info));
+  /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
+   * (risk-matrix's critical band, a state-chart status row's chip). */
+  --status-shade-mark: light-dark(#000000, #000000);
+  /* The shade under the ONE ink (category and neutral tiles): white text, so it steps toward black. */
+  --on-mark-shade: #000000;
   --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *
@@ -415,14 +442,24 @@
  * #1A1A1C. The LIGHT arms hold each pigment's hue and chroma and solve only
  * lightness, to >=4.6:1 on the light canvas -- deep enough to read as the pigment rather
  * than a pastel (they sat at the 3.2:1 floor before). Ordered most-distinct-first,
- * like indaco and cuoio: green, blue, orange, indigo, cyan, magenta, amber, purple.
- * Minimum adjacent distance over the working six: 0.198 OKLab light, 0.247 dark. */
+ * like indaco and cuoio: blue, green, orange, indigo, cyan, magenta, amber, purple.
+ * BLUE LEADS, NOT GREEN (owner's call, 2026-11-21, #3360 D2): the first category is
+ * also what a chart paints as "no status", and green there sat 0.075 / 0.053 OKLab
+ * from the on-track fill, under the 0.08 "merges" line, so an unstatused mark read
+ * as on track. The electric green stays the brand's, second in the cycle.
+ * Minimum adjacent distance over the working six: 0.195 OKLab light, 0.188 dark
+ * (lib/core/color.js oklabDistance, re-measured after blue moved to slot 1). */
 :root {
   /* Categorical spectrum — carbone's own vivid dark-canvas pigments, most-
-   * distinct-first, anchored to the electric-green identity. All clear ≥3:1
-   * on --bg #1A1A1C. */
-  --chart-cat1: light-dark(#114D1B, #48814C);  /* electric green -- brand anchor   4.83 / 8.26 */
-  --chart-cat2: light-dark(#0E50BE, #3070E1);  /* bright blue    -- cool complement 4.74 / 5.37 */
+   * distinct-first. Blue leads and the electric-green identity is second, so a
+   * chart's "no status" (the first category) does not read as on track. All
+   * clear ≥3:1 on --bg #1A1A1C. */
+  --chart-cat1: light-dark(#0E50BE, #3070E1);  /* bright blue    -- cool complement 4.74 / 5.37 */
+  --chart-cat2: light-dark(#114D1B, #48814C);  /* electric green -- brand anchor   4.83 / 8.26 */
+  /* The sequential ramps (heatmap, map choropleth) keep the green they were tuned for (--chart-ramp-hue,
+   * heatmap.styles.css and map.styles.css): blue as the heatmap's pole cut the light top step from 6.53:1 to 4.79:1 against an empty cell. */
+  --ramp-hue: var(--chart-cat2);
+  --ramp-ink: var(--chart-cat2-ink);
   --chart-cat3: light-dark(#973A00, #B9592B);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
   --chart-cat4: light-dark(#603EC2, #7B5EE4);  /* vivid indigo                      4.63 / 4.66 */
   --chart-cat5: light-dark(#00606E, #317F8E);  /* vivid cyan                        4.76 / 8.71 */
@@ -436,8 +473,8 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#114D1B, #639D66);
-  --chart-cat2-ink: light-dark(#0E50BE, #4A8CFF);
+  --chart-cat1-ink: light-dark(#0E50BE, #4A8CFF);
+  --chart-cat2-ink: light-dark(#114D1B, #639D66);
   --chart-cat3-ink: light-dark(#973A00, #D77447);
   --chart-cat4-ink: light-dark(#603EC2, #937BFF);
   --chart-cat5-ink: light-dark(#00606E, #4E9AA9);
