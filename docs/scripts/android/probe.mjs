@@ -226,7 +226,16 @@ try {
 	// row's name cannot answer it. The media scan puts it in Files' Recent list.
 	const local = path.join(OUT, DECK);
 	fs.writeFileSync(local, 'PK\u0005\u0006' + '\u0000'.repeat(18)); // an empty zip, which is what a .lattice is
-	adb('push', local, `/sdcard/Download/${DECK}`);
+	// Android 17 mounts shared storage a while after boot completes: a push before then fails with an I/O error. Poll the
+	// push itself, on a deadline (throwaway branch for #3356's current-Chrome evidence).
+	for (let t0 = Date.now(); ; await sleep(2000)) {
+		try {
+			adb('push', local, `/sdcard/Download/${DECK}`);
+			break;
+		} catch (e) {
+			if (Date.now() - t0 > 120_000) throw e;
+		}
+	}
 	adb('shell', 'am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', `file:///sdcard/Download/${DECK}`);
 
 	// THE CONTROL: an input that accepts only application/pdf, with Chrome NOT holding the camera permission. On this image
