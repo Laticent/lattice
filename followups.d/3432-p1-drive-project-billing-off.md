@@ -12,8 +12,8 @@ deferred: blocked — a setting in the owner's Google Cloud console, which no se
 
 why now   — Google plans to bill Drive API use over a daily threshold "later in 2026", with at least 90 days'
             notice and no prices yet. With no billing account on the project that owns Lattice's client ID, going
-            over quota makes calls fail with 403 or 429, which the sync engine backs off from, instead of charging
-            the owner.
+            over quota should make calls fail with 403 or 429, which the sync engine backs off from, rather than
+            charge the owner. That is unconfirmed until Google publishes its billing terms (see `done when`).
 where     — Google Cloud console → Billing → the project that holds the Lattice OAuth client ID ("Account
             management" / "Link a billing account"). The design's §6.3 "Quotas and cost" has the numbers.
 done when — The owner has confirmed the project shows "This project has no billing account", and has written down
