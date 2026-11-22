@@ -175,12 +175,13 @@ function engines() {
 }
 
 /**
- * How many vectors run at once in one browser. Each vector holds one walled page and, in a walled run, one witness
- * page, so a run keeps at most 2 × this many pages open (plus a popup per opened window). Opening all 20 vectors at
- * once, walled and witness together, put 40 pages in one browser; WebKit starts a web process per page, so four
+ * How many vectors run at once in one browser. A walled run keeps every walled page open to its end (see `reached`),
+ * so it holds at most 20 walled pages plus this many witness pages (plus a popup per opened window), and it LOADS at
+ * most this many pages at a time. Opening all 20 vectors at once, walled and witness together, put 40 pages in one
+ * browser; WebKit starts a web process per page, so four
  * runs at once on a 4-CPU sandbox reached 151 web processes and a load average of 150 to 181, the kernel killed
  * processes for memory, and the witness gave up before hearing vectors (measured 2026-11-22, WebKit 2388: 4 of 4
- * runs red). The bound is on load, not on time: the deadline below is unchanged.
+ * runs red). The bound is on load, not on time: each vector's wait keeps `until`'s 60 s deadline.
  */
 const AT_ONCE = 4;
 
@@ -216,10 +217,13 @@ async function pool(items, limit, work) {
  *   - the CONTROL (`witness` unset) waits until the listener has heard the vector, when this engine can fire it;
  *   - a walled run makes the vector's attempt first and only then runs its WITNESS, the same vector in the control
  *     file against a second listener. Once the witness has heard it, the walled attempt has had at least that long
- *     to land, and both pages close. A quiet period of 2 s, repeated until the count stopped moving, was the old wait.
- * A vector this engine may not fire (MAY_MISS) has no signal to wait on, so its page stays open until every other
- * vector is done: the time they take bounds it, as the whole run's witness did before. Then the browser closes and
- * the listener is drained, so an attempt already on the wire is counted.
+ *     to land, and the witness page closes. A quiet period of 2 s, repeated until the count stopped moving, was the
+ *     old wait.
+ * Every WALLED page stays open until the last witness has heard, never closed at its own witness: a walled leak that
+ * is slower than the control for the same vector (a fallback through a fresh frame, say) then still has the rest of
+ * the run to land, so only the vectors that finish last get as little as their own witness's time. A vector this
+ * engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and gets the whole run. Then the browser
+ * closes and the listener is drained, so an attempt already on the wire is counted.
  */
 async function reached(eng, file, { witness = null } = {}) {
   main.reset();
@@ -231,26 +235,23 @@ async function reached(eng, file, { witness = null } = {}) {
   const browser = await eng.launch();
   const w = witness ? await listener() : null;
   const missed = [];
-  const held = [];
   let pages = [];
   try {
     // The vectors with no signal go first, so the rest of the run is the time they get.
     const order = [...names.filter((v) => !fireable(v)), ...names.filter(fireable)];
     pages = await pool(order, AT_ONCE, async (name) => {
       const walled = await attempt(browser, file, main, name);
-      if (!fireable(name)) {
-        held.push(walled.page);
-        return walled;
-      }
+      if (!fireable(name)) return walled;
       if (w) {
         const control = await attempt(browser, witness, w, name);
         if (!(await heard(w, name))) missed.push(`${name} (witness ran: ${control.ran}, loaded: ${control.loaded}, url: ${control.page.url().slice(0, 60)})`);
         await control.page.close().catch(() => {});
       } else {
-        // A vector the control cannot fire leaves the wait at its deadline; the harness test names it.
+        // A vector the control cannot fire leaves the wait at its deadline; the harness test names it. The control
+        // makes no absence claim, so its page may close once heard.
         await heard(main, name);
+        await walled.page.close().catch(() => {});
       }
-      await walled.page.close().catch(() => {});
       return walled;
     });
     assert.deepEqual(missed, [], `the witness never heard ${missed.join(' ')}, so the walled run's zero proves nothing`);
