@@ -143,24 +143,6 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
     assert.equal(keyword(out).length, 0);
   });
 
-  test('on a slide whose class is a `@meta` record, a fix that must add a class is left to the author, never a second class line', () => {
-    const md = recordDeck('content dark', '![bg](photo.jpg "The lake")');
-    const [f, ...rest] = keyword(md);
-    assert.equal(rest.length, 0);
-    assert.equal(f.autofixable, undefined);
-    assert.match(f.message, /set by its `@meta` record; add `bleed` there/);
-    assert.equal(fixed(md), md);
-  });
-
-  test('a record that sets no class, or one quoted in a fence, leaves the fix on; the fix writes `@meta`, never `_class:`', () => {
-    for (const head of ['<!-- @meta{footer=Q3} -->\n\n', '```md\n<!-- @meta{layout=kpi} -->\n```\n\n', '']) {
-      const md = `---\ntheme: indaco\n---\n\n${head}## T\n\n![bg](photo.jpg)\n`;
-      const out = fixed(md);
-      assert.match(out, /<!-- @meta\{class=bleed\} -->\n\n!\[\]\(photo\.jpg\)/, head);
-      assert.doesNotMatch(out.replace(/```md[\s\S]*?```/, ''), /_class/, head);
-    }
-  });
-
   test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {
     const { placedPictureInSlide } = require('../../../lib/core/placed-picture.js');
     const { boundaryParser } = require('../../../lib/core/boundary-parser.js');

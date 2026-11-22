@@ -122,8 +122,8 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 });
 
 // The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
-// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, and a bare `<!-- {…} -->` record is a
-// `meta-bare-record` warning whose fix writes `@meta`. One press of "Fix all" converts the deck, the same text
+// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
+// `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
 // `lattice migrate meta` writes, and the slides render as before.
 const LEGACY_DECK = [
 	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',

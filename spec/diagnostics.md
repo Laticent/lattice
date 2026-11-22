@@ -430,7 +430,6 @@ literal text and is never reported.
 | `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
 | `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
 | `legacy-directive-comment` | warning | ✓ | An old-form directive comment (`<!-- _class: x -->`), on every deck. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. It becomes an error when the engine stops reading the form. |
-| `meta-bare-record` | warning | ✓ | A record in the retired bare spelling (`<!-- {…} -->`). The fix writes `@meta` before the brace. It becomes an error when the engine stops reading the spelling. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
@@ -522,8 +521,8 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
   `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
   findings on a record it reads, and `meta-class-overridden`. Then `legacy-directive-comment`
-  turns on for every deck with a whole-deck autofix, and `meta-bare-record` joins it: `@meta` is
-  the one record spelling (record note §15).
+  turns on for every deck with a whole-deck autofix (record note §15). `@meta` is the one record
+  spelling; a warning on the bare form joins at the cut.
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

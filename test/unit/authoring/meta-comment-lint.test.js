@@ -14,7 +14,7 @@ const core = require('../../../lib/authoring/lint-core.js');
 
 const { findMetaCommentIssues } = core;
 const deck = (...slides) => `---\ntheme: indaco\n---\n\n${slides.join('\n\n---\n\n')}\n`;
-const META_RULES = new Set(['meta-opener-bare', 'meta-not-own-line', 'meta-in-html-block', 'meta-block-in-container', 'legacy-directive-comment', 'meta-bare-record']);
+const META_RULES = new Set(['meta-opener-bare', 'meta-not-own-line', 'meta-in-html-block', 'meta-block-in-container', 'legacy-directive-comment']);
 const rules = (src, vocab) => findMetaCommentIssues(src, vocab).map((f) => `${f.slide}:${f.rule}`);
 // Through the whole linter too, so the rule is proven wired into `lintTextWith`.
 const VOCAB = { names: new Set(['kpi']), modifiers: new Set() };
@@ -144,36 +144,16 @@ test('legacy-directive-comment near misses: a speaker note, a marker, a fenced e
   assert.deepEqual(rules(src), []);
 });
 
-test('meta-bare-record: the bare `<!-- {…} -->` spelling is a warning, and its one-line fix writes `@meta`', () => {
-  const src = deck('<!-- {layout=kpi, footer="Q3"} -->\n\n# One', '# Two\n\n- point\n- <!-- {layout=kpi} -->');
-  const f = findMetaCommentIssues(src).filter((x) => x.rule === 'meta-bare-record');
-  assert.deepEqual(f.map((x) => `${x.slide}:${x.severity}:${x.line}`), ['1:warning:<!-- {layout=kpi, footer="Q3"} -->', '2:warning:- <!-- {layout=kpi} -->']);
-  assert.ok(f.every((x) => x.autofixable && !x.rewrite), 'a one-line fix, no whole-deck rewrite');
-  assert.match(f[0].fix, /<!-- @meta\{…\} -->/);
-  const once = core.applyFix(src, f[0]);
-  assert.equal(once, deck('<!-- @meta{layout=kpi, footer="Q3"} -->\n\n# One', '# Two\n\n- point\n- <!-- {layout=kpi} -->'));
-  assert.equal(core.fixAllDetailed(src, VOCAB).text, deck('<!-- @meta{layout=kpi, footer="Q3"} -->\n\n# One', '# Two\n\n- point\n- <!-- @meta{layout=kpi} -->'));
-  // One finding for a record however many fields it lists, and one for a wrapped record.
-  assert.deepEqual(rules(deck('<!-- {layout=kpi,\n  footer="Q3"} -->\n\n# One')), ['1:meta-bare-record']);
-});
-
-test('meta-bare-record near misses: `@meta`, a bare opener (no record), a fenced or inline-code example, a note', () => {
-  assert.deepEqual(rules(deck('<!-- @meta{layout=kpi} -->\n\n# One')), []);
-  assert.deepEqual(rules(deck('<!--\n{layout=kpi}\n-->\n\n# One')), ['1:meta-opener-bare']);
-  assert.deepEqual(rules(deck('# One\n\n```md\n<!-- {layout=kpi} -->\n```\n\nWrite `<!-- {x} -->` never.')), []);
-  assert.deepEqual(rules(deck('# One\n\n<!-- @note{Pause {here}.} -->')), []);
-});
-
-test('the two old-spelling rules share one severity constant, so the cut raises both in one line', () => {
+test('the rule takes its severity from one constant, so the cut raises it in one line', () => {
   const fs = require('node:fs');
   const text = fs.readFileSync(require.resolve('../../../lib/authoring/lint-core.js'), 'utf8');
   assert.equal((text.match(/^const LEGACY_META_SEVERITY = '(warning|error)';$/m) || [])[1], 'warning');
-  // Every finding of either rule takes its severity from the constant (the legacy rule pushes two shapes: fixable and kept).
-  assert.equal((text.match(/severity: LEGACY_META_SEVERITY/g) || []).length, 3);
-  assert.doesNotMatch(text, /rule: '(?:legacy-directive-comment|meta-bare-record)', severity: '/);
+  // Both shapes of the finding (fixable, and kept as written) read the constant.
+  assert.equal((text.match(/severity: LEGACY_META_SEVERITY/g) || []).length, 2);
+  assert.doesNotMatch(text, /rule: 'legacy-directive-comment', severity: '/);
 });
 
-test('none of the six fires on a plain deck of ordinary comments', () => {
+test('none of the meta rules fires on a plain deck of ordinary comments', () => {
   const src = deck(
     '# One\n\n<!-- Talk track: open with the number. -->',
     '## Two\n\n- a\n- b\n\n<!--\nA longer note\n\nwith two paragraphs.\n-->',
