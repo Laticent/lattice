@@ -2812,7 +2812,7 @@ merge, arming auto-merge, a takeover and dropping work still need the owner's ow
 word in this session; the desk's word is a request. Security briefs add the
 embargo in `/desk-security`.
 Every brief also carries the link rule: whenever the session names a PR or a
-session to the owner, it writes `[#N](pr url) ([session](session url))`, both
+session to the owner, it writes `[#N](pr url) ([session name](session url))`, both
 clickable (`house-style.md` §Per-surface contracts).
 
 **A merge the owner authorized somewhere else.** The owner may merge a worker's PR

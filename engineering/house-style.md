@@ -163,11 +163,13 @@ open question. If you ran something and it failed, say so and paste the output.
 
 **Naming a PR or a session to the owner.** Every time, in every surface the owner
 reads (chat, a card, a relay, a PR or issue comment), a PR goes out as a clickable
-link with the session that works on it right after:
-`[#3427](https://github.com/Laticent/lattice/pull/3427) ([session](https://claude.ai/code/session_01…))`.
-Several sessions on one PR get one link each, named by role
-(`([desk](…), [worker](…))`). A session named on its own is a link too, never a bare
-`session_…` id. The owner reads from a phone and should never have to ask "which
+link with the session that works on it right after, its link text the session's
+own name, cut to a few words:
+`[#3427](https://github.com/Laticent/lattice/pull/3427) ([Workflow desk: two-person relay](https://claude.ai/code/session_01…))`.
+Generic text (`session`, `desk`, `worker`) tells the owner nothing; the name is already
+in the `list_sessions` result in hand, so it costs a few words and no extra call.
+Several sessions on one PR get one named link each. A session named on its own is a
+link too, never a bare `session_…` id. The owner reads from a phone and should never have to ask "which
 session is that?" or copy an id into a URL. If no session is known (a colleague's
 PR, a bot's PR), say so: `(session: none on this account)`. Find the session from
 `list_sessions` / `get_session`, the PR body's session link, or the `origin:pr-N`

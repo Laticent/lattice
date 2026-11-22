@@ -21,8 +21,8 @@ yesterday's at a glance. Skip the call when the title already reads that.
 
 **Links, always.** Outside the board too, every PR this session names to the owner
 (a relay, a digest, an answer, a question) is `[#N](https://github.com/Laticent/lattice/pull/N)`
-followed by `([session](https://claude.ai/code/<session id>))`, one link per session
-when several work on it, named by role. A session named alone is a link too. Every
+followed by `([<session name, a few words>](https://claude.ai/code/<session id>))`, one
+named link per session when several work on it; never generic text like `session`. A session named alone is a link too. Every
 brief this session writes for `create_session` or `send_message` repeats this rule
 for the worker. The owner set it as standing on 2026-11-22
 (`engineering/house-style.md` §Per-surface contracts).

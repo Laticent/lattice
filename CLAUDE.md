@@ -193,7 +193,7 @@ disposition and a gate collide, the gate wins.
   from the start in plain language, lead with a concrete example, and name the
   thing in the codebase it maps to. Jargon I have to decode is a defect in the
   writing, not in me.
-  Name a PR to me as `[#N](url) ([session](url))`, both clickable.
+  Name a PR to me as `[#N](url) ([session name](url))`, linked.
 
 ---
 
