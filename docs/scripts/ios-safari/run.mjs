@@ -336,8 +336,18 @@ async function deckTapLeavesLibrary(id) {
 		const ok = passed === REPS;
 		return { ok, steps, ...(ok ? {} : { error: `${REPS - passed} of ${REPS} deck taps left the Library open` }) };
 	} catch (e) {
-		step('deck tap', false, e.message);
-		return { ok: false, steps, error: e.message };
+		// DIAGNOSTIC (throwaway branch only): the page as it stood when a setup step gave up.
+		let state = '';
+		try {
+			state = await run(
+				`return JSON.stringify({ url: location.href, history: history.length, back: document.documentElement.dataset.overlayBack ?? null, dialogs: [...document.querySelectorAll('[role=dialog]')].map((d) => (d.dataset.state ?? '?') + ':' + (d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? '').trim()), menu: [...document.querySelectorAll('button[aria-label="Menu"]')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), b.closest('[inert]') ? 'inert' : 'live']; }), active: document.activeElement?.tagName + '.' + (document.activeElement?.getAttribute('aria-label') ?? '') })`,
+			);
+			state += `; ${summarizeTapLog(await run('return window.__tapLog'))}`;
+		} catch (d) {
+			state = `state unreadable: ${d.message}`;
+		}
+		step('deck tap', false, `${e.message}; state ${state}`);
+		return { ok: false, steps, error: `${e.message}; state ${state}` };
 	}
 }
 
