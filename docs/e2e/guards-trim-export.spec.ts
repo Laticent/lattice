@@ -20,13 +20,13 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
  * verdict were all green for that build, because every one of them asks *does it still
  * overflow* and an over-cut satisfies all of them.
  *
- * THE ASSERTION IS A COMPARISON, NOT A COUNT. `strict` must not deliver LESS copy than
- * `loose`. `loose` clips at the box edge and the PDF's text layer carries only what is
+ * THE ASSERTION IS A COMPARISON, NOT A COUNT. `fit: trim` must not deliver LESS copy than
+ * `fit: heal`. `heal` clips at the box edge and the PDF's text layer carries only what is
  * visible (`pdf-text-extract.js` intersects every word against its clipping ancestors),
- * so the loose export is exactly "everything that fit". A correct clamp lands on that
+ * so the heal export is exactly "everything that fit". A correct clamp lands on that
  * same last fitting line, so the two come back EQUAL — that is the pass, and it is why
- * `strict` against `loose` is a floor rather than a difference to look for. An over-cut
- * clamps a line ABOVE it and the strict export comes back shorter. No magic number, and
+ * `trim` against `heal` is a floor rather than a difference to look for. An over-cut
+ * clamps a line ABOVE it and the trim export comes back shorter. No magic number, and
  * nothing here has to know that this deck happens to fit twelve lines.
  *
  * ANTI-VACUITY AT BOTH ENDS, because this comparison has two ways to be trivially true:
@@ -45,8 +45,8 @@ const BODY = Array.from(
 	(_, i) => `Sentence ${i + 1} runs on long enough to wrap the column and push this box past its limit.`,
 ).join(' ');
 
-const deck = (guards: 'strict' | 'loose') =>
-	`---\nmarp: true\ntheme: indaco\nguards: ${guards}\n---\n\n<!-- _class: content -->\n\n## Live preview trims\n\n${BODY}\n`;
+const deck = (fit: 'trim' | 'heal') =>
+	`---\nmarp: true\ntheme: indaco\nfit: ${fit}\n---\n\n<!-- _class: content -->\n\n## Live preview trims\n\n${BODY}\n`;
 
 /**
  * `pdftotext` (poppler-utils) is the oracle, and the nightly that runs this suite does
@@ -91,16 +91,16 @@ function clampedCount(page: Page): Promise<number> {
 async function exportDeck(
 	page: Page,
 	testInfo: TestInfo,
-	guards: 'strict' | 'loose',
+	fit: 'trim' | 'heal',
 	expectClamps: boolean,
 ): Promise<string> {
 	await gotoStudio(page);
-	await setEditorContent(page, deck(guards));
+	await setEditorContent(page, deck(fit));
 	await expect
 		.poll(() => clampedCount(page), {
 			message: expectClamps
 				? 'the guard must have fired for this deck in this build before the export means anything'
-				: 'guards: loose is the untrimmed control — it must clamp nothing',
+				: 'fit: heal is the untrimmed control — it must clamp nothing',
 			timeout: 15_000,
 		})
 		[expectClamps ? 'toBeGreaterThan' : 'toBe'](0);
@@ -110,19 +110,19 @@ async function exportDeck(
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.pdf.row }).click();
 	const download = page.waitForEvent('download', { timeout: 150_000 });
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.pdf.confirm }).click();
-	const file = path.join(testInfo.outputDir, `guards-${guards}.pdf`);
+	const file = path.join(testInfo.outputDir, `fit-${fit}.pdf`);
 	await (await download).saveAs(file);
 	return file;
 }
 
-test('a guards: strict export never delivers less copy than the untrimmed one', async ({ page }, testInfo) => {
+test('a fit: trim export never delivers less copy than the untrimmed one', async ({ page }, testInfo) => {
 	test.skip(
 		!HAS_PDFTOTEXT,
-		'pdftotext (poppler-utils) is not installed — the exported PDF cannot be read, so the guards: strict export path is UNCOVERED on this runner',
+		'pdftotext (poppler-utils) is not installed — the exported PDF cannot be read, so the fit: trim export path is UNCOVERED on this runner',
 	);
 	test.setTimeout(300_000);
-	const strict = visibleSentences(await exportDeck(page, testInfo, 'strict', true));
-	const loose = visibleSentences(await exportDeck(page, testInfo, 'loose', false));
+	const strict = visibleSentences(await exportDeck(page, testInfo, 'trim', true));
+	const loose = visibleSentences(await exportDeck(page, testInfo, 'heal', false));
 
 	expect(loose, 'the control export painted no copy at all — the comparison below would be vacuous')
 		.toBeGreaterThan(0);
@@ -130,6 +130,6 @@ test('a guards: strict export never delivers less copy than the untrimmed one', 
 		.toBeLessThan(SENTENCES);
 	expect(
 		strict,
-		`the trim removed copy the clip was keeping: strict delivered ${strict} sentences and the untrimmed control delivered ${loose}. A clamp may never cut ABOVE the last line that fits — see the coordinate-space defect in engineering/decisions/2026-09-07-overflow-guards-trim.md §13.`,
+		`the trim removed copy the clip was keeping: fit: trim delivered ${strict} sentences and the untrimmed control delivered ${loose}. A clamp may never cut ABOVE the last line that fits — see the coordinate-space defect in engineering/decisions/2026-09-07-overflow-guards-trim.md §13.`,
 	).toBeGreaterThanOrEqual(loose);
 });
