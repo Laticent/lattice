@@ -210,7 +210,8 @@ work touched found three lanes with no owner (accessibility, docs, devices) and 
 | 🚢 Release (`/desk-release`) | launch readiness, release notes, the dry run | disclosure day; it never cuts a release, the owner's dispatch does |
 | 💬 Feedback (`/desk-feedback`) | outside reports: reproduce, route, draft replies | outside users arrive with disclosure; every reply is the owner's to send |
 
-**Stress and torture are two desks** (the owner's `go stress`, then the owner's correction). They differ in
+**Stress and torture are two desks** (the owner's `go stress`, then the owner's correction, confirmed with a
+direct `torture yes` in the command center on 2026-11-21). They differ in
 intent:
 
 | | 📈 Stress (`/desk-stress`) | 🔥 Torture (`/desk-torture`) |

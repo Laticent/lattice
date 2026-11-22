@@ -39,7 +39,7 @@ here is a `check:jank` table, never a screenshot alone.
    same sweep, before and after, and with `--style` neutralizing the fix as the failing
    arm (`jank.md` §Running it); a visible change owes a demo deck (HARD RULE #9); the PR
    deletes the follow-up file it fixes.
-5. **Write back** (through a session you start, counted in the budget). A new trap goes into `jank.md` §Three traps (or a new §). A move you
+5. **Write back** (through a session you start, counted in the budget). A new trap goes into `jank.md` §Three traps (or a new section). A move you
    found but will not fix this pass becomes a `followups.d/` file
    (`deferred: large|blocked|off-path`). A census run updates §The census.
 6. **Report** to the command center: the top items as fleet rows, the follow-ups claimed

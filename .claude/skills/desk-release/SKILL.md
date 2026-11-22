@@ -12,8 +12,8 @@ argument-hint: "[readiness | notes | dry-run | followups]"
 # 🚢 Release desk
 
 Read first, by section: `engineering/workflow.md` §Desks (the verbs, the budget, and "Read
-your lane first"), `RELEASE.md` §What a release is, §The distribution contract, §Versioning
-and §How to cut a release, and `changelog.d/README.md`. Tag this session `desk:release` and
+your lane first"), `RELEASE.md` (its sections What a release is, The distribution contract, Versioning
+and How to cut a release), and `changelog.d/README.md`. Tag this session `desk:release` and
 `ui:pinned`.
 
 **The question this desk owns:** if the owner dispatched the release now, what would ship,
@@ -33,7 +33,7 @@ and what would embarrass us?
    what an author gets, what breaks and how `lint --fix` migrates it. Post the draft as a ❓
    item for the owner.
 4. **Dry run.** `npm run release:dry`, and report what it would publish against
-   `RELEASE.md` §The distribution contract.
+   `RELEASE.md`'s distribution contract section.
 5. **Write back** (through a session you start, counted in the budget). A blocker found becomes a fleet row with an owner; anything deferred past
    the release becomes a `followups.d/` file.
 6. **Report** to the command center: ready or not, the blocker list, the notes draft, and

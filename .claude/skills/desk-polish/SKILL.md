@@ -13,7 +13,7 @@ argument-hint: "[gallery | themes | examples | site | followups]"
 # ✨ Polish desk
 
 Read first, by section: `engineering/workflow.md` §Desks (the verbs, the budget, and "Read
-your lane first"), CLAUDE.md §QUALITY BAR, `engineering/visual-review.md` §The loop,
+your lane first"), CLAUDE.md's QUALITY BAR section, `engineering/visual-review.md` §The loop,
 §What each agent runs and §Responsive sweeps, and the 10/10 rubric in
 `engineering/decisions/2026-06-06-layout-audit/`. Tag this session `desk:polish` and
 `ui:pinned`.
@@ -43,7 +43,7 @@ is the floor. A claim here names its surface and carries an artifact from it (HA
    and says: the fix ships with the after artifact from the same surface, a demo deck if a
    slide changes (HARD RULE #9), `tools/pixel-check.js` before and after, and the PR deletes
    the follow-up file it fixes. A change to export bytes stops for the owner's sign-off
-   (CLAUDE.md §QUALITY BAR).
+   (CLAUDE.md's QUALITY BAR section).
 5. **Write back** (through a session you start, counted in the budget). A trap becomes a gotcha entry in the topic file. A shortfall you will
    not fix this pass becomes a `followups.d/` file with its artifact path and
    `deferred: large|blocked|off-path`.
