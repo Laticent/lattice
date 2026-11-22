@@ -15,8 +15,8 @@ why now   — Live, export and chat are what an author leaves running longest, a
             iPhone once (the #2904 regression); the torture desk cannot reach any of them today.
 where     — `tools/perf-torture/scenarios/studio.mjs` (cycle table, lines 115-135); `engine.mjs` throws
             `unknown cycle <name>` for any other name.
-done when — three cycles exist: `live` (join, edit, leave, through the local harness
-            `docs/e2e/live-panel-harness/`, never Live's public connection servers), `export` (export the
+done when — three cycles exist: `live` (join, edit, leave, between two browser contexts over
+            the in-process relay `docs/e2e/live-relay.ts`, never Live's public connection servers), `export` (export the
             same deck to PDF and back to the editor) and `chat` (send, stream, cancel, against a fake model
             via request interception, never a paid key); each runs with `--k 40 --cpu 4` and the
             README lists it.

@@ -35,8 +35,8 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    start with what an author repeats all day: `typing`, `compose`, `palette`, `present`,
    `deckswitch2`, `insert`, `mixed`. Live, export and chat have no cycle yet
    (`followups.d/3411-p1-torture-cycles-live-export-chat.md`, the desk's first job): adding one is
-   a new scenario cycle in a fix session, written against a local stand-in (the Live e2e
-   harness, `docs/e2e/live-panel-harness/`, and a fake model), before it can be tortured.
+   a new scenario cycle in a fix session, written against a local stand-in (for Live, the in-process
+   relay `docs/e2e/live-relay.ts` with two browser contexts; for chat, a fake model), before it can be tortured.
    `--cpu 4` approximates a slow device; a crash that only a real iPhone shows goes to the
    devices desk.
 3. **Make it confess.** A metric that rises: re-run with `--snapshot` for the constructor that

@@ -39,7 +39,7 @@ drive the Studio).
 | Malformed input | what still passes, or fails with a clear message, on CRLF and BOM, pasted or imported junk, half-typed front matter, hostile paste | the fuzz helpers, `npm run lint:deck`, the CLI render, Playwright paste |
 | Editors | document length and paste size in ProseMirror and CodeMirror before typing stops feeling instant | Playwright on the built Studio (timings reported, never asserted) |
 | Settings, library, lenses | decks in the library, lenses per deck, storage used | Playwright |
-| Coach, Present, Live | findings the coach shows, slides Present plays through, Live viewers (up to its cap of 4) and reconnects | Playwright; Live only through the local harness `docs/e2e/live-panel-harness/`, never Live's public connection servers |
+| Coach, Present, Live | findings the coach shows, slides Present plays through, Live viewers (up to its cap of 4) and reconnects | Playwright; Live only through the in-process relay `docs/e2e/live-relay.ts` and two or more browser contexts, never Live's public connection servers |
 | Chat and model features | reply length, conversation length, tool calls per turn, all against a FAKE model (below) | Playwright `page.route` |
 | Export | the largest deck that exports in every theme and format | the CLI and the Studio export path |
 
