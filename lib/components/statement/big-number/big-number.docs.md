@@ -41,7 +41,7 @@ Use to make one metric land. The number should be the headline — supporting te
 ## Authoring
 
 ```markdown
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Optional eyebrow`
 

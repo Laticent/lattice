@@ -79,7 +79,7 @@
       "description": "Optional nested sublist under a step. Drives two surfaces from one source, via the shared chart-family mark-detail substrate: the Present/Practice reveal popover on the bar, and the slide's speaker note in the static PDF. It renders NOWHERE on the chart face — a walk with detail bullets is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: waterfall -->\n\n## How the number moved.\n\n- Opening `100`\n- First driver `+18`\n- Second driver `-7`\n- Third driver `-11`\n- Closing `100`\n",
+  "skeleton": "<!-- @meta{layout=waterfall} -->\n\n## How the number moved.\n\n- Opening `100`\n- First driver `+18`\n- Second driver `-7`\n- Third driver `-11`\n- Closing `100`\n",
   "sample": "<!-- _class: waterfall -->\n\n`FY26 plan · actual`\n\n## Price paid for the volume we lost.\n\n- Plan `12.0M`\n- Price `+1.4M`\n  - Two list-price rises, both held\n- Volume `-0.8M`\n- Mix `-0.6M`\n- FX `-0.3M`\n- Cost base `-1.9M`\n- Actual `9.8M`\n",
   "stressDoc": {
     "summary": "A subtotal mid-walk, a step below zero and back, and a level authored as a negative.",

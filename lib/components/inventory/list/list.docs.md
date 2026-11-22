@@ -59,7 +59,7 @@ Under a variant, a slot changes shape:
 ## Authoring
 
 ```markdown
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## Slide heading.
 

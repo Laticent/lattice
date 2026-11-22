@@ -51,7 +51,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 ## Authoring
 
 ```markdown
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## The claim the ledger exists to support.
 

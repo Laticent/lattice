@@ -49,7 +49,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 ## Authoring
 
 ```markdown
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## What the team called out this quarter.
 

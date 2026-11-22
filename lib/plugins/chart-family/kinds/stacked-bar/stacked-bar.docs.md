@@ -63,7 +63,7 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 ## Authoring
 
 ```markdown
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## What the total is made of.
 

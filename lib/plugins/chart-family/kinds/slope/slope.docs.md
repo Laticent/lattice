@@ -64,7 +64,7 @@ Use when the claim is that the ORDER changed between two points — market share
 ## Authoring
 
 ```markdown
-<!-- _class: slope -->
+<!-- @meta{layout=slope} -->
 
 ## Two of them swapped places.
 

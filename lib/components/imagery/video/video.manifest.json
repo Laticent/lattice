@@ -66,7 +66,7 @@
       "description": "Optional: the record's `title=\"…\"`, shown under the poster."
     }
   },
-  "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`\n",
+  "skeleton": "<!-- @meta{layout=video, class=companion} -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`\n",
   "sample": "<!-- _class: video companion -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\"}`\n",
   "whenToUse": [
     {

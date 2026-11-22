@@ -140,7 +140,7 @@
       "description": "Optional nested sublist under a satellite (under a LEAF with `tiered`, one level deeper). Drives the shared chart-family detail substrate: the Present/Practice popover on the satellite's disc, and a speaker-note line in the static PDF, with the chart pixels unchanged. A detail sublist may be written with `-` or `1.`: the list contract reads both the same."
     }
   },
-  "skeleton": "<!-- _class: hub-spoke -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",
+  "skeleton": "<!-- @meta{layout=hub-spoke} -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",
   "anatomyBlock": "hub-spoke-canvas",
   "sample": "<!-- _class: hub-spoke -->\n\n`Transformation program · Workstream status · Q3`\n\n## Two of six workstreams are off track.\n\n- Program office\n  - Customer onboarding\n  - Core platform migration `at-risk`\n    - Cutover slipped from August to October\n    - Vendor data mapping is 60% complete\n  - Data governance\n  - Vendor consolidation `blocked`\n    - Waiting on the procurement freeze to lift\n  - Branch network\n  - Workforce reskilling\n",
   "stressDoc": {

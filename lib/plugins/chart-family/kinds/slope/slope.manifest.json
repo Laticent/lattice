@@ -163,7 +163,7 @@
       "description": "A nested item with NO numeric pill is per-mark detail, not a data point. It drives the Present-mode reveal popover and folds into the slide's speaker note (`Atlas 12 to 19: Won the Rhodes contract`); the printed chart is byte-identical with or without it."
     }
   },
-  "skeleton": "<!-- _class: slope -->\n\n## Two of them swapped places.\n\n- First entity\n  - Before `12`\n  - After `19`\n- Second entity\n  - Before `18`\n  - After `14`\n",
+  "skeleton": "<!-- @meta{layout=slope} -->\n\n## Two of them swapped places.\n\n- First entity\n  - Before `12`\n  - After `19`\n- Second entity\n  - Before `18`\n  - After `14`\n",
   "sample": "<!-- _class: slope -->\n\n## Kestrel took the lead; Northwind gave it up.\n\n- Northwind `fail`\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel Group `live`\n  - 2023 `22%`\n  - 2026 `29%`\n- Vantage\n  - 2023 `19%`\n  - 2026 `21%`\n- Meridian Partners\n  - 2023 `17%`\n  - 2026 `16%`\n- Everyone else\n  - 2023 `11%`\n  - 2026 `10%`\n",
   "stressDoc": {
     "summary": "Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on.",

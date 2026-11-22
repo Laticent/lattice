@@ -17,19 +17,19 @@ Use when two components make one point together: a chart and what it means, befo
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | The slide's title, above both panes. It makes the point; the panes support it. |
-| `pane` | two panes | yes | Two panes. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
+| `pane` | two panes | yes | Two panes. Each opens with `<!-- @meta{pane=component} -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
 
 ### Common mistakes
 
 - **A `##` inside a pane.** A `##` starts a new slide. Use `###` for a pane's title and `####` for a heading inside a pane.
-- **Naming a component in the layout's `_class` (`_class: columns bar`).** Each pane names its own component: `<!-- _pane: bar -->` above the pane's `###`.
+- **Naming a component in the layout's class (`@meta{layout=columns, class=bar}`).** Each pane names its own component: `<!-- @meta{pane=bar} -->` above the pane's `###`.
 
 ## When to use
 
 - **A chart and what it means.** Put the evidence in one pane and the reading of it in the other: a `bar` beside a `list`, a `table` beside a `content` pane. The slide's `##` states the conclusion both panes support.
 - **Before and after.** Two `###` titles with no markers make two text panes: the quickest way to set two states side by side.
 - **An unequal pair.** Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps.
-- **A photo beside text.** Put `![](photo.jpg)` alone in a plain pane. It is fitted to the pane and centered, never cropped, at any share; a pane that needs the photo to fill its box and crop is `<!-- _pane: image -->`.
+- **A photo beside text.** Put `![](photo.jpg)` alone in a plain pane. It is fitted to the pane and centered, never cropped, at any share; a pane that needs the photo to fill its box and crop is `<!-- @meta{pane=image} -->`.
 
 ## When NOT to use
 
@@ -40,7 +40,7 @@ Use when two components make one point together: a chart and what it means, befo
 ## Authoring
 
 ```markdown
-<!-- _class: columns -->
+<!-- @meta{layout=columns} -->
 
 ## The slide's point, in one line.
 

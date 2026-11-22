@@ -141,7 +141,7 @@
       "description": "'where:' legend. Each li introduces an `$x$` symbol followed by its definition."
     }
   },
-  "skeleton": "<!-- _class: math -->\n\n`Eyebrow · context`\n\n## One-sentence framing of what the equation establishes.\n\n$$ y = f(x) $$\n\n- $y$ — what we predict\n- $x$ — input variable\n- $f$ — the relation under study\n",
+  "skeleton": "<!-- @meta{layout=math} -->\n\n`Eyebrow · context`\n\n## One-sentence framing of what the equation establishes.\n\n$$ y = f(x) $$\n\n- $y$ — what we predict\n- $x$ — input variable\n- $f$ — the relation under study\n",
   "anatomyBlock": "math-canvas",
   "sample": "<!-- _class: math -->\n\n`Linear regression · OLS`\n\n## One equation, displayed; its symbols named below.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n- $y$ — response vector, length $n$\n- $X^\\top X$ — Gram matrix, $p \\times p$, must be invertible\n",
   "stressDoc": {

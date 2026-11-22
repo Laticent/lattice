@@ -48,7 +48,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 ## Authoring
 
 ```markdown
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `Your account team`
 

@@ -82,7 +82,7 @@
       "description": "Optional nested sublist under a band. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
     }
   },
-  "skeleton": "<!-- _class: histogram -->\n\n## Most values sit in the first band.\n\n- `0..10` `45%`\n- `10..20` `30%`\n- `20..30` `15%`\n- `30..40` `10%`\n",
+  "skeleton": "<!-- @meta{layout=histogram} -->\n\n## Most values sit in the first band.\n\n- `0..10` `45%`\n- `10..20` `30%`\n- `20..30` `15%`\n- `30..40` `10%`\n",
   "anatomyBlock": "funnel",
   "sample": "<!-- _class: histogram -->\n\n`[{Annual loss, $1M..$250M, log}, {Share of years}]`\n\n## Most years stay under $10M; one in thirty tops $100M.\n\n- `$1M..$10M` `55%`\n- `$10M..$50M` `30%`\n- `$50M..$100M` `12%`\n- `$100M..$250M` `3%`\n",
   "stressDoc": {

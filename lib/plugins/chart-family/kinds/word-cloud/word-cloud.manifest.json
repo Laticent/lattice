@@ -54,7 +54,7 @@
       "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has."
     }
   },
-  "skeleton": "<!-- _class: word-cloud -->\n\n## What the team called out this quarter.\n\n- velocity `12`\n- ownership `9`\n- handoffs `7`\n- review `5`\n",
+  "skeleton": "<!-- @meta{layout=word-cloud} -->\n\n## What the team called out this quarter.\n\n- velocity `12`\n- ownership `9`\n- handoffs `7`\n- review `5`\n",
   "anatomyBlock": "word-cloud-canvas",
   "sample": "<!-- _class: word-cloud -->\n\n## Weight is meaning in a word cloud.\n\n- time-to-value `5`\n- security `4`\n- onboarding `4`\n- pricing `3`\n- integrations `3`\n- support `2`\n- roadmap `2`\n- contracts `1`\n- residency `1`\n",
   "stressDoc": {

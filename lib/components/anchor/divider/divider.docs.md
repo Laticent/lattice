@@ -48,7 +48,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 ## Authoring
 
 ```markdown
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 

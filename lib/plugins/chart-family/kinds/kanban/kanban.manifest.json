@@ -119,7 +119,7 @@
       "description": "A card's tag line under it: its workstream, and a status such as `at-risk` in inline code."
     }
   },
-  "skeleton": "<!-- _class: kanban -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",
+  "skeleton": "<!-- @meta{layout=kanban} -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",
   "anatomyBlock": "kanban",
   "sample": "<!-- _class: kanban -->\n\n`chart · kanban`\n\n## The board tracks cards across lanes.\n\n- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n- Done\n  - Shipped work `L`\n",
   "stressDoc": {
@@ -198,7 +198,7 @@
     },
     {
       "mistake": "Reaching for `flat` to remove the card shadows.",
-      "fix": "A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- _class: kanban flat -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead."
+      "fix": "A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- @meta{layout=kanban, class=flat} -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead."
     }
   ],
   "variantDecisionRule": [

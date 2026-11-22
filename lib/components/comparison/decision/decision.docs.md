@@ -47,7 +47,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ## Authoring
 
 ```markdown
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## What we are doing.
 

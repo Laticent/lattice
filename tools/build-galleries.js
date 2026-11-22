@@ -42,14 +42,21 @@ const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME = path.join(ROOT, 'dist', 'lattice.css');
 
+const { classLineWith, isClassLine } = require('../lib/core/meta-class-line.mjs');
+
 const THEMES = ['light', 'dark'];
 
 // Append `dark` to every `<!-- _class: ... -->` directive that doesn't
 // already carry it. Idempotent: a slide that already includes `dark`
 // is left untouched. Other tokens (palette names, layout-specific
 // modifiers) are preserved verbatim.
+//
+// A slide whose class is a record (`<!-- @meta{layout=title, class=silent} -->`, what the generators write since the
+// clean break, record note §15) gets `dark` in that record's class. A record that sets no class (the generator's
+// `<!-- @meta{footer=…} -->` under a sample's old class comment) is left alone: a class there would override the
+// comment's.
 function injectDark(markdown) {
-  return markdown.replace(
+  const withComments = markdown.replace(
     /<!--\s*_class:\s*([^>]+?)\s*-->/g,
     (whole, classList) => {
       const tokens = classList.split(/\s+/).filter(Boolean);
@@ -58,6 +65,10 @@ function injectDark(markdown) {
       return `<!-- _class: ${tokens.join(' ')} -->`;
     },
   );
+  return withComments
+    .split('\n')
+    .map((line) => (isClassLine(line) && !/^\s*<!--\s*_class/.test(line) ? (classLineWith(line, 'dark') ?? line) : line))
+    .join('\n');
 }
 
 function pdfPathForTheme(m, theme) {

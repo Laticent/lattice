@@ -61,7 +61,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 ## Authoring
 
 ```markdown
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Slide heading.
 
