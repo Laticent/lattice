@@ -35,7 +35,8 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
-import { migrateMetaSource } from '../../lib/cli/meta-migrate.mjs';
+import { migrateMetaSource } from '../../lib/authoring/meta-migrate.mjs';
+import { META_KIT } from '../../lib/cli/migrate-meta.mjs';
 import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
@@ -172,7 +173,7 @@ const datasets = [
   // records (`<!-- {class=cards} -->`) instead of directive comments, so the pair says what the door
   // and the token expansion cost against the comments they replace. The claim is "no slower than comments, within the
   // variance band" (HARD RULE #19); the jargon row above is the comment arm, rendered from the same source.
-  { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon).source, theme: 'crepuscolo' },
+  { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon, { kit: META_KIT }).source, theme: 'crepuscolo' },
 ];
 // The datasets the BROWSER tiers (export, print) skip.
 //

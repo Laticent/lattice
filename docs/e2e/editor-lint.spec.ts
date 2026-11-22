@@ -81,7 +81,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
 const FIX_ALL_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
 	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
@@ -90,7 +90,8 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi -->');
+	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
@@ -121,12 +122,41 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
+// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
+// `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
+// `lattice migrate meta` writes, and the slides render as before.
+const LEGACY_DECK = [
+	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
+	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+].join('\n');
+
+test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {
+	await setEditorContent(page, LEGACY_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	// The evidence shot: the deck before, with its warnings underlined.
+	await page.screenshot({ path: info.outputPath('meta-fix-before.png') });
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=cards-grid, footer=\\"Board, Q3\\"} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @meta{layout=title} -->');
+	expect(src).toContain('<!-- @meta{layout=kpi} -->');
+	expect(src).not.toMatch(/<!-- _(class|footer):/);
+	expect(src).not.toContain('<!-- {');
+	// Every line keeps its place: the merged record leaves a blank line where the footer comment was.
+	expect(src.split('\n')).toHaveLength(LEGACY_DECK.split('\n').length);
+	await expect(fixAll(page)).toBeDisabled();
+	await page.screenshot({ path: info.outputPath('meta-fix-after.png') });
+});
+
 // A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
 // a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
 // Run from the command palette, which every width offers (the phone layout has no "Fix all" button).
 const REFUSED_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');

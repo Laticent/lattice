@@ -7173,10 +7173,11 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
-    file: 'lib/cli/migrate-meta.mjs',
-    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
-       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
-       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
+    file: 'lib/authoring/meta-migrate.mjs',
+    why: 'migrateMetaDeck — the one whole-deck meta migration (`lattice migrate meta`, `lint:deck --fix`, the Studio\'s '
+       + '`legacy-directive-comment` quick fix) reads an author\'s deck, folds CRLF to LF and strips the BOM so the '
+       + 'kernel reads it as the engine does (it refuses anything else), then puts both back on write: a codemod must not '
+       + 'rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',

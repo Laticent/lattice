@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, isPhone, openSection, openSlideSettings, persistedSource, setEditorContent, test, typeDeck, watchMenuOpen } from './studio-fixture';
 
-// Editing a slide-metadata RECORD (`<!-- {layout=kpi, footer="Q3"} -->`) in the real Studio (record note step 3,
+// Editing a slide-metadata RECORD (`<!-- @meta{layout=kpi, footer="Q3"} -->`) in the real Studio (record note step 3,
 // engineering/decisions/2026-10-17-meta-record.md §9). The drawer and Compose are driven by
 // class-editor-folded-comment.spec.ts and compose-panes.spec.ts; this spec drives the other two surfaces step 3 changed (meta-record-studio.spec.ts is step 2's render proof):
 // completion inside a record in the real CodeMirror editor, and the four note editors on a record slide, which write
@@ -15,7 +15,7 @@ async function openSlideSection(page: Page, name: string): Promise<void> {
 
 const editorText = (page: Page) => page.getByLabel('Deck source');
 
-test('completion inside a record offers its fields, then a register’s values @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+test('completion: `<!-- @m` offers the record, inside it its fields, then a register’s values @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	// Below 700px the Studio shows one pane at a time: the `Markdown source` cell swaps the editor in.
 	if (isPhone(page)) {
@@ -24,16 +24,36 @@ test('completion inside a record offers its fields, then a register’s values @
 	}
 	await setEditorContent(page, '---\ntitle: Record\n---\n\n');
 	await watchMenuOpen(page);
-	await appendToEditor(page, '<!-- {headl');
+	// `@meta` is the one spelling (owner, 2026-11-22): `<!-- @m` offers it, and picking it writes both braces with the
+	// caret between them and opens the fields at once.
+	await appendToEditor(page, '<!-- @m');
 	const menu = page.locator('.cm-tooltip-autocomplete');
+	await expect(menu.getByRole('option', { name: /^@meta\{/ })).toBeVisible();
+	await acceptCompletion(page);
+	await expect(editorText(page)).toContainText('<!-- @meta{}');
+	await expect(menu.getByRole('option', { name: /^layout/ })).toBeVisible();
+	await page.keyboard.type('headl');
 	await expect(menu.getByRole('option', { name: /^headline/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- {headline=');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline=}');
 	// After `=`, the register's own words: `l` narrows to `left`.
 	await page.keyboard.type('l');
 	await expect(menu.getByRole('option', { name: /^left/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- {headline=left');
+	await expect(editorText(page)).toContainText('<!-- @meta{headline=left}');
+});
+
+test('completion: the retired bare `<!-- {` offers no record fields @crosswidth @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	if (isPhone(page)) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(editorText(page)).toBeVisible();
+	}
+	await setEditorContent(page, '---\ntitle: Record\n---\n\n<!-- {headl');
+	await page.keyboard.press('Control+Space');
+	// Whatever answers (the "nothing here" note, or another source's menu), it is never the record's fields.
+	await expect(page.locator('.cm-completion-empty, .cm-tooltip-autocomplete').first()).toBeVisible();
+	await expect(page.locator('.cm-tooltip-autocomplete').getByRole('option', { name: /^headline/ })).toHaveCount(0);
 });
 
 test('on a record slide, each note editor writes its own @note and leaves the record as it was @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
