@@ -950,7 +950,8 @@ Bold is the default when `venue:` is omitted. Why each row is what it is:
   line, too few to read; 1.22x keeps about 35.
 - **A slide read in a hand drops its running header and footer text** (`phone` and `tablet` on a
   square, portrait, story or mobile deck): the page number and a split run's dots stay, and
-  `with-header` / `with-footer` bring a line back.
+  `with-header` / `with-footer` bring a line back. A deck that writes `footer:` or `header:` and names no
+  venue gets `lint:deck`'s `handheld-chrome-hidden` note, so the line it meant to show is not lost unseen.
 - **`tablet` steps down**, because a tablet held at reading distance shows a slide larger than a
   phone does.
 - **On a phone and a tablet the small text is lifted on its own**, so a footer, a label or a chip
