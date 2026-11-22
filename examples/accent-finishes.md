@@ -40,7 +40,7 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ## Three tiers on the structure — quiet by default
 
-`trim-spectrum:` dials the structure up in three tiers. By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow on every line. This slide runs `restrained`: the panel strip below is a quiet single-hue ramp.
+`trim-spectrum:` sets three tiers. By default the code strip, table rails and rules stay a quiet accent-tint hairline. This slide runs `restrained`: the strip below is a single-hue ramp.
 
 ```js
 // trim-spectrum: quiet      gives a quiet accent-tint hairline (the default)
