@@ -118,7 +118,7 @@ section.topic {
   background-repeat: no-repeat, no-repeat;
   background-origin: border-box; /* the shelf and seam measure from the slide, not the padding box a bar border shrinks */
 
-  /* Each side gives up the bar border it carries, so the box holds under every `spectrum-edge:`
+  /* Each side gives up the bar border it carries, so the box holds under every `spectrum:` edge
    * (check:edge-shift). The top owns its edge and carries no bar, so it is left alone. */
   padding-left: calc(var(--_gutter) - var(--_bar-l, 0px));
   padding-right: calc(var(--_gutter) - var(--_bar-r, 0px));

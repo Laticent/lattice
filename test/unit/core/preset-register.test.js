@@ -26,17 +26,10 @@ const { HEADLINE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-headline.js
 const { LIFT_NAMES } = require(path.join(ROOT, 'lib/core/resolve-lift.js'));
 const { CORNERS_NAMES } = require(path.join(ROOT, 'lib/core/resolve-corners.js'));
 const { TYPOGRAPHY_NAMES } = require(path.join(ROOT, 'lib/core/resolve-typography.js'));
-const {
-  SPECTRUM_NAMES, SPECTRUM_EDGE_NAMES, SPECTRUM_CARD_NAMES, SPECTRUM_CARD_EDGE_NAMES, SPECTRUM_TRIM_NAMES,
-} = require(path.join(ROOT, 'lib/core/resolve-spectrum.js'));
+const { SPECTRUM_REGISTER, CARD_SPECTRUM_REGISTER, TRIM_SPECTRUM_REGISTER } = require(path.join(ROOT, 'lib/core/resolve-spectrum.js'));
 
 const VOCAB = {
   finish: FINISH_NAMES,
-  spectrum: SPECTRUM_NAMES,
-  'spectrum-edge': SPECTRUM_EDGE_NAMES,
-  'spectrum-card': SPECTRUM_CARD_NAMES,
-  'spectrum-card-edge': SPECTRUM_CARD_EDGE_NAMES,
-  'spectrum-trim': SPECTRUM_TRIM_NAMES,
   rule: RULE_NAMES,
   eyebrow: EYEBROW_NAMES,
   headline: HEADLINE_NAMES,
@@ -64,6 +57,10 @@ const ACCEPTS = {
   mode: (v) => MODE_NAMES.includes(v),
   marks: (v) => clean(parseMarks(v)),
   backdrop: (v) => v === '' || clean(parseBackdrop(v)),
+  // The spectrum keys take one word per axis (lib/core/resolve-spectrum.js).
+  spectrum: (v) => v !== '' && clean(SPECTRUM_REGISTER.parse(v)),
+  'card-spectrum': (v) => v !== '' && clean(CARD_SPECTRUM_REGISTER.parse(v)),
+  'trim-spectrum': (v) => v !== '' && clean(TRIM_SPECTRUM_REGISTER.parse(v)),
 };
 
 test('every value a preset sets is one its register accepts, and every default is too', () => {
@@ -86,6 +83,7 @@ test('every value a preset sets is one its register accepts, and every default i
   assert.ok(ACCEPTS.marks('etch vivid') && !ACCEPTS.marks('etch bogus'));
   assert.ok(ACCEPTS.backdrop('40 clear') && !ACCEPTS.backdrop('loud'));
   assert.ok(ACCEPTS.theme('cuoio') && !ACCEPTS.theme('nope'));
+  assert.ok(ACCEPTS.spectrum('solid left band') && !ACCEPTS.spectrum('on') && !ACCEPTS.spectrum('left right'));
 });
 
 test('an absent preset key reads as the preset value; an explicit key wins', () => {
@@ -117,10 +115,10 @@ test('the engine stamps a preset on every slide, and an explicit key overrides i
   assert.equal(brand.length, 2);
   for (const cls of none) {
     // THE CONTROL: none of these tokens ships on a deck with no preset.
-    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
   }
   for (const cls of brand) {
-    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
+    for (const t of ['spectrum-solid', 'card-spectrum-solid', 'trim-spectrum-solid', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
   }
   for (const cls of override) {
     assert.ok(cls.has('no-heading-rule'));
