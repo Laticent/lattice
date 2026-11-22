@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   A slide carries four notes, each named for where it shows up: `@note{…}` (speaker notes), `@say{…}` (the voice and
   the captions), `@alt{…}` (alt text, for someone who cannot see the slide) and `@handout{…}` (the handout and the
@@ -16,7 +16,7 @@ builds-on:
 
 # Four notes, named for where they show up (2026-11-20)
 
-**Status:** in progress. **Owner decisions:** 2026-11-20, one `AskUserQuestion` round, every recommendation taken (§2).
+**Status:** shipped in #3351 (2026-11-21); the LFM 2.0 draft awaits the owner's sign-off (`followups.d/3351-p1-ratify-lfm-2.md`). **Owner decisions:** 2026-11-20, one `AskUserQuestion` round, every recommendation taken (§2).
 This note amends `2026-10-17-meta-record.md` D7 (plain comments stay speaker notes) and §4.2/§4.4 (notes as record
 fields).
 

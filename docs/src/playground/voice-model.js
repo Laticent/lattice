@@ -2020,6 +2020,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     async prepareSelectedVoice() {
       if (injected || !selection) return true;
       const s = selection.read();
+      // Nothing chosen yet, which is how every phone starts (a touch device cannot run Kokoro, so nothing migrates it
+      // in): nothing to make ready, and the key store throws on a provider it does not know (`''` is one). The read
+      // waits on this before it starts the read-along with the Voice on, so a throw here left Present on its first cue
+      // (read-aloud.ts; with the Voice off the read starts first, and the throw escaped uncaught).
+      if (!s.provider) return false;
       if (s.provider === 'kokoro') {
         if (!kokoroSupported()) return false;
         if (kokoro.ready()) return true;

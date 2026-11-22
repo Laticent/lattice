@@ -66,15 +66,15 @@ const LinkPanel = React.lazy(() => import('./LinkPanel'));
 
 const { stateClassesFor } = stateMarks;
 
-// The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
+// The slide divider borrows the deck's TRIM SPECTRUM (`trim-spectrum:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
 // so the Compose dividers preview the deck's chosen trim rather than a flat neutral line.
-// Values mirror spectrum-trim-catalog.ts: off (quiet accent-tinted hairline, the default),
-// restrained (a single-hue accent ramp), on (the full deck `--spectrum`, accent-ramp
+// Values mirror trim-spectrum-catalog.ts: quiet (an accent-tinted hairline, the default),
+// restrained (a single-hue accent ramp), full (the full deck `--spectrum`, accent-ramp
 // fallback when `--spectrum` isn't in scope). Returns the CSS the divider paints.
 function trimGradient(source: string): string {
-	switch (registerValue(source, 'spectrum-trim')) {
-		case 'on':
+	switch (registerValue(source, 'trim-spectrum')) {
+		case 'full':
 			return 'var(--spectrum, linear-gradient(90deg, var(--accent,#006fa8), color-mix(in oklab, var(--accent,#006fa8) 40%, var(--bg,#fff))))';
 		case 'restrained':
 			return 'linear-gradient(90deg, var(--accent,#006fa8), color-mix(in oklab, var(--accent,#006fa8) 35%, var(--bg,#fff)))';
@@ -3875,7 +3875,7 @@ function ComposeStyles() {
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
 			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded
 			   pill), not color, marks the two registers apart, so the split reads for colorblind users. The
-			   line previews the deck's spectrum-trim. */
+			   line previews the deck's trim-spectrum. */
 			.cs-slide-bar{position:relative;display:grid;align-items:center;justify-items:center;margin:12px calc(-1 * clamp(24px,6cqw,64px));padding:0 clamp(16px,4cqw,44px);user-select:none}
 			/* the line + caps — structural register, on every slide */
 			.cs-sb-line{grid-area:1/1;justify-self:stretch;position:relative;display:flex;align-items:center;justify-content:space-between;height:22px}

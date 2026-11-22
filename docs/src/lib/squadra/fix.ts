@@ -42,6 +42,53 @@ export function shapeChanges(a: Shape, b: Shape): Set<string> {
 }
 
 export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixResult {
+	const run = fixSteps(rules, source, opts);
+	for (;;) {
+		const step = run.next();
+		if (step.done) return step.value;
+	}
+}
+
+/** Wait one macrotask: what `fixAsync` does between passes unless the caller hands it another wait. */
+export function nextTask(): Promise<void> {
+	// Squadra has no DOM or Node types (no dependencies): the two timers it may find are read off the global.
+	const g = globalThis as unknown as {
+		MessageChannel?: new () => { port1: { onmessage: (() => void) | null; close(): void }; port2: { postMessage(m: unknown): void } };
+		setTimeout: (fn: () => void, ms: number) => unknown;
+	};
+	const Channel = g.MessageChannel;
+	if (typeof Channel === 'function') {
+		return new Promise((resolve) => {
+			const ch = new Channel();
+			ch.port1.onmessage = () => {
+				ch.port1.close();
+				resolve();
+			};
+			ch.port2.postMessage(null);
+		});
+	}
+	return new Promise((resolve) => g.setTimeout(resolve, 0));
+}
+
+/**
+ * `fix`, giving the page back before every pass. `fix` runs all its passes in one task, and a page
+ * that called it from a click froze until the last one: a deck that needs the full 500 passes froze
+ * the Studio for 8.4 s (editor-lint.spec.ts, the 501-card deck). Here each pass is a task of its own,
+ * so input and paint run between passes. The passes, their order and the result are `fix`'s exactly:
+ * both drive the same `fixSteps`. `pause` is awaited before each pass, the first included, so the
+ * caller's own task (a click) ends before any lint runs.
+ */
+export async function fixAsync(rules: Ruleset, source: Source, opts: FixOptions = {}, pause: () => Promise<void> = nextTask): Promise<FixResult> {
+	const run = fixSteps(rules, source, opts);
+	for (;;) {
+		const step = run.next();
+		if (step.done) return step.value;
+		await pause();
+	}
+}
+
+/** The driver's passes as a generator: it yields once at the start of each pass, and returns the result. */
+export function* fixSteps(rules: Ruleset, source: Source, opts: FixOptions = {}): Generator<number, FixResult, void> {
 	const ceiling = SAFETY_RANK[opts.safety ?? 'safe'];
 	if (opts.safety === 'unsafe' && (!opts.only?.length || opts.only.some((o) => o.includes('*')))) throw new RangeError('squadra: fix() applies unsafe fixes only to rules named in `only`, by id, not by glob');
 	const maxPasses = opts.maxPasses ?? 10;
@@ -92,6 +139,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 	const declaredOf = (r: Round, f: Finding): ReadonlySet<string> => byId.get(f.rule)?.changes ?? r.meta.get(f)?.changes ?? new Set();
 
 	for (let pass = 1; pass <= maxPasses; pass++) {
+		yield pass;
 		history[pass] = text;
 		const r = round(text);
 		transient = [];

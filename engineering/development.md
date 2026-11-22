@@ -78,7 +78,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:watch` | Re-run the unit suite on file change |
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
-| `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
+| `test:integration:pr` | The render slice the merge queue gates on (PR CI stopped running it on 2026-11-21; a `code` PR runs it locally before the merge ask, `workflow.md` §Merge queue — the facts): cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) + the type-set gate (`type-voices/`) |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
@@ -241,7 +241,7 @@ and a bless rewrites only the decks it opened. Re-bless with `npm run contrast:p
 a fix lands. The muted-chrome tier (header/footer/pagination) is WCAG-exempt by palette contract
 and is reported in its own bucket, never as a failure.
 
-`[PR]` suites gate every `code` PR via `test:integration:pr` (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
+`[PR]` suites gate every merge-queue entry via `test:integration:pr` (and run locally before a `code` PR's merge ask; PR CI stopped running them on 2026-11-21) (CI runs the same globs as `test:integration:shard`); `[nightly]` suites
 run on `main` via `integration-nightly.yml` (`test:integration:nightly`). The
 split keeps shared-kernel wiring, the export pipeline, and the computed-style
 correctness gate blocking, and moves the slow fresh-render regression suites off
@@ -561,10 +561,15 @@ are dropped, cancelled jobs are counted at their truncated duration (which flatt
 percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
 say what the new measured duration is — don't delete the line.
 
-## Platform suites (macOS and Windows)
+## Platform suites (macOS, Windows and Android)
 
 The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
 **platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
+One suite runs on Linux: `android-chrome-chooser` boots an Android emulator on `ubuntu-24.04`, the image that exposes KVM, and
+drives Chrome on it through adb (`docs/scripts/android/`). Like the iOS suites it is off pull requests: it runs nightly and on
+dispatch (about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
+is under `docs/scripts/android/`; a Linux check that needs no emulator belongs in `ci.yml`. A failure before its probe runs (no
+AVD, no boot, no Chrome) writes the `no-session` mark, so triage reads it as infra and the nightly re-runs it once before alerting.
 The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
@@ -580,6 +585,21 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   with or without the flag, so a new one cannot land on PRs by forgetting it.
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
+- **Iterate on one with the warm harness** instead of dispatching again per round. A dispatch pays about 17 minutes
+  before its first test on an iOS suite (queue wait, install, build, docs build); the harness pays that once. Open the PR,
+  then dispatch `platform-suites.yml` on your branch with `harness=<PR number>` (and `harness_os=windows-2025` for
+  Windows). When it replies **harness ready** on the PR, post commands as PR comments:
+  `/harness suite <name> [KEY=value ...]`, `/harness sh` with a `bash` fenced block, `/harness rerun`,
+  `/harness watch on|off`, `/harness status`, `/harness stop`; add `--no-build` to skip a rebuild. Each push to the branch
+  is synced before the next job (a change to the iOS probes, `followups.d/` or `changelog.d/` alone skips the rebuild;
+  anything else rebuilds), and with watch on (the default) a push re-runs the last job by itself, once. Results come back
+  as PR comments. Only comments by the person who dispatched the run are executed, and never one that was edited: post a fresh comment instead of fixing a typo in place (the harness replies when it refuses an edited command). A suite's own inline variables (e.g.
+  `DEVICES=iPhone` in its `run`) cannot be overridden; write the command out with `/harness sh`. It stops 90 minutes
+  after it started (a running job is killed then), after 15 idle minutes, or on `/harness stop` once the current job ends;
+  one harness runs at a time per OS (one macOS and one Windows may run together). When both serve the same PR, each runs every command and each reply starts with its OS; add `--on=macos-26` or `--on=windows-2025` to the first line to send a command to one. A second dispatch for the same OS waits, and a third replaces the waiting second without a word, so after dispatching, wait on the run's status (`tools/wait-for.sh`), not only on the ready comment. A reply names the commit it ran on, and the build's commit too when they differ (after `--no-build`); a job that moves HEAD or edits a tracked file is reported and undone before the next one. Logs and `platform-suite-artifacts/` upload
+  as `harness-<os>` when it ends. Evidence for the card is still a real suite run: once the harness has it green, link that
+  harness run (its reply comment and artifact) or dispatch the suite once more. Contract and threat model:
+  `engineering/decisions/2026-11-17-platform-harness.md`; the loop is `tools/platform-harness.js`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
 - **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the

@@ -275,7 +275,7 @@ fixed. The plan: land the three open fixes, then watch a week of runs before the
 
 ## 9. Decisions for the owner
 
-**Owner's answers (2026-10-30):** D2, D3 and D4 adopted as recommended. D1 is open: the owner is checking which plan
+**Owner's answers (2026-10-30):** D2, D3 and D4 adopted as recommended. **D2's render-tier move** is the 2026-11-21 D2 PR (`2026-11-21-ci-load-plan.md` §6): `integration` runs in the merge queue only, and a `code` PR runs the slice locally before its merge ask. D1 is open: the owner is checking which plan
 the organization is on (the billing page's "Current plan"). Until it is known, the queue stays at the live
 `max_entries_to_build: 5`; set it to 2 on Free, 3 on Team.
 

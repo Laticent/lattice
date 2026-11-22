@@ -1,0 +1,6 @@
+- `engineering/decisions/2026-11-21-fleet-command-pattern.md` records how the command center and desks work: the workflow, the patterns it borrows, what heals itself, the gotchas from 2026-11-21, and a proposed frontier desk.
+- `engineering/workflow.md` §Merge queue — the facts now says that drafting a queued PR does not dequeue it, and that direct merges are refused.
+- New `/desk-jank` and `/desk-polish` desks own layout motion and the 10/10 bar on shipped surfaces.
+- Every desk now reads its lane's follow-ups, issues, claims and gotcha file before its first pass, and writes fixes, traps and leftovers back when done (`engineering/workflow.md` §Desks).
+- Five more desks for launch: `/desk-a11y`, `/desk-docs`, `/desk-devices`, `/desk-release` (never cuts a release) and `/desk-feedback` (drafts every reply for the owner).
+- New `/desk-stress` finds the upper limits of what still passes (deck size, images, chart points, session length) and keeps a limits table; new `/desk-torture` drives the Studio to crash or leak on purpose and names the culprit with `perf-torture`. Both run model features against a fake model and spend on a real call only with the owner's word.

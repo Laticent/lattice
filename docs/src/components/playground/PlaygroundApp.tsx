@@ -487,7 +487,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  to about:blank and then silently declines to rebind for the rest of the session. */
 	const boundFrameDocRef = React.useRef<Document | null>(null);
 	const bindDeckInputRef = React.useRef<() => void>(() => {});
-	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean }) => Promise<boolean>>(async () => false);
+	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean; keepEditedDraft?: boolean }) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	// The variant-sync discriminator: the last seen `_class` token line. The

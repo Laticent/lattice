@@ -8,7 +8,7 @@ footer: "Placement never moves the slide"
 
 <!-- @note{The spectrum bar sits in the slide's edge, so choosing `top`, `left`, `right`, `bottom` or no bar
      must not move anything else. Each slide below is the same `content` slide with a different
-     `spectrum-edge-*` class (top is the default and carries none). Flip through them: the heading,
+     `spectrum-<edge>` class (top is the default and carries none). Flip through them: the heading,
      list, header, footer and page number hold still, light and dark.
      `npm run check:edge-shift` measures the same thing across every component.} -->
 
@@ -24,7 +24,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-edge-left -->
+<!-- _class: content spectrum-left -->
 
 `Bar: left`
 
@@ -36,7 +36,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-edge-right -->
+<!-- _class: content spectrum-right -->
 
 `Bar: right`
 
@@ -48,7 +48,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-edge-bottom -->
+<!-- _class: content spectrum-bottom -->
 
 `Bar: bottom`
 
@@ -60,7 +60,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content no-spectrum-edge -->
+<!-- _class: content no-spectrum -->
 
 `Bar: none`
 
@@ -84,7 +84,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content dark spectrum-edge-left -->
+<!-- _class: content dark spectrum-left -->
 
 `Bar: left · dark`
 
@@ -96,7 +96,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content dark spectrum-edge-bottom -->
+<!-- _class: content dark spectrum-bottom -->
 
 `Bar: bottom · dark`
 

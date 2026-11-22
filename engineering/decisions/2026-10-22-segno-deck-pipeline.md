@@ -319,6 +319,8 @@ Each phase ships on its own and is worth having if the next never comes.
 | **P7. Render from the model** | A renderer that reads the document model; markdown-it removed | The dependency the owner cannot rely on long term. Held to byte-identical HTML on the corpus against today's renderer before the switch |
 | Later | HTML islands | The HTML tokenizer from the 2026-09-28 bake-off (`parser:bakeoff:languages`) and `scanHtml` (#2871) |
 
+**Completion plan (2026-11-22):** the remaining slices, their order, their proof and the exit criteria for release are in 2026-11-22-segno-completion-plan.md.
+
 ## Decisions
 
 **Decided by the owner on 2026-10-22:** D1 the structure model first; D2 CommonMark first, held

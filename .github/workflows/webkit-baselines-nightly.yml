@@ -81,6 +81,9 @@ jobs:
       # Root deps: `prepare` builds the uncommitted dist/ artifacts, among them
       # dist/lattice.js, which the audit renders with.
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
 
       # Docs deps: the audit imports Playwright from docs/node_modules/@playwright/test,
       # so the browsers it drives are the ones docs/playwright.config.ts pins.

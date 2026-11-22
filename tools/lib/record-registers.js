@@ -34,11 +34,9 @@ const SOURCES = [
   ['headline', headline.HEADLINE_NAMES, headline.headlineClass, headline.HEADLINE_TOKENS],
   ['rule', rule.RULE_NAMES, rule.ruleClass, rule.RULE_TOKENS],
   ['eyebrow', eyebrow.EYEBROW_NAMES, eyebrow.eyebrowClass, eyebrow.EYEBROW_TOKENS],
-  ['spectrum', spectrum.SPECTRUM_NAMES, spectrum.spectrumClass, spectrum.SPECTRUM_TOKENS],
-  ['spectrum-edge', spectrum.SPECTRUM_EDGE_NAMES, spectrum.spectrumEdgeClass, spectrum.SPECTRUM_EDGE_TOKENS],
-  ['spectrum-card', spectrum.SPECTRUM_CARD_NAMES, spectrum.spectrumCardClass, spectrum.SPECTRUM_CARD_TOKENS],
-  ['spectrum-card-edge', spectrum.SPECTRUM_CARD_EDGE_NAMES, spectrum.spectrumCardEdgeClass, spectrum.SPECTRUM_CARD_EDGE_TOKENS],
-  ['spectrum-trim', spectrum.SPECTRUM_TRIM_NAMES, spectrum.spectrumTrimClass, spectrum.SPECTRUM_TRIM_TOKENS],
+  // The three spectrum keys are axis registers: every word, a default included, names its own class.
+  ...[spectrum.SPECTRUM_REGISTER, spectrum.CARD_SPECTRUM_REGISTER, spectrum.TRIM_SPECTRUM_REGISTER]
+    .map((r) => [r.key, r.NAMES, (v) => r.classes(v).join(' '), r.TOKENS]),
   ['lift', lift.LIFT_NAMES, lift.liftClass, lift.LIFT_TOKENS],
   ['stamp', stamp.STAMP_STYLE_NAMES, stamp.stampClass, stamp.STAMP_STYLE_TOKENS],
   ['tone', tone.TONE_STYLE_NAMES, tone.toneStyleClass, tone.TONE_STYLE_TOKENS],
@@ -52,14 +50,10 @@ const RESTORE = Object.freeze({
   'headline:auto': 'head-auto',
   'rule:auto': 'rule-auto',
   'eyebrow:plain': 'eyebrow-plain',
-  'spectrum:on': 'with-spectrum',
-  'spectrum-edge:top': 'spectrum-edge-top',
-  'spectrum-card:off': 'no-spectrum-card',
-  'spectrum-card-edge:left': 'spectrum-card-edge-left',
-  'spectrum-trim:off': 'no-spectrum-trim',
   'lift:off': 'flat',
   'corners:square': 'corners-square',
   'cover:inverse': 'cover-inverse',
+  'cover:plain': 'cover-plain',
 });
 
 /**

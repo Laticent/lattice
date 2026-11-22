@@ -3,10 +3,8 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · Restore tokens"
-spectrum: solid
-spectrum-edge: left
-spectrum-card: auto
-spectrum-card-edge: top
+spectrum: solid left
+card-spectrum: solid top
 rule: accent
 eyebrow: dot
 headline: center
@@ -32,13 +30,13 @@ This slide carries no tokens of its own, so it shows the deck's settings: a soli
 
 ---
 
-<!-- _class: content spectrum-edge-top -->
+<!-- _class: content spectrum-top -->
 
-`spectrum-edge-top`
+`spectrum-top`
 
 ## The bar goes back on top
 
-A deck that writes `spectrum-edge: left` puts every bar on the left. `spectrum-edge-top` returns one slide to the top bar, and the bar still takes the deck's solid style.
+A deck that writes `spectrum: left` puts every bar on the left. `spectrum-top` returns one slide to the top bar, and the bar still takes the deck's solid style.
 
 ---
 
@@ -80,21 +78,21 @@ The deck centers every heading with `headline: center`. `head-auto` hands this s
 
 - Top rail
   - Every card in this deck carries its rail across the top.
-- Follows the bar
-  - The rail follows the deck's solid style (`spectrum-card: auto`).
+- Solid, like the bar
+  - The deck pins the rail solid (`card-spectrum: solid`).
 - No token here
   - This slide writes no token, so it shows the deck's choice.
 
 ---
 
-<!-- _class: cards-grid three spectrum-card-edge-left -->
+<!-- _class: cards-grid three card-spectrum-left -->
 
-`spectrum-card-edge-left`
+`card-spectrum-left`
 
 ## One slide moves the rails back to the left
 
 - Left rail
-  - `spectrum-card-edge-left` returns these rails to the default edge.
+  - `card-spectrum-left` returns these rails to the default edge.
 - Same style
   - Only the placement changes; the rail stays solid.
 - One slide only

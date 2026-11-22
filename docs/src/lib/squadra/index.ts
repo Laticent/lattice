@@ -12,7 +12,7 @@ export { checkRuleset, compileRuleset, digestRuleset, RulesetError, ruleDigest, 
 export { rulesetOf } from './driver.js';
 export { apply, diff, EditError, editsConflict, mapOffset, plan } from './edits.js';
 export { type EditOp, type EditsPayload, editsEngine, editsFix } from './engine.js';
-export { fix, shapeChanges } from './fix.js';
+export { fix, fixAsync, fixSteps, nextTask, shapeChanges } from './fix.js';
 export { type Example, type Fixtures, parseFixtures } from './fixtures.js';
 export { lint } from './lint.js';
 export { reportJson, reportText } from './report.js';

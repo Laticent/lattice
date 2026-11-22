@@ -29,7 +29,9 @@ import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
-import { CODE_APPROVALS_KEY } from './entry';
+import { CODE_APPROVALS_KEY, getWaits } from './entry';
+import { rememberWaits } from './wait-capture';
+
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
@@ -220,6 +222,9 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 	if (mine !== setPluginsSeq) return;
 	plugins.clear();
 	for (const [k, v] of next) plugins.set(k, v);
+	// Each plugin's fence and placement, kept so the next page load can draw its wait before this door has loaded
+	// (wait.ts, D1).
+	rememberWaits([...next.values()].map((p) => ({ fence: p.fence, name: p.name, placement: p.placeholder?.placement, aspect: rememberedAspect(p.sha256) ?? p.placeholder?.aspect, sha256: p.sha256 })));
 }
 
 const ASPECTS_KEY = 'lattice-plugin-aspects';
@@ -390,7 +395,9 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	const engineOpts = withoutDoorFlags(opts);
 	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
-		return PG.render(source, theme, engineOpts) as R;
+		// A preview carries a door flag (`codeStatus` or `codeApproval`); an export carries neither, and never draws a wait.
+		const waits = reporting || handed !== null ? getWaits() : null;
+		return PG.render(waits ? waits.withWaits(source) : source, theme, engineOpts) as R;
 	}
 	// Everything past this point loads only when the Library holds a code package: the kernel,
 	// the sanitizer, the runner and the shipped claim list stay out of the Studio's first load.

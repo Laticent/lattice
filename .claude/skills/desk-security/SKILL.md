@@ -16,6 +16,8 @@ Read first, by section: `engineering/workflow.md` §Desks; for sanitizers,
 `2026-08-18-post-sanitize-injection-queue.md`; for the API key, `engineering/workflow.md`
 §OpenRouter budget. Tag this session `desk:security` and `ui:pinned`.
 
+**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back through a session you start. An unfixed finding is never written anywhere public, `followups.d/` included (the embargo below).
+
 ## The pass
 
 1. **Collect.** CodeQL results on `main` and on open PRs (each PR's CodeQL check run and
