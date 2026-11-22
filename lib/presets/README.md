@@ -16,9 +16,14 @@ preset's CSS.
 
 ## What the JSON may say
 
-Exactly `name` (equal to the folder), `label`, `desc`, `order` (a unique integer: the picker order) and
-`values`, a map from a preset key (`PRESET_KEYS` in `front-matter-key.js`) to the word a deck would
+Exactly `name` (equal to the folder), `label`, `desc`, `group`, `order` (a unique integer: the picker
+order) and `values`, a map from a preset key (`PRESET_KEYS` in `front-matter-key.js`) to the word a deck would
 write. A key the deck writes itself always wins over the preset's value.
+
+`group` puts the preset under one tab of the Studio's picker: `essentials` (the everyday looks) or
+`signature` (the bolder named looks). The picker shows one group at a time, so a group may hold at most
+five presets (decision D10 in `engineering/decisions/2026-11-20-deck-preset-study.md`); the generator
+refuses a sixth. The groups and their labels live in `tools/build-packages-index.js` `PRESET_GROUPS`.
 
 ## What the stylesheet may say
 
@@ -31,6 +36,7 @@ them with today's value as the `var()` fallback (`lib/base/base.tokens.css` § P
 | `--rule-w`, `--rule-style`, `--rule-mark` | the heading rule's weight, style and ink |
 | `--rail-w` | the `card-spectrum:` stripe's thickness |
 | `--radius-card` | a card's corner |
+| `--heading-weight` | the weight of slide titles and the cover title (fallback `700`); a preset changes heading weight, never heading size |
 | `--eyebrow-case`, `--eyebrow-tracking`, `--eyebrow-style`, `--eyebrow-weight` | the eyebrow's voice |
 
 Every rule is a bare `section.preset-<name>` for the folder's own preset. Never a `--fs-*` size (HARD

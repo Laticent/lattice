@@ -75,7 +75,7 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to twelve registers**, and may recommend five more (below): the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**, and may recommend six more (below): the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
 the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
@@ -84,9 +84,13 @@ are its overrides.
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `editorial` | `headline: left` · `rule: full` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` · `cover: light masthead` | Left-aligned newspaper voice: a light cover under a heavy masthead rule, a 4px heading rule in the heading's ink, ledger type, lifted cards, no backdrop. |
 | `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
+| `strategy-house` | `theme: brina` · `typography: ledger` · `headline: left` · `rule: full` · `eyebrow: bar` · `spectrum: solid left band` · `card-spectrum: solid` · `marks: tone` · `lift: on` · `cover: light column` | A heavy accent band down the left edge, 10px card stripes, square cards, and a light cover with an accent column. |
+| `annual-report` | `theme: burgundy` · `typography: ledger` · `finish: meridian` · `backdrop: 40` · `headline: left` · `rule: full` · `marks: tone` · `cover: light ledger` | Burgundy and serif: a small-caps light cover over a double rule, a double heading rule, headings at weight 500, a soft contour wash. |
+| `earnings` | `theme: ardesia` · `headline: left` · `rule: short` · `spectrum: solid left band` · `marks: tone ink` · `cover: light masthead` | Grayscale and exact: a solid band down the left edge, charts in one ink, a light cover. |
+| `museum` | `theme: cuoio` · `finish: gallery` · `backdrop: 20` · `typography: festival` · `headline: left` · `rule: none` · `spectrum: off` · `marks: tone accent` · `cover: light label` | A gallery frame, a wall-label cover, and one warm accent across the eyebrow, the bars and the big number. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
 the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
@@ -108,8 +112,8 @@ reader answers with the preset's value, and `preset:` itself is read top-level o
 and the Studio agree by construction.
 
 **A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
-hand), `marks:`, `backdrop:` and `cover:`. None of the four shipped presets does yet; the presets that
-use them arrive with the deck-preset work
+hand), `marks:`, `backdrop:` and `cover:`. The four Signature presets (`strategy-house`,
+`annual-report`, `earnings`, `museum`) do; the four Essentials do not
 (`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
 anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
 `print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or

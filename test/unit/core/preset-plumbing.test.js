@@ -142,7 +142,7 @@ test('class: every preset but classic stamps preset-<name>; classic and an unkno
  * eyebrow voice (lib/presets/README.md lists them), with no type size, no hex literal, no !important.
  */
 const PRESETS_DIR = path.join(ROOT, 'lib/presets');
-const PRESET_HOOKS = new Set(['--rule-w', '--rule-style', '--rule-mark', '--rail-w', '--radius-card',
+const PRESET_HOOKS = new Set(['--rule-w', '--rule-style', '--rule-mark', '--rail-w', '--radius-card', '--heading-weight',
   '--eyebrow-case', '--eyebrow-tracking', '--eyebrow-style', '--eyebrow-weight']);
 
 function presetsCssProblems(css, own) {
@@ -172,7 +172,7 @@ test('folders: every lib/presets/<name>/ is a table entry, and every entry is a 
   assert.deepEqual(folders, [...PRESET_NAMES].sort());
   for (const name of folders) {
     const json = JSON.parse(fs.readFileSync(path.join(PRESETS_DIR, name, `${name}.preset.json`), 'utf8'));
-    assert.deepEqual({ label: json.label, desc: json.desc, values: json.values }, { ...PRESETS[name], values: { ...PRESETS[name].values } }, `${name}: the generated table matches its folder (run \`node tools/build-packages-index.js\`)`);
+    assert.deepEqual({ label: json.label, desc: json.desc, group: json.group, values: json.values }, { ...PRESETS[name], values: { ...PRESETS[name].values } }, `${name}: the generated table matches its folder (run \`node tools/build-packages-index.js\`)`);
   }
 });
 

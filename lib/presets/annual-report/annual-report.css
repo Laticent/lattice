@@ -1,0 +1,12 @@
+/* Annual Report (lib/presets/annual-report/): a double heading rule, the annual-report masthead
+ * (study §6). A double border needs 3px to show two lines. Small capitals on the eyebrow, and
+ * headings at 500: the report's quieter voice (owner's G2 answer, 2026-11-22). */
+section.preset-annual-report {
+  --rule-w: 3px;
+  --rule-style: double;
+  --rule-mark: var(--text-heading);
+  --eyebrow-case: uppercase;
+  --eyebrow-tracking: 0.08em;
+  --eyebrow-style: normal;
+  --heading-weight: 500;
+}

@@ -2,6 +2,7 @@
   "name": "brand",
   "label": "Brand-forward",
   "desc": "Centered, the accent everywhere — solid bar, card rails, full trim, corner marks.",
+  "group": "essentials",
   "order": 3,
   "values": {
     "finish": "strata",

@@ -381,18 +381,18 @@ describe('PRESET_OPTIONS (the preset picker rows)', () => {
       assert.equal(p.label, fmk.PRESETS[p.name].label);
       assert.equal(p.finish, fmk.presetEffective(p.name, 'finish') || 'none');
     }
-    // Editorial sets a backdrop (the preset tests below lean on `ledger`), so its chip has one.
-    assert.equal(PRESET_OPTIONS.find((p) => p.name === 'editorial').finish, 'ledger');
+    // Brand-forward sets a backdrop (the preset tests below lean on `strata`), so its chip has one.
+    assert.equal(PRESET_OPTIONS.find((p) => p.name === 'brand').finish, 'strata');
   });
 });
 
 describe('a deck preset (preset:) sets the baseline for finish and lift', () => {
-  const ED = '---\nmarp: true\ntheme: indaco\npreset: editorial\n---\n\n# Hi\n';
+  const ED = '---\nmarp: true\ntheme: indaco\npreset: brand\n---\n\n# Hi\n';
   const PLAIN = '---\nmarp: true\ntheme: indaco\n---\n\n# Hi\n';
 
   test('the sheet shows the backdrop and lift the preset gives', async () => {
     const { readFrontMatter } = await import(MOD);
-    assert.equal(readFrontMatter(ED).finish, 'ledger');
+    assert.equal(readFrontMatter(ED).finish, 'strata');
     assert.equal(readFrontMatter(ED).lift, true);
     // Control: without a preset the baselines are none / off, as before.
     assert.equal(readFrontMatter(PLAIN).finish, '');
@@ -404,7 +404,7 @@ describe('a deck preset (preset:) sets the baseline for finish and lift', () => 
     const none = writeFrontMatter(ED, 'finish', 'none');
     assert.match(none, /\nfinish: none\n/);
     assert.equal(readFrontMatter(none).finish, 'none');
-    assert.doesNotMatch(writeFrontMatter(none, 'finish', 'ledger'), /finish:/);
+    assert.doesNotMatch(writeFrontMatter(none, 'finish', 'strata'), /finish:/);
     assert.match(writeFrontMatter(ED, 'lift', false), /\nlift: off\n/);
     // Control: without a preset, none / off are the omitted defaults, exactly as before.
     assert.doesNotMatch(writeFrontMatter(PLAIN, 'finish', 'none'), /finish:/);
@@ -421,7 +421,7 @@ describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, ven
     const p = readFrontMatter(PLAIN);
     assert.deepEqual([p.preset, p.headline, p.rule, p.eyebrow, p.corners, p.venue], ['', 'auto', 'auto', 'plain', 'square', 'laptop']);
     const e = readFrontMatter(ED);
-    assert.deepEqual([e.preset, e.headline, e.rule, e.eyebrow, e.corners], ['editorial', 'left', 'short', 'bar', 'square']);
+    assert.deepEqual([e.preset, e.headline, e.rule, e.eyebrow, e.corners], ['editorial', 'left', 'full', 'bar', 'square']);
   });
 
   test('a value is written only when it differs from the preset; the default clears it', async () => {

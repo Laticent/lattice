@@ -1,0 +1,3 @@
+- Four new deck presets, each one line: `preset: strategy-house` (a heavy accent band on the left edge, thick card stripes, square cards, a light cover with an accent column), `preset: annual-report` (burgundy and serif, a small-caps cover over a double rule, a double heading rule, lighter headings), `preset: earnings` (grayscale, a solid left band, one-ink charts) and `preset: museum` (a gallery frame, a wall-label cover and one warm accent). Each suggests its own palette; a `theme:` you write still wins.
+- The Studio's preset picker now shows its presets in two groups, Essentials and Signature, four tiles at a time.
+- A preset can set heading weight (the `--heading-weight` hook, default 700); Annual Report uses 500.

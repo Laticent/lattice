@@ -1,0 +1,17 @@
+{
+  "name": "annual-report",
+  "label": "Annual Report",
+  "desc": "Burgundy and serif: a small-caps light cover over a double rule, a double heading rule and a soft contour wash.",
+  "group": "signature",
+  "order": 6,
+  "values": {
+    "theme": "burgundy",
+    "typography": "ledger",
+    "finish": "meridian",
+    "backdrop": "40",
+    "headline": "left",
+    "rule": "full",
+    "marks": "tone",
+    "cover": "light ledger"
+  }
+}

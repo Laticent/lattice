@@ -31,13 +31,13 @@ One word in the front matter sets the backdrop, the alignment, the bar, the rule
 
 ---
 
-<!-- _class: title finish-ledger head-left eyebrow-bar -->
+<!-- _class: title cover-light cover-masthead head-left eyebrow-bar typography-ledger -->
 
 `Editorial · preset: editorial`
 
-# A ruled page, set flush left
+# A newspaper masthead, set flush left
 
-The ledger backdrop draws a rail down the left edge and faint rules behind the content. Headings align left.
+A light cover under a heavy rule, a serif voice and no backdrop. Headings align left.
 
 ---
 
@@ -61,7 +61,7 @@ Flush left, no backdrop, no bar and no heading rule. Rounded slide corners on sc
 
 ---
 
-<!-- _class: content finish-ledger head-left rule-short eyebrow-bar trim-spectrum-mono lifted -->
+<!-- _class: content head-left rule-full eyebrow-bar trim-spectrum-mono lifted typography-ledger -->
 
 `Editorial · a content slide`
 

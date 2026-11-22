@@ -1,0 +1,19 @@
+{
+  "name": "strategy-house",
+  "label": "Strategy House",
+  "desc": "A heavy accent band on the left edge, thick card stripes, square cards and a light cover with an accent column.",
+  "group": "signature",
+  "order": 5,
+  "values": {
+    "theme": "brina",
+    "typography": "ledger",
+    "headline": "left",
+    "rule": "full",
+    "eyebrow": "bar",
+    "spectrum": "solid left band",
+    "card-spectrum": "solid",
+    "marks": "tone",
+    "lift": "on",
+    "cover": "light column"
+  }
+}

@@ -2,6 +2,7 @@
   "name": "minimal",
   "label": "Minimal",
   "desc": "Left-aligned, no bar, no rule, rounded corners — the content and nothing else.",
+  "group": "essentials",
   "order": 4,
   "values": {
     "headline": "left",

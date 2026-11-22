@@ -23,9 +23,10 @@ import frontMatterKey from '../../../../lib/core/front-matter-key.js';
 import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
 import { isSpectrumKey, mergeSpectrum, type SpectrumAxis, type SpectrumKey, spectrumRenders, writeSpectrumWord } from './spectrum-keys';
 
-type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
+type PresetTable = Record<string, { label: string; desc: string; group: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {
 	PRESETS: PresetTable;
+	PRESET_GROUPS: readonly { name: string; label: string }[];
 	PRESET_NAMES: readonly string[];
 	PRESET_KEYS: readonly string[];
 	PRESET_DEFAULTS: Record<string, string>;
@@ -55,13 +56,17 @@ export const PRESET_NAMES: readonly string[] = ENGINE.PRESET_NAMES;
 /** The preset a deck with no `preset:` key is on — the house default, named. */
 export const DEFAULT_PRESET = 'classic';
 
-export type PresetEntry = { name: string; label: string; blurb: string };
+export type PresetEntry = { name: string; label: string; blurb: string; group: string };
+
+/** The picker's groups, in the engine's order: one tab each, at most five tiles in view (decision D10). */
+export const PRESET_GROUPS: readonly { name: string; label: string }[] = ENGINE.PRESET_GROUPS;
 
 /** The picker's entries, in the engine's order. */
 export const PRESET_ENTRIES: PresetEntry[] = PRESET_NAMES.map((name) => ({
 	name,
 	label: ENGINE.PRESETS[name].label,
 	blurb: ENGINE.PRESETS[name].desc,
+	group: ENGINE.PRESETS[name].group,
 }));
 
 /** The deck's preset — its `preset:` key when that names a known preset, else the default.

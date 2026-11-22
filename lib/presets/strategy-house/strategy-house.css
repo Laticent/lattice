@@ -1,0 +1,6 @@
+/* Strategy House (lib/presets/strategy-house/): 10px card stripes that read at thumbnail size, and
+ * square cards (study §6; the hooks are lib/base/base.tokens.css § PRESET HOOKS). */
+section.preset-strategy-house {
+  --rail-w: 10px;
+  --radius-card: 0;
+}

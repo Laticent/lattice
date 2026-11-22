@@ -156,8 +156,8 @@ section.spectrum-band { --_bar-w: max(1px, calc(1.5 * var(--_sec-1cqi, 1cqi))); 
  * not need it, and rendered every OTHER author-written `# heading` white on
  * white. Pure ink change: the box, and therefore every height the Fit Spine
  * measures, is identical. See 2026-08-02-default-slide-layout.md §5. */
-section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
-section h2 { font-family:var(--font-display); font-size:var(--fs-h2); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
+section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:var(--heading-weight, 700); color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
+section h2 { font-family:var(--font-display); font-size:var(--fs-h2); font-weight:var(--heading-weight, 700); color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h3 { font-family:var(--font-display); font-size:var(--fs-h3); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h4 { font-family:var(--font-body); font-size:var(--fs-h4); font-weight:700; color:var(--text-heading); margin:0; }
 section h5 { font-family:var(--font-display); font-size:var(--fs-h5); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
