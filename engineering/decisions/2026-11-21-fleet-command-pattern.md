@@ -173,7 +173,7 @@ Every rule below exists because something went wrong without it. The rule's home
    tells the owner which one is current.
 6. **Bank work as it finishes.** Merge in batches, archive in batches, log leftovers as they appear.
 
-## 8. Proposed: four new desks (owner's call)
+## 8. New desks: jank and polish built, frontier and torture proposed
 
 Each new desk is a skill (`.claude/skills/desk-<lane>/SKILL.md`), a row in `workflow.md` §Desks, and the same verb
 list and budget as the others. Adding one changes a canonical doc's contract, so each is the owner's decision.
@@ -185,9 +185,17 @@ list and budget as the others. Adding one changes a canonical doc's contract, so
 | 〰️ Jank | layouts that move when content grows: drift, collision, crowding | `engineering/jank.md`, `npm run check:jank` | run it across the catalog, rank by how often a real deck hits it, own each fix |
 | 🔥 Torture | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | add one torture scenario per week and route each break to its lane |
 
-**Open questions for the owner.**
-- Which of the four to start, and in what order. Recommendation: jank and polish first (both have tools ready and
-  feed the GA bar), torture next, frontier last, since the presets coordinator already works this way.
+**The owner's answers (2026-11-21).** Jank and polish first. Both now exist as `/desk-jank` and `/desk-polish`,
+with rows in `workflow.md` §Desks. Torture and frontier stay proposed.
+
+**Read your lane first, write back last.** The owner asked what the backlog, the follow-ups and the gotchas are for,
+and whether desks read them first. They did not: only the backlog desk read `followups.d/` (about 580 files), and no
+desk read the gotchas, so a desk started from live state and could rediscover known work or pay for a known trap
+twice. Every desk now starts from its lane's follow-ups, issues, `claim:` tags and gotcha file, and finishes by
+deleting the follow-up a fix closes and writing new traps and leftovers back (`workflow.md` §Desks). The backlog
+desk stays the one that folds a follow-up into an issue or retires it.
+
+**Open question for the owner.**
 - Whether a frontier desk may start sessions for feature work, which today only the owner does.
 
 ## 9. Proposed: a Starfleet vocabulary (owner's call)

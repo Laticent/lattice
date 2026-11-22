@@ -13,6 +13,8 @@ argument-hint: "[deps | nightly | <#PR or run URL>]"
 Read first, by section: `engineering/workflow.md` §Desks and §Dependency updates — where
 the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps-nightly` and `ui:pinned`.
 
+**Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back.
+
 ## Dependencies
 
 1. **List** open `dependabot/*` PRs, except the `security` group and any bump that

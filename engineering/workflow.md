@@ -2643,6 +2643,23 @@ running it:
 | 📋 Backlog | `/desk-backlog` | open issues and `followups.d/` as one queue: fold, rank, dispatch `status:ready` work |
 | 🛡️ Security | `/desk-security` | CodeQL, the security dependency group, secret scanning, HARD RULES #22 and #24 |
 | ⚡ Optimization | `/desk-optimize` | measured wins in engine speed and size, CI time, agent spend and code quality |
+| 〰️ Jank | `/desk-jank` | layouts that move as content grows: drift, collision, crowding (`engineering/jank.md`) |
+| ✨ Polish | `/desk-polish` | the 10/10 boardroom bar on what already ships: gallery, themes, examples, the docs site at three widths |
+
+**Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
+first pass starts from the work already known in its lane, not only from live state:
+- **follow-ups** (`npm run followups`, then the files about its lane) and **open issues**
+  in its lane: the starting queue, so it never rediscovers known work or opens a second fix;
+- **`claim:` tags** on live sessions (rule 5 below);
+- **the gotcha file or canonical doc for its lane** (`grep -rn <term> engineering/gotchas/`;
+  the jank desk reads `engineering/jank.md`, the flake desk the flaky-tests note), so it
+  does not pay for a trap twice.
+
+When it finishes, it writes back: a fix PR deletes the follow-up file it closes, a new trap
+becomes a gotcha entry, and work it found but will not do becomes a `followups.d/` file
+(`deferred: large|blocked|off-path`). The backlog desk alone folds a follow-up into an issue
+or retires one that is done or stale; the other desks claim and fix. Before this rule,
+only the backlog desk read `followups.d/` (about 580 files), and no desk read the gotchas.
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action
