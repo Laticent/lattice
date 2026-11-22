@@ -589,11 +589,27 @@ async function composeTouchTap(id) {
 			const forced = await deliver('control-1', 500);
 			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, selected: forced.selected, delivery: 1 });
 			let recovered = null;
+			let stale = null;
+			let moved = 0;
 			if (forcedCall === 'redeliver') {
 				await new Promise((r) => setTimeout(r, 1000));
-				// Aim again, as the guarded tap above does: the forced long press can have scrolled the paragraph away.
+				// THE RE-AIM'S FAILING ARM, made on purpose (the checker on #3444). A long press's selection can scroll the editor
+				// so the first point sits on another block (job 137066156788), but no run produces that on demand. So scroll the
+				// editor's scroller by 100 px, tap once at the OLD point (it should miss the paragraph), then aim again and tap
+				// (it should put the caret). Detail only: both outcomes are recorded, neither decides the job.
+				moved = await run(`const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					let el = p && p.parentElement;
+					while (el && !(el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+					if (!el) return 0;
+					const before = el.scrollTop;
+					el.scrollTop = before + 100;
+					if (el.scrollTop === before) el.scrollTop = before - 100;
+					return el.scrollTop - before;`);
+				if (moved) stale = await deliver('control-stale');
+				// Aim again, as the guarded tap above does.
 				const again = await aimAt();
 				if (again.hit) at = again;
+				else console.log(`${LABEL}: control re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
 				recovered = await deliver('control-2');
 			}
 			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
@@ -601,7 +617,7 @@ async function composeTouchTap(id) {
 			const flog = forced.seen.log;
 			const lifted = (flog?.events || []).filter((e) => e.type === 'selectionchange').at(-1);
 			const clauses = `word clause ${pressSelectedWord(flog) ? 'yes' : 'no'}, release-jump clause ${pressMovedOut(flog) ? 'yes' : 'no'}, last selection inEditor ${lifted ? String(lifted.inEditor) : 'none'}`;
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${stale ? `; editor scrolled ${moved} px, then a tap at the old point ${stale.at.x},${stale.at.y} -> ${stale.seen.inP && stale.seen.caret ? 'caret in the paragraph (the scroll did not move it off the point)' : `missed the paragraph (in ${stale.seen.where})`}` : forcedCall === 'redeliver' ? '; the editor would not scroll, so no stale-point arm' : ''}${recovered ? `; re-aimed to ${recovered.at.x},${recovered.at.y}, re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
