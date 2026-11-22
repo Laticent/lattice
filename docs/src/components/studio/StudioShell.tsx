@@ -2914,7 +2914,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// lib/core/resolve-fit.js; `heal` is the baseline and writes no key. Writing it also drops a
 	// `guards:` line, the retired spelling the engine no longer reads (lint `guards-renamed`).
 	const fit = activeFit(getFrontMatterName(source, 'fit')).name;
-	const setFit = (value: string) => settingsWrite(`Fit → ${value}`, (s) => writeFrontMatterLine(writeFrontMatterLine(s, 'guards', null), 'fit', value === 'heal' ? null : value));
+	const setFit = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'guards', null);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
 	// along — the asymmetry the audit found. An absent key means the engine's own default

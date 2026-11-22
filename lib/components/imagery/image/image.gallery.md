@@ -114,7 +114,7 @@ Move the card to wherever the photo is quiet, so the subject keeps the frame.
 <!-- _class: image statement image-card-top -->
 <!-- _footer: "Top center · image image-card-top — The text card sits centered along the top." -->
 
-## Top center lifts the title up high.
+## image-card-top centers the title up high.
 
 The scrim follows the words to the top edge.
 
@@ -138,7 +138,7 @@ The subject sits low and left, so the words take the open sky.
 <!-- _class: image statement image-card-center -->
 <!-- _footer: "Center · image image-card-center — The text card sits in the middle of the slide." -->
 
-## The center placement puts the title dead center.
+## image-card-center puts the title dead center.
 
 A radial scrim darkens only the middle.
 
@@ -150,7 +150,7 @@ A radial scrim darkens only the middle.
 <!-- _class: image spotlight image-card-bottom-left -->
 <!-- _footer: "Bottom left · image image-card-bottom-left — The text card sits in the bottom-left corner — the default." -->
 
-## Bottom left is the default corner.
+## image-card-bottom-left is the default corner.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
@@ -174,7 +174,7 @@ A caption band under the subject, centered on the slide.
 <!-- _class: image statement image-card-bottom-right -->
 <!-- _footer: "Bottom right · image image-card-bottom-right — The text card sits in the bottom-right corner." -->
 
-## Bottom right anchors the title in the corner.
+## image-card-bottom-right anchors the title bottom right.
 
 The scrim flips to darken the right side.
 
