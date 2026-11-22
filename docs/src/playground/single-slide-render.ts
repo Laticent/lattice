@@ -1025,20 +1025,27 @@ const SHEET_CACHE_MAX = 6;
  *
  * `data:` and `blob:` values are already absolute and left alone.
  */
-function absolutizeUrls(css: string): string {
-	const base = typeof document !== 'undefined' ? document.baseURI : '';
+function absolutizeUrls(css: string, base: string = typeof document !== 'undefined' ? document.baseURI : ''): string {
 	if (!base) return css;
 	// Each real `url(…)`, read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten, and an escaped
-	// address is resolved as the browser decodes it.
-	return rewriteCssUrls(css, (_raw, { value }) => {
+	// address is resolved as the browser decodes it. The resolved address goes back where the written one was, so it is
+	// escaped for that place: inside quotes, its quote, a backslash and a newline; unquoted, also the characters an unquoted
+	// url() cannot hold (quotes, parentheses, whitespace). `new URL()` leaves `'` and `(` as they are.
+	return rewriteCssUrls(css, (_raw, { value, quoted, rawFrom }) => {
 		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return undefined; // data:, blob:, https:, #frag
+		let href: string;
 		try {
-			return new URL(value, base).href;
+			href = new URL(value, base).href;
 		} catch {
 			return undefined;
 		}
+		const quote = quoted ? css[rawFrom - 1] : '';
+		return href.replace(quoted ? /[\\\n]|["']/g : /[\\\s"'()]/g, (c) => (quoted && (c === '"' || c === "'") && c !== quote ? c : c === '\n' ? '\\a ' : `\\${c}`));
 	});
 }
+
+/** For tests only: `absolutizeUrls` against an explicit base. */
+export const __absolutizeUrlsForTest = absolutizeUrls;
 
 /**
  * A URL serving `css`, shared with every other frame that wants the same bytes — or `null`

@@ -326,3 +326,37 @@ test('the root rewrite re-points html, body and :root selectors and leaves CSS s
   );
   assert.equal(repointRootSelectors(`.q::before{content:"a \\" body"}body{}`), `.q::before{content:"a \\" body"}body{}`.replace(/}body/, '}.__lc-body'), 'an escaped quote does not end the string');
 });
+
+test('slide camera: the face and rule reads of a sheet are kept, so a second slide parses nothing again (counted, not timed)', async () => {
+  // The camera reads the same sheets for every slide, and each read is a full tokenizer pass over megabytes of base64
+  // faces. Without the cache, a 30-slide export re-parsed them on every slide (about 0.2 s a slide on dist/lattice.css).
+  const cam = await import('../../../lib/core/slide-camera.mjs');
+  const { tokenWork } = await import('../../../lib/core/css-tokens.mjs');
+  // A sheet no other test reads, so its first read is cold.
+  const filler = Array.from({ length: 40 }, (_, i) => `.r${i}{color:red}`).join('');
+  const sheet = `/* slide-camera-faces cache probe */ ${filler} @font-face{font-family:A;src:url(a.woff2)} p::before{font-family:var(--x)} @font-face{font-family:B;unicode-range:U+4E00-9FFF;src:url(b.woff2)}`;
+  const slide = () => {
+    cam.pseudoElementFamilies(sheet, () => 'x');
+    cam.onlyUsedFontFaces(sheet, new Set(['a', 'b']));
+    cam.unusedRangeFaceUrls(sheet, 'Hello');
+    return cam.fontFaceRules(sheet).length;
+  };
+  // What a slide reads besides the sheet: pseudoElementFamilies resolves the one `var(--x)` value, a few tokens.
+  const { cssTokens } = await import('../../../lib/core/css-tokens.mjs');
+  const perValue = cssTokens('var(--x)').length;
+  const before = tokenWork.tokens;
+  assert.equal(slide(), 2);
+  const first = tokenWork.tokens - before;
+  assert.ok(first > 20 * perValue, `the first slide read the sheet (${first} tokens)`);
+  const again = tokenWork.tokens;
+  for (let i = 0; i < 5; i++) slide();
+  assert.equal(tokenWork.tokens - again, 5 * perValue, 'five more slides read only the var() value each, never the sheet again');
+});
+
+test('slide camera: a face nested inside another goes with its parent, never duplicated', async () => {
+  const { onlyUsedFontFaces, withoutFontFaces } = await import('../../../lib/core/slide-camera.mjs');
+  const css = '@font-face{font-family:A;@font-face{font-family:B}}p{}';
+  // cssRules reports both blocks, one inside the other; a replace walk must not splice the inner one in twice.
+  assert.equal(onlyUsedFontFaces(css, new Set(['a', 'b'])), css);
+  assert.equal(withoutFontFaces(css, ['a']), 'p{}');
+});
