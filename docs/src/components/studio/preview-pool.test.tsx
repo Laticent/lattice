@@ -1046,6 +1046,41 @@ describe('PreviewPool — a tile of another shape', () => {
 		expect(last.held).toBe(BASE_SLOTS);
 		expect(last.slots, 'a palette change grew the pool past its stale frames').toBe(BASE_SLOTS);
 	});
+
+	it('reuses the frames a deck-wide CSS edit left stale, as it does after a palette change', () => {
+		// The overview, the map, Reshape and the layout menu pass one deck-wide CSS to every tile, so an edit to it moves
+		// every tile off its frames at once, as a palette change does (checker 18: 10 frames became 20 here before).
+		const reports: PoolReport[] = [];
+		const Pool = ({ palette }: { palette: string }) => (
+			<PreviewPool onSettle={(r) => reports.push(r)}>
+				{Array.from({ length: BASE_SLOTS }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed-length fake grid; the index IS the tile's identity.
+					<div key={i} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={`# ${i}`} extraCss={palette} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool palette=".a{}" />);
+		const all = Array.from({ length: BASE_SLOTS }, (_, i) => i);
+		const set = (on: boolean) => {
+			for (const i of all) {
+				(on ? onScreen : offScreen)(face(container, i));
+				intersect(face(container, i), on);
+			}
+		};
+		set(true);
+		settle();
+		expect(reports[reports.length - 1].slots).toBe(BASE_SLOTS);
+		set(false);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		rerender(<Pool palette=".b{}" />);
+		set(true);
+		settle();
+		const last = reports[reports.length - 1];
+		expect(last.held).toBe(BASE_SLOTS);
+		expect(last.slots, 'a deck CSS edit grew the pool past its stale frames').toBe(BASE_SLOTS);
+	});
 });
 
 describe('slotShows, the frame-side check before a poster capture', () => {

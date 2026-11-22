@@ -207,9 +207,12 @@ function shapeKey(p: PooledPreviewProps): string {
  * so this partitions nothing; it is here so that stays true when one is not.
  */
 /** The part of `shapeKey` that is the deck's LOOK rather than the tile's kind: a palette, mode or theme change moves
- *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). */
-function lookKey(p: PooledPreviewProps): string {
-	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
+ *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). `deckCss`: the
+ *  grid's author CSS when every tile carries the same (the overview, the map, Reshape and the layout menu pass one
+ *  deck-wide sheet), so an edit to it is a look change too; a grid whose tiles carry their own (the Add slide gallery's
+ *  local components) passes `null`, and there the CSS is a tile's kind. PURE. */
+export function lookKey(p: PooledPreviewProps, deckCss: boolean): string {
+	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}${deckCss ? `\u0000${p.extraCss || ''}` : ''}`;
 }
 
 function identityKey(p: PooledPreviewProps): string {
@@ -583,16 +586,18 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				.map((x) => x.t);
 			const next = slotsRef.current.map((s) => ({ ...s }));
 			const held = new Set<number>();
-			// A STALE frame is one built for a LOOK (palette, mode, theme) no tile has any more: a palette change leaves every
+			// A STALE frame is one built for a LOOK (palette, mode, theme, and a grid's deck-wide CSS) no tile has any more: a palette change leaves every
 			// free frame keyed to the old look, and such a frame is the first to reuse and never a reason to grow (growing past
 			// them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is read from the look and never from which
 			// tiles happen to be registered: a filter or a remounted panel unregisters the Mermaid tile for a while, and
 			// calling its frame stale then handed it to a plain tile, or trimmed it, on every round trip (checker 18).
-			const looks = new Set([...tiles.current.values()].map((t) => lookKey(t.props)));
-			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props));
+			const all = [...tiles.current.values()];
+			const deckCss = all.length > 0 && all.every((t) => (t.props.extraCss || '') === (all[0].props.extraCss || ''));
+			const looks = new Set(all.map((t) => lookKey(t.props, deckCss)));
+			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props, deckCss));
 			// `mixed`: the grid holds more than one shape of the current look, counting the frames a filtered-out tile left
 			// behind. Only then is the spare for anything; a look change retires the rest and the trim gives it back.
-			const mixed = new Set([...[...tiles.current.values()].map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`), ...next.filter((x) => !stale(x)).map((x) => `${x.id}\u0000${x.key}`)]).size > 1;
+			const mixed = new Set([...all.map((t) => `${identityKey(t.props)}\u0000${shapeKey(t.props)}`), ...next.filter((x) => !stale(x)).map((x) => `${x.id}\u0000${x.key}`)]).size > 1;
 			// 1. A tile keeps the slot it already has — but ONLY if it survived the cap above.
 			//
 			//    Testing `holding()` here instead was a real bug and a visible one: a tile that had

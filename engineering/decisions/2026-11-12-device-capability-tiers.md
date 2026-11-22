@@ -307,7 +307,7 @@ as an argument with that read as the default, so its tests pass the tier in and 
   (MR-3 under `?tier=lite`: 31 steals in 12 runs, about two documents per reopen, each permanent on WebKit). With the
   spare: 0 steals, and the document count flat across reopens in 12 of 12 runs. The spare is not one more tile on
   screen: the pool's reported `capacity` stays the ceiling. A frame is STALE when no tile has its LOOK (palette, mode,
-  theme) any more: a look change leaves every free frame stale, and the pool reuses stale frames before it grows
+  theme, and the grid's CSS when every tile shares one, as the overview's do) any more: a look change leaves every free frame stale, and the pool reuses stale frames before it grows
   (growing past them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is never read from which tiles are
   registered, because a filter or a remounted panel unregisters the Mermaid tile for a while, and calling its frame
   stale then cost a new frame on every round trip (both found by the checker). So a one-shape grid never uses the
