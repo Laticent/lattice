@@ -44,7 +44,8 @@ measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `doc
             `deck-render.hole`) and 3 assertion misses (`editor-hold` x2, G4, now fixed; `findings-fix`, G1). Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
 where     — `docs/vitest.config.ts` (`testTimeout`, pool, workers); the heaviest files are `studio.controls`, `StudioShell`,
             `studio.theme-depth` and `studio.fuzz`, plus `studio.findings-fix` and the `StudioShell` tour row on Testing
-            Library's 3 s budget; under heavy load the corpus-wide `rendered-index`, `payload-elision.oracle`
+            Library's 3 s budget, and `beforeAll(loadStudioPanels)` past vitest's 10 s hook budget (`studio.coach-profile`,
+            `studio.editor-hold`: 6 of 6 loaded runs of each, old and new `editor-hold` alike, so the whole file skips); under heavy load the corpus-wide `rendered-index`, `payload-elision.oracle`
             and `deck-render.hole` time out too.
 done when — the owner has picked a config (or "accept: unit tests do not share the box with a browser run") from the full
             table, and the chosen change is in with the suite green alone and under the same load.
