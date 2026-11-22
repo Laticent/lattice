@@ -12,7 +12,7 @@ source: https://github.com/Laticent/lattice/pull/2685#issuecomment-6167335489
 # The Galleries sheet counts a curated deck's slides by its `---` lines, so Jargon reads 60 and renders 58
 
 why now   — the sheet's "N slides" label for the 16 curated decks comes from `slideCount` in
-            `docs/src/playground/galleries.mjs`, which counts `---` lines. The 273 example decks
+            `docs/src/playground/galleries.mjs`, which counts `---` lines. The example decks (385 today)
             already use the engine's count (`sync-playground-assets.mjs` passes an
             `engine.render` section count to `loadExampleDecks`). Re-measured on `84bb080`:
             15 of 16 curated labels match the engine, and `jargon` reads 60 against 58 rendered.
