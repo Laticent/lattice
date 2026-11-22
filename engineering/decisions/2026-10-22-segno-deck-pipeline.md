@@ -1072,12 +1072,32 @@ readers that ship.
 
 | File: symbol | Reads | Callers | #22 | Bytes |
 |---|---|---|---|---|
-| core/slide-camera.mjs: `CSS_OPAQUE`, the `@font-face` walk, `FACE_KEY_PROPS` | the deck sheet's comments and strings; its font faces and their descriptors | 4 | no | yes (camera images) |
+| core/slide-camera.mjs: `CSS_OPAQUE`, the `@font-face` walk, `FACE_KEY_PROPS` (**moved in P5a, then reverted:** see below) | the deck sheet's comments and strings; its font faces and their descriptors | 4 | no | yes (camera images) |
 | core/pdf-compose/read-slide.mjs: `bgUrl`, `urlOf`, the mask data URL, the `@font-face` source | computed `background-image`, `mask`, `src` values | 1 | no | yes (PDF) |
 | core/image-painting.js `isBlockedHatch` | whether a picture's computed `background-image` holds a `url(` (eager on home, studio, playground) | 2 | no | yes |
 | transformers/logo-marks.js `measureMark` | a mark's `--logo-mask:url('…')` style value | 1 | no | yes |
 | transformers/prose-projection.mjs: the declaration reader's comment strip | comments in a declaration whose strings and addresses are already slots | 5 | no | yes (captions) |
 | plugins/mermaid/mermaid.draw-shim.mjs | a face rule's `src` `url()` | 0 (loaded by name) | no | yes |
+
+**The slide camera moves with (S) and (C), once its cold path is no slower than main's, measured (2026-11-22).** P5a moved
+its readers onto `cssRules`, and the maker-checker found the font chain slower on every slide. A per-sheet cache made the
+warm slides faster than main, but the first slide of each sheet stayed far slower, because the chain hands each step a new
+string, and every string costs a full tokenizer pass. Measured in Node on the chain `captureSlideCanvas` runs, in its
+order, fresh process each time:
+
+| Sheet | main cold | P5a + cache cold | main warm | P5a + cache warm |
+|---|---|---|---|---|
+| dist/lattice-min.css (1.2 MB, a Studio frame's) + 30 host faces | 36-47 ms | 484-670 ms | 16-22 ms/slide | 9-15 ms/slide |
+| dist/lattice.css (3 MB) | 58 ms | 394 ms | 30.7 ms/slide | 13.2 ms/slide |
+
+One cold tokenizer pass over the 1.2 MB sheet alone takes 72-105 ms (314k tokens; under 1% of the bytes sit inside
+`url()`), so no reader that tokenizes the whole sheet can match main's cold chain. The Studio's slide-map posters would
+have paid it once per distinct frame sheet. The Segno desk chose to revert the camera to main's readers in P5a (it keeps
+only the one-parser import, `cssParser` in place of the deleted `css-ref.generated.js`), and to move it in the P5a′ + P5b
+PR behind two commits of their own: **(S)** a fast path for long plain runs in the tokenizer's driver, held by the css-tree
+differential and a work-count test, with a bench scenario (HARD RULE #19); and **(C)** chain reuse, since a face-only
+replace removes whole blocks and the next string's rules are the last string's with shifted offsets. The camera moves only
+when cold is no slower than main on both sheets above.
 | docs/src: card-ink-sampler.ts, photo-verdict.ts | a spotlight panel's computed `background-image` address | 1 each | no | no |
 | docs/src: theme-fetch.ts, snapshot-cache.js (×2), single-slide-render.ts `absolutizeUrls` (eager on home) | rewrite each `url(fonts/…)` (or each relative `url()`) of a sheet the Studio stages | 1–2 each | no | no (the Studio's sheet text) |
 | docs/src: calco/reader.ts (×4), calco/picture.ts | computed `background-image`, `mask` and paint values, for the PowerPoint export | 4, 1 | no | yes (PPTX) |
