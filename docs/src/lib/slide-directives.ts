@@ -125,7 +125,7 @@ export type ClassDirective = {
 	 *  duplicate `_class` comment) — the drawer goes read-only ("edit in markdown"). */
 	editable: boolean;
 	/** Why editable is false, for the UI hint. */
-	reason?: 'array-form' | 'duplicate' | 'record' | 'nested' | 'deck';
+	reason?: 'array-form' | 'duplicate' | 'record' | 'nested' | 'deck' | 'compound';
 	/** The class comes from a record (`<!-- {layout=cards} -->`), edited in it (lib/core/meta-edit.mjs). */
 	record?: boolean;
 	/** Absolute [start, end) of the token VALUE to splice (present + editable only). */
@@ -140,9 +140,10 @@ export type ClassDirective = {
 export function readClassDirective(chunk: string): ClassDirective {
 	const f = readMetaField(chunk, 'class');
 	if (!f.present || !f.editable) {
-		// A record that does not read, or a class comment inside a quote or a list, shows its class (what the slide renders
-		// with) but is not rewritten: the linter names it. A record that reads is edited in place, below.
-		const tokens = f.reason === 'record' || f.reason === 'nested' ? f.value.split(/\s+/).filter(Boolean) : [];
+		// A record that does not read, a class comment inside a quote or a list, or a comment whose next directive line the
+		// class swallows (`compound`) shows its class (what the slide renders with) but is not rewritten: the linter names it.
+		// A record that reads is edited in place, below.
+		const tokens = f.reason === 'record' || f.reason === 'nested' || f.reason === 'compound' ? f.value.split(/\s+/).filter(Boolean) : [];
 		return f.present ? { tokens, present: true, editable: false, reason: f.reason } : { tokens: [], present: false, editable: true };
 	}
 	if (f.record) return { tokens: f.value.split(/\s+/).filter(Boolean), present: true, editable: true, record: true, commentSpan: f.commentSpan };

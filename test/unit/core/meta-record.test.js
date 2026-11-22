@@ -56,14 +56,16 @@ describe('classifyComment and directiveKey', () => {
 });
 
 describe('readMetaField and writeMeta', () => {
-  test('set, replace, remove, and a compound comment keeps its other lines', () => {
+  test('set, replace, remove, and a comment holding two lines is left as the engine reads it', () => {
     // Every write is a record, the one spelling Lattice writes (the owner, 2026-11-22: "we only support @meta"). A value
     // in an old directive comment moves into the record; the comment goes when it held nothing else.
     assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- @meta{footer=Q3} -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- @meta{footer=Q4} -->\n\n# A');
-    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- @meta{footer=Q4} -->\n<!-- _class: a -->\n\n# A');
+    // A second directive line is part of the class to the engine (class `a _footer: Q3`, no footer), so the footer is absent:
+    // setting it adds a record, and the comment, and what it renders, stay as written.
+    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- @meta{footer=Q4} -->\n\n<!-- _class: a\n_footer: Q3 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: null }), '# A');
-    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a\n_footer: Q3 -->\n\n# A');
   });
   test('a value can never close the comment', () => {
     assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- @meta{footer="a -> b"} -->\n\n# A');
@@ -357,4 +359,25 @@ describe('writeMeta writes @meta only, and a moved setting renders the same', ()
     ].join('\n');
     assert.doesNotMatch(outs.replace(/<!-- _class: stats -->/g, ''), /<!--\s*_|<!--\s*\{/);
   });
+});
+
+test('a comment with a second directive line reads as the engine reads it: one class, no footer', async () => {
+  // The engine reads `<!-- _class: stats\n_footer: Q3 -->` as ONE directive: class `stats _footer: Q3`, and no footer.
+  // The failing arm: the old reader answered class `stats` and footer `Q3`, two settings the slide never got.
+  const { readMetaField, writeMeta } = await import('../../../lib/core/meta-edit.mjs');
+  const { createEngine } = require('../../../lib/engine');
+  const c = '<!-- _class: stats\n_footer: Q3 -->\n\n# A\n';
+  const html = createEngine().render(`---\ntheme: indaco\n---\n\n${c}`).html;
+  assert.doesNotMatch(html, /data-footer=/);
+  const cls = readMetaField(c, 'class');
+  assert.equal(cls.value.replace(/\s+/g, ' '), 'stats _footer: Q3');
+  assert.equal(cls.editable, false);
+  assert.equal(cls.reason, 'compound');
+  const footer = readMetaField(c, 'footer');
+  assert.equal(footer.present, false);
+  // Setting the footer the slide lacks writes a record that applies, and leaves the comment as written.
+  const out = writeMeta(c, { footer: 'Q4' });
+  const text = typeof out === 'string' ? out : out.text;
+  assert.ok(text.includes('<!-- _class: stats\n_footer: Q3 -->'));
+  assert.match(createEngine().render(`---\ntheme: indaco\n---\n\n${text}`).html, /data-footer="Q4"/);
 });

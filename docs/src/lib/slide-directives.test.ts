@@ -63,8 +63,11 @@ describe('getClassTokens / readClassDirective', () => {
 		expect(d.editable).toBe(false);
 		expect(d.reason).toBe('duplicate');
 	});
-	it('parses a compound comment, keeping other directives out of the token list', () => {
-		expect(getClassTokens('<!-- _class: kpi dark\n_paginate: false -->\n\n# Hi')).toEqual(['kpi', 'dark']);
+	it('reads a two-line comment as the engine does: the class swallows the second line', () => {
+		// The engine renders class `kpi dark _paginate: false` and no paginate setting (meta-edit `compound`).
+		const chunk = '<!-- _class: kpi dark\n_paginate: false -->\n\n# Hi';
+		expect(getClassTokens(chunk)).toEqual(['kpi', 'dark', '_paginate:', 'false']);
+		expect(readClassDirective(chunk)).toMatchObject({ present: true, editable: false, reason: 'compound' });
 	});
 });
 
@@ -87,10 +90,9 @@ describe('setClassTokens — span-surgical', () => {
 	it('removes a sole-directive comment when cleared to empty', () => {
 		expect(setClassTokens('<!-- _class: kpi -->\n\n# Hi', [])).toBe('# Hi');
 	});
-	it('keeps a compound comment (drops only the _class line) when cleared', () => {
-		const out = setClassTokens('<!-- _class: kpi\n_paginate: false -->\n\n# Hi', []);
-		expect(out).toContain('_paginate: false');
-		expect(out).not.toMatch(/_class:/);
+	it('leaves a two-line comment as written when cleared: it is read-only, as the engine reads one class', () => {
+		const chunk = '<!-- _class: kpi\n_paginate: false -->\n\n# Hi';
+		expect(setClassTokens(chunk, [])).toBe(chunk);
 	});
 	it('never lets a token close the comment early', () => {
 		const out = setClassTokens('# Hi', ['kpi--></script>']);
