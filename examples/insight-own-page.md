@@ -7,11 +7,11 @@ size: square
 
 <!-- _class: title -->
 
-# A long insight moves. The figure keeps the slide.
+# The insight moves. The figure keeps the slide.
 
-`fit · key insight under a diagram`
+`fit · key insight under a chart or diagram`
 
-A diagram scales to its box. A long insight under it used to shrink the diagram, sometimes to nothing; now it takes the closing page. A chart keeps its insight until a split can redraw it.
+On a phone, a chart or diagram keeps the slide and its key insight takes the closing page. The chart is drawn for the whole page.
 
 ---
 
@@ -63,7 +63,7 @@ stateDiagram-v2
 
 > Two teams take four tickets in five.
 
-<!-- A one-line insight leaves the bars their room: it stays under the chart. -->
+<!-- Even a one-line insight moves: the rule needs no threshold, so the bars always have the page. -->
 
 ---
 
@@ -82,7 +82,7 @@ stateDiagram-v2
 
 > The drop starts the month the onboarding call moved from week three to week one, and it holds in every cohort since, so the first-week call is now staffed as a retention lever rather than offered as a courtesy.
 
-<!-- A chart keeps its insight for now: its phone drawing is laid out for the box under the insight, and no split redraws it yet, so a page of its own would hold the same-size chart. -->
+<!-- A chart is drawn for the whole page on a phone, since its insight always moves: it fills the page the insight left. -->
 
 ---
 
@@ -98,9 +98,9 @@ flowchart LR
   C -->|no| E[Log]
 ```
 
-> A short insight stays under its figure.
+> Even a short insight moves to its own page.
 
-<!-- The control case for the diagram: one short line, so nothing moves. -->
+<!-- A short line moves too: on a phone the figure always keeps the stage. -->
 
 ---
 

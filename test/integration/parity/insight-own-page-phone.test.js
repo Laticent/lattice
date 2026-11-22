@@ -1,25 +1,20 @@
 /**
- * Integration: a figure keeps the stage (owner, 2026-11-17: "we always split chart and key insight so the chart has the
- * stage"; fit-everywhere-model.md §25). A chart or diagram scales to its box rather than overflow, so a long key insight
- * under it never clips: it shrinks the figure until the figure's labels fall below the legibility floor, and the export
- * could only warn (TYPE FLOOR). The measured split now reads two things (lib/core/fit-measure.js `measureFit`): the
- * floor, by the export's own `probeFigureLegibility`, and the stage, where beats taller than half the figure's cell have
- * taken the slide even with legible labels; and only when the figure would draw at least a fifth larger without them. Either gives the insight a page of its own (lib/core/carousel.js `insightOwnPage`,
- * lib/core/auto-split.js `{ insightOwn }`): the figure whole on its page, the beats on the run's closing page. The figure
- * is never cut. Cases, on the real CLI export at square:
- *   DIAGRAM  a sequence diagram over a 76-word key insight: the diagram's page and then the insight's, no TYPE FLOOR
- *   CHART    a line chart over the same insight keeps it, for now: its phone drawing is laid out at markdown time for
- *            the box under the insight, and no split redraws it, so a page of its own would hold the same-size chart
- *            (final checker, 2026-11-17). It moves once a split can redraw a chart (decision card)
- *   SHORT    a diagram over a one-line insight that leaves its labels legible stays one slide
- *   OVER     a diagram under a 90-word insight, which squeezed the diagram to 0px and still read as fitting: the insight moves
+ * Integration: a figure's coda takes its own page (owner, 2026-11-17: "we always split chart and key insight so the
+ * chart has the stage"; 2026-11-22: "we automatically move coda to their own split page"; fit-everywhere-model.md
+ * §25). On a page that splits (square, tall, strip), a chart or diagram slide with trailing beats gives them the run's
+ * closing page (lib/core/fit-measure.js `measureFit`, lib/core/carousel.js `insightOwnPage`), and a chart is drawn
+ * for the whole page from the start (lib/plugins/chart-family/shared/chart-phone.js `formBoxPx` `codaMoves`). The
+ * figure is never cut. Cases, on the real CLI export at square:
+ *   DIAGRAM  a sequence diagram over a 76-word key insight: the diagram's page, then the insight's, no TYPE FLOOR
+ *   CHART    a line chart over the same insight: the same two pages
+ *   SHORT    a diagram over a one-line insight: the same two pages too, since the move needs no threshold
+ *   OVER     a diagram under a 90-word insight, which squeezed the diagram to 0px and still read as fitting
+ *   GROW     each figure draws larger on its own page than the same slide kept whole (`fit-report`)
+ *   WIDE     at 16:9, which never splits, the same chart slide stays one slide
  *
- * Every split also checks the figure GREW on its own page: a split that leaves the drawing its crowded size is two
- * thinner pages, not a remedy.
- *
- * FALSIFIABLE: without the `insight` fact the export prints TYPE FLOOR for DIAGRAM and nothing splits; measuring a chart
- * by its box splits CHART at its crowded size; requiring a visible figure leaves OVER whole, its diagram gone. Needs
- * Chromium (CHROME_PATH).
+ * FALSIFIABLE: without the `insight` fact nothing splits and DIAGRAM prints TYPE FLOOR; drawing the chart for the box
+ * under its insight (no `codaMoves`) fails GROW for the chart; any threshold leaves SHORT whole. Needs Chromium
+ * (CHROME_PATH).
  */
 
 const { test, before, after } = require('node:test');
@@ -102,25 +97,27 @@ sequenceDiagram
 let dir;
 let log;
 let pages;
-// The sequence diagram's drawn scale, split (its own page) and whole (the same slide under its insight, `fit-report`
-// opting it out of the split), read in a browser from each export's HTML.
-const scale = {};
+// Each figure's drawn height, split (its own page) and whole (the same slide under its insight, `fit-report` opting it
+// out of the split), read in a browser from each export's HTML.
+const scale = { split: {}, whole: {} };
+let wideLog;
+let widePages;
 
-// The diagram's drawn scale on slide 1 of an exported HTML: the SVG letterboxes inside its box, so the scale is the
-// smaller of its two ratios.
-async function drawnScale(file) {
+// A figure's drawn size on slide `n` of an exported HTML: the SVG letterboxes inside its box, so its scale is the
+// smaller of its two ratios, times the viewBox height (the drawn height in px).
+async function drawnScale(file, n = '1') {
   const { chromium } = require('playwright');
   const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
   try {
     const page = await browser.newPage({ viewport: { width: 1080, height: 1080 } });
     await page.goto(`file://${file}`);
     await page.waitForFunction(() => document.fonts.status === 'loaded');
-    return await page.evaluate(() => {
-      const svg = document.querySelector('section[data-lattice-slide="1"] .cell-stage svg[viewBox]');
+    return await page.evaluate((slide) => {
+      const svg = document.querySelector(`section[data-lattice-slide="${slide}"] .cell-stage svg[viewBox]`);
       const r = svg.getBoundingClientRect();
       const vb = svg.viewBox.baseVal;
-      return Math.min(r.width / vb.width, r.height / vb.height);
-    });
+      return Math.min(r.width / vb.width, r.height / vb.height) * vb.height;
+    }, n);
   } finally {
     await browser.close();
   }
@@ -142,13 +139,23 @@ before(async () => {
       html: p.inner,
       text: removeTags(p.inner).replace(/\s+/g, ' '),
     }));
-  // The first slide alone, kept whole.
+  // The deck again with every slide kept whole.
   const whole = path.join(dir, 'whole.md');
-  fs.writeFileSync(whole, DECK.split('\n---\n').slice(0, 2).join('\n---\n').replace('<!-- _class: diagram -->', '<!-- _class: diagram fit-report -->'));
+  fs.writeFileSync(whole, DECK.replaceAll('<!-- _class: diagram -->', '<!-- _class: diagram fit-report -->').replaceAll('<!-- _class: line -->', '<!-- _class: line fit-report -->'));
   const w = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), whole, path.join(dir, 'whole.pdf'), '--keep-html'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
   if (w.status !== 0) throw new Error(`export failed: ${w.stderr}`);
-  scale.split = await drawnScale(pdf.replace(/\.pdf$/, '.html'));
-  scale.whole = await drawnScale(path.join(dir, 'whole.html'));
+  for (const n of ['1', '2']) {
+    scale.split[n] = await drawnScale(pdf.replace(/\.pdf$/, '.html'), n);
+    scale.whole[n] = await drawnScale(path.join(dir, 'whole.html'), n);
+  }
+  // At 16:9.
+  const wide = path.join(dir, 'wide.md');
+  fs.writeFileSync(wide, DECK.replace('size: square', 'size: 16:9'));
+  const x = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), wide, path.join(dir, 'wide.pdf'), '--keep-html'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+  if (x.status !== 0) throw new Error(`export failed: ${x.stderr}`);
+  wideLog = `${x.stdout}${x.stderr}`;
+  const wh = fs.readFileSync(path.join(dir, 'wide.html'), 'utf8');
+  widePages = splitSections(wh.slice(wh.indexOf('<section'))).filter((p) => p.type === 'section');
 });
 after(() => {
   if (dir) fs.rmSync(dir, { recursive: true, force: true });
@@ -160,30 +167,29 @@ test('nothing clips, and no figure renders below the type floor', () => {
   assert.doesNotMatch(log, /OVERFLOW|CONTENT CLIPPED|TYPE FLOOR —/, log);
 });
 
-for (const [name, n] of [['DIAGRAM', '1'], ['OVER', '4']]) {
-  test(`${name}: the figure takes its page, then the insight closes the run`, () => {
+for (const [name, n, title] of [['DIAGRAM', '1', /never voiced/], ['CHART', '2', /Churn fell/], ['SHORT', '3', /room/], ['OVER', '4', /at length/]]) {
+  test(`${name}: the figure takes its page, then the coda closes the run`, () => {
     const run = runOf(n);
     assert.deepEqual(run.map((p) => p.role), [undefined, 'closing']);
-    assert.match(run[0].text, /never voiced/, 'the figure page keeps the slide\'s title');
+    assert.match(run[0].text, title, 'the figure page keeps the slide\'s title');
     assert.ok(run[0].svg, 'the figure is on the first page');
-    assert.doesNotMatch(run[0].text, /retention lever/, 'the insight is not under the figure');
+    assert.doesNotMatch(run[0].text, /retention lever|Only the label carries/, 'the coda is not under the figure');
     assert.ok(!run[1].svg, 'the closing page holds no figure');
-    assert.ok(run.map((p) => p.text).join(' ').includes('retention lever'), 'the insight is kept');
   });
 }
 
-test('DIAGRAM: the diagram draws larger on its own page than under its insight', () => {
-  assert.ok(scale.split > scale.whole * 1.2, `split ${scale.split}, whole ${scale.whole}`);
+test('the coda appears once, on its closing page', () => {
+  const all = pages.map((p) => p.text).join(' ');
+  assert.equal(all.split('Only the label carries the meaning').length - 1, 1);
 });
 
-test('CHART: a chart keeps its insight until a split can redraw it', () => {
-  const run = runOf('2');
-  assert.equal(run.length, 1);
-  assert.match(run[0].text, /retention lever/);
-});
+for (const [name, n] of [['diagram', '1'], ['chart', '2']]) {
+  test(`GROW: the ${name} draws larger on its own page than kept whole under its insight`, () => {
+    assert.ok(scale.split[n] > scale.whole[n] * 1.2, `split ${scale.split[n]}, whole ${scale.whole[n]}`);
+  });
+}
 
-test('SHORT: a figure whose labels stay legible keeps its insight on the slide', () => {
-  const run = runOf('3');
-  assert.equal(run.length, 1);
-  assert.match(run[0].text, /Only the label carries the meaning/);
+test('WIDE: at 16:9 nothing splits', () => {
+  assert.doesNotMatch(wideLog, /OVERFLOW/, wideLog);
+  assert.ok(!widePages.some((p) => /data-split-role=/.test(p.openTag)), 'no split page at 16:9');
 });

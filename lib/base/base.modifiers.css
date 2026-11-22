@@ -3615,12 +3615,34 @@ section.lat-split-cover.split-cover-table .split-feat-h::after {
    stage, in the footer cell, or straight under the section when there is no footer cell (a
    read-across page has no `.cell-stage`; `paginate: false` leaves no footer cell for the rail),
    so each takes both arms. */
-section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > :is(header, .cell-footer, .lat-split-rail),
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > :is(header, .lat-split-rail),
+section[data-split-role="body"]:not(.lat-split-footer-here)[data-split-role][data-split-role] > .cell-footer,
+section:is([data-split-role="closing"], .lat-split-footer-here)[data-split-role][data-split-role] > .cell-footer > :is(.lat-split-rail, .lat-pagination),
 section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead:not(:has(> .masthead-bay > *)),
 section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead > .masthead-lede,
 section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role]:not(.compare-code-split) .split-runhead,
 section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-stage > .lat-split-rel {
   display: none;
+}
+/* THE FOOTER RIDES WITH THE CODA (owner, 2026-11-22: "footer can be on a coda page"). The page carrying the run's coda
+   (its closing page, or the last body page the beats folded onto, `lat-split-footer-here`) keeps its footer cell, the
+   slide's footer line on it (the rail and the page number stay off, as above), and the run's cover drops its footer
+   line (`lat-split-footer-moved`, auto-split.js `applyRails`): a long `_footer:` on a phone cover, beside the page
+   number, cut off mid-word. */
+section.lat-split-footer-moved[data-split-role="cover"] > .cell-footer > footer,
+section.lat-split-footer-moved[data-split-role="cover"] > footer {
+  display: none;
+}
+/* On the coda page the footer line has the band to itself (no rail, no page number), and a line too long for even that
+   wraps rather than ends in an ellipsis: the band is anchored at the bottom, so it grows up into the page's spare room. */
+section:is([data-split-role="closing"], .lat-split-footer-here)[data-split-role][data-split-role] > .cell-footer {
+  grid-template-rows: auto;
+}
+section:is([data-split-role="closing"], .lat-split-footer-here)[data-split-role][data-split-role] > .cell-footer > footer {
+  white-space: normal;
+  text-overflow: clip;
+  overflow: visible;
+  height: auto;
 }
 /* The pill's own placement rules (below) reach (0,4,1) and come later in the file, so the
    direct-child arm carries the role stamp four times to clear them. */

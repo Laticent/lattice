@@ -401,15 +401,12 @@ for a different reason — they are posters whose card fills the stage, so there
 band position that does not crush it. The generated `layout-*` skeletons are excluded
 by pattern. Everywhere else a trailing blockquote becomes the callout.
 
-**Under a diagram, a long insight takes its own page.** A diagram scales to fit its box
-instead of overflowing, so a long insight never clips the slide: it shrinks the diagram,
-sometimes to nothing. When moving the insight would let the diagram draw at least a fifth
-larger, and its labels fall below the legibility floor or the insight stands taller than
-half the diagram's own cell, the diagram keeps the slide and the insight (with any
-below-note) moves to the run's closing page. So does an insight that pushes the slide past
-its frame or squeezes the diagram away. A wide, flat diagram that cannot grow keeps its
-insight, and so, for now, does a chart: its phone drawing is laid out for the box under the
-insight, and a page of its own would not redraw it. The figure itself never
+**On a phone, a chart or diagram's key insight takes its own page.** On a square, tall or
+strip slide, a chart or diagram with a key insight (or below-note) under it always gives
+them the run's closing page, and the figure keeps the slide: a chart is drawn for the whole
+page, and a diagram scales up into it. The figure itself never splits, and a chart's own
+caption stays with it. A 16:9 slide never splits, so it is unchanged. The slide's footer
+line, if it has one, moves to that closing page too. The figure itself never
 splits. A one-line insight stays under its figure, and `lint:deck`'s `verbose-key-insight`
 still asks for about 18 words.
 
