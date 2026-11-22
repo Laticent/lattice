@@ -64,10 +64,11 @@ test('Present draws one slide frame, and no slide frame is animated @crosswidth 
 // `restrained` the salience budget can leave plain bullets unfocused (present-guide.spec.ts says the same).
 const guided = deck.replace('size: 4k\n', 'size: 4k\ndelivery: expressive\n');
 
-// Not on `webkit-phone`: there, Playwright's WebKit with Voice off never moves Present past its first cue, with or without
-// Guide, and the same with #3304's docs/src changes reverted to the merge base (2026-11-20), so no dim is ever reached.
-// WebKit itself is covered by `webkit-tablet`, and the iOS Simulator's real WebKit advanced Present with Voice off.
-test('Guide dims the slide with no animation inside the frame @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+// On `webkit-phone` too. Until 2026-11-22 it was left out: Playwright's WebKit there, Voice off, never moved Present past
+// its first cue. That stall no longer reproduces on main (fffd7a4e): 10/10 alone and 5/5 at two workers. Reverting #3394's
+// empty-provider guard alone does not bring it back, so the cure was elsewhere; this test's own failing arm is a CSS opacity
+// transition on the dims (red: a compositor animation inside the frame).
+test('Guide dims the slide with no animation inside the frame @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await typeDeck(page, guided);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
