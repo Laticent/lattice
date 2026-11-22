@@ -98,26 +98,53 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 	const steps = [];
 	const step = (name, pass, detail) => steps.push({ name, pass, detail });
 	/** Poll the page for STATE_EXPR until `want(value)`, up to `ms`; returns the last value. */
+	// A navigation (the Reload press) can abort a waiting script, and WebDriver then throws: that is "not yet", so the wait
+	// starts again in the new document until its own deadline.
 	const waitFor = async (want, ms) => {
-		const res = await wd('POST', `/session/${id}/execute/async`, {
-			script: `const done = arguments[arguments.length - 1]; const t0 = Date.now(); let last = '';
-				(function tick() { try { last = ${STATE_EXPR}; } catch (e) { last = 'error: ' + e; }
-					if (${want}) return done(last); if (Date.now() - t0 > ${ms}) return done(last || 'none'); setTimeout(tick, 250); })();`,
-			args: [],
-		});
-		return res || 'none';
+		const deadline = Date.now() + ms;
+		let last = 'none';
+		while (Date.now() < deadline) {
+			const left = Math.max(1000, deadline - Date.now());
+			try {
+				const res = await wd('POST', `/session/${id}/execute/async`, {
+					script: `const done = arguments[arguments.length - 1]; const t0 = Date.now(); let last = '';
+						(function tick() { try { last = ${STATE_EXPR}; } catch (e) { last = 'error: ' + e; }
+							if (${want}) return done({ hit: true, last }); if (Date.now() - t0 > ${left}) return done({ hit: false, last: last || 'none' }); setTimeout(tick, 250); })();`,
+					args: [],
+				});
+				last = res?.last || 'none';
+				if (res?.hit || Date.now() >= deadline) return last;
+			} catch {
+				// aborted by a navigation: wait in the new document
+			}
+		}
+		return last;
 	};
-	/** Press the card's button with a WebDriver element click: a real gesture, as Safari needs for a new tab. */
+	/**
+	 * Press the card's button with a real TOUCH at its center, as the suite's other taps are made (run.mjs `touchAt`). A
+	 * WebDriver element click did not activate it on the iPhone simulator (run 44973877783: after the "press" the page never
+	 * reloaded), and a script `click()` is no user gesture, which Safari requires before the New tab button may open a tab.
+	 */
 	const pressCardButton = async () => {
-		// On a phone the card can sit in a hidden pane: show the preview first, or the element click is "not interactable".
-		await wd('POST', `/session/${id}/execute/sync`, {
-			script: `const b = document.querySelector('${PREVIEW} .nacre-failed__retry');
-				if (b && !b.offsetParent) [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Preview' && x.offsetParent)?.click();`,
+		const at = await wd('POST', `/session/${id}/execute/sync`, {
+			script: `let b = document.querySelector('${PREVIEW} .nacre-failed__retry');
+				if (b && !b.offsetParent) [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Preview' && x.offsetParent)?.click();
+				b = document.querySelector('${PREVIEW} .nacre-failed__retry');
+				if (!b) return null;
+				b.scrollIntoView({ block: 'center' });
+				const r = b.getBoundingClientRect();
+				return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };`,
 			args: [],
 		});
-		const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: `${PREVIEW} .nacre-failed__retry` });
-		await wd('POST', `/session/${id}/element/${el[Object.keys(el)[0]]}/click`, {});
+		if (!at) throw new Error("the card's button is not on the page");
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 	};
+	/** A mark on this document, so a wait can tell the reloaded page from the one the press left. */
+	const markDocument = () => wd('POST', `/session/${id}/execute/sync`, { script: 'window.__engineRetryOldDoc = true;', args: [] });
 	const r = { card: false, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
 		proxy.state.fail = true;
@@ -138,8 +165,13 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		const beforeReload = proxy.state.subFiles;
 		// The product's own Reload button, not WebDriver's refresh: the button marks the tab first, and the reloaded page
 		// reads that mark to offer a new tab. A plain refresh skipped it (run 44972018871: no New tab offered).
+		await markDocument();
 		await pressCardButton();
-		const reloaded = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab'`, 150000);
+		// Only the NEW document counts: the one the press left still shows Reload until the navigation replaces it.
+		const reloaded = await waitFor(`!window.__engineRetryOldDoc && (last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab')`, 150000);
+		if (reloaded !== 'none' && (await wd('POST', `/session/${id}/execute/sync`, { script: 'return !!window.__engineRetryOldDoc;', args: [] }))) {
+			step('Reload: the button reloaded the page', false, 'the page the press left is still loaded');
+		}
 		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'newtab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
 		if (r.afterReload === 'loaded') return finish();
