@@ -192,13 +192,33 @@ test('lint image-card-renamed: every old card class is an error that names its n
   }
 });
 
-test('lint image-card-renamed: `at-*` stays a tint placement off an image slide and beside a tint', () => {
+test('lint image-card-renamed: `at-*` stays a tint placement off an image slide', () => {
   assert.deepEqual(renamed(deck([], [SLIDE('content tint-corner at-tl')])), []);
-  assert.deepEqual(renamed(deck([], [SLIDE('image spotlight tint-corner at-tl')])), [], 'a tint on an image slide keeps its placement');
-  assert.deepEqual(renamed(deck([], [SLIDE('image spotlight tint-edge at-bottom band')])), []);
   assert.deepEqual(renamed(deck([], [SLIDE('content at-tr')])), [], 'not an image slide: lint cannot say it meant the card');
+  assert.deepEqual(renamed(deck([], [SLIDE('image split tint-corner at-tr')])), [], 'a split slide has no card to move');
   assert.equal(renamed(deck([], [SLIDE('content card-soft ink-light')])).length, 2, 'the card-only words are wrong on any slide');
   assert.equal(renamed(deck([], [SLIDE('image spotlight card-o55')])).length, 0, 'a level no class ever painted has no new name');
+});
+
+// Beside a tint, `at-*` still places the tint, but on main it moved the card too. The fix ADDS the card's own word,
+// so the tint keeps its corner and the card keeps the one it had.
+test('lint image-card-renamed: beside a tint, `at-*` is a warning whose fix adds the card placement', () => {
+  const [own] = renamed(deck([], [SLIDE('image spotlight tint-corner at-tl')]));
+  assert.equal(own.severity, 'warning');
+  assert.ok(own.replaceLine.includes('tint-corner at-tl image-card-top-left'), own.replaceLine);
+  // The deck's `class: tint-corner` claims a slide's `at-*` just as the slide's own tint does: no rename that strips it.
+  const [deckTint] = renamed(deck(['class: tint-corner'], [SLIDE('image spotlight at-tr')]));
+  assert.equal(deckTint.severity, 'warning');
+  assert.ok(deckTint.replaceLine.includes('at-tr image-card-top-right'), deckTint.replaceLine);
+  assert.deepEqual(renamed(deck([], [SLIDE('image spotlight tint-corner at-tr image-card-top-left')])), [], 'the card already has its own placement');
+  // Two placements: the stylesheet picked the card's corner, so lint names the choice and does not make it.
+  const two = renamed(deck([], [SLIDE('image spotlight tint-corner at-tl tint-edge at-bottom')]));
+  assert.equal(two.length, 2);
+  assert.ok(two.every((f) => f.severity === 'warning' && !f.autofixable && !f.replaceLine));
+  // `band` is no tint word: beside a tint it is still the card's, an error with a rename.
+  const band = renamed(deck([], [SLIDE('image statement tint-edge at-bottom band')]));
+  assert.deepEqual(band.map((f) => [f.classToken, f.severity]), [['band', 'error'], ['at-bottom', 'warning']]);
+  assert.ok(band[0].replaceLine.includes('tint-edge at-bottom image-card-bottom image-card-band'), band[0].replaceLine);
 });
 
 test('lint image-card-renamed: `compact` on a card slide is a warning whose fix keeps the card tight', () => {

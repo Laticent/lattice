@@ -84,10 +84,10 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight tint-corner at-bl image-card-top-right -->
+<!-- _class: image spotlight image-card-top-right -->
 
-## The card and the tint, apart.
+## The card has its own corner word.
 
-`at-bl` places the corner tint, which this full-bleed photo covers. It no longer moves the card, so the card stays where `image-card-top-right` puts it.
+`image-card-top-right` puts the card where slide 7's `at-tr` put the tint: one word, one job.
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
