@@ -47,7 +47,9 @@ cat > docs/dist/__chooser-control.html <<'HTML'
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chooser control</title>
 <input type="file" accept=".pdf" aria-label="Pick a PDF" style="display:block;width:80vw;height:30vh;margin:10vh auto">
 HTML
-(cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+# Bound to IPv4 127.0.0.1: the emulator's 10.0.2.2 is the runner's 127.0.0.1, and astro's default `localhost` bound IPv6
+# ::1 alone on the runner (the fourth dispatch: Chrome said ERR_CONNECTION_REFUSED while curl localhost passed over ::1).
+(cd docs && PREVIEW_PORT=$PORT PREVIEW_HOST=127.0.0.1 node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
 server=$!
 
 "$SDK/emulator/emulator" -avd probe -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect \
@@ -55,8 +57,9 @@ server=$!
 emu=$!
 trap 'kill "$server" "$emu" 2>/dev/null || true' EXIT
 
-for _ in $(seq 1 120); do curl -sf "http://localhost:$PORT/studio/" >/dev/null && break; sleep 1; done
-curl -sf "http://localhost:$PORT/studio/" >/dev/null
+for _ in $(seq 1 120); do curl -sf "http://127.0.0.1:$PORT/studio/" >/dev/null && break; sleep 1; done
+curl -sf "http://127.0.0.1:$PORT/studio/" >/dev/null
+curl -sf "http://127.0.0.1:$PORT/__chooser-control.html" >/dev/null
 
 # Bounded: an emulator that exits (a bad AVD, no KVM) must fail the suite at once, not hang it until the job is cancelled.
 booted=0
