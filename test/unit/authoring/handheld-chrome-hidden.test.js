@@ -24,7 +24,7 @@ test('FIRES: a portrait deck with a footer and no venue gets one info finding th
   assert.equal(f.length, 1);
   assert.equal(f[0].severity, 'info');
   assert.equal(f[0].slide, 0);
-  assert.match(f[0].line, /^footer: Source: internal ticket system$/);
+  assert.equal(f[0].line, 'footer:');
   assert.match(f[0].fix, /venue: laptop/);
   assert.match(f[0].fix, /with-footer/);
 });
@@ -34,7 +34,7 @@ test('FIRES: a handheld venue named outright, and header and footer together in 
   const both = found('size: square\nheader: Confidential\nfooter: Q3\nvenue: phone');
   assert.equal(both.length, 1);
   assert.match(both[0].message, /footer and header/);
-  assert.match(both[0].fix, /with-footer`.*with-header/);
+  assert.match(both[0].fix, /with-footer with-header/);
 });
 
 test('QUIET: a 16:9 deck, a room venue, the with- class, and a deck with neither key', () => {

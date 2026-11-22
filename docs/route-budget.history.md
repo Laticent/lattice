@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — the owner raised one ceiling by hand, for PR 2988: studio lintCoreGz to 168.9 KB
+
+Owner OK 2026-11-22, in PR 2988's session: "Raise ceiling 1 KB", chosen over dropping the `handheld-chrome-hidden` lint note the owner asked for the same day and over trimming other rules' messages in lint-core.
+
+Measured with a fresh docs build at 7c352fb plus the trimmed rule: the lint core beyond the engine is 172,121 B, 147 B over the 171,974 B ceiling the owner set by hand on 2026-11-21/22. The rule is the whole overage: an info finding for a square, portrait or story deck that writes `footer:` or `header:` and names no venue, whose phone pages hide that line (`lib/authoring/lint-core.js` `findHandheldChromeHidden`), cut to its minimum before measuring. The soft target is unchanged; the ceiling moves 1,024 B, leaving about 0.9 KB for the next rule.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 172998 |
+
 ### 2026-11-22 — raise the studio eagerJsGz ceiling by 2,000 B (636,636 → 638,636), by hand, at the owner's direction
 
 The owner chose a 2,000-byte ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too (571,778 → about 636,517) and put the ceiling 10% above it (about 700,170, +63.5 KB), so this entry is written by hand, as the 2026-11-22 lintCoreGz entry below is. Soft stays 571,778, so every byte above it is still declared in `docs/route-budget.d/`.
