@@ -1084,53 +1084,17 @@ export const PANEL_SEARCH_BOX =
  * for whichever row is being typed into. Same destination, reached without a DOM move.
  */
 export function PanelDock({ className, children }: { className?: string; children: React.ReactNode }) {
-	const ref = React.useRef<HTMLDivElement>(null);
-	useToastLift(ref);
 	return (
 		<div
-			ref={ref}
 			className={cn(
-				'shrink-0 border-t border-border bg-[var(--bg)] px-3.5 py-3',
+				// `panel-dock` lifts a phone toast above this field (styles/tailwind.css, "THE TOAST CLEARS THE DOCK").
+				'panel-dock shrink-0 border-t border-border bg-[var(--bg)] px-3.5 py-3',
 				className,
 			)}
 		>
 			{children}
 		</div>
 	);
-}
-
-/**
- * THE TOAST CLEARS THE DOCK. The toaster sits at the bottom center of the screen, and on a phone so does this dock, so
- * a toast covered the panel's one field for as long as it showed: measured at 390px, "Added 1 reference file." (y
- * 774-828) over the Library's search (y 801-823), right after the import the Library asks phone readers to make.
- * Each mounted dock publishes its height as `--panel-dock-lift` on the root, and the toaster's phone offset adds it
- * (components/ui/sonner.tsx `mobileOffset`), so the toast stands just above the field. Several docks (a sheet over a
- * sheet) lift by the tallest; the last one to unmount clears the variable.
- */
-const liftingDocks = new Map<HTMLElement, number>();
-function publishToastLift() {
-	const root = document.documentElement;
-	const lift = Math.max(0, ...liftingDocks.values());
-	if (lift > 0) root.style.setProperty('--panel-dock-lift', `${Math.ceil(lift)}px`);
-	else root.style.removeProperty('--panel-dock-lift');
-}
-function useToastLift(ref: React.RefObject<HTMLElement | null>) {
-	React.useLayoutEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const measure = () => {
-			liftingDocks.set(el, el.getBoundingClientRect().height);
-			publishToastLift();
-		};
-		measure();
-		const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-		ro?.observe(el);
-		return () => {
-			ro?.disconnect();
-			liftingDocks.delete(el);
-			publishToastLift();
-		};
-	}, [ref]);
 }
 
 /**

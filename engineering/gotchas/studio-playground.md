@@ -896,10 +896,12 @@ never turn "passed in headless" into "works on iOS."
   field y 801-823.
 - **Cause:** the toaster is bottom-center with Sonner's 16px phone offset, and a phone
   panel docks its one field at the bottom too (`PanelDock`, `docs/src/components/ui/panel.tsx`).
-- **Fix (shipped, #3356):** each mounted `PanelDock` publishes its height as
-  `--panel-dock-lift` on the root, and `sonner.tsx` sets
-  `mobileOffset={{ bottom: "calc(16px + var(--panel-dock-lift, 0px))" }}`. A new
-  bottom field outside `PanelDock` needs the same lift. Pinned by
+- **Fix (shipped, #3356):** `PanelDock` carries the `panel-dock` class, and one rule in
+  `docs/src/styles/tailwind.css` lifts a phone toast 4.5rem while a dock is open
+  (`:root:has(.panel-dock) [data-sonner-toaster][data-y-position="bottom"]`). It is CSS,
+  not a measuring hook, because the hook cost 170 gzip bytes of eager JS on every route and
+  pushed the Studio past its route-budget ceiling. 4.5rem clears a one-field dock (65px
+  measured); a taller dock, or a bottom field outside `PanelDock`, needs its own lift. Pinned by
   `docs/e2e/library-deck-import.spec.ts` ("the import toast stands above").
 
 ## A status toast shows text from the message BEFORE it, or the wrong shape

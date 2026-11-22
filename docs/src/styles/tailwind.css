@@ -398,3 +398,17 @@
 [data-slot="edit-bar"]:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) [data-more] {
 	display: inline-flex !important;
 }
+
+/* THE TOAST CLEARS THE DOCK. The toaster sits at the bottom center, and on a phone so does a panel's one field
+   (PanelDock in components/ui/panel.tsx), so a toast covered it for as long as it showed: measured at 390px,
+   "Added 1 reference file." (y 774-828) over the Library's search (y 801-823). While a dock is open, a phone toast
+   stands 4.5rem higher: the dock measured 65px with its one search field. Pure CSS on purpose: a measuring hook cost
+   170 gzip bytes of eager JS on every route and pushed the Studio past its route-budget ceiling. Sonner's own rule is
+   `[data-sonner-toaster][data-y-position='bottom'] { bottom: var(--mobile-offset-bottom) }` under the same media query,
+   and that offset is Sonner's 16px default (sonner.tsx sets none), so 5.5rem is 16px plus the 4.5rem lift; `:root:has()`
+   outranks it. Pinned by e2e/library-deck-import.spec.ts ("the import toast stands above"). */
+@media (max-width: 600px) {
+	:root:has(.panel-dock) [data-sonner-toaster][data-y-position="bottom"] {
+		bottom: 5.5rem;
+	}
+}
