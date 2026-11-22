@@ -168,7 +168,7 @@
     "image-card-top": {
       "label": "Top center",
       "summary": "The text card sits centered along the top.",
-      "sample": "<!-- _class: image statement image-card-top -->\n\n## image-card-top centers the title up high.\n\nThe scrim follows the words to the top edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- _class: image statement image-card-top -->\n\n## Top center lifts the title up high.\n\nThe scrim follows the words to the top edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-top-right": {
       "label": "Top right",
@@ -178,12 +178,12 @@
     "image-card-center": {
       "label": "Center",
       "summary": "The text card sits in the middle of the slide.",
-      "sample": "<!-- _class: image statement image-card-center -->\n\n## image-card-center puts the title dead center.\n\nA radial scrim darkens only the middle.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- _class: image statement image-card-center -->\n\n## The center placement puts the title dead center.\n\nA radial scrim darkens only the middle.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-bottom-left": {
       "label": "Bottom left",
       "summary": "The text card sits in the bottom-left corner — the default.",
-      "sample": "<!-- _class: image spotlight image-card-bottom-left -->\n\n## image-card-bottom-left is the default corner.\n\nName it to return a slide to bottom left inside a deck that moved it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- _class: image spotlight image-card-bottom-left -->\n\n## Bottom left is the default corner.\n\nName it to return a slide to bottom left inside a deck that moved it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-bottom": {
       "label": "Bottom center",
@@ -193,7 +193,7 @@
     "image-card-bottom-right": {
       "label": "Bottom right",
       "summary": "The text card sits in the bottom-right corner.",
-      "sample": "<!-- _class: image statement image-card-bottom-right -->\n\n## image-card-bottom-right anchors the title bottom right.\n\nThe scrim flips to darken the right side.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- _class: image statement image-card-bottom-right -->\n\n## Bottom right anchors the title in the corner.\n\nThe scrim flips to darken the right side.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-solid": {
       "label": "Solid backing",

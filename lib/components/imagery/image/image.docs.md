@@ -187,7 +187,7 @@ The text card sits centered along the top.
 ```markdown
 <!-- _class: image statement image-card-top -->
 
-## image-card-top centers the title up high.
+## Top center lifts the title up high.
 
 The scrim follows the words to the top edge.
 
@@ -215,7 +215,7 @@ The text card sits in the middle of the slide.
 ```markdown
 <!-- _class: image statement image-card-center -->
 
-## image-card-center puts the title dead center.
+## The center placement puts the title dead center.
 
 A radial scrim darkens only the middle.
 
@@ -229,7 +229,7 @@ The text card sits in the bottom-left corner — the default.
 ```markdown
 <!-- _class: image spotlight image-card-bottom-left -->
 
-## image-card-bottom-left is the default corner.
+## Bottom left is the default corner.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
@@ -257,7 +257,7 @@ The text card sits in the bottom-right corner.
 ```markdown
 <!-- _class: image statement image-card-bottom-right -->
 
-## image-card-bottom-right anchors the title bottom right.
+## Bottom right anchors the title in the corner.
 
 The scrim flips to darken the right side.
 
