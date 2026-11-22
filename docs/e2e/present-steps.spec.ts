@@ -136,6 +136,14 @@ test('the Stage paints the console\'s step, and drives the steps from its own ke
 	await launcher.click();
 	const stage = await popup;
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
+	// WAIT FOR THE CONSOLE'S MORPH, not just the film. Writing the deck into the Stage turns this console into the
+	// presenter view (PresentOverlay `presenterView`): the side column mounts and the Next arrow moves. The film is full
+	// the moment the write lands, before React commits that, so a click sent then could start on one layout and end on
+	// the next. Gecko then fires no `click`, and the console stayed on 1 / 4 (2 of 40 runs under four workers). The talk
+	// clock is in the side column, so it is the signal the layout has settled. `#latt-count` reading the real count is
+	// the signal the Stage's own script has run (stage-window.spec.ts `openStage`, followups.d/3101).
+	await expect(dialog.getByText(/Talk time/i)).toBeVisible();
+	await expect(stage.locator('#latt-count')).toHaveText(/^1 \/ 4$/);
 	// The Stage's painted slide: its step, and the lit row.
 	const stagePaint = () =>
 		stage.evaluate(() => {
