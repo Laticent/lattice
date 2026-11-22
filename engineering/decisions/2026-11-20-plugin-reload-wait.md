@@ -196,6 +196,14 @@ read as one), and `wait.test.ts` holds the plugins reader to `deckPluginList` ca
 | The recorder re-parsed the whole store on every mutation, in every preview, and thumbnails overwrote the live preview's afterimage | The live preview only; the store is kept in memory, written only when a drawing changed, least recently drawn evicted first |
 | The e2e wait checks could pass without a wait ever painting | The reload step holds the door chunk until a wait frame is seen (a signal, not a timer), then requires it |
 
+**The shipped code on iOS.** The iOS Simulator bench ran again on the shipped head (`0753277`, plus
+only a per-frame recorder and the bench plugin, on the throwaway branch `probe/d1-ios-shipped`; run
+[44972161874](https://github.com/Laticent/lattice/actions/runs/44972161874)), 30 reloads per device
+in real Mobile Safari: iPad and iPhone each **0 of 30 reloads with a wrong frame, block shift 0 px,
+coda shift 0 px**, the afterimage on screen for a mean of 1.0 (iPad) and 1.7 (iPhone) frames before
+the drawing. Some reloads drew before any frame showed the wait, and a few recorded no drawn frame
+before the recorder's 20 s cutoff on the shared runner; neither showed the source.
+
 **Test.** `docs/e2e/plugin-slots.spec.ts` step 5 now also fails on any frame after a reload that
 shows the plugin's fence as its source, on a reload where no frame shows the wait, on a wait that is
 not the afterimage, and on a wait whose box differs from the drawing's by more than 2 px.
