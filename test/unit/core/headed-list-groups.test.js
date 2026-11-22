@@ -61,7 +61,7 @@ test('NO-PLAN: with no measured plan and one-entry lists, nothing splits', () =>
 });
 
 test('SCOPE: every layout the measure reads as groups splits with cover-paginate, and no other layout takes the branch', () => {
-  const { HEADED_GROUP_LAYOUTS } = require('../../../lib/core/fit-measure');
+  const { HEADED_GROUP_LAYOUTS } = require('../../../lib/core/headed-groups');
   const all = loadAll();
   for (const name of HEADED_GROUP_LAYOUTS) assert.equal(all.find((m) => m.name === name)?.split?.strategy, 'cover-paginate', name);
   // The same shape on a layout outside the list keeps today's item cut, which a block plan does not place.
