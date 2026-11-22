@@ -10132,7 +10132,10 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
 //   2. NO ABUSE — our key must never be spent by the automated suite: no `test/**` file reads
 //      it or hits the live API, no CI workflow injects it, no `test`-family npm script invokes
 //      a spender. The one sanctioned spender is on-demand + opt-in (OPENROUTER_ALLOW_SPEND).
-const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/destructure reads too
+// The bare name catches bracket/destructure reads too. It also matches the spellings OpenRouter's own docs and SDK
+// examples use (OPENROUTER_KEY, OPENROUTER_API_KEY, OPEN_ROUTER_API_KEY), so the same key under another name is caught.
+// The word boundaries keep endpoint constants like OPENROUTER_KEY_URL out (release audit, 2026-11-06).
+const OPENROUTER_KEY_NAME = /\bOPEN_?ROUTER_(?:API_)?KEY\b/;
 // The gate's own test fixtures legitimately CONTAIN the key name as data (they build probe
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
