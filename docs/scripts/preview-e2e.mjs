@@ -52,9 +52,7 @@ const PORT = Number(process.env.PREVIEW_PORT || 4321);
 const server = await preview({
 	root: process.cwd(),
 	// A sandboxed preview frame loads Mermaid's modules and the engine's fonts with CORS; this server serves only the public `dist`.
-	// PREVIEW_HOST pins the bind address. Unset, astro binds `localhost`, which can resolve to IPv6 `::1` alone; the Android
-	// emulator reaches the runner as 10.0.2.2, which is the runner's IPv4 127.0.0.1, so its suite sets 127.0.0.1.
-	server: { port: PORT, host: process.env.PREVIEW_HOST || undefined, headers: { 'Access-Control-Allow-Origin': '*' } },
+	server: { port: PORT, headers: { 'Access-Control-Allow-Origin': '*' } },
 	vite: { preview: { strictPort: true } },
 });
 
