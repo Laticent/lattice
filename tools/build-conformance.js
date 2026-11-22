@@ -56,7 +56,7 @@ function render() {
     lines.push('');
     if (c.renderClauses?.length) {
       lines.push(
-        `**Rendered clauses** (\`node tools/conformance-render.js\`, run NIGHTLY over every component and all 33 palettes (\`integration-nightly.yml\`), and PER PR over the components the diff touches on three palettes (\`ci.yml\`), both report-only (§13 of the decision note); they need a browser, so \`npm test\` does not evaluate them and the matrix below does not list them):`,
+        `**Rendered clauses** (\`node tools/conformance-render.js\`, run NIGHTLY over every component and all 33 palettes (\`integration-nightly.yml\`), report-only, and on demand for the components a diff touches with \`--changed=origin/main\` (per PR in \`ci.yml\` until 2026-11-21) (§13 of the decision note); they need a browser, so \`npm test\` does not evaluate them and the matrix below does not list them):`,
         '',
         '| Clause | Varies over | Checks | Status | Why |',
         '|---|---|---|---|---|',

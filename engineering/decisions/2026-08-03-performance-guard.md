@@ -132,6 +132,18 @@ rolling-issue pattern with its own marker.
   so no base checkout is needed. Worst healthy gallery typing is 5.3ms RENDER p50; the ceiling is
   30ms; the pre-#1280 regression was 63.2ms — caught at half its magnitude with 5.7x headroom.
   Mutation-checked by lowering a ceiling below healthy.
+- **The Studio's PDF export is guarded by COUNTING WORK, not by a clock** (`docs/e2e/studio-export-shot-weight.spec.ts`,
+  added 2026-11-21, carried from #2925). The shared slide camera (PR 2904) made the Yearn deck's Studio PDF 2.15x slower
+  (112 s against 52 s) and crashed an iPhone. The cause was weight, not speed: each slide's SVG carried every
+  `@font-face` rule on the page, about 1.7 MB of base64. #2925 first guarded it with a score (export seconds over a
+  calibration's seconds), which HARD RULE #32 counts as a stopwatch assertion (shape F1), so the owner chose to count
+  instead (2026-11-21). The spec reads each shot's SVG as it passes through `Blob` and asserts its `@font-face` rule
+  count and bytes. On its 6-slide deck the healthy reading is at most 25 rules and 727 KB per shot; with
+  `onlyUsedFontFaces` switched off it is 49 rules and 1.61 MB, and the spec fails. Ceilings: 36 rules, 1.1 MB. Chromium,
+  WebKit and Firefox read the same counts. It runs in the Studio e2e suite (desktop, mobile, `webkit-tablet`, `gecko`), not
+  `perf-nightly.yml`, and prints the export's seconds without asserting them. It does not
+  see the other half of 2904's cost, the PNG encoder's three whole-picture copies: that is native memory a page cannot
+  read.
 - **The engine bench compares HEAD vs BASE built on the SAME RUNNER**, never against the committed
   `baseline.json`. That file is machine-relative and a cold runner reads up to 2x high — comparing
   against a stored number is what produced the phantom +124%. Two builds measured minutes apart on

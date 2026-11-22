@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { announceFixAll, announceFixAllByEvent, fixAllNotice } from './fix-all-notice';
+import { announceFixAll, announceFixAllByEvent, fixAllNotice, STALE_NOTICE } from './fix-all-notice';
 
 describe('announceFixAll', () => {
 	it('names each fix the driver refused, with its slide, rule and reason (followups.d/2966-p2)', () => {
@@ -38,6 +38,19 @@ describe('fixAllNotice', () => {
 			message: '1 fix was not applied.',
 			description: 'Slide 1, r: the issue was still there after the fix.',
 		});
+	});
+});
+
+describe('a stale run', () => {
+	it('says nothing was changed and to press again, instead of counting fixes it never wrote', () => {
+		const n = fixAllNotice({ applied: 4, skipped: [{ rule: 'r', slide: 2, reason: 'conflict' }], stale: true });
+		expect(n).toEqual({ message: STALE_NOTICE });
+		expect(n?.message).not.toMatch(/Fixed/);
+	});
+	it('stays on screen as long as a refusal, since it asks the author to press again', () => {
+		const notify = vi.fn();
+		announceFixAll({ applied: 0, skipped: [], stale: true }, notify);
+		expect(notify).toHaveBeenCalledWith(STALE_NOTICE, { duration: 12000 });
 	});
 });
 
