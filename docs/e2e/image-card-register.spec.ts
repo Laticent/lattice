@@ -88,11 +88,11 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await openSlideImageTab(page);
 		await slider(page, 'Slide card backing').fill('35');
 		await expect.poll(() => persistedSource(page), { message: 'the slider wrote no ink from the photo' }).toContain('image-card-35');
-		await expect.poll(() => persistedSource(page), { message: 'a thin card with no ink should pick one from the photo' }).toMatch(/ink-(light|dark)/);
+		await expect.poll(() => persistedSource(page), { message: 'a thin card with no ink should pick one from the photo' }).toMatch(/image-card-(light|dark)\b/);
 		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		// The pick is a plain class the author can change: Card ink Auto removes it again.
 		await choose(page, 'Slide card ink', 'Auto — Layout\'s own');
-		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+		await expect.poll(() => persistedSource(page)).not.toMatch(/image-card-(light|dark)\b/);
 	});
 
 	// The opposite photo: a pale one wants near-black words, so the pick is a reading of the photo and
@@ -117,7 +117,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page), { message: 'thin: an ink should be picked' }).toContain('image-card-light');
 		await slider(page, 'Slide card backing').fill('70');
 		await expect.poll(() => persistedSource(page), { message: 'thick again: the picked ink should go' }).toContain('image-card-70');
-		await expect.poll(() => persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+		await expect.poll(() => persistedSource(page)).not.toMatch(/image-card-(light|dark)\b/);
 	});
 
 	// "One edit" is the point of reading the photo ahead: the backing and its ink land together, so a single
@@ -130,7 +130,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).toContain('image-card-light');
 		await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect.poll(() => persistedSource(page), { message: 'one Undo should take the backing AND the ink back' }).not.toContain('image-card-35');
-		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+		expect(await persistedSource(page)).not.toMatch(/image-card-(light|dark)\b/);
 	});
 
 	test(`slide settings: an ink the deck line names is left alone${tag}`, async ({ page }) => {
@@ -140,7 +140,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).toContain('image-card-35');
 		// The photo may still be read, but `slideNeedsInk` gates every ink write and is false with a deck ink
 		// named, so the source the backing write produced is final. card-ink-pick.test.ts pins the gate.
-		expect(await persistedSource(page)).not.toMatch(/ink-(light|dark)/);
+		expect(await persistedSource(page)).not.toMatch(/image-card-(light|dark)\b/);
 	});
 
 	test(`slide settings: an ink the slide names is left alone${tag}`, async ({ page }) => {
