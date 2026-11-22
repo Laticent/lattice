@@ -3237,9 +3237,13 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    paints `currentColor` and carries no fill, so it works on the flood and in the print band. */
 .split-cover-lead {
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
-   * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
+   * identically to the old margin-top, and measures cleanly (HARD RULE #20).
+   * A BLOCK, so the arrow below runs inline after the last word. It was a flex row, which made
+   * the text one flex item and the arrow another: once the lead-in wrapped (three lines on a
+   * story box at a hall venue) the arrow floated at the far right edge, centered on the whole
+   * block and detached from the words it points past. `balance` evens the lines a wrap makes. */
   padding-top: var(--sp-lg); font-size: var(--fs-emphasis); letter-spacing: 0.02em; opacity: 0.9;
-  display: flex; align-items: center; gap: 0.4em;
+  text-wrap: balance;
 }
 /* The forward arrow, DRAWN (HARD RULE #29). It was a typed `&rarr;` written into the rendered
    DOM — an entity, which is why `checkTypedGlyphs` never saw it: that gate matches literal
@@ -3248,10 +3252,15 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    Sized in `em` so it tracks the lead-in's type, and painted `currentColor` so it works on the
    accent cover and in the print band without a second rule (HARD RULE #3). */
 .split-cover-lead::after {
-  content: ""; flex: none; width: 1em; height: 1em;
-  background-color: currentColor;
+  /* Inline after the last word. The 0.4em space before it is the box's own leading padding,
+   * which the paint and the mask both leave empty (`content-box`), so it needs no margin. */
+  content: ""; display: inline-block; box-sizing: content-box;
+  width: 1em; height: 1em; padding-inline-start: 0.4em; vertical-align: -0.12em;
+  background-color: currentColor; background-clip: content-box;
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
+  -webkit-mask-origin: content-box; mask-origin: content-box;
+  -webkit-mask-clip: content-box; mask-clip: content-box;
 }
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two

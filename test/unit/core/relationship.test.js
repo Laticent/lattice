@@ -262,6 +262,29 @@ describe('core: relationship — refusals and reading', () => {
   // The criteria are the labels beside the checks a member's items LEAD with, as the composer
   // writes them (lib/plugins/checks/shared/compose.js). They were read off a `.badge` span, which
   // the composed grid no longer draws, and the signal fell silently to the bare count.
+  test('a header\'s pills are tags, not part of the name (statute-stack)', () => {
+    // Was "State Cal. Civ. §1798.120 Enforced 2023": the jurisdiction run into both header pills.
+    const card = '<li><strong>State <span class="lat-pill" data-shape="pill">Cal. Civ. §1798.120</span> '
+      + '<span class="lat-pill" data-shape="pill">Enforced 2023</span></strong><ul><li>Opt-in for sale.</li></ul></li>';
+    assert.equal(labelOf(card), 'State');
+    // A strong that is nothing but a pill keeps it: there the pill is the only name.
+    assert.equal(labelOf('<li><strong><span class="lat-pill">Board review</span></strong></li>'), 'Board review');
+    // A pill that leaves a bare figure behind is part of the name: `**2024 {Launch}**`.
+    assert.equal(labelOf('<li><strong>2024 <span class="lat-pill">Launch</span></strong><ul><li>a</li></ul></li>'), '2024 Launch');
+  });
+
+  test('a role="heading" head names its member by its data-label (roadmap)', () => {
+    // Was "Phase 01 Foundation Q2 2026": eyebrow, title and date pill flattened into one run.
+    const phase = '<div class="horizon-col"><div class="horizon-head" role="heading" aria-level="3" data-label="Foundation">'
+      + '<span class="horizon-eyebrow">Phase 01</span><span class="horizon-title">Foundation</span>'
+      + '<span class="lat-pill">Q2 2026</span></div><ul class="horizon-rows"><li data-label="Signal taxonomy">x</li></ul></div>';
+    assert.equal(labelOf(phase), 'Foundation');
+    // A data-label further down (on a row, after the list opens) is not the member's name.
+    assert.equal(labelOf('<li>Leading text<ul><li role="heading" data-label="Row">r</li></ul></li>'), 'Leading text');
+    // A heading with no data-label falls through to the flat path, as before.
+    assert.equal(labelOf('<div><div role="heading">Plain head</div></div>'), 'Plain head');
+  });
+
   test('criteriaOf reads the labels beside the checks a verdict/pricing member leads with', () => {
     for (const container of ['pill', 'row']) {
       const m = `<li><strong>Build</strong><ul><li>${composeHtml('x', 'Residency', container)}</li>` +

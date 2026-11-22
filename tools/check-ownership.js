@@ -5928,7 +5928,14 @@ function writesMarkIdentity(src, key) {
   // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
   // silent. Stripping comments removes the false positive that mattered — a docblock that merely
   // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
-  const code = src.replace(COMMENTS, ' ');
+  // A READ IS NOT A WRITE. `readAttr(tag, 'data-label')` (@laticent/markup, the engine's one
+  // attribute reader) takes a member's declared name off markup another file already wrote:
+  // relationship.js names a split's next page that way. Booking it as an emitter would put a
+  // reader in a ledger whose third failure mode then holds it to keep "writing". So a
+  // `readAttr(…, 'data-<key>')` call leaves the code before the search; any other spelling of the
+  // attribute in the same file still counts.
+  const code = src.replace(COMMENTS, ' ')
+    .replace(new RegExp(`\\breadAttr\\s*\\([^()]*,\\s*(['"\`])data-${key}\\1\\s*\\)`, 'g'), ' ');
   // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
   // label-drops.js really does write, and an unbounded search would book it as a mark identity.
   if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
@@ -15986,6 +15993,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  writesMarkIdentity,
   readCssSource,
   checkSpecParts,
   specPartProblems,

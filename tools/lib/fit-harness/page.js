@@ -51,7 +51,17 @@ function install(cfg) {
    *  24+ characters set at fewer than 12 characters a line over three or more lines. Labels drawn
    *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
    *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
-  const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
+  //
+  // A split cover's lead-in (`.split-cover-lead`) is a title's measure too: it is the last line
+  // of the cover's MASTHEAD, a few words naming the next page, set at `--fs-emphasis`
+  // (base.modifiers.css). That is 1.45× body, under the 1.6× this proxy reads as display type, so
+  // "What each jurisdiction requires" on a story box at a hall venue (three lines of whole words,
+  // forced by its own word widths) read as crammed prose and held every statute-stack split red.
+  // Named by role, not by size: the cover's lede (`.split-feat-lede`) IS prose and is still read.
+  // Every builder that emits the class is a cover builder (split-envelope.js `coverSection`, and
+  // carousel.js's compare-split and compare-code covers, which do not carry `.lat-split-cover`),
+  // so the class alone names the role.
+  const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"], .split-cover-lead';
   function readable(s) {
     const body = parseFloat(getComputedStyle(s).fontSize) || 16;
     const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
