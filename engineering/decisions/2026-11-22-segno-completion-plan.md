@@ -1,8 +1,8 @@
 ---
 status: proposed
 summary: >
-  The Segno desk's plan to finish the deck pipeline for release: eleven slices in an order that stacks (P4, P5a,
-  P4b-1, P5a', P4b-2, P5b, P5c, then P7 in four steps), the proof each slice owes, and measurable exit criteria for
+  The Segno desk's plan to finish the deck pipeline for release: eight PRs in an order that stacks (P4, P5a, #3278,
+  P4b, P5a' with P5b, P5c, then P7 in two steps), the proof each slice owes, and measurable exit criteria for
   "complete for release". It also records the owner decisions from 2026-11-16 to 2026-11-22 that lived only in
   chat. Scope is through P7, with Djot (P6) out.
 ---
@@ -48,38 +48,38 @@ to find them.
 - **`TEXTURE_REF_RE` is kept on purpose,** because over-matching is the safe side. Four markup `url()` readers go to
   the plan's "Later: HTML islands" row.
 - **The owner's bar:** "no jank, no tech debt, no settling, no broken windows".
-- **Changed on 2026-11-22:** the old rule "the coordinator merges at VERY HIGH" is replaced by the desk's standing
-  order: the owner types `merge #N` for every merge. The push's agent budget (20, 16 used by 2026-11-22) goes back to
-  the owner as the lane's ceiling.
+- **Set on 2026-11-22:** P7 is in the release gate. The lane's budget is 15 to 20 agents in total, counted fresh from
+  2026-11-22 ("be efficient and effective"). The owner types `merge #N` for every merge; this replaces the old rule
+  that the coordinator merges at VERY HIGH. #3278 is finished, not closed: its two product fixes are not on `main`.
+  The Segno desk coordinates every session on Segno or related work, as partners who own their own work.
 
 ## The slices, in the order they stack
 
 Each slice is its own branch from `main` and its own PR (HARD RULE #17). Each lands alone and is worth having if the
 next never comes. Two tracks run side by side; P7 starts once P4 has merged.
 
-| # | Slice | Track | Waits on | Proof it owes |
-|---|---|---|---|---|
-| 1 | **P4: S2 and the token adapter** (#3256): resolve the 4 conflicts, then verify again | B | nothing | `identity:check --strict` at 0 against `main`; the 603-deck token and engine identity tests; the CommonMark metric (649/652, the same as markdown-it); speed against the restated targets; route bytes measured again. Maker-checker ran; the card is regraded |
-| 2 | **P5a: the CSS tokenizer** (#3294): resolve the 3 conflicts, merge `read-slide.mjs` with #3336's finish backdrop, check against #3344's `url()` fix | A | nothing | identity at 0; the PDF and player byte checks, with dark and light sign-off renders if any embedded runtime changed; route bytes measured again against the #3300 room |
-| 3 | **P4b-1: CodeMirror's tree from the tape** | B | 1 | Lezer tree against the model on the corpus; the Studio editor suites; e2e on the editor at three widths; keystroke cost counted, not timed (#32) |
-| 4 | **P5a': `@laticent/segno-languages`** (`/css`, `/html`, `/front-matter`); the Mermaid shim and calco move onto it | A | 2 | Byte identity for everything that re-exports; calco's PPTX byte check in dark and light; the release manifest names the package (RELEASE.md). Its first publish waits for the owner |
-| 5 | **P4b-2: Compose built from the model, serialized losslessly** | B | 3 | Round trip: source to Compose to source, byte-identical on the corpus; the Compose e2e suites; Compose's own markdown-it removed |
-| 6 | **P5b: Family B, the export and print readers** | A | 4 | identity, captions, the Marp bundle and PDF fonts all byte-identical. If any byte moves, stop and send dark and light renders |
-| 7 | **P5c: Family A, the #22 readers**, in the census order | A | 6 | Per reader: a seeded differential against the scan it replaces, the inliner and rehost browser oracles, and one checker. **The adversarial trio** (red team, inversion, checker) on the slice, because it decides what CSS may reach a document. No sanitizer behavior changes; if one must, report first. Then the owner decides about css-tree and `theme/parse.js` |
-| 8 | **P7a: the engine parses through the model.** `parseFromModel` (from #3256) becomes the engine's parse behind one switch, with markdown-it's renderer still drawing; the strings markdown-it derives (`normalizeLink`, `unescapeAll`, entity decoding) get Segno's own versions | C | 1 | identity at 0 on the corpus with the switch on; the engine bench (#19) with a scenario on the model path; **the adversarial trio**, since every deck parses through it |
-| 9 | **P7b: plugin block rules on the model.** `pluginFences` and each plugin's facade read the model, not markdown-it | C | 8 | Every plugin fixture and gallery byte-identical; the plugin-contract tests |
-| 10 | **P7c: Segno's own renderer** from the model to HTML | C | 9 | HTML byte-identical to markdown-it's renderer on the corpus, before any switch; hostile ladders for the renderer |
-| 11 | **P7d: markdown-it removed** from `package.json`, the engine and every shipped bundle | C | 10 | identity at 0; goldens unchanged; route and engine bytes measured (they should fall); **the adversarial trio** on the switch |
+| # | Slice | Track | Waits on | Agents | Proof it owes |
+|---|---|---|---|---|---|
+| 1 | **P4: S2 and the token adapter** (#3256): resolve the 4 conflicts, then verify again | B | nothing | 1 | `identity:check --strict` at 0 against `main`; the 603-deck token and engine identity tests; the CommonMark metric (649/652, the same as markdown-it); speed against the restated targets; route bytes measured again. Maker-checker ran; the card is regraded |
+| 2 | **P5a: the CSS tokenizer** (#3294): resolve the 3 conflicts, merge `read-slide.mjs` with #3336's finish backdrop, check against #3344's `url()` fix | A | nothing | 1-2 | identity at 0; the PDF and player byte checks, with dark and light sign-off renders if any embedded runtime changed; route bytes measured again against the #3300 room |
+| 3 | **#3278, finished**, with the met-reds fixes and the gallery srcdoc leak folded in | B | nothing | 2 | Each fix with a failing arm, repeat green and green under load (#34); route bytes measured again against the #3300 room |
+| 4 | **P4b: CodeMirror's tree from the tape, then Compose built from the model and serialized losslessly**, one PR with two commits | B | 1 | 2 | Lezer tree against the model on the corpus; the Studio editor suites; e2e on the editor at three widths; keystroke cost counted, not timed (#32); round trip: source to Compose to source, byte-identical on the corpus; the Compose e2e suites; Compose's own markdown-it removed |
+| 5 | **P5a' + P5b: `@laticent/segno-languages`** (`/css`, `/html`, `/front-matter`), with the Mermaid shim and calco moved onto it, **then Family B, the export and print readers**, one PR | A | 2 | 2 | Byte identity for everything that re-exports; calco's PPTX byte check in dark and light; the release manifest names the package (RELEASE.md), and its first publish waits for the owner; identity, captions, the Marp bundle and PDF fonts all byte-identical. If any byte moves, stop and send dark and light renders |
+| 6 | **P5c: Family A, the #22 readers**, in the census order | A | 5 | 4 (trio + grader) | Per reader: a seeded differential against the scan it replaces, the inliner and rehost browser oracles, and one checker. **The adversarial trio** (red team, inversion, checker) on the slice, because it decides what CSS may reach a document. No sanitizer behavior changes; if one must, report first. Then the owner decides about css-tree and `theme/parse.js` |
+| 7 | **P7a+b: the engine parses through the model, behind one switch that stays off.** `parseFromModel` (from #3256) becomes the engine's parse; the strings markdown-it derives (`normalizeLink`, `unescapeAll`, entity decoding) get Segno's own versions; `pluginFences` and each plugin's facade read the model; Segno's own renderer draws HTML from the model | C | 1 | 2 | identity at 0 on the corpus with the switch on; the engine bench (#19) with a scenario on the model path; every plugin fixture and gallery byte-identical; the plugin-contract tests; HTML byte-identical to markdown-it's renderer on the corpus, before any switch; hostile ladders for the renderer |
+| 8 | **P7c: flip the switch and remove markdown-it** from `package.json`, the engine and every shipped bundle | C | 4 and 7 | 4 (trio + grader) | identity at 0; goldens unchanged; route and engine bytes measured (they should fall); **the adversarial trio** on the switch |
 
-P4b and P5 run side by side because they touch different code (the editors and the CSS readers). P7 follows P4
-rather than P4b because the engine path does not read the editors. P4b-2 removes Compose's markdown-it, which P7d
-also needs.
+The eight PRs use 19 agents in total, inside the lane's budget of 15 to 20. That count includes each PR's card grader.
+
+P4b and P5 run side by side because they touch different code (the editors and the CSS readers). P7a+b follows
+P4 rather than P4b because the engine path does not read the editors. P4b removes Compose's markdown-it, which P7c
+also needs, so P7c waits on both.
 
 ## What "complete for release" means
 
 Segno is complete for release when every line below holds on `main`, each measured by the command named.
 
-1. **Slices 1 to 11 have merged.**
+1. **PRs 1 to 8 have merged.**
 2. **markdown-it is gone.** `npm ls markdown-it` is empty for the engine package. No file in `dist/` or the docs
    build contains markdown-it's code (checked by grepping for its exported names). The CodeMirror and Compose layers
    read the model.
@@ -101,8 +101,9 @@ Segno is complete for release when every line below holds on `main`, each measur
 
 - **Workers:** A and B continue on their own branches (#31). A new worker C starts P7 once #3256 has merged. At most
   three sessions run at once.
-- **Verification:** each slice gets maker-checker (CLAUDE.md MAKER-CHECKER) plus the card grader. Slices 7, 8 and 11
-  get the adversarial trio (HARD RULE #25).
+- **Verification:** the adversarial trio (HARD RULE #25) runs on slices 6 and 8 only, because those two change what
+  CSS may reach a document and how every deck parses. Every other slice gets one checker (CLAUDE.md MAKER-CHECKER)
+  and one card grader.
 - **Merges:** the owner types `merge #N`. The desk never merges.
 - **Lanes the desk coordinates with:** Squadra (the S3 inline islands its tree waits on read S2 from slice 1; see
   `2026-11-13-squadra-replaces-lint-core.md` §7); the meta desk (the `@meta` comment grammar touches the directive
