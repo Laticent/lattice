@@ -46,9 +46,8 @@ const label = (n) => `${n.text} ${n.desc}`.trim();
 /** Wait until a node whose text or name matches `re` is on screen; return it. A deadline, polled on the screen's own state. */
 async function until(re, ms, what) {
 	const t0 = Date.now();
-	let last = { xml: '', out: [] };
 	for (;;) {
-		last = nodes();
+		const last = nodes();
 		const hit = last.out.find((n) => re.test(n.text) || re.test(n.desc));
 		if (hit) return hit;
 		if (Date.now() - t0 > ms) {
