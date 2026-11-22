@@ -87,6 +87,22 @@ export function selfOrigins(argv = process.argv, env = process.env) {
 }
 
 /**
+ * The text of each inline script a browser would run on this page, exactly as the parser hands it
+ * over: no `src`, not a data block. policyFor hashes these; classify reads them for outside origins
+ * and string evaluation, the same as the module code a page loads.
+ * @param {string} html
+ * @returns {string[]}
+ */
+export function inlineScripts(html) {
+	const out = [];
+	for (const el of selectAll('script', fromHtml(html))) {
+		if (el.properties.src !== undefined || isDataBlock(el.properties.type)) continue;
+		out.push(el.children.map((c) => (c.type === 'text' ? c.value : '')).join(''));
+	}
+	return out;
+}
+
+/**
  * The policy for one page, from the final bytes of its inline scripts, plus the outside origins its
  * code calls (`allow`, from `classify`): each joins exactly the directives named for it.
  * @param {string} html
@@ -98,11 +114,7 @@ export function policyFor(html, allow = {}, own = selfOrigins()) {
 	// (an HTML comment that says `<style>` swallowed a real element; an end tag such as
 	// `</script foo>` is valid HTML that a regex misses), and a hash of the wrong bytes blocks
 	// the script it was meant to allow.
-	const scripts = new Set();
-	for (const el of selectAll('script', fromHtml(html))) {
-		if (el.properties.src !== undefined || isDataBlock(el.properties.type)) continue;
-		scripts.add(sha256(el.children.map((c) => (c.type === 'text' ? c.value : '')).join('')));
-	}
+	const scripts = new Set(inlineScripts(html).map(sha256));
 	const plus = (d) => (allow[d]?.length ? ` ${allow[d].join(' ')}` : '');
 	const self = `'self' ${own.join(' ')}`;
 	return [
@@ -240,7 +252,8 @@ const TOLERATED_EVALS = [
 	/typeof (\w+)\s*!==?\s*["'`]function["'`]\s*&&\s*\(\1\s*=\s*(?:new )?Function\(\s*(?:""|''|``)\s*\+\s*\1\s*\)\)/g,
 	/try\s*\{\s*return\s+Function\(\s*(?:""|''|``)\s*,\s*["'`]var x ["'`]\s*\+\s*[\w$]+\.attrValue\b/g,
 ];
-const DIRECT_EVAL = /new Function\(|[^.\w$]Function\(|[^.\w$]eval\(/;
+// A call at the very start of the code counts too: an inline script can open with one (`<script>eval(…)`).
+const DIRECT_EVAL = /new Function\(|(?:^|[^.\w$])Function\(|(?:^|[^.\w$])eval\(/;
 export const evaluatesCode = (code) => DIRECT_EVAL.test(TOLERATED_EVALS.reduce((c, re) => c.replace(re, ''), code));
 export const INDIRECT_EVAL_CHUNKS = Object.freeze([/^font-subset\./, /^hb-subset\./]);
 
@@ -348,7 +361,17 @@ function moduleGraph(dist) {
  * imports code from an OPEN origin. Throws on an origin in no list.
  */
 export function classify(html, reach) {
-	const { frame, evals, sandbox, origins } = reach([...html.matchAll(/\/_astro\/([^"'\s?&]+\.js)/g)].map(([, f]) => f));
+	const loaded = reach([...html.matchAll(/\/_astro\/([^"'\s?&]+\.js)/g)].map(([, f]) => f));
+	const { frame, sandbox } = loaded;
+	// The page's own inline scripts run under the same policy as the code it loads, so an outside
+	// origin or a string evaluation in one counts the same way (found by the security desk: an
+	// `is:inline` fetch to an unlisted origin shipped a strict policy that refused it, build green).
+	let evals = loaded.evals;
+	const origins = new Set(loaded.origins);
+	for (const code of inlineScripts(html)) {
+		if (evaluatesCode(code)) evals = true;
+		for (const [, o] of code.matchAll(ORIGIN_RE)) origins.add(o);
+	}
 	// A page that gets no policy anyway has no allowance to compute: its origins are a decision for
 	// the change that gives it one.
 	if (frame || evals) return { exempt: frame ? 'frame' : 'eval', allow: {} };

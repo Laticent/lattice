@@ -18,6 +18,11 @@
   Playground preview then shows the slides unscaled instead of nothing, and the Stage shows the
   deck and tells the presenter to reload, instead of a blank projector. If that deck's player
   arrives late after all (a slow network), the Stage says so, so the presenter does not reload.
+- **The build now reads each page's own inline scripts before it gives the page a policy.** It
+  already checked the code a page loads for outside addresses and for code built from strings, but
+  not the scripts written into the page itself, so such a script would have shipped under a policy
+  that refused it while the build stayed green. None does today: the count stays at 199. The same
+  check also used to miss an `eval(` or `Function(` at the very start of a script.
 - **Five pages still carry no policy, each named by every build:** the Studio and one prototype
   (the export player writes inline scripts into its capture frames), Calco (its font subsetter
   builds code from strings), Cadenza and Suono (their voice code imports a runtime whose own

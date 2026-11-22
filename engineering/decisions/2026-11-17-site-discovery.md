@@ -103,6 +103,11 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
       visitor's key and imports a model runtime from esm.run. Every outside origin found in code
       a policy page can load must be on `RUNTIME_ORIGINS` (the page is exempt) or
       `LINK_ONLY_ORIGINS` (a string never fetched), or the build fails, so a new one is a decision.
+    - **Both checks read the page's own inline scripts as well as the code it loads**
+      (`inlineScripts`, the same parse that `policyFor` hashes). Until 2026-11-22 they read only the
+      loaded modules, so an `is:inline` script calling an unlisted origin got a strict policy that
+      refused the call while the build stayed green (found by the security desk; it fails closed,
+      exposes nothing). No inline script names an origin or evaluates code today; the count stayed 199.
   - The question put to the owner said "about 100" policy pages; the measured number is 75.
   - The policy: scripts from our origin plus the hash of each inline script, plus
     `'wasm-unsafe-eval'` (WebAssembly compiles; JS eval stays blocked); images, fonts, media and

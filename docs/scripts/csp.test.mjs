@@ -132,6 +132,9 @@ describe('exemption', () => {
 		expect(evaluatesCode('x=new Function(a,b)')).toBe(true);
 		expect(evaluatesCode('y=eval(s)')).toBe(true);
 		expect(evaluatesCode('this.Function(x)')).toBe(false);
+		// At the very start of the code, as an inline script can open (found with the security desk's inline check).
+		expect(evaluatesCode('eval(s)')).toBe(true);
+		expect(evaluatesCode('Function(s)()')).toBe(true);
 	});
 	it('ignores the never-run and caught evaluations, each by its exact shape, and nothing near them', () => {
 		// function-bind's polyfill, JSZip's setImmediate string callback, CodeMirror's Pug syntax probe.
@@ -192,6 +195,18 @@ describe('exemption', () => {
 	});
 	it('fails on an origin in no list, so a new one is a decision', () => {
 		expect(() => exemption(withApp, reach({ 'app.js': { origins: ['tracker.example'] } }))).toThrow(/tracker\.example/);
+	});
+	it("reads the page's own inline scripts the same as the code it loads", () => {
+		// An `is:inline` script runs under the page's policy too: before the security desk's finding,
+		// both of these came out "strict, not exempt" and shipped a policy that refused them.
+		const inline = (js) => page(`<script>${js}</script><script type="module" src="/_astro/app.js"></script>`);
+		expect(() => classify(inline('fetch("https://tracker.example/x")'), reach({ 'app.js': {} }))).toThrow(/tracker\.example.*ORIGIN_DIRECTIVES/);
+		expect(exemption(inline('eval("1")'), reach({ 'app.js': {} }))).toBe('eval');
+		expect(classify(inline('fetch("https://openrouter.ai/api")'), reach({ 'app.js': {} })).allow).toEqual({ 'connect-src': ['https://openrouter.ai'] });
+		expect(exemption(inline('import("https://esm.run/x")'), reach({ 'app.js': {} }))).toBe('network');
+		// A data block and a script loaded from a file are not inline code.
+		expect(exemption(page('<script type="application/ld+json">{"u":"https://tracker.example"}</script>'), reach({}))).toBeNull();
+		expect(exemption(page('<script src="/x.js">eval("1")</script>'), reach({}))).toBeNull();
 	});
 });
 
