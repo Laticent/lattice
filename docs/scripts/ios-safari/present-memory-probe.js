@@ -207,15 +207,17 @@ async function latticePresentGeometry() {
 	// re-renders the slide once after it settles (single-slide-render.ts scaleFrame). The settling mark can arrive AFTER
 	// the turn's first frame, so its absence alone proved nothing (a self-test read a 100 px host mid-turn). Wait for the
 	// layout to hold: no settling mark, a host of at least 100 px, and the same host, slide and canvas on two reads a
-	// quarter-second apart, bounded at 20 s. A layout that never holds is returned as it is, and the verdict fails on it.
+	// quarter-second apart, bounded at 20 s. A layout that never holds is returned with `settled: false`, and the verdict fails on it.
 	// The signal is Present's own rotation hold: once it has come and gone, the layout is the turned one. In Playwright's
-	// WebKit the hold arrives 0.6-0.8 s after the resize, and until then the slide is a 71-100 px box that holds still,
+	// WebKit the hold arrived up to about 0.9 s after the resize, and until then the slide host was a box under 100 px
+	// (34 to 100 px in the traces) that held still,
 	// so "still for a moment" alone was not enough. Where the hold is never seen (a real device can finish it before
 	// the driver's own landscape check returns), the layout must instead stay unchanged for 2 s. Bounded at 20 s.
 	const key = (x) => `${x.hostW}|${x.slideW}|${x.box}|${x.innerW}x${x.innerH}`;
 	let prev = read();
 	let since = Date.now();
 	let g = prev;
+	let settled = false;
 	for (const t0 = Date.now(); Date.now() - t0 < 20000; ) {
 		await h.sleep(250);
 		const x = read();
@@ -223,14 +225,14 @@ async function latticePresentGeometry() {
 		prev = x;
 		const holding = !!h.dialog()?.hasAttribute('data-settling');
 		const ready = x.hostW >= 100 && x.box && !holding && Date.now() - since >= (window.__latticeTurnSawHold ? 250 : 2000);
+		g = x;
 		if (ready) {
-			g = x;
+			settled = true;
 			break;
 		}
-		g = x;
 	}
 	clearInterval(window.__latticeTurnWatch);
-	return { ...g, sawHold: !!window.__latticeTurnSawHold, turn: (window.__latticeTurnRows || []).join(' | ') };
+	return { ...g, settled, sawHold: !!window.__latticeTurnSawHold, turn: (window.__latticeTurnRows || []).join(' | ') };
 }
 
 async function latticePresentCaptions() {
@@ -256,11 +258,14 @@ async function latticePresentCaptions() {
 		const cs = getComputedStyle(b);
 		const inner = b.clientHeight - Number.parseFloat(cs.paddingTop) - Number.parseFloat(cs.paddingBottom);
 		const track = b.querySelector('.latt-cc-track');
+		const now = b.querySelector('.latt-cc-line[data-state="now"]');
+		const lineH = now ? Number.parseFloat(getComputedStyle(now).lineHeight) || 0 : 0;
 		Object.assign(out, {
+			lineH: Math.round(lineH * 10) / 10,
+			screenLines: lineH > 0 && track ? Math.round(track.offsetHeight / lineH) : 0,
 			inside: cr.top >= fr.top - 1 && cr.bottom <= fr.bottom + 1 && cr.left >= fr.left - 1 && cr.right <= fr.right + 1,
 			lit: walked(b),
 			caption: (b.querySelector('.latt-cc-line[data-state="now"]')?.textContent || '').trim().slice(0, 60),
-			lines: b.querySelectorAll('.latt-cc-line').length,
 			bandH: Math.round(inner),
 			trackH: track ? track.offsetHeight : 0,
 			// The band over the slide sizes to its sentence (stage-chrome.js `.latt-cc-over .latt-cc-band`, height:auto):
