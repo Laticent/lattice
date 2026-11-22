@@ -6,7 +6,8 @@ summary: The owner's naming rules and rename decisions for deck front-matter key
 # Plain-English key renames before GA (2026-11-21)
 
 **Decided.** The owner answered each naming question in the command-center session
-(`session_015KSkL7uv5r7CPSaDnS9F2c`) and said "go renames" at 23:49 UTC on 2026-11-21. This note
+(`session_015KSkL7uv5r7CPSaDnS9F2c`), through its question dialogs between 23:30 and 23:42 UTC, and
+said "go renames" at 23:49 UTC on 2026-11-21. This note
 records those answers so each rename PR can point here instead of at a chat transcript. Nothing in
 this note is built yet; each rename ships as its own PR (§4).
 
@@ -65,10 +66,13 @@ use and renames only the ones that mean "card lift off".
 every key renamed here. Terse keys get a tooltip. This PR goes **last**, because the labels follow
 the final keys.
 
-### Q1. `progress-rail:` → `progress-track:`; the `rail` style → `stripe`
+### Q1. `progress-rail:` → `progress-track:`; `tone: rail` → `stripe`
 
-The `tone:` (now `status-shape:`, Q3) value `rail` becomes `stripe` as well. `progress-rail:` is the
-most-used key in this sweep: 17 repo decks.
+Two renames that share one reason (a "rail" is the progress track, so the word leaves the status
+styles): the key `progress-rail:` becomes `progress-track:`, and the `tone:` (now `status-shape:`,
+Q3) value `rail` becomes `stripe`. `progress-rail:` has no `rail` value of its own (its styles are
+`dots` and `bar`, `lib/core/resolve-progress-rail.js`). It is the most-used key in this sweep:
+17 repo decks.
 
 ### Q2. `bar` splits by meaning
 
@@ -83,11 +87,16 @@ It sets how the pass / warn / fail colors draw, and it pairs with `stamp-shape:`
 ### Q4. `marks:` splits in two
 
 - `chart-finish: pigment | etch | tone` — the finish axis.
-- A separate intensity key, `muted | vivid`. **Its name is OPEN.** This session sends the command
-  center three candidates with a recommendation; the PR waits for the owner's pick.
+- A separate intensity key, `muted | vivid`. It sets how loud the pass / warn / fail status colors
+  are across the deck, under any chart finish (`lib/core/resolve-marks.js`), so it is a status key,
+  not a chart key. **Its name is OPEN.** The option the owner picked gave `status-intensity:` as an
+  example, not a decision. This session sends the command center three candidates with a
+  recommendation; the PR waits for the owner's pick.
 
 **This reverses an earlier rename.** `chart-finish:` is a retired key today: `deck-settings.js` lists
-it as `kind: 'retired'` with rule `marks-renamed`, which tells authors to write `marks:`. The Q4 PR
+it as `kind: 'retired'` with rule `marks-renamed`, which tells authors to write `marks:`. The rule
+is info-level and says the old key "still works", so decks that still write `chart-finish:` render
+today. The Q4 PR
 deletes that retired row and rule, makes `chart-finish:` live again with the narrower meaning (finish
 only), and adds the new rule that migrates `marks:`. A deck that wrote `chart-finish: <intensity>`
 before the earlier rename gets a lint error that names the intensity key.
