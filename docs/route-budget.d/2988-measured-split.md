@@ -1,4 +1,4 @@
-studio: +1340
+studio: +1400
 playground: +480
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
@@ -37,3 +37,6 @@ under, so the second raise was dropped in the merge rather than stacked.
 Merged onto `main` again at 84bb080 (10 commits), CI on 5590a1e measured +1307 B gz on studio (+406
 venue.ts, +368 progress-rail, +201 single-slide-render, +166 StudioIsland, +104 front-matter-fence), +458
 on playground and +333 on home. Declared +1340 for gzip variation.
+The checker's fix for the Studio preview (a chart slide whose key insight can move is measured too, split-gate.js
+`codaMayMove`) adds 61 B to single-slide-render: CI on 44ee7a8 measured +1368 B gz on studio (+406 venue.ts, +368
+progress-rail, +262 single-slide-render, +166 StudioIsland, +104 front-matter-fence) and +394 on home. Declared +1400.
