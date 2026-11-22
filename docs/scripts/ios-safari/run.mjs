@@ -310,7 +310,13 @@ async function deckTapLeavesLibrary(id) {
 				row = again;
 			}
 			await touch(row.x, row.y);
-			await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
+			// DIAGNOSTIC (throwaway branch only): when the Library does not open, say where the row touch landed.
+			try {
+				await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
+			} catch (err) {
+				const titles = await run(`return [...document.querySelectorAll('[role=dialog]')].map((d) => (d.dataset.state ?? '?') + ':' + (d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? '').trim()).join(', ')`);
+				throw new Error(`${err.message}; rep ${i}; row touched at ${row.x},${row.y}; dialogs: ${titles}; ${summarizeTapLog(await run('return window.__tapLog'))}`);
+			}
 			// The deck band above the sheet, where a thumb reaches for "get out".
 			await touch(Math.round(width / 2), 25);
 			let settled = false;
