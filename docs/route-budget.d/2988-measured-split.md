@@ -1,4 +1,4 @@
-studio: +1300
+studio: +1340
 playground: +480
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
@@ -34,3 +34,6 @@ single-slide-render, +104 front-matter-fence) and +447 on playground. Declared +
 gzip variation. That merge also took the Studio past its eagerJsGz ceiling by 1,147 B. The owner OK'd a
 2 KB raise for it; `main` then raised the same ceiling by 2,000 B for PR 3385 (#3420), which this PR fits
 under, so the second raise was dropped in the merge rather than stacked.
+Merged onto `main` again at 84bb080 (10 commits), CI on 5590a1e measured +1307 B gz on studio (+406
+venue.ts, +368 progress-rail, +201 single-slide-render, +166 StudioIsland, +104 front-matter-fence), +458
+on playground and +333 on home. Declared +1340 for gzip variation.
