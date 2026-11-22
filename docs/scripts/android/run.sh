@@ -79,4 +79,12 @@ done
 "$ADB" shell settings put global animator_duration_scale 0
 echo "Android $("$ADB" shell getprop ro.build.version.release | tr -d '\r'), Chrome $("$ADB" shell dumpsys package com.android.chrome | grep -m1 versionName | tr -d '\r ')"
 
-ADB="$ADB" BASE="http://10.0.2.2:$PORT" OUT="$OUT" node docs/scripts/android/probe.mjs
+status=0
+ADB="$ADB" BASE="http://10.0.2.2:$PORT" OUT="$OUT" node docs/scripts/android/probe.mjs || status=$?
+if [ "$status" != 0 ]; then
+  # What Android was doing when the probe failed: the activity stack and the device log (a Chrome crash is here).
+  "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1 || true
+  "$ADB" logcat -d > "$OUT/logcat.txt" 2>&1 || true
+  grep -E "FATAL|ANR in|has died|Force finishing" "$OUT/logcat.txt" | head -20 || true
+fi
+exit "$status"

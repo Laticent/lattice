@@ -27,6 +27,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const adb = (...args) => execFileSync(ADB, args, { encoding: 'utf8', timeout: 60_000 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let shot = 0;
+let reopen = 0;
 
 /** Every node on screen: its text, its content-desc (a web element's accessible name), its class and its centre. */
 function nodes() {
@@ -58,6 +59,13 @@ async function until(re, ms, what) {
 			console.log(`  (dismissed Chrome's "${prompt.text}" prompt)`);
 			tap(prompt);
 		}
+		// Chrome is not on screen at all (the third dispatch found the home screen in front, just after boot): send the same
+		// URL again, at most twice, and say so. It changes no verdict; a crash is in logcat, which run.sh keeps.
+		if (opened && reopen < 2 && last.out.length && !last.out.some((n) => n.pkg === 'com.android.chrome')) {
+			reopen++;
+			console.log(`  (Chrome is not on screen: ${[...new Set(last.out.map((n) => n.pkg))].join(', ')}; opening ${opened} again)`);
+			open(opened);
+		}
 		if (Date.now() - t0 > ms) {
 			fs.writeFileSync(path.join(OUT, `timeout-${++shot}.xml`), last.xml);
 			throw new Error(`timed out after ${ms} ms waiting for ${what}`);
@@ -66,7 +74,13 @@ async function until(re, ms, what) {
 	}
 }
 const tap = (n) => adb('shell', 'input', 'tap', String(n.x), String(n.y));
-const open = (url) => adb('shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-n', 'com.android.chrome/com.google.android.apps.chrome.Main', '-d', url);
+let opened = '';
+/** Open a URL in Chrome and wait (-W) until Android says the activity launched; print what it said. */
+function open(url) {
+	opened = url;
+	const said = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-n', 'com.android.chrome/com.google.android.apps.chrome.Main', '-d', url);
+	console.log(`  open ${url}: ${said.match(/Status: \S+/)?.[0] || said.trim().split('\n').pop()}`);
+}
 
 /** What the system chooser lists once it is on screen: the rows that are not Chrome's page. */
 async function chooser(name) {
