@@ -110,7 +110,6 @@ test('legacy-directive-comment fires on every deck, as a warning, with the whole
   assert.match(f.fix, /lattice migrate meta/);
   assert.equal(f.autofixable, true);
   assert.equal(f.rewrite, 'migrate-meta');
-  assert.deepEqual(f.layouts, ['kpi'], 'the deck\'s class words that are components, so the fix types them as `layout`');
   const fixed = core.applyFix(src, f);
   assert.equal(fixed, deck('<!-- @meta{layout=kpi} -->\n\n# One', '<!-- @meta{footer=Q3} -->\n\n# Two'));
   assert.deepEqual(linted(fixed), [], 'the fixed deck is clean');

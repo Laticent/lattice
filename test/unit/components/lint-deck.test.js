@@ -8,7 +8,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { lintText, buildVocab, isKnownModifier } = require('../../../lib/authoring/lint');
-const { LEGACY_META_RULES } = require('../../../lib/authoring/lint-core');
+const { LEGACY_META_RULES } = require('../../../lib/authoring/legacy-meta-rules');
 // The old comment spellings warn on every legacy deck (record note §15). Until the sweep (slice D) rewrites these
 // fixtures and the corpus as `@meta` records, a "clean" assertion sets those two rules aside; the sweep deletes this.
 const notOldSpelling = (f) => !LEGACY_META_RULES.includes(f.rule);
