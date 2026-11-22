@@ -1,13 +1,12 @@
 ---
-status: proposed
-summary: Design for local-first storage with Google Drive sync, the storage desk's pass 1. The Studio's data moves into one local "vault" shaped like a folder (OPFS plus an IndexedDB index in the browser, the real file system in the desktop app), and a sync engine mirrors that folder to a Lattice/ folder in the user's Drive. Decks stay Markdown so Drive shows readable files; photos and other assets are immutable files; chats sync as Yjs documents once #3147 lands. Auth amends the 2026-06-25 Route B in one place: Google requires the client secret at its token endpoint for a web client, and a browser-only token cannot renew without a click, so a stateless token broker (no database) holds the secret and the refresh token. Scope is drive.file. The slices stack local-first work ahead of anything that needs Google, so the owner's infrastructure answers block nothing early.
+status: in-progress
+summary: Local-first storage with Google Drive sync, decided by the owner on 2026-11-22. The Studio's data moves into one local "vault" shaped like a folder (OPFS plus an IndexedDB index in the browser, the real file system in the desktop app), and a sync engine mirrors that folder to a Lattice/ folder in the user's Drive. v1 signs in with Google Identity Services' browser token model, so there is no server and no client secret, and Route B stands. Scope is drive.file. A deck is a readable Markdown file plus per-device Yjs update files, so two devices never conflict. There is no migration machinery: the Studio moves local data into the vault once, behind one automatic backup, and connecting Drive runs a first sync. The Library is extended, and a design-competition run picks its layout.
 ---
 
 # Local-first storage, synced to Google Drive
 
-**Date:** 2026-11-22 · **Status:** proposed; waiting on the owner's answers (§11) · **Written by:** the storage desk
-(`session_01DPMMjJHAhGgZeLFafZ5HW2`) · **Amends:** `2026-06-25-social-auth-byo-storage.md` (§0, §5, §6), if the owner
-picks the broker
+**Date:** 2026-11-22 · **Status:** decided 2026-11-22 by the owner (§11) · **Written by:** the storage desk
+(`session_01DPMMjJHAhGgZeLFafZ5HW2`)
 
 ## The owner's words (2026-11-22)
 
@@ -32,16 +31,15 @@ picks the broker
 2. **Sync is a folder mirror.** Because the vault is a folder on every host, sync is one engine: mirror the local tree
    to `Lattice/` in the user's Drive, and back. Nothing in the editor waits on the network. Sync pauses when offline
    and catches up later.
-3. **Decks stay Markdown.** In Drive a deck is a `.md` file that anyone can open, and the CLI renders it as-is. A
-   conflict is settled by a three-way text merge against the last synced copy. Only overlapping edits make a
-   "conflicted copy". Assets never conflict, because a file never changes after it is written. Chats sync as Yjs
-   documents (#3147), which merge by design.
-4. **Auth: a stateless token broker.** Google's token endpoint wants the client secret for a "Web application"
-   client, PKCE or not. A browser-only token (Google Identity Services) expires after about an hour, and Google says a
-   new one needs a user gesture. Neither gives "seamless" background sync. A broker of about 100 lines (a Cloudflare
-   Worker) holds the secret, keeps the refresh token encrypted in an httpOnly cookie, and hands the page short-lived
-   access tokens. It keeps no database and holds no user data. This amends Route B, which is why it is the first
-   question in §11.
+3. **Decks are Markdown plus Yjs.** In Drive a deck is a `.md` file that anyone can open, and the CLI renders it
+   as-is. Beside it, each device writes its own small Yjs update files, and every device merges all of them, so two
+   devices never conflict (§6.4). Assets never conflict, because a file never changes after it is written. Chats sync
+   as Yjs documents (#3147), which merge by design.
+4. **Auth: Google Identity Services in the browser.** v1 uses Google Identity Services' token model. There is no
+   server, and the client secret is not used anywhere, because this flow never needs it. Route B stands unchanged. The
+   access token lasts about an hour and lives in memory only. After it expires, the first user click renews it (a
+   Google popup flashes and closes), and sync catches up. Local saves never wait on this. A stateless broker on a
+   Cloudflare Worker stays a documented, optional upgrade for later, behind the same `getAccessToken()` seam (§4.2).
 5. **Scope: `drive.file`.** Lattice sees only the files it created or the user opened with it. Google classes this
    scope as non-sensitive, so it needs brand verification only, not the restricted-scope security audit.
 6. **The Library becomes the front door.** It gains Decks, Fonts and Audio sections, a sync badge on every item, an
@@ -182,13 +180,18 @@ loopback redirect, PKCE, and the refresh token in the OS keychain (`2354-p2`). G
 "cannot keep secrets confidential", so the desktop client's secret ships in the app by design. That needs a second
 OAuth client, of the Desktop type, which the owner creates when the desktop slice starts.
 
-### 4.2 Recommendation: (c), the broker, with (a) as the fallback
+### 4.2 Decision: (a) for v1; (c) optional later
 
-The owner asked for "seamless", and local-first sync runs in the background: after a reload, while a tab sits open
-overnight, on a phone. (a) cannot renew without a click. (c) can, and it keeps every property Route B protected: no
-accounts, no database, no user data on any server, and Lattice pays nothing.
+**v1 ships (a).** The Studio asks Google Identity Services for an access token on the user's Connect click and keeps
+it in memory. When the token expires, sync pauses and the Library shows "Resume sync". The next click renews the token
+(a Google popup flashes and closes) and sync catches up. Local saves never wait on a token, so nothing local is lost.
+This needs no server and no client secret, and Route B stands unchanged.
 
-**What the broker does** (`auth.lattice.style`, a Cloudflare Worker, about 100 lines):
+**(c) is the upgrade path.** If a click after every hour proves too much friction, (c) renews in the background:
+after a reload, while a tab sits open overnight, on a phone. It keeps every property Route B protected: no accounts,
+no database, no user data on any server. It ships behind the same `getAccessToken()` seam, so no caller changes.
+
+**What the broker would do** (`auth.lattice.style`, a Cloudflare Worker, about 100 lines):
 
 1. `/auth/callback` on `lattice.style` is a static page. Google redirects there with `?code=…&state=…`. The page checks
    `state` against the one it stored, then POSTs the code and its PKCE verifier to `auth.lattice.style/exchange`. PKCE
@@ -203,27 +206,23 @@ accounts, no database, no user data on any server, and Lattice pays nothing.
 `auth.lattice.style` and `lattice.style` are the same site, so `SameSite=Strict` cookies still travel. Safari's
 third-party cookie blocking does not apply. The page keeps the access token **in memory only**, never in storage.
 
-**If the owner declines the broker**, (a) ships instead behind the same `getAccessToken()` seam. Sync then pauses
-after an hour, and the Library shows "Resume sync". The next click renews the token, and nothing local is lost.
+**DNS, for (c) only:** `auth.lattice.style` must point at the Worker. A Worker custom domain needs the zone on
+Cloudflare; if `lattice.style`'s DNS lives elsewhere, the fallback is the Worker's `*.workers.dev` name. That name is
+cross-site, so the cookie becomes a third-party cookie that Safari blocks, and (c) then gives no gain over (a).
 
 ### 4.3 The secret, and what the owner sets up
 
-- **The client secret lives only in the Worker's secret store** (`GOOGLE_CLIENT_SECRET`), set by the owner in the
-  Cloudflare dashboard or with `wrangler secret put`. It does not go in the repo, GitHub secrets, chat or any doc. The
-  owner also sets `BROKER_COOKIE_KEY`, 32 random bytes.
-- **Deploying the Worker** is either the owner running `wrangler deploy` by hand, or a new CI job. A CI job is the
-  owner's call (CLAUDE.md, second filter).
-- **The Google console, set by the owner:**
+- **The client secret is not needed for v1.** (a) uses only the client ID. Keep the secret out of the repo, chat and
+  every doc. If the broker ever ships, the secret goes into GitHub Secrets and a deploy job pushes it into the Worker's
+  secret store, never into the site build. Adding that deploy job is the owner's call (CLAUDE.md, second filter).
+- **The Google console, set by the owner for v1:**
+  - Add `https://lattice.style` and `http://localhost:4321` as **Authorized JavaScript origins**. The popup flow
+    checks these. Cloudflare preview URLs change per PR, and Google does not accept wildcards, so **previews cannot
+    sign in**.
   - Confirm the redirect URI reads `https://lattice.style/auth/callback`, with the colon. The owner's note typed
-    `https//`.
-  - Add `http://localhost:4321/auth/callback` for development. Cloudflare preview URLs change per PR, and Google does
-    not accept wildcards, so **previews cannot sign in**.
-  - Verify `lattice.style` in Search Console. Give the consent screen a home page and a privacy policy on
-    `lattice.style` (slice 5 writes the policy page), then **publish the app to "In production"**. A refresh token
-    issued while the app is in "Testing" expires after 7 days.
-- **DNS:** `auth.lattice.style` must point at the Worker. A Worker custom domain needs the zone on Cloudflare; if
-  `lattice.style`'s DNS lives elsewhere, the fallback is the Worker's `*.workers.dev` name. That name is cross-site, so
-  the cookie becomes a third-party cookie that Safari blocks, and the design then falls back to (a).
+    `https//`. The popup flow does not use the redirect; it stays for the later broker or an iOS redirect fallback.
+- **Before public launch:** verify `lattice.style` in Search Console, give the consent screen a home page and a
+  privacy policy on `lattice.style` (slice 5 writes the policy page), then **publish the app to "In production"**.
 
 ## 5. Scope (axis B)
 
@@ -254,7 +253,7 @@ Lattice/
   .lattice/                             Lattice's own records; safe to ignore
     index.json                          stable ids ↔ paths, titles, kinds, content hashes
     chats/<deck-id>.yjs                 after #3147
-    versions/<deck-id>/<ts>.md          named versions only
+    decks/<deck-id>/                    base.yjs, updates/, and named versions as Yjs snapshots (§6.4)
     settings.json                       settings that roam (not per-device ones)
 ```
 
@@ -313,7 +312,7 @@ exponential backoff and jitter, honors `Retry-After` on 429 and `403 rateLimitEx
 | Kind | Rule |
 |---|---|
 | Assets (images, fonts, audio, PDFs) | Never conflict. A file never changes after it is written; an edit writes a new file and repoints the id. Same hash means the same file, so the upload is skipped (deduplication for free) |
-| Decks | **Three-way merge** against the base, the copy both sides last synced, which the journal keeps. Edits in different regions merge cleanly. Overlapping edits keep this device's version as the deck, and save the other as `Title (conflict, <device>, <date>).md` beside it. The Library flags both. Nothing is ever overwritten, the backup's rule |
+| Decks | **Yjs.** Each device writes only its own update files, and every device merges all of them, so a sync conflict cannot happen (§6.4). The **three-way merge** applies only to an outside edit of `deck.md`: Lattice diffs it against the last copy it wrote and applies the difference as a Yjs edit. Nothing is ever overwritten, the backup's rule |
 | Chats | Yjs: apply the remote update to the local doc, write the result. Merges by design |
 | Settings | Last writer wins per key, with a timestamp per key |
 | Deletes | A tombstone in `index.json`. Drive moves the file to the trash, so it stays recoverable for 30 days |
@@ -323,24 +322,45 @@ the file's `headRevisionId`. If it is not the base, the engine merges first. A r
 loses nothing, because Drive keeps the overwritten revision: the next poll sees a head the engine did not write, reads
 the revision before it, and merges.
 
-**Two devices offline.** Each works locally. Each journals its writes against the same base. The first to reconnect
-uploads. The second sees a newer head, merges three ways, and uploads the merge. The worst case is one conflicted copy
-per deck that was edited in the same place on both devices.
+**Two devices offline.** Each works locally and writes its own Yjs update files. Each uploads its files when it
+reconnects and merges the other's. Because no device writes another's files, no upload can overwrite another device's
+work.
 
 ### 6.4 Deck format in Drive (axis D)
 
-| | Markdown `.md` (recommended) | Yjs `.yjs` | `.lattice` zip | Markdown plus a Yjs sidecar |
+| | Markdown `.md` | Yjs `.yjs` | `.lattice` zip | **Markdown plus Yjs update files (chosen)** |
 |---|---|---|---|---|
 | Readable in Drive | Yes | No | No (a zip) | Yes |
 | The CLI renders it as-is | Yes | No | Yes | Yes |
-| Merge | Three-way text merge; overlap makes a conflicted copy | Automatic, never conflicts | Whole-file: always a conflicted copy | Automatic |
-| Size per edit | The deck (tens of KB) | Grows with history; needs compaction | The whole zip, assets included | Both |
+| Merge | Three-way text merge; overlap makes a conflicted copy | Automatic, never conflicts | Whole-file: always a conflicted copy | Automatic: each device writes only its own files |
+| Size per edit | The deck (tens of KB) | Grows with history; needs compaction | The whole zip, assets included | A few hundred bytes, plus a periodic compaction |
 | Exports | Unchanged | Needs a conversion step | Unchanged | Unchanged |
 | Two sources of truth | No | No | No | **Yes**: an edit made outside Lattice must be diffed back into the Yjs doc |
 
-Markdown wins on what the owner named: readable, efficient, and kept by every export path. A sidecar is the upgrade
-path if live co-editing of decks is ever wanted, and it can be added later without moving any file. `.lattice` stays
-the format for **sharing one deck as one file**.
+**The owner chose both.** The layout:
+
+```
+Lattice/
+  Decks/
+    Quarterly review.md                       the latest readable copy; the CLI renders it
+  .lattice/decks/<deck-id>/
+    base.yjs                                  the compacted doc
+    updates/<device-id>-<seq>.yjsu            one device's edits, one small file each
+```
+
+- **No sync conflict can happen.** Each device writes only its own update files, and every device merges all of
+  them. Drive cannot append to a file, so the engine adds small files instead. An edit costs a few hundred bytes.
+- **Versions are Yjs snapshots.** Named versions become snapshots of the doc instead of full copies. The doc keeps
+  deleted text (`gc: false`), so any kept version can be restored.
+- **Compaction.** Periodically, a device folds the update files into `base.yjs` and trims history older than the oldest
+  kept version.
+- **`deck.md` follows the doc.** Any device rewrites `deck.md` from the merged doc.
+- **Outside edits.** When `deck.md` has a Drive revision Lattice did not write, the engine diffs it against the last
+  copy Lattice wrote and applies the difference as a Yjs edit.
+- **Overlap with Filo.** Filo's undo history and Filo slice 6 (versions into marks) cover some of the same ground.
+  The sync-engine slice reconciles them.
+
+`.lattice` stays the format for **sharing one deck as one file**.
 
 ## 7. The Library as the front door (axis F)
 
@@ -364,25 +384,22 @@ becomes a row of pills, and details open in a sheet. At 390 px: pills scroll sid
 details open in a bottom sheet, and the account chip shrinks to its avatar and a status dot. This extends the shadcn
 primitives and the existing `Library.tsx` (HARD RULE #15). It is not a new surface.
 
-**On `design-competition`.** The space here is narrow: the sections, the badge and the sheet follow from the model,
-and the Library already exists. Seventeen agents would compete over layout details. Recommendation: do not run it.
-Use the normal visual review at three widths, and run the polish desk on the result.
+**The layout comes from `design-competition`.** The owner chose to extend `Library.tsx` and to run
+`design-competition` on it. The section model above stays. A run of 5 tracks (about 17 agents, approved by the owner)
+proposes the layout: the sections, the badges, the account chip, the conflict sheet and the three widths. Its
+candidates go to the owner, and the adversarial trio hardens only the winner (HARD RULE #25).
 
 ## 8. Migration (axis G)
 
-1. **Copy, verify, then switch.** On the first boot of the vault build, the Studio copies every deck, version pointer
-   and asset from today's stores into the vault. It checks each copy by its hash, then flips one flag. **The old stores
-   are left untouched**, and they stay readable as a fallback.
-2. **A safety backup first.** Before the copy, the Studio writes a workspace backup zip into OPFS: the same zip
-   Download backup makes. If anything goes wrong, Restore puts it back.
-3. **Cleanup is a separate, later slice**, after a stated soak period. It deletes the old stores only once the vault
-   has served real use.
-4. **Connecting Drive the first time** uploads the vault. If `Lattice/` already exists (another device connected
-   first), the first sync merges with the backup's rules: a new deck is added, an identical one is skipped, a diverged
-   one is kept beside as "(from <device>)".
+The owner's ruling: "This is a syncing problem. As soon as a user connects, what they have gets synced. We are not GA
+yet." So there is no copy-verify-keep machinery.
 
-The pre-paint deck list (localStorage) is rebuilt from the vault after the switch, so the first paint does not slow
-down.
+1. **One move, one backup.** On upgrade, the Studio writes one automatic workspace backup zip (the same zip Download
+   backup makes), then moves local data into the vault once. The backup is the only safety net; Restore puts it back.
+2. **Connecting Drive runs an ordinary first sync.** If `Lattice/` already exists because another device connected
+   first, the sync merges as it would on any other day.
+
+The pre-paint deck list (localStorage) is rebuilt from the vault after the move, so the first paint does not slow down.
 
 ## 9. Trust: copy and threat model (axis H)
 
@@ -391,24 +408,26 @@ down.
 The promise changes from "nothing leaves this device" to **"your files live on your devices and, if you connect it,
 in your own Google Drive. Lattice has no server that stores them."** Every string in §2.5 is rewritten in the slice
 that ships Drive, not after it (HARD RULE #18: shipping sync while the copy says "sends nothing anywhere" would be a
-false claim we created). The token broker is named honestly: "a small Lattice service renews your Google sign-in; it
-never sees your files." Slice 5 adds a privacy-policy page, which Google's consent screen requires anyway.
+false claim we created). If the optional broker (§4.2) ever ships, the copy names it honestly: "a small Lattice service
+renews your Google sign-in; it never sees your files." Slice 5 adds a privacy-policy page, which Google's consent screen requires anyway.
 
 ### 9.2 Threat model (detail stays with the owner and the security desk)
 
-- **The token never touches storage.** The access token lives in memory; the refresh token lives in an httpOnly cookie
-  on the broker's host, which no script can read.
-- **Script injection (XSS) still matters.** A script running on `lattice.style` could ask the broker for an access
-  token while the cookie exists, and use it for up to an hour on Lattice's own files. The defenses are the existing
-  sanitizers (HARD RULE #22); the preview frame's CSP, which already closes `connect-src`; the broker's exact-origin
-  check; and a site CSP added as a `<meta>` tag with `connect-src` limited to the Google APIs and the broker. The
-  preview frame is same-origin (#3421), so the frame's CSP is the line that matters, and slice 5's trio tests it.
-- **Revocation.** Revoking access from the Google account page makes the next `/token` call fail with `invalid_grant`.
-  The Library shows "Reconnect", and local work continues.
-- **Sign-out** calls `/signout` (Google revokes the token, the cookie is cleared), drops the in-memory token and the
-  Drive page token, and leaves local files in place. Local data has its own action, "Remove this device's data".
+- **The token never touches storage.** The access token lives in page memory for up to an hour and is never
+  written to storage.
+- **Script injection (XSS) still matters.** A script running on `lattice.style` could read that token and use it for
+  up to an hour. The token reaches only the files Lattice created (`drive.file`). The defenses are the existing
+  sanitizers (HARD RULE #22); the preview frame's CSP, which already closes `connect-src`; and a site CSP added as a
+  `<meta>` tag with `connect-src` limited to the Google APIs. The preview frame is same-origin (#3421), so the frame's
+  CSP is the line that matters, and slice 5's trio tests it.
+- **Revocation.** Revoking access from the Google account page makes the next Drive call fail. The Library shows
+  "Reconnect", and local work continues.
+- **Sign-out** calls `google.accounts.oauth2.revoke`, drops the in-memory token and the Drive page token, and leaves
+  local files in place. Local data has its own action, "Remove this device's data".
+- **Only if (c) ships:** the refresh token would live in an httpOnly cookie on the broker's host, which no script can
+  read, and the broker's exact-origin check would guard `/token`.
 - **Backups never carry tokens**, as they already never carry the OpenRouter key.
-- Slice 5 (auth and the broker) gets the adversarial trio (HARD RULE #25). Any finding goes to the owner, not to a
+- Slice 5 (auth) gets the adversarial trio (HARD RULE #25). Any finding goes to the owner, not to a
   public write-up.
 
 ## 10. Slices, in an order that stacks
@@ -422,24 +441,27 @@ Google, so the owner's infrastructure answers block nothing until slice 5.
 | 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; copy-verify-switch; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
 | 3 | **Decks into the vault.** Deck text and index leave localStorage; the pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
 | 4 | **The Library, local.** Decks, Fonts and Audio sections; backup moves in; the sync-state slot reads "On this device"; takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
-| 5 | **Auth.** The broker Worker, the `/auth/callback` page, the `getAccessToken()` seam, Connect and Disconnect, the privacy page and the copy rewrite (§9.1) | The adversarial trio; e2e against a stubbed Google; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23); proof that a preview-frame script cannot reach `/token` |
-| 6 | **Sync v1.** Push and pull for Decks and Library; changes polling; journal; retries; three-way merge; conflicted copies | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
+| 4b | **Library layout from the design-competition winner** (§7) | The owner's pick; the adversarial trio on the winner; `tools/screenshot.js` at 1440, 820 and 390 |
+| 5 | **Auth.** GIS token client, the `getAccessToken()` seam, Connect and Disconnect in the Library, the privacy page and the copy rewrite (§9.1) | The adversarial trio; e2e against a stubbed GIS; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23) |
+| 6 | **Sync v1.** Push and pull for Decks and Library; changes polling; journal; retries; per-device Yjs update files and compaction; three-way merge of outside `deck.md` edits | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
 | 7 | **Conflict sheet and per-item badges** | e2e of every state; screenshots at three widths |
 | 8 | **Chats, named versions and roaming settings sync**, after #3147 | Two-context e2e; Yjs merge test |
 | 9 | **Desktop:** the file-system vault plus loopback PKCE and the keychain. Waits on #2354 landing (5 weeks quiet, no merge base) | The desktop app under Xvfb: a deck edited on disk shows in the app, and the reverse |
-| 10 | **Cleanup** of the old stores, after the soak | A boot with the old stores gone |
 
-## 11. Open questions for the owner
+## 11. Owner rulings (2026-11-22)
 
-1. **Auth route:** the broker (recommended), browser-only GIS, or broker later.
-2. **Scope:** `drive.file` plus the Picker (recommended). This is folded into question 1 of the round, because both are
-   console settings.
-3. **Deck format in Drive:** Markdown with three-way merge (recommended), Yjs, or Markdown plus a Yjs sidecar.
-4. **Migration:** copy-verify-switch with a safety backup and the old stores kept (recommended), or a backup-and-restore
-   migration.
-5. **Library direction:** extend `Library.tsx` (recommended), with or without `design-competition`.
-6. **Outside the round, owner-only setup** (§4.3): the redirect URI's colon, the dev origin, domain verification, the
-   privacy page, "In production", the Worker secrets, DNS for `auth.lattice.style`, and how the Worker deploys.
+1. **Auth:** Google Identity Services' browser token model for v1. No server, no client secret, Route B stands. The
+   Worker broker stays an optional later upgrade (§4.2).
+2. **Scope:** `drive.file` plus the Picker (§5).
+3. **Deck format:** both. `deck.md` is the readable copy, and per-device Yjs update files carry the edits (§6.4).
+4. **Migration:** none. Local data moves into the vault once behind one automatic backup, and connecting Drive runs a
+   first sync (§8).
+5. **Library:** extend `Library.tsx`, with its layout picked by a `design-competition` run (§7).
+6. **Console setup:** the JavaScript origins and the redirect spelling now; domain verification, the privacy page and
+   "In production" before public launch (§4.3).
+7. **Secrets:** the owner first read "GitHub has secret management" as covering the broker. GitHub Secrets can feed a
+   deployed Worker, but they cannot run code on GitHub Pages, so a static site still cannot hold the secret. The owner
+   then chose the browser library, which needs no secret.
 
 ## 12. What was not checked
 
