@@ -46,6 +46,10 @@ use and renames only the ones that mean "card lift off".
 
 ### D2. Token cleanups (no key changes)
 
+The owner approved "give image-card its own names, delete the old guards names, and tidy two more".
+The last two bullets below are those two; the dialog did not name them, so their PRs say what they
+change in plain terms.
+
 - **`image-card:` gets its own `image-card-*` tokens.** Today it borrows shared words: `at-*` (the
   tint placement words in `lib/base/treatments.js`), `card-*`, `ink-*`, `compact` (the universal
   density modifier) and `band`. `resolve-image-card.js` explains why it scopes them to `image`
@@ -114,8 +118,9 @@ The `logo-finish:` key goes away. 4 repo decks set it today.
 ### Q7. `cards:` stays as it is — name OPEN
 
 `cards:` sets what a card or tile row does with spare height, like flexbox `align-content`. The owner
-rejected `card-rows`, `spare-height` and `row-align`. Do not rename it. A better candidate goes to
-the command center as a suggestion only.
+was not sure of any name offered (`card-row-fill`, `card-row-align`, then `card-rows`,
+`spare-height` and `row-align`): "this requires more thought". No rename until a name is chosen. A
+better candidate goes to the command center as a suggestion only.
 
 ### Q8. Repeated value words wait
 
