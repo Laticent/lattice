@@ -695,10 +695,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   for any of them, so only the script click starts Present, and iOS then keeps audio SUSPENDED because it was no user
   gesture). So the probe walks the deck with Next every `NARRATION_STEP_S` (10), as a presenter would: each slide's
   narration is still requested, fetched and cached, which is the memory under test, though walking interrupts each
-  reading so little is decoded. Voice on for `NARRATION_PLAY_S` (360), voice off for `NARRATION_SILENT_S` (90, reported
-  only); every 30 s it reads the slide, the audio state, the narration audio the page has
+  reading so little is decoded. Voice on until Present reaches slide `NARRATION_TARGET_SLIDE` (15), judged on that work and
+  never on how far a fixed time got it (`NARRATION_PLAY_S`, 600, is only a ceiling for a hung arm); voice off for
+  `NARRATION_SILENT_S` (90, reported only); every 30 s it reads the slide, the audio state, the narration audio the page has
   decoded and still holds (a `decodeAudioData` wrapper and a `FinalizationRegistry`: bytes, not time), and the footprint.
-  It fails when the voice arm asks for under 60 sentences or stops before slide 15, the page reloads, the held audio passes `NARRATION_AUDIO_CAP_MB`
+  It fails when the voice arm stops before slide 15 or asks for under four sentences a slide, the page reloads, the held audio passes `NARRATION_AUDIO_CAP_MB`
   (40) or the footprint grows past `NARRATION_MEMORY_CAP_MB` (300). `PROBE=present-narration node
   docs/scripts/ios-safari/probe.selftest.mjs` runs the steps in Playwright's WebKit at iPhone size (120 s and 30 s arms), walking the deck the same way. The first before/after pair
   (44025172449 without the 24 MB audio-cache cap, 44024954648 with it) peaked at +157 MB and +175 MB: the cap is not

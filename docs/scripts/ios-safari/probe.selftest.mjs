@@ -149,13 +149,13 @@ if (process.env.PROBE === 'player-charts') {
 
 if (process.env.PROBE === 'present-narration') {
 	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
-	// Present with Guide on, voice on and then off. NARRATION_PLAY_S / NARRATION_SILENT_S shorten the arms here (default
-	// 120 s / 30 s), since the steps, not the long-run memory, are what this proves.
+	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
+	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S (30 s) times the reported voice-off arm.
 	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
 	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
-	const arm = async (voice, seconds) => {
+	const arm = async (voice, seconds, untilSlide = 0) => {
 		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
 		const context = await browser.newContext(shapes.at(-1).options);
 		const page = await context.newPage();
@@ -180,6 +180,8 @@ if (process.env.PROBE === 'present-narration') {
 				const s = await call('latticeNarrationSample()');
 				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
 				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, audio ${s.audio}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
+				// As run.mjs: the judged arm ends on WORK, once Present stands on the target slide (HARD RULE #32).
+				if (untilSlide > 0 && (s.slide ?? 0) >= untilSlide) break;
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.alive = out.samples.at(-1)?.mark === played.mark;
@@ -189,7 +191,7 @@ if (process.env.PROBE === 'present-narration') {
 		await context.close();
 		return out;
 	};
-	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 120)), await arm(false, Number(process.env.NARRATION_SILENT_S || 30))];
+	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 300), Number(process.env.NARRATION_TARGET_SLIDE || 15)), await arm(false, Number(process.env.NARRATION_SILENT_S || 30))];
 	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false });
 	report('iPhone-sized', 'present-narration-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: arms[0].width, steps });
 	await browser.close();

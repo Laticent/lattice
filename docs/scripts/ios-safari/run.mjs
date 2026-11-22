@@ -870,7 +870,8 @@ async function runPresentMemoryProbe(id) {
  * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens
  * Present on slide 1 with Guide on and presses Play: on the simulator only a script click reaches the page, so audio stays
  * suspended and the probe walks the deck with Next (see the loop below). Two arms on one fresh Studio each: voice ON for
- * NARRATION_PLAY_S (judged), then voice OFF for NARRATION_SILENT_S (reported, so the difference is the narration's).
+ * slide NARRATION_TARGET_SLIDE (15, judged on that work; NARRATION_PLAY_S is only a ceiling), then voice OFF for
+ * NARRATION_SILENT_S (reported, so the difference is the narration's).
  * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
  * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
  * (HARD RULE #32). A simulator has no memory limit, so it shows the cost an iPhone weighs, not the reload itself.
@@ -880,7 +881,11 @@ async function runPresentNarrationProbe(id) {
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const CAP_MB = Number(process.env.NARRATION_MEMORY_CAP_MB || 300);
 	const AUDIO_CAP_MB = Number(process.env.NARRATION_AUDIO_CAP_MB || 40);
-	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 360);
+	// The voice arm walks to TARGET_SLIDE and is judged on that work (HARD RULE #32): the simulator's pace per Next moved
+	// from about 18 s to 27 s between runs (44024954648, 45044335860), and a fixed 6-minute arm then read as a failure. PLAY_S
+	// is only the ceiling a hung arm stops at.
+	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
+	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 600);
 	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 90);
 	const SAMPLE_S = 30;
 	const STEP_S = Number(process.env.NARRATION_STEP_S || 10);
@@ -897,7 +902,7 @@ async function runPresentNarrationProbe(id) {
 		if (r?.error) throw new Error(`${what}: ${r.error}`);
 		return r;
 	};
-	const arm = async (voice, seconds) => {
+	const arm = async (voice, seconds, untilSlide = 0) => {
 		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
 		try {
 			await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
@@ -976,7 +981,9 @@ async function runPresentNarrationProbe(id) {
 			while (Date.now() - t0 < seconds * 1000) {
 				await sleep(STEP_S * 1000);
 				await call('latticeNarrationNext()');
-				if ((Date.now() - t0) / 1000 < nextSample) continue;
+				// The judged arm stops on WORK: once Present stands on the target slide, take a last sample and end the arm.
+				const reached = untilSlide > 0 && ((await call('latticeNarrationSample()'))?.slide ?? 0) >= untilSlide;
+				if (!reached && (Date.now() - t0) / 1000 < nextSample) continue;
 				nextSample += SAMPLE_S;
 				const s = await call('latticeNarrationSample()');
 				const g = growthMB(m0, await readMB());
@@ -984,7 +991,7 @@ async function runPresentNarrationProbe(id) {
 				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), grewMB: g.grew, ...s });
 				out.baseMB = g.baseMB;
 				console.log(`${LABEL}: narration ${out.arm} +${out.samples.at(-1).t}s: slide ${s?.slide}, audio ${s?.audio}, ${s?.speech} spoken (${s?.pcm} as PCM), ${s?.liveMB} MB audio held of ${s?.decodedMB} MB decoded, WebKit +${g.grew} MB above ${g.baseMB} MB${s?.mark === played.mark ? '' : ', THE PAGE RELOADED'}`);
-				if (s?.mark !== played.mark) break;
+				if (s?.mark !== played.mark || reached) break;
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.peakGrewMB = peak;
@@ -995,7 +1002,7 @@ async function runPresentNarrationProbe(id) {
 		}
 		return out;
 	};
-	const arms = [await arm(true, PLAY_S), await arm(false, SILENT_S)];
+	const arms = [await arm(true, PLAY_S, TARGET_SLIDE), await arm(false, SILENT_S)];
 	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac });
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, voice: VOICE, deckBytes: deck.bytes.length, arms, steps };
