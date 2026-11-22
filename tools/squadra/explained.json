@@ -54,51 +54,6 @@
       "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
     }
   ],
-  "unknown-spectrum": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^spectrum[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
-  "unknown-spectrum-edge": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^spectrum\\-edge[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
-  "unknown-spectrum-card": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^spectrum\\-card[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
-  "unknown-spectrum-card-edge": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^spectrum\\-card\\-edge[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
-  "unknown-spectrum-trim": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^spectrum\\-trim[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
   "unknown-rule": [
     {
       "kind": "fix",

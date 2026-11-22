@@ -136,7 +136,7 @@ export const DEFAULT_STAMP = 'tab';
 export const DEFAULT_TONE = 'rail';
 
 const GLYPHS = {
-	/** `spectrum-edge:` (Bar placement) and `spectrum-card-edge:` (Card rail placement). */
+	/** The edge words of `spectrum:` (Spectrum edge) and `card-spectrum:` (Card spectrum edge). */
 	edge: EDGE,
 	/** `headline:` and the card tag's text alignment. */
 	align: ALIGN,

@@ -457,7 +457,7 @@ section {
  *                            `title print` surface is rgb(255,255,255).
  *     .dark.accent           shared.styles.css `section.accent.dark` (0,2,1)      FIXED
  *     .dark.no-spectrum     base.variants.css `section.dark.no-spectrum` (0,2,1) FIXED
- *     .dark.spectrum-edge-*  base.variants.css, `:not(.divider)` (0,3,1)           FIXED
+ *     .dark.spectrum-<edge>  base.variants.css, `:not(.divider)` (0,3,1)           FIXED
  *
  * THE THREE MARKED FIXED WERE NOT TRYING TO PAINT A CANVAS. Each draws or removes a
  * BAR -- the dark canvas's top hairline, the divider's left rail, the accent stripe --
@@ -491,7 +491,7 @@ section {
  *
  *   title, closing  lose the surface to section.print, so they exclude it.
  *   divider         the same, and unconditionally now. Its print exclusion used to be
- *                   `.print:not(.no-spectrum):not(.no-spectrum-edge)`, because the
+ *                   `.print:not(.no-spectrum):not(.no-spectrum)`, because the
  *                   spectrum carve-outs restated --surface-inverse and so survived
  *                   print. They restate nothing now, so a printed divider is the print
  *                   ground whatever the spectrum register says -- which is what a
@@ -685,9 +685,9 @@ section.scene:is([data-img-composition="gallery"], [data-img-composition="spotli
  * group at all, and the history is worth one line because it was written with an
  * intricate one. `print` and `dark` are not exclusive, so a stamped cover carrying both
  * plus a register used to hand the surface to `section.dark.no-spectrum` (0,2,1) or
- * `section.dark:is(.spectrum-edge-*)` (0,3,1) -- and since the second of those excludes
+ * `section.dark:is(.spectrum-<edge>)` (0,3,1) -- and since the second of those excludes
  * `.divider` by name, this arm had to mirror that `:not(.divider)` too or
- * `divider dark print spectrum-edge-left` composited a white ellipse over a surface
+ * `divider dark print spectrum-left` composited a white ellipse over a surface
  * painting rgb(236,236,236). All of it went when those rules stopped restating the
  * canvas (#2291). The lesson is the one that block records: an exclusion group here is a
  * COPY of somebody else's rule, and copies rot -- the fix is to stop the other rule

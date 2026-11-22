@@ -47,8 +47,8 @@ section.split-compare .compare-right {
   background-position: right top;
   background-repeat: no-repeat;
 }
-section.split-compare:is(.no-spectrum, .spectrum-edge-left, .spectrum-edge-right,
-                         .spectrum-edge-bottom, .no-spectrum-edge) .compare-right {
+section.split-compare:is(.no-spectrum, .spectrum-left, .spectrum-right,
+                         .spectrum-bottom, .no-spectrum) .compare-right {
   background-image: none;
 }
 section.split-compare.accent .compare-right {

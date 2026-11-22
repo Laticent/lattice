@@ -9,13 +9,13 @@ import { STAMP_STYLE_NAMES } from '../../../../lib/core/resolve-stamp.js';
 import { TONE_STYLE_NAMES } from '../../../../lib/core/resolve-tone-style.js';
 import { MOTION_SPEED_ENTRIES } from '../../lib/motion-catalog';
 import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
+import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { CORNERS } from './corners-catalog';
 import { GUARDS } from './guards-catalog';
 import { HEADLINES } from './headline-catalog';
 import { logoFinishOptions } from './logo-finish';
 import { DEFAULT_STAMP, DEFAULT_TONE, type GlyphAxis, optionGlyph } from './option-glyphs';
 import { CARD_TAG_AXES, imageCardWords } from './slide-provenance';
-import { SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { VENUES } from './venue';
 
@@ -23,7 +23,7 @@ import { VENUES } from './venue';
 // catalog without a glyph would render as the one bare row in an otherwise iconed list.
 const covered: [GlyphAxis, readonly string[]][] = [
 	['edge', SPECTRUM_EDGES.map((e) => e.name)],
-	['edge', SPECTRUM_CARD_EDGES.map((e) => e.name)],
+	['edge', CARD_SPECTRUM_EDGES.map((e) => e.name)],
 	['align', HEADLINES.map((e) => e.name)],
 	['align', CARD_TAG_AXES.align],
 	['alignV', ALIGN_VERTICAL.map((e) => e.name)],

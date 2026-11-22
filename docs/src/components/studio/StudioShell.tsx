@@ -95,10 +95,11 @@ import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './deck-axes';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister, writeSpectrumAxis } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -161,7 +162,6 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 
@@ -169,12 +169,13 @@ import { hasDrawnFence } from './slide-thumb';
 // change needs it (the Studio's eager bundle is budgeted, docs/route-budget.json).
 const ChatDraftPreview = React.lazy(() => import('./ChatDraftPreview').then((m) => ({ default: m.ChatDraftPreview })));
 
+import { CARD_SPECTRA } from './card-spectrum-catalog';
+import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { applyVariant } from './slide-variants';
-import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
-import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
-import { activeSpectrum, SPECTRA } from './spectrum-catalog';
-import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
-import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
+import { SPECTRA } from './spectrum-catalog';
+import { SPECTRUM_EDGES } from './spectrum-edge-catalog';
+import { parseSpectrum, renderedSpectrum, type SpectrumAxis, type SpectrumKey, spectrumDefault } from './spectrum-keys';
+import { SPECTRUM_WEIGHTS } from './spectrum-weight-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
@@ -184,6 +185,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
+import { TRIM_SPECTRA } from './trim-spectrum-catalog';
 import { deckTypography, TYPOGRAPHY_OPTIONS, withTypography } from './typography';
 import type { UndoDoorbell } from './undo-doorbell';
 import { useRowFit } from './use-row-fit';
@@ -2829,36 +2831,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => writeFrontMatterLine(s, 'motion-style', value === 'build' ? null : value));
 	const motionSpeed = getFrontMatter(source, 'motion-speed') || 'auto';
 	const setMotionSpeedFM = (value: string) => settingsWrite(`Motion speed → ${value}`, (s) => writeFrontMatterLine(s, 'motion-speed', value === 'auto' ? null : value));
-	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
-	// writes no key; off / solid write the register.
-	const spectrum = registerValue(source, 'spectrum');
-	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => writeRegister(s, 'spectrum', value));
-	// The accent sub-family — siblings of the brand bar (spectrum STYLE). Each defaults to a
-	// no-token value (bar on top / no card rail / auto rule / plain eyebrow), so a default deck
-	// writes no key. See lib/core/resolve-spectrum.js / resolve-rule.js / resolve-eyebrow.js.
-	const spectrumEdge = registerValue(source, 'spectrum-edge');
-	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => writeRegister(s, 'spectrum-edge', value));
-	const spectrumCard = registerValue(source, 'spectrum-card');
-	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => {
-		const out = writeRegister(s, 'spectrum-card', value);
-		// Turning the rail off drops the placement too — a `spectrum-card-edge:` with no rail is
-		// dead front matter the (now-hidden) placement picker could no longer clear.
-		return value === 'off' ? writeFrontMatterLine(out, 'spectrum-card-edge', null) : out;
-	});
-	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
-	// when the card rail is on, so the picker is shown only then.
-	const spectrumCardEdge = registerValue(source, 'spectrum-card-edge');
-	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => writeRegister(s, 'spectrum-card-edge', value));
+	// The three spectrum keys (lib/core/resolve-spectrum.js): `spectrum:` (the stripe on the slide edge),
+	// `card-spectrum:` (the stripe on each card) and `trim-spectrum:` (the accent on tables, timelines and
+	// rules). Each takes one word per axis, and a row writes only its own axis, leaving out a word the preset
+	// or the default already gives (deck-preset.ts `writeSpectrumAxis`). `spectrumWord` reads what renders
+	// (the deck's own word, else the preset's, else the default); `spectrumAuto` what Auto means (the
+	// preset's word, else the default).
+	const spectrumWord = (key: SpectrumKey, axis: SpectrumAxis) => renderedSpectrum(key, registerValue(source, key))[axis] ?? spectrumDefault(key, axis);
+	const spectrumAuto = (key: SpectrumKey, axis: SpectrumAxis) => parseSpectrum(key, presetBaseline(source, key))[axis] ?? spectrumDefault(key, axis);
+	const setSpectrumWord = (key: SpectrumKey, axis: SpectrumAxis, label: string) => (value: string) =>
+		settingsWrite(`${label} → ${value}`, (s) => writeSpectrumAxis(s, key, axis, value));
+	const spectrumStyle = spectrumWord('spectrum', 'style');
+	const cardSpectrumStyle = spectrumWord('card-spectrum', 'style');
 	const headingRule = registerValue(source, 'rule');
 	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => writeRegister(s, 'rule', value));
 	const eyebrow = registerValue(source, 'eyebrow');
 	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => writeRegister(s, 'eyebrow', value));
 	const headline = registerValue(source, 'headline');
 	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => writeRegister(s, 'headline', value));
-	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
-	// the in-content accents. On writes the key; off clears it.
-	const spectrumTrim = registerValue(source, 'spectrum-trim');
-	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => writeRegister(s, 'spectrum-trim', value));
 	// ── The registers the Inspector gained in the coverage audit ────────────────────
 	// Each one the engine already reads and no panel offered (see
 	// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.2). Same
@@ -7161,7 +7151,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'brand',
 			label: 'Accent',
 			// NOT 'color': the decision note's §4 contract is that keywords name what a section
-			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Brand bar row
+			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Spectrum row
 			// says "color" itself. Measured on the live panel: "color" returned ELEVEN rows —
 			// the whole Accent section, because the section matched as a whole — when the two
 			// rows actually about color (Theme, Color mode) were going to match on their own.
@@ -7170,27 +7160,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
-				<Field label="Brand bar" desc="The strip along the slide edge." find="spectrum rainbow" help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
-					{/* The white-label spectrum — the rainbow bar on the top border / divider
-					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
-					    the theme accent to a client's brand and Solid follows. */}
-					<CatalogSelect ariaLabel="Choose brand bar" className="w-full" {...autoField(activeSpectrum(spectrum).name, activeSpectrum(presetBaseline(source, 'spectrum')).name, setSpectrum, [{ options: catalogOptions(SPECTRA) }])} />
+				{/* The three spectrum keys, one row per axis (lib/core/resolve-spectrum.js). Set the theme accent
+				    to a client's brand and Solid follows. */}
+				<Field label="Spectrum" desc="The stripe along the slide edge." find="spectrum rainbow brand bar" help={<>The colored stripe on each slide's edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid accent</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck. Written as one line, <code>spectrum:</code>, one word per row below.</>}>
+					<CatalogSelect ariaLabel="Choose spectrum style" className="w-full" {...autoField(spectrumStyle, spectrumAuto('spectrum', 'style'), setSpectrumWord('spectrum', 'style', 'Spectrum'), [{ options: catalogOptions(SPECTRA) }])} />
 				</Field>
-				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
-				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
-				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
-					<CatalogSelect ariaLabel="Choose bar placement" className="w-full" {...autoField(activeSpectrumEdge(spectrumEdge).name, activeSpectrumEdge(presetBaseline(source, 'spectrum-edge')).name, setSpectrumEdge, [{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }])} />
-				</Field>
-				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
-					<CatalogSelect ariaLabel="Choose card rail" className="w-full" {...autoField(activeSpectrumCard(spectrumCard).name, activeSpectrumCard(presetBaseline(source, 'spectrum-card')).name, setSpectrumCard, [{ options: catalogOptions(SPECTRUM_CARDS) }])} />
-				</Field>
-				{spectrumCard !== 'off' && (
-					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
-						<CatalogSelect ariaLabel="Choose card rail placement" className="w-full" {...autoField(activeSpectrumCardEdge(spectrumCardEdge).name, activeSpectrumCardEdge(presetBaseline(source, 'spectrum-card-edge')).name, setSpectrumCardEdge, [{ options: catalogOptions(SPECTRUM_CARD_EDGES, glyphs('edge')) }])} />
-					</Field>
+				{spectrumStyle !== 'off' && (
+					<SettingsScope label="Spectrum" keywords="spectrum stripe edge weight bar" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						<Field label="Spectrum edge" desc="Which edge the stripe sits on." help={<>Top by default. The slide's content stays where it is on every edge.</>}>
+							<CatalogSelect ariaLabel="Choose spectrum edge" className="w-full" {...autoField(spectrumWord('spectrum', 'edge'), spectrumAuto('spectrum', 'edge'), setSpectrumWord('spectrum', 'edge', 'Spectrum edge'), [{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }])} />
+						</Field>
+						<Field label="Spectrum weight" desc="How thick the stripe is." help={<>Regular by default; a one-pixel hairline, or a heavy band. The slide's content stays where it is.</>}>
+							<CatalogSelect ariaLabel="Choose spectrum weight" className="w-full" {...autoField(spectrumWord('spectrum', 'weight'), spectrumAuto('spectrum', 'weight'), setSpectrumWord('spectrum', 'weight', 'Spectrum weight'), [{ options: catalogOptions(SPECTRUM_WEIGHTS) }])} />
+						</Field>
+					</SettingsScope>
 				)}
-				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
-					<CatalogSelect ariaLabel="Choose structural trim" className="w-full" {...autoField(activeSpectrumTrim(spectrumTrim).name, activeSpectrumTrim(presetBaseline(source, 'spectrum-trim')).name, setSpectrumTrim, [{ options: catalogOptions(SPECTRUM_TRIMS) }])} />
+				<Field label="Card spectrum" desc="A stripe on each card." find="card rail spectrum" help={<>Its own style, never copied from the slide edge. Off by default; Rainbow, Solid, Duo or Mono turns it on. Written as one line, <code>card-spectrum:</code>.</>}>
+					<CatalogSelect ariaLabel="Choose card spectrum" className="w-full" {...autoField(cardSpectrumStyle, spectrumAuto('card-spectrum', 'style'), setSpectrumWord('card-spectrum', 'style', 'Card spectrum'), [{ options: catalogOptions(CARD_SPECTRA) }])} />
+				</Field>
+				{cardSpectrumStyle !== 'off' && (
+					<SettingsScope label="Card spectrum" keywords="card rail spectrum edge weight" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						<Field label="Card spectrum edge" desc="Which edge of each card." help={<>Left by default.</>}>
+							<CatalogSelect ariaLabel="Choose card spectrum edge" className="w-full" {...autoField(spectrumWord('card-spectrum', 'edge'), spectrumAuto('card-spectrum', 'edge'), setSpectrumWord('card-spectrum', 'edge', 'Card spectrum edge'), [{ options: catalogOptions(CARD_SPECTRUM_EDGES, glyphs('edge')) }])} />
+						</Field>
+						<Field label="Card spectrum weight" desc="How thick each card's stripe is." help={<>Regular by default; a hairline, or a heavy band.</>}>
+							<CatalogSelect ariaLabel="Choose card spectrum weight" className="w-full" {...autoField(spectrumWord('card-spectrum', 'weight'), spectrumAuto('card-spectrum', 'weight'), setSpectrumWord('card-spectrum', 'weight', 'Card spectrum weight'), [{ options: catalogOptions(SPECTRUM_WEIGHTS) }])} />
+						</Field>
+					</SettingsScope>
+				)}
+				<Field label="Trim spectrum" desc="Accent on in-content details." find="structural trim" help={<>The style of table rails, the timeline spine, code strips and <code>hr</code>, never copied from the slide edge. <strong>Quiet</strong> (the default) keeps those an accent-tinted hairline. Written as <code>trim-spectrum:</code>.</>}>
+					<CatalogSelect ariaLabel="Choose trim spectrum" className="w-full" {...autoField(spectrumWord('trim-spectrum', 'style'), spectrumAuto('trim-spectrum', 'style'), setSpectrumWord('trim-spectrum', 'style', 'Trim spectrum'), [{ options: catalogOptions(TRIM_SPECTRA) }])} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
 					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />

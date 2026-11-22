@@ -1,14 +1,14 @@
-// The Studio spectrum-card-edge catalog — DISPLAY metadata for the `spectrum-card-edge:`
-// PLACEMENT register (WHERE the card rail sits: left / top / right / bottom). Sibling of
-// spectrum-card-catalog.ts (the rail STYLE). The engine's single source of truth for the value
-// set is SPECTRUM_CARD_EDGE_NAMES (lib/core/resolve-spectrum.js). THIS file adds only the human
-// layer the picker needs; the rot-guard is spectrum-card-edge-catalog.test.ts.
+// The Studio card-spectrum-edge catalog — DISPLAY metadata for the edge axis of `card-spectrum:`
+// (WHERE the card stripe sits: left / top / right / bottom). Sibling of card-spectrum-catalog.ts
+// (the stripe's STYLE). The engine's single source of truth for the word set is
+// CARD_SPECTRUM_AXES.edge (lib/core/resolve-spectrum.js). THIS file adds only the human layer the
+// picker needs; the rot-guard is card-spectrum-edge-catalog.test.ts.
 //
-// Authored deck-wide via `spectrum-card-edge:` or per-slide via `_class: spectrum-card-edge-top`
-// etc. Only relevant when the card rail is enabled (`spectrum-card:` ≠ off).
+// Authored deck-wide as the edge word on `card-spectrum:`, or per slide `_class: card-spectrum-top`
+// etc. Only relevant when the card stripe is on (its style word is not `off`).
 
-export type SpectrumCardEdgeEntry = {
-	/** the `spectrum-card-edge:` register value (and engine SPECTRUM_CARD_EDGE_NAMES member) */
+export type CardSpectrumEdgeEntry = {
+	/** the `card-spectrum:` edge word (a member of the engine's CARD_SPECTRUM_AXES.edge) */
 	name: string;
 	label: string;
 	blurb: string;
@@ -20,7 +20,7 @@ const RAIL = 'linear-gradient(var(--accent), var(--accent))';
 const CARD = 'var(--bg-alt, var(--bg))';
 
 // Ordered as the picker shows them. `left` is the named baseline (the default; omit the key).
-export const SPECTRUM_CARD_EDGES: SpectrumCardEdgeEntry[] = [
+export const CARD_SPECTRUM_EDGES: CardSpectrumEdgeEntry[] = [
 	{
 		name: 'left', label: 'Left',
 		blurb: 'A rail on the card’s left edge — the default. Omit the key.',
@@ -43,12 +43,12 @@ export const SPECTRUM_CARD_EDGES: SpectrumCardEdgeEntry[] = [
 	},
 ];
 
-export const SPECTRUM_CARD_EDGE_BY_NAME: Record<string, SpectrumCardEdgeEntry> = Object.fromEntries(
-	SPECTRUM_CARD_EDGES.map((s) => [s.name, s]),
+export const CARD_SPECTRUM_EDGE_BY_NAME: Record<string, CardSpectrumEdgeEntry> = Object.fromEntries(
+	CARD_SPECTRUM_EDGES.map((s) => [s.name, s]),
 );
 
 /** The active spectrum-card-edge entry for a value; unknown / empty → the `left` default. */
-export function activeSpectrumCardEdge(value: string | undefined | null): SpectrumCardEdgeEntry {
+export function activeCardSpectrumEdge(value: string | undefined | null): CardSpectrumEdgeEntry {
 	const key = (value ?? '').trim().toLowerCase();
-	return SPECTRUM_CARD_EDGE_BY_NAME[key] ?? SPECTRUM_CARD_EDGE_BY_NAME.left;
+	return CARD_SPECTRUM_EDGE_BY_NAME[key] ?? CARD_SPECTRUM_EDGE_BY_NAME.left;
 }

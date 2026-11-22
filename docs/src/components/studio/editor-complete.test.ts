@@ -404,7 +404,25 @@ describe('front-matter registers — keys and values', () => {
 		// One word per axis: after an up-and-down word, only side-to-side words are offered.
 		expect(done('---\nalign: bottom ')).toEqual(['left', 'center', 'right', 'full']);
 		expect(done('---\nclaim: ')).toContain('bleed');
-		expect(done('---\nspectrum-trim: ')).toContain('restrained');
+		expect(done('---\ntrim-spectrum: ')).toContain('mono');
+	});
+
+	it('the spectrum keys complete one word per axis, and only the new words', () => {
+		const first = done('---\nspectrum: ');
+		for (const w of ['rainbow', 'solid', 'left', 'band', 'hairline']) expect(first).toContain(w);
+		expect(first).not.toContain('on');
+		const next = done('---\nspectrum: solid ');
+		expect(next).not.toContain('duo'); // the style axis is filled
+		expect(next).toContain('left');
+		expect(next).toContain('band');
+		expect(done('---\ncard-spectrum: ')).toContain('rainbow');
+		expect(done('---\ncard-spectrum: ')).not.toContain('auto');
+		expect(done('---\ncard-spectrum: ')).not.toContain('match');
+		expect(done('---\ntrim-spectrum: ')).toEqual(expect.arrayContaining(['quiet', 'rainbow', 'solid', 'duo', 'mono']));
+		// The retired keys are not offered as keys.
+		const keys = done('---\nspec');
+		expect(keys).not.toContain('spectrum-edge');
+		expect(keys).not.toContain('spectrum-trim');
 	});
 
 	it('image-card: completes its first word, then keeps going on the same line, one word per axis', () => {

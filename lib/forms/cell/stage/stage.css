@@ -107,7 +107,7 @@ section.form {
    * the section padding (e.g. section.chart-frame sets `padding: 0`). No masthead
    * height-reserve — the in-flow band supplies its own height. */
   /* Each side gives up the bar border it carries (`--_bar-*`), so the content box is the same
-     rectangle under every `spectrum-edge:` (base.elements.css owns the reasoning). */
+     rectangle under every `spectrum:` edge (base.elements.css owns the reasoning). */
   padding:
     calc(var(--frame-y) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px))
     calc(var(--frame-x) - var(--_bar-r, 0px))

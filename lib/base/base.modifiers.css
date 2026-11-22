@@ -973,7 +973,7 @@ section.dark {
  *
  * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
  * and they are fixed now (#2291) -- this paragraph used to say they were not.
- * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-<edge>) (0,3,1) and
  * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
  * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
  * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.
@@ -2566,9 +2566,11 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
 section > .marker-rail {
   position: absolute !important;
   /* The rail sits one bar width above the SLIDE's bottom edge in every placement and centers on the slide,
-     not on the padding box a bar border shrinks: it holds still under every `spectrum-edge:` and never
+     not on the padding box a bar border shrinks: it holds still under every `spectrum:` edge and never
      sits inside a bottom bar (check:edge-shift). Its height gives up the same bar width below, so it
-     still ends where the footer's strip ends. */
+     still ends where the footer's strip ends. Its HEIGHT is the inset less the bar's ROOM (`--_bar-room`),
+     not its drawn weight: under a `band` (`spectrum:` weight) the strip keeps its full height and type and
+     rises with the band, rather than shrinking to the few pixels a heavy bar leaves of the inset. */
   bottom: calc(var(--_bar-w) - var(--_bar-b, 0px));
   left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
@@ -2626,9 +2628,9 @@ section > .marker-rail {
      overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
      1.17%. The marker reads the same size relative to the slide on every preset, which is
      what it always should have done. */
-  height: calc(var(--frame-inset-y) - var(--_bar-w));
+  height: calc(var(--frame-inset-y) - var(--_bar-room));
   align-items: center;
-  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-w)) * 0.65));
+  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-room)) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);
@@ -3225,7 +3227,7 @@ section.logo-plate img.deck-logo {
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
 section.safe[data-orientation='square'] {
-  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum-edge:`. */
+  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum:` edge. */
   padding-top: calc(max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
   padding-bottom: calc(max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) - var(--_bar-b, 0px));
 }
@@ -4422,7 +4424,7 @@ section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p
    spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
    while `clip-path: inset(0 round R)` clips the WHOLE element — border image
    included — so the bar hugs the corner exactly. That holds for the four
-   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   `spectrum-<edge>` rails too, which are the same border-image on another side, so
    one property covers every placement with no per-edge repaint to keep in step.
 
    Everything else on the slide is already inside the clip for free: `section` is
@@ -4524,7 +4526,7 @@ section.corners-square {
  * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is a border whose
  * per-side width is a flag, and a side carrying the brand bar sets its flag to 0, so the bar is that side's
  * edge and nothing doubles it. The side flags are set IN THE RULES THAT PLACE THE BAR — the
- * default top bar here, `spectrum-edge-*` and `spectrum: off` in base.variants.css, the
+ * default top bar here, `spectrum-<edge>` and `spectrum: off` in base.variants.css, the
  * frames that drop the bar (title, closing, divider, topic, split-panel, split-compare) in
  * their own styles — so the two can never disagree about where the bar is.
  * (test/unit/tools/slide-frame-hosts.test.js pins the co-location.)

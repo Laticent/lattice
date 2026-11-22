@@ -17,8 +17,8 @@ import * as React from 'react';
  */
 export const FOCUS_ROWS = [
 	'accent', 'agenda', 'ai-writes-in', 'auto-glossary', 'backdrop',
-	'backdrop-mask', 'backdrop-strength', 'bar-placement', 'brand-bar', 'canvas', 'card-lift',
-	'align-side-to-side', 'align-up-and-down', 'card-rail', 'card-rail-placement', 'card-tags', 'marks', 'claim',
+	'backdrop-mask', 'backdrop-strength', 'canvas', 'card-lift',
+	'align-side-to-side', 'align-up-and-down', 'card-spectrum', 'card-spectrum-edge', 'card-spectrum-weight', 'card-tags', 'marks', 'claim',
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',
 	'default-slide-class', 'delivery', 'eyebrow', 'finish', 'fit',
 	'footer', 'header', 'heading-rule', 'headline', 'headline-alignment', 'hide-footer',
@@ -26,8 +26,8 @@ export const FOCUS_ROWS = [
 	'inline-validation', 'language', 'logo', 'logo-style',
 	'meta-line', 'mode', 'motion-speed', 'motion-style', 'new-slide-on', 'pace',
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',
-	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
-	'structural-trim', 'style', 'terms', 'theme', 'tone-shape',
+	'shape', 'size', 'slide-splitting', 'speed', 'spectrum', 'spectrum-edge', 'spectrum-weight', 'stamp-shape',
+	'style', 'terms', 'theme', 'tone-shape', 'trim-spectrum',
 	'type-scale', 'typography', 'venue',
 	// The Content tab's switches (switch-controls.ts `CONTENT_SWITCHES`), drawn from the table, not typed labels.
 	'below-note', 'heading-period', 'table-row-label', 'pane-spine', 'callouts', 'hide-the-deck-s-tints',
@@ -42,7 +42,7 @@ export const rowIdOf = (label: string): string | null => {
 	const bare = slug(label.replace(/\s+(on|off)$/i, ''));
 	return ROW_SET.has(bare) ? bare : null;
 };
-/** "card-rail-placement" as words: "Card rail placement". */
+/** "card-spectrum-edge" as words: "Card spectrum edge". */
 export const rowName = (id: string): string => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
 
 /** Where a Present is, as the presenter sees it. */

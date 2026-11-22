@@ -6,15 +6,15 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-22 — the owner raised one ceiling by hand, for PR 2988: studio eagerJsGz to 623.7 KB
+### 2026-11-22 — raise the studio eagerJsGz ceiling by 2,000 B (636,636 → 638,636), by hand, at the owner's direction
 
-Owner OK 2026-11-22, in PR 2988's session: "Raise ceiling 2 KB", chosen over finding 1.1 KB to make lazy in Studio code other PRs own, and over dropping the venue picker's new Phone, Tablet and Pack icons (about 0.6 KB, not enough alone).
+The owner chose a 2,000-byte ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too (571,778 → about 636,517) and put the ceiling 10% above it (about 700,170, +63.5 KB), so this entry is written by hand, as the 2026-11-22 lintCoreGz entry below is. Soft stays 571,778, so every byte above it is still declared in `docs/route-budget.d/`.
 
-Measured with a fresh docs build at 3210fec8 merged with `main`: the Studio's eager JS is 637,783 B, 1,147 B over the 636,636 B ceiling. The growth is the PR's own Studio controls: the phone and tablet venue picker (`venue.ts`, +406 B), the two-axis `align:` controls and their icons, and the split hooks in `single-slide-render.ts`. `main` had left about 0.3 KB of room. The soft target is unchanged; the ceiling moves 2,048 B, so 901 B of room remains.
+Why: main measured 636,517 bytes, leaving 119 bytes under the old ceiling. PR #3385 (an engine that fails to load shows the failure card, not an endless skeleton) adds 564 bytes to DeckPreview, measured at 637,081, 445 over. Gzip already absorbs the card's repeated phrases: a de-duplicated message table measured 17 bytes larger. Giving the bytes back would have meant dropping the recovery real Mobile Safari needs (only a new tab recovers a failed engine sub-file).
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | eagerJsGz | 571778 | 571778 | +0 | 638684 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 638636 |
 
 ### 2026-11-22 — restore the owner's hand-set studio lintCoreGz ceiling (171,974 B), undoing #3386's lint raise
 

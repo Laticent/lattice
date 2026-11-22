@@ -31,5 +31,6 @@ StudioIsland, +16 DeckPreview): `main`'s own chunk changes moved 10 B into this 
 Merged onto `main` again at 42edd95 (190 commits), CI measured +1266 B gz on studio (+406 venue.ts,
 +307 progress-rail, the chunk that now carries the align catalog, +204 StudioIsland, +187
 single-slide-render, +104 front-matter-fence) and +447 on playground. Declared +1300 and +480 for
-gzip variation. That merge also took the Studio past its eagerJsGz ceiling by 1,147 B; the owner
-raised that ceiling by 2 KB (route-budget.history.md, 2026-11-22).
+gzip variation. That merge also took the Studio past its eagerJsGz ceiling by 1,147 B. The owner OK'd a
+2 KB raise for it; `main` then raised the same ceiling by 2,000 B for PR 3385 (#3420), which this PR fits
+under, so the second raise was dropped in the merge rather than stacked.
