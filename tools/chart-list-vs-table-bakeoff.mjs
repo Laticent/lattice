@@ -25,7 +25,7 @@
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { readMetaField } from '../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../lib/core/class-entries.mjs';
 import { corpus } from './chart-authoring-census.mjs';
 
 const require = createRequire(import.meta.url);
@@ -43,8 +43,8 @@ function slidesByChart() {
     let secs;
     try { secs = splitSourceToSections(f.source); } catch { secs = [f.source]; }
     secs.forEach((src, i) => {
-      const cls = readMetaField(String(src), 'class'); // a comment or a record, last one winning: the shared reader
-      const mods = (cls.present ? cls.value : deck).split(/\s+/).filter(Boolean);
+      const cls = slideClassValue(String(src)); // a comment or a record, as the engine resolves it
+      const mods = (cls || deck).split(/\s+/).filter(Boolean);
       for (const c of CHARTS) if (mods.includes(c)) out[c].push({ ref: `${f.file}:${i + 1}`, src: String(src), mods });
     });
   }

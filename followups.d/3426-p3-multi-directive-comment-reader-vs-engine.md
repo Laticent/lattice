@@ -5,7 +5,7 @@ recorded: 2026-11-22
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-17-meta-record.md §15
-deferred: off-path — `readMetaField` and its callers below already disagreed with the engine on main; #3426 moved its own new readers to `slideClassValue`, which agrees, and changing the editor primitive's reading belongs to the writers slice (C)
+deferred: off-path — `readMetaField` and the two callers below already disagreed with the engine on main; every reader #3426 touched now reads the class through `slideClassValue`, which agrees, and changing the editor primitive's reading belongs to the writers slice (C)
 source: https://github.com/Laticent/lattice/pull/3426
 ---
 
@@ -16,9 +16,9 @@ why now   — `<!-- footer: Q3\n_class: kpi -->` (one comment, two `key: value` 
             'class')` (lib/core/meta-edit.mjs) returns `kpi`, because it reads a `_class:` line anywhere in a comment so
             the editor can write back to it, as Marp read a comment of several directives. A checker on #3426 found it.
             #3426's new readers use `slideClassValue` (lib/core/class-entries.mjs, the scan's resolved value), which
-            gives `''` like the engine. Callers that still read the class through `readMetaField`, all present on main:
-            Present's section rail (`docs/src/components/studio/present-sections.ts`), `docs/src/lib/slide-directives.ts`,
-            and two tools that need the comment's span (`tools/audit-reading-size.js`, `tools/lib/modifier-probe.js`).
+            gives `''` like the engine, and the tools that need the comment's span take the value from it too. The callers
+            that still read the class through `readMetaField`, both untouched by #3426 and both on main: Present's section
+            rail (`docs/src/components/studio/present-sections.ts`) and `docs/src/lib/slide-directives.ts`.
             No deck in `examples/`, `test/integration/baseline-decks/` or `docs/src/content` uses the shape.
 where     — lib/core/meta-edit.mjs `readMetaFieldUncached` (the `lineRe` read), and the engine's directive-comment cut.
 done when — one rule is chosen (a comment holds one directive, or several as lines), the engine and `readMetaField`
