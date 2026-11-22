@@ -7783,7 +7783,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// A TOUCH TAP PUTS THE CARET ON ITS RELEASE, not on its click. iOS Safari sometimes withholds the click of a
 					// tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no mousedown and no
 					// click, so the editor never took the focus (three simulator runs on PR #3385, listener lag up to +288 ms;
-					// followups.d/3385-p2-ios-empty-deck-tap-focus.md). A scroll ends in pointercancel, not pointerup, so this
+					// jobs 137060162549, 137066156788, 137285553830; 2026-11-17-compose-empty-deck.md). A scroll ends in pointercancel, not pointerup, so this
 					// release is a tap. The mouse events that do follow are then the same tap: its mousedown is cancelled, because
 					// a mousedown on this plain div moves the focus off the editor (iPhone simulator, PR #3436's first head: focus
 					// at pointerup, then mousedown 136 ms later took it away), and its click is skipped.
