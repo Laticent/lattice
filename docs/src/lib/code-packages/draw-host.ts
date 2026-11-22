@@ -228,15 +228,17 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			await new Promise<void>((resolve, reject) => {
 				const timer = setTimeout(() => reject(new Error(`the ${kind} draw frame did not open within ${OPEN_MS} ms`)), OPEN_MS);
 				// The deadline decides only after every message already queued: a page busy past it would otherwise run this timer
-				// before a hello the shell sent in time. A message posted now is delivered after the frame's earlier one.
+				// before a hello the shell sent in time. A message posted now is delivered after the frame's earlier one, once that
+				// one has reached this page (a hello still crossing between processes at the 2 s edge can lose the race: rare).
 				const helloTimer = offlineShell
 					? setTimeout(() => {
 							if (shellSaidHello) return;
 							const id = ++helloChecks;
 							const onCheck = (e: MessageEvent) => {
 								// Only this page's own check counts: another frame's look-alike message (its source is that frame's window) must not
-								// end the wait early. A browser sets a window's own post to `source === view`; jsdom leaves it null.
-								if (e.source && e.source !== view) return;
+								// end the wait early. A post's `source` is the window whose script posted it, this one (`window`), even when `view`
+								// is another document's; jsdom leaves it null.
+								if (e.source && e.source !== window) return;
 								const d = e.data as { t?: unknown; id?: unknown } | null;
 								if (d?.t !== 'lattice-draw-hello-check' || d.id !== id) return;
 								view.removeEventListener('message', onCheck);

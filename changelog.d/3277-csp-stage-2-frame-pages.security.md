@@ -25,5 +25,6 @@
 - **Known limit: offline, a function plot on a docs page does not draw, and says why.** Under the
   policy its sandboxed frame loads a small file, and the policy refuses the in-page fallback.
   Chrome never loads that file offline; Firefox does once the page was seen online. The slide
-  reads: "Offline, this browser can't open this diagram. Reconnect to draw it." In Firefox, a
+  reads, in the error ink: "functionplot error: Offline, this browser can't open this diagram.
+  Reconnect to draw it." In Firefox, a
   Mermaid diagram in the same case draws from the page's own copy. Exported decks are unaffected.
