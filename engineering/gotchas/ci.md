@@ -998,7 +998,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   entry. A PR can also be armed but not yet building, because the queue builds at most `max_entries_to_build` (3)
   entries at once (`workflow.md` §Merge queue — the facts).
 - **How to check:** `git ls-remote origin 'refs/heads/gh-readonly-queue/*'` lists one
-  `gh-readonly-queue/main/pr-<N>-<base-sha>` branch per entry that is building. An armed PR with a green `ci` and no
-  such branch is waiting for a slot. Its merge shows up as a squash commit on `main` naming `(#N)`.
+  `gh-readonly-queue/main/pr-<N>-<base-sha>` branch per entry the queue has started (building, or built and waiting to
+  merge). An armed PR with a green `ci` and no such branch has not started yet. Its merge shows up as a squash commit on `main` naming `(#N)`.
 - **Do not:** disable and re-arm auto-merge over a `null`, merge directly to "make sure" (that skips the queue's
   re-test), or ask the owner to re-confirm a merge they already typed.

@@ -1390,8 +1390,9 @@ The contract, and its limits — be precise about what it does and doesn't cover
   by `enable_pr_auto_merge`). So `null` is not evidence that nothing is queued. To
   see the queue, list its branches: `git ls-remote origin
   'refs/heads/gh-readonly-queue/*'` shows one `gh-readonly-queue/main/pr-<N>-<sha>`
-  per entry that is building. An armed PR with a green `ci` and no branch is waiting
-  for a slot: the queue builds at most `max_entries_to_build` (3) at once. **On a branch the queue does NOT govern, this
+  per entry the queue has started (building, or built and waiting to merge). An armed
+  PR with a green `ci` and no branch has not started yet: the queue builds at most
+  `max_entries_to_build` (3) at once. **On a branch the queue does NOT govern, this
   field IS what lands**, and it defaults to the repository default, which is `merge`
   because this repo allows all three methods. That is the case worth checking.
 
@@ -2821,7 +2822,8 @@ request to merge." The command center sends that line **only after the commit is
 `main`**, never while the PR is queued. A worker can check a landed commit itself,
 but "it is queued, watch it" reads exactly like a relayed merge request. Workers that
 got that relay on 2026-11-22 each refused it (correctly), rechecked GitHub, saw
-`auto_merge: null` (the next paragraph's trap) and asked the owner again in their own
+`auto_merge: null` (the trap in §Merging's `auto_merge` note, and in
+`engineering/gotchas/ci.md`) and asked the owner again in their own
 chat. Three sessions spent several turns each for nothing. The worker keeps every
 check it has: it reads the commit on `main`, and an unexpected or missing commit is
 still its call to raise.
