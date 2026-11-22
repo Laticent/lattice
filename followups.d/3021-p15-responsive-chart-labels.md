@@ -28,6 +28,10 @@ decided   — the owner, 2026-11-09, on #3088:
                 never scale): fewer ticks, names into the key, data labels to the hover card (reported as
                 label drops), then split across slides. A dense chart never prints smaller.
             (4) NEXT PR after #3088, design note first.
+case      — PR 3431's sweep (2026-11-22): the scatter gallery's stress slide (`scatter.gallery.md` p5, twelve tools
+            and a cluster) at mobile goes over capacity: one cluster of names drops at the box, so the form kernel
+            draws on a 1.7x canvas and every label prints at 59%. Decision (3) says that density should move the
+            layout, not the type.
 where     — the spine #3088 built: lib/plugins/chart-family/shared/chart-box.js (box shape),
             cartesian.js `viewFor` (`fitViewToBox` retired 2026-11-22), svg-legend.js `pickKeyLayout`; the per-kind label sizes
             in each `<kind>.styles.css` and the FS mirrors in each transform; lib/runtime/chart-redraw.js
