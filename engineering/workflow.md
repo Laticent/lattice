@@ -1512,6 +1512,12 @@ it passes, that exact tree becomes `main`.
   warns. A rebase is still right on a real conflict, when you need a specific commit
   from `main` (name it in the commit message), or after a queue ejection. GitHub's
   "Update branch" costs the same CI run.
+- **Converting a queued PR to draft does NOT take it out of the queue.** On
+  2026-11-21 #3386 was drafted to stop it and merged anyway. To stop a queued PR,
+  disable its auto-merge or remove it from the queue on the PR page.
+- **Direct merges are refused.** `merge_pull_request` returns 405 "Changes must be
+  made through the merge queue". After the owner's typed approval and the head
+  check, arm the queue (`enable_pr_auto_merge`, squash) instead.
 - **The queue cannot fix a real conflict.** A textual conflict, most often a
   committed generated file (a gallery PDF, a showcase WebP, a bundle, a golden),
   keeps the PR out of the queue or ejects it. That is the one case that needs a
