@@ -47,9 +47,9 @@ test('retired spellings map to their replacement, and the map has no entry that 
   // The full table, pinned pair by pair (the module builds it from patterns to save lint-core bytes).
   assert.deepEqual(RETIRED_SWITCHES, {
     'callout-off': 'no-callout', 'callout-on': 'with-callout', 'motion-off': 'no-motion', 'motion-on': 'with-motion',
-    'spectrum-off': 'no-spectrum', 'spectrum-on': 'with-spectrum', 'spectrum-edge-off': 'no-spectrum-edge',
-    'spectrum-card-off': 'no-spectrum-card', 'spectrum-card': 'with-spectrum-card', 'spectrum-trim-off': 'no-spectrum-trim',
-    'spectrum-trim': 'with-spectrum-trim', 'row-label': 'with-row-label', 'no-rule': 'no-spine', 'rule-none': 'no-heading-rule',
+    'spectrum-off': 'no-spectrum', 'spectrum-on': 'with-spectrum', 'spectrum-edge-off': 'no-spectrum',
+    'spectrum-card-off': 'no-card-spectrum', 'spectrum-card': 'with-card-spectrum', 'spectrum-trim-off': 'trim-spectrum-quiet',
+    'spectrum-trim': 'trim-spectrum-full', 'row-label': 'with-row-label', 'no-rule': 'no-spine', 'rule-none': 'no-heading-rule',
     'treatment-none': 'no-treatment', 'finish-none': 'no-finish', 'backdrop-none': 'no-backdrop', 'tag-none': 'tag-bare',
   });
   assert.equal(retiredSwitch('callout-off'), 'no-callout');
@@ -64,15 +64,16 @@ test('retired spellings map to their replacement, and the map has no entry that 
 
 test('a setting\'s off / on word stamps the switch class; every other word keeps <key>-<word>', () => {
   assert.equal(registerToken('spectrum', 'off'), 'no-spectrum');
-  assert.equal(registerToken('spectrum', 'on'), 'with-spectrum');
+  assert.equal(registerToken('spectrum', 'rainbow'), 'with-spectrum');
   assert.equal(registerToken('spectrum', 'mono'), 'spectrum-mono');
   assert.equal(registerToken('rule', 'none'), 'no-heading-rule');
   assert.equal(registerToken('rule', 'full'), 'rule-full');
-  assert.equal(registerToken('spectrum-card', 'auto'), 'with-spectrum-card');
+  assert.equal(registerToken('card-spectrum', 'match'), 'with-card-spectrum');
+  assert.equal(registerToken('card-spectrum', 'off'), 'no-card-spectrum');
   assert.equal(registerToken('headline', 'left', 'head-'), 'head-left', 'a setting with no switch keeps its prefix');
-  assert.equal(registerValue('spectrum', 'no-spectrum', ['on', 'solid', 'off']), 'off');
-  assert.equal(registerValue('spectrum', 'spectrum-solid', ['on', 'solid', 'off']), 'solid');
-  assert.equal(registerValue('spectrum', 'spectrum-off', ['on', 'solid', 'off']), null, 'the retired class is not a value');
+  assert.equal(registerValue('spectrum', 'no-spectrum', ['rainbow', 'solid', 'off']), 'off');
+  assert.equal(registerValue('spectrum', 'spectrum-solid', ['rainbow', 'solid', 'off']), 'solid');
+  assert.equal(registerValue('spectrum', 'spectrum-off', ['rainbow', 'solid', 'off']), null, 'the retired class is not a value');
   for (const [key, sw] of Object.entries(REGISTER_SWITCHES)) {
     assert.ok(SWITCHES.some((s) => s.name === sw.name), `${key} names a switch the table does not have`);
   }

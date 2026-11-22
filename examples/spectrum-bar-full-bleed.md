@@ -8,7 +8,7 @@ header: "Lattice · full-bleed bar"
 <!-- @note{These layouts claim the whole slide, so their spectrum bar is an overlay strip laid over the art, not a border
      that would shrink it. Each slide sets a different placement; the photo, panel and text keep their true edges.} -->
 
-<!-- _class: image spectrum-edge-left -->
+<!-- _class: image spectrum-left -->
 
 ## The image layout reads the asset’s shape.
 
@@ -18,7 +18,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: scene spectrum-edge-bottom -->
+<!-- _class: scene spectrum-bottom -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -44,7 +44,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: split-panel spectrum-edge-right -->
+<!-- _class: split-panel spectrum-right -->
 
 `statement · split-panel`
 
@@ -61,7 +61,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: collage bleed spectrum-edge-left -->
+<!-- _class: collage bleed spectrum-left -->
 
 `The atelier`
 
@@ -79,7 +79,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: split-compare dark spectrum-edge-left -->
+<!-- _class: split-compare dark spectrum-left -->
 
 `comparison · split-compare`
 

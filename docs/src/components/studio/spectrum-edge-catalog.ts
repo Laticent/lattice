@@ -1,14 +1,14 @@
-// The Studio spectrum-edge catalog — DISPLAY metadata for the `spectrum-edge:` PLACEMENT
-// register (WHERE the section-edge bar sits: top / left / right / bottom / off). Sibling of
-// spectrum-catalog.ts (the STYLE). The engine's single source of truth for the value set is
-// SPECTRUM_EDGE_NAMES (lib/core/resolve-spectrum.js). THIS file adds only the human layer the
-// picker needs (label, blurb, swatch) and MUST stay in step — the rot-guard is
-// spectrum-edge-catalog.test.ts.
+// The Studio spectrum-edge catalog — DISPLAY metadata for the edge axis of `spectrum:` (WHERE
+// the slide-edge stripe sits: top / left / right / bottom). Sibling of spectrum-catalog.ts (the
+// STYLE). The engine's single source of truth for the word set is SPECTRUM_AXES.edge
+// (lib/core/resolve-spectrum.js). THIS file adds only the human layer the picker needs (label,
+// blurb, swatch) and MUST stay in step — the rot-guard is spectrum-edge-catalog.test.ts. The
+// stripe's off is the style word `off` (`spectrum: off`), not an edge.
 //
-// Authored deck-wide via `spectrum-edge:` or per-slide via `_class: spectrum-edge-left` etc.
+// Authored deck-wide as the edge word on `spectrum:`, or per slide `_class: spectrum-left` etc.
 
 export type SpectrumEdgeEntry = {
-	/** the `spectrum-edge:` register value (and engine SPECTRUM_EDGE_NAMES member) */
+	/** the `spectrum:` edge word (a member of the engine's SPECTRUM_AXES.edge) */
 	name: string;
 	label: string;
 	blurb: string;
@@ -39,11 +39,6 @@ export const SPECTRUM_EDGES: SpectrumEdgeEntry[] = [
 		name: 'bottom', label: 'Bottom',
 		blurb: 'A bottom rail — reads as a baseline.',
 		swatch: { background: `${BAR} bottom / 100% 3px no-repeat, var(--bg)` },
-	},
-	{
-		name: 'off', label: 'None',
-		blurb: 'No section-edge bar. Structural accents (table rails, spine) survive.',
-		swatch: { background: 'var(--bg)' },
 	},
 ];
 

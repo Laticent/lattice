@@ -262,27 +262,48 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `spectrum:` STYLE value; accepts on/solid/duo/mono/off', () => {
-    const bad = lintText('---\ntheme: indaco\nspectrum: rainbowww\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum');
-    assert.ok(bad, 'unknown spectrum should warn');
-    assert.equal(bad.classToken, 'rainbowww');
-    assert.match(bad.fix, /on, solid, duo, mono, off/);
-    for (const v of ['on', 'solid', 'duo', 'mono', 'off', 'OFF']) {
-      const src = `---\ntheme: indaco\nspectrum: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum').length, 0, v);
+  test('the three spectrum keys take one word per axis; an unknown or a doubled word warns', () => {
+    const fm = (line) => `---\ntheme: indaco\n${line}\n---\n\n## H.\n`;
+    const rules = (line) => lintText(fm(line), { vocab }).filter((x) => /spectrum/.test(x.rule));
+    for (const line of ['spectrum: solid left band', 'spectrum: band LEFT duo', 'spectrum: off', 'spectrum: rainbow top regular',
+      'card-spectrum: match top hairline', 'card-spectrum: off', 'trim-spectrum: restrained', 'trim-spectrum: full']) {
+      assert.deepEqual(rules(line), [], line);
     }
+    const [bad] = rules('spectrum: sideways');
+    assert.equal(bad.rule, 'unknown-spectrum');
+    assert.equal(bad.classToken, 'sideways');
+    assert.match(bad.fix, /rainbow/);
+    assert.equal(rules('card-spectrum: auto')[0].rule, 'unknown-card-spectrum', '`auto` is `match` now');
+    assert.equal(rules('trim-spectrum: on')[0].rule, 'unknown-trim-spectrum', '`on` is `full` now');
+    assert.match(rules('spectrum: left right')[0].message, /two edge values/);
   });
 
-  test('warns on an unrecognized `spectrum-edge:` PLACEMENT value; accepts top/left/right/bottom/off', () => {
-    const bad = lintText('---\ntheme: indaco\nspectrum-edge: sideways\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-edge');
-    assert.ok(bad, 'unknown spectrum-edge should warn');
-    assert.equal(bad.classToken, 'sideways');
-    // A valid `spectrum-edge:` must NOT also trip the `spectrum:` STYLE validator.
-    for (const v of ['top', 'left', 'right', 'bottom', 'off']) {
-      const found = lintText(`---\ntheme: indaco\nspectrum-edge: ${v}\n---\n\n## H.\n`, { vocab });
-      assert.equal(found.filter((x) => x.rule === 'unknown-spectrum-edge').length, 0, v);
-      assert.equal(found.filter((x) => x.rule === 'unknown-spectrum').length, 0, `${v} must not trip the STYLE validator`);
-    }
+  test('the retired spectrum keys and values are errors, and the fix merges them onto the new keys', () => {
+    const { applyAllFixes } = require('../../../lib/authoring/lint-core');
+    const src = [
+      '---', 'theme: indaco', 'spectrum: on  # brand', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
+      'spectrum-trim: restrained', '---', '', '<!-- _class: cards-grid spectrum-edge-top no-spectrum-card with-spectrum-trim -->', '', '## H.', '',
+    ].join('\n');
+    const found = lintText(src, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule));
+    assert.ok(found.length >= 8, found.map((f) => f.rule).join(', '));
+    for (const f of found) assert.equal(f.severity, 'error', `${f.rule} ${f.classToken}`);
+    assert.ok(!found.some((f) => f.rule === 'unknown-spectrum'), '`spectrum: on` is reported once, as retired');
+    const fixed = applyAllFixes(src, vocab);
+    assert.equal(fixed, [
+      '---', 'theme: indaco', 'spectrum: rainbow left # brand', 'card-spectrum: match top',
+      'trim-spectrum: restrained', '---', '', '<!-- _class: cards-grid spectrum-top no-card-spectrum trim-spectrum-full -->', '', '## H.', '',
+    ].join('\n'));
+    assert.deepEqual(lintText(fixed, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule)), [], 'no spectrum finding is left');
+  });
+
+  test('a retired key whose word was the default migrates to nothing; a word the new key already has wins', () => {
+    const { applyAllFixes } = require('../../../lib/authoring/lint-core');
+    const deck = (...lines) => ['---', ...lines, '---', '', '## H.', ''].join('\n');
+    assert.equal(applyAllFixes(deck('theme: indaco', 'spectrum-edge: top', 'spectrum-trim: off'), vocab), deck('theme: indaco'));
+    assert.equal(applyAllFixes(deck('spectrum: duo right', 'spectrum-edge: left'), vocab), deck('spectrum: duo right'));
+    assert.equal(applyAllFixes(deck('spectrum-edge: off'), vocab), deck('spectrum: off'));
+    assert.equal(applyAllFixes(deck('spectrum-trim: on'), vocab), deck('trim-spectrum: full'));
+    assert.equal(applyAllFixes(deck('class: spectrum-edge-left'), vocab), deck('class: spectrum-left'));
   });
 
   test('warns on an unrecognized `rule:` value; accepts auto/full/short/accent/none', () => {
@@ -305,40 +326,8 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `spectrum-card:` value; accepts off/auto/solid/duo/mono/rainbow', () => {
-    const bad = lintText('---\ntheme: indaco\nspectrum-card: yes\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-card');
-    assert.ok(bad, 'unknown spectrum-card should warn');
-    assert.equal(bad.classToken, 'yes');
-    // `on` was never shipped — it is now an unknown value and warns.
-    assert.ok(lintText('---\ntheme: indaco\nspectrum-card: on\n---\n\n## H.\n', { vocab }).some((x) => x.rule === 'unknown-spectrum-card'), 'on is retired');
-    for (const v of ['off', 'auto', 'solid', 'duo', 'mono', 'rainbow']) {
-      const src = `---\ntheme: indaco\nspectrum-card: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-card').length, 0, v);
-    }
-  });
-
-  test('warns on an unrecognized `spectrum-card-edge:` value; accepts left/top/right/bottom', () => {
-    const bad = lintText('---\ntheme: indaco\nspectrum-card-edge: sideways\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-card-edge');
-    assert.ok(bad, 'unknown spectrum-card-edge should warn');
-    assert.equal(bad.classToken, 'sideways');
-    for (const v of ['left', 'top', 'right', 'bottom']) {
-      const src = `---\ntheme: indaco\nspectrum-card-edge: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-card-edge').length, 0, v);
-    }
-  });
-
-  test('warns on an unrecognized `spectrum-trim:` value; accepts off/restrained/on', () => {
-    const bad = lintText('---\ntheme: indaco\nspectrum-trim: yes\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-trim');
-    assert.ok(bad, 'unknown spectrum-trim should warn');
-    assert.equal(bad.classToken, 'yes');
-    for (const v of ['off', 'restrained', 'on']) {
-      const src = `---\ntheme: indaco\nspectrum-trim: ${v}\n---\n\n## H.\n`;
-      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-trim').length, 0, v);
-    }
-  });
-
-  test('per-slide accent tokens (spectrum-edge-*, spectrum-card*, spectrum-trim*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'no-spectrum-edge', 'with-spectrum-edge', 'no-heading-rule', 'with-heading-rule', 'no-spectrum', 'with-spectrum', 'with-spectrum-card', 'spectrum-card-solid', 'no-spectrum-card', 'spectrum-card-edge-top', 'with-spectrum-trim', 'spectrum-trim-restrained', 'no-spectrum-trim', 'rule-short', 'eyebrow-dot']) {
+  test('per-slide accent tokens (spectrum-*, card-spectrum-*, trim-spectrum-*, rule-*, eyebrow-*) are known classes', () => {
+    for (const t of ['spectrum-duo', 'spectrum-left', 'no-spectrum', 'with-spectrum', 'spectrum-band', 'spectrum-hairline', 'spectrum-regular', 'spectrum-top', 'no-heading-rule', 'with-heading-rule', 'with-card-spectrum', 'card-spectrum-band', 'card-spectrum-solid', 'no-card-spectrum', 'card-spectrum-top', 'trim-spectrum-full', 'trim-spectrum-restrained', 'trim-spectrum-quiet', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

@@ -45,9 +45,8 @@ describe('core: which registers ride a split page', () => {
   // edit here — and a register that should ride but is missing from the kernel fails by name.
   const riding = {
     mode: MODE_TOKENS, stamp: STAMP_STYLE_TOKENS, tone: TONE_STYLE_TOKENS,
-    spectrum: spectrum.SPECTRUM_TOKENS, 'spectrum-edge': spectrum.SPECTRUM_EDGE_TOKENS,
-    'spectrum-card': spectrum.SPECTRUM_CARD_TOKENS, 'spectrum-card-edge': spectrum.SPECTRUM_CARD_EDGE_TOKENS,
-    'spectrum-trim': spectrum.SPECTRUM_TRIM_TOKENS, corners: CORNERS_TOKENS, guards: GUARDS_TOKENS,
+    spectrum: spectrum.SPECTRUM_REGISTER.TOKENS, 'card-spectrum': spectrum.CARD_SPECTRUM_REGISTER.TOKENS,
+    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, guards: GUARDS_TOKENS,
     rule: RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
     headline: HEADLINE_TOKENS, lift: LIFT_TOKENS,
     tag: require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,

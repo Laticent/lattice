@@ -118,11 +118,9 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 
 | Register (human) | Key | What it sets |
 |---|---|---|
-| **Spectrum** | `spectrum:` | the accent-gradient STYLE (`on`/`solid`/`duo`/`mono`/`off`) — drives the brand bar (and the structure under `spectrum-trim: on`) |
-| **Spectrum edge** | `spectrum-edge:` | the section-edge bar PLACEMENT (`top`/`left`/`right`/`bottom`/`off`) |
-| **Spectrum card** | `spectrum-card:` | an INDEPENDENT spectrum rail on card surfaces (`off`/`auto`/`solid`/`duo`/`mono`/`rainbow`) |
-| **Spectrum card edge** | `spectrum-card-edge:` | where the card rail sits (`left`/`top`/`right`/`bottom`) |
-| **Spectrum trim** | `spectrum-trim:` | how much the structural accents carry the spectrum (`off`/`restrained`/`on`) — off = quiet accent-tint hairline by default |
+| **Spectrum** | `spectrum:` | the stripe on the slide edge, one word per axis: style (`rainbow`/`solid`/`duo`/`mono`/`off`), edge (`top`/`left`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) — the style also drives the structure under `trim-spectrum: full` |
+| **Card spectrum** | `card-spectrum:` | an INDEPENDENT stripe on card surfaces, one word per axis: style (`off`/`match`/`rainbow`/`solid`/`duo`/`mono`), edge (`left`/`top`/`right`/`bottom`), weight (`regular`/`hairline`/`band`) |
+| **Trim spectrum** | `trim-spectrum:` | how much the structural accents carry the spectrum (`quiet`/`restrained`/`full`) — quiet = an accent-tint hairline by default |
 | **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the kicker's mark (`plain`/`dot`/`bar`/`arrow`/`underline`); its face comes from `typography:` |
@@ -552,7 +550,7 @@ slide it changes:
 | table | `table-plain`, `table-fill`, `state-cells`, `with-row-label` | a slot selects a table, or the sample writes one |
 | card-row | `cards-*` | the manifest declares a `cards` composition |
 | card-surface | `lifted`, `flat` | the stylesheet reads `--elevation-card` |
-| card-rail | `spectrum-card-*` | named in the card-rail paint rule |
+| card-rail | `card-spectrum-*` | named in the card-rail paint rule |
 | chart-marks | `motion-*`, `chart-anima` | the render draws `data-mark` SVG or a scene |
 | key-insight · below-note | `note-warn` · `no-note` | `authoring.blocks` |
 | insight-label | `insight-*` | a Key Insight, or a layout that reads the label |
@@ -572,7 +570,7 @@ derivation.
 
 **`spectrum` — does this component carry the spectrum bar?** A manifest field, absent or `true` by
 default. `false` means the component has no spectrum: the engine gives its slides `no-spectrum` and
-`no-spectrum-edge` and drops any spectrum class the author set, so no placement or deck register can draw a
+`no-spectrum` and drops any spectrum class the author set, so no placement or deck register can draw a
 bar on it or move its content. `accent` and `tone-edge` are per-slide choices and still draw their top stripe.
 A style pin never overrides `no-spectrum`: a de-branded deck stays de-branded. A style name (`on`, `solid`, `duo`, `mono`) pins that style instead; the placement stays
 the author's. The manifest never says how a bar is drawn (border or overlay): that follows the layout's

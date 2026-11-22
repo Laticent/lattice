@@ -3,8 +3,12 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The engine's single source of truth for the spectrum-edge value set (CommonJS).
-import { SPECTRUM_EDGE_NAMES } from '../../../../lib/core/resolve-spectrum.js';
+import { SPECTRUM_AXES } from '../../../../lib/core/resolve-spectrum.js';
+
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
+
+// The edge axis of `spectrum:` (lib/core/resolve-spectrum.js).
+const SPECTRUM_EDGE_NAMES: readonly string[] = SPECTRUM_AXES.edge;
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine SPECTRUM_EDGE_NAMES.
 describe('spectrum-edge-catalog ↔ SPECTRUM_EDGE_NAMES', () => {

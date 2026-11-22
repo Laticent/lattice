@@ -10,6 +10,7 @@ import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
+import { SPECTRUM_KEY_AXES } from './spectrum-keys';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -78,6 +79,8 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
 	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
 	'marks': MARKS_AXES,
+	// The three spectrum keys (spectrum-keys.ts, pinned to lib/core/resolve-spectrum.js).
+	...Object.fromEntries(Object.entries(SPECTRUM_KEY_AXES).map(([key, axes]) => [key, axes.map((a) => a.names)])),
 };
 
 /** The words still worth offering after `written` on an axis-register line. Exported for a test. */

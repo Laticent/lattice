@@ -10,7 +10,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test } from './stud
 const SPLIT = (edge: string) =>
 	`---\ntitle: Bar\n---\n\n<!-- _class: split-panel spectrum-edge-${edge} -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 const CONTENT = (edge: string) =>
-	`---\ntitle: Bar\nspectrum-edge: ${edge}\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
+	`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n- Two\n  - Second supporting line.\n`;
 
 // Each test runs three times: untagged for the Chromium desktop project, and as @webkit-tablet and @gecko twins
 // (playwright.config.ts) so Safari's and Firefox's engines draw the same strips and hold the same heading.
@@ -46,7 +46,7 @@ test(`choosing a different placement does not move a border frame's heading on t
 	await setEditorContent(page, CONTENT('top'));
 	const top = await heading();
 	await setEditorContent(page, CONTENT('left'));
-	await expect.poll(() => frame.locator('section').first().evaluate((s) => s.className)).toContain('spectrum-edge-left');
+	await expect.poll(() => frame.locator('section').first().evaluate((s) => s.className)).toContain('spectrum-left');
 	const left = await heading();
 	expect(left.x).toBeCloseTo(top.x, 0);
 	expect(left.y).toBeCloseTo(top.y, 0);
@@ -59,7 +59,7 @@ for (const tag of ['', ' @webkit-tablet', ' @gecko']) {
 	test(`the Playground preview draws the full-bleed bar as two strips and holds a border frame still${tag}`, async ({ page }) => {
 		const KEY = 'lattice-docs-pg-source';
 		const deck = (edge: string) =>
-			`---\ntitle: Bar\nspectrum-edge: ${edge}\n---\n\n<!-- _class: split-panel -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`;
+			`---\ntitle: Bar\nspectrum: ${edge}\n---\n\n<!-- _class: split-panel -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`;
 		const preview = page.frameLocator('#preview');
 		const load = async (edge: string) => {
 			await page.addInitScript(([k, v]) => { try { localStorage.setItem(k as string, v as string); } catch { /* no store, no seed */ } }, [KEY, deck(edge)]);

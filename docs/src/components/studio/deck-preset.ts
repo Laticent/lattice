@@ -21,6 +21,7 @@
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
 import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
+import { isSpectrumKey, mergeSpectrum, type SpectrumAxis, type SpectrumKey, writeSpectrumWord } from './spectrum-keys';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {
@@ -47,7 +48,7 @@ export const AUTHOR_KEYS: readonly string[] = ['theme', 'color-mode'];
 /** Keys the engine reads at COLUMN 0 only (`topLevelRegisterValue`): an indented line is someone else's key. */
 const TOP_LEVEL_KEYS = new Set(['theme', 'color-mode', 'backdrop']);
 /** Keys whose value is more than one word (`marks: etch vivid`, `backdrop: 40 clear`): read whole, not as a bare name. */
-const MULTI_WORD_KEYS = new Set(['marks', 'backdrop']);
+const MULTI_WORD_KEYS = new Set(['marks', 'backdrop', 'spectrum', 'card-spectrum', 'trim-spectrum']);
 /** Keys read case-sensitively: a saved palette is matched by its name as written. */
 const CASE_KEPT_KEYS = new Set(['theme']);
 export const PRESET_NAMES: readonly string[] = ENGINE.PRESET_NAMES;
@@ -176,6 +177,9 @@ export function registerValue(source: string, key: string): string {
 	// The legacy `chart-finish:` still speaks for `marks:` when `marks:` is absent, and beats the preset
 	// (lib/core/front-matter-key.js PRESET_KEY_ALIASES; lib/core/resolve-marks.js `marksFromFrontMatter`).
 	const own = key === 'marks' ? (ownValue(source, 'marks') ?? legacyMarks(source)) : ownValue(source, key);
+	// A spectrum key merges PER AXIS: the deck's own word on an axis wins, and an axis it leaves empty takes
+	// the preset's (lib/core/resolve-spectrum.js `mergedValue`).
+	if (isSpectrumKey(key)) return mergeSpectrum(key, own, ENGINE.presetValue(presetOf(source), key)) || ENGINE.PRESET_DEFAULTS[key] || '';
 	if (own === undefined) return presetBaseline(source, key);
 	return own || ENGINE.PRESET_DEFAULTS[key] || '';
 }
@@ -183,6 +187,13 @@ export function registerValue(source: string, key: string): string {
 /** Write `key`, or clear it when `value` is what the preset already gives. */
 export function writeRegister(source: string, key: string, value: string): string {
 	return writeFrontMatterLine(source, key, value === presetBaseline(source, key) ? null : value);
+}
+
+/** Set one axis of a spectrum key (null clears it), keeping the deck's other words and leaving out any word the
+ *  preset or the default already gives; the key goes once nothing is left. */
+export function writeSpectrumAxis(source: string, key: SpectrumKey, axis: SpectrumAxis, word: string | null): string {
+	const value = writeSpectrumWord(key, ownValue(source, key), ENGINE.presetValue(presetOf(source), key), axis, word);
+	return writeFrontMatterLine(source, key, value || null);
 }
 
 /** The preset keys whose rendered value differs from what the preset alone would give. A key

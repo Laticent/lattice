@@ -437,57 +437,57 @@ describe('markdown-it-plugins', () => {
       `slide 2 should keep its own off, not inherit solid; got [${sections[1].join(', ')}]`);
   });
 
-  // ── accent-finish registers: spectrum-edge / spectrum-card / rule / eyebrow ────────────
+  // ── accent-finish registers: spectrum / card-spectrum / rule / eyebrow ────────────────
   test('deckClassPropagate: the accent registers each propagate their mapped token', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---',
-      'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top', 'rule: short', 'eyebrow: dot',
+      'spectrum: left', 'card-spectrum: match top', 'rule: short', 'eyebrow: dot',
       '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     for (const cls of sections) {
-      for (const t of ['spectrum-edge-left', 'with-spectrum-card', 'spectrum-card-edge-top', 'rule-short', 'eyebrow-dot']) {
+      for (const t of ['spectrum-left', 'with-card-spectrum', 'card-spectrum-top', 'rule-short', 'eyebrow-dot']) {
         assert.ok(cls.includes(t), `missing '${t}'; got [${cls.join(', ')}]`);
       }
     }
   });
 
-  test('deckClassPropagate: a pinned card STYLE (`spectrum-card: duo`) propagates its variant token', () => {
+  test('deckClassPropagate: a pinned card STYLE (`card-spectrum: duo`) propagates its variant token', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'spectrum: solid', 'spectrum-card: duo', '---', '', '# Slide 1'].join('\n');
+    const md = ['---', 'spectrum: solid', 'card-spectrum: duo', '---', '', '# Slide 1'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     // The section bar is solid; the card rail is INDEPENDENTLY pinned to duo.
     assert.ok(s[0].includes('spectrum-solid'), `slide 1 missing deck STYLE; got [${s[0].join(', ')}]`);
-    assert.ok(s[0].includes('spectrum-card-duo'), `slide 1 missing pinned card STYLE; got [${s[0].join(', ')}]`);
+    assert.ok(s[0].includes('card-spectrum-duo'), `slide 1 missing pinned card STYLE; got [${s[0].join(', ')}]`);
   });
 
-  test('deckClassPropagate: the spectrum sub-registers are guarded INDEPENDENTLY (edge/card/card-edge override does not suppress the deck STYLE)', () => {
+  test('deckClassPropagate: each spectrum axis is guarded INDEPENDENTLY (an edge/card/card-edge override does not suppress the deck STYLE)', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---',
-      'spectrum: duo', 'spectrum-card: auto', 'spectrum-card-edge: left',
+      'spectrum: duo', 'card-spectrum: match left',
       '---', '',
       '# Slide 1 (deck duo + card)', '',
       '---', '',
-      '<!-- _class: content spectrum-edge-left -->',  // a per-slide EDGE token…
+      '<!-- _class: content spectrum-left -->',  // a per-slide EDGE token…
       '# Slide 2', '',
       '---', '',
-      '<!-- _class: content spectrum-card-solid -->',  // …a per-slide CARD STYLE pin…
+      '<!-- _class: content card-spectrum-solid -->',  // …a per-slide CARD STYLE pin…
       '# Slide 3', '',
       '---', '',
-      '<!-- _class: content spectrum-card-edge-top -->',  // …and a per-slide CARD EDGE override
+      '<!-- _class: content card-spectrum-top -->',  // …and a per-slide CARD EDGE override
       '# Slide 4',
     ].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     // Slide 2: its own EDGE token must NOT suppress the deck STYLE (duo) or the deck card.
     assert.ok(s[1].includes('spectrum-duo'), `slide 2 lost deck STYLE 'spectrum-duo'; got [${s[1].join(', ')}]`);
-    assert.ok(s[1].includes('spectrum-edge-left'), `slide 2 missing its edge; got [${s[1].join(', ')}]`);
-    assert.ok(s[1].includes('with-spectrum-card'), `slide 2 lost deck card rail; got [${s[1].join(', ')}]`);
-    // Slide 3: its own CARD STYLE pin (solid) replaces the deck card (auto) but not deck STYLE/edge.
-    assert.ok(s[2].includes('spectrum-card-solid') && !s[2].includes('spectrum-card '), `slide 3 should pin the card rail; got [${s[2].join(', ')}]`);
-    assert.ok(!s[2].some((c) => c === 'with-spectrum-card'), `slide 3 deck card 'with-spectrum-card' should be suppressed by its pin; got [${s[2].join(', ')}]`);
+    assert.ok(s[1].includes('spectrum-left'), `slide 2 missing its edge; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('with-card-spectrum'), `slide 2 lost deck card rail; got [${s[1].join(', ')}]`);
+    // Slide 3: its own CARD STYLE pin (solid) replaces the deck card (match) but not deck STYLE/edge.
+    assert.ok(s[2].includes('card-spectrum-solid') && !s[2].includes('with-card-spectrum'), `slide 3 should pin the card rail; got [${s[2].join(', ')}]`);
+    assert.ok(!s[2].some((c) => c === 'with-card-spectrum'), `slide 3 deck card 'with-card-spectrum' should be suppressed by its pin; got [${s[2].join(', ')}]`);
     assert.ok(s[2].includes('spectrum-duo'), `slide 3 lost deck STYLE 'spectrum-duo'; got [${s[2].join(', ')}]`);
     // Slide 4: its own CARD EDGE override wins, but the deck card STYLE + deck STYLE survive.
-    assert.ok(s[3].includes('spectrum-card-edge-top'), `slide 4 missing its card-edge; got [${s[3].join(', ')}]`);
-    assert.ok(s[3].includes('with-spectrum-card'), `slide 4 lost the deck card rail; got [${s[3].join(', ')}]`);
+    assert.ok(s[3].includes('card-spectrum-top'), `slide 4 missing its card-edge; got [${s[3].join(', ')}]`);
+    assert.ok(s[3].includes('with-card-spectrum'), `slide 4 lost the deck card rail; got [${s[3].join(', ')}]`);
     assert.ok(s[3].includes('spectrum-duo'), `slide 4 lost deck STYLE 'spectrum-duo'; got [${s[3].join(', ')}]`);
   });
 
@@ -499,14 +499,17 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const restores = [
       ['with-spectrum', 'spectrum-solid'],
-      ['spectrum-edge-top', 'spectrum-edge-left'],
-      ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
+      ['spectrum-top', 'spectrum-left'],
+      ['card-spectrum-left', 'card-spectrum-top'],
+      ['spectrum-regular', 'spectrum-band'],
+      ['card-spectrum-regular', 'card-spectrum-hairline'],
+      ['trim-spectrum-quiet', 'trim-spectrum-restrained'],
       ['rule-auto', 'rule-accent'],
       ['eyebrow-plain', 'eyebrow-dot'],
       ['head-auto', 'head-center'],
     ];
     const md = ['---',
-      'spectrum: solid', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
+      'spectrum: solid left band', 'card-spectrum: match top hairline', 'trim-spectrum: restrained',
       'rule: accent', 'eyebrow: dot', 'headline: center',
       '---', '', '# Slide 1',
       ...restores.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, `# ${own}`]),
@@ -525,15 +528,15 @@ describe('markdown-it-plugins', () => {
     });
   });
 
-  test('deckClassPropagate: spectrum-trim propagates + a per-slide token overrides the deck', () => {
+  test('deckClassPropagate: trim-spectrum propagates + a per-slide token overrides the deck', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    const md = ['---', 'spectrum-trim: on', '---', '',
+    const md = ['---', 'trim-spectrum: full', '---', '',
       '# Slide 1 (deck trim on)', '', '---', '',
-      '<!-- _class: content no-spectrum-trim -->', '# Slide 2 (opt out)'].join('\n');
+      '<!-- _class: content trim-spectrum-quiet -->', '# Slide 2 (opt out)'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
-    assert.ok(s[0].includes('with-spectrum-trim'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
-    assert.ok(s[1].includes('no-spectrum-trim') && !s[1].includes('spectrum-trim '), `slide 2 should opt out; got [${s[1].join(', ')}]`);
-    assert.ok(!s[1].some((c) => c === 'with-spectrum-trim'), `slide 2 deck trim should be suppressed; got [${s[1].join(', ')}]`);
+    assert.ok(s[0].includes('trim-spectrum-full'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('trim-spectrum-quiet') && !s[1].includes('trim-spectrum-full'), `slide 2 should opt out; got [${s[1].join(', ')}]`);
+    assert.ok(!s[1].some((c) => c === 'trim-spectrum-full'), `slide 2 deck trim should be suppressed; got [${s[1].join(', ')}]`);
   });
 
   test('deckClassPropagate: a per-slide rule/eyebrow token overrides the deck register', () => {

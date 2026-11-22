@@ -36,7 +36,7 @@ model, see `design/concepts.md`.
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
 | [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
 | [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
-| [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
+| [`spectrum:` / `card-spectrum:` / `trim-spectrum:`](#the-spectrum-keys-spectrum-card-spectrum-and-trim-spectrum) | The stripe on the slide edge and on each card (style, edge, weight), and the accent on the structure | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
@@ -84,8 +84,8 @@ are its overrides.
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: match` · `trim-spectrum: full` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
@@ -446,63 +446,88 @@ signature); pick a different shape deck-wide with the register, or per-slide wit
 the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
 one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
-## The `spectrum:` / `spectrum-edge:` registers (the spectrum accent finish)
+## The spectrum keys: `spectrum:`, `card-spectrum:` and `trim-spectrum:`
 
-The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
-edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
-(table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
-split-card underlines) render a **quiet accent-tinted hairline** by default, so a no-config deck stays
-elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
-are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
-and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
-`unknown-spectrum-trim`.
+The SPECTRUM is the accent gradient. Three keys set where it shows, each named for the thing first
+(`lib/core/resolve-spectrum.js`; `engineering/decisions/2026-11-21-spectrum-keys.md`):
 
-**`spectrum:` — the STYLE (the gradient identity).** Sets `--spectrum-style` at the section
-level, and the bar reads `--spectrum-bar` (the STYLE when one is set, else the theme's ribbon). It
-always drives the brand bar; with `spectrum-trim: on` it drives the structural accents too.
-`--spectrum` itself stays the theme's own ribbon on every element, which is what lets
-`spectrum-card: rainbow` pin that ribbon on a `solid` deck in every host. Custom CSS that wants
-the slide's bar should read `var(--spectrum-bar)`; `var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and set the
-theme's `--accent` to their brand.
+```yaml
+spectrum: solid left band        # the stripe on the slide edge
+card-spectrum: match top         # the stripe on each card
+trim-spectrum: restrained        # the accent on tables, timelines and --- rules
+```
 
-| `spectrum:` value | Token | Effect |
+The first two take **one word per axis, in any order**: a style, an edge and a weight. Leave an axis
+out and it keeps its default. Every key reaches every slide and is overridable per slide, one axis at a
+time: `_class: spectrum-left` moves one slide's stripe and keeps the deck's style and weight. A typo, or
+two words on one axis, is caught as `unknown-spectrum` / `unknown-card-spectrum` / `unknown-trim-spectrum`.
+Deck settings label them **Spectrum**, **Card spectrum** and **Trim spectrum**.
+
+By default the spectrum paints the **slide edge only** — the section edge, the `section.dark` top line
+and the divider's left rail. The in-content structural accents (table-header rails, the `list-steps`
+timeline spine, code-panel strips, an author's `---` rule, split-card underlines) render a **quiet
+accent-tinted hairline**, so a no-config deck stays elegant and low-noise. `trim-spectrum: full` flows
+the spectrum onto that structure too.
+
+**The old names are gone.** `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:`,
+`spectrum: on` and the old classes (`spectrum-edge-left`, `with-spectrum-card`, `with-spectrum-trim`, …)
+no longer render. `lint:deck` reports each as an error (`retired-spectrum-key`, or `unknown-class` for a
+class) and `lint:deck --fix` rewrites it: `spectrum: duo` plus `spectrum-edge: left` becomes
+`spectrum: duo left`.
+
+### `spectrum:` — the stripe on the slide edge
+
+**Style** — the gradient identity. Sets `--spectrum-style` at the section level, and the stripe reads
+`--spectrum-bar` (the style when one is set, else the theme's ribbon). It always drives the slide edge;
+with `trim-spectrum: full` it drives the structural accents too. `--spectrum` itself stays the theme's
+own ribbon on every element, which is what lets `card-spectrum: rainbow` pin that ribbon on a `solid`
+deck in every host. Custom CSS that wants the slide's stripe should read `var(--spectrum-bar)`;
+`var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and
+set the theme's `--accent` to their brand.
+
+| Style word | Class on a slide | Effect |
 |---|---|---|
-| `on` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `rainbow` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default**. |
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
-| `off` | `no-spectrum` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+| `off` | `no-spectrum` | Drops the slide-edge / divider stripe only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it does not take a frame's CANVAS with the stripe (#2291). |
 
-**Back to the default on one slide — the restore tokens.** A deck value writes no token when it
-is the default, so the default needs a token of its own for one slide to ask for it inside a deck
-that set something else. Each of these registers has one, named for its default value:
-`with-spectrum`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
-`head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
-that slide (as any per-slide token does), and the slide renders as the default. So in a
-`spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
-the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
-from its own axis (`with-spectrum spectrum-solid`) a restore token always loses, so `lint:deck`
-warns `conflicting-variants`.
+**Edge** — where the stripe sits. It moves ONLY the stripe, via a per-side `border-image`; it never
+touches the structural accents, so a stripe-off deck keeps its table rails and `---` rules.
 
-**`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
-ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
-bar-off deck keeps its table rails and `---` rules.
-
-| `spectrum-edge:` value | Token | Effect |
+| Edge word | Class on a slide | Effect |
 |---|---|---|
-| `top` | *(none)*; per slide `spectrum-edge-top` | The top border. **The default** (omit the key). |
-| `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
-| `right` | `spectrum-edge-right` | A right rail. |
-| `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
-| `off` | `no-spectrum-edge` | No section-edge bar (structural accents survive). |
+| `top` | *(none)*; per slide `spectrum-top` | The top border. **The default**. |
+| `left` | `spectrum-left` | A left rail (the divider look, generalized). |
+| `right` | `spectrum-right` | A right rail. |
+| `bottom` | `spectrum-bottom` | A bottom rail — reads as a baseline. |
 
-**Placement never moves the slide's content or chrome.** The bar takes its room out of the slide's
-margin, not out of the content: the content box, the header, the footer, the page number, the state
-stamps, the `mark-*` decorations, a centered logo, a background photo and the overflow marker sit in
-the same place under every `spectrum-edge:` value, light and dark. The same goes for adding or removing
-the bar with `accent`, `tone-edge` or the `spectrum:` register. `npm run check:edge-shift` measures it
-across every component, its variants and the layout modifiers, and `--bars` lists any component that
-draws no bar under a placement.
+**Weight** — how thick the stripe is.
+
+| Weight word | Class on a slide | Effect |
+|---|---|---|
+| `regular` | *(none)*; per slide `spectrum-regular` | `0.3125cqi` of the slide, 4px at 1280px. **The default**. |
+| `hairline` | `spectrum-hairline` | One pixel. |
+| `band` | `spectrum-band` | `1.5cqi`, 19px at 1280px: the heavy edge a preset can carry. |
+
+**Back to the default on one slide — the restore classes.** A deck value writes no class when it is the
+default, so the default needs a class of its own for one slide to ask for it inside a deck that set
+something else: `with-spectrum`, `spectrum-top`, `spectrum-regular`, `card-spectrum-left`,
+`card-spectrum-regular` and `trim-spectrum-quiet`, beside `rule-auto`, `eyebrow-plain` and `head-auto`.
+A restore class draws nothing; the engine drops the deck's class on its axis for that slide. So in a
+`spectrum: left` deck, `_class: spectrum-top` puts one slide's stripe back on top. Write one class per
+axis: beside a rival from its own axis (`with-spectrum spectrum-solid`) a restore class always loses, so
+`lint:deck` warns `conflicting-variants`.
+
+**The edge and the weight never move the slide's content or chrome.** The bar takes its room out of the slide's
+margin, not out of the content: the content box, the header, the footer, the page number, the `mark-*`
+decorations, a centered logo and a background photo sit in the same place under every edge and every
+weight, light and dark. The state stamps and the overflow marker hang one bar width in from the slide
+edge, so they hold still across the edges and step in with a heavier weight, never sitting under the
+bar. The same goes for adding or removing the bar with `accent`, `tone-edge` or the `spectrum:` key.
+`npm run check:edge-shift` measures it across every component, its variants and the layout modifiers, at
+each weight (`--weight band`), and `--bars` lists any component that draws no bar under a placement.
 
 **Full-bleed layouts draw the bar as an overlay.** `image`, `scene`, `split-panel`, `split-compare`, a
 `claim-bleed` media slide and `collage bleed` claim the whole slide and have no margin to give a border,
@@ -522,63 +547,44 @@ the bar would paint over it. The export-to-Marp bundle ships the runtime, which 
 full-bleed slide has its bar there too. And a browser that scales the slide with CSS `zoom` (the print sheet)
 can shift content by half a pixel on a canvas whose bar is not a whole number of device pixels.
 
-**`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
-Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
-`pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
-axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
-deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
-`_class: spectrum-card-duo` pins one slide, `_class: no-spectrum-card` opts one out. A typo is
-caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
+### `card-spectrum:` — the stripe on each card
 
-| `spectrum-card:` value | Token | Effect |
+An INDEPENDENT stripe on card surfaces (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
+`pricing` / `verdict-grid` tiles), off by default. It has the same three axes as `spectrum:`, because
+every spectrum variant is on-brand: `match` follows the slide edge, or pin `solid` / `duo` / `mono` /
+`rainbow` regardless of what the slide edge shows.
+
+| Axis | Words (default first) | Class on a slide |
 |---|---|---|
-| `off` | *(none)* | No card rail. **The default** (omit the key). |
-| `auto` | `with-spectrum-card` | A rail that follows the deck's spectrum STYLE. |
-| `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
-| `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
-| `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
-| `rainbow` | `spectrum-card-rainbow` | Pin the rail to the full theme ribbon. |
+| Style | `off`, `match`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum`, `card-spectrum-rainbow`, `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
+| Edge | `left`, `top`, `right`, `bottom` | `card-spectrum-left` (restore), `card-spectrum-top`, `card-spectrum-right`, `card-spectrum-bottom` |
+| Weight | `regular`, `hairline`, `band` | `card-spectrum-regular` (restore), `card-spectrum-hairline`, `card-spectrum-band` |
 
-**`spectrum-card-edge:` — WHERE the card rail sits.** `left` (default) / `top` / `right` /
-`bottom`. Independent of the STYLE axis; overridable per slide (`_class: spectrum-card-edge-top`).
+`regular` is `0.35cqi` of the slide, `hairline` `0.12cqi`, `band` `0.78cqi` (10px at 1280px). A preset's
+internal `--rail-w` hook still wins over all three. Kept opt-in on purpose: a stripe on *every* card by
+default would be the ransom-note look — turn it on where it earns its place.
 
-| `spectrum-card-edge:` value | Token | Effect |
+### `trim-spectrum:` — the accent on the structure
+
+How much the in-content structural accents (table-header rails, the `list-steps` timeline spine,
+code-panel strips, the `hr` rule, split-card underlines) carry the spectrum.
+
+| Word | Class on a slide | Effect |
 |---|---|---|
-| `left` | *(none)*; per slide `spectrum-card-edge-left` | A rail on the card's left edge. **The default** (omit the key). |
-| `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
-| `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
-| `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
+| `quiet` | *(none)*; per slide `trim-spectrum-quiet` | A quiet accent-tint hairline (`--spectrum-quiet`). **The default**. |
+| `restrained` | `trim-spectrum-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the slide edge (a two-tier look that never clashes). |
+| `full` | `trim-spectrum-full` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` style). |
 
-Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
-it on where it earns its place.
-
-The rail's **thickness** is the `--rail-w` token (unset: `0.35cqi` of the slide), which a preset
-sets; no register exposes it. See "Preset hooks" in [`base.docs.md`](base.docs.md).
-
-**`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
-increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
-spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
-stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
-low-noise). Per-slide `_class: with-spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
-tier, `no-spectrum-trim` out.
-
-| `spectrum-trim:` value | Token | Effect |
-|---|---|---|
-| `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
-| `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
-| `on` | `with-spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
-
-The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
-`spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
-to extend it into a rail on each card — or `spectrum-card: rainbow` to override the cards to the
-full ribbon while the bar stays duo. `spectrum:` also composes with `accent` /
-`tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
-a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
-`spectrum: off` there. *(History: `spectrum:` started as a narrow bar-only white-label toggle,
-then `solid`/`duo`/`mono` were consolidated to drive every accent
-(`2026-07-15-accent-finish-consolidation.md`); the default was then pulled back to the brand bar
-alone, with `spectrum-trim:` as the structure opt-in
-(`2026-07-16-spectrum-structure-default.md`).)*
+The keys compose: `spectrum: duo left` is a two-tone rail on the left; add `trim-spectrum: full` to flow
+that duo onto the table rails and rules too, and `card-spectrum: match` to extend it into a stripe on
+each card — or `card-spectrum: rainbow` to override the cards to the full ribbon while the slide edge
+stays duo. `spectrum:` also composes with `accent` / `tone: edge` (per-slide stripe recolors), which win
+over the deck key where they apply. On a dark bookend a dark client accent reads faint — pick a theme
+accent that reads on dark, or `spectrum: off` there. *(History: `spectrum:` started as a narrow
+bar-only white-label toggle (`2026-07-03-spectrum-register-white-label.md`), then `solid`/`duo`/`mono`
+were consolidated to drive every accent (`2026-07-15-accent-finish-consolidation.md`); the default was
+pulled back to the slide edge alone, with a structure opt-in (`2026-07-16-spectrum-structure-default.md`);
+the five keys became three, with a weight axis (`2026-11-21-spectrum-keys.md`).)*
 
 ## The `rule:` front-matter register (heading underline)
 
@@ -1451,7 +1457,7 @@ Two implementation notes worth knowing before you touch either:
   `border-top` painted with `border-image-source: var(--spectrum)`, and a border image
   does **not** honor `border-radius` — the bar keeps square corners and pokes past the
   rounded surface. `clip-path: inset(0 round R)` clips the whole element, border image
-  included, so one property covers the top bar and all four `spectrum-edge` rails.
+  included, so one property covers the top bar and all four `spectrum:` edge rails.
 - **The rounded value is anchored to `--_sec-1cqi`.** It is consumed by the section's own
   clip, and a section cannot query its own container — a bare `cqi` there escapes to the
   host viewport, so the corner would scale with the browser window instead of the slide.

@@ -65,7 +65,7 @@ section.compare-code h2 ~ p:has(> code:only-child):not(:where([data-prose])) > c
 }
 /* Longhands so a missing theme token can't take the panel SURFACE with it — see the note on
  * `section.code pre` (code.styles.css). Reachable on the DEFAULT path (a theme short of
- * `--accent`/`--border` poisons `--spectrum-structure`), not only under `spectrum-trim: on`
+ * `--accent`/`--border` poisons `--spectrum-structure`), not only under `trim-spectrum: full`
  * (#1528). */
 section.compare-code pre {
   flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden;

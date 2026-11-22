@@ -52,7 +52,7 @@ function png(w, h, base) {
 function slide(placement) {
 	return [
 		'---\ntheme: indaco\n---',
-		`<!-- _class: collage bleed spectrum-edge-${placement} -->\n\n## Hand-lasted\n\n![](a.png)\n![](b.png)\n`,
+		`<!-- _class: collage bleed spectrum-${placement} -->\n\n## Hand-lasted\n\n![](a.png)\n![](b.png)\n`,
 	].join('\n\n---\n\n');
 }
 
