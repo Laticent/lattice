@@ -68,7 +68,12 @@ export interface LatticePlaygroundEngine {
 	 *  bundle older than this feature does not carry it. */
 	/** The fit verdict's probes, selectors and tolerance (lib/playground/index.js), for the measured split. */
 	fitVerdictConfig?: () => Record<string, unknown>;
-	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean; plan?: Record<string, unknown> | 'whole' | null }) => { html: string; changed: number; applies?: boolean; planned?: string[] };
+	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean; plan?: Record<string, unknown> | 'whole' | null }) => { html: string; changed: number; applies?: boolean; planned?: string[]; pending?: boolean };
+	/** Resolves once `splitForPreview` can split a box this size: at once for a box that never splits (16:9),
+	 *  otherwise when the engine has loaded its splitter, which it does on demand. Await it before
+	 *  `splitForPreview`, or a portrait or square render comes back unsplit (`pending: true`). Optional, because an
+	 *  engine bundle older than this splits synchronously and does not carry it. */
+	splitReady?: (width?: number, height?: number) => Promise<void>;
 	/** Author CSS the host appends after the theme, widened so its `section.<component>` rules
 	 *  reach a pane of the rendered `html` (lib/core/pane-css.js). Unchanged without a pane.
 	 *  Optional, because an engine bundle older than this does not carry it. */

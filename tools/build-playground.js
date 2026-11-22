@@ -196,7 +196,10 @@ const shapeGlyphClassPlugin = {
 
 const BUILD_OPTIONS = {
   entryPoints: [ENTRY],
-  define: { __LATTICE_SPLIT_CAPACITY__: JSON.stringify(SPLIT_CAPACITY) },
+  // A JSON STRING, parsed where it is read (lib/playground/split-lazy.js). esbuild hoists an object-valued define into
+  // the shared runtime chunk every ESM entry imports, so the table was boot weight on every docs page although only the
+  // lazily loaded splitter reads it; a string literal is inlined where it is used (route budget, 2026-11-22).
+  define: { __LATTICE_SPLIT_CAPACITY__: JSON.stringify(JSON.stringify(SPLIT_CAPACITY)) },
   bundle: true,
   format: 'iife',
   platform: 'browser',

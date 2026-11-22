@@ -2145,6 +2145,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// one past the source index, and the run's stamps must read as the PDF does.
 					const splitOpts = { firstSlide: renderedBase + 1 };
 					const slideSource = opts.slideMarkdown;
+					// The engine loads its splitter on demand: `splitReady` resolves at once at landscape.
+					await PG.splitReady?.(out.width, out.height);
 					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
 					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
 					// measure, plan and verify the CLI runs, in a hidden frame built as this one is, with the

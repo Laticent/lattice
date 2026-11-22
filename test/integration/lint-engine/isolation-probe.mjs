@@ -26,6 +26,8 @@ const out = (src) => {
 	}
 };
 const all = decks();
+// The splitter loads on demand (lib/playground/index.js `splitReady`); load it once so every call below splits.
+await PG.splitReady?.(1080, 1350);
 const before = all.map(([, s]) => out(s));
 const lint = await import(pathToFileURL(path.join(dir, 'lint.js')).href);
 const vocab = require(path.join(ROOT, 'lib/authoring/lint.js')).buildVocab();

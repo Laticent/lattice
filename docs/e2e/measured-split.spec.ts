@@ -67,8 +67,9 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 		// The measured split ran, and packed this slide's items onto pages of several.
 		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).some((v) => Array.isArray(v) && v.some((n) => n > 1)), { timeout: 20000 }).toBe(true);
 		await expect.poll(() => pagesInSlide(page), { timeout: 20000 }).toBeLessThan(structural);
-		// The CLI packs this deck as 9 + 9 (test/integration/parity/measured-split.test.js): the same pages here.
-		expect(Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v))).toEqual([9, 9]);
+		// The CLI packs this deck as 6 + 6 + 6 at a square deck's default venue, phone (test/integration/parity/measured-split.test.js
+		// pins it): the same pages here.
+		expect(Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v))).toEqual([6, 6, 6]);
 		const packed = await pagesInSlide(page);
 		expect(packed).toBeGreaterThan(1);
 		await page.screenshot({ path: info.outputPath('packed.png') });
@@ -97,7 +98,7 @@ test.describe('@crosswidth @webkit-tablet @gecko typing in a fit: pack slide', (
 	test('does not measure while the author types, and measures once after the pause (§17)', async ({ page }) => {
 		await gotoStudio(page);
 		await setEditorContent(page, deck('pack', 'square', 18));
-		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 20000 }).toEqual([9, 9]);
+		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 20000 }).toEqual([6, 6, 6]);
 		const count = () => page.evaluate(() => (window as unknown as { __latticeMeasureCount?: number }).__latticeMeasureCount ?? 0);
 		// Settled: the count holds across two reads half a second apart, so no measurement is in flight.
 		let last = -1;
@@ -118,7 +119,7 @@ test.describe('@crosswidth @webkit-tablet @gecko typing in a fit: pack slide', (
 		await expect(livePreview(page).locator('section').first()).toBeVisible();
 		// The pause measures once, and the pages settle on the plan for the new text.
 		await expect.poll(count, { timeout: 15000 }).toBe(before + 1);
-		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 15000 }).toEqual([9, 9]);
+		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 15000 }).toEqual([6, 6, 6]);
 		// The preview RE-RENDERED with that plan: a measurement writes its record without `reused`, and
 		// only the render the `lattice:measured-split-ready` event triggers reads the cached plan and
 		// marks it `reused`. Without the event the record would stay as the measurement left it.
@@ -140,13 +141,13 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Playg
 		await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 		await expect(page.frameLocator('#preview').locator('section[data-lattice-slide]').first()).toBeVisible({ timeout: 30_000 });
 		// The Playground's hidden frame measured the deck and packed the slide: every item placed,
-		// several to a page. The CLI packs this deck as 9 + 9 (test/integration/parity/measured-split.test.js).
+		// several to a page. The CLI packs this deck as 6 + 6 + 6 at the phone default (test/integration/parity/measured-split.test.js).
 		await expect
 			.poll(async () => {
 				const sizes = Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)) as number[] | undefined;
 				return sizes ?? null;
 			}, { timeout: 30_000 })
-			.toEqual([9, 9]);
+			.toEqual([6, 6, 6]);
 	});
 });
 
@@ -162,9 +163,9 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 		const download = page.waitForEvent('download', { timeout: 240_000 });
 		await dialog.getByRole('button', { name: /Download webpage/ }).click();
 		const html = readFileSync((await (await download).path()) as string, 'utf8');
-		// The downloaded file's own pages: a cover and two pages of nine list items, the CLI's 9 + 9 for
-		// this deck. Items, not text: a page's carousel signal quotes the next page's first item.
+		// The downloaded file's own pages: a cover and three pages of six list items, the CLI's 6 + 6 + 6 for
+		// this deck at the phone default. Items, not text: a page's carousel signal quotes the next page's first item.
 		const bodies = html.split(/(?=<section\b)/).filter((p) => /data-split-role="body"/.test(p.slice(0, 1200)));
-		expect(bodies.map((p) => (p.slice(0, p.indexOf('</section>')).match(/<li\b/g) || []).length)).toEqual([9, 9]);
+		expect(bodies.map((p) => (p.slice(0, p.indexOf('</section>')).match(/<li\b/g) || []).length)).toEqual([6, 6, 6]);
 	});
 });

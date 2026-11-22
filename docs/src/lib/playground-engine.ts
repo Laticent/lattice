@@ -196,6 +196,8 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
+			// The engine loads its splitter on demand: `splitReady` resolves at once at landscape.
+			await PGref.splitReady?.(geom.w, geom.h);
 			let html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
 			// lacks re-registers the base, and the engine recomposes the sheet so it has the

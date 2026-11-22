@@ -66,6 +66,17 @@ describe('measured split, through the CLI', () => {
     });
   }
 
+  // The browser's twin (docs/e2e/measured-split.spec.ts) expects these exact pages from the Studio, the Playground and
+  // the webpage export. Measured 2026-11-22: at a square deck's default venue (phone) the deck packs 6 + 6 + 6; the same
+  // deck with `venue: laptop` packs 9 + 9, which the twin expected before the phone default.
+  test('the default packer puts eighteen items on three pages of six (the e2e twin pins the same pages)', () => {
+    // Each body page's own list items, from its open tag to its close (a page's carousel signal quotes text, not items).
+    const html = render('over-pages', OVER);
+    const pages = html.split(/(?=<section\b)/).filter((p) => /data-split-role="body"/.test(p.slice(0, p.indexOf('>'))))
+      .map((p) => (p.slice(0, p.indexOf('</section>')).match(/<li\b/g) || []).length);
+    assert.deepEqual(pages, [6, 6, 6]);
+  });
+
   test('a deck with no fit: line measures by default, the way --fit-pack knuth-plass does', () => {
     assert.equal(bodies(render('fits-default', FITS)).length, 0, 'the default keeps a slide that fits whole');
     assert.equal(bodies(render('over-default', OVER)).length, bodies(render('over-kp', OVER, '--fit-pack', 'knuth-plass')).length);
