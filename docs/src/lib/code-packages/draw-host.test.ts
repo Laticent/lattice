@@ -233,6 +233,27 @@ describe('the draw host', () => {
 		await expect(draw).resolves.toBe('<svg/>');
 	});
 
+	it('offline, a look-alike check from another frame does not end the wait early', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false });
+		opened.push(host.close);
+		const draw = host.draw(JOB);
+		let settled = false;
+		draw.then(() => (settled = true), () => (settled = true));
+		await frameCreated(frames);
+		await vi.advanceTimersByTimeAsync(2_000); // the deadline posts its first check (id 1)
+		// Another frame sends every check id it could guess, before the page's own check is delivered.
+		const other = {} as Window;
+		for (let id = 1; id <= 500; id++) window.dispatchEvent(Object.assign(new Event('message'), { source: other, data: { t: 'lattice-draw-hello-check', id } }));
+		frames[0].reply({ t: SHELL_READY }); // the shell's hello, still ahead of the page's own check
+		await vi.advanceTimersByTimeAsync(10);
+		await sent(frames, 0, 1);
+		expect(settled).toBe(false);
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(draw).resolves.toBe('<svg/>');
+	});
+
 	it('offline, a kind the page can draw itself is left to the page', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);

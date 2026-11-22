@@ -234,6 +234,9 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 							if (shellSaidHello) return;
 							const id = ++helloChecks;
 							const onCheck = (e: MessageEvent) => {
+								// Only this page's own check counts: another frame's look-alike message (its source is that frame's window) must not
+								// end the wait early. A browser sets a window's own post to `source === view`; jsdom leaves it null.
+								if (e.source && e.source !== view) return;
 								const d = e.data as { t?: unknown; id?: unknown } | null;
 								if (d?.t !== 'lattice-draw-hello-check' || d.id !== id) return;
 								view.removeEventListener('message', onCheck);
