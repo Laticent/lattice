@@ -1168,7 +1168,7 @@ class SlideView {
 		const i = this.index();
 		if (i < 0) return;
 		const nodes = this.slides();
-		const blank = deckSchema.nodes.slide.create({ directives: ['<!-- _class: content -->'], raw: '', locked: false }, deckSchema.nodes.paragraph.create());
+		const blank = deckSchema.nodes.slide.create({ directives: ['<!-- @meta{layout=content} -->'], raw: '', locked: false }, deckSchema.nodes.paragraph.create());
 		nodes.splice(i + 1, 0, blank);
 		this.commit(nodes);
 	}

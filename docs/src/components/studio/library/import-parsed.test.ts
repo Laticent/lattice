@@ -54,7 +54,7 @@ describe('importParsedBundle — keepMine (opening a .lattice)', () => {
 		const t = await importParsedBundle(bundle({ components: [{ name: 'kpi', bucket: null, css: 'section.kpi { outline: 1px solid red; }', skeleton: '<!-- _class: kpi -->\n\n## K' }] }), { keepMine: true });
 		const saved = (await listStudioComponents()).map((c) => c.name);
 		expect(saved).toEqual(['kpi-custom']);
-		expect(applyImportRenames('<!-- _class: kpi -->\n\n## K\n', t.renames)).toContain('_class: kpi-custom');
+		expect(applyImportRenames('<!-- _class: kpi -->\n\n## K\n', t.renames)).toContain('<!-- @meta{class=kpi-custom} -->');
 	});
 
 	it('a component named for an engine class (`finish`) is reserved too', async () => {

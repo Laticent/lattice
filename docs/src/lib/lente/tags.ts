@@ -53,6 +53,39 @@ function isBlank(s: string): boolean {
 	return true;
 }
 
+/** The layout a slide's settings RECORD names (`<!-- @meta{layout=cards-grid, class=dark} -->`, the form the Studio writes
+ *  since the clean break; the bare `<!-- {…} -->` too), OUTSIDE any fenced code block, by plain string scanning: the
+ *  `layout` field, else the first word of `class`. Null when no record names one. */
+export function findRecordLayout(src: string, ranges?: Array<[number, number]>): string | null {
+	const text = String(src ?? '');
+	const fences = ranges ?? fenceRanges(text);
+	let i = 0;
+	for (;;) {
+		const open = text.indexOf('<!--', i);
+		if (open < 0) return null;
+		const close = text.indexOf('-->', open + 4);
+		if (close < 0) return null;
+		i = close + 3;
+		if (inFence(open, fences)) continue;
+		let inner = text.slice(open + 4, close).trim();
+		if (inner.startsWith('@meta')) inner = inner.slice(5);
+		if (!inner.startsWith('{')) continue;
+		const end = inner.lastIndexOf('}');
+		if (end < 0) continue;
+		let layout: string | null = null;
+		let cls: string | null = null;
+		for (const item of inner.slice(1, end).split(',')) {
+			const eq = item.indexOf('=');
+			if (eq < 0) continue;
+			const name = item.slice(0, eq).trim();
+			const first = item.slice(eq + 1).trim().replace(/^"/, '').split(' ')[0].replace(/"$/, '');
+			if (name === 'layout' && layout === null) layout = first;
+			else if (name === 'class' && cls === null) cls = first;
+		}
+		if (layout || cls) return layout || cls;
+	}
+}
+
 /** Find the first `<!-- _<key>: … -->` HTML comment OUTSIDE any fenced code block, by plain string
  *  scanning. Only whitespace may precede the marker inside the comment. Returns the comment's span and
  *  its `body` (text between the marker and `-->`), or null. */

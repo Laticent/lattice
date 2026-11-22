@@ -63,31 +63,34 @@ test('@crosswidth @webkit-phone @gecko every slide names its layout, and the qui
 	await expect(pillButton(page)).toHaveAttribute('aria-expanded', 'true');
 });
 
-test('@crosswidth @webkit-phone @gecko a look applies at once, the menu stays open, and Done keeps it with one Undo', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a look applies at once, the menu stays open, and Done keeps it with one Undo', async ({ page }) => {
 	await openDeck(page);
 	await ghost(page, 1).click();
 	const look = menu(page).getByRole('button', { name: 'four', exact: true });
 	await look.click();
 	await expect(look).toHaveAttribute('aria-pressed', 'true');
-	await expect.poll(() => deckSource(page)).toContain('<!-- _class: cards-grid four -->');
+	// Written as the record, in the old comment's place (record note §15): the Studio writes `@meta` only.
+	await expect.poll(() => deckSource(page)).toContain('<!-- @meta{layout=cards-grid, class=four} -->');
+	expect(await deckSource(page)).not.toContain('<!-- _class: cards-grid');
 	// `numbered` is written as an ordered list, not a class: the menu does not offer it as a look.
 	await expect(menu(page).getByRole('button', { name: 'numbered', exact: true })).toHaveCount(0);
 	await menu(page).getByRole('button', { name: 'Done' }).click();
 	await expect(menu(page)).toBeHidden();
 	await expect(pillButton(page)).toBeFocused();
+	// Undo gives the slide back exactly as the author wrote it, old comment included.
 	await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo' }).click();
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: cards-grid three -->');
 });
 
-test('@crosswidth @webkit-phone @gecko a layout that reads the text keeps it; one that cannot asks before replacing it', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a layout that reads the text keeps it; one that cannot asks before replacing it', async ({ page }) => {
 	await openDeck(page);
 	await pillButton(page).click();
 	await layoutRow(page, /^big-number/).click();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _class: big-number -->\n\n## By the numbers.');
+	await expect.poll(() => deckSource(page)).toContain('<!-- @meta{layout=big-number} -->\n\n## By the numbers.');
 	expect(await deckSource(page)).toContain('   - components');
 	// The family stays the one the slide started with, so `stats` is still on offer to go back to.
 	await layoutRow(page, /^stats/).click();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _class: stats -->\n\n## By the numbers.');
+	await expect.poll(() => deckSource(page)).toContain('<!-- @meta{layout=stats} -->\n\n## By the numbers.');
 	// A stats slide's text does not fit every layout, so the second list is there: a row in it asks before it replaces.
 	const first = freshRows(page).getByRole('button').first();
 	await expect(first).toBeVisible();
@@ -97,7 +100,11 @@ test('@crosswidth @webkit-phone @gecko a layout that reads the text keeps it; on
 	expect(await deckSource(page)).toContain('   - components');
 	await first.click();
 	await menu(page).getByRole('button', { name: 'Replace text' }).click();
-	await expect.poll(() => deckSource(page)).toContain(`<!-- _class: ${name}`);
+	// Starting from an example writes the example's settings as one record, and only one: the skeleton's own record never
+	// rides into the body.
+	await expect.poll(() => deckSource(page)).toContain(`<!-- @meta{layout=${name}`);
+	const third = (await deckSource(page)).split(/\n---\n/).at(-1) ?? '';
+	expect(third.match(/<!--\s*(?:@meta\{|_class:)/g)).toHaveLength(1);
 	expect(await deckSource(page)).toContain('## By the numbers.');
 	expect(await deckSource(page)).not.toContain('   - components');
 	await page.keyboard.press('Escape');

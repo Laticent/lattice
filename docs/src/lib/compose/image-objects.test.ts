@@ -386,11 +386,13 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		const steps = filo.history.state().steps;
 		expect(placeImage(view, pic.pos, 'left')).toBe(true);
 		expect(filo.history.state().steps).toBe(steps + 1);
-		expect(docToDeck(view.state.doc)).toMatch(/<!-- _class: image mirror -->[\s\S]*!\[A lake\]\(sample:photo-wide\.jpg\)/);
+		expect(docToDeck(view.state.doc)).toMatch(/<!-- @meta\{layout=image, class=mirror\} -->[\s\S]*!\[A lake\]\(sample:photo-wide\.jpg\)/);
 		expect(placeImage(view, images(view)[0].pos, 'full')).toBe(true);
-		expect(docToDeck(view.state.doc)).toContain('<!-- _class: content bleed -->');
+		expect(docToDeck(view.state.doc)).toContain('<!-- @meta{layout=content, class=bleed} -->');
 		expect(placeImage(view, images(view)[0].pos, 'none')).toBe(true);
-		expect(docToDeck(view.state.doc)).toContain('<!-- _class: content -->');
+		expect(docToDeck(view.state.doc)).toContain('<!-- @meta{layout=content} -->');
+		// One settings comment throughout: each placement edits the record the first one wrote.
+		expect(docToDeck(view.state.doc).match(/<!--/g)).toHaveLength(1);
 		expect(docToDeck(view.state.doc)).not.toMatch(/!\[bg/);
 	});
 
@@ -424,7 +426,7 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(placementAt(view.state, pic.pos)).toEqual({ placement: 'none', canPlace: true });
 		expect(placeImage(view, pic.pos, 'right')).toBe(true);
 		const out = docToDeck(view.state.doc);
-		expect(out).toContain('<!-- _class: image -->');
+		expect(out).toContain('<!-- @meta{layout=image} -->');
 		// The description becomes the name once, not the name and the description both (inversion, F9).
 		expect(out).toContain('![A forest](asset:forest)');
 		expect(out).not.toMatch(/!\[bg/);

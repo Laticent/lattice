@@ -72,16 +72,17 @@ describe('setClassTokens — span-surgical', () => {
 	it('replaces the value, touching nothing else', () => {
 		const chunk = '<!-- _class: kpi -->\n\n## Revenue\n\n1. $4M\n   - Net';
 		const out = setClassTokens(chunk, ['kpi', 'dark']);
-		expect(out).toBe('<!-- _class: kpi dark -->\n\n## Revenue\n\n1. $4M\n   - Net');
+		// The setting moves into a record, in the comment's place (record note §15).
+		expect(out).toBe('<!-- @meta{layout=kpi, class=dark} -->\n\n## Revenue\n\n1. $4M\n   - Net');
 	});
 	it('preserves unknown / hand-authored tokens verbatim and in order', () => {
 		const chunk = '<!-- _class: kpi tint-corner at-tl my-local-thing -->\n\n# Hi';
 		// Toggle `dark` on: append, keep the rest exactly.
-		expect(toggleToken(chunk, 'dark')).toBe('<!-- _class: kpi tint-corner at-tl my-local-thing dark -->\n\n# Hi');
+		expect(toggleToken(chunk, 'dark')).toBe('<!-- @meta{layout=kpi, class=tint-corner at-tl my-local-thing dark} -->\n\n# Hi');
 	});
 	it('inserts a directive when absent', () => {
-		// A slide with no record keeps the comment form: the form follows the slide until the cut (#3136).
-		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- _class: content dark -->\n\n# Bare slide\n\nbody');
+		// Always a record, the one spelling the Studio writes (record note §15).
+		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- @meta{layout=content, class=dark} -->\n\n# Bare slide\n\nbody');
 	});
 	it('removes a sole-directive comment when cleared to empty', () => {
 		expect(setClassTokens('<!-- _class: kpi -->\n\n# Hi', [])).toBe('# Hi');
@@ -122,7 +123,7 @@ describe('fence awareness', () => {
 		// Editing the real directive leaves the fenced example verbatim.
 		const out = setClassTokens(chunk, ['code', 'dark']);
 		expect(out).toContain('```md\n<!-- _class: kpi -->\n```');
-		expect(out).toContain('<!-- _class: code dark -->');
+		expect(out).toContain('<!-- @meta{layout=code, class=dark} -->');
 	});
 	it('marks fenced ranges', () => {
 		const chunk = 'a\n```\nx\n```\nb';
@@ -202,9 +203,9 @@ describe('the class drawer on a record slide', () => {
 		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');
 		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- {layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
 	});
-	it('a record that does not read is left as written; the class lands in a comment of its own', () => {
+	it('a record that does not read is left as written; the class lands in a record of its own', () => {
 		// It applies nothing, so the slide has no class to show; the linter names it (`meta-record`).
 		expect(canEditClass('<!-- {layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
-		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- _class: kpi -->');
+		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- @meta{layout=kpi} -->');
 	});
 });

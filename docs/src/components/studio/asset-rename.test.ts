@@ -33,15 +33,16 @@ describe('renameAssetInSource — component', () => {
 		const src = deck('<!-- _class: scorecard -->\n\n# A\n\n---\n\n<!-- _class: scorecard dark -->\n\n# B\n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
 		expect(out.hits).toBe(2);
-		expect(out.source).toContain('<!-- _class: scoreboard -->');
-		expect(out.source).toContain('<!-- _class: scoreboard dark -->');
+		// The rename is an edit, so the class moves into a record in the old comment's place (record note §15).
+		expect(out.source).toContain('<!-- @meta{class=scoreboard} -->');
+		expect(out.source).toContain('<!-- @meta{class=scoreboard dark} -->');
 		expect(out.source).not.toContain('scorecard');
 	});
 
 	it('keeps the other tokens, and their order', () => {
 		const src = deck('<!-- _class: dark scorecard compact -->\n\n# A\n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
-		expect(out.source).toContain('<!-- _class: dark scoreboard compact -->');
+		expect(out.source).toContain('<!-- @meta{class=dark scoreboard compact} -->');
 	});
 
 	it('does NOT touch a token that merely starts with the old name', () => {
@@ -66,7 +67,7 @@ describe('renameAssetInSource — finish', () => {
 		const out = renameAssetInSource(src, 'finish', 'velvet', 'navy');
 		expect(out.hits).toBe(2);
 		expect(out.source).toContain('finish: navy');
-		expect(out.source).toContain('<!-- _class: title finish-navy -->');
+		expect(out.source).toContain('<!-- @meta{layout=title, class=finish-navy} -->');
 	});
 
 	it('leaves finish-override alone — it is keyed on LAYER names, not the finish name', () => {
@@ -98,7 +99,7 @@ describe('renameAssetInSource — guards', () => {
 	it('preserves every untouched byte around the edit', () => {
 		const src = deck('<!-- _class: scorecard -->\n<!-- _footer: hello -->\n\n# A\n\nBody with trailing spaces   \n');
 		const out = renameAssetInSource(src, 'component', 'scorecard', 'scoreboard');
-		expect(out.source).toBe(src.replace('scorecard', 'scoreboard'));
+		expect(out.source).toBe(src.replace('<!-- _class: scorecard -->', '<!-- @meta{class=scoreboard} -->'));
 	});
 });
 

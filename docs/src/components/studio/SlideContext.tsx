@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
+import { classFields } from '../../../../lib/core/meta-comment.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { switchOn } from '../../../../lib/core/switches.mjs';
 import chromeGenerated from '../../../../lib/packages/chrome.generated.js';
@@ -384,7 +385,6 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
-	const isRecord = React.useMemo(() => readClassDirective(chunk).record === true, [chunk]);
 	const has = (t: string) => tokens.includes(t);
 	const component = tokens[0] ?? '';
 	const entry = catalog.find((c) => c.name === component);
@@ -1272,15 +1272,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 				</SettingsFind>
 				</div>
 
-				{/* The emitted directive, in the form this slide is written in (a record or a `_class` comment) — teach the grammar. Inherited deck tokens ghosted. */}
+				{/* The emitted record, `<!-- @meta{layout=…} -->`, the one form the Studio writes (record note §15) — teach the grammar. Inherited deck tokens ghosted. */}
 				<div className="border-t border-border bg-[color-mix(in_srgb,var(--accent-soft)_50%,var(--bg))] px-4 py-2.5">
 					<div className="font-mono text-[11px] leading-relaxed text-[var(--text-heading)]">
 						{tokens.length || inheritedGhost.length ? (
 							<>
-								<span className="text-muted-foreground">{isRecord ? '<!-- {class=' : '<!-- _class: '}</span>
-								{tokens.join(' ')}
+								<span className="text-muted-foreground">{'<!-- @meta{'}</span>
+								{classFields(tokens.join(' ')).join(', ')}
 								{inheritedGhost.length > 0 && <span className="opacity-45"> {inheritedGhost.join(' ')}</span>}
-								<span className="text-muted-foreground">{isRecord ? '} -->' : ' -->'}</span>
+								<span className="text-muted-foreground">{'} -->'}</span>
 							</>
 						) : <span className="text-muted-foreground">no class — bare markdown slide</span>}
 					</div>
