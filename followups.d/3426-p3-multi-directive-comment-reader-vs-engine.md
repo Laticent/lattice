@@ -5,21 +5,22 @@ recorded: 2026-11-22
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-17-meta-record.md §15
-deferred: off-path — a disagreement between the engine and the shared reader that predates #3426, in a comment shape no repo deck uses; which side is right is an engine-grammar question
+deferred: off-path — `readMetaField` and its callers below already disagreed with the engine on main; #3426 moved its own new readers to `slideClassValue`, which agrees, and changing the editor primitive's reading belongs to the writers slice (C)
 source: https://github.com/Laticent/lattice/pull/3426
 ---
 
-# A comment that sets two directives: the engine folds the second into the first, the shared reader reads both
+# A comment that sets two directives: the engine reads no class, meta-edit's `readMetaField` reads one
 
-why now   — #3426 routes every reader outside the engine through `readMetaField` / `scanMetaSource`, so where they
-            disagree with the engine, the Studio and the tools now disagree with the render. A checker found one shape:
-            `<!-- footer: Q3\n_class: kpi -->` (on one comment, two `key: value` lines). The engine renders
-            `data-footer="Q3\n_class: kpi"` and no class; `readMetaField(src, 'class')` returns `kpi`. The same holds
-            with the lines spread over a multi-line comment. Present's section rail, the Coach and Lente's suggestions all
-            read `kpi` there. No deck in `examples/`, `test/integration/baseline-decks/` or `docs/src/content` uses the
-            shape, so nothing visible changed.
-where     — lib/engine (how a directive comment's value is cut: at the first newline, or the whole comment) and
-            lib/core/meta-scan.mjs (how the shared reader cuts it). Marp read such a comment as YAML, two keys.
-done when — one rule is chosen (a comment holds one directive, or several as lines), the engine and the shared reader
-            both follow it, and a test pins the shape in both. The cut (slice E) retires authored directive comments,
-            which may make the answer moot; check that first.
+why now   — `<!-- footer: Q3\n_class: kpi -->` (one comment, two `key: value` lines, also when spread over a multi-line
+            comment): the engine renders `data-footer="Q3\n_class: kpi"` and no `kpi` class. `readMetaField(src,
+            'class')` (lib/core/meta-edit.mjs) returns `kpi`, because it reads a `_class:` line anywhere in a comment so
+            the editor can write back to it, as Marp read a comment of several directives. A checker on #3426 found it.
+            #3426's new readers use `slideClassValue` (lib/core/class-entries.mjs, the scan's resolved value), which
+            gives `''` like the engine. Callers that still read the class through `readMetaField`, all present on main:
+            Present's section rail (`docs/src/components/studio/present-sections.ts`), `docs/src/lib/slide-directives.ts`,
+            and two tools that need the comment's span (`tools/audit-reading-size.js`, `tools/lib/modifier-probe.js`).
+            No deck in `examples/`, `test/integration/baseline-decks/` or `docs/src/content` uses the shape.
+where     — lib/core/meta-edit.mjs `readMetaFieldUncached` (the `lineRe` read), and the engine's directive-comment cut.
+done when — one rule is chosen (a comment holds one directive, or several as lines), the engine and `readMetaField`
+            follow it, and a test pins the shape in both. The cut (slice E) retires authored directive comments, which may
+            make it moot; check that first.

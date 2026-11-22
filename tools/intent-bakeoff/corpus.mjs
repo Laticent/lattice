@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readMetaField } from '../../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../../lib/core/class-entries.mjs';
 
 /** Strip markdown/HTML noise down to the words a person would read aloud. */
 function clean(text) {
@@ -52,9 +52,9 @@ export function buildCorpus(root, names) {
 	const pairs = [];
 	for (const file of files) {
 		for (const block of readFileSync(file, 'utf8').split(/^---\s*$/m)) {
-			const cls = readMetaField(block, 'class'); // a comment or a record (`@meta{layout=…}`): the shared reader
-			if (!cls.present) continue;
-			const component = cls.value.trim().split(/\s+/)[0];
+			const cls = slideClassValue(block); // a comment or a record (`@meta{layout=…}`), as the engine resolves it
+			if (!cls) continue;
+			const component = cls.trim().split(/\s+/)[0];
 			if (!names.has(component)) continue;
 			const full = clean(block);
 			if (full.length < 12) continue;

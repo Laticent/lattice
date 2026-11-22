@@ -35,7 +35,7 @@
  */
 
 const fs = require('node:fs');
-const { readMetaField } = require('../lib/core/meta-edit.mjs');
+const { slideClassValue } = require('../lib/core/class-entries.mjs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -90,7 +90,7 @@ function gallerySlides(name) {
   // test is the one the comment regex made (`_class:[^-]*\bname\b`: the name before any hyphen in the value).
   const isMine = new RegExp(`^[^-]*\\b${name}\\b`);
   return fs.readFileSync(p, 'utf8').split(/^---\s*$/m)
-    .filter((s) => { const cls = readMetaField(s, 'class').value; return isMine.test(cls) && !/^[^-]*\btitle\b/.test(cls); });
+    .filter((s) => { const cls = slideClassValue(s); return isMine.test(cls) && !/^[^-]*\btitle\b/.test(cls); });
 }
 
 function audit() {

@@ -20,7 +20,7 @@ import {
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
-import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 import { slideClass } from '../../lib/deck-lint';
 import { LensIcon, PreviewIcon } from './icons';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
@@ -110,7 +110,7 @@ function slideTitle(slideSrc: string): string {
 
 /** The suggester reads each slide's class through the engine's own reader, so a `@meta{layout=…}` record counts
  *  exactly as a `_class` comment does (Lente itself is zero-dependency and reads only `_class`). */
-const studioClassOf = (slideSrc: string): string => readMetaField(slideSrc, 'class').value;
+const studioClassOf = (slideSrc: string): string => slideClassValue(slideSrc);
 
 export function LensesPanel({
 	slides,

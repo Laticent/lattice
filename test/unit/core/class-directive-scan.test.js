@@ -542,3 +542,27 @@ describe('classEntries — every class setting, comment or record', () => {
     assert.deepEqual(classEntries('<!-- @meta{footer="Q3"} -->\n# A\n'), []);
   });
 });
+
+// `slideClassValue`: one slide's class as the ENGINE resolves it, for readers (meta-record §15, slice A). Where it
+// differs from meta-edit's `readMetaField` (an editor primitive that reads a `_class:` line anywhere in a comment, so
+// it can write back to it), it sides with the render.
+describe('slideClassValue — one slide, as the engine resolves it', () => {
+  const { slideClassValue } = require('../../../lib/core/class-entries.mjs');
+  test('a comment, a record, the bare record and last-wins all read as the engine does', () => {
+    assert.equal(slideClassValue('<!-- _class: kpi wide -->\n# X'), 'kpi wide');
+    assert.equal(slideClassValue('<!-- @meta{layout=kpi, footer=Q3} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- {layout=kpi} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- class: a -->\n<!-- _class: b -->\n# X'), 'b');
+    assert.equal(slideClassValue('<!-- _class: b -->\n<!-- @meta{layout=a} -->\n# X'), 'a');
+    assert.equal(slideClassValue('# no class'), '');
+  });
+  test('a comment that sets two directives: the engine gives the footer the rest, so there is no class', () => {
+    // The engine renders `data-footer="Q3\n_class: kpi"` and no `kpi` class for both of these.
+    assert.equal(slideClassValue('<!-- footer: Q3\n_class: kpi -->\n# X'), '');
+    assert.equal(slideClassValue('<!--\nfooter: Q3\n_class: kpi\n-->\n# X'), '');
+  });
+  test('a record shown in inline code, or opened on a later line, sets nothing', () => {
+    assert.equal(slideClassValue('Use `<!-- @meta{layout=kpi} -->` like so.\n\n# X'), '');
+    assert.equal(slideClassValue('<!--\n@meta{layout=kpi}\n-->\n# X'), '');
+  });
+});

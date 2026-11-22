@@ -48,8 +48,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classEntries } from '../lib/core/class-entries.mjs';
-import { readMetaField } from '../lib/core/meta-edit.mjs';
+import { classEntries, slideClassValue } from '../lib/core/class-entries.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -126,8 +125,8 @@ const FRONT = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 const deckClass = (src) => (src.match(FRONT)?.[1].match(/^class:\s*(.+)$/m)?.[1] ?? '').replace(/["']/g, '').trim();
 function slideClass(src, fallback) {
   // The class in force, a comment or a record (`@meta{layout=…}`), last one winning as in the engine: the shared reader.
-  const cls = readMetaField(src, 'class');
-  return (cls.present ? cls.value : fallback).replace(/["']/g, '').split(/\s+/).filter(Boolean);
+  const cls = slideClassValue(src);
+  return (cls || fallback).replace(/["']/g, '').split(/\s+/).filter(Boolean);
 }
 
 /** What a code span is, by its text. */

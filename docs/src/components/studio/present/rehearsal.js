@@ -26,7 +26,7 @@ export const SPEAK_WPM = 135; // boardroom delivery pace, pauses folded in
 // stated contract is "Pure + Node-testable", and `test/unit/playground/rehearsal.test.js`
 // imports it under plain Node — which cannot resolve a `.ts` module at all. The `.mjs` kernel
 // is the same derivation `lint.ts` reads, so the two still cannot disagree.
-import { readMetaField } from '../../../../../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../../../../../lib/core/class-entries.mjs';
 import { frontMatterBlockOf, splitSlideChunks } from '../../../../../lib/core/slide-boundaries.mjs';
 
 // The slide's class is read through the shared reader (lib/core/meta-edit.mjs `readMetaField`), so a slide written as a
@@ -72,7 +72,7 @@ export function parseSlides(source) {
 }
 
 function classOf(chunk) {
-  return readMetaField(chunk, 'class').value.trim().split(/\s+/)[0] || null;
+  return slideClassValue(chunk).trim().split(/\s+/)[0] || null;
 }
 function wordsOf(chunk) {
   return chunk

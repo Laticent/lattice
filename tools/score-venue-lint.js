@@ -51,7 +51,7 @@
  * Only the changed decks are rendered, once per venue, through the same cache as the scorer.
  */
 const fs = require('node:fs');
-const { readMetaField } = require('../lib/core/meta-edit.mjs');
+const { slideClassValue } = require('../lib/core/class-entries.mjs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
@@ -96,7 +96,7 @@ function componentsBySlide(text, vocab) {
   const fm = /^---\r?\n[\s\S]*?\r?\n---/.test(text) ? 2 : 0;
   splitTopLevel(text).forEach((s, idx) => {
     if (idx < fm) return;
-    const cls = readMetaField(s, 'class').value.trim(); // a comment or a record (`@meta{layout=…}`): the shared reader
+    const cls = slideClassValue(s).trim(); // a comment or a record (`@meta{layout=…}`): the shared reader
     const toks = cls ? cls.split(/\s+/) : [];
     const comp = toks.filter((t) => vocab.names.has(t)).join(' ') || 'content';
     const rest = toks.filter((t) => !vocab.names.has(t));

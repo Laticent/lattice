@@ -32,7 +32,7 @@
  * into the manifests, because a pane can pass the probes and still read badly.
  */
 const fs = require('node:fs');
-const { readMetaField } = require('../lib/core/meta-edit.mjs');
+const { slideClassValue } = require('../lib/core/class-entries.mjs');
 const { isRecordOpener } = require('../lib/core/meta-door.mjs');
 const path = require('node:path');
 const components = require('../lib/components');
@@ -124,7 +124,7 @@ function galleryBody(name) {
     cur.push(line);
   }
   slides.push(cur.join('\n'));
-  const slide = slides.find((s) => readMetaField(s, 'class').value.trim().split(/\s+/)[0] === name); // comment or record
+  const slide = slides.find((s) => slideClassValue(s).trim().split(/\s+/)[0] === name); // comment or record
   if (!slide) return null;
   // Every settings line comes out of the probe body: a `_key:` comment and a slide record (`@meta{pane=…}`) alike.
   return slide.split('\n').filter((l) => !/^<!--\s*_/.test(l.trim()) && !(l.trim().startsWith('<!--') && isRecordOpener(l.trim().slice(4)))).join('\n').replace(/^#{1,2} .*$/m, '').trim();

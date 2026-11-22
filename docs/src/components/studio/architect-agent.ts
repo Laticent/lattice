@@ -22,7 +22,7 @@ import { deckPluginsOff } from '@/lib/plugin-admission';
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
-import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -146,7 +146,7 @@ export function slideWords(slide: string): number {
 
 /** The class the engine applies to this slide, from a `_class` comment or a record (`@meta{layout=cards}`). */
 function slideClass(slide: string): string {
-	return readMetaField(slide, 'class').value.trim();
+	return slideClassValue(slide).trim();
 }
 
 function slideTitle(slide: string): string {

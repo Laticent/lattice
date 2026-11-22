@@ -8,7 +8,7 @@
 // The sketch is read from the SOURCE on purpose. The rendered slide is what the live tier shows; this
 // tier exists for the units that have no render yet, so it must not need one.
 
-import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
+import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 
 export type Block = 'text' | 'list' | 'table' | 'image' | 'code' | 'quote';
 
@@ -72,7 +72,7 @@ export function wireOf(markdown: string): Wire {
 		else push('text');
 	}
 	// The layout is the first word of the class the engine applies, comment or record (`@meta{layout=cards}`).
-	const kind = readMetaField(markdown, 'class').value.trim().split(/\s+/)[0] || '';
+	const kind = slideClassValue(markdown).trim().split(/\s+/)[0] || '';
 	const wire: Wire = { title, kind, blocks };
 	if (cache.size >= CACHE_CAP) cache.clear();
 	cache.set(markdown, wire);

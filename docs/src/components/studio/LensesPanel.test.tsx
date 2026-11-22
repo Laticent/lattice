@@ -88,6 +88,16 @@ describe('LensesPanel — suggest + membership', () => {
 		const [, changes] = onTag.mock.calls[0];
 		expect(changes.map((c: { index: number }) => c.index).sort()).toEqual([0, 1, 3]); // title, kpi, closing
 	});
+	it('a comment that sets two directives proposes nothing, because the engine applies no class there', async () => {
+		const user = userEvent.setup();
+		// The engine renders `data-footer="Q3\n_class: kpi"` and no kpi class, so the slide is not a headline metric.
+		const folded = [slides[0], '<!-- footer: Q3\n_class: kpi -->\n# The number', slides[2], slides[3]];
+		const { onTag } = setup('lenses:\n  brief: { label: "Bottom line", base: none }', { slides: folded });
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		await user.click(screen.getByRole('button', { name: 'Accept all' }));
+		const [, changes] = onTag.mock.calls[0];
+		expect(changes.map((c: { index: number }) => c.index).sort()).toEqual([0, 3]); // title, closing; not the folded kpi
+	});
 	it('a base:all lens (evidence) proposes DROPS with base all + member false', async () => {
 		const user = userEvent.setup();
 		const { onTag } = setup('lenses:\n  evidence: { label: "The evidence", base: all }');
