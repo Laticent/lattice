@@ -241,9 +241,10 @@ test('lint image-card-renamed: --fix rewrites a whole old slide, and the result 
     SLIDE('image statement at-tr card-clear'),
   ]);
   const after = applyAllFixes(before, vocab);
-  assert.ok(after.includes('<!-- _class: image spotlight image-card-bottom image-card-band image-card-65 image-card-light image-card-sm compact image-card-compact -->'), after);
-  assert.ok(after.includes('<!-- _class: content tint-corner at-tl -->'), 'the tint slide is untouched');
-  assert.ok(after.includes('<!-- _class: image statement image-card-top-right image-card-clear -->'), after);
+  // --fix also writes each slide's settings as an @meta record (lint-core's meta migration, #3429).
+  assert.ok(after.includes('<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band image-card-65 image-card-light image-card-sm compact image-card-compact} -->'), after);
+  assert.ok(after.includes('<!-- @meta{layout=content, class=tint-corner at-tl} -->'), 'the tint slide keeps its at-tl');
+  assert.ok(after.includes('<!-- @meta{layout=image, class=statement image-card-top-right image-card-clear} -->'), after);
   assert.ok(after.includes('image-card: top-right soft'), 'the deck line keeps its words');
   assert.deepEqual(renamed(after), []);
   assert.equal(applyAllFixes(after, vocab), after, 'a second --fix changes nothing');

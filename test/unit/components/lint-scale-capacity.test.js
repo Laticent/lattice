@@ -370,7 +370,8 @@ describe('the fit: register in lint', () => {
     const found = lintText(src).filter((x) => x.classToken === 'guards-strict' || x.classToken === 'guards-loose');
     assert.deepEqual(found.map((x) => [x.classToken, x.rule, x.replace?.to]), [['guards-strict', 'unknown-class', 'fit-trim'], ['guards-loose', 'unknown-class', 'fit-heal']]);
     const fixed = core.applyAllFixes(src, buildVocab());
-    assert.ok(fixed.includes('<!-- _class: content fit-trim -->') && fixed.includes('<!-- _class: content fit-heal -->'), fixed);
+    // --fix also writes each slide's settings as an @meta record (lint-core's meta migration, #3429).
+    assert.ok(fixed.includes('<!-- @meta{layout=content, class=fit-trim} -->') && fixed.includes('<!-- @meta{layout=content, class=fit-heal} -->'), fixed);
   });
 
   test('fit: report changes nothing about the scale finding: no fit level changes the size', () => {
