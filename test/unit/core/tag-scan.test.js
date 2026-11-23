@@ -92,3 +92,40 @@ describe('scanTags is linear on the markup its regex choked on', () => {
     assert.equal(keys.size, 0);
   });
 });
+
+// literalSpans / firstSpanText replace `/<code>([\s\S]*?)<\/code>/g` and `html.match(/<code>([\s\S]*?)<\/code>/)?.[1].trim()`
+// in heatmap.transform.js and carousel.js (regex PR 3). Same seeded differential fuzz.
+describe('literalSpans and firstSpanText match the lazy span regex', () => {
+  const { literalSpans, firstSpanText } = require('../../../lib/core/tag-scan');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const PIECES = ['<code>', '</code>', '<code', '</code', 'x', ' ', '\n', '<', '>', '/', 'c', '<cod', 'e>'];
+  const draw = (rand) => {
+    let s = '';
+    const n = Math.floor(rand() * 10);
+    for (let i = 0; i < n; i++) s += PIECES[Math.floor(rand() * PIECES.length)];
+    return s;
+  };
+  const hand = ['', '<code></code>', '<code><code>a</code>', '<code>a</code><code>b</code>', '<code>a', 'a</code><code>b</code>', '<code>\n</code>'];
+
+  test('every span, index and inner text (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 30000; i++) cases.push(draw(rand));
+    for (const s of cases) {
+      const want = [...s.matchAll(/<code>([\s\S]*?)<\/code>/g)].map((m) => ({ index: m.index, m: [...m] }));
+      const got = literalSpans(s, '<code>', '</code>').map((m) => ({ index: m.index, m: [...m] }));
+      assert.deepEqual(got, want, `seed ${SEED}, input ${JSON.stringify(s)}`);
+      const first = s.match(/<code>([\s\S]*?)<\/code>/);
+      assert.equal(firstSpanText(s, '<code>', '</code>'), first ? first[1].trim() : null, `seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many opens with no close run no regex', () => {
+    const s = '<code>'.repeat(100000);
+    const { keys } = assertLinearRegexes(() => {
+      assert.deepEqual(literalSpans(s, '<code>', '</code>'), []);
+      assert.equal(firstSpanText(s, '<code>', '</code>'), null);
+    });
+    assert.equal(keys.size, 0);
+  });
+});
