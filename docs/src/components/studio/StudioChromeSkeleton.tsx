@@ -195,7 +195,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<a href={HOME_HREF} aria-label="Lattice — home" className="flex h-8 shrink-0 items-center rounded-md px-1 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
 					</a>
-					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
+					<button type="button" aria-label="Lattice — workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
 						{/* The wordmark rides the launcher only at !compact. */}
 						<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', 'Playfair Fallback', Georgia, serif" }}>Lattice</span>
 						<ChevronDown className="size-4 text-muted-foreground" />
@@ -243,8 +243,8 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    It is `min-[1100px]` and not `xl`, matching the app's `!compact` gate — at
 				    1100–1279 the appearance box and tours are gone but the band still closes. */}
 				<span className="hidden min-[700px]:contents">
-					<button type="button" aria-label="Search or run a command" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
-						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+					<button type="button" aria-label="Search or run ⌘K, command palette" aria-keyshortcuts="Meta+K" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
+						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>{' '}
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>
 					<span className="hidden h-8 items-center rounded-md border border-border bg-background p-[3px] xl:flex">
@@ -441,12 +441,12 @@ export function StudioPreviewBarSkeleton() {
 			    height as the counter, and on the two-pane tiers the 32px "Collapse preview" button
 			    is what sets the band's height instead. Under-sizing it here (this was `px-2.5 py-1`)
 			    once left the whole band ~8px short of the app's at every font size. */}
-			{/* A real <button aria-label="Reader view">, because the app's LensPicker trigger is
+			{/* A real <button aria-label="Reader view: …">, because the app's LensPicker trigger is
 			    one — the same reason `DeckPill` is a button. As a <span> it was invisible to
 			    `studio-shell-parity`, which enumerates `button, a[href], input, select, [role]`:
 			    the app's control was in the set and the shell's was not, so widening that spec's
 			    roots to this band would have reported a missing control that is in fact drawn. */}
-			<button type="button" aria-label="Reader view" className="inline-flex min-h-[calc(1lh_+_0.25rem_+_2px)] min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground"><FileText className="size-3.5 shrink-0" />{/* The label is the FULL-DECK lens's own name, and at boot it always is
+			<button type="button" aria-label={`Reader view: ${LENSES[0].label}`} className="inline-flex min-h-[calc(1lh_+_0.25rem_+_2px)] min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground"><FileText className="size-3.5 shrink-0" />{/* The label is the FULL-DECK lens's own name, and at boot it always is
 			    that one: the active lens is not persisted, so every load starts on `full`. So the
 			    shell draws the real string from `LENSES[0].label` — the same constant the app's
 			    picker renders — rather than reserving a guessed width for it. It was

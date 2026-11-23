@@ -120,7 +120,7 @@ async function setup() {
  *  vitest happened to run first, and passed for every later one. Explicit budget for the same
  *  reason `editorReady` carries one. */
 async function openFabricate(user: ReturnType<typeof userEvent.setup>) {
-	await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+	await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 	await user.click(await screen.findByText('Fabricate'));
 	await screen.findByRole('button', { name: /Component/ }, { timeout: 15000 });
 }

@@ -186,7 +186,7 @@ test('the open search collapses the row into one menu, and that menu can actuall
  * against the real browser because focus is exactly the kind of thing jsdom models loosely.
  */
 test('dismissing the inline search hands focus back to the pill — but never steals it', async ({ page }) => {
-	const pill = page.getByRole('button', { name: 'Search or run a command' });
+	const pill = page.getByRole('button', { name: 'Search or run ⌘K, command palette' });
 	const field = page.getByPlaceholder('Search or run a command…');
 
 	// ESCAPE — focus was orphaned by the unmount, so the pill takes it back.

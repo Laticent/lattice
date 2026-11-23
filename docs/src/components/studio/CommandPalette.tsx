@@ -278,7 +278,8 @@ export function CommandPalette({
 					ref={pillRef}
 					type="button"
 					onClick={() => onOpenChange(true)}
-					aria-label="Search or run a command"
+					aria-label="Search or run ⌘K, command palette"
+					aria-keyshortcuts="Meta+K"
 					aria-expanded={false}
 					// `h-8` NOT `py-1.5` — #1687 normalized every header control to one 32px
 					// height (`BAR_CONTROL` in chrome-parts.tsx) and the skeleton draws the pill
@@ -286,7 +287,7 @@ export function CommandPalette({
 					className="flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] xl:px-3"
 				>
 					<Search className="size-4 shrink-0" />
-					<span className="hidden xl:inline">Search or run…</span>
+					<span className="hidden xl:inline">Search or run…</span>{' '}
 					<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 				</button>
 			);
