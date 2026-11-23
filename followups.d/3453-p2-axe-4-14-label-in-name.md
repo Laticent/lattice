@@ -19,6 +19,7 @@ both color modes: the header button matched by `.has-[>svg]:px-3` on every page,
 row. Tablet and mobile were not measured under 4.14.
 
 done when — `axe-core` is raised to 4.14 or later in `docs/package.json`, every finding is fixed (each accessible name
-            contains its visible text), and `axe-site.spec.ts` passes at desktop, tablet and mobile.
+            contains its visible text), `axe-site.spec.ts` passes at desktop, tablet and mobile, and the `axe-core`
+            `ignore` entry under `/docs` in `.github/dependabot.yml` is removed.
 evidence  — the sweep's output under 4.14 before and after, at all three widths.
 verify    — tier 0: self-review with the gates, plus the e2e run at three widths.
