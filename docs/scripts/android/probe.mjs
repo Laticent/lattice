@@ -334,7 +334,18 @@ try {
 			console.log('  (the Studio showed its low-device notice: Continue anyway)');
 			await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
 		}
-		await webClick(S, '^Library', 30_000, 'the Library row');
+		// The Studio paints an instant shell before React hydrates, and a press on the shell's Menu does nothing: press
+		// Menu again until the Library row shows, on one deadline.
+		for (const t0 = Date.now(); ; ) {
+			try {
+				await webClick(S, '^Library', 4_000, 'the Library row');
+				break;
+			} catch (e) {
+				if (Date.now() - t0 > 90_000) throw e;
+				console.log('  (no Library row yet: pressing Menu again)');
+				await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
+			}
+		}
 		console.log(`  clicked "${await webClick(S, '^Import files', 30_000, "the Library's Import button")}"`);
 	} else {
 	const first = await until(/^(Menu|Continue anyway)$/, 150_000, "the Studio's Menu button");
