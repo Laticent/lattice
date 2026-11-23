@@ -400,6 +400,19 @@ printed the Kirk lines.
 
 The owner chose to fix these, merge, and re-run the simulation on real work under rules that are in force.
 
+### The simulated handover (2026-11-23, draft PR #3482)
+
+Kirk's session (`session_01DPMMjGBqfQgvcc5CHWpJQ8`) took a baton Picard's session had released on the
+throwaway line `claude/relay-sim-handover`, pushed this commit and handed the baton back. #3427 had not
+merged, so `main`'s #31 still applied: the owner typed the OK to push in Kirk's session.
+
+**What worked.** The living comment named the next step for the taker, its standing orders matched §Relay,
+and its TRAPS line named the OK the push needed. `baton status` and `baton take` both read FREE and said
+what to do next.
+
+**What the handoff did not say.** The sim line's only commit was empty, so "a line in that PR's file" had
+no file to go to. This note took the entry.
+
 ## Checkpoint rules and the usage watch (2026-11-23)
 
 Two owner directions typed in the command center on 2026-11-23 (verified in its transcript, 12:06 UTC),
