@@ -568,6 +568,21 @@ describe('deck-derived fact registry', () => {
 		for (const d of decks) expect(deckDerivedFactsFor(`# A\n\n---\n\n${d}\n\n## B\n\n- one\n`), d).toEqual([]);
 	});
 
+	// An unclosed `<!--` in inline code or a fence must not swallow the record after it: the engine skips the stray opener
+	// and applies the record (the checker on #3433). The failing arm: a walk that paired every `<!--` with the next `-->`
+	// lost the carry and the proof run here.
+	it('a stray comment opener in code does not hide the record after it', () => {
+		const carry = 'A record opens with `<!--` and a brace.\n\n---\n\n<!-- @meta{class=invert, carry} -->\n\n## B\n\n---\n\n## C\n';
+		expect(deckDerivedFactsFor(carry)).toContain('running-global directive');
+		const fence = '```html\n<!-- start\n```\n\n---\n\n<!-- @meta{class=invert, carry} -->\n\n## B\n';
+		expect(deckDerivedFactsFor(fence)).toContain('running-global directive');
+		const proof = 'Write `<!--` first.\n\n<!-- @meta{layout=split-panel, class=proof} -->\n\n## A\n';
+		expect(deckDerivedFactsFor(proof)).toContain('split-panel proof run');
+		// A bare record and one wrapped across lines read too.
+		expect(deckDerivedFactsFor('<!-- {layout=split-panel, class=proof} -->\n\n## A\n')).toContain('split-panel proof run');
+		expect(deckDerivedFactsFor('<!-- @meta{layout=split-panel,\n  class=proof} -->\n\n## A\n')).toContain('split-panel proof run');
+	});
+
 	it('names are unique, so a duplicate entry is visible', () => {
 		const names = DECK_DERIVED_FACTS.map((f) => f.fact);
 		expect(new Set(names).size).toBe(names.length);

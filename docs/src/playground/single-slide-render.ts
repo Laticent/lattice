@@ -27,7 +27,7 @@ import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { CLASS_FIELDS, readRecord } from '../../../lib/core/meta-door.mjs';
+import { readRecord } from '../../../lib/core/meta-door.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
@@ -575,23 +575,23 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 }
 
 /** Each slide RECORD in the text (`<!-- @meta{layout=divider} -->`, `<!-- {…} -->`), read through the shared door: its
- *  class words (`class` and the class-shaped fields) and whether it carries. Raw on purpose, like the `_class` probes
- *  below: a record in code or prose still counts, which costs one whole-deck render, and a miss would preview a wrong
- *  slide. But only the CLASS is read: a footer, a note or an alt text that says "proof", "carry" or "agenda" is prose
- *  (a footer saying "A proof chain" sent the math gallery's preview to the whole-deck route and typeset all of its math). */
+ *  class words (`readRecord` folds `layout`, `variant`, `universal` and `modifiers` into `class`) and whether it carries.
+ *  Raw on purpose, like the `_class` probes below: a record in code or prose still counts, which costs one whole-deck
+ *  render, and a miss would preview a wrong slide. But only the CLASS is read: a footer, a note or an alt text that says
+ *  "proof", "carry" or "agenda" is prose (a footer saying "A proof chain" sent the math gallery's preview to the
+ *  whole-deck route and typeset all of its math).
+ *
+ *  It starts only at a record OPENER (`<!--` then `{` or `@meta{`). Pairing every `<!--` with the next `-->` let an
+ *  unclosed `<!--` in inline code or a fence swallow the record after it, and the preview lost a `carry` the engine
+ *  applies (the checker on #3433). */
 function slideRecords(text: string): Array<{ words: Set<string>; carry: boolean }> {
 	const out: Array<{ words: Set<string>; carry: boolean }> = [];
-	let at = text.indexOf('<!--');
-	while (at >= 0) {
-		const end = text.indexOf('-->', at + 4);
+	const opener = /<!--(?=\s*(?:@meta)?\{)/g;
+	for (let m = opener.exec(text); m; m = opener.exec(text)) {
+		const end = text.indexOf('-->', m.index + 4);
 		if (end < 0) break;
-		const rec = readRecord(text.slice(at + 4, end));
-		if (rec?.ok) {
-			const words = new Set<string>();
-			for (const key of ['class', ...CLASS_FIELDS]) for (const w of String(rec.d[key] ?? '').split(/\s+/)) if (w) words.add(w);
-			out.push({ words, carry: !!rec.carry });
-		}
-		at = text.indexOf('<!--', end + 3);
+		const rec = readRecord(text.slice(m.index + 4, end));
+		if (rec?.ok) out.push({ words: new Set(String(rec.d.class ?? '').split(/\s+/).filter(Boolean)), carry: !!rec.carry });
 	}
 	return out;
 }
