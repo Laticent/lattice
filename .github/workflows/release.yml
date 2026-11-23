@@ -40,7 +40,14 @@ permissions:
   pull-requests: write  # open the release PR
 
 jobs:
+  # Publish to a throwaway local registry, install and render before any release PR opens: a
+  # library npm will not publish, or a file the engine's `files` leaves out, stops the release
+  # here instead of on npmjs (trial-publish.yml; the owner's choice, 2026-11-23).
+  trial-publish:
+    uses: ./.github/workflows/trial-publish.yml
+
   prepare:
+    needs: trial-publish
     runs-on: ubuntu-24.04
     # AUTOMATION_PAT lives here rather than in the repo secrets, and the
     # environment only admits `main` — so a PR branch can't read it. Dispatching
