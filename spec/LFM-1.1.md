@@ -134,7 +134,7 @@ specify them, and `split:` and `preset:` have none.
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
-| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
+| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. The older key `guards:` (`loose` for `heal`, `strict` for `trim`) is retired: the reference implementation no longer reads it and reports it as `guards-renamed`. | `unknown-fit` |
 | `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
 | `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 

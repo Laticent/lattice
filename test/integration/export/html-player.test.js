@@ -262,7 +262,9 @@ describe('html-player export — a declared `size:` reaches the player (#1577)',
 	test('the exported player sizes its slides to the DECK canvas, not to 1280×720', () => {
 		// social-portrait.md declares `size: portrait` → 1080×1350.
 		assert.match(html, /section\[data-lattice-slide\]\{width:1080px!important;height:1350px!important/, 'the present rule carries the deck canvas');
-		assert.match(html, /slideW:1080,slideH:1350/, 'and so does the fit math the script runs');
+		// The deck canvas is the fit's native divisor; the script divides by the canvas the screen chose (lpCW/lpCH,
+		// lib/core/screen-canvas.mjs), which is the deck's own for every canvas but a 4K one on a small screen.
+		assert.match(html, /LP_NW=1080,LP_NH=1350/, 'and so does the fit math the script runs');
 		// The HD literal must not survive anywhere that sizes a slide. Scoped to the sizing
 		// shape on purpose: `720px` legitimately appears elsewhere (the caption band's measure).
 		assert.doesNotMatch(html, /width:1280px!important/, 'no HD canvas rule survives for a portrait deck');

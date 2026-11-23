@@ -562,3 +562,57 @@ test('fleet board: a desk with a meter shows it in its card and in the table row
   card.items[4].meter.items[0].stage = 'working';
   assert.match(renderCard(card).errors.join('\n'), /items\[4\]\.meter\.items\[0\]: #3390 exists/);
 });
+
+test('meter: a ledger using every stage renders on both cards, every line within the width', () => {
+  // A desk with all eight count kinds in use needs four count lines; a cap refused it (#3493 follow-up).
+  const kinds = [
+    ['merged'], ['closed', { dropped: 'superseded' }], ['queued'], ['green'], ['pr-open'], ['working'], ['not-started'], ['closed'],
+  ];
+  for (const n of [1, 12, 123]) {
+    let k = 0;
+    const items = kinds.flatMap(([stage, more]) =>
+      Array.from({ length: n }, (_, i) => item(`K${k++}`, stage, { ...more, ...(stage === 'working' && i < 3 ? { blocking: true } : {}) })),
+    );
+    const meter = ledger(items, { previous: { date: '2026-11-02', percent: 99, ids: ['K0', 'gone1', 'gone2'] } });
+    for (const card of [
+      { card: 'meter', title: '🚢 Release 1.0.0', meter },
+      { card: 'fleet', as_of: 'Mon 23 Nov', items: [{ level: 'moving', title: 'desk', state: 'busy', meter }] },
+    ]) {
+      const r = renderCard(card);
+      assert.equal(r.ok, true, `${card.card} n=${n}: ${r.errors.join('; ')}`);
+      for (const line of r.lines) {
+        assert.ok(displayWidth(line) <= WIDTH, `${card.card} n=${n}: "${line}" is ${displayWidth(line)} columns`);
+      }
+      // A count line that continues ends in ` ·`, so the reader sees the list goes on.
+      const counts = r.lines.slice(r.lines.findIndex((l) => / items: /.test(l)));
+      const last = counts.findIndex((l) => / closed$/.test(l));
+      assert.ok(last > 0, `${card.card} n=${n}: the count list ends with closed`);
+      for (const line of counts.slice(0, last)) assert.match(line, / ·$/, `${card.card} n=${n}: "${line}" continues`);
+      // Every count kind is printed, none cut.
+      for (const label of ['merged', 'dropped', 'queued', 'green', 'PR open', 'working', 'not started', 'closed']) {
+        assert.match(r.lines.join('\n'), new RegExp(`${n} ${label}\\b`), `${card.card} n=${n}: ${label}`);
+      }
+      assert.match(r.lines.join('\n'), /blocking: K/);
+    }
+  }
+});
+
+test('meter: several blocking items are listed, each id with its title', () => {
+  const r = computeMeter(ledger([item('A', 'working', { blocking: true }), item('B', 'pr-open', { blocking: true })]));
+  assert.deepEqual(r.blocking, ['A item A', 'B item B']);
+  const card = renderCard({ card: 'meter', title: 'x', meter: ledger([item('A', 'working', { blocking: true }), item('B', 'pr-open', { blocking: true })]) });
+  assert.ok(card.lines.includes('   blocking: A item A · B item B'), card.lines.join('\n'));
+});
+
+test('meter: a blocking title wider than a line wraps, and the next part still fits the width', () => {
+  // Every length from one line to three, so some wrapped title ends a line at full width.
+  for (let len = 20; len <= 110; len++) {
+    const long = 'x'.repeat(len);
+    const items = [item('A', 'working', { blocking: true, title: long }), item('B', 'pr-open', { blocking: true })];
+    // The fleet board: no LEDGER section, whose per-item cap would refuse the longest titles.
+    const r = renderCard({ card: 'fleet', as_of: 'now', items: [{ level: 'moving', title: 'd', state: 's', meter: ledger(items) }] });
+    assert.equal(r.ok, true, r.errors.join('; '));
+    for (const line of r.lines) assert.ok(displayWidth(line) <= WIDTH, `len ${len}: "${line}" is ${displayWidth(line)} columns`);
+    assert.match(r.lines.join('\n'), /B item B/);
+  }
+});
