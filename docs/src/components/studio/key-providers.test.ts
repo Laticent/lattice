@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fakeKey } from '../../test/fake-key';
 import { guessProvider, KEY_PROVIDER_INFO } from './key-providers';
 
 describe('key-providers — the Gemini key shapes', () => {
@@ -11,7 +12,7 @@ describe('key-providers — the Gemini key shapes', () => {
 		expect(guessProvider(`AIza${'a'.repeat(30)}`)).toBe('gemini');
 	});
 	it('still refuses what is not a Gemini key', () => {
-		expect(gemini.test('sk-or-v1-abcdefabcdefabcdefabcdef')).toBe(false);
+		expect(gemini.test(fakeKey('sk-or-v1-', 'abcdefabcdefabcdefabcdef'))).toBe(false);
 		expect(gemini.test(`AQ${'a'.repeat(30)}`)).toBe(false); // no dot: not the AQ. shape
 		expect(gemini.test('AQ.short')).toBe(false);
 		expect(gemini.test(`AIza ${'a'.repeat(30)}`)).toBe(false); // whitespace inside

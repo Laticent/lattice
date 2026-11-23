@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetRetiredForTests } from '../../../lib/model-retired.js';
 import { __resetSelectionForTests, CHAT_SELECTION_KEY, readChatSelection, readVoiceSelection, selectChat, selectVoice } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled } from '../../../lib/openrouter-key.js';
+import { fakeKey } from '../../../test/fake-key';
 import { createArchitectModel } from './architect-model.js';
 
 // The model spine, chat half: the stored selection answers, or it says why it cannot. It never
@@ -171,7 +172,7 @@ describe('model spine — chat', () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		selectChat({ provider: 'prompt-api' }); // the author picked on-device
 		const m = make();
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		m.saveProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		expect(readChatSelection()).toMatchObject({ source: 'device', provider: 'prompt-api' });
 	});
@@ -180,7 +181,7 @@ describe('model spine — chat', () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		const m = make();
 		expect(m.availability().readiness).toMatchObject({ state: 'unset' });
-		const filled = m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		const filled = m.saveProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		expect(filled).toContainEqual({ kind: 'chat', provider: 'gemini' });
 		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
@@ -235,7 +236,7 @@ describe('model spine — saving a key and the voice (rule 1)', () => {
 	it('fills a Not-set voice from a provider that speaks', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		const m = make();
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		m.saveProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		expect(readVoiceSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
 	});
@@ -244,7 +245,7 @@ describe('model spine — saving a key and the voice (rule 1)', () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		selectVoice({ provider: 'openrouter', model: 'x-ai/grok', voice: 'eve' }); // no OpenRouter key
 		const m = make();
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		m.saveProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		expect(readVoiceSelection()).toMatchObject({ provider: 'openrouter', voice: 'eve' });
 	});
@@ -388,8 +389,8 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 		const chat = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'User not found.', code: 401 } }), { status: 401 }));
 		vi.stubGlobal('fetch', vi.fn(async (url: string) => (/\/api\/v1\/key$/.test(String(url)) ? auth() : /chat\/completions/.test(String(url)) ? chat() : Response.json({ data: [] }))));
 		const m = make() as unknown as Acct;
-		if (minted) keys.writeOpenRouterKey('sk-or-v1-fresh-oauth-key-0a0a', { minted: true });
-		else m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
+		if (minted) keys.writeOpenRouterKey(fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'), { minted: true });
+		else m.restoreOpenRouter(fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'));
 		await openRouterKeySettled();
 		return { m, keys, auth, chat };
 	}
@@ -461,7 +462,7 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 	});
 	it('"activating" ends with the window even when nothing asks again (a read-aloud 401)', async () => {
 		const { keys } = await setup([401]);
-		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		keys.noteOpenRouterStatus(401, fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'));
 		expect(keys.openRouterKeyActivating()).toBe(true);
 		await vi.advanceTimersByTimeAsync(keys.OPENROUTER_ACTIVATION_MS + 1_000);
 		expect(keys.openRouterKeyActivating()).toBe(false); // read on the advanced clock
@@ -469,7 +470,7 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 	});
 	it('another tab changing the key ends this tab\'s "activating"', async () => {
 		const { keys } = await setup([401]);
-		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		keys.noteOpenRouterStatus(401, fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'));
 		vi.useRealTimers();
 		expect(keys.openRouterKeyActivating()).toBe(true);
 		keys.isOpenRouterKeyEvent({ key: 'lattice-db-gemini-key' } as StorageEvent);
@@ -481,9 +482,9 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 		const { keys } = await setup([401]);
 		vi.useRealTimers();
 		keys.writeOpenRouterKey(null);
-		keys.writeOpenRouterKey('sk-or-v1-fresh-oauth-key-0a0a');
+		keys.writeOpenRouterKey(fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'));
 		expect(keys.openRouterKeyMintedAgeMs()).toBeLessThan(keys.OPENROUTER_ACTIVATION_MS);
-		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		keys.noteOpenRouterStatus(401, fakeKey('sk-or-v1-', 'fresh-oauth-key-0a0a'));
 		expect(keys.openRouterKeyRejected()).toBe(false);
 		// A different key never inherits the window.
 		keys.writeOpenRouterKey('sk-or-v1-a-pasted-key-9999');

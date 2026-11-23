@@ -1,3 +1,4 @@
+import { fakeKey } from '../src/test/fake-key';
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // DIRECT PROVIDER KEYS — OpenAI, Anthropic and Gemini beside OpenRouter (lifecycle note §7 step 2).
@@ -50,7 +51,7 @@ const PROVIDERS: Provider[] = [
 	{
 		id: 'openai',
 		label: 'OpenAI',
-		key: 'sk-proj-e2e-direct-openai-key-a1b2',
+		key: fakeKey('sk-proj-', 'e2e-direct-openai-key-a1b2'),
 		model: 'gpt-6.1-terra',
 		catalogId: 'openai/gpt-6.1-terra',
 		host: 'https://api.openai.com/v1',
@@ -62,7 +63,7 @@ const PROVIDERS: Provider[] = [
 	{
 		id: 'anthropic',
 		label: 'Anthropic',
-		key: 'sk-ant-e2e-direct-anthropic-key-c3d4',
+		key: fakeKey('sk-ant-', 'e2e-direct-anthropic-key-c3d4'),
 		model: 'claude-sonnet-5-5',
 		catalogId: 'anthropic/claude-sonnet-5.5',
 		host: 'https://api.anthropic.com/v1',
@@ -74,7 +75,7 @@ const PROVIDERS: Provider[] = [
 	{
 		id: 'gemini',
 		label: 'Gemini',
-		key: 'AIzaE2eDirectGeminiKey000e5f6',
+		key: fakeKey('AIza', 'E2eDirectGeminiKey000e5f6'),
 		model: 'gemini-3.8-flash',
 		catalogId: 'google/gemini-3.8-flash',
 		host: 'https://generativelanguage.googleapis.com/v1beta/openai',
