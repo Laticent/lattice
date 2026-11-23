@@ -59,5 +59,6 @@ Tests: `cd docs && npx vitest run src/lib/lastra`. The standalone typecheck (no 
 
 ## License
 
-AGPL-3.0-only. The JPEG decoder in `decode/` is based in part on libjpeg-turbo and the work of the
-Independent JPEG Group; their terms ship beside it as `decode/LICENSE.libjpeg-turbo.md` and `decode/README.ijg.txt`.
+AGPL-3.0-only. The JPEG decoder in `decode/` and the JPEG encoder (`jpeg.ts`) are based in part on libjpeg-turbo
+and the work of the Independent JPEG Group; their terms ship as `decode/LICENSE.libjpeg-turbo.md` and
+`decode/README.ijg.txt`.
