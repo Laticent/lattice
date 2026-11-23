@@ -79,9 +79,10 @@ the root's `$puppeteer` override needs a root dependency of the same range
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`), which the
-  bundled CLI also inlines, so `lattice` runs even where `./engine`'s
-  imports would not resolve. A library a plugin keeps a committed copy of
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`).
+  The bundled CLI inlines nine of them (`INLINE_PACKAGES` in `tools/build-cli.js`); it
+  still `require`s `@laticent/markup` and `@laticent/segno-markdown`, so the CLI needs those
+  two installed like any other dependency. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
   `devDependency`: the build refreshes the copy from it, and no install
   needs it. `test/unit/cli/shipped-imports-resolvable.test.js` fails when

@@ -117,6 +117,8 @@ describe('nav model', () => {
 		// product the hub pitches yet. Each must be published, so an entry cannot outlive its package.
 		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-markdown'];
 		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
+		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies ?? {});
+		for (const name of unlisted) expect(engineDeps, `${name} is in \`unlisted\` but @laticent/lattice does not depend on it`).toContain(name);
 		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
 		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
 		expect([...listed].sort()).toEqual(published.filter((p) => !unlisted.includes(p)).sort());
