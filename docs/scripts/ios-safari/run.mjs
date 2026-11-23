@@ -208,19 +208,24 @@ async function runPickerKeyboardProbe(id) {
 		}
 	};
 	const centerOf = (js, limitMs) => until(`const el = (${js}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;`, limitMs);
+	// A phone keeps both panes in the DOM, so a label can match a button scrolled off screen: only a button wholly inside
+	// the viewport is a tap target.
+	const onScreen = "((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth; })";
+	const seenButtons = () => run(`return [...document.querySelectorAll('button')].filter(${onScreen}).map((b) => b.getAttribute('aria-label') || b.textContent.trim()).filter(Boolean).slice(0, 40).join(' | ')`);
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	await run(fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'));
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	// A cold Studio in a fresh simulator: the same 150 s the other probes allow a first load (D3 on #3034).
-	const door = await centerOf(`[...document.querySelectorAll('button')].find((b) => b.offsetParent && (b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide'))`, 150000);
-	const seen = door ? '' : await run(`return [...document.querySelectorAll('button')].filter((b) => b.offsetParent).map((b) => b.getAttribute('aria-label') || b.textContent.trim()).filter(Boolean).slice(0, 40).join(' | ')`);
-	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : `not found in 150 s; visible buttons: ${seen}`);
+	const door = await centerOf(`[...document.querySelectorAll('button')].filter(${onScreen}).find((b) => b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide')`, 150000);
+	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : `not found in 150 s; on-screen buttons: ${await seenButtons()}`);
 	if (!door) return { ok: false, error: 'no New slide door', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
 	await touchAt(id, door);
-	const after = await centerOf(`[...document.querySelectorAll('button')].find((b) => b.offsetParent && b.getAttribute('aria-label') === 'New slide after')`);
+	const after = await centerOf(`[...document.querySelectorAll('button')].filter(${onScreen}).find((b) => b.getAttribute('aria-label') === 'New slide after')`, 15000);
+	step('the door split into Before | After', after, after ? `${after.x},${after.y}` : `on-screen buttons: ${await seenButtons()}`);
 	if (after) await touchAt(id, after);
-	const field = await centerOf(`[...document.querySelectorAll('input')].find((i) => i.offsetParent && /Search/.test(i.placeholder))`);
-	step('the gallery opened with its search field', field);
+	const field = await centerOf(`[...document.querySelectorAll('input')].find((i) => i.offsetParent && /Search/.test(i.placeholder))`, 60000);
+	step('the gallery opened with its search field', field, field ? '' : `dialogs: ${await run('return document.querySelectorAll("[role=dialog]").length')}; on-screen buttons: ${await seenButtons()}`);
+	if (!field) shot('0-no-gallery');
 	if (!field) return { ok: false, error: 'gallery did not open', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
 	const vv0 = await run('return { vv: Math.round(visualViewport.height), inner: innerHeight }');
 	await touchAt(id, field);
