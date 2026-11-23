@@ -185,3 +185,13 @@ test('the judge packet names no preset anywhere, keeps the anchors, drops a fail
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('a column cover anchors its bookend sweeps on the column; every other cover keeps the footer', () => {
+  const { jankPlan } = require(path.join(ROOT, 'tools', 'preset-gate.js'));
+  const anchors = (values) => Object.fromEntries(jankPlan(values).map((j) => [j.component, j.anchor]));
+  assert.deepEqual(anchors({ preset: 'strategy-house' }), { title: 'h1::after', divider: 'header', closing: 'h2::after', 'cards-grid': 'header' });
+  assert.deepEqual(anchors({ cover: 'light column' }), anchors({ preset: 'strategy-house' }), 'a deck-written column too');
+  // The deck's composition word wins over the preset's, as the engine reads it.
+  assert.equal(anchors({ preset: 'strategy-house', cover: 'masthead' }).closing, 'footer');
+  assert.deepEqual(anchors({ preset: 'museum' }), { title: 'footer', divider: 'header', closing: 'footer', 'cards-grid': 'header' });
+});

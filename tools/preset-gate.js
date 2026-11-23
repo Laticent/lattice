@@ -95,6 +95,14 @@ const JANK = [
   { component: 'cards-grid', axis: 'count', anchor: 'header' },
 ];
 const JANK_CHROME = ['header: Northwind Freight · FY2026 board review', 'footer: Confidential · prepared for the board'];
+/**
+ * A COLUMN COVER anchors on its column, not the footer. `cover: … column` draws a full-height accent
+ * column as the heading's `::after`, and that column is part of the cover's ink, so with the footer as
+ * the anchor every step measured the same ink box and the sweep came back vacuous (Strategy House, wave 1
+ * round 1). The column is the keep-out mark a long heading must stay clear of, so it is the anchor; the
+ * footer band stays covered by the overflow line, which reports a heading that reaches it.
+ */
+const COLUMN_COVER_ANCHOR = { title: 'h1::after', closing: 'h2::after' };
 
 function die(msg) { console.error(`preset-gate: ${msg}`); process.exit(2); }
 
@@ -199,19 +207,51 @@ function lostPages(log) {
   ])].sort((x, y) => x - y);
 }
 
+/**
+ * TEXT, MODELED THEN SAMPLED. check-slide-contrast's PROBE resolves every run's backdrop from computed
+ * style, which is fast and exact on a flat surface but wrong under a finish: it climbs to the section's
+ * `.backdrop` layer and scores the run against the light canvas the finish mixes toward, even where the
+ * run sits on a dark panel. Wave 1 round 1 failed the split-panel chrome of Museum and Annual Report at
+ * 1.44 and 3.24:1; check-player-contrast, which samples pixels, measured the same runs at 7.89 and
+ * 11.2:1. So a run the PROBE fails is RE-SCORED against the rendered pixels behind it, with the ink
+ * made transparent (check-player-contrast's own sampler, `sampleBackdrop` / `over` / `ratio` /
+ * `HIDE_INK`, HARD RULE #15), and it fails only if the pixels fail too. A run the sampler cannot read
+ * (a patterned backdrop, a box with no sample) keeps the PROBE's verdict: an admitted gap, never a pass.
+ */
 async function textContrast(browser, html) {
   const { PROBE } = require('./check-slide-contrast.js');
+  const { sampleBackdrop, over, ratio, HIDE_INK } = require('./check-player-contrast.js');
+  const { PNG } = require('pngjs');
   const page = await browser.newPage();
   try {
     // deviceScaleFactor 2 is the study's "full resolution": the slide at 2560x1440.
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
     await page.evaluate(() => document.fonts?.ready);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    // At scroll 0 a run's viewport rect is its document rect, which is what a full-page shot shows.
     const rows = await page.evaluate(PROBE);
-    const fails = rows.filter((x) => x.r < x.need && !x.exempt)
-      .map((x) => ({ page: x.page, cls: x.cls, text: String(x.text).slice(0, 60), ratio: +x.r.toFixed(2), need: x.need }));
-    const worst = rows.filter((x) => !x.exempt).reduce((w, x) => (w === null || x.r < w ? x.r : w), null);
-    return { runs: rows.length, fails, worst: worst === null ? null : +worst.toFixed(2) };
+    const modeled = rows.filter((x) => x.r < x.need && !x.exempt);
+    let png = null;
+    if (modeled.length) {
+      const handle = await page.addStyleTag({ content: HIDE_INK });
+      png = PNG.sync.read(Buffer.from(await page.screenshot({ type: 'png', fullPage: true })));
+      await page.evaluate((el) => el.remove(), handle);
+    }
+    const SAMPLE_POINTS = 24; // sampleBackdrop's 6 x 4 grid
+    const scored = rows.map((x) => {
+      if (!(x.r < x.need && !x.exempt) || !png || !x.rect || x.rectIsOwner) return { ...x, sampled: false };
+      const bg = sampleBackdrop(png, x.rect, 2);
+      if (!bg || bg.distinct > SAMPLE_POINTS / 3) return { ...x, sampled: false };
+      const fg = x.ink ? over(x.ink.rgb, bg.mode, x.ink.a) : x.fg;
+      return { ...x, sampled: true, modeled: x.r, r: ratio(fg, bg.mode) };
+    });
+    const fails = scored.filter((x) => x.r < x.need && !x.exempt)
+      .map((x) => ({ page: x.page, cls: x.cls, text: String(x.text).slice(0, 60), ratio: +x.r.toFixed(2), need: x.need, sampled: x.sampled }));
+    const overruled = scored.filter((x) => x.sampled && x.r >= x.need)
+      .map((x) => ({ page: x.page, cls: x.cls, text: String(x.text).slice(0, 60), modeled: +x.modeled.toFixed(2), sampled: +x.r.toFixed(2) }));
+    const worst = scored.filter((x) => !x.exempt).reduce((w, x) => (w === null || x.r < w ? x.r : w), null);
+    return { runs: rows.length, fails, overruled, worst: worst === null ? null : +worst.toFixed(2) };
   } finally {
     await page.close();
   }
@@ -237,6 +277,13 @@ async function textContrast(browser, html) {
  * (engineering/chart-styling.md, "every mark carries an ink edge"). The study measured the fill
  * (§2), and F6 raises `etch`'s fill to meet 3:1; a preset is judged on the fill a board member
  * sees from the back of the room.
+ *
+ * EXCEPT UNDER `marks: tone` (the owner's D1, 2026-11-23). Tone is one hue in eight value steps whose
+ * pale end is pale by design, and every tone mark carries an ink edge: on Museum's donut the palest
+ * wedge filled at 1.41:1 while its edge measured 5.19:1. The edge is what separates one tone mark
+ * from the next, so on a `marks-tone` slide a mark passes when its fill OR its edge clears 3:1. The
+ * edge is the mark's computed stroke, composited over the same backdrop points, and counts only when
+ * it is at least 1 CSS px wide. Every other finish is still held to its fill.
  */
 async function markContrast(browser, html) {
   const { declaredMarks } = require('./lib/chart-render.js');
@@ -279,6 +326,7 @@ async function markContrast(browser, html) {
         // mark nobody measured.
         if (m.unreadable) { fails.push({ page: i + 1, member: found.member, cls: m.cls, fill: null, unreadable: m.unreadable }); continue; }
         const ratios = [];
+        const edgeRatios = [];
         for (const [x, y] of m.points) {
           const px = Math.min(under.width - 1, Math.round(x * 2));
           const py = Math.min(under.height - 1, Math.round(y * 2));
@@ -286,6 +334,7 @@ async function markContrast(browser, html) {
           const back = [under.data[k], under.data[k + 1], under.data[k + 2]];
           const shown = m.color.slice(0, 3).map((c, j) => c * m.alpha + back[j] * (1 - m.alpha));
           const r = contrastRatio(shown, back);
+          if (m.edge) edgeRatios.push(contrastRatio(m.edge.color.slice(0, 3).map((c, j) => c * m.edge.alpha + back[j] * (1 - m.edge.alpha)), back));
           if (process.env.PRESET_GATE_TRACE && r < MARK_FLOOR) console.error('trace', i + 1, m.cls, [x, y], m.color, m.alpha, back, r.toFixed(2));
           ratios.push(r);
         }
@@ -301,7 +350,11 @@ async function markContrast(browser, html) {
         const worst = ratios[Math.floor((ratios.length - 1) / 4)];
         measured++;
         onSlide++;
-        if (worst < MARK_FLOOR) fails.push({ page: i + 1, member: found.member, cls: m.cls, fill: +worst.toFixed(2) });
+        edgeRatios.sort((p, q) => p - q);
+        const edgeWorst = edgeRatios.length ? edgeRatios[Math.floor((edgeRatios.length - 1) / 4)] : null;
+        if (worst < MARK_FLOOR && !(edgeWorst !== null && edgeWorst >= MARK_FLOOR)) {
+          fails.push({ page: i + 1, member: found.member, cls: m.cls, fill: +worst.toFixed(2), ...(edgeWorst !== null ? { edge: +edgeWorst.toFixed(2) } : {}) });
+        }
       }
       if (!onSlide) fails.push({ page: i + 1, member: found.member, cls: '(none)', fill: null, unmeasured: 'a chart slide where no mark could be measured' });
     }
@@ -392,10 +445,27 @@ function MARK_PROBE(idx, marks) {
         if (inside) points.push([x - box.left, y - box.top]);
       }
     }
-    if (points.length) out.push({ cls: [...el.classList].find((c) => all.includes(c)), color, alpha, points });
+    // The mark's EDGE, read only on a `marks-tone` slide (see markContrast): its stroke and width.
+    let edge = null;
+    if (svg && sec.classList.contains('marks-tone')) {
+      const sw = Number.parseFloat(cs.strokeWidth) || 0;
+      const sc = sw >= 1 ? parse(cs.stroke) : null;
+      if (sc && sc[3] > 0) edge = { color: sc, alpha: sc[3] * Number(cs.strokeOpacity || 1) };
+    }
+    if (points.length) out.push({ cls: [...el.classList].find((c) => all.includes(c)), color, alpha, points, edge });
   }
   // Puppeteer's screenshot clip is in DOCUMENT coordinates; the rect is in the viewport's.
   return { member, selector, marks: out, box: { x: box.left + window.scrollX, y: box.top + window.scrollY, width: box.width, height: box.height } };
+}
+
+/** The sweeps a recipe runs: JANK, with a column cover's bookends anchored on the column (COLUMN_COVER_ANCHOR). */
+function jankPlan(ownValues) {
+  // The cover as the engine reads it: the deck's word per axis, else the preset's (register-factory.js).
+  const { COVER_REGISTER } = require(path.join(ROOT, 'lib', 'core', 'resolve-cover.js'));
+  const { presetMergedValue } = require(path.join(ROOT, 'lib', 'core', 'register-factory.js'));
+  const fmBody = Object.entries(ownValues).map(([k, v]) => `${k}: ${v}`).join('\n');
+  const columnCover = presetMergedValue(fmBody, COVER_REGISTER).composition === 'column';
+  return JANK.map((j) => ({ ...j, anchor: columnCover && COLUMN_COVER_ANCHOR[j.component] ? COLUMN_COVER_ANCHOR[j.component] : j.anchor }));
 }
 
 function jank(ownValues) {
@@ -405,7 +475,7 @@ function jank(ownValues) {
   const ownTheme = ownValues.theme || (ownValues.preset && presetValue(ownValues.preset, 'theme'));
   const theme = ownTheme ? ['--theme', ownTheme] : [];
   const chrome = JANK_CHROME.flatMap((kv) => ['--front-matter', kv]);
-  return JANK.map(({ component, axis, anchor }) => {
+  return jankPlan(ownValues).map(({ component, axis, anchor }) => {
     const r = spawnSync(process.execPath, [path.join(__dirname, 'check-jank.js'), component, '--axis', axis,
       '--anchor', anchor, ...theme, ...chrome, ...fm, '--json'], {
       cwd: ROOT, encoding: 'utf8', timeout: 600000, maxBuffer: 64 * 1024 * 1024,
@@ -621,4 +691,4 @@ function table(s) {
 
 if (require.main === module) main().catch((e) => die(e.stack || e.message));
 
-module.exports = { rowValues, deckFor, readRecipe, table, markContrast, contrastRatio, lostPages, writePacket };
+module.exports = { rowValues, deckFor, readRecipe, table, markContrast, textContrast, jankPlan, contrastRatio, lostPages, writePacket };
