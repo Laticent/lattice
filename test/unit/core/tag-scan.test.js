@@ -193,3 +193,17 @@ describe('the section open-tag readers match their regexes', () => {
     assert.equal(keys.size, 0);
   });
 });
+
+describe('sectionClassMatch is linear on many sections without a class', () => {
+  const { sectionClassMatch } = require('../../../lib/core/tag-scan');
+  const { scanWork } = require('../../helpers/work-count');
+  test('the search for `class="` is not repeated from every tag', () => {
+    const per = (n) => {
+      const s = '<section>'.repeat(n);
+      return scanWork(() => assert.equal(sectionClassMatch(s), null)).scanned / s.length;
+    };
+    // Counted, not timed: a search from every `<section>` to the end of the text grew with the number of tags.
+    assert.ok(per(20000) <= 4, `${per(20000)} characters searched per character`);
+    assert.ok(per(20000) <= per(2000) * 1.5, 'the cost per character does not grow with the tag count');
+  });
+});

@@ -50,3 +50,11 @@ test('many openers with no `>` run no regex', () => {
   });
   assert.equal(keys.size, 0);
 });
+
+test('countOpenTags with a cut counts what it counts on the prefix (seeded differential fuzz)', () => {
+  const rand = mulberry32(SEED + 2);
+  for (const s of cases(SEED + 3, 20000)) {
+    const cut = Math.floor(rand() * (s.length + 1));
+    assert.equal(countOpenTags(s, unquotedTagEnds(s), cut), countOpenTags(s.slice(0, cut)), `seed ${SEED + 3}, cut ${cut}, input ${JSON.stringify(s)}`);
+  }
+});
