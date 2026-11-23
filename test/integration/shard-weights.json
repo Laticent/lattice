@@ -116,6 +116,7 @@
   "test/integration/invariants/mark-agreement.test.js": 29.8,
   "test/integration/invariants/media-record-sweep.test.js": 3.2,
   "test/integration/invariants/meta-record-identity.test.js": 8.8,
+  "test/integration/invariants/model-parse-identity.test.js": 12.6,
   "test/integration/invariants/overflow-slide-scope.test.js": 2.1,
   "test/integration/invariants/pagination-one-mark.test.js": 1,
   "test/integration/invariants/palette-sweep-gallery-jargon.test.js": 72.7,
