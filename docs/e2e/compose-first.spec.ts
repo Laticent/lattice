@@ -135,8 +135,8 @@ test('@crosswidth @gecko @webkit-tablet a second Fix all press in Compose while 
 	await fix.click();
 	await fix.click();
 	// The run's own words, read rather than hard-coded: the count is whatever lint-core finds on LONG, and it grows as
-	// rules land (500 when this test was written; 502 fixed and 1 refused once slot-contract and capacity-overflow fired on
-	// the same deck). What this test owns is that ONE run speaks, not how many fixes it makes.
+	// rules land (500 when this test was written; 502 fixed and 1 refused once #3429's legacy-directive-comment began
+	// flagging LONG's `<!-- _class: -->` line). What this test owns is that ONE run speaks, not how many fixes it makes.
 	const notice = page.getByText(/^Fixed \d+ issues/);
 	await expect(notice).toBeVisible({ timeout: 60_000 });
 	const words = (await notice.textContent()) ?? '';
