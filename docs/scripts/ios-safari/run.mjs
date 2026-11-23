@@ -161,7 +161,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'picker-keyboard' ? await runPickerKeyboardProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -178,91 +178,6 @@ try {
 }
 process.exit(ok ? 0 : 1);
 
-
-/**
- * The add-slide gallery with the REAL iOS keyboard up (PROBE=picker-keyboard, #3484). run.sh boots this iPhone with the
- * Simulator's hardware keyboard disconnected, so a real touch tap on the search field raises the software keyboard and
- * shrinks the visual viewport, which no Chromium or Playwright WebKit run can do. Every step is a WebDriver touch tap or
- * typed keys, never a script `focus()`: iOS raises the keyboard only for a user gesture.
- *
- * What it asserts, with the keyboard up: the visual viewport really shrank (else the run proves nothing and says so);
- * the gallery's results area holds at least one full result tile above the docked search field, which itself sits
- * above the keyboard; the subtitle and every family pill are hidden (no control there to end the typing, owner
- * 2026-11-23). The whole device screen, keyboard included, is captured at each stage (`xcrun simctl io screenshot`;
- * a WebDriver screenshot shows only the page).
- */
-async function runPickerKeyboardProbe(id) {
-	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
-	const steps = [];
-	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail });
-	const shot = (tag) => simctl('io', UDID, 'screenshot', path.join(OUT, `picker-keyboard-${LABEL}-${tag}.png`));
-	const pause = (ms) => new Promise((r) => setTimeout(r, ms));
-	// Poll the page for a value: a signal, not a duration (HARD RULE #32); the bound is the give-up point.
-	const until = async (script, limitMs = 30000) => {
-		const t0 = Date.now();
-		for (;;) {
-			const v = await run(script);
-			if (v) return v;
-			if (Date.now() - t0 > limitMs) return null;
-			await pause(250);
-		}
-	};
-	const centerOf = (js, limitMs) => until(`const el = (${js}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;`, limitMs);
-	// A phone keeps both panes in the DOM, so a label can match a button scrolled off screen: only a button wholly inside
-	// the viewport is a tap target.
-	const onScreen = "((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth; })";
-	const seenButtons = () => run(`return [...document.querySelectorAll('button')].filter(${onScreen}).map((b) => b.getAttribute('aria-label') || b.textContent.trim()).filter(Boolean).slice(0, 40).join(' | ')`);
-	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await run(fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'));
-	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
-	// A cold Studio in a fresh simulator: the same 150 s the other probes allow a first load (D3 on #3034).
-	const door = await centerOf(`[...document.querySelectorAll('button')].filter(${onScreen}).find((b) => b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide')`, 150000);
-	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : `not found in 150 s; on-screen buttons: ${await seenButtons()}`);
-	if (!door) return { ok: false, error: 'no New slide door', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
-	// OPENING the gallery is not what this probe tests, so it uses a script click: a WebDriver touch on the door did not
-	// register in the simulator (harness runs #2 to #4 on #3484). The one gesture that must be real is the tap on the
-	// search field below, because only a user gesture raises the iOS keyboard.
-	// The label travels as a WebDriver script ARGUMENT, never spliced into the script text.
-	const click = (label) => wd('POST', `/session/${id}/execute/sync`, { script: `const label = arguments[0]; const b = [...document.querySelectorAll('button')].filter(${onScreen}).find((x) => x.getAttribute('aria-label') === label || x.textContent.trim() === label); if (b) b.click(); return !!b;`, args: [label] });
-	await click('New slide');
-	const after = await until(`return [...document.querySelectorAll('button')].some((b) => b.getAttribute('aria-label') === 'New slide after')`, 15000);
-	step('the door split into Before | After', after, after ? '' : `on-screen buttons: ${await seenButtons()}`);
-	if (after) await run(`[...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'New slide after').click(); return true;`);
-	const field = await centerOf(`[...document.querySelectorAll('input')].find((i) => i.offsetParent && /Search/.test(i.placeholder))`, 60000);
-	step('the gallery opened with its search field', field, field ? '' : `dialogs: ${await run('return document.querySelectorAll("[role=dialog]").length')}; on-screen buttons: ${await seenButtons()}`);
-	if (!field) shot('0-no-gallery');
-	if (!field) return { ok: false, error: 'gallery did not open', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
-	const vv0 = await run('return { vv: Math.round(visualViewport.height), inner: innerHeight }');
-	await touchAt(id, field);
-	// The keyboard's arrival is the visual viewport shrinking; wait for that, not for a fixed time.
-	const vv1 = await until(`return visualViewport.height < innerHeight - 120 ? { vv: Math.round(visualViewport.height), inner: innerHeight, focused: document.activeElement?.tagName } : null`, 15000);
-	step('a real tap raised the iOS software keyboard (visual viewport shrank)', vv1, vv1 ? `visual ${vv0.vv} -> ${vv1.vv}px of ${vv1.inner}` : `visual viewport stayed ${vv0.vv}px of ${vv0.inner}: no software keyboard, so nothing below is evidence`);
-	shot('1-focused');
-	const input = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: 'input[aria-label="Search slides"]' }).catch(() => null);
-	const ref = input && Object.values(input)[0];
-	if (ref) await wd('POST', `/session/${id}/element/${ref}/value`, { text: 'timeline' }).catch((e) => step('typing into the field', false, e.message));
-	const m = await until(`const d = [...document.querySelectorAll('[role=dialog]')].find((x) => x.offsetParent || x.getClientRects().length); if (!d) return null;
-		const tile = [...d.querySelectorAll('button[aria-label^="Insert"]')][0]; if (!tile || !/timeline/.test(tile.getAttribute('aria-label'))) return null;
-		const sc = d.querySelector('.overflow-y-auto'); const fieldBox = [...d.querySelectorAll('input')].find((i) => i.offsetParent).getBoundingClientRect();
-		const card = tile.parentElement.getBoundingClientRect(); const r = sc.getBoundingClientRect();
-		const vvTop = visualViewport.offsetTop, vvBottom = visualViewport.offsetTop + visualViewport.height;
-		const sub = [...d.querySelectorAll('p')].find((p) => /^Adds it /.test(p.textContent.trim()));
-		const tabs = [...d.querySelectorAll('[role=tablist]')].filter((t) => t.offsetParent).flatMap((t) => [...t.querySelectorAll('[role=tab]')].map((x) => x.textContent.trim()));
-		return { vv: Math.round(visualViewport.height), resultsTop: Math.round(r.top), resultsBottom: Math.round(r.bottom), room: Math.round(Math.min(r.bottom, fieldBox.top) - Math.max(r.top, vvTop)),
-			card: Math.round(card.height), cardTop: Math.round(card.top), cardBottom: Math.round(card.bottom), fieldTop: Math.round(fieldBox.top), fieldBottom: Math.round(fieldBox.bottom), vvTop: Math.round(vvTop), vvBottom: Math.round(vvBottom),
-			subtitleShown: !!(sub && sub.offsetParent), tabs, label: tile.getAttribute('aria-label').slice(0, 60) };`, 20000);
-	step('typing "timeline" shows timeline-list first', m, m ? m.label : 'no result in 20 s');
-	if (m) {
-		step('the search field sits inside the visible area, above the keyboard', m.fieldBottom <= m.vvBottom + 1 && m.fieldTop >= m.vvTop, `field ${m.fieldTop}-${m.fieldBottom}, visible ${m.vvTop}-${m.vvBottom}`);
-		step('one full result tile fits between the strip and the field', m.room >= m.card, `room ${m.room}px, tile ${m.card}px (results ${m.resultsTop}-${m.resultsBottom})`);
-		step('the first result tile is wholly visible', m.cardTop >= m.vvTop && m.cardBottom <= m.fieldTop + 1, `tile ${m.cardTop}-${m.cardBottom}, field top ${m.fieldTop}`);
-		step('the subtitle steps aside while typing', !m.subtitleShown);
-		step('no family pills while typing', m.tabs.length === 0, m.tabs.join(',') || 'none');
-	}
-	shot('2-typed');
-	const ok = steps.every((s) => s.pass);
-	return { ok, error: ok ? '' : steps.filter((s) => !s.pass).map((s) => s.name).join('; '), steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
-}
 
 /**
  * Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. `seed: false` clears the
