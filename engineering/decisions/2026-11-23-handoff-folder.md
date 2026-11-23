@@ -55,8 +55,10 @@ with it.
   `followups.d/` or a decision note first.
 - **H4 Size and secrets** *(the numbers are desk defaults; the owner can veto them)*. At most 5 MB per
   folder and 1 MB per binary file; a text file over 1 MB needs a reason line. Never an environment
-  value, key or token; `checkHandoffs` runs its own token-pattern scan over the folder and blocks the
-  push, because the branch is public the moment it lands. GitHub-side scanning is not assumed.
+  value, key or token. Two layers: `checkHandoffs` runs its own token-pattern scan over the folder at
+  pre-push, and GitHub push protection (enabled 2026-11-23, read from the repository's
+  security settings at 12:43 UTC) rejects a known secret at the server. Push protection can be
+  bypassed by an admin role with a reason, so the local scan stays.
 - **H5 One source.** HANDOFF.md is the single truth. The PR's living handoff comment is a short
   summary that `npm run card` generates from it and is never edited by hand, so a session writes one
   thing and the two cannot drift.
@@ -300,9 +302,11 @@ handoffs.d/presets-wave-1/
 - **Never a secret** (H6 scrub rule): no environment variable values, no keys or tokens, no `.env`
   contents. `checkHandoffs` scans every file in the folder for token patterns (provider key prefixes,
   `Authorization:` headers, private-key blocks, long high-entropy strings) and fails the push, at
-  pre-push, before the branch makes it public. GitHub's secret scanning and push protection are a
-  second layer once the repository enables them; this scan stays either way, because it runs before
-  the push and covers patterns GitHub's provider list does not.
+  pre-push, before the branch makes it public. GitHub secret scanning and push protection, enabled
+  on 2026-11-23, are the second layer: the server rejects a push carrying a secret it recognizes.
+  The local scan stays because push protection can be bypassed by an admin role, and because a
+  rejected push at the server leaves the session to clean its local commits, while the local scan
+  stops the commit before it is pushed.
 - **Prefer a link for an image that changes every checkpoint.** Replacing a binary in place still
   keeps every earlier version in the branch's history, so a 1 MB screenshot refreshed at four
   checkpoints costs 4 MB there. The per-file cap bounds each version, not the sum.
@@ -544,7 +548,7 @@ Slices 1 to 3 are internal tooling that no user of the engine sees, so they shou
   #3427 rule 6 (checkpoint at the first push and every 30 minutes) is the only defense.
 - **A handoff that moved but says nothing new** passes. The freshness check (H8) proves HANDOFF.md
   changed with the work, not that it is true.
-- **A secret the pattern scan does not recognize** reaches the public branch. Once pushed it is
-  public; rotation is the only fix.
+- **A secret neither scan recognizes**, or one pushed through a push-protection bypass, reaches the
+  public branch. Once pushed it is public; rotation is the only fix.
 
 — John Luke Picard · workflow desk
