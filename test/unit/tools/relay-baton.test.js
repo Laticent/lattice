@@ -56,7 +56,7 @@ describe('holderOf', () => {
 describe('parseLiving', () => {
   const body = relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 'x', checkpoint: 'y', head: 'abc1234', next: 'z' });
   test('reads baton, holder and head from the header it writes', () => {
-    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, holder: 'John Luke Picard', session: ME, since: 'x', head: 'abc1234' });
+    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, pause: null, holder: 'John Luke Picard', session: ME, since: 'x', head: 'abc1234' });
     assert.equal(relay.parseLiving(relay.setLivingLine(body, 'baton', 'released')).released, true);
   });
 
@@ -95,6 +95,13 @@ describe('batonVerdict', () => {
     const r = v({ head: head(THEM, null) });
     assert.equal(r.state, 'held');
     assert.equal(r.leaseLeftMs, 60 * MIN);
+  });
+
+  test('a tip GitHub never lists (branch creation, API gap) is not "just pushed" forever: its commit time stands in', () => {
+    const old = { ...head(THEM, null), committedAt: T0 - 5 * 24 * 60 * MIN };
+    assert.equal(v({ head: old }).state, 'free');
+    const young = { ...head(THEM, null), committedAt: T0 - 10 * MIN };
+    assert.equal(v({ head: young }).state, 'held');
   });
 
   test('a living-comment edit renews the lease like a push', () => {
@@ -159,11 +166,19 @@ describe('livingComment', () => {
 describe('pushTime', () => {
   test("GitHub's timestamp for the push whose `after` is the tip; null when it is not listed", () => {
     const api = () => [
-      { after: 'zzz', timestamp: '2026-11-22T11:00:00Z' },
-      { after: TIP, timestamp: '2026-11-22T11:30:00Z' },
+      { activity_type: 'push', after: 'zzz', timestamp: '2026-11-22T11:00:00Z' },
+      { activity_type: 'push', after: TIP, timestamp: '2026-11-22T11:30:00Z' },
     ];
     assert.equal(relay.pushTime(api, 'claude/x', TIP), Date.parse('2026-11-22T11:30:00Z'));
     assert.equal(relay.pushTime(api, 'claude/x', 'nope'), null);
+  });
+
+  test('a branch created at its tip, a force-push or a merge-queue merge also time the tip', () => {
+    for (const type of ['branch_creation', 'force_push', 'merge_queue_merge']) {
+      const api = () => [{ activity_type: type, after: TIP, timestamp: '2026-11-19T01:24:44Z' }];
+      assert.equal(relay.pushTime(api, 'claude/x', TIP), Date.parse('2026-11-19T01:24:44Z'), type);
+    }
+    assert.equal(relay.pushTime(() => [{ activity_type: 'branch_deletion', after: TIP, timestamp: '2026-11-19T01:24:44Z' }], 'claude/x', TIP), null);
   });
 });
 
@@ -204,6 +219,17 @@ describe('readHead (real git, throwaway origin)', () => {
     assert.equal(r.head.actor, 'John Luke Picard');
   });
 
+  test('merging a rescue ref (another session\'s trailer) in without a trailer does not hand it the baton', () => {
+    git('checkout', '-q', '-b', 'side');
+    commit(`wip: rescued\n\n${trailer(THEM)}`);
+    git('checkout', '-q', 'claude/relay');
+    git('merge', '-q', '--no-ff', '-m', "Merge branch 'side'", 'side');
+    git('push', '-q', 'origin', 'claude/relay');
+    const r = relay.readHead('claude/relay', { fetch: true });
+    assert.equal(r.head.session, ME);
+    assert.ok(Number.isFinite(r.head.committedAt));
+  });
+
   test('a branch the remote does not have reads as not existing, never as yours', () => {
     assert.deepEqual(relay.readHead('claude/nowhere', { fetch: true }), { exists: false, head: null });
   });
@@ -219,7 +245,7 @@ describe('readHead (real git, throwaway origin)', () => {
   test('rescue pushes commits the remote does not have to relay-rescue/<branch>/<session>, without force', () => {
     commit(`wip: rejected work\n\n${trailer(ME)}`);
     const lines = [];
-    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, api: () => [], out: (s) => lines.push(s), err: (s) => lines.push(s) });
     assert.equal(code, 0, lines.join('\n'));
     assert.match(lines.join('\n'), /pushed HEAD \(1 commit beyond origin\/claude\/relay\) to relay-rescue\/claude\/relay\/session_ME01/);
     const remote = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
@@ -239,7 +265,7 @@ describe('readHead (real git, throwaway origin)', () => {
     commit(`wip: different work\n\n${trailer(NF)}`);
     const before = execFileSync('git', ['ls-remote', 'origin', ref], { cwd: work, encoding: 'utf8' });
     const lines = [];
-    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: NF }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: NF }, api: () => [], out: (s) => lines.push(s), err: (s) => lines.push(s) });
     assert.equal(code, 3);
     assert.match(lines.join('\n'), /already holds other commits.*git merge FETCH_HEAD/s);
     const after = execFileSync('git', ['ls-remote', 'origin', ref], { cwd: work, encoding: 'utf8' });
@@ -261,7 +287,7 @@ describe('npm run baton -- rescue', () => {
   const go = (argv, { env = { LATTICE_SESSION: ME }, ...g } = {}) => {
     const { gitRun, calls } = fakeGit(g);
     const lines = [];
-    const code = run(argv, { env, gitRun, branchNow: () => 'claude/x', api: () => { throw new Error('rescue must not call GitHub'); }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    const code = run(argv, { env, gitRun, branchNow: () => 'claude/x', api: () => [], out: (s) => lines.push(s), err: (s) => lines.push(s) });
     return { code, calls, text: lines.join('\n') };
   };
 
@@ -278,6 +304,26 @@ describe('npm run baton -- rescue', () => {
     assert.equal(fetched.length, 1);
     assert.match(fetched[0].join(' '), /refs\/heads\/claude\/x:refs\/remotes\/origin\/claude\/x/);
     assert.equal(go(['rescue', '--no-fetch']).calls.filter((c) => c[0] === 'fetch').length, 0);
+  });
+
+  test('after the push, rescue leaves a marked note on the PR (the loser cannot edit the living comment)', () => {
+    const posts = [];
+    const api = (method, p, opts = {}) => {
+      if (p.includes('/pulls?')) return [{ number: 3427 }];
+      if (method === 'POST') {
+        posts.push({ p, body: opts.body.body });
+        return { html_url: 'https://example.test/rescue-note' };
+      }
+      return [];
+    };
+    const gitRun = (args) => (args[0] === 'rev-list' ? { status: 0, stdout: '2\n', stderr: '' } : { status: 0, stdout: '', stderr: '' });
+    const lines = [];
+    const code = run(['rescue'], { env: { LATTICE_SESSION: ME }, api, gitRun, now: T0, branchNow: () => 'claude/x', out: (x) => lines.push(x), err: (x) => lines.push(x) });
+    assert.equal(code, 0);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].p, 'repos/Laticent/lattice/issues/3427/comments');
+    assert.match(posts[0].body, /^<!-- relay-rescue -->/);
+    assert.match(posts[0].body, /relay-rescue\/claude\/x\/session_ME01.*2 commits/s);
   });
 
   test('nothing ahead of the remote: no push, exit 0', () => {
@@ -324,7 +370,7 @@ describe('npm run baton', () => {
       calls.push({ method, p, body: opts.body });
       if (p === 'user') return { login: 'saden1' };
       if (p.includes('/pulls?')) return [{ number: 3427, draft }];
-      if (p.includes('/activity?')) return [{ after: TIP, timestamp: new Date(pushedAt).toISOString() }];
+      if (p.includes('/activity?')) return [{ activity_type: 'push', after: TIP, timestamp: new Date(pushedAt).toISOString() }];
       if (p.endsWith('/comments?per_page=100')) return [{ id: 1, user: { login: 'saden1' }, body: 'unrelated' }, ...comments];
       if (method === 'PATCH') return {};
       throw new Error(`unexpected ${method} ${p}`);
@@ -395,15 +441,27 @@ describe('npm run baton', () => {
   });
 
   test('a branch parked at the merge gate is not takeable, even with a free baton; a person can reopen it', () => {
+    // the parker (ME) holds the tip and wrote the gate; another session (OT) looks
     const parked = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', `parked at ${TIP.slice(0, 7)}`) };
-    const st = go(['status', 'claude/x'], { comments: [parked] });
+    const other = { session: ME, env: { LATTICE_SESSION: 'session_OT03' } };
+    const st = go(['status', 'claude/x'], { ...other, comments: [parked] });
     assert.equal(st.code, 1);
     assert.match(st.text, /parked at the merge gate at abc1234/);
-    assert.equal(go(['take', 'claude/x'], { comments: [parked] }).code, 1);
-    assert.equal(go(['take', 'claude/x', '--override'], { comments: [parked] }).code, 0);
+    assert.equal(go(['take', 'claude/x'], { ...other, comments: [parked] }).code, 1);
+    assert.equal(go(['take', 'claude/x', '--override'], { ...other, comments: [parked] }).code, 0);
     // a gate for an OLDER head does not block: a push after parking re-opened the line
     const stale = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', 'parked at fff0000') };
-    assert.doesNotMatch(go(['status', 'claude/x'], { comments: [stale] }).text, /merge gate/);
+    assert.doesNotMatch(go(['status', 'claude/x'], { ...other, comments: [stale] }).text, /merge gate/);
+  });
+
+  test('a release or gate written under a holder line that is not the tip holder is ignored (shared login)', () => {
+    // the tip is THEM's, but the comment's BATON block names ME: a forgery or a stale edit
+    const forged = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'head', TIP.slice(0, 7)) };
+    const r = go(['take', 'claude/x'], { env: { LATTICE_SESSION: 'session_OT03' }, comments: [forged] });
+    assert.equal(r.code, 1);
+    assert.match(r.text, /HELD .*session_TH02/);
+    const gated = { ...forged, body: relay.setLivingLine(forged.body, 'gate', `parked at ${TIP.slice(0, 7)}`) };
+    assert.doesNotMatch(go(['status', 'claude/x'], { env: { LATTICE_SESSION: 'session_OT03' }, comments: [gated] }).text, /merge gate/);
   });
 
   test('the session that parked it is not locked out: it can release again and its status is not "held"', () => {
@@ -429,6 +487,25 @@ describe('npm run baton', () => {
     const parsed = relay.parseLiving(r.calls.find((c) => c.method === 'PATCH').body.body);
     assert.equal(parsed.released, true);
     assert.equal(parsed.gate, TIP.slice(0, 7));
+  });
+
+  test('release --pause marks the 75% pause; status says paused', () => {
+    const r = go(['release', 'claude/x', '--pause'], { session: ME });
+    assert.equal(r.code, 0, r.text);
+    const body = r.calls.find((c) => c.method === 'PATCH').body.body;
+    assert.match(relay.parseLiving(body).pause, /^75% at 2026-11-22T12:00:00\.000Z$/);
+    const st = go(['status', 'claude/x'], { session: ME, comments: [{ ...COMMENT, body }] });
+    assert.match(st.text, /paused: 75% at/);
+    assert.equal(go(['take', '--pause']).code, 64);
+  });
+
+  test('status lists rescue refs waiting on the branch', () => {
+    const lines = [];
+    const { api } = fakeApi();
+    const gitRun = (args) =>
+      args[0] === 'ls-remote' ? { status: 0, stdout: `0315cfbe\trefs/heads/relay-rescue/claude/x/session_RACEcccc\n`, stderr: '' } : { status: 0, stdout: '', stderr: '' };
+    run(['status', 'claude/x'], { env: { LATTICE_SESSION: ME }, api, gitRun, now: T0, git: () => ({ exists: true, head: { sha: TIP, session: THEM, actor: null } }), out: (x) => lines.push(x), err: (x) => lines.push(x) });
+    assert.match(lines.join('\n'), /rescue waiting: relay-rescue\/claude\/x\/session_RACEcccc \(0315cfb\)/);
   });
 
   test('release twice: the second is a no-op success', () => {

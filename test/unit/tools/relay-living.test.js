@@ -28,7 +28,7 @@ function fakeGitHub({ comments = [], headRef = 'claude/x', state = 'open' } = {}
   const api = (method, p, opts = {}) => {
     calls.push({ method, p, body: opts.body });
     if (p === 'user') return { login: 'saden1' };
-    if (p.includes('/activity?')) return [{ after: 'abc1234def', timestamp: new Date(T0 - 5 * MIN).toISOString() }];
+    if (p.includes('/activity?')) return [{ activity_type: 'push', after: 'abc1234def', timestamp: new Date(T0 - 5 * MIN).toISOString() }];
     if (method === 'GET' && /pulls\/\d+$/.test(p)) return { state, head: { ref: headRef, sha: 'f00dfeed00' } };
     if (method === 'GET' && p.includes('/comments?')) return comments;
     if (method === 'PATCH') return {};
@@ -54,7 +54,7 @@ describe('buildLivingBody', () => {
   });
   test('opens with the marker and a BATON block that parseLiving reads back', () => {
     assert.ok(body.startsWith(relay.MARKER));
-    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, holder: 'John Luke Picard', session: ME, since: 'S', head: 'abc1234' });
+    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, pause: null, holder: 'John Luke Picard', session: ME, since: 'S', head: 'abc1234' });
     assert.match(body, /^next: P1: wire the board$/m);
   });
   test('lists only non-empty extras, then the signature above the footer', () => {
@@ -108,6 +108,19 @@ describe('postLiving', () => {
     assert.match(patch.body.body, /^holder: John Luke Picard · session_ME01$/m);
   });
 
+  test('a refresh at a head parked at the merge gate keeps it parked (released, gate kept)', () => {
+    const parked = relay.setLivingLine(
+      relay.livingHeader({ baton: 'released', holder: `John Luke Picard · ${ME}`, since: 'S', checkpoint: 'c', head: 'abc1234', next: 'n' }),
+      'gate',
+      'parked at abc1234',
+    );
+    const gh = fakeGitHub({ comments: [{ id: 11, user: { login: 'saden1' }, body: parked, updated_at: new Date(T0 - MIN).toISOString(), html_url: 'u11' }] });
+    post({ api: gh.api, git: gitHead(ME) });
+    const out = relay.parseLiving(gh.calls.find((c) => c.method === 'PATCH').body.body);
+    assert.equal(out.released, true);
+    assert.equal(out.gate, 'abc1234');
+  });
+
   test('a closed PR, or no session id: refused', () => {
     assert.throws(() => post({ api: fakeGitHub({ state: 'closed' }).api, git: gitHead(ME) }), /closed/);
     assert.throws(() => post({ api: fakeGitHub().api, git: gitHead(ME), env: {} }), (e) => e.code === 64);
@@ -127,35 +140,38 @@ describe('npm run relay', () => {
     }
     if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body: `${living}\n\n**CLAIMS**\n- test:a.test.js#b\n`, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
     if (p.includes('issues/3/comments')) return [{ id: 3, user: { login: 'saden1' }, body: 'no marker', updated_at: new Date(T0).toISOString() }];
-    if (p.includes('pulls/1/commits')) {
-      // oldest first, as GitHub lists them; the tip is a merge of main with no trailer
+    if (p.includes('commits?sha=aaa&')) {
+      // newest first from the tip. The tip merges main (no trailer); its SECOND parent is a side branch
+      // carrying another session's trailer, which a first-parent walk must ignore.
       return [
-        { commit: { message: `feat: a\n\nRelay-Actor: James Tiberius Kirk\nClaude-Session: https://claude.ai/code/${THEM}` } },
-        { commit: { message: "Merge branch 'main' into claude/a" } },
+        { sha: 'aaa', parents: [{ sha: 'mid' }, { sha: 'side' }], commit: { message: "Merge branch 'main' into claude/a", committer: { date: new Date(T0 - 21 * MIN).toISOString() } } },
+        { sha: 'side', parents: [{ sha: 'base' }], commit: { message: `wip\n\nClaude-Session: https://claude.ai/code/${ME}` } },
+        { sha: 'mid', parents: [{ sha: 'base' }], commit: { message: `feat: a\n\nRelay-Actor: James Tiberius Kirk\nClaude-Session: https://claude.ai/code/${THEM}` } },
       ];
     }
-    if (p.includes('/activity?')) return [{ after: 'aaa', timestamp: new Date(T0 - 20 * MIN).toISOString() }];
+    if (p.endsWith('git/matching-refs/heads/relay-rescue/claude/a')) return [{ ref: `refs/heads/relay-rescue/claude/a/${ME}` }, { ref: 'refs/heads/relay-rescue/claude/ab/session_X' }];
+    if (p.includes('/activity?')) return [{ activity_type: 'push', after: 'aaa', timestamp: new Date(T0 - 20 * MIN).toISOString() }];
     throw new Error(`unexpected ${method} ${p}`);
   };
 
   test('one row per PR with a living comment; bots and unmarked PRs skipped', () => {
     const lines = board.board({ api, now: T0 });
     assert.equal(lines.length, 3);
-    assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \| test:a\.test\.js#b \|$/);
+    assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \| test:a\.test\.js#b \| 1 waiting \|$/);
   });
 
   test('a branch parked at the merge gate shows as parked on the board, not "free"', () => {
-    const gated = relay.setLivingLine(relay.setLivingLine(living, 'baton', 'released'), 'gate', 'parked at aaa0000');
+    const gated = relay.livingHeader({ baton: 'released', holder: `James Tiberius Kirk · ${THEM}`, since: 's', checkpoint: 'c', head: 'aaa0000', next: 'n' });
+    const body = relay.setLivingLine(gated, 'gate', 'parked at aaa0000');
     const api2 = (method, p) => {
-      if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body: gated, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
+      if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
       if (p.includes('/pulls?')) return [{ number: 1, user: { login: 'saden1' }, head: { ref: 'claude/a', sha: 'aaa0000ffff' } }];
-      if (p.endsWith('commits/aaa0000ffff') || p.includes('pulls/1/commits')) return p.includes('pulls/1/commits') ? [{ commit: { message: `x\n\nClaude-Session: https://claude.ai/code/${THEM}` } }] : {};
+      if (p.includes('commits?sha=aaa0000ffff')) return [{ sha: 'aaa0000ffff', parents: [], commit: { message: `x\n\nClaude-Session: https://claude.ai/code/${THEM}`, committer: { date: new Date(T0 - 15 * MIN).toISOString() } } }];
+      if (p.includes('git/matching-refs')) return [];
       if (p.includes('/activity?')) return [];
       return api(method, p);
     };
-    const gatedHeader = gated.replace(/^head: .*$/m, 'head: aaa0000');
-    const api3 = (method, p) => (p.includes('issues/1/comments') ? [{ id: 1, user: { login: 'saden1' }, body: gatedHeader, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }] : api2(method, p));
-    const lines = board.board({ api: api3, now: T0 });
+    const lines = board.board({ api: api2, now: T0 });
     assert.match(lines[2], /\| parked at merge gate \|/);
   });
 

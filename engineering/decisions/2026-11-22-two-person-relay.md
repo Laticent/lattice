@@ -400,6 +400,23 @@ is duplicated or updated at each level.
   carry usage past 90% between two watch ticks. In `workflow.md` §Relay and `orchestration.md` §Cost
   controls.
 
+## The command center's review (2026-11-23)
+
+An independent red team and Munger inversion, run from the command center on #3427 and #3454, found
+fix-level defects (folded in here) and design-level questions (put to the owner separately):
+
+| # | Finding | Fixed by |
+|---|---|---|
+| R2 | the lease never expired on a tip GitHub lists as a branch creation or force-push, not a push (demonstrated on `claude/carbone-first-category-followup`) | every tip activity counts; an unlisted tip reads fresh for 30 minutes after its commit, then the commit time stands in |
+| R4 | rescue refs were orphaned: the loser could not post, the tools did not list them, and merging one could hand the baton to the dead session | `rescue` posts a marked PR note; `status` and the board list rescue refs; the holder is read first-parent; rescued work is described in the note, not the handoff |
+| R5 | an owner answer could be stranded when the lease lapsed during the wait | checkpoint right after an owner answer; quotes say where they were typed |
+| R6 | a 75% pause looked like finished work | `release --pause` writes `pause: 75% at <time>`; the board shows it |
+| R7 | any session on the shared login could write `baton: released` or a gate | both count only under the tip holder's own `holder:` line |
+| R8 | a parked session's refresh dropped the gate | a refresh at the parked head keeps `released` and the gate |
+| R9 | only the weekly window was read | read every window and act on the highest |
+| R10 | branches with no open PR do not appear on the board | stated: a relay line always has a PR |
+| R11 | the board read the PR's commit list, which stops at 250, oldest first | it reads the newest 100 from the tip and walks first-parent |
+
 ## What this does not fix
 
 - A session that stops loses what it had not pushed (see §As built).

@@ -21,6 +21,18 @@ const cell = (text) => String(text ?? '').replace(/[\\|`]/g, '\\$&').replace(/\r
  * Build the board rows. Every outside dependency is injected (HARD RULE #32).
  * @returns {string[]} markdown lines; a single "none" line when no PR has a living comment
  */
+/**
+ * The first-parent line from `tip` through `commits` (newest-first REST records with `sha`, `parents`,
+ * `commit.message`, `commit.committer.date`): the line's own history, so a merged-in side branch (a
+ * rescue ref) never names the holder. Same reading as `readHead`'s `git log --first-parent`.
+ */
+function firstParentLine(commits, tip) {
+  const bySha = new Map(commits.map((c) => [c.sha, c]));
+  const line = [];
+  for (let c = bySha.get(tip); c; c = bySha.get(c.parents?.[0]?.sha)) line.push(c);
+  return line;
+}
+
 function board({ api = relay.ghApi, now = Date.now() } = {}) {
   const pulls = api('GET', `repos/${relay.REPO}/pulls?state=open&per_page=100`, { paginate: true });
   const login = relay.authLogin(api);
@@ -29,35 +41,43 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     if (pr.user && /\[bot\]$/.test(pr.user.login)) continue;
     const comment = relay.livingComment(api, pr.number, login);
     if (!comment) continue;
-    const living = relay.parseLiving(comment.body);
-    // Same reading as `npm run baton`: holder from the newest trailer-carrying commit (merges
-    // included), lease from GitHub's push time for the tip.
-    const commits = api('GET', `repos/${relay.REPO}/pulls/${pr.number}/commits?per_page=100`, { paginate: true });
-    const trailers = relay.holderOf(commits.map((c) => ({ message: c.commit?.message || '' })).reverse());
-    const head = { sha: pr.head.sha, ...trailers, pushedAt: relay.pushTime(api, pr.head.ref, pr.head.sha) };
-    const v = relay.applyGate(
-      relay.batonVerdict({
-        head,
-        living: { released: living.released, head: living.head, updatedAt: comment.updatedAt },
-        me: null,
-        now,
-      }),
-      { gate: living.gate, head, me: null },
-    );
+    const parsed = relay.parseLiving(comment.body);
+    // Same reading as `npm run baton`. The newest 100 commits from the tip (not the PR's commit list,
+    // which stops at 250 oldest-first and so loses the newest on a long branch), walked first-parent.
+    const recent = api('GET', `repos/${relay.REPO}/commits?sha=${pr.head.sha}&per_page=100`);
+    const line = firstParentLine(Array.isArray(recent) ? recent : [], pr.head.sha);
+    const trailers = relay.holderOf(line.map((c) => ({ message: c.commit?.message || '' })));
+    const committedAt = Date.parse(line[0]?.commit?.committer?.date);
+    const head = { sha: pr.head.sha, ...trailers, committedAt, pushedAt: relay.pushTime(api, pr.head.ref, pr.head.sha) };
+    const living = relay.trustedLiving(parsed, comment, head);
+    const v = relay.applyGate(relay.batonVerdict({ head, living, me: null, now }), { gate: living.gate, head, me: null });
     const next = (/^next: (.*)$/m.exec(comment.body) || [])[1] || '';
     const claims = (/\*\*CLAIMS\*\*\n((?:- .*\n?)+)/.exec(comment.body) || [])[1] || '';
+    // GitHub refuses a trailing slash in this path (HTTP 400), so match the bare prefix and filter it.
+    let rescues;
+    try {
+      const prefix = `refs/heads/${relay.rescueRef(pr.head.ref, '')}`;
+      const refs = api('GET', `repos/${relay.REPO}/git/matching-refs/heads/relay-rescue/${pr.head.ref}`);
+      rescues = Array.isArray(refs) ? refs.filter((r) => String(r.ref).startsWith(prefix)) : [];
+    } catch {
+      rescues = null;
+    }
     const holder = [trailers.actor, trailers.session].filter(Boolean).join(' · ') || 'unattributed';
-    const state = v.reason.startsWith('parked at the merge gate')
+    let state = v.reason.startsWith('parked at the merge gate')
       ? 'parked at merge gate'
       : v.state === 'free'
         ? `free (${v.reason.startsWith('the living') ? 'released' : 'lease expired'})`
         : 'held';
+    if (parsed.pause && living.released) state += `, paused (${parsed.pause})`;
     const lease = v.state === 'free' ? '—' : relay.minutes(v.leaseLeftMs);
     const claimText = claims.trim().split('\n').filter(Boolean).map((l) => l.slice(2)).join('; ');
-    rows.push(`| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${lease} | ${cell(next)} | ${cell(claimText)} |`);
+    const rescueText = rescues === null ? '?' : rescues.length ? `${rescues.length} waiting` : '';
+    rows.push(
+      `| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${lease} | ${cell(next)} | ${cell(claimText)} | ${rescueText} |`,
+    );
   }
   if (!rows.length) return ['No open PR has a living handoff comment (`<!-- relay-handoff -->`).'];
-  return ['| PR | branch | holder | baton | lease left | next | claims |', '|---|---|---|---|---|---|---|', ...rows];
+  return ['| PR | branch | holder | baton | lease left | next | claims | rescues |', '|---|---|---|---|---|---|---|---|', ...rows];
 }
 
 function run(argv, { env = process.env, api = relay.ghApi, now = Date.now(), out = console.log, err = console.error } = {}) {
@@ -83,6 +103,6 @@ function run(argv, { env = process.env, api = relay.ghApi, now = Date.now(), out
   }
 }
 
-module.exports = { run, board };
+module.exports = { run, board, firstParentLine };
 
 if (require.main === module) process.exit(run(process.argv.slice(2)));

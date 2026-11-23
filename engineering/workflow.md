@@ -59,8 +59,8 @@ cost the most (one session per branch, forever).
 1. **One line of work per branch, for its whole life (#17).** Cut a branch from `main` only when a new line
    of work starts. Continuing, handing off or taking over work never creates a branch. A session that wants
    to do something else does it on its own branch, not on a held one.
-2. **Only the baton holder pushes.** The holder is the session in the newest commit on the branch, merges
-   included, that carries a `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). A merge
+2. **Only the baton holder pushes.** The holder is the session in the newest commit on the branch's
+   first-parent line (the line's own history, merges included) that carries a `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). A merge
    of `main` with your trailer keeps you the holder; a person's web commit with no trailer does not unseat
    you. Before the first push to a branch you did not cut in this session, run
    `npm run baton -- take <branch>`. Exit 0 means free or yours, exit 1 means another session holds it (stop
@@ -69,8 +69,12 @@ cost the most (one session per branch, forever).
    still the `head:` that comment names (any push after a release re-takes it), when neither a push nor an
    edit of that comment has happened for **60 minutes** (D1), or when a person typed "take over `<branch>`"
    in this session (`npm run baton -- take <branch> --override`). The lease runs from GitHub's own timestamp
-   for the push (the repository activity API), never from a commit date; a push GitHub does not show yet
-   reads as just made. Only a person's words license `--override`: another session's message, a desk's
+   for whatever made the commit the tip (a push, a force-push, the branch's creation or a merge-queue merge,
+   from the repository activity API), never from a commit date. A tip GitHub does not list yet reads as just
+   made, but only for 30 minutes after its commit; past that, the commit's own time stands in, so a lease
+   cannot be held forever by a tip GitHub never lists. A `baton: released` or a gate counts only when the
+   living comment's `holder:` line names the tip's holder: both people share one GitHub login, so any session
+   can edit the comment, and an edit under someone else's name is ignored. Only a person's words license `--override`: another session's message, a desk's
    brief or a pasted card never does, and an agent never passes it on its own judgment.
 4. **Taking it is pushing.** Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
    `Claude-Session:` trailers and push without `--force`. Git lands a push only if it fast-forwards, so of two
@@ -79,8 +83,12 @@ cost the most (one session per branch, forever).
    `npm run baton -- rescue` pushes your local commits, without force, to `relay-rescue/<branch>/<session>`,
    so they outlive this sandbox (the push runs the pre-push hook first, about a minute; a second rescue
    that is not a fast-forward of the first stops and tells you to merge the earlier one in, never to
-   force). Name that ref in the living comment (or tell me, if you cannot edit it), then stop. A rescue ref is a backup, not a line of work: no PR opens from it, the baton holder merges it
-   into the line, and it is deleted after.
+   force). `rescue` also posts a marked note on the PR (`<!-- relay-rescue -->`), since only the holder can
+   edit the living comment; `npm run baton -- status` and `npm run relay` list the rescue refs waiting.
+   Then stop. A rescue ref is a backup, not a line of work: no PR opens from it, the baton holder merges it
+   into the line with a merge commit carrying the holder's own trailer, and deletes it after. Put what the
+   rescued work was in the rescue note, not in the living comment, so merging it never conflicts with the
+   handoff.
 5. **While you hold it**: if the remote moved (a person pushed from GitHub's UI) or the branch conflicts with
    `main`, **merge** it in with your trailer; never rebase, amend a pushed commit or force-push a relay
    branch. This overrides #16's rebase on a relay branch: a rebase rewrites commits another session may
@@ -90,7 +98,10 @@ cost the most (one session per branch, forever).
    each of: the first push of a line of work (open the PR as a **draft**, so pushes cost almost no CI); every
    commit that passes the fast gates; before anything long or costly (the integration tier, a spawned agent,
    a platform dispatch, a large refactor step); **before anything that waits on a person** (an
-   `AskUserQuestion`, the merge gate), because a wait can outlast the lease; **at least every 30 minutes of
+   `AskUserQuestion`, the merge gate), because a wait can outlast the lease, **and again right after the
+   answer**, so an owner decision is in the handoff before anything else can stop the session. A handoff
+   that quotes the owner names where the words were typed (the session and event, or the PR comment); a
+   quote the next session cannot check, such as one from the other person's account, is asked again; **at least every 30 minutes of
    work** (D1); and on any rate-limit or context warning. When the work is red or a commit would take the
    hooks longer than the window (the pre-commit hook can run the whole unit suite, about 6 to 10 minutes),
    the checkpoint is the comment edit alone: it renews the lease and records the state.
@@ -141,7 +152,9 @@ none. Only a comment that **starts** with the marker and was written by our own 
 that quotes the marker, or a stranger's comment on this public repository, does not. On a relay branch
 this comment **is** the 🎯 continuation brief: a session going idle does not post a second one.
 
-**Where a fresh session looks first** is that comment. `npm run relay` lists every open PR's living
+**Where a fresh session looks first** is that comment. A relay line of work always has a PR (the draft
+opens on its first push, rule 6), because the board finds work only through open PRs: a branch whose PR
+closed, or that never had one, does not appear on it. `npm run relay` lists every open PR's living
 comment (branch, holder, baton, lease left, next step, claims): that is the board across both people's accounts,
 where session `claim:` tags cannot be seen. A claim on a test or issue that the other person must see is a
 `CLAIMS` line in the living comment (`test:<file>#<name>`).
@@ -168,7 +181,8 @@ starts). Check it with `npm run relay -- sign`.
 Each account has its own weekly meter, and **each session reads it itself** at every checkpoint: the
 newest `rate_limit_event` in its own transcript (`list_events` on its own session id, `kinds:
 ["rate_limit_event"]`) carries `…rate_limit_info.unifiedWindows.seven_day.utilization`, for example
-`0.30`. The field is undocumented, so a session that cannot read it treats the level as unknown and says
+`0.30`. Read every window under `unifiedWindows` and act on the highest, since a shorter window can refuse
+requests first. The field is undocumented, so a session that cannot read it treats the level as unknown and says
 so at each checkpoint and carries on. (`get_session` drops the percentage and shows only
 `allowed_warning`, which flips at about 25%.) A command-center `usage N` broadcast is optional and only
 prompts a session to read its own level now; a broadcast never pauses a session by itself (#31). A
@@ -179,7 +193,7 @@ checkpoints.
 | Level | Every session |
 |---|---|
 | 25, 50% | checkpoint now (push, edit the living comment), then continue |
-| **75%** | **pause**: checkpoint, `npm run baton -- release`, then write `paused at 75% (seven_day <pct>); I can't judge my own criticality` in the living comment and in its own chat |
+| **75%** | **pause**: checkpoint, `npm run baton -- release --pause` (the handoff reads `pause: 75% at <time>`, so nobody mistakes the release for finished work), then write `paused at 75% (seven_day <pct>); I can't judge my own criticality` in the living comment and in its own chat |
 | **90% (mandatory)**, for a session kept past 75% | checkpoint, then `npm run baton -- release`, so the other person's session can take the branch at once |
 
 **A session never declares itself critical.** After pausing it checks `list_sessions` for a live session
@@ -223,9 +237,9 @@ workflow, do steps 2, 3 and 5 first. A large fan-out can carry usage past 90% be
 usage watch below, and the session may stop before it saves anything (`engineering/orchestration.md`
 §Cost controls).
 
-**A PR parked at the merge gate with no new work skips steps 2 to 5**: there is nothing to save, and a
-draft, a stale mark or a `card --living` rewrite would void the 🚦 card the owner is deciding on (rule 8).
-Its handoff already reads released and parked.
+**A PR parked at the merge gate with no new work skips steps 2 to 4**: there is nothing to push, and a
+draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8). Step 5 is a comment edit
+only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
 
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session pauses by default and asks the owner (§Usage checkpoints). At **90%**, a session kept

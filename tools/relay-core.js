@@ -81,6 +81,8 @@ function signature(name, session) {
 //     the `head:` it names, so any push after a release re-takes the baton.
 
 const LEASE_MS = 60 * 60 * 1000; // D1: 60 minutes, two missed 30-minute checkpoints
+// GitHub lists a push within seconds; a tip it still does not list after this long is not a fresh push.
+const UNLISTED_GRACE_MS = 30 * 60 * 1000;
 const MARKER = '<!-- relay-handoff -->';
 
 /**
@@ -119,9 +121,11 @@ function parseLiving(body) {
   const sm = holder && /\b(session_[A-Za-z0-9]+)\b/.exec(holder);
   const head = line('head');
   const gate = /^parked at ([0-9a-f]{7,40})$/.exec(line('gate') || '');
+  const pause = line('pause');
   return {
     released: line('baton') === 'released',
     gate: gate ? gate[1] : null,
+    pause: pause && pause !== 'none' ? pause : null,
     holder: holder ? holder.replace(/\s*·\s*session_[A-Za-z0-9]+.*$/, '') || null : null,
     session: sm ? sm[1] : null,
     since: line('since'),
@@ -148,8 +152,11 @@ function batonVerdict({ head, living, me, now, override = false, leaseMs = LEASE
   if (!Number.isFinite(now)) throw new TypeError('batonVerdict needs now (ms)');
   const holder = head ? head.session : null;
   const actor = head ? head.actor : null;
-  // An unknown push time is the safe reading: the push just happened, so the lease is fresh.
-  const pushed = head ? (Number.isFinite(head.pushedAt) ? head.pushedAt : now) : -Infinity;
+  // An unknown push time reads as "just pushed", the safe direction, but only while the tip commit is
+  // young enough for GitHub to be lagging; past that, the commit's own time stands in, so a tip GitHub
+  // never lists (an old branch, an API gap) cannot hold the lease forever.
+  const unlisted = !Number.isFinite(head?.committedAt) || now - head.committedAt < UNLISTED_GRACE_MS ? now : head.committedAt;
+  const pushed = head ? (Number.isFinite(head.pushedAt) ? head.pushedAt : unlisted) : -Infinity;
   const last = Math.max(pushed, living ? living.updatedAt : -Infinity);
   const leaseLeftMs = Number.isFinite(last) ? Math.max(0, leaseMs - (now - last)) : 0;
   const v = (state, reason) => ({ state, reason, holder, actor, leaseLeftMs });
@@ -196,6 +203,16 @@ function livingHeader({ baton, holder, since, checkpoint, head, next }) {
 /** The backup ref a race loser pushes to (owner's D1, 2026-11-22): `relay-rescue/<branch>/<session>`. */
 function rescueRef(branch, session) {
   return `relay-rescue/${branch}/${session}`;
+}
+
+/** The rescue refs waiting on `branch`: `[{ref, sha}]`, from `git ls-remote` output. */
+function parseRescueRefs(lsRemote, branch) {
+  const prefix = `refs/heads/${rescueRef(branch, '')}`;
+  return String(lsRemote)
+    .split('\n')
+    .map((l) => l.split('\t'))
+    .filter(([sha, ref]) => sha && ref?.startsWith(prefix))
+    .map(([sha, ref]) => ({ ref: ref.replace(/^refs\/heads\//, ''), sha }));
 }
 
 /** "42 min" / "0 min" for a lease. */
@@ -262,10 +279,14 @@ function livingComment(api, pr, login) {
 }
 
 /** GitHub's timestamp (ms) for the push that made `sha` the tip of `branch`, or null if not shown. */
+const TIP_ACTIVITY = new Set(['push', 'force_push', 'branch_creation', 'merge_queue_merge']);
+
 function pushTime(api, branch, sha) {
   const ref = encodeURIComponent(`refs/heads/${branch}`);
-  const list = api('GET', `repos/${REPO}/activity?ref=${ref}&activity_type=push&per_page=30`);
-  const hit = Array.isArray(list) ? list.find((a) => a.after === sha) : null;
+  // Every activity that can make a commit the tip, not only `push`: a branch created at its tip, a
+  // force-push or a merge-queue merge never appear as `push`, and missing them made the lease eternal.
+  const list = api('GET', `repos/${REPO}/activity?ref=${ref}&per_page=100`);
+  const hit = Array.isArray(list) ? list.find((a) => a.after === sha && TIP_ACTIVITY.has(a.activity_type)) : null;
   const t = hit ? Date.parse(hit.timestamp) : Number.NaN;
   return Number.isFinite(t) ? t : null;
 }
@@ -294,18 +315,20 @@ function readHead(branch, { fetch }) {
   for (const ref of [`origin/${branch}`, 'origin/main']) {
     if (git('rev-parse', '--verify', '--quiet', ref).status !== 0) throw new RelayError(`no local ref ${ref}: cannot tell; run without --no-fetch`);
   }
-  const log = git('log', '-200', '--format=%H%x1f%B%x1e', `origin/main..origin/${branch}`);
+  // --first-parent: the line's own history. A merged-in rescue ref (or any side branch) must not make its
+  // commits' session the holder.
+  const log = git('log', '--first-parent', '-200', '--format=%H%x1f%ct%x1f%B%x1e', `origin/main..origin/${branch}`);
   if (log.status !== 0) throw new RelayError(`git log origin/main..origin/${branch} failed (shallow clone?)`);
   const commits = log.stdout
     .split('\x1e')
     .map((r) => r.replace(/^\n/, ''))
     .filter((r) => r.includes('\x1f'))
     .map((r) => {
-      const [sha, message] = r.split('\x1f');
-      return { sha, message };
+      const [sha, ct, message] = r.split('\x1f');
+      return { sha, committedAt: Number(ct) * 1000, message };
     });
   if (!commits.length) return { exists: true, head: null };
-  return { exists: true, head: { sha: commits[0].sha, ...holderOf(commits) } };
+  return { exists: true, head: { sha: commits[0].sha, committedAt: commits[0].committedAt, ...holderOf(commits) } };
 }
 
 /**
@@ -320,10 +343,27 @@ function readBaton({ branch, pr = null, me, now, override = false, fetch = true,
   const number = pull?.number ?? pr ?? null;
   const comment = number ? livingComment(api, number, authLogin(api)) : null;
   const parsed = comment ? parseLiving(comment.body) : null;
-  const living = comment ? { released: parsed.released, head: parsed.head, updatedAt: comment.updatedAt } : null;
-  const verdict = applyGate(batonVerdict({ head, living, me, now, override }), { gate: parsed?.gate, head, me, override });
+  const living = trustedLiving(parsed, comment, head);
+  const verdict = applyGate(batonVerdict({ head, living, me, now, override }), { gate: living?.gate, head, me, override });
   const ready = Boolean(pull && pull.state !== 'closed' && pull.draft === false);
   return { exists, head, pr: number, ready, comment, parsed, verdict };
+}
+
+/**
+ * The living comment's release and gate count only when its BATON block names the tip's holder. Both
+ * people share one GitHub login, so any session can edit the comment; a `baton: released` or a gate
+ * written under someone else's holder line is a forgery or a stale edit, and is ignored. Its updated_at
+ * still renews the lease (the safe direction).
+ */
+function trustedLiving(parsed, comment, head) {
+  if (!comment) return null;
+  const trusted = Boolean(parsed?.session && head?.session && parsed.session === head.session);
+  return {
+    released: trusted && parsed.released,
+    head: parsed?.head ?? null,
+    gate: trusted ? parsed.gate : null,
+    updatedAt: comment.updatedAt,
+  };
 }
 
 /**
@@ -352,8 +392,10 @@ function nextStep(card) {
  * The whole living comment, pure. `extra` is the YAML's optional `relay:` block: `traps`,
  * `unverified` and `claims` lists, for the facts a 🎯 card has no field for (#3410's second section).
  */
-function buildLivingBody({ cardText, card, extra = {}, holder, since, checkpoint, head, signatureLine }) {
-  const parts = [livingHeader({ baton: 'held', holder, since, checkpoint, head, next: nextStep(card) }), '', cardText];
+function buildLivingBody({ cardText, card, extra = {}, holder, since, checkpoint, head, signatureLine, baton = 'held', gate = null }) {
+  let header = livingHeader({ baton, holder, since, checkpoint, head, next: nextStep(card) });
+  if (gate) header = setLivingLine(header, 'gate', `parked at ${gate}`);
+  const parts = [header, '', cardText];
   const list = (title, items) => {
     if (Array.isArray(items) && items.length) parts.push('', `**${title}**`, ...items.map((t) => `- ${t}`));
   };
@@ -377,6 +419,8 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
   if (pull.state !== 'open') throw new RelayError(`PR #${pr} is ${pull.state}; a living comment belongs on an open PR`, 1);
   const branch = pull.head.ref;
   const { head, comment, parsed, verdict: v } = readBaton({ branch, pr, me: session, now, api, git });
+  // A refresh at a head parked at the merge gate keeps it parked: the comment changes, the card's head does not.
+  const keepGate = parsed?.gate && head?.sha.startsWith(parsed.gate) && parsed.session === session ? parsed.gate : null;
   if (v.state === 'held') throw new RelayError(`the baton on ${branch} is ${v.reason}; only the holder writes its handoff`, 1);
   if (head && head.session !== session) {
     throw new RelayError(`the baton on ${branch} is free (${v.reason}) but not yours yet: push a commit first, the push takes it`, 1);
@@ -391,6 +435,8 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
     checkpoint: at,
     head: (head ? head.sha : pull.head.sha).slice(0, 7),
     signatureLine,
+    baton: keepGate ? 'released' : 'held',
+    gate: keepGate,
   });
   if (comment) {
     api('PATCH', `repos/${REPO}/issues/comments/${comment.id}`, { body: { body } });
@@ -402,7 +448,7 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
 
 module.exports = {
   ROSTER_PATH, loadRoster, resolveActor, sessionId, signature, HOW_TO_SET,
-  LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes, rescueRef,
+  LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes, rescueRef, parseRescueRefs, trustedLiving, UNLISTED_GRACE_MS,
   ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton, applyGate,
   FOOTER, nextStep, buildLivingBody, postLiving,
 };
