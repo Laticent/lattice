@@ -19,6 +19,16 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 const KINDS = ['Probe Theme', '.quarter-callout', 'Boardroom Linen'];
 
+/**
+ * A confirmation pill that is still LIVE, never one on its way out. Two Saves 2.6 s apart land on
+ * the first pill's dying edge, and notify.ts (trap 3 in `raiseSlot`) then raises the new message
+ * again on a fresh id: for Sonner's 200 ms exit the dying pill, marked `data-removed="true"` with
+ * the new text merged into it, sits beside the fresh one. A bare `getByText` matches both and fails
+ * strict mode, which is what studio-smoke hit on #3451. The fresh pill is the one a reader sees.
+ */
+const liveToast = (page: Parameters<typeof gotoStudio>[0], text: RegExp) =>
+	page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
+
 async function retype(page: Parameters<typeof gotoStudio>[0], label: string, text: string) {
 	await page.getByRole('textbox', { name: label }).click();
 	await page.keyboard.press('ControlOrMeta+a');
@@ -31,19 +41,19 @@ async function seedOneOfEach(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('menuitem', { name: /Fabricate/ }).click();
 	await page.getByRole('textbox', { name: 'Theme name' }).fill('probe-theme');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*Probe Theme/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*Probe Theme/)).toBeVisible();
 
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill('quarter-callout');
 	await retype(page, 'Component skeleton', '<!-- _class: quarter-callout -->\n\n## Revenue is up 24%\n\nGrowth.');
 	await retype(page, 'Component CSS', 'section.quarter-callout { display: grid; }\nsection.quarter-callout h2 { color: var(--accent); }');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*quarter-callout/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*quarter-callout/)).toBeVisible();
 
 	await page.getByRole('button', { name: 'Finish', exact: true }).click();
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Boardroom Linen');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved "Boardroom Linen"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Boardroom Linen"/)).toBeVisible();
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 }
