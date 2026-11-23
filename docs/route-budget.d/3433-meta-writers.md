@@ -1,2 +1,5 @@
 studio: +932
+home: +87
 The "This slide" drawer's structured edit (`lib/core/meta-edit.mjs`, eager through `slide-directives`) now writes every setting as a `<!-- @meta{…} -->` record: the record builder `lib/core/meta-comment.mjs` (the typed `layout=` field and the comment-end fold) and the edit's move-into-record path, which keeps attribute order and refuses a nested comment or a deck-wide key. The stage catalog it reads was already in the route (its own chunk shrank by 619 bytes as it joined this one), so the figure is the new writer code. Read from CI's `per-PR allowance` line on `b9dd55d` (the rebase onto slice B; +37 bytes over `61b60fc` for the editor reading a two-line directive comment the way the engine does).
+
+`home: +87`: the preview's whole-deck check (docs/src/playground/single-slide-render.ts) now reads a slide record through meta-door's `readRecord`, so a word in a footer no longer sends the preview down the whole-deck route; the 87 gzip bytes are that walk and its import. Read from CI's `per-PR allowance` line on `b187d67`.
