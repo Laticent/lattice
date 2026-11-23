@@ -4,7 +4,7 @@ import { ArrowDownToLine, ArrowUpToLine } from "lucide-react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { type Box, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, OVERLAY_BAR, PAGING_KEYS, type Placement, place, STREAK_MS } from "@/lib/quick-scroll"
+import { type Box, boxChanged, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, OVERLAY_BAR, PAGING_KEYS, type Placement, place, STREAK_MS } from "@/lib/quick-scroll"
 
 /**
  * QuickScroll — jump to the top or bottom of a long pane, out of the way until you scroll.
@@ -307,7 +307,16 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 		// The buttons are placed once per reveal, so any change to the pane's box (a window resize, a split
 		// drag, a sidebar, the pane hidden) drops them rather than leaving them at the old box (finding 6).
 		on(window, "resize", drop, { passive: true })
-		const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => drop()) : null
+		// The box at `observe()`: the observer's first callback reports it unchanged, and only a real change drops the buttons.
+		let seen: Box = host.getBoundingClientRect()
+		const ro = typeof ResizeObserver === "function"
+			? new ResizeObserver(() => {
+				const now = host.getBoundingClientRect()
+				if (!boxChanged(seen, now)) return
+				seen = now
+				drop()
+			})
+			: null
 		ro?.observe(host)
 		return () => {
 			ro?.disconnect()

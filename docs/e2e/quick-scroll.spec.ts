@@ -338,3 +338,47 @@ test('@gecko Studio Compose: a press on the overlay scrollbar of a bordered pane
 	});
 	await shown(control(page, 'top'));
 });
+
+// A ResizeObserver calls back once right after `observe()` with the box unchanged. The control took that for a resize
+// and unmounted itself, so when the callback arrived late (a loaded machine) it removed a control the reader had just
+// revealed: quick-scroll:91 failed about 1 run in 190 under 4 workers, on main and on #2988 alike. Here every
+// observer's first callback is held until the control is shown, then released: the control must stay.
+test('@webkit-phone @crosswidth a late first ResizeObserver callback does not drop a revealed control', async ({ page }) => {
+	await page.addInitScript(() => {
+		const Native = window.ResizeObserver;
+		const held: Array<() => void> = [];
+		(window as unknown as { __releaseFirstResize: () => number }).__releaseFirstResize = () => {
+			const n = held.length;
+			for (const f of held.splice(0)) f();
+			return n;
+		};
+		window.ResizeObserver = class extends Native {
+			constructor(cb: ResizeObserverCallback) {
+				let first = true;
+				super((entries, obs) => {
+					if (first) {
+						first = false;
+						held.push(() => cb(entries, obs));
+						return;
+					}
+					cb(entries, obs);
+				});
+			}
+		};
+	});
+	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	await page.getByRole('button', { name: /^Compose/ }).first().click();
+	const host = page.locator('.cs-host');
+	await expect(host.locator('.ProseMirror')).toBeVisible();
+	await expect.poll(() => host.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(200);
+	await host.evaluate((el) => {
+		el.dispatchEvent(new Event('touchstart', { bubbles: true }));
+		el.scrollTop = el.scrollHeight / 3;
+	});
+	const down = control(page, 'bottom');
+	await shown(down);
+	// The late first callbacks arrive now, after the reveal, with the pane's box unchanged.
+	expect(await page.evaluate(() => (window as unknown as { __releaseFirstResize: () => number }).__releaseFirstResize())).toBeGreaterThan(0);
+	await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+	await expect(down).toHaveAttribute('data-state', 'shown');
+});

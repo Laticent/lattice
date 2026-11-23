@@ -122,6 +122,17 @@ export function place(pane: Box, gutter: number, layout: QuickScrollLayout, avoi
 }
 
 /** True when the placement still fits inside the pane (a crowded pane hides the control rather than spill it). */
+/**
+ * Has the pane's box really changed? The buttons are placed once per reveal, so a change to the pane's box drops them,
+ * but a ResizeObserver also calls back once right after `observe()` with the box unchanged. Taken for a resize, that
+ * first callback unmounted a control the reader had just revealed whenever it arrived late (a loaded machine: e2e
+ * quick-scroll:91, 1 run in about 190 under 4 workers). Whole pixels, so subpixel layout noise is not a change.
+ */
+export function boxChanged(a: Box, b: Box): boolean {
+	const r = Math.round;
+	return r(a.left) !== r(b.left) || r(a.top) !== r(b.top) || r(a.right) !== r(b.right) || r(a.bottom) !== r(b.bottom);
+}
+
 export function fits(p: Placement, pane: Box): boolean {
 	const top = Math.min(p.up.y, p.down.y);
 	const bottom = Math.max(p.up.y, p.down.y) + p.size;
