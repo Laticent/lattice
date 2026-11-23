@@ -67,5 +67,8 @@ jobs:
       - uses: ./.github/actions/puppeteer-chrome
         timeout-minutes: 5
       - run: npm run build
+      # The publish step is swappable: set TRIAL_PUBLISH_COMMAND (a shell command run from the repo root,
+      # with NPM_CONFIG_USERCONFIG naming the local registry and its token) to prove a release tool's own
+      # publish path; the install and render checks stay the same (tools/trial-publish.js header).
       - name: Publish to a local registry, install, render
         run: node tools/trial-publish.js

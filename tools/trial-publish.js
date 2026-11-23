@@ -40,6 +40,13 @@
  *   node tools/trial-publish.js            run it; exit 0 on success, 1 on a failure
  *   node tools/trial-publish.js --keep     leave the temp folder for inspection
  *
+ * TRIAL_PUBLISH_COMMAND swaps the publish step. When it is set, the `libraries` and `engine`
+ * phases are replaced by that shell command, run from the repository root with
+ * NPM_CONFIG_USERCONFIG pointing at an npmrc that names the local registry and its token (so a
+ * plain `npm publish`, or a tool that calls it, publishes there) and TRIAL_REGISTRY_URL set. The
+ * check, install and render phases are unchanged, so a release tool proves its own publish path:
+ *   TRIAL_PUBLISH_COMMAND='npx changeset publish' node tools/trial-publish.js
+ *
  * The CI job is .github/workflows/trial-publish.yml. RELEASE.md §The distribution contract
  * points here.
  */
@@ -183,7 +190,6 @@ async function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-trial-publish-'));
   const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
-  const auth = `--//127.0.0.1:${port}/:_authToken=trial-only`;
   const stager = require('./stage-engine-package.js');
   let registry;
   // The registry runs in its own process group (so one signal stops npx and Verdaccio together),
@@ -224,21 +230,35 @@ async function main() {
       await waitForRegistry(url, 120000, registry, path.join(tmp, 'verdaccio.out'));
     });
 
-    const libs = publishSet();
-    await phase(`libraries (${libs.length})`, async () => {
-      for (const lib of libs) await run('npm', ['publish', '--workspace', lib, '--registry', url, auth], { cwd: ROOT });
-    });
+    // Every npm the publish step starts reads the registry and the token from this user config, so a
+    // TRIAL_PUBLISH_COMMAND (a release tool that calls `npm publish` itself) needs no flags of ours.
+    const npmrc = path.join(tmp, 'npmrc');
+    fs.writeFileSync(npmrc, `registry=${url}/\n//127.0.0.1:${port}/:_authToken=trial-only\n`);
+    const publishEnv = { ...process.env, NPM_CONFIG_USERCONFIG: npmrc, TRIAL_REGISTRY_URL: url };
 
+    const custom = process.env.TRIAL_PUBLISH_COMMAND;
+    if (custom) {
+      // THE SWAPPABLE STEP. A release tool (Changesets, #3471) proves its own publish path here: its
+      // command runs from the repo root against the local registry, in place of the two phases below.
+      // It owns staging the engine (its prepack, or `node tools/stage-engine-package.js`) and should
+      // leave the tree clean; the install and render phases then check what it published.
+      await phase('publish (TRIAL_PUBLISH_COMMAND)', () => run('bash', ['-c', custom], { cwd: ROOT, env: publishEnv }));
+    } else {
+      const libs = publishSet();
+      await phase(`libraries (${libs.length})`, async () => {
+        for (const lib of libs) await run('npm', ['publish', '--workspace', lib], { cwd: ROOT, env: publishEnv });
+      });
+      await phase('engine', async () => {
+        const entries = stager.stagedEntries();
+        try {
+          stager.stage(entries);
+          await run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts'], { cwd: ROOT, env: publishEnv });
+        } finally {
+          stager.clean(entries);
+        }
+      });
+    }
     const version = readJson(stager.MANIFEST).version;
-    await phase('engine', async () => {
-      const entries = stager.stagedEntries();
-      try {
-        stager.stage(entries);
-        await run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts', '--registry', url, auth], { cwd: ROOT });
-      } finally {
-        stager.clean(entries);
-      }
-    });
 
     const room = path.join(tmp, 'room');
     await phase('install', async () => {
