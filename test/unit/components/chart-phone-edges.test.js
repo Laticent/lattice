@@ -152,6 +152,18 @@ describe('the ep-curve keeps every return period it can, on the canvas', () => {
     assert.deepEqual(labels.map((l) => l.text), ['1-in-10', '1-in-1,000', '1-in-10,000']);
     for (const l of labels) assert.ok(l.left >= -0.5 && l.right <= width + 0.5, `${l.text} spans ${l.left.toFixed(1)}..${l.right.toFixed(1)} of ${width}`);
   });
+  // An independent review's cases: rescuing an end label once cost a label main printed whole and on the canvas.
+  const pts = (rps) => rps.map((rp, i) => `{${rp}, ${'$'}${(i + 1) * 100}M}`);
+  for (const [where, rps, pane, label] of [
+    ['a landscape slide', [1.5, 2, 250, 500, 2000, 10000], undefined, '1-in-2,000'],
+    ['a half-width pane', [1.5, 10, 20, 50, 500, 5000], { w: 223, h: 180 }, '1-in-50'],
+    ['a half-width pane', [5, 100, 500, 5000, 25000, 100000], { w: 223, h: 180 }, '1-in-5,000'],
+  ]) {
+    test(`${where} still prints ${label} (${rps.join(', ')})`, () => {
+      const { labels } = draw(pts(rps), undefined, pane, undefined);
+      assert.ok(labels.some((l) => l.text === label), labels.map((l) => l.text).join(', '));
+    });
+  }
   test('a half-width pane keeps all five return periods, on the canvas', () => {
     const { width, labels } = draw(['{10, $120M}', '{25, $190M}', '{50, $300M}', '{100, $410M}', '{250, $560M}'], undefined, { w: 223, h: 180 }, undefined);
     assert.equal(labels.length, 5, labels.map((l) => l.text).join(', '));
@@ -168,9 +180,16 @@ describe('a radar sector name never moves off the drawing', () => {
     + '    - Rigor `2`\n    - Bench depth `3`\n  - Process\n    - Time to market `3`\n    - Compliance `4`\n    - Unit economics `2`\n'
     + '    - Onboarding `5`\n  - Technology\n    - Automation `3`\n    - Platform `3`\n    - Cadence `2`\n    - Security posture `1`\n'
     + '  - Risk\n    - Retention `3`\n    - Resilience `5`\n  - Go to market\n    - Brand `1`\n    - Customer satisfaction `5`';
-  const cases = [...SIZES, 'square'].map((size) => ['case 82', case82, size]);
-  for (const [name, body, size] of cases) {
-    test(`${name} at ${size}`, () => {
+  // Case 13: the first version of the fix moved PROCESS to x 267.8-328.1 on a 320-wide story canvas.
+  const case13 = '<!-- _class: radar quadrant -->\n\n## Capability\n\n- Ours\n  - People\n    - Retention `2`\n    - Tooling `4`\n'
+    + '    - Onboarding `1`\n    - Cadence `1`\n  - Process\n    - Platform `3`\n    - Brand `2`\n    - Unit economics `5`\n  - Technology\n'
+    + '    - Time to market `4`\n    - Customer satisfaction `5`\n    - Resilience `4`\n    - Bench depth `4`\n  - Risk\n'
+    + '    - Security posture `1`\n    - Hiring `2`\n  - Go to market\n    - Data quality `1`\n    - Compliance `2`\n    - Partner network `1`';
+  // Each case checks the name its bug moved. Other names may sit past an edge where they first land, on main too
+  // (followups.d/3431-p2-radar-sector-names-overrun.md); a move never takes them further.
+  const cases = [...SIZES, 'square'].flatMap((size) => [['case 82', case82, size, 'Go to market'], ['case 13', case13, size, 'Process']]);
+  for (const [name, body, size, moved] of cases) {
+    test(`${name} at ${size}: ${moved}`, () => {
       const html = engine.render(deck(size, body)).html;
       const svg = html.slice(html.indexOf('<svg data-chart-roles'), html.indexOf('</svg>', html.indexOf('<svg data-chart-roles')));
       const [vw, vh] = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg).slice(1).map(Number);
@@ -178,7 +197,9 @@ describe('a radar sector name never moves off the drawing', () => {
       const [dx, dy, k] = tm ? [Number(tm[1]), Number(tm[2]), tm[3] ? Number(tm[3]) : 1] : [0, 0, 1];
       const d = drawing(size, body);
       const fs = d.role('region'); // the phone stylesheet paints a sector name at the region role
-      for (const r of d.runs.filter((x) => x.cls === 'radar-sector-label')) {
+      const runs = d.runs.filter((x) => x.cls === 'radar-sector-label' && x.text === moved);
+      assert.equal(runs.length, 1, `${moved} prints on one line`);
+      for (const r of runs) {
         const w = textWidth(r.text.toUpperCase(), fs) + 0.06 * fs * r.text.length;
         const s = span(r, fs, w);
         const top = r.baseline === 'hanging' ? r.y : r.baseline === 'middle' ? r.y - fs / 2 : r.y - fs * 0.8;
