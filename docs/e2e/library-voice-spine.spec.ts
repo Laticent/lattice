@@ -163,7 +163,8 @@ test.describe('@crosswidth @webkit-phone @webkit-tablet @gecko library pages rea
 			await held;
 			await route.continue();
 		});
-		await page.goto('/libraries/suono/');
+		// WebKit holds the load event for the pending chunk, so wait for the DOM; the label below is the readiness signal.
+		await page.goto('/libraries/suono/', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('#keyDotLabel')).toHaveText('voice ready', { timeout: 30_000 });
 		await expect.poll(() => asked, { timeout: 30_000 }).toBe(true);
 		await page.locator('#playBtn').click();
