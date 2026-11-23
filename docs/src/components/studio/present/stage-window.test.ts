@@ -338,6 +338,24 @@ describe('stage-window — createStageController', () => {
 		ctl.close();
 	});
 
+	// A deck already reported `unloaded` (#3307's player watch) has its notice; the ready deadline adds no second one.
+	it('does not report a deck as stuck once it was reported unloaded', () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+		const win = fakeWindow();
+		// Loaded, with #latt-stage present and no agents mark on <html>: the player is missing.
+		Object.assign(win.document, { readyState: 'complete', documentElement: { ...win.document.documentElement, hasAttribute: () => false } });
+		(win.document.getElementById as unknown as { mockImplementation: (f: (id: string) => unknown) => void }).mockImplementation((id: string) => (id === 'latt-stage' ? { style: {} } : id === 'latt-holding' ? {} : null));
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onStuck = vi.fn();
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn(), onStuck });
+		ctl.toggle();
+		expect(onLost).toHaveBeenCalledWith('unloaded');
+		vi.advanceTimersByTime(30_000);
+		expect(onStuck).not.toHaveBeenCalled();
+		ctl.close();
+	});
+
 	it('does not start the ready deadline for the holding page alone', () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
 		const win = fakeWindow();

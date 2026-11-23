@@ -725,7 +725,9 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 				watchAgents(stageWin, doc);
 				readyTimer = window.setTimeout(() => {
 					readyTimer = 0;
-					if (!ready && alive()) onStuck?.();
+					// A document already reported `unloaded` has its notice and its advice (reload the Studio): pressing
+					// S again would write the same missing player, so a second notice would only contradict the first.
+					if (!ready && alive() && unloadedDoc !== written) onStuck?.();
 				}, READY_DEADLINE_MS);
 			}
 		} catch {

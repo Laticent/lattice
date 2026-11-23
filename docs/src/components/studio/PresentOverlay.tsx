@@ -841,7 +841,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// on `ready`; a Stage whose deck has not said `ready` in time (`onStuck`), or loaded without its player (`onLost`
 	// 'unloaded'), may still come up, so its window stays open (the room keeps whatever it shows), and the console shows
 	// the captions and the rail meanwhile instead of leaving them on neither surface. Cleared on `ready` (they move to the
-	// Stage then) and when the Stage closes.
+	// Stage then) and when the Stage closes. Both moves happen with no input to answer, the F10 shape (2026-11-06
+	// flaky-tests note): a deliberate exception, because they happen only on these recovery paths and the alternative
+	// is captions and a rail on neither surface.
 	const [stageStalled, setStageStalled] = React.useState(false);
 	const dockLetsGo = stageOn && !stageStalled;
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────

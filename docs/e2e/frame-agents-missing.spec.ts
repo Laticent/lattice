@@ -17,6 +17,8 @@ test('a preview whose agents file is missing still shows its slides @crosswidth 
 });
 
 test('a Stage whose agents file is missing shows the deck and tells the presenter @crosswidth @webkit-tablet @gecko', async ({ page, context }) => {
+	// On Playwright's clock, so the Stage's 20 s ready deadline can be stepped past rather than slept through (HARD RULE #32).
+	await page.clock.install();
 	await gotoStudio(page);
 	await missing(context);
 	// Accumulated, not sampled: a toast leaves the DOM after a few seconds (stage-window.spec.ts, §12).
@@ -44,4 +46,9 @@ test('a Stage whose agents file is missing shows the deck and tells the presente
 	await expect
 		.poll(() => page.evaluate(() => (window as unknown as { __toastLog: string[] }).__toastLog), { timeout: 20_000 })
 		.toContainEqual(expect.stringMatching(/could not load its player/));
+	// The Stage stays open on the unfitted deck, so the console shows the captions and the rail again (#3465).
+	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toBeVisible();
+	// And says one thing: past the ready deadline, no second notice contradicts the advice to reload.
+	await page.clock.runFor(25_000);
+	expect(await page.evaluate(() => (window as unknown as { __toastLog: string[] }).__toastLog)).not.toContainEqual(expect.stringMatching(/has not started/));
 });
