@@ -136,15 +136,11 @@ test('the Stage paints the console\'s step, and drives the steps from its own ke
 	await launcher.click();
 	const stage = await popup;
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
-	// WAIT FOR THE CONSOLE'S MORPH, not just the film. Writing the deck into the Stage turns this console into the
-	// presenter view (PresentOverlay `presenterView`): the side column mounts and the Next arrow moves. The film is full
-	// the moment the write lands, before React commits that, so a click sent then could start on one layout and end on
-	// the next. Gecko then fires no `click`, and the console stayed on 1 / 4 (2 of 40 runs under four workers). That
-	// cause is inferred, not captured: any probe before the click hid the race. The talk clock (in the transport bar)
-	// renders on the same `stageOn` as the presenter view (`presenterView = stageOn && wideRoom`), so once it shows,
-	// the layout has settled. `#latt-count` reading the real count is the signal the Stage's own script has run
-	// (stage-window.spec.ts `openStage`, followups.d/3101).
-	await expect(dialog.getByText(/Talk time/i)).toBeVisible();
+	// No wait for the console's layout: it changes in the frame of the Stage press (PresentOverlay `stageOn` counts
+	// `stageWanted`), so Next is already where it stays. Before, it changed when the Stage said `ready`, about a second
+	// later, and a click sent in between could start on one layout and end on the other (2 of 40 loaded gecko runs;
+	// #3439 waited for the talk clock). `#latt-count` reading the real count is the signal the Stage's own script, and
+	// so its key handler, has run (stage-window.spec.ts `openStage`, followups.d/3101).
 	await expect(stage.locator('#latt-count')).toHaveText(/^1 \/ 4$/);
 	// The Stage's painted slide: its step, and the lit row.
 	const stagePaint = () =>
