@@ -1,11 +1,11 @@
 ---
 origin: 3451
-priority: P3
+priority: P1
 recorded: 2026-11-23
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-11-13-image-library.md
-deferred: off-path — a pre-existing record gap in shipped code, not something #3451 changed; needs the author's knowledge of where the code came from
+deferred: blocked — needs the encoder author's knowledge of where the code came from; blocks the 1.0.0 publish of @laticent/lastra (#3451 rewrote the notice this gap lives in)
 source: https://github.com/Laticent/lattice/pull/3451
 ---
 
