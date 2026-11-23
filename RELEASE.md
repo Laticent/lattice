@@ -216,7 +216,7 @@ before anything reaches npm.
 
 ```sh
 npm run release:dry              # preview: bootstrap or the pending bumps; changes nothing
-npx changeset status --verbose   # the exact bumps changeset version will apply
+npm run release:status           # the exact bumps changeset version will apply
 git switch -c release/vX.Y.Z     # cut the release commit on a branch, never on main
 npm run release:prepare          # convert, version, rebuild, commit (no tag, no push)
 git push -u origin release/vX.Y.Z

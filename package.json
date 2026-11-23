@@ -173,6 +173,7 @@
     "release:prepare": "node tools/release.js --prepare",
     "release:publish": "node tools/release.js --publish --push",
     "release:zip": "node tools/build-release-zip.js",
+    "release:status": "changeset status --verbose",
     "backlog": "node tools/backlog.js",
     "card": "node tools/card.js",
     "relay": "node tools/relay.js",
