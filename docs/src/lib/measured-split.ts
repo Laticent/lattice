@@ -15,8 +15,8 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
+import { FIT_PROBES_GLOBAL, fitProbesUrl } from '../../../lib/core/fit-probes.mjs';
 import resolveGuards from '../../../lib/core/resolve-guards.js';
-import tableReflowFit from '../../../lib/core/table-reflow-fit.js';
 
 const { fitPacks } = resolveGuards;
 
@@ -47,7 +47,11 @@ export interface MeasuredSplitInput {
 	split: (html: string, plan: Record<string, unknown> | 'whole' | null) => SplitResult;
 	/** The full frame document for a document string, built as the host builds its own frame. */
 	buildDoc: (html: string) => string;
-	/** The engine's fit verdict config (`window.LatticePlayground.fitVerdictConfig()`): the CLI's probes, selectors and tolerance. */
+	/** The runtime URL the host's frame loads: the fit probes file sits beside it (lib/core/fit-probes.mjs). */
+	runtimeUrl: string | undefined;
+	/** The script nonce `buildDoc` seals its document with, if it does (the Studio preview). */
+	scriptNonce?: string;
+	/** The engine's fit verdict config (`window.LatticePlayground.fitVerdictConfig()`): the export's selectors and tolerance. */
 	verdictConfig: unknown;
 	/** The slide box, for the hidden frame's viewport. */
 	width: number;
@@ -72,13 +76,37 @@ export interface MeasuredSplitOutput extends SplitResult {
 	fontsLoaded: boolean;
 }
 
-// The slides of a PREVIEW frame. The export's finder (lib/core/deck-slides.js) reads the export's
-// own document, whose slides sit directly under `main#deck` or `body`; a preview frame wraps them
-// in its own container. A slide here is a stamped section not inside another section, which keeps
-// the finder's one rule: a section an author pasted inside a slide is not a slide.
-const PREVIEW_SLIDES_SRC = String((doc: Document) => [...doc.querySelectorAll('section[data-lattice-slide]')].filter((s) => !s.parentElement?.closest('section')));
-/** The probe arguments for one verdict config (the engine's `fitVerdictConfig()`, so the probes and selectors are the CLI's). */
-const probeArgs = (cfg: unknown) => `(${fitMeasure.FIT_VERDICT_SRC}), ${JSON.stringify(cfg)}, (${PREVIEW_SLIDES_SRC})`;
+// The probes the frame runs: `lattice-fit-probes.js` (lib/core/fit-probes.mjs), named by a `src`
+// tag beside the frame agents the host's own document already loads. A preview frame inherits the
+// site's policy, which allows no eval, so nothing here evaluates a string: the file defines the
+// probes in the frame's own realm, and this module calls them there. Its `slides` is the preview's
+// slide finder (a stamped section not inside another section; the export's finder,
+// lib/core/deck-slides.js, reads the export's own document instead).
+type FitProbes = {
+	verdict: unknown;
+	measure: (verdict: unknown, cfg: unknown, slides: unknown, remembered: unknown, bodyPages?: boolean) => unknown[];
+	overflow: (verdict: unknown, cfg: unknown, slides: unknown) => Record<string, number>;
+	foldable: (slides: unknown) => string[];
+	probe: unknown;
+	cc: unknown;
+	slides: unknown;
+	forceReflow: (doc: Document) => unknown;
+};
+
+/**
+ * `doc` with the probes file named in its head, beside the runtime the frame loads (`runtimeUrl`,
+ * the versioned asset directory), with the nonce its builder sealed it with, if any. No runtime
+ * URL, no file to name: the frame cannot be measured.
+ */
+export function withFitProbes(doc: string, runtimeUrl: string | undefined, scriptNonce = ''): string {
+	if (!runtimeUrl) throw new UnmeasuredError('the measuring frame has no runtime URL to load its fit probes beside');
+	const esc = (v: string) => v.replace(/[&"<>]/g, (c) => `&#${c.charCodeAt(0)};`);
+	// A document sealed with the page's script nonce (the Studio preview's own policy) runs only a
+	// script that carries it, so the probes tag carries the same one.
+	const nonce = scriptNonce ? ` nonce="${esc(scriptNonce)}"` : '';
+	const tag = `<script${nonce} src="${esc(fitProbesUrl(runtimeUrl))}"></script>`;
+	return /<\/head>/i.test(doc) ? doc.replace(/<\/head>/i, `${tag}</head>`) : tag + doc;
+}
 
 /** The measured split could not read the frame it built: the host keeps today's split and its memory. */
 export class UnmeasuredError extends Error {}
@@ -146,11 +174,20 @@ function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancell
 	});
 }
 
-/** Evaluate an engine probe inside the frame's own realm (its `document`, its `getComputedStyle`). */
-function inFrame<T>(frame: HTMLIFrameElement, expr: string): T | null {
-	const win = frame.contentWindow as (Window & { eval: (s: string) => unknown }) | null;
+/** The frame's probes (set by `lattice-fit-probes.js` in its own realm), and the verdict config with its probes. */
+function probesOf(frame: HTMLIFrameElement, verdictConfig: unknown): { P: FitProbes; cfg: unknown } {
+	const win = frame.contentWindow as (Window & Record<string, unknown>) | null;
+	const P = win?.[FIT_PROBES_GLOBAL] as FitProbes | undefined;
+	if (!P || typeof P.measure !== 'function') throw new UnmeasuredError('the measuring frame did not load its fit probes');
+	// Only the selectors and tolerance come from the engine; the probes are the frame's own.
+	const { probeSrc: _p, ccSrc: _c, ...rest } = (verdictConfig ?? {}) as Record<string, unknown>;
+	return { P, cfg: { ...rest, probe: P.probe, cc: P.cc } };
+}
+
+/** Run one probe call, turning a throw into the error the host falls back on. */
+function inFrame<T>(run: () => T): T | null {
 	try {
-		return (win?.eval(expr) as T) ?? null;
+		return run() ?? null;
 	} catch (e) {
 		throw new UnmeasuredError(`the measuring probe failed: ${String(e)}`);
 	}
@@ -170,9 +207,8 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 		const w = window as Window & { __latticeMeasureCount?: number };
 		w.__latticeMeasureCount = (w.__latticeMeasureCount ?? 0) + 1;
 	}
-	const { html, split, buildDoc, verdictConfig, width, height, packer = 'knuth-plass', memory = null, settleMs = 4000, cancelled = () => false } = input;
+	const { html, split, buildDoc, runtimeUrl, scriptNonce, verdictConfig, width, height, packer = 'knuth-plass', memory = null, settleMs = 4000, cancelled = () => false } = input;
 	if (!verdictConfig) throw new UnmeasuredError('this engine bundle has no fit verdict config');
-	const PROBE_ARGS = probeArgs(verdictConfig);
 	const frame = document.createElement('iframe');
 	frame.setAttribute('aria-hidden', 'true');
 	frame.tabIndex = -1;
@@ -182,15 +218,21 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 	try {
 		// The deck unsplit but STAMPED: a slide's number comes from the split pass, and the plan is
 		// keyed by it, so the frame measures the engine's own whole pass, not the raw render.
-		let fontsLoaded = await settle(frame, buildDoc(split(html, 'whole').html), settleMs, cancelled);
+		let fontsLoaded = await settle(frame, withFitProbes(buildDoc(split(html, 'whole').html), runtimeUrl, scriptNonce), settleMs, cancelled);
 		// A table whose grid runs past the slide takes its narrow layout before anything is measured, as the CLI
 		// does before its split (lib/core/table-reflow-fit.js `forceOverflowingReflow`; owner, 2026-11-15), so the
 		// plan reads the layout the reader gets. Not left to the frame's own runtime, whose pass waits on an
 		// animation frame that WebKit does not run in an off-screen frame.
-		const FORCE = `(${tableReflowFit.FORCE_OVERFLOWING_REFLOW_SRC})(document)`;
-		inFrame(frame, FORCE);
+		const force = () => {
+			const { P } = probesOf(frame, verdictConfig);
+			inFrame(() => P.forceReflow(frame.contentDocument as Document));
+		};
+		force();
 		const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
-		const facts = inFrame<unknown[]>(frame, `(${fitMeasure.MEASURE_FIT_SRC})(${PROBE_ARGS}, ${JSON.stringify(remembered)})`);
+		const facts = inFrame(() => {
+			const { P, cfg } = probesOf(frame, verdictConfig);
+			return P.measure(P.verdict, cfg, P.slides, remembered);
+		});
 		// No slide found is not "every slide fits": it is a frame this module could not read.
 		if (!Array.isArray(facts) || facts.length === 0) throw new UnmeasuredError('the measuring frame held no slides');
 		const run = await fitMeasure.measuredSplit({
@@ -200,14 +242,26 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 			memory,
 			split: async (plan: Record<string, unknown>) => {
 				const r = split(html, plan);
-				if (!(await settle(frame, buildDoc(r.html), settleMs, cancelled))) fontsLoaded = false;
-				inFrame(frame, FORCE);
+				if (!(await settle(frame, withFitProbes(buildDoc(r.html), runtimeUrl, scriptNonce), settleMs, cancelled))) fontsLoaded = false;
+				force();
 				return r;
 			},
-			verify: async () => inFrame<Record<string, number>>(frame, `(${fitMeasure.OVERFLOW_BY_SLIDE_SRC})(${PROBE_ARGS})`) ?? {},
-			foldable: async () => inFrame<string[]>(frame, `(${fitMeasure.FOLDABLE_SRC})((${PREVIEW_SLIDES_SRC}))`) ?? [],
+			verify: async () =>
+				inFrame(() => {
+					const { P, cfg } = probesOf(frame, verdictConfig);
+					return P.overflow(P.verdict, cfg, P.slides);
+				}) ?? {},
+			foldable: async () =>
+				inFrame(() => {
+					const { P } = probesOf(frame, verdictConfig);
+					return P.foldable(P.slides);
+				}) ?? [],
 			// Members measured on a body page of their own, not in the unsplit slide's layout (§17).
-			remeasure: async () => inFrame<unknown[]>(frame, `(${fitMeasure.MEASURE_FIT_SRC})(${PROBE_ARGS}, [], true)`) ?? [],
+			remeasure: async () =>
+				inFrame(() => {
+					const { P, cfg } = probesOf(frame, verdictConfig);
+					return P.measure(P.verdict, cfg, P.slides, [], true);
+				}) ?? [],
 		});
 		// The last measured split, readable from the host page: what the frame measured and what the
 		// kernel planned. The e2e specs read it; it holds numbers only, no deck text.
@@ -412,6 +466,10 @@ export async function previewPlan(o: {
 	box: [number, number];
 	/** The renderer's frame document builder (its `srcdoc`). */
 	doc: (html: string, css: string, mode: never, drawn: boolean, geom: { width: number; height: number }, extraCss?: string) => string;
+	/** The runtime URL the renderer's frame loads, which the fit probes file sits beside. */
+	runtimeUrl: string | undefined;
+	/** The script nonce the renderer's `doc` seals its document with. */
+	scriptNonce?: string;
 	alive: () => boolean;
 }): Promise<Planned<SplitResult> | null> {
 	const { host, opts, out, pg, first, mode, drawn, extraCss = '', alive, hash, box } = o;
@@ -441,7 +499,7 @@ export async function previewPlan(o: {
 		split: (plan) => cut(html, plan),
 		alive,
 		measure: (isCanceled) =>
-			measuredSplitInFrame({ html, split: cut, buildDoc, verdictConfig, width, height, memory: fitMemoryFor(key, source), cancelled: () => !alive() || isCanceled() }).catch((e) => {
+			measuredSplitInFrame({ html, split: cut, buildDoc, runtimeUrl: o.runtimeUrl, scriptNonce: o.scriptNonce, verdictConfig, width, height, memory: fitMemoryFor(key, source), cancelled: () => !alive() || isCanceled() }).catch((e) => {
 				// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
 				if (!isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
 				return null;

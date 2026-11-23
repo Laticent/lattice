@@ -2192,6 +2192,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							hash: hashString,
 							box: [DEFAULT_W, DEFAULT_H],
 							doc: srcdoc,
+							runtimeUrl,
+							scriptNonce: PREVIEW_SCRIPT_NONCE,
 							alive: () => !disposed && host.isConnected,
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };

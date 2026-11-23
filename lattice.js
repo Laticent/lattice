@@ -4430,8 +4430,9 @@ async function renderBody(browser, g, closeBrowser) {
       const { pack } = require('@laticent/fluido');
       // The verdict is the harness's own (lib/core/fit-measure.js): overflow, a clip outside
       // chrome, or crammed prose. A slide the overflow probe alone passed could still clip or cram.
-      const verdictCfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
-      const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), ${JSON.stringify(verdictCfg)}, (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
+      const verdictCfg = { clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+      // The verdict takes its two probes as functions, written into the evaluated text as literals.
+      const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), Object.assign(${JSON.stringify(verdictCfg)}, { probe: (${PROBE_SRC}), cc: (${CONTENT_CLIPPED_SRC}) }), (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
       // MEMORY (--fit-memory FILE): what the last render of this deck decided, so an edit keeps
       // its split and its members a page while they still fit (§11). A missing or unreadable file
       // is no memory; the file is rewritten with this render's decisions.

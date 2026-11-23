@@ -13,7 +13,10 @@
 
 /* eslint-disable no-undef */
 function install(cfg) {
-  const { fits, shown, CHROME } = new Function(`return (${cfg.verdictSrc})`)()(cfg);
+  // The verdict takes its two probes as functions (lib/core/fit-measure.js `fitVerdict`).
+  const probe = new Function(`return (${cfg.probeSrc})`)();
+  const cc = new Function(`return (${cfg.ccSrc})`)();
+  const { fits, shown, CHROME } = new Function(`return (${cfg.verdictSrc})`)()({ ...cfg, probe, cc });
   const deckSlideSections = new Function(`return (${cfg.slidesSrc})`)();
   const HEADS = '.cell-masthead,.fit-runhead,.split-runhead';
   const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();

@@ -539,6 +539,7 @@ export async function shareHtmlPlayer(
 					html: out.html,
 					split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, source, w, h, { settle: false, plan }),
 					verdictConfig: PG.fitVerdictConfig?.(),
+					runtimeUrl: options.runtimeUrl,
 					buildDoc: (html) => dp.buildSrcdoc({ html: sz.sanitizeSlideHtml(html), css: out.css, mode: 'light', geom: { w, h }, runtimeUrl: options.runtimeUrl, previewFonts: true }),
 					width: w,
 					height: h,
