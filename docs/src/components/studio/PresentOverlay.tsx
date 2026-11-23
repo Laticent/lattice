@@ -808,8 +808,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// there is one implementation of each, not a second hand-rolled copy — the cost
 	// that ruled out putting the browser itself on the projector.
 	const [stageHost, setStageHost] = React.useState<{ win: Window; cc: HTMLElement | null; rail: HTMLElement | null } | null>(null);
-	const stageHostRef = React.useRef(stageHost);
-	stageHostRef.current = stageHost;
+	// HAS THIS STAGE WINDOW EVER SHOWN THE DECK. Latched on its first `ready`, cleared when it goes. A rewrite drops
+	// `stageHost` to null for a moment, and a failed rebuild in that moment must not read as "never live".
+	const stageEverLiveRef = React.useRef(false);
+	// The last build of the Stage document failed. A Stage pressed after that would wait forever on its holding page (the
+	// build effect does not run again on the press), so the press retries the build (`stageBuildTry`).
+	const stageBuildFailedRef = React.useRef(false);
+	const [stageBuildTry, setStageBuildTry] = React.useState(0);
 	// A STAGE IS OPEN, which is not the same as "its host nodes are live". A rewrite (a lens,
 	// a site palette, a mode) drops `stageHost` to null until the new document says `ready`, so
 	// the portals let go of detached nodes; the presenter view, its talk clock and the Stage pill
@@ -897,8 +902,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// A real teardown (not a rewrite) ends the Stage. A write that THREW also arrives as a plain null, with
 				// the window still open, so the window itself is asked: only a Stage that is gone stops the build. The
 				// built document stays only while the build effect below keeps it current (its cleanup lets go of it).
+				if (win) stageEverLiveRef.current = true;
 				if (!win && !rewriting) {
-					if (!stageRef.current?.isOpen()) setStageWanted(false);
+					if (!stageRef.current?.isOpen()) {
+						setStageWanted(false);
+						stageEverLiveRef.current = false;
+					}
 					// The window is open but a write THREW, so it cannot take the deck. The console lets go on the press now
 					// (`stageOn` counts `stageWanted`), so leaving it up would keep the captions and the rail off both
 					// surfaces with the room on a holding page. Close it: the teardown clears `stageWanted`, and the console
@@ -990,6 +999,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		stageRef.current?.toggle();
 		const nowOpen = stageRef.current?.isOpen();
 		setStageWanted(!!nowOpen);
+		// The deck failed to build before the press (on a laptop the build runs when Present opens): build again for this
+		// window. A second failure closes it with a notice (the build's catch below).
+		if (!wasOpen && nowOpen && stageBuildFailedRef.current) setStageBuildTry((n) => n + 1);
 		if (!wasOpen && !nowOpen) {
 			notify('Allow pop-ups to open the Stage on your second screen.');
 			return;
@@ -1002,7 +1014,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const fmAll = frontMatter;
 	// One boolean, so opening the Stage on a laptop (offered → offered and wanted) does not rebuild what is built.
 	const stageBuild = open && (stageWanted || stageOffered);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes; extraTheme keyed by name (its content hash).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes, or a Stage press retries a failed build; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
 		if (!stageBuild) return;
 		let canceled = false;
@@ -1010,6 +1022,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const build = () => buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token, webOrigins)
 			.then(({ doc, bg }) => {
 				if (canceled) return;
+				stageBuildFailedRef.current = false;
 				stageDocRef.current = doc;
 				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
@@ -1018,11 +1031,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// NOT SILENT. A rejected render left the Stage on "Preparing the stage…"
 				// forever while the console's pill read *not* pressed — the console telling
 				// the presenter no Stage exists while the room reads a loading message.
-				if (canceled || !stageRef.current?.isOpen()) return;
+				if (canceled) return;
+				stageBuildFailedRef.current = true;
+				if (!stageRef.current?.isOpen()) return;
 				// A Stage that never showed the deck closes: the console let go of its captions and rail on the press, and
 				// they would otherwise be on neither surface while the room reads a holding page. One that is already showing
 				// a deck (this was a rebuild for a palette or a lens) keeps the deck it has.
-				if (!stageHostRef.current) {
+				if (!stageEverLiveRef.current) {
 					stageRef.current.close();
 					notifyRef.current('The Stage could not render this deck, so it closed. Press Stage to try again.');
 				} else notifyRef.current('The Stage could not render this change; it is still showing the deck as it was.');
@@ -1038,7 +1053,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// before the next one lands shows its holding page, never a deck that has since changed.
 			stageDocRef.current = '';
 		};
-	}, [stageBuild, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen, (webOrigins ?? []).join(' ')]);
+	}, [stageBuild, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen, (webOrigins ?? []).join(' '), stageBuildTry]);
 	// The overview grid's thumbnails follow the deck's web-image choice like the stage does.
 	const webKey = (webOrigins ?? []).join(' ');
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.

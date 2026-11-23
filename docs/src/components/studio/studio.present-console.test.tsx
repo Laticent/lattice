@@ -56,6 +56,8 @@ afterEach(() => {
 	window.matchMedia = realMatchMedia;
 	localStorage.clear();
 	vi.clearAllMocks();
+	// A test that queues a one-off result (a rejected build) and fails before using it must not hand it to the next one.
+	vi.mocked(buildStageDocument).mockReset().mockImplementation(async () => ({ doc: '', total: 0, bg: '#15110d' }) as Awaited<ReturnType<typeof buildStageDocument>>);
 });
 
 const panelOf = () => within(screen.getByRole('complementary', { name: 'Notes and next slide' }));
@@ -214,6 +216,83 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		expect(writes).toBeGreaterThan(1);
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+	});
+
+	// On a laptop the Stage document is built when Present OPENS (`stageOffered`, the launcher's own md breakpoint), so the
+	// common failure is a build that rejected before the press. The press retries it: a second failure closes the window,
+	// a success writes the deck. Before the retry the window waited forever on its holding page, with the console's
+	// captions and rail on neither surface (the round-2 card grader reproduced it).
+	const laptopMedia = () => {
+		window.matchMedia = ((query: string) =>
+			({
+				matches: query === '(min-width: 1024px)' || query === '(min-width: 768px)',
+				media: query,
+				onchange: null,
+				addEventListener: () => {},
+				removeEventListener: () => {},
+				addListener: () => {},
+				removeListener: () => {},
+				dispatchEvent: () => false,
+			}) as unknown as MediaQueryList) as typeof window.matchMedia;
+	};
+	const holdingWindow = (onWrite: (html: string) => void = () => {}) => {
+		const doc = document.implementation.createHTMLDocument('Stage');
+		doc.body.innerHTML = '<p id="latt-holding"></p>';
+		const state = { closed: false };
+		const win = {
+			document: Object.assign(doc, { open: () => doc, write: onWrite, close: () => {} }),
+			get closed() {
+				return state.closed;
+			},
+			close: () => {
+				state.closed = true;
+			},
+			focus: () => {},
+			postMessage: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		} as unknown as Window;
+		return { win, state };
+	};
+
+	it('retries a build that failed before the Stage press, and closes the Stage when the retry fails too', async () => {
+		laptopMedia();
+		vi.mocked(buildStageDocument).mockRejectedValueOnce(new Error('render failed')).mockRejectedValueOnce(new Error('render failed again'));
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		// The build that runs at open has rejected before anyone presses Stage.
+		await vi.waitFor(() => expect(vi.mocked(buildStageDocument)).toHaveBeenCalledTimes(1));
+		await act2(async () => {});
+		const { win, state } = holdingWindow();
+		const realOpen = window.open;
+		window.open = (() => win) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		await vi.waitFor(() => expect(state.closed).toBe(true));
+		expect(vi.mocked(buildStageDocument)).toHaveBeenCalledTimes(2);
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+	});
+
+	it('retries a build that failed before the Stage press, and writes the deck when the retry succeeds', async () => {
+		laptopMedia();
+		vi.mocked(buildStageDocument)
+			.mockRejectedValueOnce(new Error('render failed'))
+			.mockResolvedValueOnce({ doc: '<p id="latt-stage">deck</p>', total: 2, bg: '#15110d' } as Awaited<ReturnType<typeof buildStageDocument>>);
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		await vi.waitFor(() => expect(vi.mocked(buildStageDocument)).toHaveBeenCalledTimes(1));
+		await act2(async () => {});
+		const written: string[] = [];
+		const { win, state } = holdingWindow((html) => written.push(html));
+		const realOpen = window.open;
+		window.open = (() => win) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		await vi.waitFor(() => expect(written.some((h) => h.includes('deck'))).toBe(true));
+		expect(state.closed).toBe(false);
 	});
 
 	it('takes nav from the Stage — but only the four verbs, not Object.prototype', async () => {
