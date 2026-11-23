@@ -1,8 +1,8 @@
 ---
 status: shipped
 summary: >
-  HARD RULE #32: a test passes or fails on the code alone. Lists the nine shapes of a flaky test (F1 stopwatch assertion
-  to F9 retries) with the fix for each. checkFlakyTests in tools/check-ownership.js parses every committed test file and
+  HARD RULE #32: a test passes or fails on the code alone. Lists the ten shapes of a flaky test (F1 stopwatch assertion
+  to F10 a control that moves after its input) with the fix for each. checkFlakyTests in tools/check-ownership.js parses every committed test file and
   holds its fixed sleeps, stopwatch assertions and unseeded randoms exactly to tools/flaky-test-baseline.json (563 hits in
   221 files on day one), so the backlog can only shrink; `// flaky-ok: <why>` marks a line that is right as it is. A
   docs/e2e waitForTimeout stays with checkE2ESleeps. Playwright's CI retries go to 0 when the audit (followups.d/3045)
@@ -41,6 +41,7 @@ is a version of that one sentence. The question to ask of any assertion: does it
 | F7 | **Shared state or test order.** One test leaks into the next; a fixed port or temp folder collides under parallel runs. | | A fresh fixture per test, a free port the OS picks, a unique temp folder. |
 | F8 | **Depends on the machine.** The timezone, the locale, today's date, installed fonts, the CPU count, the order a folder lists its files, exact pixels across machines. | `new Date()`; a pixel diff against a golden made on another machine | Pin the input: a fixed date, `TZ` and locale set by the test, sorted listings, self-hosted fonts, a pixel tolerance. |
 | F9 | **Retries that hide it.** A flaky test that passes on its second try reports green. | `retries: isCI ? 1 : 0` in `docs/playwright.config.ts` | No retries. A flake is fixed at its cause (HARD RULE #18). |
+| F10 | **A control that moves after its input.** The layout changes frames after the click that caused it, so a click aimed at a button starts on one layout and ends on the other and the browser fires none. Under load the gap grows and the click lands in it. Added 2026-11-23. | Present's Stage press: the presenter view waited about a second for the Stage window, then the Next arrow jumped 337 px; the next click was lost 1 time in 20 (#3439) | Fix the product, not the test: a layout change lands in the frame after the input's handlers finish, or into space reserved for it. Hold it with `watchStillness` (`docs/e2e/stillness.ts`), which fails on a control that moves later than that. A wait in the test that sits the move out hides the bug from a user who clicks. |
 
 ## How the rule is held
 

@@ -654,7 +654,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   random draw or the network. **Wait for a signal, not a duration** (no `waitForTimeout`, no hand-made sleep). **Assert on
   work done** (a count, a size, an order), **not on milliseconds**: speed goes to `npm run bench` (#19), never into a
   pass/fail test. **Seed every random input** and print the seed; **stub every network call**; give each test its own
-  state, port and temp folder; pin the date, timezone, locale and fonts it reads. The nine shapes (F1 to F9), each with
+  state, port and temp folder; pin the date, timezone, locale and fonts it reads. The ten shapes (F1 to F10), each with
   its fix, are `engineering/decisions/2026-11-06-flaky-tests.md`; **read it before writing or fixing a test that waits,
   times, randomizes or reaches out.** A flaky test is a defect owned by the session that finds it (#18): fixed at its
   cause, never retried, skipped or re-run until green. Born from #3041, ejected twice from the merge queue by a test that

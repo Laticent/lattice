@@ -34,7 +34,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
      the owner decides that.
    - Not started: start a fix session from `main` (`create_session`, tags `flaky-test`,
      `desk:flaky`, `origin:desk-flaky`) with a brief that names the test, the run URL, the
-     flaky shape if known (F1 to F9), and #33/#34's evidence: failing arm, repeat green
+     flaky shape if known (F1 to F10), and #33/#34's evidence: failing arm, repeat green
      alone, green under load.
 3. **Hold the line.** No retries, skips, longer timeouts or `followups.d/` notes for a
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
