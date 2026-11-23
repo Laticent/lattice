@@ -34,11 +34,14 @@ export function isEngineSubFile(url) {
 
 /**
  * The verdict, pure so the unit suite covers it (test/unit/tools/ios-engine-retry.test.js).
- * @param {{ card: boolean, afterRetry: 'loaded'|'reload'|'none', afterReload?: 'loaded'|'failed'|'none'|null, newTab?: 'loaded'|'failed'|'none'|'unsupported'|null }} r
+ * @param {{ card: boolean, cut?: number, afterRetry: 'loaded'|'reload'|'none', afterReload?: 'loaded'|'failed'|'none'|null, newTab?: 'loaded'|'failed'|'none'|'unsupported'|null }} r
  * @returns {{ ok: boolean, path: string, error?: string }}
  */
 export function engineRetryVerdict(r) {
 	if (!r.card) return { ok: false, path: 'no card', error: 'the failure card never appeared while the engine sub-files failed' };
+	// A card with nothing cut did not come from the fault, so what follows says nothing about recovering from it (the checker
+	// on #3385: the iPhone drop arm of run 45248011214 cut 0 sub-files and still reported "recovered by Retry").
+	if (r.cut === 0) return { ok: false, path: 'no fault', error: 'no engine sub-file was cut, so the card that showed did not come from the fault' };
 	if (r.afterRetry === 'loaded') return { ok: true, path: 'Retry' };
 	if (r.afterRetry !== 'reload') return { ok: false, path: 'stuck', error: 'after Retry the engine did not load and the card did not offer Reload' };
 	if (r.afterReload === 'loaded') return { ok: true, path: 'Reload' };
@@ -148,14 +151,17 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 	};
 	/** A mark on this document, so a wait can tell the reloaded page from the one the press left. */
 	const markDocument = () => wd('POST', `/session/${id}/execute/sync`, { script: 'window.__engineRetryOldDoc = true;', args: [] });
-	const r = { card: false, afterRetry: 'none', afterReload: null, newTab: null };
+	const r = { card: false, cut: 0, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
 		proxy.state.fail = true;
 		await wd('POST', `/session/${id}/url`, { url: `${proxy.origin}/studio/` });
 		const first = await waitFor(`last === 'card' || last === 'reload' || last === 'loaded'`, 150000);
 		r.card = first === 'card' || first === 'reload';
-		step('sub-files cut: the failure card appears', r.card, `${first}; ${proxy.state.cut} sub-file requests cut`);
-		if (!r.card) return finish();
+		r.cut = proxy.state.cut;
+		// What the card said, so a card that did not come from the fault names its own cause.
+		const said = r.card ? await wd('POST', `/session/${id}/execute/sync`, { script: `return (document.querySelector('${PREVIEW} .nacre-failed__text')?.textContent || '').slice(0, 160);`, args: [] }).catch(() => '') : '';
+		step('sub-files cut: the failure card appears', r.card && r.cut > 0, `${first}; ${r.cut} sub-file requests cut${r.card ? `; the card: "${said}"` : ''}${r.card && !r.cut ? ' (NOTHING was cut, so this card did not come from the fault)' : ''}`);
+		if (!r.card || !r.cut) return finish();
 
 		proxy.state.fail = false;
 		const before = proxy.state.subFiles;

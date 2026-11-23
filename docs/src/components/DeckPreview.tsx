@@ -21,10 +21,10 @@ import '@/styles/nacre-loader.css';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { applyStepAt, stepEnter, stepsOfSection } from '../../../lib/core/step-state.mjs';
 
-/** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 /** The tab's mark that the preview's Reload button reloaded it (DeckPreview `reloaded`). Per tab, so sessionStorage. */
 const RELOADED_KEY = 'lattice-preview-engine-reloaded';
 
+/** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 function deckMotionOf(src: string): DeckMotion {
 	return parseDeckMotion(getFrontMatter(src, 'motion'), getFrontMatter(src, 'motion-style'), getFrontMatter(src, 'motion-speed'));
 }

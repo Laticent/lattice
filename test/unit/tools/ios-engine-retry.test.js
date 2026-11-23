@@ -28,6 +28,8 @@ test('the verdict passes only when the engine loaded by the path the card advise
 	assert.equal(v({ card: true, afterRetry: 'none' }).ok, false, 'Retry that neither loads nor offers Reload is stuck');
 	assert.equal(v({ card: true, afterRetry: 'reload', afterReload: 'failed', newTab: 'failed' }).ok, false, 'no way back works');
 	assert.equal(v({ card: true, afterRetry: 'reload', afterReload: 'failed', newTab: 'unsupported' }).ok, false, 'an unmeasured new tab is not a pass');
+	assert.deepEqual(v({ card: true, cut: 0, afterRetry: 'loaded' }), { ok: false, path: 'no fault', error: 'no engine sub-file was cut, so the card that showed did not come from the fault' }, 'a card with nothing cut is not a recovery from the fault');
+	assert.deepEqual(v({ card: true, cut: 3, afterRetry: 'loaded' }), { ok: true, path: 'Retry' }, 'a cut sub-file, then Retry, is');
 });
 
 test('the proxy cuts a sub-file while failing, and forwards it, and everything else, when not', async () => {
