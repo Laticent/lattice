@@ -955,6 +955,7 @@ export function PanelSearch({
 	onClose,
 	size = 'default',
 	className,
+	hint,
 }: {
 	inputRef?: React.Ref<HTMLInputElement>;
 	value: string;
@@ -993,6 +994,10 @@ export function PanelSearch({
 	 */
 	size?: 'default' | 'sm';
 	className?: string;
+	/** A short trailing read-out inside the box, before the trailing button — a result count
+	 *  ("4 slides"). Inside the field because it changes on every keystroke: in a row of pills
+	 *  its changing width reflowed the row (the add-slide gallery, 2026-11-23). */
+	hint?: string;
 }) {
 	// CLEARING MUST LEAVE THE CARET IN THE FIELD, and that is the whole reason clear-and-stay
 	// is worth having as a separate job from close. Without it a tap moves focus to the
@@ -1030,6 +1035,7 @@ export function PanelSearch({
 				data-focus-ring="container"
 				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
 			/>
+			{hint ? <span className="shrink-0 whitespace-nowrap text-[12px] tabular-nums text-muted-foreground">{hint}</span> : null}
 			{trailing ? (
 				// 28px of TARGET in the space a 24px one used to take. `-my-0.5` pulls the two
 				// extra pixels back so the button's MARGIN box is 24px — exactly what the

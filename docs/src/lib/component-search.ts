@@ -55,6 +55,30 @@ function subScore(it: CatalogItem, q: string): number {
 	return 6; // description only
 }
 
+/**
+ * WHY a non-intent hit matched, in a word an author can read on a tile: the exact and fuzzy
+ * passes have no comparable score (see `RankedHit.match`), but they do know which field
+ * matched, and that is the confidence an author can act on. `name` beats `description`
+ * the same way `subScore` orders them. An intent hit returns null: it carries a real
+ * relative strength instead, shown as a percentage.
+ */
+export type MatchReason = 'name' | 'tag' | 'look' | 'category' | 'description' | 'several' | 'spelling';
+export function matchReason(hit: RankedHit, q: string): MatchReason | null {
+	if (hit.via === 'intent') return null;
+	if (hit.via === 'fuzzy') return 'spelling';
+	const query = q.trim().toLowerCase();
+	const s = subScore(hit.item, query);
+	if (s <= 2) return 'name';
+	if (s === 3) return 'tag';
+	if (s === 4) return 'look';
+	// Level 5 is the bucket, function, substance or family label: a category, not the family pill.
+	if (s === 5) return 'category';
+	// `subScore`'s last level is a fall-through, not a check: the substring pass matches the
+	// fields JOINED, so "ownership onboarding" finds `actors` across two adjacent tags. Say
+	// "description" only when the description holds the query; otherwise it spanned fields.
+	return hit.item.description.toLowerCase().includes(query) ? 'description' : 'several';
+}
+
 /** Both indexes an island needs, built once per mount and reused across keystrokes.
  *  Cheap enough to build eagerly: 61 short documents, a couple of milliseconds. */
 export type SearchIndex = { fuse: Fuse<CatalogItem>; intent: IntentIndex };
