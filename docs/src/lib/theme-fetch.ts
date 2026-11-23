@@ -27,11 +27,12 @@
 // `themeImportNames` and was the third such resolver in the repo; the three had
 // already drifted (the emulator's missed a minified `@import"onyx"` that this one
 // handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
-import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { themeChain } from '../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 import type { StyleLoader } from './style-loader';
 
+const { rewriteCssUrls } = cssTokensLib;
 
 // Module-level shared cache keyed by themeBase — so EVERY preview host that renders against
 // the same theme root shares ONE fetch + ONE decoded/rewritten ~560KB CSS string, instead of

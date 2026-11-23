@@ -1,5 +1,7 @@
 import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
-import { cssUrls } from '../../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../../lib/core/css-tokens.js';
+
+const { cssUrls } = cssTokensLib;
 
 // The color of the photo behind a spotlight card, read from the live preview.
 //

@@ -1,5 +1,5 @@
 /**
- * The CSS tokenizer (lib/core/css-tokens.mjs, from css-ref-grammar.js's `cssSheetSpec`), held to a spec tokenizer:
+ * The CSS tokenizer (lib/core/css-tokens.js, from css-ref-grammar.js's `cssSheetSpec`), held to a spec tokenizer:
  * css-tree's `tokenize` (CSS Syntax 3 §4), on seeded inputs built from the fragments that make tokenizers disagree
  * (strings and comments inside each other, bad strings at each of the three newlines, every `url(` shape, escapes,
  * non-ASCII names). The inputs leave out the four places the tokenizer differs from the spec on purpose, which its
@@ -12,7 +12,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const csstree = require('css-tree');
-const { eachCssToken, cssTokens, tokenWork } = require('../../../lib/core/css-tokens.mjs');
+const { eachCssToken, cssTokens, tokenWork } = require('../../../lib/core/css-tokens.js');
 
 /** mulberry32: a small seeded generator, so a failing input can be rebuilt from its seed. */
 function rng(seed) {
@@ -161,7 +161,7 @@ test('css-tokens: linear work on hostile input (counted, not timed)', () => {
 });
 
 test('css-tokens: cssUnescape and cssStringValue decode as CSS Syntax 3 §4.3.7 does', () => {
-  const { cssUnescape, cssStringValue } = require('../../../lib/core/css-tokens.mjs');
+  const { cssUnescape, cssStringValue } = require('../../../lib/core/css-tokens.js');
   assert.equal(cssUnescape('\\75 rl'), 'url');
   assert.equal(cssUnescape('\\000075rl'), 'url');
   assert.equal(cssUnescape('a\\:b'), 'a:b');
@@ -179,7 +179,7 @@ test('css-tokens: cssUnescape and cssStringValue decode as CSS Syntax 3 §4.3.7 
 });
 
 test('css-tokens: cssImports reads each @import and the token after it', () => {
-  const { cssImports } = require('../../../lib/core/css-tokens.mjs');
+  const { cssImports } = require('../../../lib/core/css-tokens.js');
   const read = (css) => cssImports(css).map((r) => [css.slice(r.from, r.to), r.target]);
   assert.deepEqual(read("@import 'onyx';\n:root{}"), [["@import 'onyx';", { type: 'string', value: 'onyx', closed: true }]]);
   assert.deepEqual(read('@import"x"'), [['@import"x"', { type: 'string', value: 'x', closed: true }]]);
@@ -206,7 +206,7 @@ test('css-tokens: a visitor may tokenize again while a walk is under way (the ta
 });
 
 test('css-tokens: cssUrls reads each url() as CSS does, with its decoded address and its raw span', () => {
-  const { cssUrls } = require('../../../lib/core/css-tokens.mjs');
+  const { cssUrls } = require('../../../lib/core/css-tokens.js');
   const read = (css) => cssUrls(css).map((u) => [css.slice(u.from, u.to), u.value, u.quoted, css.slice(u.rawFrom, u.rawTo)]);
   // A computed value's form, with an escaped quote in the address.
   assert.deepEqual(read('url("a\\"b.png")'), [['url("a\\"b.png")', 'a"b.png', true, 'a\\"b.png']]);
@@ -219,7 +219,7 @@ test('css-tokens: cssUrls reads each url() as CSS does, with its decoded address
 });
 
 test('css-tokens: cssCommaParts splits at top-level commas only', () => {
-  const { cssCommaParts } = require('../../../lib/core/css-tokens.mjs');
+  const { cssCommaParts } = require('../../../lib/core/css-tokens.js');
   const parts = (css) => cssCommaParts(css).map(([a, b]) => css.slice(a, b));
   assert.deepEqual(parts('url("a,b"), linear-gradient(red, blue)'), ['url("a,b")', ' linear-gradient(red, blue)']);
   assert.deepEqual(parts('a /* , */ b'), ['a /* , */ b']);
@@ -227,7 +227,7 @@ test('css-tokens: cssCommaParts splits at top-level commas only', () => {
 });
 
 test('css-tokens: rewriteCssUrls changes only the addresses it is asked to, byte for byte around them', () => {
-  const { rewriteCssUrls } = require('../../../lib/core/css-tokens.mjs');
+  const { rewriteCssUrls } = require('../../../lib/core/css-tokens.js');
   const css = 'a{b:url( fonts/x.woff2 ) url("fonts/y.woff2") url(keep.png)} /* url(fonts/z) */ c::after{content:"url(fonts/q)"}';
   assert.equal(
     rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? `/base/${raw}` : undefined)),

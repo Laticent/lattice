@@ -83,19 +83,13 @@ describe('docs/src imports CommonJS lib/ files by default import only', () => {
 });
 
 describe('inlineSiblingLeaves', () => {
-	it('inlines remote-ref.js and its media-sources.js sibling into one working module', async () => {
+	it('inlines remote-ref.js and its media-sources.js sibling into one working module', () => {
 		const dir = path.join(REPO, 'lib', 'core');
-		// As the plugin does: the ESM sibling (the CSS parser, css-tokens.mjs) is hoisted to an import first, then the
-		// CommonJS siblings are inlined.
-		const esm = hoistEsmSiblings(fs.readFileSync(path.join(dir, 'remote-ref.js'), 'utf8'));
-		expect(esm.imports).toBe("import * as __latticeEsm0 from './css-tokens.mjs';");
-		const inlined = inlineSiblingLeaves(esm.body, dir);
+		const inlined = inlineSiblingLeaves(fs.readFileSync(path.join(dir, 'remote-ref.js'), 'utf8'), dir);
 		expect(inlined).not.toBeNull();
 		expect(inlined).not.toMatch(/\brequire\s*\(/);
-		expect(viteCjsLibDev(REPO).load(path.join(dir, 'remote-ref.js'))).toContain("import * as __latticeEsm0 from './css-tokens.mjs';");
-		const tokens = await import(path.join(dir, 'css-tokens.mjs'));
 		const module = { exports: {} as Record<string, unknown> };
-		new Function('module', 'exports', '__latticeEsm0', inlined as string)(module, module.exports, tokens);
+		new Function('module', 'exports', inlined as string)(module, module.exports);
 		const isRemoteUrl = module.exports.isRemoteUrl as (u: string) => boolean;
 		expect(isRemoteUrl('https://x/a.png')).toBe(true);
 		expect(isRemoteUrl('sample:photo-pano.jpg')).toBe(false);

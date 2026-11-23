@@ -10,7 +10,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { makeCssRefSpans } = require('../../../lib/core/css-ref-reader.js');
 const { isClosedString } = require('../../../lib/export/css-closed-string.js');
-const parser = require('../../../lib/core/css-tokens.mjs').cssParser;
+const parser = require('../../../lib/core/css-tokens.js').cssParser;
 const helpers = require('../../../lib/core/css-token-readers.js');
 
 const withFact = makeCssRefSpans(parser, helpers, { urlArg: true });

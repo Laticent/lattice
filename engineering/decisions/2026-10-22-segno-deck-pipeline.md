@@ -988,16 +988,25 @@ Each hit was read by hand and kept only if it reads CSS syntax. "Callers" counts
 2026-08-17-theme-css-is-a-preview-sink.md §5, §9). **Bytes** means a change in the scan can change an exported or
 rendered byte, so `npm run identity:check -- --strict` holds it.
 
-**The tokenizer** is lib/core/css-tokens.mjs: `eachCssToken(css, visit, from, to)` and `cssTokens(css, from, to)`, one
+**The tokenizer** is lib/core/css-tokens.js: `eachCssToken(css, visit, from, to)` and `cssTokens(css, from, to)`, one
 API for a whole sheet and for an island (a stretch of a host text, offsets in the host's coordinates). Its grammar is
 the `sheet` entry of `cssSpec` in lib/core/css-ref-grammar.js, whose `top` entry is the reader behind `cssRefSpans`
 (#2871); the two share the escape, string and `url(` rules. It stays LL(1) but for the one bounded `url(` attempt `top`
 already has.
 
+**It is CommonJS, not an ES module (2026-11-23).** It shipped first as `css-tokens.mjs`, and the merge queue's Node 24
+leg ejected #3294: about ten CommonJS readers require it and six ES modules import it, and Node 24 refuses to require
+an ES module that an import is still loading (ERR_REQUIRE_ESM_RACE_CONDITION). Importing any of the six and then
+requiring lib/engine before the import settled threw, on all six; main did not, because its parser was CommonJS
+(`css-ref.generated.js`). A CommonJS module loads synchronously on both paths, so neither can race the other.
+test/unit/core/css-tokens-load-race.test.js holds every importer on that order and pins the file as CommonJS. The same
+race exists on main through lib/core/front-matter-fence.mjs:
+followups.d/3294-p2-node24-require-esm-race.md.
+
 **One parser, not two (coordinator, 2026-11-17).** Minified and gzipped, the `top` parser alone was 2,585 B, a separate
 `sheet` parser 2,840 B, and one parser with both entries 3,073 B. The Studio already loads the `top` parser through
 remote-ref.js, so two parsers would have cost it about 2.8 KB and one costs about 0.5 KB. So lib/core/css-ref.generated.js
-is deleted, the one parser is generated into lib/core/css-tokens.mjs and exported as `cssParser`, and every reader that
+is deleted, the one parser is generated into lib/core/css-tokens.js and exported as `cssParser`, and every reader that
 handed `css-ref.generated.js` to `makeCssRefSpans` hands it `cssParser` instead. No reading logic changed. The evidence:
 - every function `top` runs (`r_wsUnit`, `r_hexEscape`, `r_escape`, `r_stringDq`, `r_stringSq`, `r_top`, `r_token`,
   `r_urlBody`), `parse` and every other top-level name of the deleted file are byte-identical in the new region but
@@ -1130,7 +1139,7 @@ resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF
 the ids it knows, entity-quoted spellings included). docs/src/components/studio/web-image-hint.ts is markup-level too: it scans a deck's Markdown and
 HTML source for a web address after any of several spellings (`![](`, `src=`, `url(`, `image-set(`, a Mermaid `img:`).
 
-**Move in P5a′, when the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.mjs where it
+**Move in P5a′, when the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.js where it
 lives (engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses both):
 - plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src` `url()` with a regex. A plugin reaches outside its
   folder only through `ctx`, a service or a workspace library, and the shim is handed no `ctx`.

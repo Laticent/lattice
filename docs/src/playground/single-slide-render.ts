@@ -25,7 +25,7 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
-import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
@@ -69,6 +69,8 @@ const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).

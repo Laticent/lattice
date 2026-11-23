@@ -1,5 +1,5 @@
 /**
- * The selector and prelude walks Segno P5a moved onto the CSS tokenizer (lib/core/css-tokens.mjs), held to the
+ * The selector and prelude walks Segno P5a moved onto the CSS tokenizer (lib/core/css-tokens.js), held to the
  * character walks they replaced: lib/core/leading-is.js (`splitSelectorList`, `leadingIsArms`, `splitLeadingTrivia`,
  * `distributeLeadingIs`) and lib/core/pane-css.js (`widenForPanes`). The old code is copied below as it stood on `main`
  * dbc4d73a, comments dropped.

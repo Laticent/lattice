@@ -23,7 +23,7 @@ const oldDoor = require('../../../tools/segno-legacy/css-ref-targets.js').cssRef
 const scan = require('../../../lib/core/css-scan.js');
 const { fuzzInputs } = require('../../fixtures/web-ref-fuzz.js');
 const { makeCssRefSpans } = require('../../../lib/core/css-ref-reader.js');
-const declSpans = makeCssRefSpans(require('../../../lib/core/css-tokens.mjs').cssParser, require('../../../lib/core/css-token-readers.js'), { urlArg: true, decls: true });
+const declSpans = makeCssRefSpans(require('../../../lib/core/css-tokens.js').cssParser, require('../../../lib/core/css-token-readers.js'), { urlArg: true, decls: true });
 
 const shipped = () => execFileSync('git', ['ls-files', '*.css'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter((f) => f && !f.startsWith('dist/')).map((f) => [f, fs.readFileSync(path.join(ROOT, f), 'utf8')]);
 const fuzzed = (seed) => fuzzInputs(seed, 3000, 'http://127.0.0.1:9').filter((x) => x.kind === 'css').map((x) => [x.name, x.text]);

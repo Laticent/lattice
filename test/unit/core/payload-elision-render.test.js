@@ -242,7 +242,7 @@ describe('decodeEntitiesMapped: the run copy gives what the character copy gave'
 			isRemoteUrl: require('../../../lib/core/media-sources.js').isRemoteRef,
 			...require('../../../lib/core/css-token-readers.js'),
 			makeCssRefSpans: require('../../../lib/core/css-ref-reader.js').makeCssRefSpans,
-			cssParser: require('../../../lib/core/css-tokens.mjs').cssParser,
+			cssParser: require('../../../lib/core/css-tokens.js').cssParser,
 			makeScanHtml: require('../../../lib/core/html-ref-reader.js').makeScanHtml,
 			rawTextEnd: require('../../../lib/core/html-ref-reader.js').rawTextEnd,
 			htmlParser: require('../../../lib/core/html-ref.generated.js'),

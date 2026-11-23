@@ -37,9 +37,11 @@
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
 import { MARKS_TOKENS } from '@/lib/marks-words';
-import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 export const SNAPSHOT_KEY = 'lattice-studio-last-slide';
 // The Playground's OWN key — a SEPARATE store from the Studio's. The two surfaces

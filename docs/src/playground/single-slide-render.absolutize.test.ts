@@ -2,7 +2,7 @@
 // blob URL that serves it. It writes the RESOLVED address back where the written one was, so the address must be escaped
 // for that place, or a quote or parenthesis in it ends the string or the url early (the maker-checker on #3294 found
 // `url('it\'s.png')` turned into a string that closed at `it`). Each case reads the output back through the CSS tokenizer
-// (lib/core/css-tokens.mjs, held to css-tree's spec tokenizer) and asks that it still decodes to the resolved address.
+// (lib/core/css-tokens.js, held to css-tree's spec tokenizer) and asks that it still decodes to the resolved address.
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -12,8 +12,10 @@ vi.mock('../lib/theme-fetch', () => ({
 }));
 vi.mock('./font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
-import { cssTokens, cssUrls } from '../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { __absolutizeUrlsForTest as absolutize } from './single-slide-render';
+
+const { cssTokens, cssUrls } = cssTokensLib;
 
 const BASE = 'https://x.test/themes/a/';
 const read = (css: string) => cssUrls(css).map((u) => ({ value: u.value, quoted: u.quoted }));

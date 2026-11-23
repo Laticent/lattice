@@ -1,5 +1,5 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
-import { cssUrls } from '../../../../lib/core/css-tokens.mjs';
+import cssTokensLib from '../../../../lib/core/css-tokens.js';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
@@ -10,6 +10,8 @@ import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, 
 import { deckImageCardClasses, setImageCard } from './deck-axes';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
+
+const { cssUrls } = cssTokensLib;
 
 // THE PHOTO VERDICT: the one answer the Coach and the editor show for the text on a slide's photo. Both views render
 // the object `readVerdict` returns, with its message and its one fix button, so they cannot disagree (owner, 2026-10-28:
