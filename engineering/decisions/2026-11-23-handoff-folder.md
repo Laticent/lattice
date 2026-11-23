@@ -53,7 +53,8 @@ with it.
   `followups.d/` or a decision note first.
 - **H4 Size and secrets** *(the numbers are desk defaults; the owner can veto them)*. At most 5 MB per
   folder and 1 MB per binary file; a text file over 1 MB needs a reason line. Never an environment
-  value, key or token. GitHub secret scanning is the backstop.
+  value, key or token; `checkHandoffs` runs its own token-pattern scan over the folder and blocks the
+  push, because the branch is public the moment it lands. GitHub-side scanning is not assumed.
 - **H5 One source** *(desk proposal; the owner can veto it)*. The PR's living handoff comment becomes
   a short summary that `npm run card` generates from HANDOFF.md, so a session updates one thing.
 - **H6 Artifacts and shape.** `artifacts/` has the subfolders `decks/`, `css/`, `recipes/`,
@@ -67,7 +68,8 @@ with it.
   (25, 50, 75 and 90%) the session rewrites the same HANDOFF.md and adds or replaces files in
   `artifacts/`, one commit per checkpoint, and never keeps a copy per checkpoint: git history holds
   the earlier versions. The living PR comment is edited in place, not reposted. Front matter gains
-  `checkpoint:` beside `updated:`. At 90% the session also sets `status: released`, so the next owner
+  `checkpoint:` beside `updated:`; this note adds whose meter it read (`checkpoint: 50% (picard)`),
+  because each account has its own weekly meter. At 90% the session also sets `status: released`, so the next owner
   can take the branch. The folder is gone by the time the PR merges (H3).
 - **H8 Freshness is machine-checked.** The `build:check` rule fails when the branch has work newer
   than its HANDOFF.md. It never blocks a push that updates the handoff itself, and when it fails it
@@ -190,10 +192,10 @@ Front matter that tools read, then fixed sections that people read, in this orde
 owner: John Luke Picard · session_01…      # the session holding the line of work now
 branch: claude/presets-wave-1
 pr: 3401                                    # or: none yet
-status: active                              # active | released | closing
-checkpoint: 50%                             # the last usage checkpoint written: 25%, 50%, 75% or 90%
+status: active                              # active | paused | released | closing
+checkpoint: 50% (picard)                    # the last usage checkpoint written, and whose weekly meter it was
 updated: 2026-11-23T18:40:00Z
-budget: 3 of 4 agent runs (Opus)
+budget: 3 of 4 agent runs (Opus)            # the line of work's running total, all sessions
 ---
 
 ## Where it stands
@@ -272,13 +274,23 @@ handoffs.d/presets-wave-1/
   no symbolic links, as in `followups.d/` evidence folders. A file is binary when its first 8 KB hold
   a NUL byte, the test `followups.d/` evidence folders already use.
 - **Never a secret** (H6 scrub rule): no environment variable values, no keys or tokens, no `.env`
-  contents. GitHub secret scanning is the backstop, not the check: it runs after the push, when the
-  secret is already public.
+  contents. `checkHandoffs` scans every file in the folder for token patterns (provider key prefixes,
+  `Authorization:` headers, private-key blocks, long high-entropy strings) and fails the push, at
+  pre-push, before the branch makes it public. Nothing on GitHub's side is assumed to catch what the
+  scan misses; push protection is an owner decision outside this note.
+- **Prefer a link for an image that changes every checkpoint.** Replacing a binary in place still
+  keeps every earlier version in the branch's history, so a 1 MB screenshot refreshed at four
+  checkpoints costs 4 MB there. The per-file cap bounds each version, not the sum.
 - **Nothing for an unfixed vulnerability**, by the same rule as `followups.d/` evidence folders.
-- **Every gate that reads the tree reads it**, as for `followups.d/` evidence: a script passes Biome,
-  prose passes the US-English audit. Slice 2 lists which gates walk the folder and fixes any that
-  would misfire on it (a deck in `decks/` picked up by `lint:deck:all`, CSS in `css/` read by an
-  ownership arm that walks `*.css`).
+- **The per-push gates skip it, so they cannot block saving it.** The red-team review showed the
+  push that saves a handoff is the one most likely to be blocked: `tools/affected-tests.js` skips only
+  `.md` files, so a handoff commit with a `.json` or `.mjs` artifact runs the whole unit suite, and
+  Biome lints `artifacts/tools/*.js`, where one lint error in a throwaway script stopped a push. The
+  folder never reaches `main`, so it is the `transient` class `biome.jsonc` already admits: slice 2
+  adds `"!handoffs.d"` there with that class (and re-blesses `npm run lint:coverage`), adds
+  `handoffs.d/` to `isSkippable`, and has `lint:deck:all` and the ownership arms that walk `*.css`
+  skip it. This differs from `followups.d/` evidence on purpose: evidence lands on `main` and is
+  read there; a handoff is gone before merge.
 
 The cost to the repository is bounded: the folder never reaches `main`, and a squash merge keeps only
 the final tree, so clones of `main` never fetch it. That depends on the merge queue's
@@ -299,7 +311,9 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
    earlier versions. At the usage checkpoints (25, 50, 75 and 90% of the weekly limit, #3427
    §Usage checkpoints) the checkpoint is one commit that sets `checkpoint:` and `updated:`, and the
    living PR comment is edited in place, never reposted.
-3. **Release at 90%.** The session sets `status: released` in the same commit and runs
+3. **Pause at 75%, release at 90%.** At 75% the holder stops by default (#3427 §Usage checkpoints),
+   sets `status: paused` and releases the baton; the owner restarts it or another session takes it.
+   At 90% the session sets `status: released` in the same commit and runs
    `npm run baton -- release` (#3427 rule 7), so the folder and the baton say the same thing: the
    branch is free for the next owner. A taker sets `status: active` and its own `owner:` in its first
    commit.
@@ -315,12 +329,16 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
    go in a `followups.d/` evidence folder, which takes text only and at most 512 KB
    (`followups.d/README.md` §Evidence folders); a PNG or a larger file stays reachable through the
    permalink instead. Then `close` prints a permalink to the folder at the current head, removes the
-   folder with `git rm -r`, and writes the permalink into the living comment.
+   folder with `git rm -r`, and writes the permalink into the living comment. Gotchas met that a
+   future session on any line of work could hit go to the matching `engineering/gotchas/<topic>.md`
+   in the same commit, so the know-how outlives the folder (W4).
 6. **Ask to merge** once CI is green on that head. `npm run queue:precheck`, which every merge ask
    already runs (HARD RULE #16), refuses while `handoffs.d/` is in the tree (slice 2), so a session
    cannot reach the ask with the folder still there.
 7. **Reopen** if the PR needs more work after close: the taker parks it (`npm run pr:park`, #3427
-   rule 7) and restores the folder with `git checkout <permalink-sha> -- handoffs.d/<slug>`.
+   rule 7) and restores the folder with `git fetch origin pull/<N>/head` then
+   `git checkout <permalink-sha> -- handoffs.d/<slug>`. The fetch matters after a merge: the branch
+   is deleted on merge, and a fresh clone has the earlier commits only through the PR's ref.
 
 **What this costs.** The close commit is a new head, so ready-PR CI runs once more on it unless the
 session folds the removal into the last raise-loop fix. The rejected alternative removes the folder
@@ -358,17 +376,22 @@ the ownership gate, `tools/build.js`) and `build:check:all`. The format is defin
 does), so an untracked scratch folder never trips it. No CI job, step or hook is added (CLAUDE.md
 SECOND FILTER row 2).
 
-**Three kinds of check, because the same arm runs on a work branch too.** The pre-push hook runs
+**Four kinds of check, because the same arm runs on a work branch too.** The pre-push hook runs
 `build:check`, and `platform-suites.yml` and `golden-bless.yml` run `npm run build` when a session
 dispatches them on a work branch (`workflow.md` documents branch dispatches, and #3427 rule 6 lists a
 platform dispatch as a checkpoint). A rule that failed whenever `handoffs.d/` exists would block every
 checkpoint push and every one of those runs, which is the opposite of H2.
 
-- **Shape: always an error**, locally and in CI. At most one folder; a HANDOFF.md whose front matter
-  has `owner`, `branch`, `pr`, `status` (one of `active`, `released`, `closing`), `updated` and
-  `budget`, and `checkpoint` (one of `25%`, `50%`, `75%`, `90%`) when present; files only in the six
-  `artifacts/` subfolders and `LINKS.md`; total under 5 MB; no binary file over 1 MB; a reason line
-  for any text file over 1 MB; no PDF, archive or symbolic link.
+- **Secrets and size: always an error**, locally and in CI, each with a one-line fix in the message.
+  A token-pattern match, a PDF, an archive, a symbolic link, a binary file over 1 MB, or a folder over
+  5 MB. A secret on a public branch, or a file the repository keeps forever, costs more than a handoff
+  saved a few minutes later; the fix (delete the file, or move it to `LINKS.md`) is one command.
+- **Layout: a warning, and an error only in the merge queue** (where the presence check fails
+  anyway). At most one folder; a HANDOFF.md whose front matter has `owner`, `branch`, `pr`, `status`
+  (one of `active`, `paused`, `released`, `closing`), `updated` and `budget`, and `checkpoint` (one of
+  `25%`, `50%`, `75%`, `90%`, with the account) when present; files only in the six `artifacts/`
+  subfolders and `LINKS.md`; a reason line for any text file over 1 MB. A malformed handoff on the
+  branch is better than one a session could not push.
 - **Freshness: an error wherever the branch's history is available** (H8). The newest non-merge
   commit on the branch that changes anything outside `handoffs.d/` must not come after the newest
   commit that changes `handoffs.d/<slug>/HANDOFF.md`. "After" is git ancestry along the branch
@@ -440,7 +463,11 @@ One PR, one commit per slice (`workflow.md` §Batch a session's slices).
    touches HANDOFF.md is green; a shallow clone prints the notice and passes. Add the refusal to
    `tools/queue-precheck.sh`. Before adding the arm, list every gate that walks the whole tree and run
    it over a sample folder, so a deck in `artifacts/` does not trip `lint:deck:all`, and a quoted owner
-   line does not trip the US-English audit or the typed-glyph census.
+   line does not trip the US-English audit or the typed-glyph census. Add the Biome `transient`
+   exclusion and the `isSkippable` entry (§Contents), and arms that show a handoff commit carrying a
+   `.mjs` artifact with a lint error and a `.json` file still pushes without running the unit suite.
+   The token scan gets a failing arm per pattern, on fake tokens built at test time so no
+   key-shaped string is committed.
 3. **`npm run card -- --living` reads HANDOFF.md** (H5), with the `since last push:` note and the
    fallback after close, keeping the `BATON` block and `CLAIMS` intact for `npm run baton` and
    `npm run relay`.
@@ -458,10 +485,9 @@ Slices 1 to 3 are internal tooling that no user of the engine sees, so they shou
 
 - **A session that stops before its first push** leaves no folder, as it leaves no living comment.
   #3427 rule 6 (checkpoint at the first push and every 30 minutes) is the only defense.
-- **A folder that is out of date** is still out of date. The gate checks shape and presence, not
-  whether HANDOFF.md matches the work. The `updated:` and `head:` fields make staleness visible to the
-  next reader; they do not prevent it.
-- **Secret scanning is after the fact.** A pushed key is public the moment it lands; rotation is the
-  only fix. The rule against secrets is discipline.
+- **A handoff that moved but says nothing new** passes. The freshness check (H8) proves HANDOFF.md
+  changed with the work, not that it is true.
+- **A secret the pattern scan does not recognize** reaches the public branch. Once pushed it is
+  public; rotation is the only fix.
 
 — John Luke Picard · workflow desk
