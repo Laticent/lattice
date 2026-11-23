@@ -31,7 +31,7 @@ describe('LensPicker — catalog override', () => {
 		// the picker renders a plain status label (no "Reader view" trigger button).
 		render(<LensPicker value="full" onChange={() => {}} />);
 		expect(screen.getByText('Full deck')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 		expect(LENSES).toHaveLength(1);
 		expect(LENSES[0].key).toBe('full');
 	});
@@ -43,7 +43,7 @@ describe('LensPicker — catalog override', () => {
 			{ id: 'brief', label: 'Bottom line', base: 'none' },
 		]);
 		render(<LensPicker value="full" onChange={onChange} lenses={entries} />);
-		await user.click(screen.getByRole('button', { name: 'Reader view' }));
+		await user.click(screen.getByRole('button', { name: /^Reader view: / }));
 		await user.click(await screen.findByRole('menuitem', { name: /Bottom line/ }));
 		expect(onChange).toHaveBeenCalledWith('brief');
 		expect(screen.queryByRole('menuitem', { name: /Exec summary/ })).not.toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('LensPicker — catalog override', () => {
 	it('an empty list falls back to the base catalog (Full deck only → static label)', () => {
 		render(<LensPicker value="full" onChange={() => {}} lenses={[]} />);
 		expect(screen.getByText('Full deck')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 	});
 	it('with onAddView (editor), the "Full deck" state becomes a discoverable entry to the Lenses panel', async () => {
 		// Discoverability: a deck with no reader views must not be a dead end. In the editor the picker

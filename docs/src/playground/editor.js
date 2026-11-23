@@ -642,7 +642,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 				followAdmission(cur);
 				// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
 				const doc = v.state.doc;
-				void lintCoreMod.applyFixWhenReady(cur, f).then((out) => {
+				void lintCoreMod.applyFixWhenReady(cur, f, buildVocabSets(vocab)).then((out) => {
 					if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out } });
 				});
 			},

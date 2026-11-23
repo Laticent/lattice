@@ -94,6 +94,21 @@ export async function readDeckFile(file: File): Promise<LatticeImport> {
 	throw new Error('Lattice can’t open that kind of file. Import a .lattice, .md, .html, .pdf or .pptx exported from Lattice.');
 }
 
+/** The archive surface `deckZipKind` reads: JSZip's `file`, by name or by pattern. */
+type ZipLike = { file: ((path: string) => unknown) & ((re: RegExp) => unknown[]) };
+
+/**
+ * What an opened archive is: a `.lattice` (its two parts at the root), a PowerPoint, or
+ * neither (a Library package zip, or anything else). The ONE place that tells a deck zip
+ * from a package zip: `readZipDeck` below and the Library's import (library-deck-ref.ts)
+ * both ask it, so they cannot disagree about which zip is a deck.
+ */
+export function deckZipKind(zip: ZipLike): 'lattice' | 'pptx' | null {
+	if (zip.file('deck.md') && zip.file('manifest.json')) return 'lattice';
+	if (zip.file('[Content_Types].xml') && (zip.file(/^ppt\//) as unknown[]).length) return 'pptx';
+	return null;
+}
+
 async function readZipDeck(file: File): Promise<LatticeImport> {
 	const { MAX_CARRIER_BYTES, extractFromPptx } = await import('./embedded-source');
 	if (file.size > MAX_CARRIER_BYTES) throw new Error('That file is too large to open.');
@@ -104,13 +119,14 @@ async function readZipDeck(file: File): Promise<LatticeImport> {
 	const zip = await JSZip.loadAsync(bytes).catch(() => {
 		throw new Error('That file is not a valid archive.');
 	});
+	const kind = deckZipKind(zip);
 	// A `.lattice` names its two parts at the root. Its own reader re-opens the archive with
 	// its own (tighter) size cap, which is the point: one reader, one set of limits.
-	if (zip.file('deck.md') && zip.file('manifest.json')) {
+	if (kind === 'lattice') {
 		const { readLatticeFile } = await import('./lattice-file');
 		return readLatticeFile(bytes);
 	}
-	if (zip.file('[Content_Types].xml') && zip.file(/^ppt\//).length) {
+	if (kind === 'pptx') {
 		const payload = await extractFromPptx(zip);
 		if (!payload) throw new Error(NO_SOURCE_PPTX);
 		return readEmbeddedLattice(payload);

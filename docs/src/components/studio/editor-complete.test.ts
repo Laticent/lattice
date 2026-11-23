@@ -767,6 +767,12 @@ describe('altFromAssetName / inCollageSlide', () => {
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
 	});
+	it('reads a slide record the same way (`@meta{layout=collage}`)', () => {
+		const lines = ['---', 'theme: x', '---', '<!-- @meta{layout=collage} -->', '', '- a', '---', '- b'];
+		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
+		expect(at(6)).toBe(true);
+		expect(at(8)).toBe(false);
+	});
 });
 
 describe('frontMatterKeyAt — the hover over a front-matter key', () => {
@@ -837,11 +843,15 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		// Slice 3.
 		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
+		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
+		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
+		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
 		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
 		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
-		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- _class: -->', null],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- @meta{layout=} -->', '<!-- _class: -->'],
+		['the record insert, never the bare one', `${FM}# Title\n\n`, '<!-- @meta{} -->', '<!-- { } -->'],
 		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
 		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
 		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
@@ -883,21 +893,28 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		expect(await ask(studio, `${FM}An escaped \\$ sign \\fr`)).not.toContain('\\frac');
 	});
 
+	it('the retired bare record `<!-- {` completes no field in either editor (only `@meta{` is taught)', async () => {
+		for (const ed of [studio, playground]) {
+			expect(await ask(ed, `${FM}<!-- {lay`)).not.toContain('layout');
+			expect(await ask(ed, `${FM}<!-- {headline=`)).not.toContain('left');
+		}
+	});
+
 	it('a word that is not a slide directive gets no directive values (it is a speaker note)', async () => {
 		expect(await ask(studio, `${FM}<!-- cards: `)).toEqual([]);
 	});
 
 	it('the insert list stays out of the front matter, fences and lines with text', async () => {
-		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the insert list opens only on Ctrl-Space, never while typing', async () => {
 		const doc = `${FM}# Title\n\n`;
 		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
 		const got = await Promise.all(studio.map((s) => s(typed)));
-		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- _class: -->');
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the map completer loads only on a map slide', async () => {

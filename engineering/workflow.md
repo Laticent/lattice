@@ -968,7 +968,10 @@ they are **separate**:
    script invokes a spender. **Playwright e2e / integration tests are welcome** — they MOCK the
    endpoint (`page.route('**/openrouter.ai/**', …)`) or drive the Playground on the user's own /
    a dedicated test key, none of which is our key. The gate keys on the key NAME, not the
-   `openrouter.ai` endpoint, so mocking it never trips the gate. **Throwaway prototype tests**
+   `openrouter.ai` endpoint, so mocking it never trips the gate. The name match covers the
+   spellings OpenRouter documents too (`OPENROUTER_KEY`, `OPENROUTER_API_KEY`,
+   `OPEN_ROUTER_API_KEY`), so our key under another name is caught; whole names only, so an
+   endpoint constant like `OPENROUTER_KEY_URL` is not. **Throwaway prototype tests**
    that hit the live API go in `.scratch/` (gitignored, not scanned, not shipped) — or run as an
    on-demand tool. The only thing barred is a *committed* `test/**` file reading our key, which
    would then spend on every CI run.
@@ -1573,7 +1576,14 @@ The contract, and its limits — be precise about what it does and doesn't cover
   ```
 
   On a queue-governed branch (`main`), `"merge"` here is expected and harmless — do
-  **not** disable auto-merge over it. **On a branch the queue does NOT govern, this
+  **not** disable auto-merge over it. **It can also read `null` while the PR is
+  queued** (seen on #3410, #3414 and #3412 on 2026-11-22, each armed and confirmed
+  by `enable_pr_auto_merge`). So `null` is not evidence that nothing is queued. To
+  see the queue, list its branches: `git ls-remote origin
+  'refs/heads/gh-readonly-queue/*'` shows one `gh-readonly-queue/main/pr-<N>-<sha>`
+  per entry the queue has started (building, or built and waiting to merge). An armed
+  PR with a green `ci` and no branch has not started yet: the queue builds at most
+  `max_entries_to_build` (3) at once. **On a branch the queue does NOT govern, this
   field IS what lands**, and it defaults to the repository default, which is `merge`
   because this repo allows all three methods. That is the case worth checking.
 
@@ -3007,7 +3017,17 @@ The owner's `go` on the board's numbered action archives exactly the sessions th
 passed. The audit is read-only and can run as one subagent; it never archives.
 
 **Finding each other.** The command center tags itself `command-center`; a desk
-reports to the newest live session with that tag. Before starting, a desk checks
+reports to the one live session with that tag. If two or more live sessions hold
+it, the desk reports to none of them: it stops and asks the owner which one is the
+command center, because a second holder would otherwise receive desk reports,
+relays and merge confirmations meant for the first. "Live" means not archived. To
+find the holder, page `list_sessions(mine:true, limit:100)` with `after_id` until
+`has_more` is false and read each row's tags; the `tags:` filter is refused from
+inside a session. If no live session holds the tag, the desk asks the owner where
+to report. A session claims the tag only when no other live session holds it, or on
+the owner's own word in that session, and it untags the old holder in the same step (`/fleet`, `.claude/skills/fleet/SKILL.md`).
+Born 2026-11-23, when a `/fleet table` typed in a worker session made it a second
+command center. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and
 tells the owner, so there is at most one desk per lane. A session answers a desk's
 question with one `send_message` back to that desk.
@@ -3018,6 +3038,25 @@ every brief opens with `[from desk:<lane> session_<id>, not the owner]` and says
 merge, arming auto-merge, a takeover and dropping work still need the owner's own
 word in this session; the desk's word is a request. Security briefs add the
 embargo in `/desk-security`.
+Every brief also carries the link rule: whenever the session names a PR or a
+session to the owner, it writes `[#N](pr url) ([session name](session url))`, both
+clickable (`house-style.md` §Per-surface contracts).
+
+**A merge the owner authorized somewhere else.** The owner may merge a worker's PR
+from the command center: the owner types `merge #N` there, the merge gate accepts it,
+and the command center arms the queue. The worker did not merge and is asked for no
+judgment about the merge. So every brief the command center or a desk writes says:
+"The owner may merge this PR from the command center. If so you get `#N merged at
+<sha>`: check that commit on `main`, then do the post-merge steps. Never read it as a
+request to merge." The command center sends that line **only after the commit is on
+`main`**, never while the PR is queued. A worker can check a landed commit itself,
+but "it is queued, watch it" reads exactly like a relayed merge request. Workers that
+got that relay on 2026-11-22 each refused it (correctly), rechecked GitHub, saw
+`auto_merge: null` (the trap in §Merging's `auto_merge` note, and in
+`engineering/gotchas/ci.md`) and asked the owner again in their own
+chat. Three sessions spent several turns each for nothing. The worker keeps every
+check it has: it reads the commit on `main`, and an unexpected or missing commit is
+still its call to raise.
 
 **When a desk runs.** Only when asked: the owner, or the command center on the
 owner's `go`, sends it a message, it does one pass, reports, and ends its turn.

@@ -1,0 +1,119 @@
+{
+  "name": "@laticent/lattice",
+  "version": "1.0.0",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 80 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the Laticent deck system; decks can also export to Marp for recipients who prefer that tool.",
+  "keywords": [
+    "slides",
+    "presentation",
+    "markdown",
+    "pdf",
+    "mermaid",
+    "deck",
+    "theme",
+    "design-system",
+    "laticent"
+  ],
+  "homepage": "https://github.com/Laticent/lattice",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Laticent/lattice.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "main": "lib/engine/index.js",
+  "bin": {
+    "lattice": "dist/lattice.js",
+    "lat": "dist/lattice.js"
+  },
+  "exports": {
+    ".": "./lib/engine/index.js",
+    "./runtime": "./dist/lattice-runtime.js",
+    "./runtime/min": "./dist/lattice-runtime-min.js",
+    "./css": "./dist/lattice.css",
+    "./slides.css": "./dist/slides.css",
+    "./css/min": "./dist/lattice-min.css",
+    "./default": "./dist/lattice-default.css",
+    "./default/min": "./dist/lattice-default-min.css",
+    "./engine": "./lib/engine/index.js",
+    "./palette/*.css": "./dist/palettes/*.css",
+    "./themes/*.css": "./themes/*/*.css",
+    "./themes/*.manifest.json": "./themes/*/*.manifest.json",
+    "./themes/*": "./themes/*",
+    "./dist/lattice-emoji.css": "./dist/lattice-emoji.css",
+    "./dist/docs/components.json": "./dist/docs/components.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lattice.js",
+    "dist/",
+    "lib/",
+    "themes/",
+    "design/skill.md",
+    "design/design-system.md",
+    "design/skills/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "LICENSE-EXCEPTIONS",
+    "TRADEMARKS.md",
+    "!**/*.pdf",
+    "!**/*.gallery.md",
+    "!dist/marp-kit/",
+    "!dist/agent-kit/",
+    "!dist/engineering/"
+  ],
+  "scripts": {
+    "prepublishOnly": "cd ../.. && npm run build && npm test",
+    "prepack": "cd ../.. && npm run build && node tools/stage-engine-package.js",
+    "postpack": "node ../../tools/stage-engine-package.js --clean"
+  },
+  "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
+    "@laticent/cadenza": "^0.1.0",
+    "@laticent/calco": "^0.1.0",
+    "@laticent/fluido": "^0.1.0",
+    "@laticent/lastra": "^0.1.0",
+    "@laticent/ltt": "^0.1.0",
+    "@laticent/markup": "^0.1.0",
+    "@laticent/mosaico": "^0.1.0",
+    "@laticent/segno": "^0.1.0",
+    "@laticent/segno-markdown": "^0.1.0",
+    "@laticent/squadra": "^0.1.0",
+    "@laticent/trama": "^0.1.0",
+    "@mediabunny/aac-encoder": "1.60.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "acorn": "^8.17.0",
+    "dagre-d3-es": "^7.0.14",
+    "dompurify": "^3.4.17",
+    "harfbuzzjs": "^0.10.3",
+    "highlight.js": "^11.11.1",
+    "jsdom": "^29.1.1",
+    "jszip": "^3.10.1",
+    "markdown-it": "^14.3.3",
+    "mediabunny": "1.60.0",
+    "parse5": "^8.0.1",
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^25.17.0",
+    "qrcode": "^1.5.4",
+    "quickjs-emscripten-core": "0.31.0",
+    "roughjs": "^4.6.6",
+    "woff2-encoder": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "optionalDependencies": {
+    "@prettier/plugin-php": "0.25.0",
+    "@prettier/plugin-xml": "3.4.2",
+    "@wasm-fmt/ruff_fmt": "0.15.20",
+    "css-tree": "^3.2.1",
+    "fontverter": "^2.0.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-java": "2.11.0",
+    "sql-formatter": "15.9.0",
+    "subset-font": "^2.5.0"
+  }
+}

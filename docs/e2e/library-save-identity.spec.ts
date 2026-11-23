@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // WHICH RECORD DOES A SAVE LAND ON? Three behaviors that had no coverage at all, and two
 // of them were broken. The adversarial trio found every one of these; none was reachable
@@ -45,12 +45,12 @@ test('@smoke saving two components in one sitting keeps both', async ({ page }) 
 
 	await draftComponent(page, 'alpha-card');
 	await save(page);
-	await expect(page.getByText(/Saved .*alpha-card/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*alpha-card/)).toBeVisible();
 
 	// Same session, no reopen — a second, different component.
 	await draftComponent(page, 'beta-card');
 	await save(page);
-	await expect(page.getByText(/Saved .*beta-card/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*beta-card/)).toBeVisible();
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 	await page.getByRole('button', { name: CHROME.library }).click();
@@ -68,11 +68,11 @@ test('@smoke saving two finishes in one sitting keeps both', async ({ page }) =>
 
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Alpha Wash');
 	await save(page);
-	await expect(page.getByText(/Saved "Alpha Wash"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Alpha Wash"/)).toBeVisible();
 
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Beta Wash');
 	await save(page);
-	await expect(page.getByText(/Saved "Beta Wash"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Beta Wash"/)).toBeVisible();
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 	await page.getByRole('button', { name: CHROME.library }).click();
@@ -98,11 +98,11 @@ test('@smoke a reserved finish name cannot be taken twice', async ({ page }) => 
 
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Ledger');
 	await save(page);
-	await expect(page.getByText(/Saved "Ledger"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Ledger"/)).toBeVisible();
 
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Sidecar');
 	await save(page);
-	await expect(page.getByText(/Saved "Sidecar"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Sidecar"/)).toBeVisible();
 
 	// Reopen Sidecar and try to rename it onto the reserved name.
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
@@ -129,7 +129,7 @@ test('@smoke reopening a reserved-name finish keeps its display name through a r
 	await openFabricate(page, 'Finish');
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Ledger');
 	await save(page);
-	await expect(page.getByText(/Saved "Ledger"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Ledger"/)).toBeVisible();
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 	await page.getByRole('button', { name: CHROME.library }).click();
@@ -170,7 +170,7 @@ test('@smoke a component can be saved, edited and saved again', async ({ page })
 	await openFabricate(page, 'Component');
 	await draftComponent(page, 'twice-card');
 	await save(page);
-	await expect(page.getByText(/Saved .*twice-card/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*twice-card/)).toBeVisible();
 
 	// Keep tuning the SAME component — no rename — and save again.
 	await retype(page, 'Component CSS', 'section.twice-card { display: grid; gap: 2rem; }\nsection.twice-card h2 { color: var(--accent); }');
@@ -193,7 +193,7 @@ test('@smoke a finish can be saved, edited and saved again', async ({ page }) =>
 	await openFabricate(page, 'Finish');
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Twice Wash');
 	await save(page);
-	await expect(page.getByText(/Saved "Twice Wash"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Twice Wash"/)).toBeVisible();
 
 	await expect(
 		page.getByRole('button', { name: 'Save', exact: true }),
@@ -220,11 +220,11 @@ test('@smoke a component can be renamed back to a name used earlier in the sessi
 	await openFabricate(page, 'Component');
 	await draftComponent(page, 'roundtrip-card');
 	await save(page);
-	await expect(page.getByText(/Saved .*roundtrip-card/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*roundtrip-card/)).toBeVisible();
 
 	await draftComponent(page, 'roundtrip-other');
 	await save(page);
-	await expect(page.getByText(/Saved .*roundtrip-other/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*roundtrip-other/)).toBeVisible();
 
 	// …and back. This must be an update of the first record, not a refusal.
 	await draftComponent(page, 'roundtrip-card');

@@ -63,7 +63,7 @@ export function welcomeSteps(mobile: boolean, compose: boolean = inCompose()): T
 		// Light → dark is the one flourish: it shows a deck re-dressing itself. Put back on the next beat.
 		{ say: L.mode, point: q('[data-demo="mode"]'), click: true, act: (a) => a.toggleMode(), settle: 1600 },
 		{ say: L.posture, point: posture, act: (a) => a.toggleMode(), settle: 700 },
-		{ say: L.search, point: q('[aria-label="Search or run a command"]'), at: 'here', settle: 700 },
+		{ say: L.search, point: q('[data-demo="search"]'), at: 'here', settle: 700 },
 		{ say: L.present, point: q('[data-demo="present"]'), at: 'Present', settle: 700 },
 		{ say: L.share, point: q('[data-demo="share"]'), at: 'Share', settle: 500 },
 		{ say: L.close, settle: 600 },

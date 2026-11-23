@@ -55,7 +55,7 @@ test('the built bundle carries no dependency ranges', () => {
 
   // The declared ranges themselves, spot-checked against the live manifest so
   // this keeps biting as dependencies change rather than pinning one name.
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8'));
   for (const [name, range] of Object.entries(pkg.dependencies ?? {})) {
     assert.equal(
       bundle.includes(`${name}: "${range}"`),
@@ -67,7 +67,7 @@ test('the built bundle carries no dependency ranges', () => {
 });
 
 test('--version still reports the package version from the bundle', () => {
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8'));
 
   // Both layouts: the loose source (__dirname IS the root) and the built bundle
   // (__dirname is <root>/dist). PKG_ROOT's walk has to land on the same manifest.

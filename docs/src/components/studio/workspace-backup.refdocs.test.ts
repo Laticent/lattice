@@ -30,12 +30,29 @@ vi.hoisted(() => {
 });
 
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { listRefDocs, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, MAX_DECK_REF_BYTES, type RefDocRecord, refDocDeckFile, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
 import { backupRestoreGaps, type PackReport, packWorkspace, restoreWorkspace } from './workspace-backup';
 import { MAX_INFLATED_BYTES } from './zip-limits';
 
 const T0 = 1_700_000_000_000;
+
+// Every random byte comes from one seeded draw (HARD RULE #32), printed so a failure reproduces: LATTICE_TEST_SEED=<n>.
+const SEED = Number(process.env.LATTICE_TEST_SEED ?? 0x5eed2026);
+console.log(`workspace-backup.refdocs.test seed: ${SEED}`);
+let state = SEED >>> 0;
+/** mulberry32, the suite's small seeded PRNG (test/helpers/regex-differential.js). */
+function seededBytes(n: number): Uint8Array {
+	const out = new Uint8Array(n);
+	for (let i = 0; i < n; i++) {
+		state = (state + 0x6d2b79f5) >>> 0;
+		let t = state;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		out[i] = ((t ^ (t >>> 14)) >>> 0) & 0xff;
+	}
+	return out;
+}
 
 beforeEach(async () => {
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -49,7 +66,7 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		state.index.push({ id: 'deck-aaa', title: 'Quarterly plan', builtin: false });
 		importStudioState(state, T0);
 		// Ten maximum-size PDFs: 6.7 MiB each as a data URL, 67 MiB of refdocs.json.
-		const chunk = Buffer.from(crypto.getRandomValues(new Uint8Array(65536)));
+		const chunk = Buffer.from(seededBytes(65536));
 		const pdf = `data:application/pdf;base64,${Buffer.concat(Array(80).fill(chunk)).toString('base64')}`; // 5 MiB of real bytes, so it decodes
 		for (let i = 0; i < 10; i++) await saveRefDoc({ name: `brand-${i}.pdf`, kind: 'pdf', dataUrl: pdf, bytes: 5 * 1024 * 1024 }, T0 + i);
 		const packed = await packWorkspace(T0);
@@ -68,7 +85,7 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 	}, 120_000);
 
 	it('writes a binary-stored PDF as base64 rows, restores it in the default format, and skips a row that is not base64 or is over the cap', async () => {
-		const bytes = Buffer.from(crypto.getRandomValues(new Uint8Array(4096)));
+		const bytes = Buffer.from(seededBytes(4096));
 		await saveRefDoc({ name: 'good.pdf', kind: 'pdf', dataUrl: `data:application/pdf;base64,${bytes.toString('base64')}`, bytes: 4096 }, T0, { binary: true });
 		expect(((await listAssets('refdoc')) as Array<{ dataUrl?: string; blob?: Blob }>).map((r) => [typeof r.dataUrl, r.blob instanceof Blob])).toEqual([['undefined', true]]);
 		const { default: JSZip } = await import('jszip');
@@ -127,4 +144,151 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(summary.refdocs).toBe(2);
 		expect((await listRefDocs()).map((r) => r.name).sort()).toContain('empty.pdf');
 	});
+});
+
+describe('restoreWorkspace — a deck kept as reference', () => {
+	it('a deck file the browser cannot read at backup time costs only "Open as deck": the row keeps its text and is named', async () => {
+		const deck = Buffer.from(seededBytes(777)); // a size no other stored Blob here has, so only its read fails
+		await saveRefDoc({ name: 'lost.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		await saveRefDoc({ name: 'kept.lattice', kind: 'text', text: 'Slide 1\nPipeline', bytes: 18 }, T0 + 1, { deck: new Blob([Buffer.from(seededBytes(512))]) });
+		// IndexedDB lost the file behind one deck's Blob: reading it rejects.
+		const real = Blob.prototype.arrayBuffer;
+		Blob.prototype.arrayBuffer = function (this: Blob) {
+			return this.size === 777 ? Promise.reject(new DOMException('gone', 'NotReadableError')) : real.call(this);
+		};
+		const report: PackReport = { refdocsBytes: 0 };
+		let packed: Blob;
+		try {
+			packed = await packWorkspace(T0, report);
+		} finally {
+			Blob.prototype.arrayBuffer = real;
+		}
+		expect(report.refdocsUnreadable).toEqual(['lost.lattice']);
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await packed.arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<Record<string, unknown>>;
+		const lost = rows.find((r) => r.name === 'lost.lattice') as Record<string, unknown>;
+		const kept = rows.find((r) => r.name === 'kept.lattice') as Record<string, unknown>;
+		expect(lost.text).toBe('Slide 1\nRetention held'); // the reference text survives
+		expect(lost.deckFile).toBeUndefined(); // no entry named for a file that was not written
+		expect(kept.deckFile).toMatch(/^refdoc-decks\/d\d+\.bin$/); // the readable deck is unaffected
+		expect(Object.keys(zip.files).filter((f) => f.startsWith('refdoc-decks/') && !zip.files[f].dir)).toHaveLength(1);
+
+		// The backup restores both rows: the lost one as reference text without "Open as deck", the other whole.
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(new Uint8Array(await packed.arrayBuffer()) as unknown as Blob, T0 + 9);
+		expect(summary.refused).toEqual([]);
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((r) => r.name === n) as RefDocRecord;
+		expect(named('lost.lattice').text).toBe('Slide 1\nRetention held');
+		expect(refDocDeckFile(named('lost.lattice'))).toBeNull();
+		expect(refDocDeckFile(named('kept.lattice'))).not.toBeNull();
+	});
+
+	it('carries the deck file as a binary entry, not base64 in refdocs.json, brings it back, and names a row it cannot', async () => {
+		const deck = Buffer.from(seededBytes(2048));
+		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		await saveRefDoc({ name: 'brief.md', kind: 'text', text: '# Brief', bytes: 7 }, T0 + 1, { sourceExact: true });
+		const { default: JSZip } = await import('jszip');
+		const report: PackReport = { refdocsBytes: 0 };
+		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0, report)).arrayBuffer()));
+		const json = await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string');
+		const rows = JSON.parse(json) as Array<Record<string, unknown>>;
+		const q3 = rows.find((r) => r.name === 'q3.lattice') as Record<string, unknown>;
+		expect(q3.deck).toBeUndefined();
+		expect(json).not.toContain('base64');
+		expect(q3.deckFile).toMatch(/^refdoc-decks\/d\d+\.bin$/);
+		expect(Buffer.from(await (zip.file(q3.deckFile as string) as { async: (t: 'nodebuffer') => Promise<Buffer> }).async('nodebuffer')).equals(deck)).toBe(true);
+		expect(report.refdocDeckBytes).toBe(2048);
+		// Three hostile rows: a path Lattice never writes, a missing entry, and an entry over one deck's cap.
+		// Zeros deflate to almost nothing, so the entry is small on disk and declares one byte over the cap.
+		zip.file('refdoc-decks/d9.bin', new Uint8Array(MAX_DECK_REF_BYTES + 1), { compression: 'DEFLATE' });
+		zip.file('refdocs.json', JSON.stringify([...rows, { ...q3, name: 'escape.lattice', deckFile: '../evil.bin' }, { ...q3, name: 'gone.lattice', deckFile: 'refdoc-decks/d7.bin' }, { ...q3, name: 'huge.lattice', deckFile: 'refdoc-decks/d9.bin' }]));
+		const blob = (await zip.generateAsync({ type: 'uint8array' })) as unknown as Blob;
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(blob, T0 + 2);
+		expect(summary.refdocs).toBe(5);
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((d) => d.name === n) as NonNullable<(typeof back)[number]>;
+		expect(Buffer.from(await (refDocDeckFile(named('q3.lattice')) as File).arrayBuffer()).equals(deck)).toBe(true);
+		expect(refDocDeckFile(named('brief.md'))?.name).toBe('brief.md');
+		for (const n of ['escape.lattice', 'gone.lattice', 'huge.lattice']) {
+			expect(named(n).text).toBe('Slide 1\nRetention held');
+			expect(refDocDeckFile(named(n))).toBeNull();
+		}
+		expect(summary.refused.map((r) => r.name).sort()).toEqual(['deck file of escape.lattice', 'deck file of gone.lattice', 'deck file of huge.lattice']);
+	});
+
+	it('stops a deck entry that understates its size at one deck\'s cap, and names a damaged one, without ending the restore', async () => {
+		const deck = Buffer.from(seededBytes(2048));
+		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0)).arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<Record<string, unknown>>;
+		const q3 = rows.find((r) => r.name === 'q3.lattice') as Record<string, unknown>;
+		// d8: one deck's cap plus a megabyte of real bytes, whose headers claim 1 KB. Under the restore's whole deck budget
+		// (1 GB) it would pass; only the entry's own budget stops it. d6: a small entry whose headers overstate its size.
+		zip.file('refdoc-decks/d8.bin', new Uint8Array(MAX_DECK_REF_BYTES + 1_048_576), { compression: 'DEFLATE' });
+		zip.file('refdoc-decks/d6.bin', seededBytes(4096), { compression: 'STORE' });
+		zip.file('refdocs.json', JSON.stringify([...rows, { ...q3, name: 'liar.lattice', deckFile: 'refdoc-decks/d8.bin' }, { ...q3, name: 'broken.lattice', deckFile: 'refdoc-decks/d6.bin' }]));
+		const bytes = await zip.generateAsync({ type: 'uint8array' });
+		const at = (name: string, sig: number, back: number) => {
+			const needle = Buffer.from(name);
+			const out: number[] = [];
+			for (let i = Buffer.from(bytes.buffer).indexOf(needle); i >= 0; i = Buffer.from(bytes.buffer).indexOf(needle, i + 1)) {
+				if (new DataView(bytes.buffer).getUint32(i - back, true) === sig) out.push(i - back);
+			}
+			return out;
+		};
+		const view = new DataView(bytes.buffer);
+		// The uncompressed size sits at +22 in a local header (back 30 from its name) and +24 in a central one (back 46).
+		const local = at('refdoc-decks/d8.bin', 0x04034b50, 30);
+		const central = at('refdoc-decks/d8.bin', 0x02014b50, 46);
+		expect([local.length, central.length]).toEqual([1, 1]);
+		view.setUint32(local[0] + 22, 1024, true);
+		view.setUint32(central[0] + 24, 1024, true);
+		// d6 claims twice the bytes it holds: JSZip's "uncompressed data size mismatch". (JSZip skips CRC checks by default,
+		// so a flipped CRC alone is not a damage this read can see; the deck reader meets it at "Open as deck".)
+		const [l6] = at('refdoc-decks/d6.bin', 0x04034b50, 30);
+		const [c6] = at('refdoc-decks/d6.bin', 0x02014b50, 46);
+		view.setUint32(l6 + 22, 8192, true);
+		view.setUint32(c6 + 24, 8192, true);
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(bytes as unknown as Blob, T0 + 2);
+		expect(summary.refdocs).toBe(3);
+		const why = Object.fromEntries(summary.refused.map((r) => [r.name, r.why]));
+		expect(why).toEqual({
+			'deck file of liar.lattice': `over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`,
+			'deck file of broken.lattice': 'the file in the backup is damaged',
+		});
+		// Both rows keep their text, and the good deck after them still comes back.
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((d) => d.name === n) as NonNullable<(typeof back)[number]>;
+		for (const n of ['liar.lattice', 'broken.lattice']) {
+			expect(named(n).text).toBe('Slide 1\nRetention held');
+			expect(refDocDeckFile(named(n))).toBeNull();
+		}
+		expect(Buffer.from(await (refDocDeckFile(named('q3.lattice')) as File).arrayBuffer()).equals(deck)).toBe(true);
+	}, 120_000);
+
+	it('several maximum-size decks no longer crowd the other reference docs out of a restore', async () => {
+		// Four 50 MB decks. As base64 inside refdocs.json they made about 270 MiB of JSON, over the lane's 256 MiB, and the
+		// restore dropped the WHOLE lane: every reference doc, not only the decks.
+		const big = new Uint8Array(MAX_DECK_REF_BYTES);
+		big.set(seededBytes(4096));
+		for (let i = 0; i < 4; i++) await saveRefDoc({ name: `deck-${i}.lattice`, kind: 'text', text: `Deck ${i}`, bytes: 6 }, T0 + i, { deck: new Blob([big]) });
+		await saveRefDoc({ name: 'brand.md', kind: 'text', text: '# Brand guide', bytes: 13 }, T0 + 10);
+		const report: PackReport = { refdocsBytes: 0 };
+		const backup = await packWorkspace(T0, report);
+		expect(report.refdocsBytes).toBeLessThan(64 * 1024);
+		expect(report.refdocDeckBytes).toBe(4 * MAX_DECK_REF_BYTES);
+		expect(backupRestoreGaps(report)).toEqual([]);
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(new Uint8Array(await backup.arrayBuffer()) as unknown as Blob, T0 + 20);
+		expect(summary.refused).toEqual([]);
+		expect(summary.refdocs).toBe(5);
+		const back = await listRefDocs();
+		expect(back.map((d) => d.name).sort()).toEqual(['brand.md', 'deck-0.lattice', 'deck-1.lattice', 'deck-2.lattice', 'deck-3.lattice']);
+		for (const d of back.filter((x) => x.name.endsWith('.lattice'))) expect(d.deck?.size).toBe(MAX_DECK_REF_BYTES);
+	}, 180_000);
 });

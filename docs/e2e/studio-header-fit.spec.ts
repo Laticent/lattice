@@ -747,7 +747,7 @@ test('the inline search does not burst the row when it opens, at every tier that
 			// that reaches everything. Under the width ladder the pill persists and Coach,
 			// Chat, Settings, feedback, theme and tours overflow into the menu instead.
 			// Below `xl` it is an icon-only button; from `xl` it grows its label and ⌘K hint.
-			const pill = header.getByRole('button', { name: 'Search or run a command' });
+			const pill = header.getByRole('button', { name: 'Search or run ⌘K, command palette' });
 			await expect(
 				pill,
 				`at ${width}px on ${stop.word} the search pill must be in the row — it persists at EVERY width; things that matter less overflow into the menu instead`,

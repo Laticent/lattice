@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // A Library card's action row must FIT INSIDE ITS CARD at every width.
 //
@@ -19,6 +19,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 const KINDS = ['Probe Theme', '.quarter-callout', 'Boardroom Linen'];
 
+
 async function retype(page: Parameters<typeof gotoStudio>[0], label: string, text: string) {
 	await page.getByRole('textbox', { name: label }).click();
 	await page.keyboard.press('ControlOrMeta+a');
@@ -31,19 +32,19 @@ async function seedOneOfEach(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('menuitem', { name: /Fabricate/ }).click();
 	await page.getByRole('textbox', { name: 'Theme name' }).fill('probe-theme');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*Probe Theme/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*Probe Theme/)).toBeVisible();
 
 	await page.getByRole('button', { name: 'Component', exact: true }).click();
 	await page.getByRole('textbox', { name: 'Component name' }).fill('quarter-callout');
 	await retype(page, 'Component skeleton', '<!-- _class: quarter-callout -->\n\n## Revenue is up 24%\n\nGrowth.');
 	await retype(page, 'Component CSS', 'section.quarter-callout { display: grid; }\nsection.quarter-callout h2 { color: var(--accent); }');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*quarter-callout/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*quarter-callout/)).toBeVisible();
 
 	await page.getByRole('button', { name: 'Finish', exact: true }).click();
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Boardroom Linen');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved "Boardroom Linen"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Boardroom Linen"/)).toBeVisible();
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 }

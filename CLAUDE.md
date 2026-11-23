@@ -188,12 +188,12 @@ disposition and a gate collide, the gate wins.
   the expectation, not an escape hatch from the rules; it operates in the space
   the rules leave open.
 - **Write so I understand the first time.** Default to plain words; spend a term
-  of art only when it earns its place, and define it on first use. This is the
-  disposition behind HARD RULE #30 — the contract is `engineering/house-style.md`. The moment I
+  of art only when it earns its place, and define it on first use (HARD RULE #30). The moment I
   say I'm lost, *stop* — don't restate the same explanation louder. Re-explain
   from the start in plain language, lead with a concrete example, and name the
   thing in the codebase it maps to. Jargon I have to decode is a defect in the
   writing, not in me.
+  Name a PR to me as `[#N](url) ([session name](url))`, linked.
 
 ---
 
@@ -619,8 +619,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   token", not "the token is resolved"); **plain words, and a term of art defined on first
   use**; **lead with the answer**, cutting the preamble, the restatement and the options you
   did not take; and **US English**, which is #21. The contract is
-  `engineering/house-style.md` — **read it there**, and note that it is more current than
-  any summary of it.
+  `engineering/house-style.md` — **read it there**; it is more current than any summary.
   **Length is set by AUDIENCE, not by a word count.** A chat reply is read once: lead with
   the answer and stop. A doc, a decision note, a PR body or a commit message is read many
   times by people who were not here, and runs as long as it needs to. There is deliberately

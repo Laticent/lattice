@@ -6,6 +6,7 @@
 // has no real content. See engineering/decisions/2026-07-03-studio-succession.md §2.1.
 
 import { buildVocabSets } from '@/lib/editor-diagnostics.js';
+import { classEntries } from '../../../../../lib/core/class-entries.mjs';
 import { splitSlides as studioSplitSlides } from '../../../lib/deck-lint';
 import { stripFrontMatter } from '../../../lib/front-matter';
 import type { Finding } from '../architect';
@@ -36,6 +37,12 @@ async function core(): Promise<any> {
 	return coreMod;
 }
 
+/** Does a class the engine reads (a `_class` comment or a record's `layout`/`class`) start with `first`? One shared
+ *  reader (lib/core/class-entries.mjs), so a deck written in `@meta{…}` records reads as one in comments. */
+function setsClass(src: string, first: RegExp): boolean {
+	return classEntries(src).some((e) => e.spot && first.test(e.value.trim()));
+}
+
 /** At least one classed slide (after front matter) or real prose — the same content
  *  gate the Drawing Board used (drawing-board-architect.js hasContent). Ported so the
  *  Studio doesn't inherit the empty-deck-scores-A trap of the raw engine scoreDeck. */
@@ -46,7 +53,7 @@ export function hasContent(src: string): boolean {
 	// read as two. Counting real slides and keeping `> 1` made a one-slide deck with front
 	// matter report NO CONTENT, and the Coach shows a placeholder instead of assessing a real
 	// deck (found by the independent checker). One classed slide is content.
-	return /<!--\s*_class:/.test(s) && splitSlides(s).length > 0;
+	return classEntries(s).some((e) => e.spot) && splitSlides(s).length > 0;
 }
 
 /** The real deck assessment: the engine scorecard + the union of lint + review
@@ -165,7 +172,7 @@ export function weakestSlide(findings: Finding[]): CoachCard {
 
 export async function theAsk(source: string): Promise<CoachCard> {
 	const src = source || '';
-	if (/<!--\s*_class:\s*decision\b/.test(src)) return { title: 'The ask', body: ['You have a decision slide. Make sure it states exactly what you want the audience to approve or do.'] };
+	if (setsClass(src, /^decision\b/)) return { title: 'The ask', body: ['You have a decision slide. Make sure it states exactly what you want the audience to approve or do.'] };
 	const m = await core();
 	if (m?.reviewCore?.ASK_RE?.test(src)) return { title: 'The ask', body: ['There’s ask-like language, but no dedicated decision slide — the recommendation may be buried. A `decision` slide makes it unmissable.'] };
 	return { title: 'The ask', body: ['No clear ask. End with what you want the audience to decide or do — a `decision` slide states it plainly.'] };
@@ -183,9 +190,9 @@ export async function structureCheck(source: string): Promise<CoachCard> {
 	const slides = splitSlides(source);
 	const first = slides[0] || '';
 	const last = slides[slides.length - 1] || '';
-	const hasOpen = /<!--\s*_class:\s*title\b/.test(first) || /^\s*#\s/.test(first.trim());
+	const hasOpen = setsClass(first, /^title\b/) || /^\s*#\s/.test(first.trim());
 	const ask = await theAsk(source);
 	const askState = ask.body[0].startsWith('You have') ? '✓' : ask.body[0].startsWith('There') ? '~' : '✗';
-	const hasClose = /<!--\s*_class:\s*closing\b/.test(source || '') || /\b(thank you|questions|q&a|appendix|in summary)\b/i.test(last);
+	const hasClose = setsClass(source || '', /^closing\b/) || /\b(thank you|questions|q&a|appendix|in summary)\b/i.test(last);
 	return { title: 'Structure check', body: [`${hasOpen ? '✓' : '✗'} Opening / title slide`, `${askState} Clear ask / recommendation`, `${hasClose ? '✓' : '✗'} Closing slide`] };
 }

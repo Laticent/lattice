@@ -238,6 +238,7 @@ jobs:
               - 'kit/**'
               - 'lattice.js'
               - 'package.json'
+              - 'packages/lattice/package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
               # The composite actions these jobs run (puppeteer-chrome, apt-cached): an action-only

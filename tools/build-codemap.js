@@ -95,6 +95,7 @@ const FOLDERS = {
   'test/': 'Unit and integration tests, fixtures and committed baselines. Every folder is listed below.',
   'themes/': 'The palettes: one folder per theme, each supplying the color tokens.',
   'kit/': 'The Marp kit: a sample deck and its VS Code extension.',
+  'packages/': 'The engine\'s publish folder `packages/lattice/`: its package.json (name, version, exports, dependencies). `npm pack` there stages the shipped files in first.',
   // lib/ folders that hold no code the import graph sees (CSS, images, a README)
   'lib/helpers/': 'Authoring-time diagnostics: the `.overflow` warning-ring contract.',
   'lib/samples/': 'Every demonstration picture Lattice ships, in one flat folder.',

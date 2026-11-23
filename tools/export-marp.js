@@ -595,7 +595,7 @@ function main(argv) {
   //    the deck with full Lattice knowledge (capacity included).
   if (includeAgent) {
     let version;
-    try { version = require(path.join(ROOT, 'package.json')).version; } catch { version = undefined; }
+    try { version = require(path.join(ROOT, 'packages', 'lattice', 'package.json')).version; } catch { version = undefined; }
     fs.writeFileSync(path.join(dest, 'AGENTS.md'), agentsMd({ name, version }));
     // Inputs were validated up front, so every entry exists here.
     for (const { from, to } of AGENT_ASSETS) copyInto(path.join(ROOT, from), path.join(dest, to));

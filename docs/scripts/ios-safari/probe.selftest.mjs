@@ -146,6 +146,60 @@ if (process.env.PROBE === 'player-charts') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+
+if (process.env.PROBE === 'present-narration') {
+	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
+	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
+	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S, when set, adds a reported voice-off arm.
+	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
+	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const deck = await buildNarrationDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const arm = async (voice, seconds, untilSlide = 0) => {
+		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
+		const context = await browser.newContext(shapes.at(-1).options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${NARRATION}\n${expr}`);
+		try {
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`);
+			Object.assign(out, await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`));
+			await call(`latticeNarrationVoice(${JSON.stringify(process.env.NARRATION_VOICE || 'openrouter-gemini')})`);
+			const played = await call(`latticeNarrationReady(${voice})`);
+			out.total = played.total;
+			// The tap a presenter makes, as run.mjs makes it with a WebDriver touch.
+			await page.touchscreen.tap(played.x, played.y);
+			await call('latticeNarrationStarted()');
+			const t0 = Date.now();
+			while (Date.now() - t0 < seconds * 1000) {
+				// A sampling interval, as run.mjs reads every 30 s: what is read is work done (slide, clips, bytes), never time.
+				await new Promise((r) => setTimeout(r, 10_000)); // flaky-ok: a sampling interval, the samples are judged on work done
+				// Walk the deck as run.mjs does on the simulator (Next every 10 s), so both read the same work.
+				await call('latticeNarrationNext()');
+				const s = await call('latticeNarrationSample()');
+				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
+				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, audio ${s.audio}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
+				// As run.mjs: the judged arm ends on WORK, once Present stands on the target slide (HARD RULE #32).
+				if (untilSlide > 0 && (s.slide ?? 0) >= untilSlide) break;
+			}
+			out.playedS = Math.round((Date.now() - t0) / 1000);
+			out.alive = out.samples.at(-1)?.mark === played.mark;
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		await context.close();
+		return out;
+	};
+	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 0);
+	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 300), TARGET_SLIDE), ...(SILENT_S > 0 ? [await arm(false, SILENT_S)] : [])];
+	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false, targetSlide: TARGET_SLIDE });
+	report('iPhone-sized', 'present-narration-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: arms[0].width, steps });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
 if (process.env.PROBE === 'present-keepalive') {
 	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
 	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.

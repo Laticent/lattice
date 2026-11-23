@@ -1854,7 +1854,7 @@ function pdfPageGeom(boxW, boxH) {
 
 function pdfProps(name, meta, slideCount) {
 	const { eng, summary, keywords } = provenance(meta, slideCount);
-	return { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', keywords, creator: `Lattice · ${eng}` };
+	return { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', keywords, creator: `Lattice · ${eng}` };
 }
 
 function canUsePdfWorker() {

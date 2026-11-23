@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // THE MOTION FACULTY, DRIVEN ON THE REAL SURFACE (HARD RULE #23).
 //
@@ -166,7 +166,7 @@ test.describe('the whole round trip, on the real surface', () => {
 		await page.getByRole('spinbutton', { name: /^Beat for / }).filter({ visible: true }).fill('2');
 		await page.getByLabel('Motion name').fill('value-chain');
 		await page.getByRole('button', { name: 'Save' }).click();
-		await expect(page.getByText(/Saved “value-chain”/)).toBeVisible();
+		await expect(liveToast(page, /Saved “value-chain”/)).toBeVisible();
 
 		// The Library must actually SHOW it. A shelf holding only motions used to render its empty
 		// state, which gates the whole card grid — the door existed, behind a wall.

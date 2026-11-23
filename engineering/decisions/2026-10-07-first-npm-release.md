@@ -78,6 +78,8 @@ one click a week.
 
 ## 4. Defaults this plan takes, which the owner can overturn in review
 
+The owner confirmed the fragment archive and the libraries' AGPL license on 2026-11-22 (§9).
+
 Each of these can be undone until the first publish, and none can be undone after it.
 
 - **Libraries start at `0.1.0`, not `1.0.0`.** Under semver, `0.x` lets a
@@ -105,7 +107,7 @@ parallel; everything after them is sequential.
 
 | # | Slice | Who | Done when |
 |---|---|---|---|
-| 0 | **Claim the scope.** Create the `laticent` organization on npmjs.com, turn on 2FA, add a second owner. | owner, ~5 min | **Done 2026-10-07:** `registry.npmjs.org/-/org/laticent/package` now returns `{}` instead of `Scope not found`. Still to do: 2FA and a second owner |
+| 0 | **Claim the scope.** Create the `laticent` organization on npmjs.com, turn on 2FA, add a second owner. | owner, ~5 min | **Done 2026-10-07:** `registry.npmjs.org/-/org/laticent/package` now returns `{}` instead of `Scope not found`. 2FA on: owner, 2026-11-22. A second owner comes later and does not block the first publish (§9) |
 | A | **An installable `@laticent/lattice`.** Declare the libraries as `dependencies` (or bundle them where the CLI already inlines); narrow `exports`; drop the kits from `files`; fix `--player`'s jsdom requirement (`followups.d/2248-p3-…`); add an integration test that packs the tarball, installs it in an empty directory and renders a deck. | agent; maker-checker (it changes what ships) | the clean-room render passes, and fails with one library removed |
 | B | **Nine publishable libraries.** For each: `repository`, a LICENSE file, `publishConfig.access: public`, its own `prepack` build, `types` pointing at `.d.ts` before `.ts`, a README fit for npmjs.com (install line, no repo-relative links). `tavola` gets a build and joins `workspaces`. `docs/package.json` becomes `private`. (An earlier draft gave `trama` and `calco` a first test each; they have suites already, in `test/unit/trama/` and `test/unit/calco/`.) | agent; maker-checker | `npm publish --dry-run` is clean in every folder |
 | C | **Changesets in, fragments archived, notes split.** Slice 1 of the Changesets note, plus §3's notes contract: archive the 915 fragments; `release.yml` and `release-publish.yml` run `changeset version` / `changeset publish` in the existing PR-through-the-queue shape; per-package tags (`@laticent/lattice@1.0.0`); a gate that requires a changeset on a PR that touches published source (Dependabot exempt); rewrite HARD RULE #10, `RELEASE.md` and `changelog.d/README.md`. | agent; adversarial trio (release pipeline, irreversible output) | a dry-run release on a fork or a dry-run flag produces the right versions, tags and notes |
@@ -175,5 +177,85 @@ change, so the owner picks:
 | B. Changesets for the libraries, `tools/release.js` for the engine | Two release paths: changesets for the nine, the current fragment flow for the engine. | No restructure. | Two formats for one act (recording a change), two version tools, and a weekly release that must run both in order. |
 | C. Our own multi-package versioner | Extend `tools/release.js` to read changeset-format files for all ten packages. | No dependency; we own every edge case (dependency ranges between packages, prerelease, notes). | Rebuilds what Changesets does (HARD RULE #15), and the edge cases are where release tools break. |
 
-Until the owner picks, slice C does not start and the 955 pending fragments stay in `changelog.d/`.
+Until the owner picks (picked 2026-11-22: option A, §9), slice C does not start and the 955 pending fragments stay in `changelog.d/`.
 Slices D and E wait on C, so the first publish waits on this choice.
+
+## 9. Owner rulings (2026-11-22)
+
+A release-audit session put the open items in §4, §5 and §8 to the owner, who answered:
+
+| Item | Ruling |
+|---|---|
+| §8, how the engine joins Changesets | **Option A, build it now:** a `packages/lattice/` publish folder. The owner first asked for the cost, measured below. |
+| §5 slice 0, 2FA | **Done.** |
+| §5 slice 0, a second owner | **Later, and not a blocker** for the first publish. |
+| §4, archive the pending fragments | **Confirmed.** |
+| §4, the libraries keep `AGPL-3.0-only` | **Confirmed.** |
+
+**What option A costs, measured on `main` at `ff2d32e` (2026-11-22).**
+
+- The root `package.json` has 510 lines. The fields the engine publishes (`name`, `version`,
+  `description`, `bin`, `main`, `exports`, `files`, `dependencies`, `optionalDependencies`,
+  `engines`, `license`, `repository`, `homepage`, `bugs`, `keywords`, `author`) take 112 of them.
+  `scripts` (309 entries), `devDependencies`, `workspaces` and `overrides` stay at the root.
+- Of the 60 open PRs, 10 edit the root `package.json`. The 4 written by sessions add `scripts`
+  entries only, so none would conflict. The 6 from Dependabot bump `dependencies` and would
+  conflict; Dependabot rebuilds its own PRs.
+- Of the 39 commits to `main` that touched the root `package.json` in the 30 days to
+  2026-11-22, 22 changed only `scripts` and 12 changed a field that moves, mostly
+  `dependencies`. After the move, that kind of edit goes to `packages/lattice/package.json`.
+- `npm pack --dry-run` on the root today: 2,202 files, 34.2 MB packed, 112.2 MB unpacked. The
+  copied folder must ship the same set, and `test/integration/export/installed-package.test.js`
+  is the check.
+
+Status stays `proposed` until slice C lands.
+
+## 10. Option A, built (2026-11-22)
+
+§9 records the owner picking option A. This section records what was built.
+
+**The layout.** `packages/lattice/package.json` holds the sixteen published fields and a three-script
+pack lifecycle (`prepublishOnly`, `prepack`, `postpack`). The root `package.json` is now
+`lattice-workspace`, `"private": true`, with `scripts`, `devDependencies`, `workspaces` (plus
+`packages/lattice`) and `overrides`. No source moved.
+
+**How it packs.** `prepack` runs `npm run build` at the root, then `tools/stage-engine-package.js`
+hard-links each positive `files` entry into the folder (copying where a hard link fails), plus the
+README or LICENSE that npm adds from any folder it packs (`design/README.md` came along with
+`design/skill.md` at the root). `files` negations stay with npm, so the listing cannot drift from
+the `files` list. `postpack` removes the staged paths; `.gitignore` lists each one, not
+`/packages/lattice/*`, because a blanket ignore also hid the folder from Biome's lint-coverage probe.
+
+**Measured, main at `84bb080`.** The staged folder's `npm pack --dry-run` lists the same 2,202
+paths as the root's did (the diff of the two lists is empty), 34.2 MB packed and 112.2 MB unpacked.
+Only three files differ in size: `lattice.js` and `lib/core/pkg-root.js` (this change) and
+`package.json` (27,089 bytes shipped before, 3,765 now: the scripts and devDependencies no longer
+ship). `npm install` moved only the declarations in `package-lock.json`; no resolved version changed.
+
+**Readers re-pointed.** `lattice.js` `pkgVersion()` reads through `lib/core/pkg-root.js`
+`engineManifestPath()` (`packages/lattice/package.json` in the repository, the package's own
+manifest installed). `tools/release.js` bumps with `npm version --workspace packages/lattice` and
+stages that manifest. `build-release-zip.js`, `build-player-core.js`, `export-marp.js` and
+`structure.js` read the engine manifest. Tests that read `bin`, `version`, `dependencies` or
+`exports` read it too; two that resolved `@laticent/lattice/*` through the root's own name build a
+scratch package from the engine manifest instead.
+
+**One constraint found.** The root's `"$puppeteer"` override must name a root dependency, so the
+root keeps `puppeteer` as a devDependency at the engine's range. A unit test holds the two equal.
+
+**Workflows (owner's ruling, 2026-11-22: change them in the same PR).** `release-publish.yml` now
+triggers on `packages/lattice/package.json`, reads the version there and runs `npm publish
+--workspace @laticent/lattice`; left alone, the first release after the move would have pushed a tag
+and then failed (a root version of `undefined`, a private root that refuses `npm publish`). The
+`code` paths filter in `ci.yml` and the render-slice glob in `lefthook.yml` also match the engine
+manifest, so a PR that edits only `exports` or `files` runs the code tier. `.github/dependabot.yml`
+already covers workspaces from `/`, so it needs no change.
+
+**Dead-code ratchet.** knip reads `packages/lattice` as a workspace whose code is elsewhere, so it
+called the engine's dependencies unused (28) and the root's imports of them unlisted (400).
+`tools/quality-assessment.js` `foldEngineManifest` credits one to the other, for root-workspace files
+only. A workspace package (`@laticent/*`), which knip never lists as unlisted, counts as used only when
+`lattice.js` or `lib/` names it in an import specifier. An import nobody declares, another workspace's
+import of an engine-only package, and an engine dependency nothing loads all still count; the second
+checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
+HARD RULE #10 rewrite) waits for its own decisions.

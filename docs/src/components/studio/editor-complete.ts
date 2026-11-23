@@ -246,15 +246,11 @@ export type AssetChoice = { name: string; scope: string; width: number; height: 
 
 export { altFromAssetName };
 
-/** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
- *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */
+/** Is the slide the cursor line sits on a `collage`? Asks the shared reader for the class in force on the cursor's
+ *  slide (`slideClassAt`, a `_class` comment or a record's `layout`), the one the class completion reads. A collage's
+ *  body is a list of photos, so a bare list item there is a photo. */
 export function inCollageSlide(lineText: (n: number) => string, lineNumber: number): boolean {
-	for (let n = lineNumber - 1; n >= 1; n--) {
-		const t = lineText(n);
-		if (/^---\s*$/.test(t)) return false;
-		if (/<!--\s*_class:[^>]*\bcollage\b/.test(t)) return true;
-	}
-	return false;
+	return /\bcollage\b/.test(slideClassAt(lineText, lineNumber)?.tokens.join(' ') ?? '');
 }
 
 /** What may come next in a spark, a pill or a check — lint-core's `inlineCodeCompletions()` shape. */
@@ -459,7 +455,7 @@ export function makeStudioCompletion(
 			return { from: line.from + spot.from, options: options as Completion[], validFor };
 		}
 
-		// 1a. Inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
+		// 1a. Inside a slide RECORD (`<!-- @meta{layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
 		// `, `, a value after `field=` (a component for `layout`, its variants for `variant`, the class grammar for
 		// `class`, a register's own words for the rest). The same kernel as the Playground's (slide-context.js).
 		const rec = recordCompletion(before);

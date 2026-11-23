@@ -561,10 +561,15 @@ are dropped, cancelled jobs are counted at their truncated duration (which flatt
 percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
 say what the new measured duration is — don't delete the line.
 
-## Platform suites (macOS and Windows)
+## Platform suites (macOS, Windows and Android)
 
 The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
 **platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
+One suite runs on Linux: `android-chrome-chooser` boots an Android emulator on `ubuntu-24.04`, the image that exposes KVM, and
+drives Chrome on it through adb (`docs/scripts/android/`). Like the iOS suites it is off pull requests: it runs nightly and on
+dispatch (about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
+is under `docs/scripts/android/`; a Linux check that needs no emulator belongs in `ci.yml`. A failure before its probe runs (no
+AVD, no boot, no Chrome) writes the `no-session` mark, so triage reads it as infra and the nightly re-runs it once before alerting.
 The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
@@ -681,6 +686,33 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
   the live site after it. The first run
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `ios-safari-present-narration` runs it with `PROBE=present-narration`, on the iPhone alone: the owner's iPhone reloaded
+  the tab when Present played a 4K deck with narration and Guide on, and not with narration off (2026-11-17).
+  `present-narration.mjs` builds a 30-slide `size: 4k` deck with an `@say{…}` note on every slide (about ten minutes of narration);
+  `present-narration-probe.js` imports it, then, AFTER boot, installs a stand-in cloud voice: a selection, a stored key, and the
+  speech call answered inside the page with silent WAV of the sentence's length. `NARRATION_VOICE=openrouter-gemini` (the
+  default, the owner's: the reload happens with Gemini 3.1 Flash TTS through OpenRouter and not with Kokoro) is asked for
+  `pcm` and answers headerless PCM, which the page wraps as a WAV `Blob` (`wavLike`); `openrouter`
+  (Kokoro, WAV) and `gemini` (Gemini's own API, JSON with base64 WAV inside) cover the other cloud paths. After boot
+  because boot checks a stored key with OpenRouter, and from the simulator that real call would reject a stand-in; no key
+  is spent (HARD RULE #24). Present opens with Guide on; the probe presses Play (a WebDriver element click, then a touch tap, a mouse
+  click and last a script click: on the simulator no WebDriver press reaches the page, run 44017516008 logged no events
+  for any of them, so only the script click starts Present, and iOS then keeps audio SUSPENDED because it was no user
+  gesture). So the probe walks the deck with Next every `NARRATION_STEP_S` (10), as a presenter would: each slide's
+  narration is still requested, fetched and cached, which is the memory under test, though walking interrupts each
+  reading so little is decoded. Voice on until Present reaches slide `NARRATION_TARGET_SLIDE` (15), judged on that work and
+  never on how far a fixed time got it (`NARRATION_PLAY_S`, 600, is only a ceiling for a hung arm); a voice-off arm runs only when
+  `NARRATION_SILENT_S` is set (reported, never judged); every 30 s it reads the slide, the audio state, the narration audio the page has
+  decoded (a `decodeAudioData` wrapper; a `FinalizationRegistry` subtracts what the page lets go, but on the simulator it
+  has never fired, so the number reads as all audio decoded), and the footprint.
+  It fails when the voice arm stops before slide 15 or asks for under four sentences a slide, the page reloads, no audio was decoded or the decoded audio passes
+  `NARRATION_AUDIO_CAP_MB` (40), the footprint reader reads under 50 MB before Present (it is not reading Safari), or the
+  footprint grows past `NARRATION_MEMORY_CAP_MB` (300). `PROBE=present-narration node
+  docs/scripts/ios-safari/probe.selftest.mjs` runs the steps in Playwright's WebKit at iPhone size (the voice arm walks to slide 15, with 300 s only a ceiling), walking the deck the same way. The first before/after pair
+  (44025172449 without the 24 MB audio-cache cap, 44024954648 with it) peaked at +157 MB and +175 MB, but both runs likely held under 24 MB of clips,
+  so the cap probably never fired in either; `docs/e2e/voice-cache-budget.spec.ts` is what shows the cap bounding the
+  cache, in real engines with real Blobs. The owner's iPhone reload was Guide on a 4K deck (#3304), which the simulator
+  cannot show because its audio never plays, so Guide never moves.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
   `ios-safari-player-charts-ipad` and `ios-safari-player-charts-iphone` run it with `PROBE=player-charts` (#3259): chart
@@ -1243,12 +1275,14 @@ The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).
 
-`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
-cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives every page a
+strict, hash-based Content-Security-Policy, except the few it names in each build's output. **An inline script on
 such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
 (`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
-Pages that can build a preview frame carry no policy until stage 2
-(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
+Slide previews are covered: the preview frames load their agents from a same-origin file
+(`lib/core/frame-agents.mjs`), and the two sandboxes load through a same-origin shell
+(`lib/packages/sandbox-shell.mjs`). The pages still without a policy, and how each closes:
+`followups.d/3277-p1-csp-remaining-pages.md`. Why: `engineering/decisions/2026-11-17-site-discovery.md`.
 
 ### The docs site is an installable PWA (offline cache)
 
@@ -1313,6 +1347,15 @@ locally from `docs/`:
   (`scripts/perf-regression.mjs`) — a **relative** budget, not absolute
   thresholds (which rotted + flapped — issue #327). On a regression it opens a
   `[perf-nightly]` tracking issue. Tolerances live in `perf-regression.mjs`.
+  **Speed numbers from before and after 2026-11-22 do not compare.** That day lhci
+  0.15 → 0.16 (Lighthouse 12.6 → 13.6) landed through #3201 (`fe71a9956`), and Lighthouse 13
+  measures the same build differently: TBT is 30–110% higher on the script-heavy pages
+  (`/playground/`, `/studio/`, mobile `/`) and LCP is lower where the largest paint is text
+  (`/components/` mobile 4.6 s → 1.4 s). Accessibility, SEO, CLS and the report files did not
+  change. Best practices rose 3 points on one row (mobile `/studio/`) because Lighthouse 13
+  dropped its `font-size` audit. A night's verdict is still sound, since both arms run the
+  head's lhci; a trend line across the date is not. The table is in
+  `decisions/2026-11-22-lighthouse-13-measurement-shift.md`.
 - **BYTES are NOT gated by that nightly — they are gated per-PR.**
   `docs/scripts/check-route-budget.mjs` reads gzipped `/_astro/*.js` and the HTML
   document off the built `dist/`, compares them to `docs/route-budget.json`, and

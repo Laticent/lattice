@@ -1,3 +1,4 @@
+import { isRecordOpener } from '../../../../lib/core/meta-door.mjs';
 import { LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, stripFrontMatter } from '../../lib/front-matter';
@@ -117,15 +118,23 @@ function continuationPreamble(lines: string[]): string[] {
 	for (let i = 0; i < lines.length; i++) if (/^#{1,6}\s/.test(lines[i])) heading = i;
 	const out: string[] = [];
 	let inComment = false;
+	let carry = false;
 	for (let i = 0; i < lines.length; i++) {
 		const t = lines[i].trim();
 		if (inComment) {
-			if (t.includes('-->')) inComment = false;
+			if (carry) out.push(lines[i]);
+			if (t.includes('-->')) inComment = carry = false;
 			continue;
 		}
 		if (t.startsWith('<!--')) {
+			// A slide record (`<!-- @meta{layout=cards} -->`, read by the door's own test) is the slide's settings too, and
+			// may wrap onto later lines: every line of it is carried.
+			const record = isRecordOpener(t.slice(4));
 			if (DIRECTIVE_RE.test(t)) out.push(lines[i]);
-			else if (!t.includes('-->')) inComment = true;
+			else if (record) {
+				out.push(lines[i]);
+				if (!t.includes('-->')) inComment = carry = true;
+			} else if (!t.includes('-->')) inComment = true;
 			continue;
 		}
 		if (i <= heading) out.push(lines[i]);

@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import path from 'node:path';
 import { toggleMark } from 'prosemirror-commands';
 import { history, undo, undoDepth } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
+import { deckName, shippedDecks } from '@/test/corpus';
 import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline, rebaselineSlides } from './deck-doc';
 import { recordOnFilo } from './filo-harness.test-util';
 import { closeFiloGroup } from './filo-history';
@@ -183,57 +183,46 @@ describe('the inline object node', () => {
 // The property that matters for every deck an author opens: drawing the objects must not change
 // one byte of the deck. Run over every deck, gallery and baseline the repo ships.
 describe('opening a deck changes no bytes (the shipped corpus)', () => {
-	const ROOT = path.resolve(__dirname, '../../../..');
-	function markdownIn(dir: string, out: string[] = []): string[] {
-		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-			if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
-			const full = path.join(dir, e.name);
-			if (e.isDirectory()) markdownIn(full, out);
-			else if (e.name.endsWith('.md')) out.push(full);
-		}
-		return out;
-	}
-	const files = [
-		...markdownIn(path.join(ROOT, 'examples')),
-		...markdownIn(path.join(ROOT, 'lib')).filter((f) => f.endsWith('.gallery.md')),
-		...markdownIn(path.join(ROOT, 'test/integration/baseline-decks')),
-	];
+	// One test per deck, so a failure names its deck and no test does the whole corpus: as one test this took 2.2 s alone
+	// and 27 s under load, past the 20 s hang guard (followups.d/3367-p1-unit-tests-time-out-under-load.md).
+	const files = shippedDecks();
+	const seen = { decks: 0, withObjects: 0, converted: 0, avatarsAndIcons: 0 };
+	// Anti-vacuity over the whole corpus, from what the per-deck tests converted; asserted only when every deck's test ran.
+	afterAll(() => {
+		if (seen.decks < files.length) return;
+		// Measured when this was written: 112 pills in 6 decks convert (4 more sit in literal decks).
+		expect(seen.avatarsAndIcons).toBeGreaterThanOrEqual(130); // 93 avatars and 47 icons (2026-10-21): they convert too, not only the pills
+		expect(seen.withObjects).toBeGreaterThanOrEqual(5);
+		expect(seen.converted).toBeGreaterThanOrEqual(100);
+	});
 
 	it('has a real corpus', () => {
 		expect(files.length).toBeGreaterThan(100);
 	});
 
-	it('emits the same deck with and without the objects, and keeps every untouched slide verbatim', () => {
-		let withObjects = 0;
-		let converted = 0;
-		let avatarsAndIcons = 0;
-		for (const file of files) {
-			const source = fs.readFileSync(file, 'utf8');
-			let doc: ReturnType<typeof deckToDoc>;
-			try {
-				doc = deckToDoc(source);
-			} catch {
-				continue; // a deck Compose cannot parse is not Compose's to open
-			}
-			const base = initBaseline(doc);
-			const before = emitDeck(doc, base);
-			const state = EditorState.create({ doc });
-			const tr = normalizeObjects(state, kernels, kernels.isLiteralFromSource(source));
-			if (!tr) continue;
-			withObjects++;
-			converted += objects(tr.doc).length;
-			avatarsAndIcons += objects(tr.doc).filter((o) => /^[!^]\{/.test(o.src)).length;
-			// The silent pass re-points the baseline; the emit must be byte-identical to the one without objects.
-			const base2 = initBaseline(doc);
-			rebaselineSlides(tr.doc, base2);
-			expect(emitDeck(tr.doc, base2), file).toBe(before);
-			// And a full re-serialize (the edited-slide path) agrees too.
-			expect(docToDeck(tr.doc), file).toBe(docToDeck(doc));
+	it.each(files.map((f) => [deckName(f), f]))('%s: emits the same deck with and without the objects, and keeps every untouched slide verbatim', (name, file) => {
+		seen.decks++;
+		const source = fs.readFileSync(file, 'utf8');
+		let doc: ReturnType<typeof deckToDoc>;
+		try {
+			doc = deckToDoc(source);
+		} catch {
+			return; // a deck Compose cannot parse is not Compose's to open
 		}
-		// Measured when this was written: 112 pills in 6 decks convert (4 more sit in literal decks).
-		expect(avatarsAndIcons).toBeGreaterThanOrEqual(130); // 93 avatars and 47 icons (2026-10-21): they convert too, not only the pills
-		expect(withObjects).toBeGreaterThanOrEqual(5);
-		expect(converted).toBeGreaterThanOrEqual(100);
+		const base = initBaseline(doc);
+		const before = emitDeck(doc, base);
+		const state = EditorState.create({ doc });
+		const tr = normalizeObjects(state, kernels, kernels.isLiteralFromSource(source));
+		if (!tr) return;
+		seen.withObjects++;
+		seen.converted += objects(tr.doc).length;
+		seen.avatarsAndIcons += objects(tr.doc).filter((o) => /^[!^]\{/.test(o.src)).length;
+		// The silent pass re-points the baseline; the emit must be byte-identical to the one without objects.
+		const base2 = initBaseline(doc);
+		rebaselineSlides(tr.doc, base2);
+		expect(emitDeck(tr.doc, base2), name).toBe(before);
+		// And a full re-serialize (the edited-slide path) agrees too.
+		expect(docToDeck(tr.doc), name).toBe(docToDeck(doc));
 	});
 });
 
