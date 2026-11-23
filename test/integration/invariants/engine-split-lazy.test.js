@@ -9,8 +9,10 @@
  *      portrait deck still splits). A later `require('./carousel')` from a boot module would put it back silently;
  *      the route budget would only catch it once a ceiling broke.
  *   2. CONTRACT. At a size that splits, `splitForPreview` before `splitReady` returns the stamped, unsplit document
- *      with `pending: true`; after it, the same call splits. At 16:9 `splitReady` resolves without the splitter and
- *      the call reports `applies: false`.
+ *      with `pending: true`; after it, the same call splits. At 16:9, and once the splitter has loaded, `splitReady`
+ *      returns nothing, so a host awaits nothing: an await on a settled promise still yields, and that yield let a
+ *      quick tab switch on a phone overtake the Playground's frame write (docs e2e, 2026-11-23). At 16:9 the call
+ *      reports `applies: false`.
  *   3. FAILURE. With the splitter's chunk gone (a stale deploy, the network), `splitReady` still resolves, the call
  *      returns `pending: true` (which the Studio's webpage export refuses on), and the engine warns once that the
  *      split did not load, not that the host skipped `splitReady`.
@@ -106,22 +108,26 @@ describe('the engine loads its splitter on demand', () => {
 			const warn = console.warn;
 			console.warn = () => {};
 			const w = PG.render(${JSON.stringify(wide)}, 'indaco');
-			await PG.splitReady(w.width, w.height);
+			// Nothing to load, so nothing to await: a settled promise would still yield the host's turn.
+			const wideReturn = PG.splitReady(w.width, w.height);
 			const wideCut = PG.splitForPreview(w.html, ${JSON.stringify(wide)}, w.width, w.height, {});
 			const p = PG.render(${JSON.stringify(deck)}, 'indaco');
 			const early = PG.splitForPreview(p.html, ${JSON.stringify(deck)}, p.width, p.height, {});
 			await PG.splitReady(p.width, p.height);
 			const late = PG.splitForPreview(p.html, ${JSON.stringify(deck)}, p.width, p.height, {});
+			const loadedReturn = PG.splitReady(p.width, p.height);
 			console.warn = warn;
 			const count = (h) => (h.match(/<section\\b/g) || []).length;
 			process.stdout.write(JSON.stringify({
-				wide: { applies: wideCut.applies, changed: wideCut.changed, stamped: wideCut.html.includes('data-lattice-slide="1"') },
+				wide: { applies: wideCut.applies, changed: wideCut.changed, stamped: wideCut.html.includes('data-lattice-slide="1"'), returned: wideReturn === undefined ? 'nothing' : typeof wideReturn },
+				loadedReturn: loadedReturn === undefined ? 'nothing' : typeof loadedReturn,
 				early: { pending: early.pending === true, changed: early.changed, sections: count(early.html), stamped: early.html.includes('data-lattice-slide="1"') },
 				late: { pending: late.pending === true, changed: late.changed, sections: count(late.html) },
 			}));
 		`;
 		const out = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', probe], { cwd: ROOT, encoding: 'utf8' }));
-		assert.deepEqual(out.wide, { applies: false, changed: 0, stamped: true }, '16:9 stamps and never splits');
+		assert.deepEqual(out.wide, { applies: false, changed: 0, stamped: true, returned: 'nothing' }, '16:9 stamps, never splits, and gives the host nothing to await');
+		assert.equal(out.loadedReturn, 'nothing', 'once the splitter has loaded, splitReady gives the host nothing to await');
 		assert.equal(out.early.pending, true, 'before splitReady the call says it is pending');
 		assert.equal(out.early.changed, 0);
 		assert.equal(out.early.stamped, true, 'the unsplit document is still stamped, so the host can index its slides');

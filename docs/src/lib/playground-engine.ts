@@ -196,9 +196,11 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
-			// The engine loads its splitter on demand: `splitReady` resolves at once at landscape.
-			await PGref.splitReady?.(geom.w, geom.h);
-			let html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
+			const splitLoad = PGref.splitReady?.(geom.w, geom.h);
+			if (splitLoad) await splitLoad;
+			const cut = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h) : null;
+			let html = cut ? cut.html : out.html;
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
 			// lacks re-registers the base, and the engine recomposes the sheet so it has the
 			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
@@ -225,7 +227,12 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// Loaded only for a deck that asks for it; a failed load or an unmeasurable frame keeps today's split.
 			// A fresh deck (a load, an example, a reset) starts with no memory: decisions belong to one deck.
 			if (fresh) fitMemory = null;
-			if (PGref.splitForPreview && html !== out.html && mayWantMeasuredSplit(source)) {
+			// Only a render the split changed, or one whose chart coda may move, has anything to measure: the gate the
+			// Studio uses (single-slide-render.ts `mayMeasure`). NOT `html !== out.html`: the split stamps every slide's
+			// number, 16:9 included, so that was true on every render and measured every 16:9 deck in a hidden frame at
+			// each keystroke and tab switch (a phone's Edit tab waited out the 9 s reveal backstop, docs e2e 2026-11-23).
+			const mayMeasure = !!cut && (cut.changed > 0 || (cut.applies === true && PGref.codaMayMove?.(cut.html) === true));
+			if (PGref.splitForPreview && mayMeasure && mayWantMeasuredSplit(source)) {
 				const [ms, sz] = await Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]).catch(() => [null, null]);
 				const measureDoc = DPref.measureDoc;
 				if (ms && sz && measureDoc && ms.measuredSplitWanted(source)) {

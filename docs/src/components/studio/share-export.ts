@@ -519,9 +519,10 @@ export async function shareHtmlPlayer(
 	// the strip-notes candidate below (same slides, same numbers), so both cut alike. Loaded only for a
 	// deck that asks; a failed load or an unmeasurable frame keeps today's split, as the CLI does.
 	let exportPlan: Record<string, unknown> | null = null;
-	// The engine loads its splitter on demand: `splitReady` resolves at once at landscape. Every cut below (the
+	// The engine loads its splitter on demand: `splitReady` returns nothing at landscape. Every cut below (the
 	// measured one, the deck and the strip-notes candidate) has the same box, so one wait covers them all.
-	await PG.splitReady?.(out.width || 1280, out.height || 720);
+	const splitLoad = PG.splitReady?.(out.width || 1280, out.height || 720);
+	if (splitLoad) await splitLoad;
 	// A splitter that did not load (a stale deploy's chunk, the network) leaves a portrait or square deck one crowded
 	// page a slide: a different file from the CLI's. Refuse, as for an engine that is not ready, rather than ship it.
 	// An empty document asks the question without splitting the deck twice.

@@ -69,11 +69,11 @@ export interface LatticePlaygroundEngine {
 	/** The fit verdict's probes, selectors and tolerance (lib/playground/index.js), for the measured split. */
 	fitVerdictConfig?: () => Record<string, unknown>;
 	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean; plan?: Record<string, unknown> | 'whole' | null }) => { html: string; changed: number; applies?: boolean; planned?: string[]; pending?: boolean };
-	/** Resolves once `splitForPreview` can split a box this size: at once for a box that never splits (16:9),
-	 *  otherwise when the engine has loaded its splitter, which it does on demand. Await it before
-	 *  `splitForPreview`, or a portrait or square render comes back unsplit (`pending: true`). Optional, because an
-	 *  engine bundle older than this splits synchronously and does not carry it. */
-	splitReady?: (width?: number, height?: number) => Promise<void>;
+	/** A promise that resolves once `splitForPreview` can split a box this size, while the engine loads its splitter on
+	 *  demand; undefined when nothing has to load (a box that never splits, 16:9, or a splitter already loaded), so a
+	 *  caller awaits only a real load. Call it before `splitForPreview`, or a portrait or square render comes back
+	 *  unsplit (`pending: true`). Optional, because an engine bundle older than this splits synchronously. */
+	splitReady?: (width?: number, height?: number) => Promise<void> | undefined;
 	/** Can a slide in this render give its key insight a page of its own (lib/engine/split-gate.js)? A host measures
 	 *  when it can, even if the structural split cut nothing. Optional: an older engine bundle lacks it. */
 	codaMayMove?: (html: string) => boolean;

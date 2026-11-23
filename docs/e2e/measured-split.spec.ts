@@ -166,6 +166,33 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Playg
 	});
 });
 
+// A 16:9 deck never splits, so the Playground has nothing to measure. Its first gate was `html !== out.html`, which the
+// split's slide-number stamp made true on every render: every 16:9 deck was measured in a hidden frame at each keystroke
+// and tab switch, and a phone's Edit tab waited out the 9 s reveal backstop (docs e2e, 2026-11-23). The test above is the
+// positive control: the same counter rises for a square deck.
+test.describe('@mobile @webkit-phone @crosswidth @gecko a 16:9 deck in the Playground', () => {
+	test('is never measured, on load or while typing', async ({ page }) => {
+		await page.addInitScript((s) => {
+			try {
+				localStorage.setItem('lattice-docs-pg-source', s);
+			} catch {
+				/* the assertions below then fail loudly */
+			}
+		}, deck('', '16:9', 18));
+		await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+		// Attached, not visible: on a phone the Edit tab hides the preview, and the render still runs behind it.
+		await expect(page.frameLocator('#preview').locator('section[data-lattice-slide]').first()).toBeAttached({ timeout: 30_000 });
+		// An edit renders again; wait for the preview to show it, so the render that might have measured has run.
+		const line = page.locator('.cm-line', { hasText: 'Item 3 on the agenda' }).first();
+		await line.click();
+		await page.keyboard.press('End');
+		await page.keyboard.insertText(' today');
+		await expect(page.frameLocator('#preview').getByText('Item 3 on the agenda today').first()).toBeAttached({ timeout: 30_000 });
+		const measured = await page.evaluate(() => (window as unknown as { __latticeMeasureCount?: number }).__latticeMeasureCount ?? 0);
+		expect(measured, 'a 16:9 render has nothing to measure').toBe(0);
+	});
+});
+
 test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studio\'s webpage export', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 
