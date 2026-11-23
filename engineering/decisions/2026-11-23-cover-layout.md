@@ -5,7 +5,7 @@ summary: Covers (title, closing) follow the deck's and the slide's color mode li
 
 # Covers follow the color mode; `cover:` becomes `cover-layout:` (2026-11-23)
 
-**Decided by the owner** in the presets-desk session on 2026-11-23: D4a A, D4b A, D10 A. This note
+**Decided by the owner** in the presets-desk session on 2026-11-23: D4a A, D4b A, D10 A, D12 D-dim. This note
 records the model and the build plan so the PR can point here.
 
 ## 1. The problem
@@ -63,13 +63,32 @@ Migration (renames rule 5: old names are removed, not aliased):
 - Repo decks today: 3 front-matter `cover:` lines, 28 files naming a per-slide cover or bookend
   light token (`grep`, 2026-11-23). `examples/cover-light.md` is retired or rewritten.
 
-## 5. Open question: dividers
+## 5. Dividers follow the mode too, on an accent background (D12, decided 2026-11-23)
 
-`section.divider:not(.light)` is forced dark by the same rule, and `divider light` is a layout
-variant that sets the slide's mode: the same second mechanism. D4a names only covers. **Asked of
-the owner before the build:** do dividers follow the color mode too (`divider light` removed, a
-light divider is `<!-- _class: divider light -->` through the ordinary mode token)? The recommendation
-is yes, in the same PR, since the rule and the player code are shared.
+`section.divider:not(.light)` was forced dark by the same rule as the covers, and `divider light`
+was a second way to set a slide's mode. The owner chose **D-dim** after seeing A, D-plain and D-dim
+rendered on indaco, cuoio and onyx in both modes:
+
+- **Dividers follow `color-mode:` and the slide's `light` / `dark`.** `divider light` is removed
+  (lint error with a --fix to `divider light` through the ordinary mode token, or nothing in a light
+  deck). The force-dark rule goes for dividers as it does for covers.
+- **Light mode: the background is `--accent`, the ink `--on-accent`.** No new tokens; the pair is
+  already gated by `tools/contrast-audit.js` (`on-accent on accent`). Measured on all 33 themes:
+  ink 5.5 to 21:1, the jump from the content background 5.2 to 21:1.
+- **Dark mode: a dimmed accent with white ink.** `--accent` as-is is bright in dark mode (luminance
+  0.38 to 1.0; onyx and the a11y themes go pure white), which is a flash in a dimmed room. The
+  theme's `--on-accent` cannot ride a dimmed background (dark mode pairs a bright accent with dark
+  ink: 2.0 to 3.5:1 on every theme when dimmed). So the engine derives one token, the accent mixed
+  toward `--bg` (45% in the prototype), inked white. No per-theme work. The mix is tuned so white
+  clears AA on every theme (concrete is the tightest).
+- **Number and rail:** the `numbered` variant and `progress-rail:` already ship; D recombines them.
+- **Two new contrast-audit rows:** white on the dimmed divider background (AA, both themes' dark
+  values), and the divider background against the content background (a minimum jump per theme).
+
+Not chosen: **D-plain** (the bright dark-mode flash); **A** (follows the mode with no accent
+background: the weakest chapter cue, a light divider is nearly the content slide); **B**, today's
+always-dark brand panel (a second mode mechanism, and in a dark deck it barely differs from content).
+Prototype renders: the presets-desk session, 2026-11-23.
 
 ## 6. Build and verification
 
