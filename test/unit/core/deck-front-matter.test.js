@@ -248,3 +248,26 @@ describe('deck front matter — the export bundle carries it', () => {
       '---\nmarp: true\ntheme: indaco\npagination: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
   });
 });
+
+// The page-number key survives a Marp round trip whether or not the bundle has a settings block (#3506's checker found a
+// no-block deck whose `pagination: false` came back as an ignored `paginate: false`, numbers on).
+describe('pagination: a Marp round trip keeps the deck\'s setting', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const engine = createEngine();
+  const numbered = (src) => (engine.render(src).html.match(/data-lattice-pagination="\d+"/g) || []).length;
+  const body = '\n\n# A\n\n---\n\n# B\n\n---\n\n# C\n';
+  for (const fm of ['theme: indaco\npagination: false', 'theme: indaco\npagination: false\nfit: report', 'theme: indaco\npagination: true\npagination: false']) {
+    test(JSON.stringify(fm), () => {
+      const deck = `---\n${fm}\n---${body}`;
+      const out = withRuntimeScripts(deck);
+      assert.match(out, /\npaginate: false\n/, 'the export writes Marp\'s key');
+      assert.equal(numbered(foldSettingsBlock(out)), numbered(deck), 'reopened in Lattice, the same slides are numbered');
+      assert.equal(numbered(deck), 0);
+      assert.match(withRuntimeScripts(foldSettingsBlockCompact(out)), /\npaginate: false\n/, 'a re-export keeps it off');
+    });
+  }
+  test('a plain Marp deck is not an export: its paginate: stays for lint to report', () => {
+    const marp = '---\nmarp: true\npaginate: false\n---\n\n# A\n';
+    assert.equal(foldSettingsBlock(marp), marp);
+  });
+});

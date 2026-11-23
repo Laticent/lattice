@@ -42,3 +42,9 @@ test('the new key alone is not reported, and the engine numbers by it', () => {
   assert.equal(found('pagination: false').length, 0);
   assert.equal(lintText(deck('pagination: false'), { vocab }).filter((f) => f.rule === 'unknown-key').length, 0);
 });
+
+test('a quoted `guards: "strict"`, or one with a tab before its comment, still becomes `fit: trim`', () => {
+  for (const [fm, want] of [['guards: "strict"', 'fit: "trim"'], ["guards: 'strict'", "fit: 'trim'"], ['guards: strict\t# x', 'fit: trim\t# x']]) {
+    assert.equal(applyAllFixes(deck(fm), vocab), deck(want), fm);
+  }
+});
