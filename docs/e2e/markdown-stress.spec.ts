@@ -749,8 +749,12 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
 	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
 	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
+	// Away means the editor's far corner, not the page's: the gutter popup closes on a mouse move it sees inside the
+	// editor, and a pointer that leaves the editor sends it none.
+	const editor = page.locator('.cm-editor').first();
 	await expect(async () => {
-		await page.mouse.move(0, 0);
+		const box = await editor.boundingBox();
+		if (box) await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
 		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
 		await marker.hover({ timeout: 2_000 });
 		await expect(action).toBeVisible({ timeout: 2_000 });
