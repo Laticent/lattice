@@ -33,7 +33,7 @@ while it waits, §Session branch ownership and §The handoff issue. Tag this ses
    - **Close:** a merged PR or `main` already does it, or the owner abandoned it. Name
      the PR or commit that superseded it. The owner closes it, never you.
 3. **Report** to the command center: one fleet item per PR with its sort and the
-   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`.
+   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

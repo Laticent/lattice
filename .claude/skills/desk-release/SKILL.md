@@ -37,7 +37,7 @@ and what would embarrass us?
 5. **Write back** (through a session you start, counted in the budget). A blocker found becomes a fleet row with an owner; anything deferred past
    the release becomes a `followups.d/` file.
 6. **Report** to the command center: ready or not, the blocker list, the notes draft, and
-   `budget: N/10 today`.
+   `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

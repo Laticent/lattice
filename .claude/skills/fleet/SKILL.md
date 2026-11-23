@@ -83,6 +83,10 @@ summary.
    every PR again. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
+   Copy each desk's latest `meter:` ledger onto its item, and set the `stage` of
+   every ledger item that has a PR from that PR's state (open, green with a 🚦
+   card, queued, merged with its date, closed); the card then draws the meter
+   (`workflow.md` §Desks, "Completion meter").
 3. **Grade** each line of work with the five levels. Nest child sessions under their
    parent. Open a transcript (`list_events`, `kinds: [assistant, result]`) only for 🔴
    and 🟠 rows, to fill `needs` and `why`. A ✅ or idle session goes into the board's

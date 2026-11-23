@@ -39,7 +39,7 @@ Read first, by section: `engineering/workflow.md` §Desks; for sanitizers,
    for a private security advisory instead of a public PR. A security dependency bump that is red gets a fix
    session the same way; one that is green merges through the queue on its own.
 4. **Report** to the command center: one fleet item per finding, at `needs-you` while
-   it waits on the owner's decision, and `budget: N/10 today`.
+   it waits on the owner's decision, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

@@ -40,7 +40,7 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
    session that tries.
 4. **Report** to the command center: one `send_message` with a fleet item per flake
-   (level, title, pr, session, state) and `budget: N/10 today`.
+   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger.
 
 5. **Claim before fix.** When a session reports a flake you already assigned, tell it
    who owns the fix and where, so it does not write a second copy.

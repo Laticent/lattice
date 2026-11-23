@@ -3,8 +3,9 @@
  * Agent cards — one validated source, one rendered layout.
  *
  * An agent that reports to the owner (the 🚦 pre-merge, 📋 standup, 🎯
- * continuation and ❓ decision cards) writes a small YAML file instead of
- * hand-wrapping text. `validateCard` checks it against a JSON Schema plus the
+ * continuation and ❓ decision cards, the 🛰️ fleet board, and a desk's 📶
+ * completion meter) writes a small YAML file instead of hand-wrapping text.
+ * `validateCard` checks it against a JSON Schema plus the
  * consistency rules in `engineering/workflow.md` §One layout for all four cards,
  * and `renderCard` prints the card: 38 columns, label line above value line,
  * CAPS on the critical value, fenced. The layout is correct by construction, so
@@ -44,6 +45,61 @@ const fleetRank = (level) => FLEET_LEVEL_NAMES.indexOf(level);
  */
 const fleetLoudest = (x) => Math.min(fleetRank(x.level), ...(x.children || []).map((k) => fleetRank(k.level)));
 const REPO_URL = 'https://github.com/Laticent/lattice';
+
+/**
+ * Completion-meter stages (workflow.md §Desks, "Completion meter"). Weights are
+ * in hundredths so the sum stays an integer and the percent never drifts with
+ * float error. The first two belong to an item with no PR; the rest are read
+ * from the item's PR on GitHub. A closed PR counts 1 only when it is marked
+ * `dropped` with a reason. `order` is the count line's order: most done first.
+ */
+const METER_STAGES = [
+  { name: 'not-started', label: 'not started', weight: 0, pr: false, order: 7 },
+  { name: 'working', label: 'working', weight: 25, pr: false, order: 5 },
+  { name: 'pr-open', label: 'PR open', weight: 50, pr: true, order: 4 },
+  { name: 'green', label: 'green', weight: 75, pr: true, order: 3 },
+  { name: 'queued', label: 'queued', weight: 90, pr: true, order: 2 },
+  { name: 'merged', label: 'merged', weight: 100, pr: true, order: 0 },
+  { name: 'closed', label: 'closed', weight: 0, pr: true, order: 8 },
+];
+const meterStage = (name) => METER_STAGES.find((s) => s.name === name);
+const day = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' };
+const ledgerId = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,11}$' };
+const METER_SCHEMA = {
+  type: 'object',
+  required: ['today', 'items'],
+  additionalProperties: false,
+  properties: {
+    today: day,
+    previous: {
+      type: 'object',
+      required: ['date', 'percent', 'ids'],
+      additionalProperties: false,
+      properties: {
+        date: day,
+        percent: { type: 'integer', minimum: 0, maximum: 100 },
+        ids: { type: 'array', items: ledgerId },
+      },
+    },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'title', 'stage'],
+        additionalProperties: false,
+        properties: {
+          id: ledgerId,
+          title: str,
+          pr: { type: 'integer', minimum: 1 },
+          stage: { enum: METER_STAGES.map((s) => s.name) },
+          merged: day,
+          dropped: str,
+          blocking: { type: 'boolean' },
+        },
+      },
+    },
+  },
+};
 
 const SCHEMAS = {
   'pre-merge': {
@@ -255,6 +311,7 @@ const SCHEMAS = {
             state: str,
             needs: str,
             why: str,
+            meter: METER_SCHEMA,
             children: {
               type: 'array',
               items: {
@@ -276,6 +333,16 @@ const SCHEMAS = {
         },
       },
       actions: { type: 'array', items: str },
+    },
+  },
+  meter: {
+    type: 'object',
+    required: ['card', 'title', 'meter'],
+    additionalProperties: false,
+    properties: {
+      card: { const: 'meter' },
+      title: str,
+      meter: METER_SCHEMA,
     },
   },
 };
@@ -654,6 +721,210 @@ function renderDecision(d, page) {
   });
 }
 
+const DAY_MS = 86_400_000;
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** `2026-11-23` -> a whole UTC day number, or NaN for a date that does not exist. */
+function dayNumber(text) {
+  const [y, m, d] = text.split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  const back = new Date(ms);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== m - 1 || back.getUTCDate() !== d) return NaN;
+  return ms / DAY_MS;
+}
+
+/** A day as its weekday when it is within six days of today, else `Mon Dec 7`. */
+function dayName(n, today) {
+  const date = new Date(n * DAY_MS);
+  const wd = WEEKDAYS[date.getUTCDay()];
+  return Math.abs(n - today) <= 6 ? wd : `${wd} ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
+}
+
+/** The weight of one ledger item, in hundredths. */
+const itemWeight = (x) => (x.stage === 'closed' && x.dropped ? 100 : meterStage(x.stage).weight);
+
+/** Percent of `items` done, as an integer; a ledger that is neither empty nor finished never shows 0 or 100. */
+function percentOf(items) {
+  if (!items.length) return null;
+  const sum = items.reduce((n, x) => n + itemWeight(x), 0);
+  if (sum === 0) return 0;
+  if (sum === items.length * 100) return 100;
+  return Math.min(99, Math.max(1, Math.round(sum / items.length)));
+}
+
+/** Ten cells; full only at 100% and empty only at 0%, like the percent. */
+function meterBar(percent) {
+  if (percent === null) return '░'.repeat(10);
+  let cells = Math.round(percent / 10);
+  if (percent > 0 && percent < 100) cells = Math.min(9, Math.max(1, cells));
+  return '▓'.repeat(cells) + '░'.repeat(10 - cells);
+}
+
+/**
+ * The completion meter for one desk's ledger: a pure function of the ledger and
+ * its `today`, so the same item states always give the same number. Returns the
+ * problems found (`errors`) and everything the card prints. Contract:
+ * engineering/workflow.md §Desks, "Completion meter".
+ */
+function computeMeter(m, where = 'meter') {
+  const errors = [];
+  const today = dayNumber(m.today);
+  if (Number.isNaN(today)) errors.push(`${where}.today: "${m.today}" is not a real date`);
+  const seen = new Set();
+  m.items.forEach((x, i) => {
+    const at = `${where}.items[${i}]`;
+    const stage = meterStage(x.stage);
+    if (seen.has(x.id)) errors.push(`${at}.id: "${x.id}" is used twice; ids must be unique`);
+    seen.add(x.id);
+    if (stage.pr && !x.pr) {
+      errors.push(`${at}: stage "${x.stage}" belongs to a PR; add its pr number, or use not-started / working`);
+    }
+    if (!stage.pr && x.pr) {
+      errors.push(`${at}: #${x.pr} exists, so its stage comes from GitHub (pr-open, green, queued, merged or closed), not "${x.stage}"`);
+    }
+    if (x.stage === 'merged' && !x.merged) errors.push(`${at}: a merged item needs its merged date (YYYY-MM-DD)`);
+    if (x.stage !== 'merged' && x.merged) errors.push(`${at}: has a merged date but its stage is "${x.stage}"`);
+    if (x.merged) {
+      const n = dayNumber(x.merged);
+      if (Number.isNaN(n)) errors.push(`${at}.merged: "${x.merged}" is not a real date`);
+      else if (n > today) errors.push(`${at}.merged: ${x.merged} is after today (${m.today})`);
+    }
+    if (x.dropped && x.stage !== 'closed') {
+      errors.push(`${at}: only a PR closed without merging can be dropped; its stage is "${x.stage}"`);
+    }
+    if (x.blocking && itemWeight(x) === 100) errors.push(`${at}: a finished item cannot be blocking`);
+  });
+  if (m.previous) {
+    const prev = dayNumber(m.previous.date);
+    if (Number.isNaN(prev)) errors.push(`${where}.previous.date: "${m.previous.date}" is not a real date`);
+    else if (prev > today) errors.push(`${where}.previous.date: ${m.previous.date} is after today (${m.today})`);
+  }
+  if (errors.length) return { errors };
+
+  const items = m.items;
+  const percent = percentOf(items);
+  // Most done first: merged, dropped, queued, green, PR open, working, not started, closed.
+  const groups = [
+    ...METER_STAGES.filter((s) => s.name !== 'closed').map((s) => [s.order, s.label, (x) => x.stage === s.name]),
+    [1, 'dropped', (x) => x.stage === 'closed' && x.dropped],
+    [8, 'closed', (x) => x.stage === 'closed' && !x.dropped],
+  ];
+  const counts = groups
+    .sort((a, b) => a[0] - b[0])
+    .map(([, label, match]) => [label, items.filter(match).length])
+    .filter(([, n]) => n)
+    .map(([label, n]) => `${n} ${label}`);
+
+  // Scope: what changed since the previous report.
+  let scope = [];
+  if (m.previous) {
+    const before = new Set(m.previous.ids);
+    const added = items.filter((x) => !before.has(x.id)).length;
+    const removed = m.previous.ids.filter((id) => !seen.has(id)).length;
+    const prev = dayNumber(m.previous.date);
+    const when = prev === today ? 'today' : prev === today - 1 ? 'since yesterday' : `since ${dayName(prev, today)}`;
+    const grew = added ? `+${added} new ${when}` : null;
+    const parts = [grew, removed ? `${removed} removed` : null];
+    const was = m.previous.percent;
+    if (percent !== null && percent < was) {
+      // Scope growth alone explains the drop when the items the last report knew still score as well.
+      const old = percentOf(items.filter((x) => before.has(x.id)));
+      const byGrowth = grew && old !== null && old >= was;
+      if (byGrowth) parts[0] = `down from ${was}%: ${grew}`;
+      else parts.unshift(`down from ${was}%: an item went back a stage or left`);
+    }
+    scope = parts.filter(Boolean);
+  }
+
+  // Finish estimate: merges per day over the last two days of merge history.
+  const remaining = items.filter((x) => itemWeight(x) < 100).length;
+  const mergedDays = items.filter((x) => x.stage === 'merged').map((x) => dayNumber(x.merged));
+  let estimate;
+  if (!items.length) estimate = 'no estimate: the ledger is empty';
+  else if (!remaining) estimate = 'all done';
+  else if (!mergedDays.length) estimate = 'no estimate: no merges yet';
+  else {
+    const start = Math.max(today - 1, Math.min(...mergedDays));
+    const days = today - start + 1;
+    const merges = mergedDays.filter((n) => n >= start).length;
+    if (!merges) estimate = 'no estimate: no merges in 2 days';
+    else {
+      const rate = merges / days;
+      const finish = today + Math.ceil((remaining * days) / merges);
+      const shown = Number.isInteger(rate) ? String(rate) : rate.toFixed(1);
+      estimate = `~${shown} ${rate === 1 ? 'merge' : 'merges'}/day → done ${dayName(finish, today)}`;
+    }
+  }
+
+  const blocking = items.filter((x) => x.blocking).map((x) => `${x.id} ${x.title}`);
+  return {
+    errors,
+    percent,
+    bar: `${meterBar(percent)} ${percent === null ? 'no items' : `${percent}%`}`,
+    // The count line as parts: `9 items: 5 merged`, `1 queued`, … so a count never splits.
+    summary: [`${items.length} ${items.length === 1 ? 'item' : 'items'}${counts.length ? `: ${counts[0]}` : ''}`, ...counts.slice(1)],
+    scope,
+    estimate,
+    blocking: blocking.length ? blocking.join('; ') : null,
+  };
+}
+
+/**
+ * Pack ` · `-separated parts into lines, breaking only between parts, so a
+ * count like `2 PR open` never splits. A line that breaks ends in ` ·`. A part
+ * too wide for a line of its own falls back to the word wrap.
+ */
+function wrapParts(parts, firstIndent, restIndent) {
+  const lines = [];
+  let line = firstIndent;
+  let empty = true;
+  for (const part of parts) {
+    const candidate = empty ? line + part : `${line} · ${part}`;
+    if (displayWidth(candidate) <= WIDTH) {
+      line = candidate;
+      empty = false;
+      continue;
+    }
+    if (!empty) lines.push(`${line} ·`);
+    const words = wrap(part, empty ? line : restIndent, restIndent);
+    line = words.pop();
+    lines.push(...words);
+    empty = false;
+  }
+  lines.push(line);
+  return lines;
+}
+
+/** The meter's body lines under its header, each wrapped to the card width. */
+function meterBody(page, r, where, indent = '   ') {
+  const more = `${indent}  `;
+  page.push(wrapParts(r.summary, indent, more), `${where}.items`, MAX_FIELD_LINES, 'items');
+  page.push(wrapParts([...r.scope, r.estimate], indent, more), where, MAX_NESTED_LINES, 'scope');
+  if (r.blocking) page.push(wrap(`blocking: ${r.blocking}`, indent, more), `${where}.blocking`, MAX_FIELD_LINES, 'blocking');
+}
+
+/** 📶 A desk's own meter report: the meter, then the ledger it was computed from. */
+function renderMeter(d, page) {
+  const r = computeMeter(d.meter);
+  if (r.errors.length) {
+    page.errors.push(...r.errors);
+    return;
+  }
+  header(page, `${d.title}  ${r.bar}`, null, 'title');
+  meterBody(page, r, 'meter');
+  page.section('LEDGER');
+  for (const x of d.meter.items) {
+    const stage = x.stage === 'closed' && x.dropped ? `dropped: ${x.dropped}` : meterStage(x.stage).label;
+    page.push(
+      wrapParts([x.id, `${stage}${x.pr ? ` #${x.pr}` : ''}`, x.title], '  ', '    '),
+      `meter.items[${x.id}]`,
+      MAX_NESTED_LINES,
+      'item',
+    );
+  }
+}
+
 /** The clickable link row printed under a fleet card, outside its fence. */
 function fleetLinks(x) {
   const links = [];
@@ -724,6 +995,15 @@ function renderFleet(d, page) {
     page.field('state', x.state, `${where}.state`);
     page.field('needs you', x.needs, `${where}.needs`);
     page.field('why', x.why, `${where}.why`);
+    if (x.meter) {
+      const r = computeMeter(x.meter, `${where}.meter`);
+      page.errors.push(...r.errors);
+      if (!r.errors.length) {
+        page.section('METER');
+        page.raw(`  ${r.bar}`, `${where}.meter`);
+        meterBody(page, r, `${where}.meter`, '  ');
+      }
+    }
     const kids = x.children || [];
     if (kids.length) page.section('LINE OF WORK');
     kids.forEach((k, j) => {
@@ -774,11 +1054,15 @@ function renderFleetTable(card) {
     '| | Session | PR | CI | State |',
     '|:-:|---|---|---|---|',
   ];
+  const meters = new Map();
+  for (const x of card.items) if (x.meter) meters.set(x, computeMeter(x.meter));
   const row = (x, child) => {
     const name = cell(x.title);
+    const m = meters.get(x);
+    const meter = m ? `\`${m.bar}\` ${cell(m.summary.join(' · '))} · ` : '';
     const named = x.session ? `[${linkText(x.title)}](https://claude.ai/code/${x.session})` : name;
     lines.push(
-      `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
+      `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${meter}${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
     );
   };
   for (const { x } of order) {
@@ -794,6 +1078,7 @@ const RENDERERS = {
   continuation: renderContinuation,
   decision: renderDecision,
   fleet: renderFleet,
+  meter: renderMeter,
 };
 
 /**
@@ -823,4 +1108,4 @@ function renderCard(card) {
   return { ok: true, errors: [], lines: page.lines, text };
 }
 
-module.exports = { renderCard, renderFleetTable, schemaErrors, displayWidth, WIDTH, SCHEMAS };
+module.exports = { renderCard, renderFleetTable, computeMeter, schemaErrors, displayWidth, WIDTH, SCHEMAS, METER_STAGES };

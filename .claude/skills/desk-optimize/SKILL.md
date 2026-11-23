@@ -40,7 +40,7 @@ Read first, by section: `engineering/workflow.md` §Desks and §Performance (HAR
    Tightening a budget after a measured win is part of the win
    (`engineering/development.md` lowers a debt ceiling in the same commit as the fix).
 4. **Report** to the command center: the top items as fleet items, the session spend
-   table, CI and budget changes as numbered actions, and `budget: N/10 today`.
+   table, CI and budget changes as numbered actions, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

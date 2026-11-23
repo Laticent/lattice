@@ -77,7 +77,7 @@ drive the Studio).
    gotcha entry, and a finding not routed this pass as a `followups.d/` file. The docs desk
    decides which limits users see.
 6. **Report** to the command center: the area climbed, the limits and any that dropped, where
-   each finding went, any proposed paid sample with its cost, and `budget: N/10 today`.
+   each finding went, any proposed paid sample with its cost, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

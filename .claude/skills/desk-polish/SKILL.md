@@ -49,7 +49,7 @@ is the floor. A claim here names its surface and carries an artifact from it (HA
    `deferred: large|blocked|off-path`.
 6. **Report** to the command center: the surface swept, the top items as fleet rows with
    their artifacts attached (`SendUserFile`), a taste call as a ❓ item with the picture,
-   and `budget: N/10 today`.
+   and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
-const { renderCard, renderFleetTable, displayWidth, WIDTH } = require('../../../tools/agent-card');
+const { renderCard, renderFleetTable, computeMeter, displayWidth, WIDTH } = require('../../../tools/agent-card');
 const renderFleet = renderCard;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -13,7 +13,7 @@ const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
 const load = (name) => YAML.parse(fs.readFileSync(path.join(EXAMPLES, `${name}.yml`), 'utf8'));
 
 test('every shipped example renders, and no line is wider than the phone', () => {
-  for (const name of ['pre-merge', 'standup', 'continuation', 'decision', 'fleet']) {
+  for (const name of ['pre-merge', 'standup', 'continuation', 'decision', 'fleet', 'meter']) {
     const r = renderCard(load(name));
     assert.equal(r.ok, true, `${name}: ${r.errors.join('; ')}`);
     for (const line of r.lines) {
@@ -256,7 +256,7 @@ test('fleet board: loudest card first, done folds into hindsight, links sit outs
   const heads = r.text.split('\n').filter((l) => /^(🔴|🟠|🟢|🔵|✅) /u.test(l));
   assert.deepEqual(
     heads.map((h) => [...h][0]),
-    ['🔴', '🟠', '🟢'],
+    ['🔴', '🟠', '🟢', '🟢'],
     'cards are sorted loudest first; Studio presets wears its 🟢 child; the done item gets no card',
   );
   assert.match(r.text, /done\n {4}rename-toast test #3306 merged/);
@@ -297,7 +297,7 @@ test('fleet table: a row per session, loudest first, children under their parent
   const rows = r.lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
   assert.deepEqual(
     rows.map((l) => l.split(' | ')[1].replace(/\]\(.*$/, '').replace(/\[/g, '')),
-    ['CSP stage 2', 'Universal Coda audit', 'Studio presets', '· P0 plumbing', '· WP-cover', 'rename-toast test'],
+    ['CSP stage 2', 'Universal Coda audit', 'Studio presets', '· P0 plumbing', '· WP-cover', '🚢 Release desk', 'rename-toast test'],
   );
   assert.match(rows[0], /\[#3307\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[run\]\(https:\/\/github\.com\//);
   assert.match(rows[0], /\*\*needs:\*\* merge decision \|$/);
@@ -395,4 +395,166 @@ test('fleet table: link text escapes \\ | [ ] exactly once', () => {
   t.items[0].session = 'session_abc123';
   const row = renderFleetTable(t).lines.find((l) => l.includes('session_abc123'));
   assert.ok(row.includes('[a\\\\\\]b\\|c\\[d](https://claude.ai/code/session_abc123)'), row);
+});
+
+// ── Completion meter (workflow.md §Desks, "Completion meter") ──────────────
+
+/** A one-item-per-stage ledger: `stages` maps id -> stage; PR stages get a PR number. */
+const ledger = (items, extra = {}) => ({ today: '2026-11-23', items, ...extra });
+const PR_STAGES = new Set(['pr-open', 'green', 'queued', 'merged', 'closed']);
+const item = (id, stage, more = {}) => ({
+  id,
+  title: `item ${id}`,
+  stage,
+  ...(PR_STAGES.has(stage) ? { pr: 100 + id.charCodeAt(0) } : {}),
+  ...(stage === 'merged' ? { merged: '2026-11-23' } : {}),
+  ...more,
+});
+
+test('meter: each stage has its weight, so one item at that stage reads that percent', () => {
+  const want = { 'not-started': 0, working: 25, 'pr-open': 50, green: 75, queued: 90, merged: 100, closed: 0 };
+  for (const [stage, percent] of Object.entries(want)) {
+    const r = computeMeter(ledger([item('A', stage)]));
+    assert.deepEqual(r.errors, [], stage);
+    assert.equal(r.percent, percent, stage);
+  }
+});
+
+test('meter: the percent is the mean weight, and the same ledger always gives the same line', () => {
+  // 5 merged + 1 queued + 2 PR open + 1 not started = 6.9 / 9 = 76.7%
+  const items = [
+    ...['A', 'B', 'C', 'D', 'E'].map((id) => item(id, 'merged')),
+    item('F', 'queued'),
+    item('G', 'pr-open'),
+    item('H', 'pr-open'),
+    item('I', 'not-started'),
+  ];
+  const a = computeMeter(ledger(items));
+  assert.equal(a.percent, 77);
+  assert.equal(a.bar, '▓▓▓▓▓▓▓▓░░ 77%');
+  assert.deepEqual(a.summary, ['9 items: 5 merged', '1 queued', '2 PR open', '1 not started']);
+  assert.deepEqual(computeMeter(ledger(structuredClone(items))), a);
+});
+
+test('meter: the bar is full only at 100% and empty only at 0%; the percent never rounds to either', () => {
+  // 1 working of 100 items is 0.25%: shows 1%, one cell, not 0% and an empty bar.
+  const low = computeMeter(ledger([item('A0', 'working'), ...Array.from({ length: 99 }, (_, i) => item(`N${i}`, 'not-started'))]));
+  assert.equal(low.bar, '▓░░░░░░░░░ 1%');
+  // 99 merged + 1 queued is 99.9%: shows 99% and nine cells, not a finished bar.
+  const high = computeMeter(ledger([item('Q', 'queued'), ...Array.from({ length: 99 }, (_, i) => item(`M${i}`, 'merged'))]));
+  assert.equal(high.bar, '▓▓▓▓▓▓▓▓▓░ 99%');
+  // Plain rounding in between: 3 of 4 merged is 75% and 8 cells (7.5 rounds up).
+  const mid = computeMeter(ledger([item('A', 'merged'), item('B', 'merged'), item('C', 'merged'), item('D', 'not-started')]));
+  assert.equal(mid.bar, '▓▓▓▓▓▓▓▓░░ 75%');
+  assert.equal(computeMeter(ledger([item('A', 'merged')])).bar, '▓▓▓▓▓▓▓▓▓▓ 100%');
+  assert.equal(computeMeter(ledger([item('A', 'not-started')])).bar, '░░░░░░░░░░ 0%');
+});
+
+test('meter: a closed PR counts 1 only when it is dropped with a reason', () => {
+  const kept = computeMeter(ledger([item('A', 'closed'), item('B', 'merged')]));
+  assert.equal(kept.percent, 50);
+  assert.deepEqual(kept.summary, ['2 items: 1 merged', '1 closed']);
+  const dropped = computeMeter(ledger([item('A', 'closed', { dropped: 'superseded by #3400' }), item('B', 'merged')]));
+  assert.equal(dropped.percent, 100);
+  assert.deepEqual(dropped.summary, ['2 items: 1 merged', '1 dropped']);
+  assert.equal(dropped.estimate, 'all done');
+  // Only a closed PR can be dropped.
+  const r = computeMeter(ledger([item('A', 'working', { dropped: 'cut' })]));
+  assert.match(r.errors.join('\n'), /only a PR closed without merging can be dropped/);
+});
+
+test('meter: an empty ledger has no percent and no estimate, and still renders', () => {
+  const r = computeMeter(ledger([]));
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.percent, null);
+  assert.equal(r.bar, '░░░░░░░░░░ no items');
+  assert.deepEqual(r.summary, ['0 items']);
+  assert.equal(r.estimate, 'no estimate: the ledger is empty');
+  const card = renderCard({ card: 'meter', title: '📚 Docs desk', meter: ledger([]) });
+  assert.equal(card.ok, true, card.errors.join('; '));
+  assert.equal(card.lines[0], '📚 Docs desk  ░░░░░░░░░░ no items');
+});
+
+test('meter: "+N new" counts ids the previous report did not have, and a drop says why', () => {
+  const items = [item('A', 'merged'), item('B', 'merged'), item('C', 'not-started'), item('D', 'not-started')];
+  // The last report knew A and B (100%); C and D are new, so the drop is scope growth.
+  const grew = computeMeter(ledger(items, { previous: { date: '2026-11-22', percent: 100, ids: ['A', 'B'] } }));
+  assert.equal(grew.percent, 50);
+  assert.deepEqual(grew.scope, ['down from 100%: +2 new since yesterday']);
+  // Same-day report: "today". No drop: just the count.
+  const same = computeMeter(ledger(items, { previous: { date: '2026-11-23', percent: 40, ids: ['A', 'B', 'C'] } }));
+  assert.deepEqual(same.scope, ['+1 new today']);
+  // Nothing new, yet lower: an old item went back (a PR went red), and the line says so.
+  const back = computeMeter(ledger(items, { previous: { date: '2026-11-20', percent: 60, ids: ['A', 'B', 'C', 'D', 'E'] } }));
+  assert.deepEqual(back.scope, ['down from 60%: an item went back a stage or left', '1 removed']);
+  // An older report is named by its weekday, a far one by its date.
+  const far = computeMeter(ledger(items, { previous: { date: '2026-11-02', percent: 10, ids: ['A'] } }));
+  assert.deepEqual(far.scope, ['+3 new since Mon Nov 2']);
+});
+
+test('meter: the finish estimate uses merges per day over the last 2 days of merge history', () => {
+  const open = (n) => Array.from({ length: n }, (_, i) => item(`P${i}`, 'pr-open'));
+  // 0 days of merges: no estimate.
+  assert.equal(computeMeter(ledger(open(3))).estimate, 'no estimate: no merges yet');
+  // 1 day of history (both merged today): 2/day; 3 left -> 2 days -> Wed (today is Mon 2026-11-23).
+  const one = computeMeter(ledger([item('A', 'merged'), item('B', 'merged'), ...open(3)]));
+  assert.equal(one.estimate, '~2 merges/day → done Wed');
+  // 2+ days: only the last 2 count. 1 yesterday + 2 today = 1.5/day; 3 left -> 2 days.
+  const two = computeMeter(
+    ledger([
+      item('A', 'merged', { merged: '2026-11-10' }),
+      item('B', 'merged', { merged: '2026-11-22' }),
+      item('C', 'merged'),
+      item('D', 'merged'),
+      ...open(3),
+    ]),
+  );
+  assert.equal(two.estimate, '~1.5 merges/day → done Wed');
+  // One merge in 2 days, 9 left: 18 days out, so the date is written out.
+  const slow = computeMeter(ledger([item('A', 'merged', { merged: '2026-11-22' }), ...open(9)]));
+  assert.equal(slow.estimate, '~0.5 merges/day → done Fri Dec 11');
+  // Merges exist, but none in the last 2 days: stalled.
+  const stalled = computeMeter(ledger([item('A', 'merged', { merged: '2026-11-15' }), ...open(1)]));
+  assert.equal(stalled.estimate, 'no estimate: no merges in 2 days');
+});
+
+test('meter: a PR item takes its stage from GitHub; a merged item needs its date', () => {
+  const errs = (x) => computeMeter(ledger([x])).errors.join('\n');
+  assert.match(errs({ id: 'A', title: 't', pr: 12, stage: 'working' }), /#12 exists, so its stage comes from GitHub/);
+  assert.match(errs({ id: 'A', title: 't', stage: 'queued' }), /stage "queued" belongs to a PR/);
+  assert.match(errs({ id: 'A', title: 't', pr: 12, stage: 'merged' }), /needs its merged date/);
+  assert.match(errs({ id: 'A', title: 't', pr: 12, stage: 'merged', merged: '2026-11-30' }), /after today/);
+  assert.match(errs({ id: 'A', title: 't', pr: 12, stage: 'merged', merged: '2026-02-30' }), /not a real date/);
+  assert.match(errs(item('A', 'merged', { blocking: true })), /a finished item cannot be blocking/);
+  assert.match(computeMeter(ledger([item('A', 'working'), item('A', 'merged')])).errors.join('\n'), /used twice/);
+  // Schema: an unknown stage is refused by name, through the card.
+  const r = renderCard({ card: 'meter', title: 'x', meter: ledger([{ id: 'A', title: 't', stage: 'done' }]) });
+  assert.match(r.errors.join('\n'), /stage must be one of: not-started, working, pr-open, green, queued, merged, closed/);
+});
+
+test('meter card: the header carries the bar; counts and the scope line never split mid-count', () => {
+  const r = renderCard(load('meter'));
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.equal(r.lines[0], '🚢 Release 1.0.0  ▓▓▓▓▓▓▓▓░░ 77%');
+  assert.deepEqual(r.lines.slice(1, 6), [
+    '   9 items: 5 merged · 1 queued ·',
+    '     2 PR open · 1 not started',
+    '   down from 85%: +2 new today ·',
+    '     ~2 merges/day → done Wed',
+    '   blocking: B9 Segno rename',
+  ]);
+  assert.ok(r.lines.includes('  B9 · not started · Segno rename'));
+});
+
+test('fleet board: a desk with a meter shows it in its card and in the table row', () => {
+  const card = load('fleet');
+  const r = renderCard(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text, /METER\n {2}▓▓▓▓▓▓▓▓░░ 81%\n {2}7 items: 3 merged · 1 dropped ·\n/);
+  assert.match(r.text, /blocking: B7 Segno rename/);
+  const t = renderFleetTable(card);
+  assert.match(t.text, /\| `▓▓▓▓▓▓▓▓░░ 81%` 7 items: 3 merged · 1 dropped · 1 queued · 1 green · 1 not started · dry run queued/);
+  // A bad ledger on a fleet item names the item.
+  card.items[4].meter.items[0].stage = 'working';
+  assert.match(renderCard(card).errors.join('\n'), /items\[4\]\.meter\.items\[0\]: #3390 exists/);
 });
