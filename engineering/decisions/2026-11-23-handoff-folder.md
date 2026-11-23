@@ -8,7 +8,8 @@ summary: >
   npm run card generates from HANDOFF.md. The owner picked the place, the lifecycle, the artifact
   layout and rules, and rewriting one HANDOFF.md in place at each usage checkpoint; the single source
   came from the workflow desk's brief and the size numbers are desk defaults, both open to the owner's
-  veto. Nothing is built yet.
+  veto. The same rule fails when the branch has work newer than its HANDOFF.md, and never blocks the
+  push that saves it. Nothing is built yet.
 ---
 
 # Handoff folder: `handoffs.d/<slug>/` on the work branch, removed before merge
@@ -27,6 +28,7 @@ the owner typed it.
 | H4 Size and secrets | the workflow desk's default numbers (5 MB per folder, 1 MB per binary file); H6 made a binary cap and a scrub rule the owner's | numbers open to veto |
 | H5 One source | the workflow desk's brief to this session; the command center's 12:03 relay calls it an earlier pick, but no owner answer this session could read contains it | **not** found in an owner answer; open to veto |
 | H6 Artifacts and shape | the command center showed the owner a worked example, the artifact rules and the table against `followups.d/` (`session_01DPMMjGth4jH37uLv1XPwcA`, 2026-11-23 12:01 and 12:03 UTC); the owner typed "yes, put that in #3454" (event `107c227e-7c9a-4f05-990d-6d4b66209796`, 12:03:45 UTC) | owner's own answer |
+| H8 Freshness is machine-checked | the owner asked "are we efficient and deterministic in our handoff workflow? … are there edge cases we have not considered?" and typed "do all three" (command center, event `c0034b91-35e9-4fee-8cb0-44b0a389e06d`, 12:12:25 UTC); the command center's 12:12:55 relay names this as item 1 of 3 | owner's own answer, to the command center's proposal |
 | H7 Update in place | the owner asked "will handoff be duplicated or updated at 25, 50,75 and 90?" and typed "yes, update in place" (same session, event `63b640e1-1a70-4601-9e8b-b6b2ac34f015`, 12:05:27 UTC) | owner's own answer |
 
 The W1 to W5 incident facts below reached the desk in a command-center message (the desk's
@@ -67,6 +69,10 @@ with it.
   the earlier versions. The living PR comment is edited in place, not reposted. Front matter gains
   `checkpoint:` beside `updated:`. At 90% the session also sets `status: released`, so the next owner
   can take the branch. The folder is gone by the time the PR merges (H3).
+- **H8 Freshness is machine-checked.** The `build:check` rule fails when the branch has work newer
+  than its HANDOFF.md. It never blocks a push that updates the handoff itself, and when it fails it
+  prints one exact command that fixes it, so a session saving its work can always land the handoff
+  (§The `build:check` rule, Freshness).
 
 ## Why
 
@@ -352,7 +358,7 @@ the ownership gate, `tools/build.js`) and `build:check:all`. The format is defin
 does), so an untracked scratch folder never trips it. No CI job, step or hook is added (CLAUDE.md
 SECOND FILTER row 2).
 
-**Two kinds of check, because the same arm runs on a work branch too.** The pre-push hook runs
+**Three kinds of check, because the same arm runs on a work branch too.** The pre-push hook runs
 `build:check`, and `platform-suites.yml` and `golden-bless.yml` run `npm run build` when a session
 dispatches them on a work branch (`workflow.md` documents branch dispatches, and #3427 rule 6 lists a
 platform dispatch as a checkpoint). A rule that failed whenever `handoffs.d/` exists would block every
@@ -363,6 +369,32 @@ checkpoint push and every one of those runs, which is the opposite of H2.
   `budget`, and `checkpoint` (one of `25%`, `50%`, `75%`, `90%`) when present; files only in the six
   `artifacts/` subfolders and `LINKS.md`; total under 5 MB; no binary file over 1 MB; a reason line
   for any text file over 1 MB; no PDF, archive or symbolic link.
+- **Freshness: an error wherever the branch's history is available** (H8). The newest non-merge
+  commit on the branch that changes anything outside `handoffs.d/` must not come after the newest
+  commit that changes `handoffs.d/<slug>/HANDOFF.md`. "After" is git ancestry along the branch
+  (`git log --no-merges <merge-base>..HEAD`), never a clock: commit dates and the `updated:` field can
+  both be wrong across two machines, and ancestry cannot. Four properties follow:
+  - **A commit that touches HANDOFF.md always passes**, whatever else it changes. So the push that
+    saves the handoff is never blocked, and neither is a work commit that updates the handoff in the
+    same commit.
+  - **Merges are skipped**, so merging `main` in (#3427 rule 5) does not make the handoff look stale.
+  - **No folder, no check.** Before the first checkpoint and after close there is nothing to keep
+    fresh.
+  - **No history, no verdict.** A shallow CI checkout (a `pull_request` run checks out one merge
+    commit) cannot see the branch's commits, so the arm prints a notice and passes there. The check
+    that counts is the one the pre-push hook runs, on the full local history, before the work leaves
+    the sandbox.
+
+  The arm cannot tell whether the new HANDOFF.md says anything true; it checks that the handoff moved
+  with the work. Its failure message gives the one-line fix:
+
+  ```
+  handoffs.d/<slug>/HANDOFF.md is older than <sha> "<subject>" (the newest work commit). Update it
+  and commit: npm run handoff -- checkpoint && git commit -m "handoff: update" handoffs.d
+  ```
+
+  `npm run handoff -- checkpoint` (no percentage) rewrites `updated:` and the commit list under
+  Where it stands, and opens nothing else, so the fix itself always passes the arm.
 - **Presence: an error only in the merge queue**, when `GITHUB_EVENT_NAME` is `merge_group`. The
   queue's run tests the exact tree that lands, so this is the one place the folder is certainly headed
   for `main`. Every other run, a ready PR's `pull_request` run included, prints a notice and passes.
@@ -393,8 +425,8 @@ handoffs.d/<slug>/ present (fine on a work branch). Close it before the merge as
 One PR, one commit per slice (`workflow.md` §Batch a session's slices).
 
 1. **Tool: `tools/handoff.js`, `npm run handoff`.** `init` writes the skeleton for the current
-   branch; `checkpoint <25|50|75|90>` rewrites the front matter in place (and at 90 sets
-   `status: released`); `check` reports shape problems (the function the gate calls); `close` runs
+   branch; `checkpoint [25|50|75|90]` rewrites the front matter in place (with no percentage it only
+   refreshes `updated:` and the commit list; at 90 it also sets `status: released`); `check` reports shape problems (the function the gate calls); `close` runs
    §Lifecycle step 5. Unit tests cover each shape problem, against a fixture filled in from the
    presets Wave 1 example (§Worked example), which `handoffs.d/README.md` also shows. Reuse `tools/followups.js` for the evidence-folder move and
    `tools/card.js` for the 🎯 card. Check `dist/engineering/capabilities.md` first (HARD RULE #15).
@@ -402,7 +434,10 @@ One PR, one commit per slice (`workflow.md` §Batch a session's slices).
    that proves each kind can fail (HARD RULE #34): a fixture tree with a folder and
    `GITHUB_EVENT_NAME=merge_group` goes red; the same tree with `pull_request`, with
    `workflow_dispatch` and with no variable passes with the notice; a 6 MB fixture and an untracked
-   folder show that shape counts committed files only and fails in every context. Add the refusal to
+   folder show that shape counts committed files only and fails in every context. Freshness gets its
+   own arms on a throwaway repository: a work commit after the handoff goes red with the one-line fix;
+   running that fix turns it green; a merge of `main` on top stays green; a work commit that also
+   touches HANDOFF.md is green; a shallow clone prints the notice and passes. Add the refusal to
    `tools/queue-precheck.sh`. Before adding the arm, list every gate that walks the whole tree and run
    it over a sample folder, so a deck in `artifacts/` does not trip `lint:deck:all`, and a quoted owner
    line does not trip the US-English audit or the typed-glyph census.
