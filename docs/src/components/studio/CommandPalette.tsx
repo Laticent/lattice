@@ -279,7 +279,8 @@ export function CommandPalette({
 					type="button"
 					onClick={() => onOpenChange(true)}
 					aria-label="Search or run ⌘K, command palette"
-					aria-keyshortcuts="Meta+K"
+					aria-keyshortcuts="Meta+K Control+K"
+					data-demo="search"
 					aria-expanded={false}
 					// `h-8` NOT `py-1.5` — #1687 normalized every header control to one 32px
 					// height (`BAR_CONTROL` in chrome-parts.tsx) and the skeleton draws the pill

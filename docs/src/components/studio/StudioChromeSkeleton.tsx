@@ -243,7 +243,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				    It is `min-[1100px]` and not `xl`, matching the app's `!compact` gate — at
 				    1100–1279 the appearance box and tours are gone but the band still closes. */}
 				<span className="hidden min-[700px]:contents">
-					<button type="button" aria-label="Search or run ⌘K, command palette" aria-keyshortcuts="Meta+K" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
+					<button type="button" aria-label="Search or run ⌘K, command palette" aria-keyshortcuts="Meta+K Control+K" data-demo="search" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>{' '}
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
 					</button>

@@ -1136,6 +1136,9 @@ describe('StudioShell — topbar information architecture', () => {
 		// desktop affordance", and that was the bug: below 1100 it was suppressed outright,
 		// so a tablet (and a resized desktop window) had no visible way to search.
 		expect(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' })).toBeInTheDocument();
+		// The welcome tour points at the pill through this hook (tours/welcome.ts), not its name: a renamed
+		// label once left the tour's Search step pointing at nothing.
+		expect(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' })).toHaveAttribute('data-demo', 'search');
 		// The overflow menu is PERMANENT from 700 up — the row's right edge, and the home for
 		// whatever the width has pushed out of it. It used to exist only below 1100.
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
