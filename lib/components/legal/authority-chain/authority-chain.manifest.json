@@ -52,6 +52,7 @@
     "citation",
     "sequence"
   ],
+  "searchTerms": ["chain of command", "approvals", "hierarchy", "escalation", "sign off"],
   "description": "Provenance chain — statute to regulation to guidance to case, walked in order.",
   "purpose": "Use when the audience needs to see how a rule descends: what the statute says, how the agency implemented it, what guidance interpreted it, and what cases have applied it. Ordered list because the order is the argument.",
   "variants": [

@@ -29,6 +29,7 @@
     "showcase",
     "pitch"
   ],
+  "searchTerms": ["video", "movie", "film", "clip", "recording", "footage"],
   "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe.",
   "purpose": "Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the clip as one `@video{\"https://…\", title=\"…\", poster=…}` record on a line of its own (the video plugin draws it); the provider is auto-detected.",
   "variants": [

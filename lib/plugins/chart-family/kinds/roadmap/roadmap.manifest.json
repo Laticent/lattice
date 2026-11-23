@@ -80,6 +80,7 @@
     "milestones",
     "agile"
   ],
+  "searchTerms": ["plan", "plans", "future", "milestones", "quarters", "strategy", "next steps"],
   "description": "Phased multi-workstream grid — phases across the top, workstreams down the side.",
   "purpose": "Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).",
   "variants": [

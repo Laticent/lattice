@@ -82,6 +82,7 @@
     "contrast",
     "board-deck"
   ],
+  "searchTerms": ["before and after", "change", "growth", "decline", "trend"],
   "description": "Two labeled columns joined by one line per entity, so a change in ranking reads as a crossing.",
   "purpose": "Use when the claim is that the ORDER changed between two points — market share before and after, unit cost at two dates, satisfaction across a program, headcount either side of a reorg. Each entity is one line from its first value to its second; a swap in rank draws itself as an X. The `dumbbell` variant redraws the same data as one row per entity when the question is how BIG each gap is rather than who overtook whom.",
   "variants": [

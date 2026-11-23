@@ -50,6 +50,7 @@
     "proportion",
     "percentage"
   ],
+  "searchTerms": ["share", "percentage", "breakdown", "proportion", "pie", "budget", "chart", "data", "survey"],
   "description": "Pie or donut chart with legend — proportional wedges.",
   "purpose": "Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.",
   "variants": [

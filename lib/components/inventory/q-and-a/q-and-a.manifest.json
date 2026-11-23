@@ -65,6 +65,7 @@
     "board-deck",
     "recommendation"
   ],
+  "searchTerms": ["questions", "faq", "answers", "q&a", "ask"],
   "description": "Anticipated questions paired with prepared answers — the end-of-pitch 'what we expect to be asked' slide.",
   "purpose": "Use to pre-empt the room: line up the three or four hardest questions the audience will raise and answer each one before it is asked. The question reads as a prompt; the prepared answer carries the substance. Distinct from a reference FAQ (many terse look-up pairs) — this is a few weighty defenses of a recommendation.",
   "variants": [

@@ -51,6 +51,7 @@
     "tradeoff",
     "recommendation"
   ],
+  "searchTerms": ["price", "prices", "pricing", "plans", "tiers", "cost", "packages"],
   "description": "Side-by-side plan tiers with prices, feature checklists, and one recommended column.",
   "purpose": "Use for the plans / packages slide — two to four tiers compared on price and features, with one tier elevated as the recommendation. The recommended tier is marked explicitly (it is usually the middle one, not the last), so the eye lands where you want it.",
   "variants": [

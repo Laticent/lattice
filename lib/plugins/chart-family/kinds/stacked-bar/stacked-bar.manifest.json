@@ -53,6 +53,7 @@
     "metric",
     "summary"
   ],
+  "searchTerms": ["breakdown", "composition", "share", "chart", "data", "budget", "survey"],
   "description": "Bars split into parts, so one chart carries both the total for each category and the mix inside it.",
   "purpose": "Use when the claim is that a total DECOMPOSES — revenue by product line across quarters, cost by function across years, headcount by team across sites. The bar length is the total, each segment is a part, and the segments hold the same order in every bar so a part can be tracked across categories. `share` normalizes every bar to 100 % when only the mix matters; `row` runs horizontally for long category names.",
   "variants": [

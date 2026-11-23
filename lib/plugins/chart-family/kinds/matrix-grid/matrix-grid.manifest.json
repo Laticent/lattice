@@ -88,6 +88,7 @@
     "positioning",
     "okr"
   ],
+  "searchTerms": ["matrix", "grid", "comparison", "criteria"],
   "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette.",
   "purpose": "Use for a rubric where BOTH axes are ordered categories (a depth ladder × a reach ladder, a maturity level × a scope) and a reader needs to see one position at a glance — not a status report. A chart-family member: renders inside the shared chart-frame skeleton and colors rows from the theme's chart categorical palette (--chart-cat1..8), never a hardcoded palette of its own. Cells carry a positional grammar ([x] this row's position, [-] reachable from here, [ ] not applicable). For regulation × obligation status tracking, use `obligation-matrix`; for phases × workstreams delivery status, use `roadmap`; for two free axes and four cells, use `matrix-2x2`.",
   "excludes": [

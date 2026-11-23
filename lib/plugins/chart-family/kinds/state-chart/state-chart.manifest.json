@@ -97,6 +97,7 @@
     "states",
     "workflow"
   ],
+  "searchTerms": ["states", "status", "lifecycle", "transitions"],
   "anatomyBlock": "state-chart",
   "description": "Native state machine diagram — states as a list, transitions as arrows to a state's name, on the flowchart's grammar.",
   "purpose": "Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a list of states; a sub-item that starts with an arrow is a transition to a state named by its text (`- -approve-> Approved`). Each state wears a badge with its place in the list, which is the machine's READING ORDER: a chain reads 1, 2, 3 along its row and wraps onto the next row when one row would shrink the type. A machine that branches is laid out by dagre, because no single line can show a fan-out.",

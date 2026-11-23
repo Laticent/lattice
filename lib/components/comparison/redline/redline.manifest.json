@@ -29,6 +29,7 @@
     "compliance",
     "transformation"
   ],
+  "searchTerms": ["changes", "edits", "tracked changes", "markup", "revisions"],
   "description": "Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment.",
   "purpose": "Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.",
   "variants": [

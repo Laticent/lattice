@@ -46,6 +46,7 @@
     "metric",
     "transformation"
   ],
+  "searchTerms": ["profit", "bridge", "breakdown", "variance", "cost", "budget", "contribution"],
   "variants": [
     "zoom",
     "lower-is-better"

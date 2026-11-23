@@ -53,6 +53,7 @@
     "contrast",
     "board-deck"
   ],
+  "searchTerms": ["chart", "data", "numbers", "compare", "ranking", "survey", "sales", "revenue", "results", "graph"],
   "description": "Bars from a zero baseline that compare magnitude across categories — as columns, rows, side-by-side groups, or signed off a centered zero.",
   "purpose": "Use when the claim is that these categories differ in size: revenue by region, headcount by team, spend by line item, variance against plan. Length from a common zero is the most accurately read encoding there is, so the bar is the default answer whenever the question is 'which is bigger, and by how much'. Values are printed on the bars and the value axis is dropped whenever that fits.",
   "variants": [

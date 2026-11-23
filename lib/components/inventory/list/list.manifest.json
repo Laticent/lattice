@@ -67,6 +67,7 @@
     "walkthrough",
     "requirements"
   ],
+  "searchTerms": ["bullets", "bullet points", "points", "items", "notes"],
   "description": "A list under a heading — plain pills, hairline takeaways (a `1.` list numbers them; a nested gloss line makes criteria), or display-weight principles.",
   "purpose": "Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr), and an item with a nested `- gloss` bullet stacks a bold lead over a muted gloss line (written as a `1.` list, the former list-criteria); the `principles` variant renders display-weight statements with a large counter (former principles). In every register the marker decides: `1.` numbers the rows and `-` does not. For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.",
   "variants": [

@@ -44,6 +44,7 @@
     "tradeoff",
     "strategy"
   ],
+  "searchTerms": ["decision", "options", "choice", "recommendation", "tradeoffs"],
   "description": "The verdict slide — one chosen path, named explicitly.",
   "purpose": "Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.",
   "lists": "neutral",

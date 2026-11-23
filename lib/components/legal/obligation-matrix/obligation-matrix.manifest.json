@@ -42,6 +42,7 @@
     "regulation",
     "stoplight"
   ],
+  "searchTerms": ["obligations", "compliance", "requirements", "who must do what"],
   "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance.",
   "purpose": "Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [!] not required, [?] unclear, [ ] undetermined, [/] exempt) shared with checklist / verdict-grid / roadmap.",
   "excludes": [

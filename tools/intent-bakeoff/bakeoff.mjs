@@ -35,6 +35,7 @@ const CATALOG = catalogRaw.map((c) => ({
 	description: c.description || '',
 	purpose: c.purpose || '',
 	tags: Array.isArray(c.tags) ? c.tags : [],
+	searchTerms: Array.isArray(c.searchTerms) ? c.searchTerms : [],
 }));
 const NAMES = new Set(CATALOG.map((c) => c.name));
 

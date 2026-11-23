@@ -49,6 +49,7 @@
     "transformation",
     "retrospective"
   ],
+  "searchTerms": ["pros and cons", "options", "comparison", "versus", "tradeoffs"],
   "description": "Two prose options side-by-side with a labeled corner tag on each.",
   "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.",
   "variantSlots": {

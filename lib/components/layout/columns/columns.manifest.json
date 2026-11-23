@@ -16,6 +16,7 @@
     "overview",
     "summary"
   ],
+  "searchTerms": ["columns", "side by side", "two columns"],
   "skeleton": "<!-- _class: columns -->\n\n## The slide's point, in one line.\n\n### First pane\n\n- A point\n- Another point\n\n### Second pane\n\n- A point\n- Another point\n",
   "sample": "<!-- _class: columns ratio-60-40 -->\n\n`Q3 review`\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n`$M, trailing four quarters`\n\n- Licenses `42`\n- Services `47`\n- Training `9`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n- Two renewals slipped to Q4\n\n> The mix shift is structural, not seasonal.\n",
   "variants": [
