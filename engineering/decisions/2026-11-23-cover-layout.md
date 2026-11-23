@@ -1,5 +1,5 @@
 ---
-status: decided
+status: in-progress
 summary: Covers (title, closing) follow the deck's and the slide's color mode like every other slide. `cover:` loses its surface axis (`light`, `inverse`) and becomes `cover-layout:`, a composition-only key. A dark cover paints the theme's brand panel. Old spellings are lint errors with a --fix.
 ---
 
