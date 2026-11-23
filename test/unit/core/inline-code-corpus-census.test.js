@@ -89,6 +89,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/logo-wall-first-paint.md', 'logo-wall: a `{tier}` pill under each mark, on the captions slide'],
   ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['examples/venue-budgets.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
