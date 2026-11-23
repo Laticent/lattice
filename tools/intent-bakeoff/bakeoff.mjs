@@ -174,6 +174,9 @@ const CORPORA = {
 	[`harvested-full · ${split.toUpperCase()}`]: pick('full'),
 	...(DEV ? {} : { 'misspelled-name': misspellings }),
 	...(DEV ? {} : { 'authored-intent': authored('queries-intent.json'), 'authored-adversarial': authored('queries-adversarial.json') }),
+	// Everyday one-word vocabulary (the owner's iPhone report, 2026-11-23): "grade", "movie", "science", "data".
+	// `everyday` is the tuning set for search terms; `everyday-heldout` uses different words and may not be tuned on.
+	...(DEV ? { everyday: authored('queries-everyday.json') } : { everyday: authored('queries-everyday.json'), 'everyday-heldout': authored('queries-everyday-heldout.json') }),
 };
 
 function evaluate(rank, cases) {
