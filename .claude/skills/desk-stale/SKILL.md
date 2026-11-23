@@ -28,9 +28,10 @@ while it waits, §Relay and §The handoff issue. Tag this session
    - **Hand over:** its session is archived or finished, and the work still matters
      (no merged PR does the same thing). Point a new session at the PR's living handoff
      comment, or draft a 🎯 brief if it has none. The new session continues the same branch
-     once `npm run baton -- take <branch>` says the baton is free (released, or 60 quiet
-     minutes; #31, `workflow.md` §Relay): no takeover question is needed. Starting it is
-     the owner's call (a numbered action below).
+     once `npm run baton -- take <branch>` finds the baton released and claims it (#31,
+     `workflow.md` §Relay). A stale PR's session usually never released, and no clock frees
+     a branch, so most hand-overs need the owner's "take over `<branch>`" typed in the new
+     session. Starting it is the owner's call (a numbered action below).
    - **Close:** a merged PR or `main` already does it, or the owner abandoned it. Name
      the PR or commit that superseded it. The owner closes it, never you.
 3. **Report** to the command center: one fleet item per PR with its sort and the

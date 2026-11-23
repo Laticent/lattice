@@ -286,7 +286,7 @@ things in the design above; where this section and the text above disagree, this
 | lease from the commit time | lease from **GitHub's push timestamp** for the tip (repository activity API), or the living comment's `updated_at`; a push GitHub does not list yet reads as just made | a commit date is set by the committer's clock and can predate the push by hours, so a commit made at 09:00 and pushed at 10:05 read as expired at once |
 | `baton: released` frees it until the next push | the release **pins the tip** (`head:` line); it holds only while the tip is unchanged | a time comparison let two sessions both read free after a release |
 | the living comment is any comment with the marker | the **oldest comment that starts with the marker, written by our own login** | the repository is public; a stranger, or one of our own cards quoting the marker, could become the living comment and free every baton |
-| `take` edits the living comment to name the new holder | `take` checks and writes nothing; **the push takes the baton**, and the holder's next checkpoint updates the comment | two racing `take` edits could name the loser as holder |
+| `take` edits the living comment to name the new holder | `take` checks, and on a free baton pushes an empty claim commit (revised 2026-11-23, after the simulated handover); **the push takes the baton**, and the holder's next checkpoint updates the comment | two racing `take` edits could name the loser as holder; a ref push lands for exactly one |
 | a checkpoint every 30 minutes caps loss at 30 minutes | the cap was false: the pre-commit hook can run the whole unit suite (about 6 to 10 minutes) and refuses red work. A comment-only checkpoint renews the lease; a session that stops loses what it had not pushed | the inversion review measured the hooks |
 
 Also added: `npm run relay -- trailer` prints the `Relay-Actor:` line (nothing writes it for you; a hook
@@ -424,13 +424,28 @@ Kirk's session (14:55 UTC, verified in its transcript).
    with its own `npm install`.
 2. **`card --check` refused a `relay:` block**, so the exact living card could not be dry-run. `--check`
    now validates the block.
-3. **`baton take` records nothing**, though its name suggests a claim; two sessions can both read FREE.
-   That is the design (the push is the claim, and git lands one), and `take` and rule 4 now say so.
+3. **`baton take` recorded nothing**, though its name suggests a claim: two sessions could both read
+   FREE, both start work, and the loser found out only at its first push. **Now `take` claims
+   atomically**: on a free baton it pushes an empty commit (`chore(relay): take the baton`) carrying the
+   taker's trailers on top of the tip, without `--force`. Git lands only the claim that fast-forwards, so
+   the second taker is refused (exit 1) before it has done any work.
+   - *Why a commit on the branch ref.* The ref is the only compare-and-swap GitHub gives us. The living
+     comment cannot lock: both people share one login, so either can edit it, and a GitHub comment edit
+     has no "only if unchanged". A separate `relay-claim/<branch>` ref would be atomic on its own but not
+     with the branch, so a session could hold the claim ref while another pushes to the branch.
+   - *What it costs.* One empty commit per handover, which the squash merge folds away, and the
+     pre-push hook (about a minute) before the claim lands. The commit has the tip's own tree, so it
+     changes no file; on a draft PR its CI run is cheap.
+   - *What it does not change.* `take` on a baton you hold, or on a branch that does not exist yet,
+     pushes nothing. A held baton still needs the holder's release or a person's "take over".
 4. **The sim line's only setup commit was empty**, so Kirk's note had no file to go in, and it went in
    this note on the sim line. That throwaway branch never merges; this section is the record.
-
-**Still not shown:** a second real GitHub account. Both sessions share one login, so the signatures make
-the record readable but not authenticated (see "What this does not fix").
+5. **UNVERIFIED: a second real GitHub account.** Both sessions share one login, so the signatures make
+   the record readable but not authenticated (see "What this does not fix"). It stays unverified until
+   Kirk runs the tools on his own account (he is back 2026-11-27).
+6. **The rules were not in force for the run.** #3427 had not merged, so `main`'s #31 still applied,
+   and the push rested on the owner's OK typed in Kirk's session, as the handoff's TRAPS line said it
+   would.
 
 ## Checkpoint rules and the usage watch (2026-11-23)
 

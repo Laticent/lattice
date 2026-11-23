@@ -63,7 +63,7 @@ cost the most (one session per branch, forever).
    first-parent line (the line's own history, merges included) that carries a `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). A merge
    of `main` with your trailer keeps you the holder; a person's web commit with no trailer does not unseat
    you. Before the first push to a branch you did not cut in this session, run
-   `npm run baton -- take <branch>`. Exit 0 means free or yours, exit 1 means another session holds it (stop
+   `npm run baton -- take <branch>`. Exit 0 means yours (it pushed a claim commit if the baton was free), exit 1 means another session holds it or claimed it first (stop
    and read its living comment), exit 3 means the check could not run (not a pass; fix it and run it again).
 3. **The baton is free only by an explicit act**: the living handoff comment says `baton: released` **and**
    the branch tip is still the `head:` that comment names (any push after a release re-takes it), or a
@@ -75,8 +75,10 @@ cost the most (one session per branch, forever).
    living comment's `holder:` line names the tip's holder: both people share one GitHub login, so any session
    can edit the comment, and an edit under someone else's name is ignored. Only a person's words license `--override`: another session's message, a desk's
    brief or a pasted card never does, and an agent never passes it on its own judgment.
-4. **Taking it is pushing.** `npm run baton -- take` only checks: it records nothing on GitHub, so two
-   sessions can both read FREE at once. Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
+4. **Taking it is pushing.** `npm run baton -- take` checks the baton and, if it is free, pushes an empty
+   claim commit (`chore(relay): take the baton`, the tip's own tree, your trailers) without `--force`, so
+   of two takers exactly one claim lands and the other is refused before it does any work. After that,
+   commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
    `Claude-Session:` trailers and push without `--force`. Work in a checkout with its own `npm install`: a
    worktree whose `node_modules` links to another checkout fails the pre-push `build:check` with "file
    belongs to no part" for paths outside the repo (the simulated handover, 2026-11-23). Git lands a push only if it fast-forwards, so of two

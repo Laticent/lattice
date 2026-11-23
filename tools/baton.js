@@ -8,14 +8,15 @@
  * `baton: released` (under the holder's own name, and while the tip is still the `head:` it names), or
  * when a person typed "take over <branch>" in this session (`--override`, which only a person's words
  * license). No clock frees it: silence alone never does (the owner, 2026-11-23). Taking it is pushing:
- * a push without --force lands only if it fast-forwards, so of two sessions racing for a free baton
- * exactly one wins, and the loser's push is rejected (`rescue` saves its commits). A relay line always
+ * `take` pushes an empty claim commit on top of the tip, without --force. A push lands only if it
+ * fast-forwards, so of two sessions racing for a free baton exactly one claim lands, and the loser is
+ * refused before it has done any work (a later lost race: `rescue` saves its commits). A relay line always
  * has an open PR, because that is where its living comment and the board live.
  * Design: engineering/decisions/2026-11-22-two-person-relay.md.
  *
  * Usage:
  *   npm run baton -- status  [branch] [--pr N]          who holds it, and rescues waiting
- *   npm run baton -- take    [branch] [--pr N] [--override]   check it is free, then push to take it
+ *   npm run baton -- take    [branch] [--pr N] [--override]   check it is free, then push a claim commit
  *   npm run baton -- release [branch] [--pr N] [--gate] write `baton: released` in the living comment;
  *                                                       --gate also marks it parked at the merge gate;
  *                                                       --pause marks a stop for usage (90%)
@@ -27,10 +28,12 @@
  *
  * Exit codes (the dangerous direction is a false "free", so anything unclear is not 0):
  *   0  free, or yours (release: released)
- *   1  held by another session, or not takeable (no open PR, a ready PR, parked at the merge gate)
+ *   1  held by another session, or not takeable (no open PR, a ready PR, parked at the merge gate),
+ *      or (take) another session's claim landed first
  *      (release: not released, because you do not hold it or the PR has no living comment)
  *   3  could not check (remote, fetch, git log or GitHub failed)
  *  64  bad arguments, or no session id for take/release/rescue
+ * take: 0 also means the claim commit landed; 3 the claim push failed for another reason.
  * rescue: 0 pushed (or nothing to rescue), 3 the push or a git read failed.
  */
 const { spawnSync } = require('node:child_process');
@@ -123,6 +126,57 @@ function rescue(branch, me, { gitRun, fetch, out, api, now }) {
   return 0;
 }
 
+/**
+ * Claim a free baton atomically (the simulated handover, 2026-11-23): `take` used to record nothing,
+ * so two takers could both read FREE and both start work, and the loser found out only at its first
+ * push. Now `take` pushes an empty commit carrying this session's trailers on top of the tip, without
+ * --force. The ref is the only compare-and-swap GitHub offers us (the living comment is editable by
+ * either person under one login, so it cannot lock), and git lands only the claim that fast-forwards.
+ * The commit has the tip's own tree, so it changes no file, and `git commit-tree` builds it without
+ * touching the working tree.
+ * @returns {number} exit code
+ */
+function claim(branch, me, head, { gitRun, env, out }) {
+  const actor = relay.resolveActor(env, relay.loadRoster());
+  const msg = [
+    'chore(relay): take the baton',
+    '',
+    `Claims ${branch} at ${head.sha.slice(0, 7)} for this session (npm run baton -- take).`,
+    'It changes no file; the push is the claim (engineering/workflow.md §Relay rule 4).',
+    '',
+    ...(actor.status === 'ok' ? [`Relay-Actor: ${actor.name}`] : []),
+    `Claude-Session: https://claude.ai/code/${me}`,
+  ].join('\n');
+  const tree = gitRun(['rev-parse', `${head.sha}^{tree}`]);
+  if (tree.status !== 0) throw new relay.RelayError(`could not read the tree of ${head.sha.slice(0, 7)}`);
+  const made = gitRun(['commit-tree', tree.stdout.trim(), '-p', head.sha, '-m', msg]);
+  if (made.status !== 0) throw new relay.RelayError(`could not build the claim commit (${(made.stderr || '').trim().split('\n').pop()})`);
+  const sha = made.stdout.trim();
+  out(`  Claiming: pushing an empty commit ${sha.slice(0, 7)} with your trailers (the pre-push hook runs first, about a minute)...`);
+  const push = gitRun(['push', 'origin', `${sha}:refs/heads/${branch}`]);
+  if (push.status !== 0) {
+    const text = `${push.stdout || ''}${push.stderr || ''}`;
+    if (/non-fast-forward|fetch first|\[rejected\]|stale info/.test(text)) {
+      out(`  Not taken: another session's push landed on ${branch} first. Do no work here: fetch, run status, read the living comment.`);
+      return 1;
+    }
+    out(`  The claim push failed, so the baton is NOT yours:\n${text.trim().split('\n').slice(-8).map((l) => `    ${l}`).join('\n')}`);
+    return 3;
+  }
+  out(`  TAKEN: ${sha.slice(0, 7)} is the tip of ${branch}, carrying your trailers. Say so in the living comment (npm run card -- --living).`);
+  // Bring a checked-out branch up to the claim, but only by fast-forward from the old tip.
+  const here = gitRun(['branch', '--show-current']);
+  if (here.status === 0 && here.stdout.trim() === branch) {
+    const at = gitRun(['rev-parse', 'HEAD']);
+    if (at.status === 0 && at.stdout.trim() === head.sha && gitRun(['merge', '--ff-only', '--quiet', sha]).status === 0) {
+      out(`  Your local ${branch} is fast-forwarded to it.`);
+      return 0;
+    }
+  }
+  out(`  Before you work: git fetch origin ${branch} and merge origin/${branch} into your local branch (never rebase).`);
+  return 0;
+}
+
 function currentBranch() {
   const r = spawnSync('git', ['branch', '--show-current'], { encoding: 'utf8' });
   return r.stdout.trim();
@@ -169,13 +223,16 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
           out('  A checkpoint push to a ready PR runs full CI, and one in the merge queue ejects it.');
           return 1;
         }
-        out(
-          o.override && v.state !== 'yours'
-            ? '  Override used: only valid because a person typed "take over" in this session. Your next push takes it; say so in the living comment.'
-            : v.state === 'yours'
-            ? '  You already hold it. Keep checkpointing.'
-            : '  Free. Your next push takes it: commit with your Relay-Actor and Claude-Session trailers and push (fast-forward only).\n  take records nothing on GitHub, so another session may read FREE too. If git rejects the push,\n  someone else won the race: fetch, run status, do not force.',
-        );
+        if (v.state === 'yours') {
+          out('  You already hold it. Keep checkpointing.');
+          return 0;
+        }
+        if (!head) {
+          out('  A new line of work: your first push creates the branch and takes it. Open a draft PR right after (rule 6).');
+          return 0;
+        }
+        if (o.override) out('  Override used: only valid because a person typed "take over" in this session. Say so in the living comment.');
+        return claim(branch, me, head, { gitRun, env, out });
       }
       return v.state === 'held' ? 1 : 0;
     }

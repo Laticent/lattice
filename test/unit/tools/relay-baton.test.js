@@ -330,12 +330,31 @@ describe('npm run baton', () => {
     };
     return { api, calls };
   };
-  const go = (argv, { session = THEM, comments, draft, prs, env = { LATTICE_SESSION: ME }, git } = {}) => {
+  // Every git call these tests make goes to a fake: `take` pushes a claim commit, and the real
+  // git must never be reached from a unit test (#32). `push` sets the claim push's result.
+  const CLAIM = 'c1a1a0000000000000000000000000000000c1a1';
+  const fakeGitRun = ({ push = { status: 0, stdout: '', stderr: '' }, branch = 'main', headAt = TIP } = {}) => {
+    const gits = [];
+    const gitRun = (args) => {
+      gits.push(args);
+      if (args[0] === 'rev-parse' && args[1].endsWith('^{tree}')) return { status: 0, stdout: 'tree0001\n' };
+      if (args[0] === 'commit-tree') return { status: 0, stdout: `${CLAIM}\n` };
+      if (args[0] === 'push') return push;
+      if (args[0] === 'branch') return { status: 0, stdout: `${branch}\n` };
+      if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { status: 0, stdout: `${headAt}\n` };
+      if (args[0] === 'merge') return { status: 0, stdout: '' };
+      return { status: 0, stdout: '', stderr: '' };
+    };
+    return { gitRun, gits };
+  };
+  const go = (argv, { session = THEM, comments, draft, prs, env = { LATTICE_SESSION: ME }, git, gitOpts } = {}) => {
     const lines = [];
     const { api, calls } = fakeApi({ comments, draft, prs });
+    const { gitRun, gits } = fakeGitRun(gitOpts);
     const code = run(argv, {
       env,
       api,
+      gitRun,
       now: T0,
       git: git || (() => ({ exists: true, head: { sha: TIP, session, actor: null } })),
       // never the real checkout's branch: CI runs on a detached HEAD (#32)
@@ -343,7 +362,7 @@ describe('npm run baton', () => {
       out: (s) => lines.push(s),
       err: (s) => lines.push(s),
     });
-    return { code, text: lines.join('\n'), calls };
+    return { code, text: lines.join('\n'), calls, gits };
   };
 
   test('status on a branch another session holds: exit 1, names the holder, no lease', () => {
@@ -360,12 +379,62 @@ describe('npm run baton', () => {
     assert.equal(r.calls.filter((c) => c.method !== 'GET').length, 0);
   });
 
-  test('take on a baton its holder released at the tip: exit 0, tells you the push takes it', () => {
-    const released = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'holder', `James Tiberius Kirk · ${THEM}`) };
-    const r = go(['take', 'claude/x'], { comments: [released] });
+  const RELEASED = () => ({ ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'holder', `James Tiberius Kirk · ${THEM}`) });
+
+  test('take on a released baton pushes an empty claim commit on the tip, never forced', () => {
+    const r = go(['take', 'claude/x'], { comments: [RELEASED()], env: { LATTICE_SESSION: ME, LATTICE_ACTOR: 'picard' } });
     assert.equal(r.code, 0, r.text);
     assert.match(r.text, /FREE .*baton: released/);
-    assert.match(r.text, /next push takes it/);
+    assert.match(r.text, /TAKEN: c1a1a00 is the tip of claude\/x/);
+    // same tree as the tip, the tip as its only parent: it changes no file
+    const ct = r.gits.find((a) => a[0] === 'commit-tree');
+    assert.deepEqual(ct.slice(0, 4), ['commit-tree', 'tree0001', '-p', TIP]);
+    const msg = ct[ct.indexOf('-m') + 1];
+    assert.deepEqual(relay.parseTrailers(msg), relay.parseTrailers(`x\n\nRelay-Actor: John Luke Picard\nClaude-Session: https://claude.ai/code/${ME}`));
+    assert.match(msg, /^chore\(relay\): take the baton\n/);
+    assert.deepEqual(r.gits.filter((a) => a[0] === 'push'), [['push', 'origin', `${CLAIM}:refs/heads/claude/x`]]);
+    assert.ok(!r.gits.flat().some((a) => /^(-f|--force|\+)/.test(a)));
+  });
+
+  test('two takers race: the one whose claim git rejects is told before it does any work (exit 1)', () => {
+    const lost = go(['take', 'claude/x'], {
+      comments: [RELEASED()],
+      gitOpts: { push: { status: 1, stdout: '', stderr: ' ! [rejected]        c1a1a00 -> claude/x (fetch first)\nerror: failed to push some refs' } },
+    });
+    assert.equal(lost.code, 1, lost.text);
+    assert.match(lost.text, /Not taken: another session's push landed on claude\/x first\. Do no work here/);
+    assert.doesNotMatch(lost.text, /TAKEN/);
+  });
+
+  test('a claim push that fails for another reason (a hook, the network): exit 3, never "taken"', () => {
+    const r = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { push: { status: 1, stdout: 'build-check failed', stderr: 'error: failed to push some refs' } } });
+    assert.equal(r.code, 3, r.text);
+    assert.match(r.text, /NOT yours/);
+    assert.match(r.text, /build-check failed/);
+  });
+
+  test('a checked-out branch at the old tip is fast-forwarded to the claim; anywhere else, told to merge', () => {
+    const here = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { branch: 'claude/x', headAt: TIP } });
+    assert.deepEqual(here.gits.find((a) => a[0] === 'merge'), ['merge', '--ff-only', '--quiet', CLAIM]);
+    assert.match(here.text, /fast-forwarded/);
+    const ahead = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { branch: 'claude/x', headAt: 'f00f00' } });
+    assert.equal(ahead.gits.find((a) => a[0] === 'merge'), undefined);
+    assert.match(ahead.text, /merge origin\/claude\/x into your local branch \(never rebase\)/);
+  });
+
+  test('take when you already hold it, or on a branch that does not exist yet: no claim push', () => {
+    const mine = go(['take', 'claude/x'], { session: ME });
+    assert.equal(mine.code, 0);
+    assert.match(mine.text, /already hold it/);
+    assert.equal(mine.gits.filter((a) => a[0] === 'push').length, 0);
+    const fresh = go(['take', 'claude/new'], { git: () => ({ exists: false, head: null }) });
+    assert.equal(fresh.code, 0, fresh.text);
+    assert.match(fresh.text, /first push creates the branch/);
+    assert.equal(fresh.gits.filter((a) => a[0] === 'push').length, 0);
+  });
+
+  test('take on a held branch makes no claim push', () => {
+    assert.equal(go(['take', 'claude/x']).gits.filter((a) => a[0] === 'push' || a[0] === 'commit-tree').length, 0);
   });
 
   test('a branch that exists with no open PR is not takeable: open a draft first (rule 6)', () => {
