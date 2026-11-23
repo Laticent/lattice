@@ -368,6 +368,10 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
+/** How long the start grid waits for a touch tap's click before putting the caret itself. On the iPhone simulator the
+ *  click came 142 ms after the release (PR #3436, job 137343373196), with listener lag up to +288 ms on a busy page; a
+ *  click later than this still runs and puts the caret again, which is harmless. */
+const START_GRID_CLICK_WAIT_MS = 500;
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -1984,6 +1988,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// first slide would otherwise unmount a live editor and rebuild it later.
 	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
+	/** The start grid's fallback for a touch tap whose click never comes (the grid's `onPointerUp`). */
+	const startGridTapTimer = React.useRef(0);
+	const cancelStartGridFallback = React.useRef<() => void>(() => {});
+	/** Arm it: put the caret after START_GRID_CLICK_WAIT_MS unless the click comes first, or the person presses anywhere
+	 *  else first (a menu, the top bar, another deck), which must not have its focus taken by a timer (the checker on
+	 *  #3436). Once per tap; a new arm replaces the old. */
+	const armStartGridFallback = React.useCallback(() => {
+		cancelStartGridFallback.current();
+		const cancel = () => {
+			window.clearTimeout(startGridTapTimer.current);
+			document.removeEventListener('pointerdown', cancel, true);
+			cancelStartGridFallback.current = () => {};
+		};
+		startGridTapTimer.current = window.setTimeout(() => {
+			cancel();
+			composeRef.current?.focusEmptyLine();
+		}, START_GRID_CLICK_WAIT_MS);
+		// Added after this tap's own pointerdown has passed, so only the NEXT press cancels it.
+		document.addEventListener('pointerdown', cancel, true);
+		cancelStartGridFallback.current = cancel;
+	}, []);
+	React.useEffect(() => () => cancelStartGridFallback.current(), []);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
 	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
@@ -5887,6 +5913,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
 	const [startGridMounted, setStartGridMounted] = React.useState(false);
 	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// The grid went away (a letter typed, Source, Read, another deck): a tap's pending fallback has nothing left to do.
+	React.useEffect(() => {
+		if (!startGridShown) cancelStartGridFallback.current();
+	}, [startGridShown]);
 	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
 	// editor pane that hosts the grid.
 	const editPaneRef = React.useRef<HTMLElement>(null);
@@ -7777,7 +7807,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
 					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
 					style={{ top: startGridTop ?? 56 }}
+					// THE CLICK PUTS THE CARET, AND A TOUCH RELEASE STANDS IN WHEN NO CLICK COMES. iOS Safari sometimes withholds
+					// the click of a tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no
+					// mousedown and no click, so the editor never took the focus (three simulator runs during PR #3385, listener
+					// lag up to +288 ms; jobs 137060162549, 137066156788, 137285553830; 2026-11-17-compose-empty-deck.md). So a
+					// touch release arms a fallback that puts the caret if that tap's click has not come within
+					// START_GRID_CLICK_WAIT_MS. A tap whose click does come is handled exactly as before, by the click, so the
+					// keyboard rises as it always did. A scroll ends in pointercancel, not pointerup, so it arms nothing.
+					// (Putting the caret on the release itself was tried first: the tap's late mousedown on this plain div then
+					// took the focus away, iPhone simulator on PR #3436.)
+					onPointerUp={(e) => {
+						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
+						armStartGridFallback();
+					}}
 					onClick={(e) => {
+						cancelStartGridFallback.current();
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
 						composeRef.current?.focusEmptyLine();
 					}}
