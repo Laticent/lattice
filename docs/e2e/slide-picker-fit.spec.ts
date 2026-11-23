@@ -29,7 +29,7 @@ async function pillsHoldStill(page: Page): Promise<void> {
 	}
 }
 
-test('the family pills take one row, and typing does not move the grid @crosswidth', async ({ page }) => {
+test('the family pills take one row, and typing does not move the grid @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await pillsHoldStill(page);
 });
 
@@ -84,7 +84,7 @@ test('a phone typing gives the results the room: the filters fold into one pill 
 	await expect(page.getByRole('button', { name: 'Slide categories: Progression, more' })).toBeVisible();
 });
 
-test('a new query starts at the top of its results @crosswidth', async ({ page }) => {
+test('a new query starts at the top of its results @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await openAddSlide(page);
 	await grid(page).evaluate((e) => {
@@ -96,7 +96,7 @@ test('a new query starts at the top of its results @crosswidth', async ({ page }
 	await expect.poll(() => grid(page).evaluate((e) => e.scrollTop)).toBe(0);
 });
 
-test('every result says how it matched: the leader is the best match @crosswidth', async ({ page }) => {
+test('every result says how it matched: the leader is the best match @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await openAddSlide(page);
 	await search(page).fill('timeline');
