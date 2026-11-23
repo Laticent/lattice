@@ -126,6 +126,11 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   within 500 ms (`START_GRID_CLICK_WAIT_MS`; the simulator's click came 142 ms after the release). A scroll ends in
   `pointercancel` and arms nothing. Putting the caret on the release itself was tried first and failed on the iPhone
   simulator: the tap's later `mousedown` on the grid, a plain div, took the focus away.
+  The fallback stands down on the click, on the next press anywhere (so it never takes the focus from a menu or another
+  deck opened in that half second), when the grid hides, and on unmount. Its focus comes from a timer, outside the tap,
+  so on a phone it probably puts the caret without raising the keyboard; before this change that case got no caret at
+  all. The Studio iOS suites force the case: one tap with `touchstart` and `touchend` cancelled, after which Safari sends
+  no `mousedown` and no `click`, and the caret arrives about 500 ms after the release (run 45084042230).
   `compose-empty-deck.spec.ts` checks both: a tap whose click is withheld (it cancels `touchend`) and a plain tap.
   WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
   by the empty rule.
