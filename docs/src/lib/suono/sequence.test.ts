@@ -744,6 +744,29 @@ describe('makeSequence — decodeAhead (the decoded-audio window)', () => {
 		seq.stop();
 	});
 
+	it('decodes nothing ahead while the context is suspended, even when the stage reports an onset', async () => {
+		// The real stage calls onStart at source.start(), suspended or not; a suspended context plays nothing audible.
+		const w = windowStage();
+		w.stage.state = () => 'suspended';
+		let produced = 0;
+		let end: (v: { ok: boolean }) => void = () => {};
+		w.stage.play = (clip: Clip, o?: PlayOptions) => {
+			o?.onStart?.({ onsetMs: 0, durationMs: clip.durationMs });
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		seq.stop();
+	});
+
 	it('warm() fetches bytes but decodes nothing when the window is set', async () => {
 		const w = windowStage();
 		let produced = 0;

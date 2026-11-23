@@ -534,9 +534,11 @@ a session). Two options bound them, and both default off, so other callers are u
 - `Stage.forget(key)` drops one decoded clip and its bytes from the stage's count.
 - `SequenceOptions.decodeAhead: n` holds decoded audio for the playing item and the `n` after it, forgets each once it
   has played, and makes `warm()` fetch bytes without decoding. The look-ahead starts at the playing clip's real onset
-  (`onStart`), not when `play()` is called: a presenter who moves on before a sentence is heard would otherwise pay two
-  decodes per skipped slide for clips the skip throws away. The iOS narration probe, which steps on every 10 s before
-  audio flows, decoded 41.4 MB that way against `main`'s 13.8 MB for the same 64 sentences (run 45083164131, 2026-11-23).
+  (`onStart`), not when `play()` is called, and only while the stage reports `running`: the stage reports an onset at
+  `source.start()` even on a suspended context, where nothing is audible. Without both, a presenter who moves on before
+  a sentence is heard, or a context that never resumes, pays two decodes per skipped slide for clips the skip throws
+  away. The iOS narration probe, whose audio never unlocks and which steps on every 10 s, decoded 41.4 MB that way
+  against `main`'s 13.8 MB for the same 64 sentences (runs 45083164131 and 45091849943, 2026-11-23).
 
 The Studio's Present runs `decodeAhead: 2` and a 12-clip byte cache, and caps its stage at 4 decoded clips or 24 MiB as
 a backstop (`read-aloud.ts`).
