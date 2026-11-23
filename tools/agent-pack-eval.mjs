@@ -31,6 +31,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classEntries } from '../lib/core/class-entries.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KIT = path.join(ROOT, 'dist', 'agent-kit');
@@ -154,7 +155,8 @@ function judge(deckPath, pdfPath) {
   }
   const render = spawnSync(process.execPath, [path.join(ROOT, 'dist', 'lattice.js'), deckPath, pdfPath], { encoding: 'utf8' });
   const renderOut = `${render.stdout}\n${render.stderr}`;
-  const classes = [...deck.matchAll(/<!--\s*_class:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
+  // The first word of every spot class the deck sets, comment or record (`@meta{layout=…}`): the shared reader.
+  const classes = classEntries(deck).filter((e) => e.spot).map((e) => e.value.trim().split(/\s+/)[0]).filter(Boolean);
   // The renderer's own count: a slide with no `_class` still counts, and a `_class` quoted in a
   // code fence does not. The `_class` count is the fallback when the render failed.
   const rendered = renderOut.match(/(\d+) slides? →/);

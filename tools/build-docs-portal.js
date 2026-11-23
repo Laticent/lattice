@@ -59,6 +59,7 @@ const {
   FAMILY_MODIFIERS, familyModifiersFor, MODIFIER_GROUPS, excludedModifiers,
 } = require('../lib/components');
 const { blocksFor, readsInsightLabel } = require('../lib/core/authoring-blocks');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 
 const { componentSurfaces, publishedSurfaces } = require('../lib/components/surfaces');
 
@@ -82,9 +83,9 @@ function modifierHosts(name) {
 let usageCache = null;
 let namesCache = null;
 const componentNames = () => (namesCache ||= new Set(loadAll().map((m) => m.name)));
-function classUsage() {
-  if (usageCache) return usageCache;
-  const root = path.join(__dirname, '..');
+function classUsage(corpusRoot) {
+  if (usageCache && !corpusRoot) return usageCache;
+  const root = corpusRoot || path.join(__dirname, '..');
   const files = [];
   const walk = (dir) => {
     for (const e of fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : []) {
@@ -98,13 +99,10 @@ function classUsage() {
   const perComponent = {};
   const global = {};
   for (const f of files.sort()) {
-    let fenced = false;
-    for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
-      if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
-      if (fenced) continue;
-      const mm = line.match(/^\s*<!--\s*_class:\s*([^>]*?)\s*-->\s*$/);
-      if (!mm) continue;
-      let [name, ...mods] = mm[1].split(/\s+/).filter(Boolean);
+    // Every spot class the engine reads, comment or record (`@meta{layout=cards, class=dark}`), fences skipped.
+    for (const entry of classEntries(fs.readFileSync(f, 'utf8'))) {
+      if (!entry.spot) continue;
+      let [name, ...mods] = entry.value.split(/\s+/).filter(Boolean);
       if (!name) continue;
       // A line that opens with a modifier (`_class: dark compact`) is a `content`
       // slide carrying it — the editor reads it the same way.
@@ -116,6 +114,7 @@ function classUsage() {
       }
     }
   }
+  if (corpusRoot) return { perComponent, global };
   usageCache = { perComponent, global };
   return usageCache;
 }
@@ -1484,6 +1483,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  classUsage,
   renderPortalMd,
   renderPortalJson,
   renderGrammarJson,

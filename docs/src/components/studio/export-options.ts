@@ -12,6 +12,7 @@
 // See engineering/decisions/2026-07-04-comments-layer.md (the PDF sticky-note
 // export was the documented follow-on this delivers).
 
+import { scanMetaSource } from '../../../../lib/core/meta-scan.mjs';
 import { getFrontMatter } from '../../lib/front-matter';
 import { listComments, type SlideComment } from './slide-comments';
 
@@ -41,11 +42,18 @@ export type ExportOptions = {
 	steps: boolean;
 };
 
+/** Does any slide of `source` set `build` or `focusSteps`, in a directive comment (`<!-- _build -->`) or a record
+ *  (`<!-- @meta{focus-steps="row 1 | row 2"} -->`)? Read through the shared reader (lib/core/meta-scan.mjs), so a deck
+ *  written in records steps as one written in comments. A directive in a code fence is an example, not a setting. */
+export function slidesStep(source: string): boolean {
+	return scanMetaSource(source).slides.some(({ resolved }) => resolved.has('build') || resolved.has('focusSteps'));
+}
+
 /** Does the deck hold a slide that steps? A `_build` or `_focusSteps` directive, or a `build:` key in the front matter
  *  (only there: a `build: npm run build` line in a slide's code is not a deck-wide build). */
 export function deckSteps(source: string | undefined): boolean {
 	if (!source) return false;
-	if (/<!--\s*_?(?:build|focusSteps)\b/.test(source)) return true;
+	if (slidesStep(source)) return true;
 	const deckWide = getFrontMatter(source, 'build');
 	return deckWide !== undefined && deckWide.trim() !== 'none';
 }

@@ -3,6 +3,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
+import { slidesStep } from '@/components/studio/export-options';
 import { bindPresentMedia, setPresentPlaybackState } from '@/components/studio/present/present-media';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
@@ -549,9 +550,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const curWalk = walk && walk.idx === clamped && walk.slide === cur ? walk : null;
 	// A move made while the shown slide's walk is still being measured (entered by next/prev, render in flight) is
 	// queued and replayed once it is known, or a fast second press would skip a stepping slide's steps.
-	// Only a slide that CAN step waits: one whose source names `_build` / `_focusSteps`, or a deck that builds by default.
+	// Only a slide that CAN step waits: one that sets `build` or `focusSteps` (a comment or a record), or a deck that builds by default.
 	// Every other slide is known to have no steps before it renders, so an ordinary deck never queues a move.
-	const mayStep = React.useMemo(() => /<!--\s*_?(?:build|focusSteps)\b/.test(cur) || /^build\s*:/m.test(frontMatter), [cur, frontMatter]);
+	const mayStep = React.useMemo(() => slidesStep(cur) || /^build\s*:/m.test(frontMatter), [cur, frontMatter]);
 	const walkPending = mayStep && !curWalk && shownStep !== null && typeof shownStep === 'object';
 	// A slide that can step and has not reported its walk yet, however it was entered. Live holds its move until then.
 	const walkUnknown = mayStep && !curWalk;

@@ -3,7 +3,7 @@
 // fallback, the startup-mode precedence rule, and the variant-sync
 // discriminator. DOM-free by design; the React layer only wires these.
 
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
 import {
 	adjacentComponent,
 	type Catalog,
@@ -11,6 +11,7 @@ import {
 	detectComponent,
 	fingerprint,
 	isPristine,
+	loadClassReader,
 	makeHandoff,
 	parsePlaygroundUrl,
 	playgroundQuery,
@@ -33,6 +34,9 @@ const CATALOG: Catalog = {
 		variants: [{ key: 'spotlight', label: 'spotlight', caption: '', sample: '<!-- _class: kpi spotlight -->\n' }],
 	},
 };
+
+// The class reader loads on demand (`loadClassReader`); the Playground awaits it on mount, and so do these tests.
+beforeAll(() => loadClassReader());
 
 describe('fingerprint / isPristine (invariant I3)', () => {
 	test('an empty or whitespace draft is always pristine', () => {
@@ -118,6 +122,11 @@ describe('resolveStartupView — the mode precedence rule (invariant I2)', () =>
 describe('classTokenLine — the variant-sync discriminator', () => {
 	test('extracts and normalizes the first class token line', () => {
 		expect(classTokenLine('<!-- _class:  kpi   spotlight -->\n\nbody')).toBe('kpi spotlight');
+	});
+
+	test('a slide record reads as the comment it replaces (`@meta{layout=kpi, class=spotlight}`)', () => {
+		expect(classTokenLine('<!-- @meta{layout=kpi, class=spotlight} -->\n\nbody')).toBe('kpi spotlight');
+		expect(detectComponent(CATALOG, '<!-- @meta{layout=kpi, class=spotlight} -->')).toEqual({ name: 'kpi', variant: 'spotlight' });
 	});
 
 	test('no class line reads as empty (the detached state)', () => {
@@ -372,3 +381,17 @@ describe('readingSlideIndex — the slide the reader is actually on', () => {
 	});
 });
 
+describe('loadClassReader — a failed load is not cached', () => {
+	test('the next call tries again, and then the picker reads the class', async () => {
+		vi.resetModules();
+		vi.doMock('./first-spot-class.mjs', () => {
+			throw new Error('offline');
+		});
+		const m = await import('./playground-controller');
+		await expect(m.loadClassReader()).rejects.toThrow();
+		expect(m.classTokenLine('<!-- @meta{layout=kpi} -->')).toBe('');
+		vi.doUnmock('./first-spot-class.mjs');
+		await m.loadClassReader();
+		expect(m.classTokenLine('<!-- @meta{layout=kpi} -->')).toBe('kpi');
+	});
+});
