@@ -75,22 +75,33 @@ for _ in $(seq 1 "$BOOT_LIMIT"); do
   sleep 1
 done
 [ "$booted" = 1 ] || infra "the emulator did not finish booting within ${BOOT_LIMIT} s"
-"$ADB" shell pm list packages com.android.chrome | grep -q com.android.chrome || infra "this system image has no Chrome"
+# CHROMIUM_SNAPSHOT=<revision> installs the official Chromium Android build from Google's snapshot bucket (x86_64, so it
+# runs natively here) and probes it instead of the image's own Chrome, which stops at 133 on API 36. Throwaway branch.
+if [ -n "${CHROMIUM_SNAPSHOT:-}" ]; then
+  CHROME_PKG=org.chromium.chrome
+  zip="$RUNNER_TEMP/chromium.zip"
+  curl -sfL --retry 3 -o "$zip" "https://commondatastorage.googleapis.com/chromium-browser-snapshots/AndroidDesktop_x64/$CHROMIUM_SNAPSHOT/chrome-android-desktop.zip" || infra "could not download Chromium snapshot $CHROMIUM_SNAPSHOT"
+  unzip -o -j -q "$zip" chrome-android-desktop/apks/ChromePublic.apk -d "$RUNNER_TEMP" || infra "the snapshot holds no ChromePublic.apk"
+  rm -f "$zip"
+  timeout 600 "$ADB" install -r -g "$RUNNER_TEMP/ChromePublic.apk" || infra "adb could not install ChromePublic.apk"
+fi
+export CHROME_PKG="${CHROME_PKG:-com.android.chrome}"
+"$ADB" shell pm list packages "$CHROME_PKG" | grep -q "$CHROME_PKG" || infra "this system image has no $CHROME_PKG"
 
 # Chrome's first-run screens would sit over the page: skip them with Chrome's own command-line file (needs root).
 "$ADB" root >/dev/null; timeout 60 "$ADB" wait-for-device
 "$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
-"$ADB" shell am set-debug-app --persistent com.android.chrome
+"$ADB" shell am set-debug-app --persistent "$CHROME_PKG"
 # Chrome's own permissions, granted the way a phone in use has them: no notifications prompt, and no camera prompt in
 # front of the chooser (the eighth dispatch: Import asked "Allow Chrome to take pictures and record video?" first).
 for perm in POST_NOTIFICATIONS CAMERA RECORD_AUDIO READ_MEDIA_IMAGES READ_MEDIA_VIDEO; do
-  "$ADB" shell pm grant com.android.chrome "android.permission.$perm" || true
+  "$ADB" shell pm grant "$CHROME_PKG" "android.permission.$perm" || true
 done
-"$ADB" shell am force-stop com.android.chrome
+"$ADB" shell am force-stop "$CHROME_PKG"
 "$ADB" shell settings put global window_animation_scale 0
 "$ADB" shell settings put global transition_animation_scale 0
 "$ADB" shell settings put global animator_duration_scale 0
-echo "Android $("$ADB" shell getprop ro.build.version.release | tr -d '\r'), Chrome $("$ADB" shell dumpsys package com.android.chrome | grep -m1 versionName | tr -d '\r ')"
+echo "Android $("$ADB" shell getprop ro.build.version.release | tr -d '\r'), Chrome $("$ADB" shell dumpsys package "$CHROME_PKG" | grep -m1 versionName | tr -d '\r ')"
 
 status=0
 ADB="$ADB" BASE="http://10.0.2.2:$PORT" OUT="$OUT" node docs/scripts/android/probe.mjs || status=$?

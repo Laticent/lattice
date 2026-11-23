@@ -44,6 +44,7 @@ let fresh = false; // true from an open() until the first element it waited for 
 // node returned by UiTestAutomationBridge"), and reading the file then would return the PREVIOUS screen. A failed dump is
 // "no read": an empty screen, which every wait below polls again.
 const DUMP = '/data/local/tmp/ui.xml';
+const PKG = process.env.CHROME_PKG || 'com.android.chrome'; // org.chromium.chrome for a Chromium snapshot
 function nodes() {
 	adb('shell', 'rm', '-f', DUMP);
 	let said;
@@ -84,7 +85,7 @@ async function until(re, ms, what) {
 		// Chrome's own prompts (notifications, sign-in, a tip) sit over the page and come and go by version: dismiss them.
 		// Only Chrome's native buttons carry a com.android.chrome:id/ resource id; a button inside the page has none, so this
 		// can never tap the Studio's own UI.
-		const prompt = last.out.find((n) => n.id.startsWith('com.android.chrome:id/') && /^(no,? thanks|not now|got it|dismiss|skip)$/i.test(n.text));
+		const prompt = last.out.find((n) => n.id.startsWith(`${PKG}:id/`) && /^(no,? thanks|not now|got it|dismiss|skip)$/i.test(n.text));
 		if (prompt) {
 			console.log(`  (dismissed Chrome's "${prompt.text}" prompt)`);
 			tap(prompt);
@@ -93,8 +94,8 @@ async function until(re, ms, what) {
 		// URL again, at most twice, and say so. It changes no verdict; a crash is in logcat, which run.sh keeps.
 		// Or Chrome is on screen but not on the URL (the seventh dispatch found its New Tab page): after 10 s with no address
 		// bar showing it, send it again too.
-		const chromeUp = last.out.some((n) => n.pkg === 'com.android.chrome');
-		const onUrl = last.out.some((n) => n.id === 'com.android.chrome:id/url_bar' && opened.replace(/^https?:\/\//, '').startsWith(n.text.replace(/\/$/, '')) && n.text);
+		const chromeUp = last.out.some((n) => n.pkg === PKG);
+		const onUrl = last.out.some((n) => n.id === `${PKG}:id/url_bar` && opened.replace(/^https?:\/\//, '').startsWith(n.text.replace(/\/$/, '')) && n.text);
 		if (opened && fresh && reopen < 2 && last.out.length && (!chromeUp || (!onUrl && Date.now() - openedAt > 10_000))) {
 			reopen++;
 			console.log(`  (${chromeUp ? "Chrome's address bar does not show it" : `Chrome is not on screen: ${[...new Set(last.out.map((n) => n.pkg))].join(', ')}`}; opening ${opened} again)`);
@@ -129,7 +130,7 @@ function open(url) {
 	opened = url;
 	openedAt = Date.now();
 	fresh = true;
-	const said = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-n', 'com.android.chrome/com.google.android.apps.chrome.Main', '-d', url);
+	const said = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.VIEW', '-n', `${PKG}/com.google.android.apps.chrome.Main`, '-d', url);
 	console.log(`  open ${url}: ${said.match(/Status: \S+/)?.[0] || said.trim().split('\n').pop()}`);
 }
 
@@ -247,7 +248,7 @@ try {
 	// (Chrome 113) a Chrome that holds the camera offers Camera on every file input, a PDF-only one included (the tenth
 	// dispatch), so the control could never see a camera go missing. Without the permission, Chrome leaves the camera
 	// out and opens Files (the eighth dispatch). That is the absence this probe must be able to report.
-	adb('shell', 'pm', 'revoke', 'com.android.chrome', 'android.permission.CAMERA');
+	adb('shell', 'pm', 'revoke', PKG, 'android.permission.CAMERA');
 	open(`${BASE}/__chooser-control.html`);
 	await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
 	const control = await chooser('control', { keepOpen: true });
@@ -259,7 +260,7 @@ try {
 	step('control: a deck that is not in Downloads is reported missing (so the listing step can fail)', !absent.ok, absent.detail);
 
 	// The camera back, as on a phone in use, so Android's chooser, not its permission prompt, is what the Studio arm reads.
-	adb('shell', 'pm', 'grant', 'com.android.chrome', 'android.permission.CAMERA');
+	adb('shell', 'pm', 'grant', PKG, 'android.permission.CAMERA');
 
 	// THE STUDIO: Library, then Import, the way a person on a phone gets there (Menu, Library, Import files).
 	open(`${BASE}/studio/`);
