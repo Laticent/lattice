@@ -1053,9 +1053,14 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.rough-node > g:first-of-type > path:last-child {
   stroke: var(--accent) !important;
 }
-:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes :is(text, tspan),
-:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel,
-:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel :is(p, span) {
+/* The ink skips an AUTHOR's label. Mermaid writes a `classDef` / `style` color inline on the label
+ * span with `!important` (`<span style="color:#7a271a !important" class="nodeLabel"><p>…`), which wins
+ * over this sheet on the span itself, but the `<p>` inside it carries no color of its own, so a rule
+ * naming that `<p>` repainted the author's ink: theme ink on the author's pale fill, unreadable in dark.
+ * So only a label with no author color is inked, and its children inherit from it. */
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes :is(text, tspan):not([style*="fill"]),
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel:not([style*="color"]),
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel:not([style*="color"]) :is(p, span) {
   fill: var(--text-heading) !important;
   color: var(--text-heading) !important;
 }

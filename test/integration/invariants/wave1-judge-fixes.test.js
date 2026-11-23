@@ -70,6 +70,19 @@ ${ROOMY}
 <!-- _class: split-panel -->
 
 ${FULL}
+
+---
+
+<!-- _class: diagram dark -->
+
+## An author's category, dark
+
+${F}mermaid
+flowchart LR
+  A[Inbound] --> B[Exception]
+  classDef risk fill:#fde2e1,stroke:#b42318,color:#7a271a
+  class B risk
+${F}
 `;
 
 describe('Wave 1 judge fixes — rendered', () => {
@@ -145,6 +158,19 @@ describe('Wave 1 judge fixes — rendered', () => {
       assert.ok(m.inkRatio >= 4.5, `node label ink reads ${m.inkRatio.toFixed(2)}:1 on its fill`);
     });
   }
+
+  test('an author classDef keeps its own label ink in a dark slide (the theme ink skips it)', async () => {
+    const m = await page.evaluate(() => {
+      const sec = document.querySelectorAll('section')[4];
+      const node = sec.querySelector('g.nodes > g.node.risk');
+      const label = node?.querySelector('.nodeLabel');
+      const inner = label?.querySelector('p') || label;
+      return node ? { span: getComputedStyle(label).color, inner: getComputedStyle(inner).color } : null;
+    });
+    assert.ok(m, 'the classed node rendered');
+    assert.equal(m.span, 'rgb(122, 39, 26)', 'the label span keeps the author color');
+    assert.equal(m.inner, 'rgb(122, 39, 26)', 'the text inside the label keeps the author color too');
+  });
 
   const panel = (n) => page.evaluate((n) => {
     const sec = document.querySelectorAll('section')[n - 1];
