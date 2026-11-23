@@ -173,7 +173,7 @@ const INERT = ['docs/scripts/ios-safari/', 'followups.d/', 'changelog.d/'];
  * @returns {{install: boolean, docsInstall: boolean, build: boolean, docs: boolean}}
  */
 function rebuildFor(changed) {
-  const install = changed.some((p) => p === 'package-lock.json' || p === 'package.json');
+  const install = changed.some((p) => p === 'package-lock.json' || p === 'package.json' || p === 'packages/lattice/package.json');
   const docsInstall = install || changed.some((p) => p === 'docs/package-lock.json' || p === 'docs/package.json');
   const build = install || changed.some((p) => !INERT.some((dir) => p.startsWith(dir)));
   return { install, docsInstall, build, docs: build };
