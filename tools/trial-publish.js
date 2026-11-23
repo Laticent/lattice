@@ -118,7 +118,9 @@ function blockers(root = ROOT) {
  * an E404 or ETARGET for a package outside @laticent. A version npmjs has just published can be
  * listed in its metadata minutes before its tarball serves (#3471's trial met `@bramus/specificity`
  * 2.4.4 404ing for over 3 minutes after its release). A miss on an @laticent package is never
- * upstream: the trial published those itself, so it fails at once.
+ * upstream: the trial published those itself, so it fails at once. The install retries only a
+ * 404 that names its URL, because that URL is the signal it waits on; an ETARGET has none, so it
+ * is named here for the error report and still fails at once.
  * @param {string} output  npm's stderr and stdout
  * @returns {string|null} the missing package's name, or null when the failure is not that
  */
