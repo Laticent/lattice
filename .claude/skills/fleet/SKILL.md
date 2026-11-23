@@ -14,7 +14,8 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 **One command center, claimed only when free.** Desks send their reports to the
 session tagged `command-center`, so a second holder silently steals them. Before
-tagging, run `list_sessions(tags:["command-center"])`. A holder counts while its
+tagging, run `list_sessions(mine:true)` and read each row's `tags` (the `tags:`
+filter is refused from inside a session). A holder counts while its
 session is not archived, even if it is yesterday's: a stale holder moves only on
 the owner's word, never by being older. If another such session already holds the
 tag, build the board read-only: tag nothing, retitle nothing, start no desk or
