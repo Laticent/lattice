@@ -165,7 +165,15 @@ async function webClick(urlPrefix, source, ms, what) {
 		try {
 			const c = await cdpSession(urlPrefix);
 			try {
-				const v = (await c.send('Runtime.evaluate', { expression: expr, returnByValue: true })).result?.result?.value;
+				const read = async () => (await c.send('Runtime.evaluate', { expression: expr, returnByValue: true })).result?.result?.value;
+				let v = await read();
+				// Still, like tapWhenStill: a sheet sliding in moves its rows, and a press mid-slide lands on nothing.
+				for (let i = 0; v?.name && i < 20; i++) {
+					await sleep(250);
+					const w = await read();
+					if (w?.name && Math.abs(w.x - v.x) < 1 && Math.abs(w.y - v.y) < 1) break;
+					v = w;
+				}
 				if (v?.name) {
 					for (const type of ['mousePressed', 'mouseReleased']) await c.send('Input.dispatchMouseEvent', { type, x: v.x, y: v.y, button: 'left', clickCount: 1, pointerType: 'mouse' });
 					return v.name;
@@ -334,19 +342,19 @@ try {
 			console.log('  (the Studio showed its low-device notice: Continue anyway)');
 			await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
 		}
-		// The Studio paints an instant shell before React hydrates, and a press on the shell's Menu does nothing: press
-		// Menu again until the Library row shows, on one deadline.
+		// The Studio paints an instant shell before React hydrates, and a press on the shell's Menu does nothing; a press
+		// on a sheet still sliding in lands on nothing too. Walk Menu, Library, Import again until Import opens, on one deadline.
 		for (const t0 = Date.now(); ; ) {
 			try {
-				await webClick(S, '^Library', 4_000, 'the Library row');
+				await webClick(S, '^Library', 6_000, 'the Library row');
+				console.log(`  clicked "${await webClick(S, '^Import files', 15_000, "the Library's Import button")}"`);
 				break;
 			} catch (e) {
-				if (Date.now() - t0 > 90_000) throw e;
-				console.log('  (no Library row yet: pressing Menu again)');
+				if (Date.now() - t0 > 150_000) throw e;
+				console.log(`  (${String(e.message).slice(0, 80)}: walking Menu again)`);
 				await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
 			}
 		}
-		console.log(`  clicked "${await webClick(S, '^Import files', 30_000, "the Library's Import button")}"`);
 	} else {
 	const first = await until(/^(Menu|Continue anyway)$/, 150_000, "the Studio's Menu button");
 	if (/Continue anyway/.test(label(first))) {
