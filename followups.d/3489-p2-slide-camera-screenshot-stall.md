@@ -13,10 +13,12 @@ source: https://github.com/Laticent/lattice/pull/3489
 
 why now   — it ejected #3489 (a one-note docs change) from the merge queue: run 45233518558, job 137899246981,
             integration shard 3/4. "the slide camera matches Chrome's own screenshot: examples/print-mode.md" failed at
-            193 s with `Page.captureScreenshot timed out` (Puppeteer's 180 s protocolTimeout), from
-            `CdpElementHandle.screenshot` at test/integration/export/slide-camera.test.js:64. The queue runs just before
+            193 s with `Page.captureScreenshot timed out`, from `CdpElementHandle.screenshot`. The test is declared at
+            test/integration/export/slide-camera.test.js:64; the call is its scale-1 (line 92) or scale-2 (line 101)
+            `h.screenshot`, and the stack does not say which. Its `puppeteer.launch` (line 77) sets no
+            `protocolTimeout`, so Puppeteer's 180 s default applied. The queue runs just before
             and after (#3479, #3486, #3481) passed the same shard. No issue, follow-up or claim named it.
-where     — the oracle side of the test, `h.screenshot({ type: 'png' })` after `scrollIntoView`. It is Chrome's own
+where     — the oracle side of the test, `h.screenshot({ type: 'png' })` after `scrollIntoView` (lines 92 and 101). It is Chrome's own
             capture, not the slide camera under test.
 measured  — 8.3 s alone; 12 of 12 green running four copies at once with four CPU-burning loops (13–14 s each). It is
             a stall, not slowness: a passing run is under 15 s against the 180 s that timed out.

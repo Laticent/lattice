@@ -35,9 +35,11 @@ describe('.claude/workflows meta', () => {
       // `node --check`, which leaned on Node 22's tolerant module detection; Node 24 parses a file with
       // `export` as an ES module, where a top-level `return` is illegal, and failed a script that runs.
       // `vm.Script` only compiles: nothing in the script runs. A syntax regression throws here with the
-      // parser's message and the file name.
+      // parser's message and the file name. STRICT on purpose: this repo does not pin whether the harness
+      // runs a script strict or sloppy, and a strict parse is at least as strict as either, so a script that
+      // passes here cannot fail the harness on a strict-only error (`with`, a legacy octal, duplicate params).
       const body = fs.readFileSync(full, 'utf8').replace(/^export\s+(?=const\s)/gm, '');
-      assert.doesNotThrow(() => new vm.Script(`(async function () {\n${body}\n})`, { filename: full }));
+      assert.doesNotThrow(() => new vm.Script(`(async function () {\n'use strict';\n${body}\n})`, { filename: full }));
     });
 
     test(`${file} declares a positive maxAgents cap`, () => {
