@@ -12,9 +12,19 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 # Fleet board
 
-Tag this session `command-center` and `ui:pinned` (`set_session_tags`) the first
-time it builds a board: desks find it by the first tag, and the second pins it in
-the owner's sidebar. On every `/fleet`, also set the title (`set_session_title`) to
+**One command center, claimed only when free.** Desks send their reports to the
+session tagged `command-center`, so a second holder silently steals them. Before
+tagging, run `list_sessions(tags:["command-center"])`. If another live session
+already holds the tag, build the board read-only: tag nothing, retitle nothing,
+start no desk or scheduled task, and say which session is the command center, as a
+link. Only the owner's own "make this the command center", typed in this session,
+moves the role; then untag the old holder (`set_session_tags` remove
+`command-center` and `ui:pinned`) in the same step. When the tag is free, tag this
+session `command-center` and `ui:pinned` (`set_session_tags`) the first time it
+builds a board: desks find it by the first tag, and the second pins it in the
+owner's sidebar. As the command center, also check at every usage checkpoint that
+no other live session holds the tag, and alert the owner if one does. On every
+`/fleet` this session holds the role for, also set the title (`set_session_title`) to
 `🛰️ Command Center · YYYY-MM-DD`, today's date in US Eastern time
 (`TZ=America/New_York date +%F`), so the owner can tell today's command center from
 yesterday's at a glance. Skip the call when the title already reads that.

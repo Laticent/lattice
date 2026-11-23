@@ -2803,7 +2803,14 @@ The owner's `go` on the board's numbered action archives exactly the sessions th
 passed. The audit is read-only and can run as one subagent; it never archives.
 
 **Finding each other.** The command center tags itself `command-center`; a desk
-reports to the newest live session with that tag. Before starting, a desk checks
+reports to the one live session with that tag. If two or more live sessions hold
+it, the desk reports to none of them: it stops and asks the owner which one is the
+command center, because a second holder would otherwise receive desk reports,
+relays and merge confirmations meant for the first. A session claims the tag only
+when no other live session holds it, or on the owner's own word in that session,
+and it untags the old holder in the same step (`/fleet`, `.claude/skills/fleet/SKILL.md`).
+Born 2026-11-23, when a `/fleet table` typed in a worker session made it a second
+command center. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and
 tells the owner, so there is at most one desk per lane. A session answers a desk's
 question with one `send_message` back to that desk.
