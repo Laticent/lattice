@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // A FRESH GENERATE AFTER A REOPEN MUST NOT OVERWRITE THE REOPENED RECORD.
 //
@@ -95,7 +95,7 @@ test('@smoke a generate after reopening a component does not overwrite the reope
 	await retype(page, 'Component skeleton', '<!-- _class: quarter-callout -->\n\n## Revenue is up 24%\n\nGrowth.');
 	await retype(page, 'Component CSS', 'section.quarter-callout { display: grid; }\nsection.quarter-callout h2 { color: var(--accent); }');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*quarter-callout/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*quarter-callout/)).toBeVisible();
 
 	// Reopen it from the Library — this is what sets `compEditingId`.
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
@@ -113,7 +113,7 @@ test('@smoke a generate after reopening a component does not overwrite the reope
 	expect(model.chatCalls(), 'the mocked endpoint should have been asked at least once').toBeGreaterThan(0);
 
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved .*pricing-trio/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*pricing-trio/)).toBeVisible();
 
 	// THE ASSERTION. Both records exist: the generate created a NEW component and left the
 	// one that was open for editing alone. With `compEditingId` still set, the save would
@@ -165,7 +165,7 @@ test('@smoke Save clicked in the same tick a component generate lands still save
 	await expect.poll(() => page.evaluate(() => (window as unknown as { __sameTickClick?: string }).__sameTickClick), { timeout: 30_000 }).toBeTruthy();
 	const clicked = await page.evaluate(() => (window as unknown as { __sameTickClick?: string }).__sameTickClick);
 	// A disabled button in that tick is a fair answer only if the page then says why; an enabled one must save.
-	if (clicked === 'clicked') await expect(page.getByText(/Saved .*pricing-trio/)).toBeVisible();
+	if (clicked === 'clicked') await expect(liveToast(page, /Saved .*pricing-trio/)).toBeVisible();
 	else expect(clicked, 'the Save button should exist and be enabled once the generated draft is on screen').toBe('clicked');
 
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
