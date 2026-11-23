@@ -444,7 +444,7 @@ const EDIT_BURST = 12;
 // browser's lint core keeps its own reader without it, by the owner's decision of 2026-11-06). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
 async function studioBoundaryReaders() {
   try {
-    const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-markdown')]);
+    const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-languages/markdown')]);
     // The memo's deriver (absent in a tree that predates it).
     const dm = await import('../../lib/core/deck-model.mjs');
     if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);

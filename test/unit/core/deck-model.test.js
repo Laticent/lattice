@@ -1,5 +1,5 @@
 /**
- * The deck model (lib/core/deck-model.mjs, @laticent/segno-markdown) held to markdown-it, the parser it
+ * The deck model (lib/core/deck-model.mjs, @laticent/segno-languages/markdown) held to markdown-it, the parser it
  * replaces as the source of slide boundaries (Segno deck pipeline P2,
  * engineering/decisions/2026-10-22-segno-deck-pipeline.md §Acceptance).
  *
@@ -24,7 +24,7 @@ const { execSync } = require('node:child_process');
 
 const { boundaryParser: md, FRONT_MATTER, normalizeSource, setBoundaryPluginsOff } = require('../../../lib/core/boundary-parser.js');
 const { bodyModel, deckModel, deckParser, updateDeckModel } = require('../../../lib/core/deck-model.mjs');
-const { STRIDE } = require('@laticent/segno-markdown');
+const { STRIDE } = require('@laticent/segno-languages/markdown');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -142,7 +142,7 @@ test('every plugin block rule keeps the promise its triggers make', () => {
 	// The model tries a plugin rule only on lines that open with one of its manifest triggers; markdown-it tries
 	// every rule on every line. A rule that can open on another character would make the two disagree, so the
 	// same parse without dispatch must give the same tokens on the corpus and the fuzz.
-	const { BlockParser } = require('@laticent/segno-markdown');
+	const { BlockParser } = require('@laticent/segno-languages/markdown');
 	const { BLOCK_TRIGGERS, installPluginBlocks } = require('../../../lib/plugins/blocks.generated.mjs');
 	const rules = [];
 	installPluginBlocks({ block: { ruler: { before: (before, name, rule) => rules.push({ name, rule, before }) } } });
@@ -222,7 +222,7 @@ test('math decks splice past a `$$` block that holds no memo, and agree with a p
 		seed = (seed * 1103515245 + 12345) & 0x7fffffff;
 		return seed % n;
 	};
-	const { deckModelStats } = await import('@laticent/segno-markdown');
+	const { deckModelStats } = await import('@laticent/segno-languages/markdown');
 	const before = deckModelStats.incremental;
 	for (let deck = 0; deck < 60; deck++) {
 		let src = '';

@@ -530,6 +530,13 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
+/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
+ *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
+ *  and a miss would preview a wrong slide. */
+function recordHasWord(text: string, word: string): boolean {
+	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
+}
+
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
 // The deck-context render exists to get three things right, and EVERY ONE of them requires the
 // deck to actually carry deck-scoped state:
@@ -608,7 +615,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
 	},
 
 	{
@@ -625,7 +633,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'ambiguous divider count',
 		why: 'a `_class: divider` inside code makes the raw and code-stripped counts disagree, so a supplied section could paint the wrong rail',
 		probes: [],
-		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
+		test: (deck) => (recordHasWord(deck, 'divider') || /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck)) && deckSectionFor(deck, 0) === undefined,
 	},
 	{
 		// An agenda with a heading and no list fills itself from EVERY divider in the deck, and a
@@ -639,7 +647,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		// code sample does not read as the agenda's list (it did, and the preview showed an empty agenda).
 		test: (deck) =>
 			deck.split(/^\s*---\s*$/m).some((chunk) => {
-				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
+				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk) && !recordHasWord(chunk, 'agenda')) return false;
 				const prose = withoutComments(chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, ''));
 				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
 			}),
@@ -665,6 +673,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
+			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
 	},
@@ -1278,7 +1287,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`
 			// keeps the figure's box (no reflow / no Fit-math corruption on reveal, unlike display:none). The
 			// class is added ONLY by the live parent host — never by engine output — so it is inert in export.
-			'.anima-prehide{visibility:hidden}'
+			'.anima-prehide{visibility:hidden}' +
+			// PREVIEW-ONLY too: in the editing preview (`data-lattice-live-layout`), a logo wall the runtime has not stamped
+			// yet is held back exactly as a `measuring` one is (logo-wall.styles.css). The stamp comes when the runtime's pass
+			// runs, which can be a frame after the slide's markup lands, so the unpacked grid painted once first
+			// (logo-wall-first-visit.spec.ts: 1 run in 48 at eight workers). Only the lists the stamp takes (the stage's first
+			// child, holding marks: lib/transformers/logo-marks.js), so a wall the stamp does not take is never hidden. And a
+			// wall the stamp never REACHES (the runtime failed to load, or an earlier transform threw) is not stranded: past
+			// the measure kit's cap (4 s, measure-kit.js DEFAULT_CAP_MS) plus a margin, the animation shows it as the grid,
+			// which is what the preview showed before. A stamp removes the match, and the animation with it.
+			'@keyframes lat-logo-unhold{to{visibility:visible}}' +
+			'html[data-lattice-live-layout] section.logo-wall>.cell-stage>ul:first-child:not([data-logo-wall]):has(>li>.logo-mark){visibility:hidden;animation:lat-logo-unhold 0s 4.5s forwards}'
 		);
 	}
 

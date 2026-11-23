@@ -51,6 +51,7 @@
  * Exit 1 on any disagreement; skips loudly with no Chromium.
  */
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { resolveChrome } = require('./lib/resolve-chrome');
 const ROOT = process.cwd();
@@ -177,8 +178,9 @@ function familyReflowingComponents() {
  */
 function classTokens(slide) {
   const out = new Set();
-  for (const m of slide.matchAll(/<!--\s*_?class:([^-]*(?:-(?!->)[^-]*)*)-->/g)) {
-    for (const t of m[1].trim().split(/\s+/)) if (t) out.add(t);
+  // Every class the slide sets, a comment or a record (`@meta{layout=…}`): the shared reader.
+  for (const e of classEntries(slide)) {
+    for (const t of e.value.trim().split(/\s+/)) if (t) out.add(t);
   }
   return out;
 }

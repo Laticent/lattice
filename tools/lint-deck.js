@@ -109,7 +109,10 @@ function narrationText(source) {
     // names a pane layout (`columns ratio-60-40`) are layout, not speech; other comments stay, because
     // speaker notes are narration.
     .replace(/<!--\s*_?panes?:[^<>]*-->/g, ' ')
-    .replace(/<!--\s*_class\s*:[^<>]*\b(?:columns|rows)\b[^<>]*-->/g, ' ');
+    .replace(/<!--\s*_class\s*:[^<>]*\b(?:columns|rows)\b[^<>]*-->/g, ' ')
+    // The same in a slide record (`<!-- @meta{pane=list} -->`, `<!-- @meta{layout=columns} -->`), so a deck reads the same
+    // in either spelling; a record's other text stays, as a comment's does.
+    .replace(/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:panes?\s*=|columns|rows)\b(?:(?!-->)[\s\S])*?-->/g, ' ');
 }
 
 function expandArgs(patterns) {

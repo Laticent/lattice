@@ -1,4 +1,10 @@
-# @laticent/segno-markdown
+# @laticent/segno-languages
+
+Standard languages for Lattice decks, one subpath export each. The folder keeps its old name,
+`segno-markdown`. Markdown is the first language, at `@laticent/segno-languages/markdown`; the
+subpath leaves room for formulas and Djot (owner's ruling, 2026-11-23).
+
+## `./markdown`
 
 **The deck model.** One parse of a Markdown deck that every reader of its structure shares: where the slides
 are, where each slide boundary falls, the front matter, every HTML-comment directive, every fence, every
@@ -15,8 +21,16 @@ It is stages S0 and S1 of the Segno deck pipeline
   set (D3): the corpus, a fuzz over CommonMark's rule surface and the 652 CommonMark 0.31.2 spec examples
   agree with markdown-it on every token.
 
+## Install
+
+```sh
+npm i @laticent/segno-markdown
+```
+
+## Use
+
 ```js
-import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-markdown';
+import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-languages/markdown';
 
 const parser = new BlockParser(); // commonmark + html + table, as Lattice configures markdown-it
 let model = deckModel('# One\n\n---\n\n# Two\n', { parser });
@@ -60,4 +74,7 @@ containers. The tests hold each rule to a hostile ladder, about 10x time for 10x
 fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`, and
 `node --test test/unit/core/deck-model.test.js` for the differential against markdown-it.
 
-Ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin).
+## License
+
+AGPL-3.0-only. Its parsing rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
+Kocharin); its license text ships beside this file as `LICENSE.markdown-it.md`.

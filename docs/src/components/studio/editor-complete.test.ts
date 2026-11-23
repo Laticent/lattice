@@ -767,6 +767,12 @@ describe('altFromAssetName / inCollageSlide', () => {
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
 	});
+	it('reads a slide record the same way (`@meta{layout=collage}`)', () => {
+		const lines = ['---', 'theme: x', '---', '<!-- @meta{layout=collage} -->', '', '- a', '---', '- b'];
+		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
+		expect(at(6)).toBe(true);
+		expect(at(8)).toBe(false);
+	});
 });
 
 describe('frontMatterKeyAt — the hover over a front-matter key', () => {

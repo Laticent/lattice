@@ -5,13 +5,14 @@
 import { describe, expect, it } from 'vitest';
 import recorded from '../../playground/gemini-voices.recorded.json' with { type: 'json' };
 import { listGeminiVoiceCatalog } from '../../playground/voice-model.js';
+import { fakeKey } from '../../test/fake-key';
 import { baseLanguage, defaultGeminiLanguage, type GeminiVoiceRecord, geminiLanguages, geminiVoicesFor, groupVoices } from './tts-voice-catalog';
 
 const MODEL = 'gemini-3.8-flash-lite-tts';
 
 async function catalog() {
 	const fetchImpl = async (url: string) => (url.includes('/models?') ? Response.json({ models: [{ name: `models/${MODEL}` }] }) : Response.json({ voices: recorded.voices }));
-	return listGeminiVoiceCatalog('AIzaTestKey000000000000000', fetchImpl as unknown as typeof fetch);
+	return listGeminiVoiceCatalog(fakeKey('AIza', 'TestKey000000000000000'), fetchImpl as unknown as typeof fetch);
 }
 
 describe('Gemini locale voices', () => {

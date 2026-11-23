@@ -359,6 +359,9 @@ and emphasis drivers it would pair a generated tokenizer with a small hand-writt
   `@laticent/segno`. Segno keeps its compile-time linear promise; the dialect drivers carry
   their own stated bounds. *Alternative:* inside `@laticent/segno`, which is one package to
   publish but mixes proven grammars with hand-written drivers under one promise.
+  *Set on 2026-11-23:* the package is `@laticent/segno-languages`, named for the languages to come (formulas,
+  Djot), with Markdown at its `./markdown` subpath. The folder stays `docs/src/lib/segno-markdown/`
+  (`engineering/decisions/2026-11-22-segno-completion-plan.md`).
 
 ## G6 landed (2026-10-26)
 
@@ -444,7 +447,7 @@ reason the rest is the second pass and not the parser.
 
 ## P2 landed (2026-11-05)
 
-`deckModel(source)` exists: `@laticent/segno-markdown` (docs/src/lib/segno-markdown, the sibling package D4
+`deckModel(source)` exists: `@laticent/segno-languages/markdown` (docs/src/lib/segno-markdown, the sibling package D4
 chose) holds S0 and S1, and `lib/core/deck-model.mjs` configures it as the engine configures markdown-it.
 
 **What S1 is.** markdown-it 14.1.1's eleven block rules (with `table`), ported rule for rule onto a lean state

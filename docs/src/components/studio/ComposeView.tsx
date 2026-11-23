@@ -989,7 +989,8 @@ class SlideView {
 			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${activeReg === key ? ' cs-fmt-on' : ''}`;
 			b.textContent = meta.glyph;
 			b.title = `${meta.label} — apply to this block`;
-			b.setAttribute('aria-label', meta.label);
+			// A glyph with a letter or digit in it (H1, H2, ·e·, ·s·) leads the name, so a speech user can say what they see (WCAG 2.5.3).
+			b.setAttribute('aria-label', /[A-Za-z0-9]/.test(meta.glyph) ? `${meta.glyph} ${meta.label.toLowerCase()}` : meta.label);
 			b.setAttribute('aria-pressed', activeReg === key ? 'true' : 'false');
 			b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 			b.addEventListener('click', (e) => {

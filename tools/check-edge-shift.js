@@ -55,6 +55,9 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+/** An own-line class setting, a `_class` comment or a record (`@meta{layout=…}`), read through the shared reader. */
+const setsClass = (line) => classEntries(line).length > 0;
 const path = require('node:path');
 const {
   SIZE_ALIAS, FAMILIES, findManifest, renderProbe,
@@ -129,7 +132,7 @@ function componentNames() {
 function bodyOf(name) {
   const m = findManifest(name);
   const text = m.skeleton || m.sample;
-  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+  return text.split('\n').filter((l) => !setsClass(l)).join('\n').trim();
 }
 
 /** The variant's own sample when the manifest has one, else the component skeleton. */
@@ -137,7 +140,7 @@ function variantBody(name, variant) {
   const m = findManifest(name);
   const doc = m.variantDocs?.[variant];
   const text = doc?.sample ? doc.sample : (m.skeleton || m.sample);
-  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+  return text.split('\n').filter((l) => !setsClass(l)).join('\n').trim();
 }
 
 // Ordinary slides carrying each state stamp and each canvas, so the corner marks that anchor
