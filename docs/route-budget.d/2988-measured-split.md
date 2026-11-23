@@ -1,5 +1,5 @@
 studio: +1400
-playground: +480
+playground: +620
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
@@ -40,3 +40,7 @@ on playground and +333 on home. Declared +1340 for gzip variation.
 The checker's fix for the Studio preview (a chart slide whose key insight can move is measured too, split-gate.js
 `codaMayMove`) adds 61 B to single-slide-render: CI on 44ee7a8 measured +1368 B gz on studio (+406 venue.ts, +368
 progress-rail, +262 single-slide-render, +166 StudioIsland, +104 front-matter-fence) and +394 on home. Declared +1400.
+The Playground's gate fix (2026-11-23: measure only a render the split changed, the Studio's gate, so a 16:9 deck is
+never measured) reads the split's own answer and asks the engine whether a coda may move, and its fallback draws a
+render again unmeasured when the measured split does not load. CI on d0f5a3d measured +521 B gz on playground (+350
+PlaygroundIsland, +104 front-matter-fence, +47 fit-pack-wanted); the fallback adds a few bytes more. Declared +620.
