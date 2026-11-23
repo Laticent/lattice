@@ -15,8 +15,8 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
-import { FIT_PROBES_GLOBAL, fitProbesUrl } from '../../../lib/core/fit-probes.mjs';
 import resolveGuards from '../../../lib/core/resolve-guards.js';
+import { FIT_PROBES_GLOBAL, fitProbesUrl } from './fit-probes.mjs';
 
 const { fitPacks } = resolveGuards;
 
@@ -47,7 +47,7 @@ export interface MeasuredSplitInput {
 	split: (html: string, plan: Record<string, unknown> | 'whole' | null) => SplitResult;
 	/** The full frame document for a document string, built as the host builds its own frame. */
 	buildDoc: (html: string) => string;
-	/** The runtime URL the host's frame loads: the fit probes file sits beside it (lib/core/fit-probes.mjs). */
+	/** The runtime URL the host's frame loads: the fit probes file sits beside it (docs/src/lib/fit-probes.mjs). */
 	runtimeUrl: string | undefined;
 	/** The script nonce `buildDoc` seals its document with, if it does (the Studio preview). */
 	scriptNonce?: string;
@@ -76,7 +76,7 @@ export interface MeasuredSplitOutput extends SplitResult {
 	fontsLoaded: boolean;
 }
 
-// The probes the frame runs: `lattice-fit-probes.js` (lib/core/fit-probes.mjs), named by a `src`
+// The probes the frame runs: `lattice-fit-probes.js` (docs/src/lib/fit-probes.mjs), named by a `src`
 // tag beside the frame agents the host's own document already loads. A preview frame inherits the
 // site's policy, which allows no eval, so nothing here evaluates a string: the file defines the
 // probes in the frame's own realm, and this module calls them there. Its `slides` is the preview's

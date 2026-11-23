@@ -1,4 +1,4 @@
-// lib/core/fit-probes.mjs — the fit probes a live measuring frame runs, as ONE same-origin file.
+// docs/src/lib/fit-probes.mjs — the fit probes a live measuring frame runs, as ONE same-origin file.
 //
 // WHY A FILE. The Studio and the Playground measure a non-16:9 deck in a hidden, same-origin
 // `srcdoc` frame (docs/src/lib/measured-split.ts), and a srcdoc frame inherits its page's
@@ -8,7 +8,7 @@
 // the policy both throw, every measurement fell back to the structural split, and the CSP build
 // check dropped the policy from every page that can load the measuring chunk. So the probes now
 // live in one generated file, `lattice-fit-probes.js`, staged beside `lattice-frame-agents.js`
-// (docs/scripts/sync-playground-assets.mjs). The measuring frame names it with a `src` tag, the
+// (docs/scripts/sync-playground-assets.mjs). It lives beside its one user, the docs site, not in lib/core. The measuring frame names it with a `src` tag, the
 // file sets `window[FIT_PROBES_GLOBAL]` in the frame's own realm, and the host calls those
 // functions directly: no string is evaluated anywhere. The CLI keeps its own path (lattice.js
 // `page.evaluate`), which no page policy governs.
@@ -63,7 +63,7 @@ export function fitProbesSource({ fitMeasure, overflowProbe, tableReflowFit }) {
 	};
 	for (const [k, v] of Object.entries(parts)) if (typeof v !== 'string' || !v) throw new Error(`fit-probes: no source for ${k}`);
 	return (
-		'/* Lattice fit probes (lib/core/fit-probes.mjs). Generated; do not edit. */\n' +
+		'/* Lattice fit probes (docs/src/lib/fit-probes.mjs). Generated; do not edit. */\n' +
 		'(function(){var P={\n' +
 		Object.entries(parts)
 			.map(([k, v]) => JSON.stringify(k) + ':(' + v + ')')

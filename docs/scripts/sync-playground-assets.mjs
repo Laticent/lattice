@@ -337,9 +337,9 @@ generated.push(['styles/floor.css', floorCss]);
 const { FRAME_AGENTS_FILE, frameAgentsSource } = await import('../../lib/core/frame-agents.mjs');
 generated.push([FRAME_AGENTS_FILE, frameAgentsSource()]);
 // …and the fit probes the live measured split runs in its hidden frame, for the same reason: the
-// inherited policy allows no eval, so the probes reach the frame as a file (lib/core/fit-probes.mjs).
+// inherited policy allows no eval, so the probes reach the frame as a file (docs/src/lib/fit-probes.mjs).
 {
-  const { FIT_PROBES_FILE, fitProbesSource } = await import('../../lib/core/fit-probes.mjs');
+  const { FIT_PROBES_FILE, fitProbesSource } = await import('../src/lib/fit-probes.mjs');
   const req = createRequire(import.meta.url);
   generated.push([
     FIT_PROBES_FILE,

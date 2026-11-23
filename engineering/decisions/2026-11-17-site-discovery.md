@@ -162,7 +162,7 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     which inherits this policy. The measure first reached that frame as source text run with
     `contentWindow.eval`, and the verdict built its two probes with `Function(…)`: under the policy
     both throw, and the CSP check left every page that can load the measuring chunk without a policy
-    (78 of 199). `lib/core/fit-probes.mjs` now gives the asset sync `lattice-fit-probes.js`, written
+    (78 of 199). `docs/src/lib/fit-probes.mjs` now gives the asset sync `lattice-fit-probes.js`, written
     beside the runtime; the measuring document names it with a `src` tag, it sets one frozen global in
     the frame's realm, and the host calls those functions directly. `fitVerdict` takes the probes as
     functions, so no live surface evaluates a string; the CLI builds them inside its own
