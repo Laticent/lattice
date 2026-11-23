@@ -14,7 +14,7 @@
 //   3. FUZZY — Fuse, for the single-token misspelling the other two miss
 //      ("tabel", "radr").
 import Fuse from 'fuse.js';
-import { buildIntentIndex, confidenceFor, type IntentIndex, looksLikeIntent, scoreIntent } from './intent-search';
+import { buildIntentIndex, confidenceFor, type IntentIndex, scoreIntent } from './intent-search';
 
 export type CatalogItem = {
 	name: string;
@@ -26,6 +26,9 @@ export type CatalogItem = {
 	familyLabel: string;
 	description: string;
 	tags: string[];
+	/** The everyday words an author types to find it ("grades", "movie", "data"), from the manifest's
+	 *  `searchTerms`. Indexed by the meaning pass at tag weight; optional so older catalogs still load. */
+	searchTerms?: string[];
 	/** The component's variant tokens (`insight-key`, `dark`, …) — indexed so a variant
 	 *  term finds its parent component in the add-slide gallery. Optional: surfaces that
 	 *  don't care about variants (the playground picker) simply omit it. */
@@ -148,6 +151,34 @@ function isOneDeletion(name: string, q: string): boolean {
 	return name.slice(i + 1) === q.slice(i);
 }
 
+/** Edits between two short strings, a swapped neighbor pair counting as one (optimal string alignment). Only ever
+ *  called on a query and a component name, both capped well under 40 characters, so the table stays tiny. */
+function slips(a: string, b: string): number {
+	const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+	for (let i = 1; i <= a.length; i++)
+		for (let j = 1; j <= b.length; j++) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+			d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+			if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+		}
+	return d[a.length][b.length];
+}
+
+/** The meaning pass's hits as RankedHits, first occurrence of a name winning (see the note in `searchHits`). */
+function intentHits(items: CatalogItem[], index: SearchIndex, q: string): RankedHit[] {
+	const hits = scoreIntent(index.intent, q);
+	if (!hits.length) return [];
+	const byName = new Map<string, CatalogItem>();
+	for (const it of items) if (!byName.has(it.name)) byName.set(it.name, it);
+	const best = hits[0].score;
+	const out: RankedHit[] = [];
+	for (const h of hits) {
+		const item = byName.get(h.name);
+		if (item) out.push({ item, via: 'intent', match: confidenceFor(h, best) });
+	}
+	return out;
+}
+
 export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, opts: SearchOptions = {}): RankedHit[] {
 	// A NAME ONE LETTER SHORT ranks FIRST, but only when no name contains the query outright, and
 	// the description hits still follow it: `tile` puts `title` first and keeps `stats` ("a row of
@@ -161,13 +192,21 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 	const shortHits = short.map((item) => ({ item, via: 'fuzzy' as const, match: null }));
 	const sub = items.filter((it) => hay(it).includes(q) && !short.includes(it));
 	if (sub.length) {
-		return [
-			...shortHits,
-			...sub
-				.map((it) => ({ it, s: subScore(it, q) }))
-				.sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name))
-				.map((x) => ({ item: x.it, via: 'substring' as const, match: null })),
-		];
+		const ranked = sub.map((it) => ({ it, s: subScore(it, q) })).sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name));
+		const subHits = ranked.map((x) => ({ item: x.it, via: 'substring' as const, match: null }));
+		// The exact text wins outright only when it is in a NAME (subScore 0-2: exact, prefix, inside the name). Text found
+		// only in a tag, a look, a category or the description is weaker evidence than meaning (owner's iPhone, 2026-11-23),
+		// so the meaning pass ranks first and the remaining substring hits follow it. On tools/intent-bakeoff's everyday set
+		// this took the ladder from 66.7% to 73.3% top-1. Narrowing "name" to exact-or-prefix was measured too: no everyday
+		// gain, and misspelled names fell from 99.4% to 98.3%, so a word inside a name ("chart" in `flowchart`) still wins.
+		if (ranked[0].s > 2 && shortHits.length === 0 && opts.intent !== false) {
+			const meaning = intentHits(items, index, q);
+			if (meaning.length) {
+				const seen = new Set(meaning.map((h) => h.item.name));
+				return [...meaning, ...subHits.filter((h) => !seen.has(h.item.name))];
+			}
+		}
+		return [...shortHits, ...subHits];
 	}
 	if (shortHits.length) return shortHits;
 
@@ -193,6 +232,24 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 	const STRONG_FUZZY = 0.5;
 	const fuzzyHits = q.length <= NAME_LENGTH_CEILING ? index.fuse.search(q) : null;
 	const strong = (fuzzyHits ?? []).filter((r) => (r.score ?? 1) <= STRONG_FUZZY);
+	// ...but only a misspelled NAME wins outright (owner's iPhone, 2026-11-23). A confident fuzzy hit on any other
+	// field is a spelling neighbor, not a meaning: "science" found the name `scene`, "grade" found compare-code by a
+	// field that merely spells close to it, "data" found policy-recommendation. When the best fuzzy hit is not within
+	// two edits of a component name (one for a short query), the meaning pass answers first and spelling is the
+	// fallback. The misspelled-name corpus is the guard: it must not move (tools/intent-bakeoff).
+	// A typo keeps a word's length within one letter and counts a swapped pair as one slip: "tabel" is `table`,
+	// "cards gid" is `cards-grid`, but "science" is two letters longer than `scene` and is not a misspelling of it.
+	const isNameTypo = (name: string) => {
+		const n = name.replace(/-/g, ' ');
+		if (n.startsWith(spaced) || spaced.startsWith(n)) return true;
+		if (Math.abs(n.length - spaced.length) > 1) return false;
+		return slips(spaced, n) <= (spaced.length <= 5 ? 1 : 2);
+	};
+	if (strong.length && isNameTypo(strong[0].item.name)) return strong.map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
+	if (strong.length && opts.intent !== false) {
+		const meaning = intentHits(items, index, q);
+		if (meaning.length) return meaning;
+	}
 	if (strong.length) return strong.map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
 
 	const intentPass = (): RankedHit[] => {
@@ -216,9 +273,15 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 	};
 	const fuzzyPass = (): RankedHit[] => (fuzzyHits ?? index.fuse.search(q)).map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
 
-	const [first, second] = looksLikeIntent(q) ? [intentPass, fuzzyPass] : [fuzzyPass, intentPass];
-	const hit = first();
-	return hit.length ? hit : second();
+	// Meaning first, spelling as the fallback, for every query. A lone word used to try spelling first so a misspelled
+	// name would win; that case is caught above now (a CONFIDENT fuzzy hit on a name), and what reached this line was a
+	// weak spelling guess beating a real meaning match: "grade" -> compare-code, "movie" -> line, "history" ->
+	// histogram while the meaning pass held verdict-grid, video and timeline-list (owner's iPhone, 2026-11-23).
+	// History: a lone token used to go to spelling first (`looksLikeIntent`, deleted) because meaning-first had cost
+	// misspelled names ~14 points (82.1% vs 96.0% top-1, n=520, measured before the `table` rename). The confident
+	// name-typo check above now catches those first; tools/intent-bakeoff's 643-query misspelled-name set holds at 99.4%.
+	const hit = intentPass();
+	return hit.length ? hit : fuzzyPass();
 }
 
 /** Precise substring first; fall back to fuzzy for misspellings. */

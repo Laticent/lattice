@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   The Studio's slide gallery finds components by spelling, not by meaning: "grade" ranks compare-code first and
   "science" ranks scene, because a confident spelling match returns before the meaning pass runs, and because no
@@ -95,3 +95,41 @@ move proves its own gain and no move silently costs another query.
 
 The UI from #3484: labels, pills, count, the phone typing layout. Labels may get one new reason, "related word", for
 a hit that came through the thesaurus or `searchTerms`.
+
+## Decision and result (2026-11-23)
+
+The owner picked **A + B + C** with a **committed benchmark**. Built on branch `studio/search-by-meaning-design`:
+
+- **Benchmark first.** `tools/intent-bakeoff/queries-everyday.json` (75 queries, the tuning set) and
+  `queries-everyday-heldout.json` (32 different words, never tuned on), wired into `npm run intent:bakeoff`.
+- **B — `searchTerms`** on all 80 manifests, defined in `lib/components/manifest.schema.json` (optional there, so the Studio's make-a-component gate does not
+  reject an author's component; a unit test requires them on every in-tree manifest), emitted into
+  `components.json`, and indexed by the meaning pass at tag weight (2.2, set before measuring, not tuned).
+- **A — the pass order.** Three changes in `component-search.ts`, each measured on its own:
+  - A confident spelling match wins outright only when it is a misspelled component **name**. That means
+    within one slip for a short query and two for a longer one, a swapped pair counts as one slip, and the
+    length differs by at most one letter.
+  - Exact text found only outside a name ranks after meaning.
+  - The last step tries meaning before spelling for every query. `looksLikeIntent` is deleted.
+- **C — the thesaurus.** Ten general short forms (pic, vid, vs, bio, kpis…) are added to `SYNONYMS`. They are
+  neutral on every set, and are kept for real use rather than for the benchmark.
+- **The gate.** `docs/src/lib/search-everyday.test.ts` holds the floors and the owner's four queries.
+
+| Query set | Before (top-1 / top-3) | After |
+|---|---|---|
+| everyday, tuning (75) | 44.0% / 52.0% | 89.3% / 97.3% |
+| everyday, held-out (32) | 21.9% / 31.3% | 65.6% / 71.9% |
+| authored intent (50) | 82.0% / 92.0% | 88.0% / 98.0% |
+| adversarial (25) | 84.0% / 88.0% | 84.0% / 96.0% |
+| misspelled names (643) | 99.4% / 99.7% | 99.4% / 99.7% |
+| slide headings, test split (416) | 19.7% / 31.0% ¹ | 20.0% / 31.3% |
+| slide prose, test split (436) | 30.5% / 41.5% | 28.7% / 43.6% |
+
+¹ Measured with `searchTerms` weighted 0, after the pass-order change, which moved no other set; the first baseline
+run's output did not keep this row.
+
+What it cost: top-1 on harvested slide prose fell 1.8 points while top-3 rose 2.1. One authored-intent query of 50
+lost its top-1 spot, and its top-3 still holds it.
+
+D (persona phrases from the exemplars) is not built: raw counts were too noisy to lead. E (embeddings) waits until
+the held-out score plateaus; at 66% top-1 it has not. The two tuning-set misses left are "class" and "grant".
