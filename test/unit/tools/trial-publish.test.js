@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { publishSet, blockers, upstreamMiss } = require('../../../tools/trial-publish.js');
+const { publishSet, blockers, upstreamMiss, pinnedOverrides } = require('../../../tools/trial-publish.js');
 
 /** A fixture repository: a root naming `workspaces`, each with the package.json given. */
 function fixture(t, packages) {
@@ -78,4 +78,25 @@ test('upstreamMiss names a third-party package npmjs could not serve, and nothin
   assert.equal(miss('npm error code ETARGET\nnpm error notarget No matching version found for @laticent/segno@^0.1.0.'), null);
   assert.equal(miss('npm error code ECONNRESET\nnpm error network aborted'), null);
   assert.equal(miss('`lattice --version` printed "lattice 0.9.0"'), null);
+});
+
+// The clean install pins its third-party packages to the repository lockfile's versions, so a
+// release npmjs published a minute ago cannot be chosen. A name held at several versions cannot be
+// forced to one without breaking a dependent, and @laticent packages are the trial's own.
+test('pinnedOverrides pins single-version third-party names and leaves ours and multi-version ones alone', () => {
+  const lock = {
+    packages: {
+      '': { name: 'root' },
+      'node_modules/jszip': { version: '3.10.1' },
+      'node_modules/@bramus/specificity': { version: '2.4.3' },
+      'node_modules/ansi-regex': { version: '6.1.0' },
+      'node_modules/cliui/node_modules/ansi-regex': { version: '5.0.1' },
+      'node_modules/@laticent/segno': { version: '0.1.0', link: true },
+      'node_modules/@laticent/markup': { version: '0.1.0' },
+      'docs/src/lib/segno': { version: '0.1.0' },
+    },
+  };
+  const { overrides, floating } = pinnedOverrides(lock);
+  assert.deepEqual(overrides, { '@bramus/specificity': '2.4.3', jszip: '3.10.1' });
+  assert.deepEqual(floating, ['ansi-regex']);
 });

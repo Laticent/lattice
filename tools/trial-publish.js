@@ -21,7 +21,9 @@
  *            --ignore-scripts: the build is the caller's (CI already ran it), and the engine's
  *            prepublishOnly would run `npm run build && npm test` again.
  *   install  `npm install @laticent/lattice` into an empty folder whose .npmrc points only the
- *            @laticent scope at the local registry; the rest comes from npmjs as for a user.
+ *            @laticent scope at the local registry; the rest comes from npmjs, pinned to the
+ *            repository lockfile's versions (pinnedOverrides) so a release npmjs published a
+ *            minute ago cannot turn the job red. With npmjs down, this phase fails, and says so.
  *   render   `lattice --version` and `lat --version` print the published version, the root
  *            import returns the engine from require and import, and the installed CLI renders
  *            a 4-slide deck (a list, display math, a Mermaid diagram, a two-pane slide) to a
@@ -32,9 +34,8 @@
  * (CHROME_PATH, or Puppeteer's own download). Linux and macOS only: it spawns npm and npx
  * without a shell and stops the registry by process group, neither of which Windows supports.
  *
- * A failure names its phase. A red `install` usually means the network or an upstream release
- * (the install resolves the newest versions in range from npmjs, as a user's would); a red
- * `check`, `engine` or `render` is ours.
+ * A failure names its phase. A red `install` usually means npmjs (down, or a fresh release of
+ * one of the few packages the lockfile cannot pin); a red `check`, `engine` or `render` is ours.
  *
  * Usage:
  *   node tools/trial-publish.js            run it; exit 0 on success, 1 on a failure
@@ -137,6 +138,34 @@ function upstreamMiss(output) {
   }
   if (!name || name.startsWith(SCOPE)) return null;
   return name;
+}
+
+/**
+ * Exact versions for the clean install's third-party packages, from the repository's lockfile.
+ * Without them the install takes the newest version in range at that minute, which can be a
+ * release npmjs has listed but not yet served (#3471's trial: @bramus/specificity 2.4.4, a 404
+ * for minutes). A name the lockfile holds at one version only is pinned to it; a name it holds at
+ * several (an old major beside a new one) cannot be forced to one without breaking a dependent,
+ * so it stays on its range. @laticent packages are the trial's own and are never pinned.
+ * @returns {{overrides: Record<string, string>, floating: string[]}}
+ */
+function pinnedOverrides(lock) {
+  const versions = new Map();
+  for (const [key, pkg] of Object.entries(lock.packages || {})) {
+    const at = key.lastIndexOf('node_modules/');
+    if (at < 0 || pkg.link || !pkg.version) continue;
+    const name = key.slice(at + 'node_modules/'.length);
+    if (name.startsWith(SCOPE)) continue;
+    if (!versions.has(name)) versions.set(name, new Set());
+    versions.get(name).add(pkg.version);
+  }
+  const overrides = {};
+  const floating = [];
+  for (const [name, set] of [...versions].sort(([a], [b]) => a.localeCompare(b))) {
+    if (set.size === 1) overrides[name] = [...set][0];
+    else floating.push(name);
+  }
+  return { overrides, floating };
 }
 
 /** The deck the installed CLI renders: each slide reaches a different part of the engine. */
@@ -293,7 +322,8 @@ async function main() {
     const room = path.join(tmp, 'room');
     await phase('install', async () => {
       fs.mkdirSync(room);
-      fs.writeFileSync(path.join(room, 'package.json'), '{"name":"trial-room","private":true}\n');
+      const { overrides } = pinnedOverrides(readJson(path.join(ROOT, 'package-lock.json')));
+      fs.writeFileSync(path.join(room, 'package.json'), `${JSON.stringify({ name: 'trial-room', private: true, overrides }, null, 2)}\n`);
       fs.writeFileSync(path.join(room, '.npmrc'), `${SCOPE.slice(0, -1)}:registry=${url}/\n`);
       const install = () => run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
         cwd: room,
@@ -303,7 +333,8 @@ async function main() {
         await install();
       } catch (e) {
         // One retry, and only for a third-party package npmjs has not finished serving
-        // (upstreamMiss). Anything else, our packages above all, fails here.
+        // (upstreamMiss). The pins above make that rare: only a name the lockfile holds at several
+        // versions can still float to a fresh release. Anything else, ours above all, fails here.
         const missing = upstreamMiss(e.message);
         if (!missing) throw e;
         console.log(`  npmjs could not serve ${missing} yet (a fresh upstream release?); retrying the install once in 90 s`);
@@ -358,4 +389,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { publishSet, blockers, workspaces, upstreamMiss };
+module.exports = { publishSet, blockers, workspaces, upstreamMiss, pinnedOverrides };

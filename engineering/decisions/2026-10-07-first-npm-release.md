@@ -265,5 +265,7 @@ HARD RULE #10 rewrite) waits for its own decisions.
 
 **Trial publish (2026-11-23).** The owner approved the local-registry trial for #3438 and then a CI job
 for it ("targeted + nightly + release"): `tools/trial-publish.js` and `.github/workflows/trial-publish.yml`.
-Its first run on `main` stops on three private engine dependencies (markup, lastra, segno-markdown), the
-block #3451 removes; with those three made publishable in a working copy, the whole trial passes in 47 s.
+Before #3451 it stopped on three private engine dependencies (markup, lastra, segno-markdown); with #3451
+on `main` the whole trial passes in about 49 s. The clean install pins its third-party packages to the
+repository lockfile's versions (513 names; 36 held at several versions stay on their ranges), after a
+#3471 trial went red on a release npmjs had listed but not yet served.
