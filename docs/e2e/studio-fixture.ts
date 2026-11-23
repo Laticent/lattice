@@ -1069,6 +1069,28 @@ export async function openSlideLook(page: Page): Promise<void> {
 export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
+	// THE iOS KEY PATH. CodeMirror reads the user agent, and on an iPhone or iPad (`browser.ios`) it does not run Delete,
+	// Backspace or Enter at keydown: it lets the browser edit the DOM natively, then reconciles, and 250 ms later sends the
+	// key itself if it saw no change (@codemirror/view `InputState.keydown`, `PendingKeys`, `flushIOSKey`). Playwright's
+	// `webkit-phone` project is Linux WebKit with an iPhone user agent, so a Delete right after a select-all is reconciled
+	// as a collapsed selection and the deferred Delete then removes ONE character (measured: 164 -> 163, 5 runs in 5; with a
+	// pause after the select-all it cleared the deck, which is why the failure looked like a late write). Replacing the
+	// selection by inserting text is a plain selection replacement on that path (5 in 5 exact). So on the iOS path the deck
+	// goes in over the selection, and an empty deck is a space taken back by one Backspace from a collapsed caret, the case
+	// that path handles. Every other engine keeps the Delete below (switch-controls.spec.ts:118, HARD RULE #33).
+	const iosKeyPath = await page.evaluate(() => /iP(?:hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 2));
+	if (iosKeyPath) {
+		await page.keyboard.insertText(text || ' ');
+		if (!text) {
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the space did not replace the selection' }).toBe(1);
+			await page.keyboard.press('Backspace');
+			await expect.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Backspace left the space behind' }).toBe(0);
+		}
+		await expect
+			.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
+			.toEqual(fingerprint(text));
+		return;
+	}
 	await page.keyboard.press('Delete');
 	// The select-all and the Delete are two events, and a source write that lands between them (a
 	// boot-time hydration, a mapped selection) collapses the selection, so the Delete removes one

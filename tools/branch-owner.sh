@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Who has committed to this branch? The check behind HARD RULE #31 (one session, one branch).
+# Who has committed to this branch? Since 2026-11-22 the push question is the baton's
+# (`npm run baton`, HARD RULE #31, engineering/workflow.md §Relay); this lists who touched it.
 #
 # Every session's commits carry a `Claude-Session: https://claude.ai/code/session_<id>` trailer.
 # This lists the distinct sessions whose commits are on origin/<branch> beyond origin/main, so a
@@ -131,10 +132,9 @@ if echo "$ids" | awk '{print $2}' | grep -q '^unattributed$'; then
   echo "Warning: commits with no Claude-Session trailer (a person's, or a tool's). Read what they changed before you push."
 fi
 if [ -n "$others" ]; then
-  echo "Another session owns commits here. Do not push to origin/$branch (HARD RULE #31)."
+  echo "Another session has commits here. Do not push to origin/$branch unless npm run baton -- take says it is free (HARD RULE #31)."
   echo "Do not branch from it either: its unmerged commits would ride into your PR, and a stacked chain breaks HARD RULE #17."
-  echo "If your instructions designate this branch, stop and ask the user (workflow.md §Session branch ownership)."
-  echo "Cut your branch from main, or ask the owner (workflow.md §Session branch ownership, rules 3 and 4)."
+  echo "Whether you may push is the baton's question: npm run baton -- take $branch (workflow.md §Relay)."
   exit 1
 fi
 echo "Only your own${allow:+ and allowed} commits: safe to push."
