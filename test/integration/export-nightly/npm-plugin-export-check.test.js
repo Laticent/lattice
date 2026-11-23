@@ -73,6 +73,14 @@ const vectorsHit = (hits) => [...new Set(hits.map((h) => h.replace(/^\//, '').sp
 /** The vectors that replace the page, so the call that started them may not answer. */
 const NAVIGATES = ['navigate', 'metarefresh', 'form'];
 
+/**
+ * The vectors that open another window. Neither these nor NAVIGATES are re-witnessed as the slowest vector: a popup
+ * outlives the page that opened it, so 4 re-witnesses in every pair would leave about 80 windows open per run (the page
+ * pressure that got WebKit web processes killed), and the first vectors in the control's order also carry the
+ * browser's cold start, which made `windowopen` the slowest often.
+ */
+const OPENS_WINDOW = ['windowopen', 'blanklink'];
+
 /** Every exit a script could try against `log`, as the body of a function run in the opened export. Unique path per vector. */
 const vectors = (log = main) => {
   const H = log.H;
@@ -256,7 +264,8 @@ async function reached(eng, file, { witness = null, slowest = null } = {}) {
     if (!ok && witness) gaveUp = true;
     return ok;
   };
-  // The control times each vector, so the walled run knows which witness to repeat.
+  // The control times each vector that stays on its page and opens no window, so the walled run knows which witness to
+  // repeat.
   const took = new Map();
   // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
   // idle socket in its pool after the page that opened it has closed.
@@ -288,7 +297,8 @@ async function reached(eng, file, { witness = null, slowest = null } = {}) {
       } else {
         // A vector the control cannot fire leaves the wait at its deadline; the harness test names it. The control
         // makes no absence claim, so its page may close once heard.
-        if (await heard(main, name)) took.set(name, Date.now() - t0);
+        const timed = (await heard(main, name)) && !NAVIGATES.includes(name) && !OPENS_WINDOW.includes(name);
+        if (timed) took.set(name, Date.now() - t0);
       }
       await walled.page.close().catch(() => {});
       return walled;
