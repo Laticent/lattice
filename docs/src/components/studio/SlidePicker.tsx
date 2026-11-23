@@ -4,7 +4,7 @@ import { DialogCloseButton, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedHitsFor } from '@/lib/component-search';
+import { type CatalogItem, groupBy, type Lens, makeSearchIndex, matchReason, rankedHitsFor } from '@/lib/component-search';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
@@ -78,6 +78,23 @@ export type ComponentEntry = PickerItem;
 
 // `layout` is the pane layouts' own group (docs/src/lib/families.mjs FUNCTION_ORDER says why).
 const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'layout'];
+// Which family pills fold into "More ▾" first when the row runs out of room: least used first.
+// Measured over the 387 decks in examples/ and exemplars/ (3,146 slides with a `_class:`) on
+// 2026-11-23: anchor 25%, evidence 22%, statement 17%, inventory 14%, progression 9%,
+// comparison 8%, imagery 3%, layout 2%. The pills that stay keep FUNCTION_ORDER, the order of
+// the bands below them; usage decides only who leaves.
+const FOLD_FIRST = ['layout', 'imagery', 'comparison', 'progression', 'inventory', 'statement', 'evidence', 'anchor'];
+// Module constants, so PillTabs' measuring effect does not re-run on every render of the gallery.
+const PILLS_ONE_ROW = { hideFirst: FOLD_FIRST };
+const PILLS_COLLAPSED = { hideFirst: FOLD_FIRST, collapse: true, collapsedLabel: 'Family' };
+// While a phone types, the sheet answers to the keyboard (panel.tsx MOBILE_HEIGHT) and has
+// about 330px left. These two variants key off the SAME question the panel asks — is a field in
+// this sheet focused, or held through the tap that ends the typing (`useSheetTapHold`)? — so the
+// chrome that steps aside and the sheet that shrinks never disagree, and a tap on a result
+// cannot make the rows move under the finger. CSS rather than state for that reason: the hold
+// is an attribute, and a focus handler would undo the layout at `mousedown`.
+const WHILE_TYPING_HIDE = '[[role=dialog]:has(input:focus,[data-typing-held])_&]:hidden';
+const WHILE_TYPING_SHOW = 'hidden [[role=dialog]:has(input:focus,[data-typing-held])_&]:flex';
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 // A tile's React key. Function-band tiles keep a BARE-NAME key so the same tile
@@ -249,6 +266,22 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 		for (const h of (hits ?? []).slice(1)) if (h.via === 'intent' && h.match != null) m.set(h.item.name, h.match);
 		return m;
 	}, [hits]);
+	// EVERY result says how it matched (owner, 2026-11-23). The leader says "Best match": a word,
+	// not "100%", for the reason the `.slice(1)` above gives. A runner-up from the described-intent
+	// pass keeps its percentage; one from the name/tag/description passes, which have no
+	// comparable score, says which field matched instead. A name query like "timeline" used to show
+	// nothing at all, and that was most queries.
+	const labelByName = React.useMemo(() => {
+		const m = new Map<string, string>();
+		(hits ?? []).forEach((h, i) => {
+			if (i === 0) m.set(h.item.name, 'Best match');
+			else {
+				const why = matchReason(h, q);
+				if (why) m.set(h.item.name, why === 'spelling' ? 'close spelling' : `${why} match`);
+			}
+		});
+		return m;
+	}, [hits, q]);
 
 	// Browse-mode bands (no query): Blank · Recent · Your components · function bands.
 	const bands = React.useMemo(() => {
@@ -296,6 +329,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	}, [ranked, byName]);
 
 	const count = searching ? flat.length : facet ? pool.length : items.length;
+	const facetTabs = React.useMemo(() => [{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))], [functions]);
 	// A component's variants that match the current query — the looks a variant-term
 	// search is surfacing under their parent (e.g. "insight" → quote's insight-* looks).
 	const matchedLooks = (it: PickerItem) => (searching ? (it.variants ?? []).filter((v) => v.toLowerCase().includes(q)) : []);
@@ -303,6 +337,13 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	// Collapse an open looks panel whenever the result set changes underneath it.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on query/facet change only.
 	React.useEffect(() => setExpanded(null), [query, facet]);
+	// A new result set starts at its top. Without this the scroller kept the offset of whatever
+	// came before, so a query typed after browsing halfway down landed its best match above
+	// the fold, or half-cut by the top edge.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on result-set change only.
+	React.useEffect(() => {
+		if (scrollRef.current) scrollRef.current.scrollTop = 0;
+	}, [q, facet]);
 
 	const insert = (it: PickerItem) => {
 		onInsert(it);
@@ -327,7 +368,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	const renderTile = (item: PickerItem, key: string, looksFilter?: string[]) => {
 		const variantCount = item.variants?.length ?? 0;
 		const nodes: React.ReactNode[] = [
-			<Tile key={key} item={item} fit={fitOf(item.name)} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} match={matchByName.get(item.name) ?? null} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
+			<Tile key={key} item={item} fit={fitOf(item.name)} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} match={matchByName.get(item.name) ?? null} matchLabel={searching ? (labelByName.get(item.name) ?? null) : null} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
 		];
 		if (expanded === key && variantCount) {
 			nodes.push(<LooksPanel key={`looks:${key}`} item={item} looksFilter={looksFilter} onInsertLook={insertLook} {...previewProps} />);
@@ -347,6 +388,9 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			placeholder={pane ? (compact ? 'Search components…' : `Search ${items.length} components that fit this pane — a name, or what it should show…`) : compact ? 'Search slides…' : intentSearch ? `Search ${items.length} slides — a name, or what you want to say…` : `Search ${items.length} slides — name, bucket, or what it's for…`}
 			label="Search slides"
 			className="flex-1"
+			// The desktop placeholder already carries the whole catalog's count; the read-out is for a
+			// number it does not say — a search, a family, or a phone, whose placeholder is short.
+			hint={compact || searching || facet ? `${count} ${pane ? 'components' : 'slides'}` : undefined}
 		/>
 	);
 
@@ -366,16 +410,21 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 				   surface is two taps from that drawer. At 390px the strip additionally clipped
 				   "Comparison" against the panel edge, so the sideways scroll was not just a
 				   drag-direction lottery — it was hiding the facets. */
-				<div className="flex items-center gap-2 px-4 py-2.5 sm:px-5">
-					<PillTabs
-						className="min-w-0 flex-1"
-						ariaLabel="Slide categories"
-						value={facet ?? 'all'}
-						onValueChange={(v) => setFacet(v === 'all' ? null : v)}
-						tabs={[{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))]}
-					/>
-					<span className="shrink-0 self-start pt-1.5 text-[12px] text-muted-foreground">{count} {pane ? 'components' : 'slides'}</span>
-				</div>
+				<>
+					{/* ONE ROW at every width (owner, 2026-11-23). They wrapped to three rows (114px) at 390
+					    and two at 820, and at 820 the count beside them changing from "80 slides" to "4
+					    slides" reflowed the wrap mid-typing, moving the grid 40px. The count now lives in
+					    the search field, and pills that do not fit fold into "More ▾", least used first. */}
+					<div className={cn('px-4 py-2.5 sm:px-5', compact && WHILE_TYPING_HIDE)}>
+						<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_ONE_ROW} />
+					</div>
+					{/* A phone while typing: "All · Family ▾", so the results get the room. */}
+					{compact && (
+						<div className={cn('px-4 py-2', WHILE_TYPING_SHOW)}>
+							<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_COLLAPSED} />
+						</div>
+					)}
+				</>
 			)}
 
 			{/* The grid — the surface. Plain buttons: each tile is natively focusable +
@@ -387,7 +436,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			    on screen. The ranker is a lexical match over the component manifest — it puts
 			    likely candidates in front of the author, it does not decide for them. */}
 			{searching && intentRanked && (
-				<p className="px-4 pb-1.5 text-[11px] text-muted-foreground sm:px-5">
+				<p className={cn('px-4 pb-1.5 text-[11px] text-muted-foreground sm:px-5', compact && 'hidden')}>
 					Ranked by how well each slide's description matches what you typed — on this device. The best match leads; percentages
 					show how closely the others trail it.
 				</p>
@@ -499,7 +548,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 					<React.Fragment key="sheet-header">
 						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} />
 						{/* The phone hides the footer that says where the pick lands, so it says it here (§5). */}
-						{placement && !pane && <p className="truncate px-4 pt-2 text-[12.5px] text-muted-foreground">Adds it {placement}</p>}
+						{placement && !pane && <p className={cn('truncate px-4 pt-2 text-[12.5px] text-muted-foreground', WHILE_TYPING_HIDE)}>Adds it {placement}</p>}
 					</React.Fragment>
 				) : (
 					<React.Fragment key="dialog-header">
@@ -547,6 +596,18 @@ function MatchMeter({ value }: { value: number }) {
 	);
 }
 
+// The word a result wears when it has no percentage: "Best match" on the leader (accent-filled,
+// the one result that is), or the field a name/tag/description hit matched on. Lives where the
+// meter does, on the meta row, so a tile never carries both. `aria-hidden`: the tile's label says it.
+function MatchLabel({ text }: { text: string }) {
+	const best = text === 'Best match';
+	return (
+		<span aria-hidden className={cn('min-w-0 truncate rounded-full px-1.5 py-px font-mono text-[10px] font-semibold', best ? 'bg-[var(--accent)] text-[var(--on-accent)]' : 'border border-border text-muted-foreground')}>
+			{text}
+		</span>
+	);
+}
+
 /** The looks control — a real sibling of the insert button (never nested), revealing
  *  this component's variant looks. Highlights when a variant-term search matched some. */
 function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name: string; looksCount: number; matchCount: number; isOpen: boolean; onToggle: () => void }) {
@@ -581,13 +642,13 @@ function LooksToggle({ name, looksCount, matchCount, isOpen, onToggle }: { name:
 // LIST view is the same three pieces on one row — preview, then name over purpose, then
 // the meta — for when you are reading names and descriptions rather than scanning
 // artwork. Both views render the SAME live engine preview through the same windowing.
-export function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks, fit, paneWhere }: { fit?: TileFit; paneWhere?: string; item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
+export function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, view = 'grid', looksCount = 0, matchCount = 0, match = null, matchLabel = null, isOpen = false, onToggleLooks, fit, paneWhere }: { matchLabel?: string | null; fit?: TileFit; paneWhere?: string; item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; view?: PickerView; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
 	const isList = view === 'list';
 	const verb = fit ? 'Use' : 'Insert';
-	const label = fit ? `Use ${item.label ?? item.name} in the ${(paneWhere || 'pane').toLowerCase()} — ${FIT_TEXT[fit].toLowerCase()}${item.purpose ? ` — ${item.purpose}` : ''}` : `Insert ${item.label ?? item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
+	const label = fit ? `Use ${item.label ?? item.name} in the ${(paneWhere || 'pane').toLowerCase()} — ${FIT_TEXT[fit].toLowerCase()}${item.purpose ? ` — ${item.purpose}` : ''}` : `Insert ${item.label ?? item.name}${matchLabel ? `, ${matchLabel.toLowerCase()}` : ''}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`;
 
 	// The preview face — identical in both views; only its box differs. The box carries no
 	// radius or border: the pool draws the slide frame, so the tile shows the deck's corner.
@@ -603,9 +664,9 @@ export function Tile({ item, options, frontMatter, paletteOverride, extraTheme, 
 
 	// Line 3 in grid, the trailing cluster in list. Rendered OUTSIDE the insert button in
 	// both views — a button may not nest another button, and the looks toggle is real.
-	const meta = (match != null || onToggleLooks) && (
-		<div className={cn('flex items-center gap-2', isList ? 'shrink-0 pr-2.5' : 'justify-between px-2 pb-1.5')}>
-			{match != null ? <MatchMeter value={match} /> : <span />}
+	const meta = (match != null || matchLabel || onToggleLooks) && (
+		<div className={cn('flex min-w-0 items-center gap-2', isList ? 'shrink-0 pr-2.5' : 'justify-between px-2 pb-1.5')}>
+			{match != null ? <MatchMeter value={match} /> : matchLabel ? <MatchLabel text={matchLabel} /> : <span />}
 			{onToggleLooks && <LooksToggle name={item.name} looksCount={looksCount} matchCount={matchCount} isOpen={isOpen} onToggle={onToggleLooks} />}
 		</div>
 	);

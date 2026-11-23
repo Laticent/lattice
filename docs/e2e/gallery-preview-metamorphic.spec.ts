@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { countDocuments, documentsMade } from './preview-documents';
-import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
+import { chooseGalleryFamily, expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // METAMORPHIC oracles for the add-slide gallery's live-preview window.
 //
@@ -451,13 +451,13 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		const baselineVisible = await visible(page);
 		const baselineMounted = await mounted(page);
 
-		const tabs = page.getByRole('tablist', { name: 'Slide categories' });
+		const tabs = page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true });
 		const all = tabs.getByRole('tab', { name: 'All' });
 
+		// Every facet, from the strip or from its More menu: a phone folds these three, and a
+		// round-trip that skipped them would hold the relation by testing nothing.
 		for (const facet of ['Statement', 'Comparison', 'Progression']) {
-			const chip = tabs.getByRole('tab', { name: facet });
-			if ((await chip.count()) === 0) continue;
-			await chip.click();
+			await chooseGalleryFamily(page, facet);
 			await quiesced(page);
 			await flick(page, true);
 			await quiesced(page);

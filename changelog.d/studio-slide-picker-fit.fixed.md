@@ -1,0 +1,5 @@
+- **Studio: the New-slide gallery leaves room for its results on a phone.** With the keyboard up, the subtitle steps aside and the family pills fold into "All · Family ▾", so a full row of results shows above the search field instead of 16px of one.
+- **Studio: the family pills keep to one row at every width.** Families that do not fit fold into a "More ▾" pill, least used first; a family picked from it names the pill. The result count moved into the search field, so typing no longer re-wraps the pills and shifts the grid.
+- **Studio: every search result says how it matched.** The leader reads "Best match"; the others show their percentage for a described query, or the field that matched (name, tag, look, family, description, close spelling) for a name query.
+- **Studio: a new search starts at the top of its results,** instead of keeping the scroll position of what was on screen before.
+- **Studio: the gallery searches the current catalog after a deploy.** The service worker now fetches the component catalog network-first (cache only when offline), where it used to serve the previous deploy's copy on the first open.

@@ -1261,6 +1261,22 @@ export async function openAddSlide(page: Page, _compact = false, side: 'before' 
 	await addSlideReady(page);
 }
 
+/**
+ * Pick a family in the add-slide gallery, wherever its pill is: in the one-row strip, or folded into
+ * the "More ▾" menu when the row runs out of room (a phone folds most of them, 2026-11-23). A spec
+ * that clicked only the visible pill skipped the folded ones without saying so.
+ */
+export async function chooseGalleryFamily(page: Page, family: string): Promise<void> {
+	const tabs = page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true });
+	const pill = tabs.getByRole('tab', { name: family, exact: true });
+	if (await pill.count()) {
+		await pill.click();
+		return;
+	}
+	await page.getByRole('button', { name: /^More slide categories$|^Slide categories: .*, more$/ }).filter({ visible: true }).click();
+	await page.getByRole('menuitemradio', { name: family, exact: true }).click();
+}
+
 /** New slide splits in place into Before | After (2026-10-27-slide-structure-strip.md §5); the gallery opens on the choice. */
 async function chooseSide(page: Page, side: 'before' | 'after'): Promise<void> {
 	await page.getByRole('button', { name: `New slide ${side}`, exact: true }).filter({ visible: true }).first().click();
