@@ -122,6 +122,49 @@ async function tapWhenStill(re, ms, what) {
 	tap(a);
 	return a;
 }
+
+// WEB_VIA_CDP=1 (throwaway branch for #3356): Chromium 159 does not hand the page's accessibility tree to uiautomator, so
+// page elements are found and clicked over Chrome's DevTools socket, with a user gesture, the way a tap activates them.
+// Android's chooser is native UI and is still read with uiautomator, as before.
+const VIA_CDP = process.env.WEB_VIA_CDP === '1';
+let cdpPort = 0;
+function cdpSocket() {
+	if (cdpPort) return cdpPort;
+	const unix = adb('shell', 'cat', '/proc/net/unix');
+	const name = (unix.match(/@([\w.]*devtools_remote[\w.]*)/) || [])[1];
+	if (!name) throw new Error('no devtools_remote socket on the device');
+	cdpPort = 9222;
+	adb('forward', `tcp:${cdpPort}`, `localabstract:${name}`);
+	console.log(`  (DevTools socket @${name} forwarded to tcp:${cdpPort})`);
+	return cdpPort;
+}
+async function cdpEval(urlPrefix, expression) {
+	const port = cdpSocket();
+	const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+	const page = pages.find((p) => p.type === 'page' && p.url.startsWith(urlPrefix));
+	if (!page) return { ok: false, why: `no page at ${urlPrefix} (${pages.map((p) => p.url).join(', ')})` };
+	const ws = new WebSocket(page.webSocketDebuggerUrl);
+	await new Promise((r, j) => { ws.onopen = r; ws.onerror = () => j(new Error('devtools websocket failed')); });
+	const reply = await new Promise((r) => {
+		ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id === 1) r(d); };
+		ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, userGesture: true, returnByValue: true, awaitPromise: true } }));
+	});
+	ws.close();
+	return { ok: true, value: reply.result?.result?.value };
+}
+/** Click the first visible button, menu item or file input whose accessible name matches `source` (a regex source). */
+async function webClick(urlPrefix, source, ms, what) {
+	const expr = `(() => { const re = new RegExp(${JSON.stringify(source)}); const name = (e) => (e.getAttribute('aria-label') || e.labels?.[0]?.textContent || e.textContent || '').trim();
+		const els = [...document.querySelectorAll('button,[role=button],[role=menuitem],a,input[type=file]')].filter((e) => e.getClientRects().length && re.test(name(e)));
+		if (!els.length) return ''; els[0].click(); return name(els[0]); })()`;
+	const t0 = Date.now();
+	for (;;) {
+		const r = await cdpEval(urlPrefix, expr).catch((e) => ({ ok: false, why: e.message }));
+		if (r.ok && r.value) return r.value;
+		if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}${r.why ? ` (${r.why})` : ''}`);
+		await sleep(500);
+	}
+}
 let opened = '';
 /** Open a URL in Chrome and wait (-W) until Android says the activity launched; print what it said. */
 let openedAt = 0;
@@ -250,7 +293,8 @@ try {
 	// out and opens Files (the eighth dispatch). That is the absence this probe must be able to report.
 	adb('shell', 'pm', 'revoke', PKG, 'android.permission.CAMERA');
 	open(`${BASE}/__chooser-control.html`);
-	await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
+	if (VIA_CDP) console.log(`  clicked "${await webClick(`${BASE}/__chooser-control.html`, '^Pick a PDF', 60_000, 'the control page')}"`);
+	else await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
 	const control = await chooser('control', { keepOpen: true });
 	step('control: a PDF-only (application/pdf) input offers files', files(control.options), control.options.join(' · '));
 	step('control: a PDF-only (application/pdf) input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
@@ -266,6 +310,16 @@ try {
 	open(`${BASE}/studio/`);
 	// The Studio warns on a device below its floor (the sixth dispatch: "This device reports 2 CPU cores") and offers Lite
 	// mode. run.sh gives the emulator 4 cores; if the notice still shows, continue as a person would.
+	if (VIA_CDP) {
+		const S = `${BASE}/studio/`;
+		const first = await webClick(S, '^(Menu|Continue anyway)$', 150_000, "the Studio's Menu button");
+		if (/Continue anyway/.test(first)) {
+			console.log('  (the Studio showed its low-device notice: Continue anyway)');
+			await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
+		}
+		await webClick(S, '^Library', 30_000, 'the Library row');
+		console.log(`  clicked "${await webClick(S, '^Import files', 30_000, "the Library's Import button")}"`);
+	} else {
 	const first = await until(/^(Menu|Continue anyway)$/, 150_000, "the Studio's Menu button");
 	if (/Continue anyway/.test(label(first))) {
 		console.log('  (the Studio showed its low-device notice: Continue anyway)');
@@ -274,6 +328,7 @@ try {
 	await tapWhenStill(/^Menu$/, 30_000, "the Studio's Menu button");
 	await tapWhenStill(/^Library/, 30_000, 'the Library row');
 	await tapWhenStill(/^Import files\b/, 30_000, "the Library's Import button");
+	}
 	const studio = await chooser('studio', { keepOpen: true });
 	// The camera half is set by this probe, not by Library.tsx: Chrome 113 holding the camera permission offers it on every
 	// file input (the control above shows the reader can see it missing). It is kept because the owner's iPhone question was
