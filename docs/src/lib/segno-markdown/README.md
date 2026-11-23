@@ -5,7 +5,7 @@ are, where each slide boundary falls, the front matter, every HTML-comment direc
 leaf of inline text. Zero dependencies, no DOM, no Node.
 
 It is stages S0 and S1 of the Segno deck pipeline
-([`engineering/decisions/2026-10-22-segno-deck-pipeline.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-10-22-segno-deck-pipeline.md)):
+(`engineering/decisions/2026-10-22-segno-deck-pipeline.md`):
 
 - **S0, ingest.** Strip a leading BOM and fold `\r\n` and a lone `\r` to `\n`. Nothing else, and no later
   stage normalizes again.
@@ -70,5 +70,5 @@ fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`,
 
 ## License
 
-AGPL-3.0-only. The block rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
+AGPL-3.0-only. Its parsing rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
 Kocharin); its license text ships beside this file as `LICENSE.markdown-it.md`.

@@ -1,5 +1,5 @@
-> **Note from segno-markdown, not part of the license text below:** `block.ts` is a port of markdown-it
-> 14.1.1's block rules. This is markdown-it's `LICENSE`, copied unaltered, which its MIT terms require to
+> **Note from segno-markdown, not part of the license text below:** this package's parsing rules are
+> ported from markdown-it. This is markdown-it's `LICENSE`, copied unaltered, which its MIT terms require to
 > travel with the port.
 
 Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin.
