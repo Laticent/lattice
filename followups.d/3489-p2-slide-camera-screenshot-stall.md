@@ -15,7 +15,7 @@ why now   — it ejected #3489 (a one-note docs change) from the merge queue: ru
             integration shard 3/4. "the slide camera matches Chrome's own screenshot: examples/print-mode.md" failed at
             193 s with `Page.captureScreenshot timed out`, from `CdpElementHandle.screenshot`. The test is declared at
             test/integration/export/slide-camera.test.js:64; the call is its scale-1 (line 92) or scale-2 (line 101)
-            `h.screenshot`, and the stack does not say which. Its `puppeteer.launch` (line 77) sets no
+            `h.screenshot`, and the stack does not say which. Its `puppeteer.launch` (line 79) sets no
             `protocolTimeout`, so Puppeteer's 180 s default applied. The queue runs just before
             and after (#3479, #3486, #3481) passed the same shard. No issue, follow-up or claim named it.
 where     — the oracle side of the test, `h.screenshot({ type: 'png' })` after `scrollIntoView` (lines 92 and 101). It is Chrome's own
