@@ -302,19 +302,23 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						// its highlight should hold until the latter.
 						const onStart = ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => {
 							clearStarve();
+							// Decode the next `decodeAhead` items while this one plays, from bytes already fetched, so the next
+							// sentence starts with no decode wait. Best-effort: a miss is decoded for real when its turn comes.
+							// From the clip's real ONSET, not from play(): a presenter who moves on before the sentence is heard
+							// (or a context that never resumes) would otherwise pay two decodes per skipped slide for clips the
+							// skip throws away. The iOS narration probe, which steps on before audio flows, decoded 41.4 MB that
+							// way against main's 13.8 MB for the same 64 sentences (run 45083164131).
+							if (decodeAhead !== null && !sig.aborted) {
+								for (let j = i + 1; j <= Math.min(items.length - 1, i + decodeAhead); j++) {
+									const k = safeKey(items[j]);
+									const b = k === null ? undefined : bytesCache.get(k);
+									if (k !== null && b) stage.decode(b, k).catch(() => {});
+								}
+							}
 							onItemStart?.({ index: i, onsetMs, durationMs, clip: clip ?? undefined });
 						};
 						const handle = stage.play(clip, { onStart, signal: sig });
 						activeHandle = handle;
-						// Decode the next `decodeAhead` items while this one plays, from bytes already fetched, so the next
-						// sentence starts with no decode wait. Best-effort: a miss is decoded for real when its turn comes.
-						if (decodeAhead !== null) {
-							for (let j = i + 1; j <= Math.min(items.length - 1, i + decodeAhead); j++) {
-								const k = safeKey(items[j]);
-								const b = k === null ? undefined : bytesCache.get(k);
-								if (k !== null && b) stage.decode(b, k).catch(() => {});
-							}
-						}
 						// If a pause() already landed for THIS clip before play() was called (the tap raced
 						// the scheduler), honor it now so we don't play through the pause.
 						if (pausedGate) handle.pause?.();

@@ -720,6 +720,30 @@ describe('makeSequence — decodeAhead (the decoded-audio window)', () => {
 		expect(w.live.size).toBe(0);
 	});
 
+	it('decodes ahead only once a clip is heard: a skip before its onset decodes nothing it will throw away', async () => {
+		// A stage whose clips never start (a suspended context, or a presenter who moves on first): play() returns a
+		// handle that never reaches onStart and only ends when stopped.
+		const w = windowStage();
+		w.stage.play = (_clip: Clip, o?: PlayOptions) => {
+			let end: (v: { ok: boolean }) => void = () => {};
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		let produced = 0;
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		// Signals, not a duration: k0 is decoded and playing, and the bytes for k1 and k2 are fetched, so a look-ahead
+		// WOULD find them now. It must not run, because k0 is never heard.
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		seq.stop();
+	});
+
 	it('warm() fetches bytes but decodes nothing when the window is set', async () => {
 		const w = windowStage();
 		let produced = 0;
