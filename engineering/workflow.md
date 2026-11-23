@@ -212,15 +212,25 @@ usage level is the same act as the 30-minute floor in rule 6, done now and done 
 3. **If mid-change work cannot pass, do not push it broken.** Write the plan, the files touched and the next
    step into the handoff instead, so the next session can redo it.
 4. **Mark the PR honestly** so nobody grades or merges a checkpoint: park it as a draft
-   (`npm run pr:park -- <N>`), or mark its 🚦 card `stale: WIP since <sha>`.
+   (`npm run pr:park -- <N>`), or hand-edit its 🚦 card to read `stale: WIP since <sha>`. Never park a PR
+   that is in the merge queue: converting it to a draft removes it from the queue (rule 7).
 5. **Update the handoff in place**: its `checkpoint:` line and the card, never a second copy. Today the
    handoff is the PR's living comment; `handoffs.d/<slug>/HANDOFF.md` replaces it once the design in #3454
    is built.
 
+**Also checkpoint before a big fan-out**: before launching more than about 5 agents at once, or any
+workflow, do steps 2, 3 and 5 first. A large fan-out can carry usage past 90% between two ticks of the
+usage watch below, and the session may stop before it saves anything (`engineering/orchestration.md`
+§Cost controls).
+
+**A PR parked at the merge gate with no new work skips steps 2 to 5**: there is nothing to save, and a
+draft, a stale mark or a `card --living` rewrite would void the 🚦 card the owner is deciding on (rule 8).
+Its handoff already reads released and parked.
+
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session pauses by default and asks the owner (§Usage checkpoints). At **90%**, a session kept
-past 75% does the five steps, then `npm run baton -- release` (the handoff reads `baton: released`), so
-the colleague's session on the other account can take the branch at once.
+past 75% does the five steps, then `npm run baton -- release` (with `--gate` if its card is posted), so
+the other person's session can take the branch at once.
 
 ### The usage watch — the backstop for idle sessions
 
@@ -231,8 +241,12 @@ cannon and durable"):
 - **What it is.** A recurring **scheduled task** on the live command center (not a CI job), every 2 hours.
   It reads the command center's own newest `rate_limit_event` (`…unifiedWindows.seven_day.utilization`).
   Once per crossed level per week (25, 50, 75, 90%), it sends every live session on that account one
-  line, `usage N: …` with the checkpoint rules above, then tells the owner the number. The current one is
-  "Usage watch: checkpoint at 75% and 90%" (`7 */2 * * *`), created by the command center on 2026-11-23.
+  line, `usage N: …` with the checkpoint rules above, then tells the owner the number. It knows a level
+  was already announced from its own conversation, since it fires into the same command center session
+  each time; a re-created watch may announce the current level once more, which costs one extra turn per
+  session and nothing else. The current one is "Usage watch: checkpoint at 75% and 90%" (`7 */2 * * *`),
+  created by the command center on 2026-11-23; its name predates the 25 and 50% levels, so find it by
+  the prefix "Usage watch".
 - **Durable.** Every new command center checks, on its first `/fleet`, that the task exists
   (`list_triggers`), and re-creates it if it is missing (`.claude/skills/fleet/SKILL.md`).
 - **When the source breaks.** The field is internal and can change. If it vanishes, the watch tells the

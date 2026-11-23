@@ -395,6 +395,10 @@ is duplicated or updated at each level.
   sessions, which take no turns and so read nothing. Each new command center re-creates it on its first
   `/fleet` if it is missing (`.claude/skills/fleet/SKILL.md`). Created 2026-11-23 as
   "Usage watch: checkpoint at 75% and 90%" (`7 */2 * * *`).
+- **Fan-out trigger** (the owner's "do all three", command center, 12:12 UTC, item 2 as relayed): a session
+  about to launch more than about 5 agents, or a workflow, checkpoints first, because a large fan-out can
+  carry usage past 90% between two watch ticks. In `workflow.md` §Relay and `orchestration.md` §Cost
+  controls.
 
 ## What this does not fix
 
