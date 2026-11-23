@@ -555,31 +555,37 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
 	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
 	// The page itself ends the "download" the moment the pill shows its progress, and records every label the pill
-	// shows. A read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still loading, then reads on
-	// captions by design, so a release that waits on a test round trip raced that timer under load (1 in 150 at 4
-	// workers). Both labels are brief, too: "Heart" shows only while the 0.3 s clip plays, so they are recorded, not polled.
+	// shows with its time since Play. A read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still
+	// loading, then reads on captions by design; releasing through a test round trip lost that race under load. Both
+	// labels are brief, too: "Heart" shows only while the 0.3 s clip plays, so they are recorded, not polled.
 	await page.evaluate(() => {
-		const dialogEl = document.querySelector('[role="dialog"]');
-		const seen: string[] = [];
-		(window as unknown as { __pillLabels: string[] }).__pillLabels = seen;
+		const w = window as unknown as { __pill: { label: string; ms: number }[]; __playAt: number };
+		w.__pill = [];
+		w.__playAt = 0;
+		document.addEventListener('click', (e) => {
+			if ((e.target as Element)?.closest?.('[aria-label="Play the presentation"]') && !w.__playAt) w.__playAt = performance.now();
+		}, true);
 		let released = false;
 		const note = () => {
-			const pill = [...(dialogEl?.querySelectorAll('button') ?? [])].find((b) => /^Voice (on|off)/.test(b.getAttribute('aria-label') ?? ''));
-			const t = pill?.textContent ?? '';
-			if (seen[seen.length - 1] !== t) seen.push(t);
-			if (!released && t.includes('Loading voice… 42%')) {
+			const pill = [...document.querySelectorAll('button')].find((b) => /^Voice (on|off)/.test(b.getAttribute('aria-label') ?? ''));
+			const label = pill?.textContent ?? '';
+			if (w.__pill[w.__pill.length - 1]?.label !== label) w.__pill.push({ label, ms: w.__playAt ? Math.round(performance.now() - w.__playAt) : -1 });
+			if (!released && label.includes('Loading voice… 42%')) {
 				released = true;
 				new BroadcastChannel('fake-kokoro').postMessage('go');
 			}
 		};
 		note();
-		if (dialogEl) new MutationObserver(note).observe(dialogEl, { subtree: true, childList: true, characterData: true, attributes: true });
+		new MutationObserver(note).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
 	});
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-	const labels = () => page.evaluate(() => (window as unknown as { __pillLabels: string[] }).__pillLabels.join(' | '));
+	const pill = () => page.evaluate(() => (window as unknown as { __pill: { label: string; ms: number }[] }).__pill);
+	const labels = async () => (await pill()).map((p) => p.label).join(' | ');
 	// The first read starts the load and waits for it, visibly (no other voice stands in), then reads in the chosen voice.
 	await expect.poll(labels, { timeout: 30_000 }).toMatch(/Loading voice… 42%.*Heart · on-device/);
-	expect(await labels()).not.toMatch(/Loading voice… 42%.*Captions.*Heart/); // nothing read on captions in between
+	expect(await labels()).not.toMatch(/Loading voice… 42%.*Captions/); // nothing read on captions after the load showed
+	// The times are a record for whoever reads a failure, never an assertion (HARD RULE #32).
+	test.info().annotations.push({ type: 'pill-timeline', description: JSON.stringify(await pill()) });
 });
 
 // CLS 0 opening Workspace › AI, at the three widths the Studio ships to. Every card paints its
