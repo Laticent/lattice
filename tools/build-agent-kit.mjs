@@ -1299,7 +1299,7 @@ function authoringReadme(files, layoutCount) {
     '',
     '`theme:` picks the palette: `indaco` is the default, and `cuoio`, `onyx` and the rest of',
     'the palettes in `../skills/theme.md` work the same way. Add `color-mode: dark` for the',
-    'dark version. `paginate:` turns on page numbers.',
+    'dark version. `pagination:` turns on page numbers.',
     '',
     '## primer.md — the other way to work',
     '',
@@ -1537,7 +1537,7 @@ function skeletonFor(cat, name) {
  * now `npx @laticent/lattice`, which knows every palette, and Marp is one export page
  * (`render/lattice-export-to-marp.md`). See engineering/decisions/2026-11-17-agent-pack.md.
  */
-const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
+const FRONT_MATTER = ['---', 'theme: indaco', 'pagination: true', '---'];
 
 /**
  * The rules that make a deck STRUCTURALLY wrong rather than merely plain. Every
@@ -1845,7 +1845,7 @@ function instructionsMax(traps) {
     'FRONT MATTER YOU MAY SET',
     '- `theme:` the palette. `indaco` is the default; `cuoio` and `onyx` are two others.',
     '- `color-mode: dark` for the dark version of the palette.',
-    '- `paginate: true` numbers the slides.',
+    '- `pagination: true` numbers the slides.',
     '- `size:` defaults to `hd` (1280x720). Leave it alone unless asked.',
     '',
   ].join('\n');
@@ -3185,7 +3185,7 @@ function startDoc(files, cat) {
     '',
     '- `theme:` picks the palette. `indaco` is the default; `cuoio`, `onyx`, `carta`, `laguna`',
     '  and more ship with Lattice. Add `color-mode: dark` for the dark version.',
-    '- `paginate: true` numbers the slides.',
+    '- `pagination: true` numbers the slides.',
     '- Separate slides with a line containing only `---`, with a blank line on each side.',
     '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 5.',
     '',

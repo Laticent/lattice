@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 color-mode: print
 finish: atrium
-paginate: true
+pagination: true
 header: "Finish canvas · print face"
 ---
 

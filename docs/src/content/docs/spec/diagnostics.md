@@ -245,6 +245,7 @@ distinct, stable ID.
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
 | `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
 | `fonts-renamed` | warning | ✓ | `fonts:`, the old spelling of `font-embedding:`. The exports no longer read it. The fix renames the key and keeps the words. When the deck also sets `font-embedding:` to a tier, it deletes the old line; when that line names no tier (empty, a comment, unknown words), there is no fix, because either edit would lose the words. |
+| `key-renamed` | error | ✓ | A deck key renamed before 1.0 with no alias (`paginate:` → `pagination:`; one row per rename in `KEY_RENAMES`, lib/authoring/lint-core.js). The engine reads only the new key. The fix renames the key and keeps the value; when the deck also sets the new key, it deletes the old line; when the new key is there with no value, there is no fix, because either edit would lose the words. |
 | `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
 | `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
@@ -280,8 +281,8 @@ distinct, stable ID.
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
 | `asset-missing` | warning | — | An `asset:<name>` picture reference that names no file in `assets/` beside the deck (or whose file is a symlink out of the deck folder), so the CLI draws the missing-picture stand-in. Checked by `tools/lint-deck.js`, which has the file system; the linter core does not. |
-| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold` in front matter, Marp values Lattice treats as `false`. |
-| `paginate-comment-retired` | warning | ✓ | A `paginate:` or `_paginate:` slide comment, which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
+| `pagination-unsupported-value` | suggestion | — | `pagination: skip` or `pagination: hold` in front matter, Marp values Lattice treats as `false`. |
+| `pagination-comment-retired` | warning | ✓ | A `paginate:` or `pagination:` slide comment (with or without `_`), which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
 
@@ -518,7 +519,7 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   `line`, which §1 lists as required: the review tier's slide- and deck-level
   findings and the CLI's `--discover` findings carry no `line`. And three
   front-matter findings (`autosplit-retired`, `note-key-retired`,
-  `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
+  `pagination-unsupported-value`) report `slide: 1`, where §1 says front matter is
   `slide: 0`. Specifying these is the
   next minor version's work.
 

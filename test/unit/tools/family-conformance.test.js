@@ -109,7 +109,7 @@ describe('tools: the sweep rosters — what the two records are derived from', (
     // suppressed with the emulator's `--no-split` flag at the call site, so a split directive
     // creeping into the deck source would silently start measuring something else.
     for (const deck of [clipDeck('story', ['decision']), conformanceDeck('story', ['decision'])]) {
-      assert.match(deck.src, /^---\nmarp: true\ntheme: indaco\nsize: story\npaginate: true\n---\n/);
+      assert.match(deck.src, /^---\nmarp: true\ntheme: indaco\nsize: story\npagination: true\n---\n/);
       assert.ok(!/autosplit/i.test(deck.src), 'the sweep deck must not carry a split directive');
     }
   });

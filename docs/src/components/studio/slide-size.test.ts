@@ -15,12 +15,12 @@ describe('sizeFromSource — reads the size: front-matter directive', () => {
 	// to 16:9. (It first bit when the retired whole-block writer pushed the last-edited key to
 	// the end; the splice never reorders, and the `/m` is still required either way.)
 	it('finds size when it is NOT the last front-matter line', () => {
-		expect(sizeFromSource('---\ntheme: indaco\nsize: square\npaginate: true\n---\n\n# Hi')).toBe('square');
+		expect(sizeFromSource('---\ntheme: indaco\nsize: square\npagination: true\n---\n\n# Hi')).toBe('square');
 		expect(sizeFromSource('---\nsize: story\ntheme: cuoio\ncolor: dusk\n---\n\n# Hi')).toBe('story');
 	});
 
 	it('strips surrounding quotes and trims', () => {
-		expect(sizeFromSource('---\nsize: "4:3"\npaginate: true\n---\n\n# Hi')).toBe('4:3');
+		expect(sizeFromSource('---\nsize: "4:3"\npagination: true\n---\n\n# Hi')).toBe('4:3');
 	});
 
 	it('returns empty when unset or no front-matter', () => {
@@ -29,7 +29,7 @@ describe('sizeFromSource — reads the size: front-matter directive', () => {
 	});
 
 	it('deckRatio maps the resolved size (mid-block) to the right aspect', () => {
-		expect(deckRatio('---\ntheme: indaco\nsize: square\npaginate: true\n---\n\n# Hi')).toEqual([1, 1]);
+		expect(deckRatio('---\ntheme: indaco\nsize: square\npagination: true\n---\n\n# Hi')).toEqual([1, 1]);
 		expect(deckRatio('---\nsize: story\ntheme: x\n---\n\n# Hi')).toEqual([9, 16]);
 		expect(deckRatio('# no front-matter')).toEqual([16, 9]); // engine default
 	});

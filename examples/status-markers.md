@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 stamp: seal
 tone: rail
-paginate: true
+pagination: true
 header: "Lattice · status markers"
 ---
 

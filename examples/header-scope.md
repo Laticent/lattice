@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · header scope"
 footer: "Board review"
 ---
@@ -20,7 +20,7 @@ Front matter sets the header and footer for every slide. A slide comment sets it
 
 - This slide shows the deck's header, footer and page number.
 - The header and footer come from two lines at the top of the deck: `header:` and `footer:`.
-- Page numbers are on by default; `paginate: false` there would turn them off.
+- Page numbers are on by default; `pagination: false` there would turn them off.
 
 ---
 

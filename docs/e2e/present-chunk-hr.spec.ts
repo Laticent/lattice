@@ -26,13 +26,13 @@ import { expect, gotoStudio, railButtons, setEditorContent, test } from './studi
 
 const PASTED_BELOW_FRONT_MATTER = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Pasted deck"
 ---
 

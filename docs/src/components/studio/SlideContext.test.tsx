@@ -313,7 +313,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('reads a deck-wide paginate: false as hidden on a plain slide', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi', '---\npaginate: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- _class: kpi -->\n\n# Hi', '---\npagination: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Chrome');
 		expect(screen.getByRole('switch', { name: /hide pagination/i }).getAttribute('aria-checked')).toBe('true');
 	});

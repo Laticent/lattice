@@ -11,7 +11,7 @@ import { expect, gotoStudio, isPhone, railButtons, setEditorContent, test, typeD
 
 const DECK = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 # Steps

@@ -1680,7 +1680,7 @@ agenda: circles no-pages
 `divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
 pages axis on, each item ends with the page its section starts on: the divider's place among the shown
 slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
-pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+pages are numbered `4.2` and move nothing after them. A deck with `pagination: false` prints no page numbers
 on its agenda either, and neither does an agenda whose lines no longer name the sections in order (reordered or
 renamed after the fill): a page number shows only beside the section it belongs to.
 

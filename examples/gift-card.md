@@ -1,7 +1,7 @@
 ---
 size: card
 theme: cuoio
-paginate: false
+pagination: false
 spectrum: off
 ---
 

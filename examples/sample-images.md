@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: 'Sample images · one folder, every surface'
 logo: sample:logo-acme-mark.svg
 ---

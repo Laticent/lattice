@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · charts"
 footer: "Chart lead blocks — every block before the figure renders"
 ---

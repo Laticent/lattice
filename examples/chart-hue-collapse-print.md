@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 color-mode: print
-paginate: true
+pagination: true
 header: "Lattice · One hue in grayscale"
 ---
 

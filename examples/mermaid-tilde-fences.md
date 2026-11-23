@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Tilde fences"
 meta: "Tilde fences · a ~~~mermaid block draws its diagram on both paths"
 spectrum: duo

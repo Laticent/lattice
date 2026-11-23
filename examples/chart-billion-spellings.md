@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart values"
 footer: "Every billion spelling reads as a billion"
 ---

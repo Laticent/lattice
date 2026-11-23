@@ -766,7 +766,7 @@ describe('core: split-envelope — footerCell / stripChrome', () => {
     assert.match(cellHtml, /<span class="lat-pagination">3<\/span>/);
   });
 
-  test('a `paginate: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
+  test('a `pagination: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
     const cellHtml = footerCell('<section class="x">', chrome);
     assert.doesNotMatch(cellHtml, /lat-pagination/);
     assert.match(cellHtml, /<footer>F<\/footer>/);
@@ -836,7 +836,7 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
     );
   });
 
-  test('docks at the END of the cell when the deck is `paginate: false`', () => {
+  test('docks at the END of the cell when the deck is `pagination: false`', () => {
     const inner = '<div class="cell-footer"><footer>F</footer></div>';
     assert.equal(dockInFooterCell(inner, mark), `<div class="cell-footer"><footer>F</footer>${mark}</div>`);
   });
@@ -848,7 +848,7 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
   test('finds the cell wherever it sits — a NESTED, non-terminal band never drops the mark', () => {
     // The `$`-anchored regex both call sites used to carry only matched a `.cell-footer`
     // whose `</div>` ended the section. kanban-lanes docks the band INSIDE the board, so on a
-    // `paginate: false` kanban page neither branch matched and the k-of-N rail vanished.
+    // `pagination: false` kanban page neither branch matched and the k-of-N rail vanished.
     const inner = '<div class="board"><div class="cell-footer"><footer>F</footer></div><div class="col">c</div></div>';
     const out = dockInFooterCell(inner, mark);
     assert.equal(

@@ -219,7 +219,7 @@ for (const name of targets) {
   const slides = cases.map(({ dir, share }) => `## ${name} · ${dir} ${share}%\n\n<!-- panes: ${dir === 'stack' ? 'stack ' : ''}${share}/${100 - share} -->\n\n<!-- pane: ${name} -->\n\n${(dir === 'stack' ? stacked : made).body}\n\n<!-- pane: content -->\n\nOne short line.\n`);
   // Page numbers and a footer, as nearly every real deck carries: the footer band takes stage
   // height, and a first review deck with them clipped what a bare deck had passed.
-  const deck = `---\nsize: hd\npaginate: true\nfooter: "Footer"\n---\n\n${slides.join('\n---\n\n')}`;
+  const deck = `---\nsize: hd\npagination: true\nfooter: "Footer"\n---\n\n${slides.join('\n---\n\n')}`;
   const probe = renderProbe(deck, `pane-fit-${name}`, { format: 'html', keep: true });
   // The pages a probe's warning line names ("TYPE FLOOR — … page 3 at …", "CONTENT CLIPPED — …
   // pages 2, 5.").
@@ -263,6 +263,6 @@ for (const name of targets) {
   console.log(`${name.padEnd(24)} side ${String(results[name].side).padEnd(5)} stack ${String(results[name].stack).padEnd(5)} │ ${pass.filter((p) => p.dir === 'side').map(cell).join(' ')} │ ${pass.filter((p) => p.dir === 'stack').map(cell).join(' ')} │ side ${made.source}; stack ${stacked.source}`);
 }
 await browser.close();
-if (REVIEW_OUT) fs.writeFileSync(REVIEW_OUT, `---\nsize: hd\npaginate: true\nfooter: "Footer"\n---\n\n${review.join('\n---\n\n')}`);
+if (REVIEW_OUT) fs.writeFileSync(REVIEW_OUT, `---\nsize: hd\npagination: true\nfooter: "Footer"\n---\n\n${review.join('\n---\n\n')}`);
 if (JSON_OUT) fs.writeFileSync(JSON_OUT, `${JSON.stringify(results, null, 2)}\n`);
 })();

@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: concrete
-paginate: true
+pagination: true
 footer: "Concrete · secondary + label tiers, light & dark"
 ---
 

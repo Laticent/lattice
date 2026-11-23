@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 header: "Lattice · stacked-bar period names"
 meta: "stacked-bar period names"

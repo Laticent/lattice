@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 color-mode: dark
-paginate: true
+pagination: true
 header: "Lattice · dark player tokens"
 terms:
   "4.6:1": 4.6 to 1

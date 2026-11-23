@@ -1,7 +1,7 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "illegible AND clipping — two axes, not one"
 ---
 

@@ -17,9 +17,9 @@ Every slide is numbered unless the deck or the slide says otherwise.
 
 ## Every slide is numbered by default.
 
-- This deck's front matter has no `paginate:` line, and the slide still shows its number
-- `paginate: false` in front matter is the one deck-wide off switch
-- `paginate: no`, `off` and `0` mean off too
+- This deck's front matter has no `pagination:` line, and the slide still shows its number
+- `pagination: false` in front matter is the one deck-wide off switch
+- `pagination: no`, `off` and `0` mean off too
 
 > Front matter numbers the deck.
 

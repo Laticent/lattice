@@ -370,7 +370,7 @@ describe('export-formats', () => {
     );
     const src = path.join(dir, 'deck.md');
     fs.writeFileSync(src, [
-      '---', 'paginate: true', '---', '',
+      '---', 'pagination: true', '---', '',
       '<!-- _class: image -->', '',
       '![A photo](photo.svg)', '',
       '# SVG background', '',
@@ -746,7 +746,7 @@ describe('export-formats', () => {
     fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNgYPiPhIjiAACOsw/xs6MvMwAAAABJRU5ErkJggg==', 'base64'));
     const src = path.join(dir, 'images.md');
     fs.writeFileSync(src, [
-      '---', 'html: true', 'paginate: false', '---', '',
+      '---', 'html: true', 'pagination: false', '---', '',
       '## Plain image', '',
       '<img src="blue.png" style="width:200px;height:200px">', '',
       '---', '',
@@ -776,7 +776,7 @@ describe('export-formats', () => {
     // refuses it, so the PDF keeps its pixels in the slide's photo instead of shipping bytes nobody checked.
     fs.writeFileSync(path.join(dir, 'damaged.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGNgYPiPhEAcTAEAAHEgD/GQJqEAAAAASUVORK5CYII=', 'base64'));
     const src = path.join(dir, 'damaged.md');
-    fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', '---', '', '## Damaged image', '', '<img src="damaged.png" style="width:200px;height:200px">', ''].join('\n'));
+    fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', '---', '', '## Damaged image', '', '<img src="damaged.png" style="width:200px;height:200px">', ''].join('\n'));
     const out = path.join(dir, 'damaged.pdf');
     const report = path.join(dir, 'report.json');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
@@ -804,7 +804,7 @@ describe('export-formats', () => {
     fs.writeFileSync(path.join(dir, 'plain.jpg'), Buffer.concat([rotated.subarray(0, app1), rotated.subarray(app1End)]));
     const src = path.join(dir, 'rotated.md');
     fs.writeFileSync(src, [
-      '---', 'html: true', 'paginate: false', '---', '',
+      '---', 'html: true', 'pagination: false', '---', '',
       '## Rotated', '',
       '<img src="rotated.jpg" style="width:200px;height:300px">', '',
       '---', '',
@@ -853,7 +853,7 @@ describe('export-formats', () => {
     fs.writeFileSync(path.join(dir, 'late-exif.jpg'), Buffer.concat([noExif.subarray(0, sofEnd), sample.subarray(app1, app1End), noExif.subarray(sofEnd)]));
     const src = path.join(dir, 'turned.md');
     fs.writeFileSync(src, [
-      '---', 'html: true', 'paginate: false', '---', '',
+      '---', 'html: true', 'pagination: false', '---', '',
       '## Turned PNG', '', '<img src="turned.png" style="width:200px;height:300px">', '', '---', '',
       '## Late Exif', '', '<img src="late-exif.jpg" style="width:200px;height:300px">', '', '---', '',
       '## Plain PNG', '', '<img src="plain.png" style="width:300px;height:200px">', '',
@@ -904,7 +904,7 @@ describe('export-formats', () => {
       if (o < 8) slides.push('', '---', '');
     }
     const src = path.join(dir, 'turns.md');
-    fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', '---', '', ...slides].join('\n'));
+    fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', '---', '', ...slides].join('\n'));
     const out = path.join(dir, 'turns.pdf');
     const report = path.join(dir, 'report.json');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
@@ -977,7 +977,7 @@ describe('export-formats', () => {
     fs.writeFileSync(path.join(dir, 'xmp-first.jpg'), Buffer.concat([small.subarray(0, 2), Buffer.from([0xff, 0xe1]), xmpLen, xmpBody, small.subarray(2)]));
     const render = (name, front, slides) => {
       const src = path.join(dir, `${name}.md`);
-      fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', ...front, '---', '', ...slides].join('\n'));
+      fs.writeFileSync(src, ['---', 'html: true', 'pagination: false', ...front, '---', '', ...slides].join('\n'));
       const report = path.join(dir, `${name}.json`);
       const r = spawnSync(process.execPath, [EMULATOR, src, path.join(dir, `${name}.pdf`), '--quiet'], {
         cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
@@ -1070,7 +1070,7 @@ describe('export-formats', () => {
     );
     const src = path.join(dir, 'robust.md');
     fs.writeFileSync(src, [
-      '---', 'html: true', 'paginate: false', '---', '',
+      '---', 'html: true', 'pagination: false', '---', '',
       '<!-- _class: content -->', '',
       '## Intrinsic pin', '',
       '![red](small-red.svg)', '',

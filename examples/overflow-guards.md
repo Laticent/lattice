@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 guards: strict
 header: "Lattice · guards: strict"
 ---

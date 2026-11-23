@@ -969,7 +969,7 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
     for (const fm of ['class: sketch\n', 'meta: "Q3 review"\n', 'logo: logo.svg\n', 'preset: brand\n']) {
       assert.ok(find(fm).every((f) => !/text runs about \d+% too long/.test(f.message)), `${fm.trim()} keeps the count row`);
     }
-    assert.match(find('theme: indaco\npaginate: true\nheader: "H"\n')[0].message, /text runs about \d+% too long/, 'inert keys ride along');
+    assert.match(find('theme: indaco\npagination: true\nheader: "H"\n')[0].message, /text runs about \d+% too long/, 'inert keys ride along');
   });
 
   test('the generated table: rows per component, one shared frame, `ordered` carrying only what differs', () => {

@@ -2197,7 +2197,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	
-	// Deck-level front-matter (size / paginate / header / footer) is split off the
+	// Deck-level front-matter (size / pagination / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
@@ -2727,8 +2727,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
-	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
-	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
+	// Page numbers are on unless the front matter says `pagination: false` (the owner's ruling, 2026-10-20).
+	const pageNumbers = paginateOn(getFrontMatter(source, 'pagination'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
 	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
 	// override it in the source. (resolve-lift.js.)
@@ -3244,7 +3244,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// through the preset-aware helpers (typography.ts).
 	const deckType = deckTypography(source);
 	const setDeckType = (value: string) => settingsWrite(`Typography → ${TYPOGRAPHY_OPTIONS.find((o) => o.value === value)?.label ?? value}`, (s) => withTypography(s, value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
+	// The retired `paginate:` line goes too: the engine ignores it, and lint calls it an error (`key-renamed`).
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'paginate', null);
+		return writeFrontMatterLine(withoutOld, 'pagination', pageNumbers ? 'false' : null);
+	});
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);

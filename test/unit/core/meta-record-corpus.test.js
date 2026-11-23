@@ -29,10 +29,10 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 // Keys this comparison cannot ask the section about, each for a reason:
 //   class   has its own gate (class-directive-scan.test.js): the engine also merges the deck class in.
 //   theme   is deck-only and picks the stylesheet; the engine writes no per-slide attribute for it.
-//   paginate is no slide directive: the engine derives `data-paginate` from front matter, the
-//           `no-pagination` / `with-pagination` classes and the component manifest, and ignores a
-//           comment (test/unit/engine/directive-scope.test.js pins that). The scan resolves no value.
-const SKIPPED_KEYS = new Set(['class', 'theme', 'paginate']);
+//   pagination (and Marp's `paginate`) is no slide directive: the engine derives `data-paginate` from front matter's
+//           `pagination:`, the `no-pagination` / `with-pagination` classes and the component manifest, and ignores
+//           a comment (test/unit/engine/directive-scope.test.js pins that). The scan resolves no value.
+const SKIPPED_KEYS = new Set(['class', 'theme', 'paginate', 'pagination']);
 
 const htmlUnescape = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
@@ -92,7 +92,7 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
           const got = m ? htmlUnescape(m[1]) : null;
           const entry = resolved.get(key);
           const want = entry ? entry.value : (Object.hasOwn(deckLevel, key) ? deckLevel[key] : null);
-          // `paginate: false` writes no attribute: pagination is on only when it is exactly `true`.
+          // `pagination: false` writes no attribute: pagination is on only when it is exactly `true`.
           if (key === 'paginate') {
             if ((got === 'true') === (want === 'true')) { perKey[key] = (perKey[key] || 0) + 1; continue; }
           // The engine picks a CONTENT-AWARE `focusStyle` (`ring` on a table, else `spotlight`) when a

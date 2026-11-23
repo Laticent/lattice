@@ -95,7 +95,7 @@ describe('markdownToSlice', () => {
 	});
 
 	it('reads front matter as settings, never as a slide, and names what it applies', () => {
-		const p = markdownToSlice(`---\ntheme: cuoio\npaginate: true\n---\n\n${TWO}`);
+		const p = markdownToSlice(`---\ntheme: cuoio\npagination: true\n---\n\n${TWO}`);
 		expect(p.frontMatter).toContain('theme: cuoio');
 		expect(p.slides).toBe(2);
 		p.slice.content.forEach((s) => {
@@ -150,11 +150,11 @@ describe('markdownToSlice', () => {
 	});
 
 	it('tells settings from slide text', () => {
-		expect(isSettingsBlock('theme: cuoio\npaginate: true')).toBe(true);
+		expect(isSettingsBlock('theme: cuoio\npagination: true')).toBe(true);
 		expect(isSettingsBlock('#brand\ntheme: cuoio\nkeywords:\n- a\n- b\nstyle: |\n  h1 { x: 1; }')).toBe(true);
 		// The documented tradeoff: a heading-shaped comment reads as Markdown, the failure the author can see.
 		expect(isSettingsBlock('# brand deck\ntheme: cuoio')).toBe(false);
-		expect(isSettingsBlock('themee: x\npaginate: true')).toBe(true);
+		expect(isSettingsBlock('themee: x\npagination: true')).toBe(true);
 		expect(isSettingsBlock('\n# Plan\n\nGoal: ship Q3\n')).toBe(false);
 		expect(isSettingsBlock('Owner: Ana')).toBe(false);
 		// A bare list dash (the checker on 34f18d3c).
@@ -364,11 +364,11 @@ describe('markdownClipboardPlugin', () => {
 
 	it("applies a pasted deck's front matter to the open deck, key by key, with its slides", async () => {
 		const { view, paste } = setup([]);
-		await paste('---\ntheme: cuoio\npaginate: true\n---\n\n# Two\n\n---\n\n# Three');
+		await paste('---\ntheme: cuoio\npagination: true\n---\n\n# Two\n\n---\n\n# Three');
 		// The merge is loaded on first use (front-matter-merge.ts), so wait for the paste to land rather than a tick count.
 		await vi.waitFor(() => expect(docToDeck(view.state.doc)).toContain('# Three'));
 		const out = docToDeck(view.state.doc);
-		expect(out.startsWith('---\ntheme: cuoio\npaginate: true\n---')).toBe(true);
+		expect(out.startsWith('---\ntheme: cuoio\npagination: true\n---')).toBe(true);
 		expect(out).toContain('# Three');
 	});
 

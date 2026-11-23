@@ -79,7 +79,7 @@ heading) belongs to the heading's slide, not the one before.
 ### 2.3 Front-matter directives
 
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
-(`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
+(`theme`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
 **`header` and `footer` are set for every slide only in front matter.** In a slide comment, in either
 spelling (`<!-- header: H -->` or `<!-- _header: H -->`), they apply to that slide only. This differs from Marpit,
@@ -87,10 +87,11 @@ where the plain spelling carries onto every later slide. A slide drops the deck'
 or `no-footer`. A renderer that exports to Marpit MUST write such a comment in the underscore spelling, so the
 exported deck renders the same.
 
-**`paginate` is a front-matter key only, and on unless it says off.** A `paginate` slide comment, in either spelling,
-has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
+**`pagination` is a front-matter key only, and on unless it says off.** It replaces Marpit's `paginate`, which an L2
+tool reports as `key-renamed` with a fix that renames it. A `pagination` or `paginate` slide comment, in either
+spelling, has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
 component may opt out in its manifest. A renderer that exports to Marpit MUST write the result as Marpit's own
-`_paginate` comments, so the exported deck numbers the same slides.
+`paginate:` front matter and `_paginate` comments, so the exported deck numbers the same slides.
 
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
@@ -586,6 +587,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
 | 1.1-draft | 2026-11-20 | §2.3 adds two `backdrop:` masks, `clear-footer` and `clear-hero`: the finish keeps running behind the content and clears only the footer band, or the footer band and a big-number's hero stack. `clear` keeps its meaning. Additive. Shared cases: `spec/conformance/lfm/front-matter-registers.json`. |
 | 1.1-draft | 2026-11-21 | §2.3 replaces the five spectrum registers with three, each named thing first and taking one word per axis: `spectrum:` (style, edge and a new weight axis), `card-spectrum:` (replacing `spectrum-card:` and `spectrum-card-edge:`) and `trim-spectrum:` (replacing `spectrum-trim:`, its words now styles: `quiet`, `rainbow`, `solid`, `duo`, `mono`). No key follows another: the old card `auto` and trim `on`, which copied the slide edge, have no successor word. `spectrum: on` is `spectrum: rainbow`, and `spectrum-edge:` folds into `spectrum:`, its `off` into `spectrum: off`. **Breaking** for a deck that writes an old key: a renderer ignores it, and the reference L2 tool reports it as `retired-spectrum-key` with a fix that rewrites it. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-11-21-spectrum-keys.md`. |
+| 1.1-draft | 2026-11-23 | §2.3: the page-number key is `pagination:`, Marpit's `paginate:` renamed so the key and its `no-pagination` / `with-pagination` classes share one word. **Breaking** for a deck that writes `paginate:`: a renderer ignores it, and the reference L2 tool reports it as `key-renamed` with a fix that renames it. A renderer that exports to Marpit writes `paginate:` back. Record: `engineering/decisions/2026-11-21-plain-english-key-renames.md` §D2. |
 
 ## Appendix A — A worked example (informative)
 
@@ -595,7 +597,7 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ---
 theme: indaco
 mode: boardroom
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

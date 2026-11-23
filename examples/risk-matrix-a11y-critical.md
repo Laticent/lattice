@@ -2,7 +2,7 @@
 marp: true
 theme: a11y-achromatopsia
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · risk matrix on an a11y palette"
 footer: "Critical is the darkest band on the dark face"
 ---

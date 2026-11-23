@@ -58,10 +58,17 @@ change in plain terms.
 - **Delete the `guards-strict` / `guards-loose` tokens** (`lib/core/resolve-guards.js`). The
   `guards:` key itself was already retired (rule `guards-renamed`).
 - **`drawing: sketch-headings` (today `mode: sketch-clean`) emits one token**, not the two it stamps
-  today (`sketch sketch-clean-body`, `resolve-mode.js` `MODE_REGISTER`).
+  today (`sketch sketch-clean-body`, `resolve-mode.js` `MODE_REGISTER`). The owner chose A (naming
+  session, 2026-11-22 02:12 UTC): the one class is `sketch-headings`, and every `sketch` rule also
+  matches it. It ships with Q5.
 - **`paginate`'s tokens share one stem.** Today the key is `paginate:` but its per-slide switches
   are `with-pagination` / `no-pagination` (`lib/core/pagination.js`, `lib/core/switches.mjs`). The
-  PR picks one stem for both. (`paginator` in `lib/core/split-facts.js` is a split strategy, not
+  owner chose B (typed "2. B" in the command center, 2026-11-22 02:09 UTC): the key becomes
+  `pagination:` and the classes stay. Export to Marp writes Marp's own `paginate:` back out, and folding
+  an exported bundle back reads it as `pagination:` again. `paginate:` was in the August v0.9.0
+  preview (GitHub only, never on npm; the tag once read v1.0.0, relabeled per
+  `2026-10-07-first-npm-release.md` §2), so this rename breaks decks written for that preview too;
+  `lint:deck --fix` migrates them. (`paginator` in `lib/core/split-facts.js` is a split strategy, not
   this key, and stays.)
 
 ### D3. Every Studio label equals its key
@@ -92,6 +99,8 @@ It sets how the pass / warn / fail colors draw, and it pairs with `stamp-shape:`
 ### Q4. `marks:` splits in two
 
 - `chart-finish: pigment | etch | tone` — the finish axis.
+- `tone` keeps its color-source word: `marks: tone ink` becomes `chart-finish: tone ink` (D11, owner
+  chose A in the presets desk's session, relayed by the command center on 2026-11-23).
 - A separate intensity key, `muted | vivid`. It sets how loud the pass / warn / fail status colors
   are across the deck, under any chart finish (`lib/core/resolve-marks.js`), so it is a status key,
   not only a chart key. **It is `color-intensity: muted | vivid`** (owner, 2026-11-22 00:09 UTC),
@@ -133,6 +142,8 @@ retires it as a key.
 
 ## 3. Out of scope here
 
+- **`cover:` → `cover-layout:`** (D10, owner chose A in the presets desk's session, relayed on 2026-11-23).
+  The presets desk ships it in its own cover PR, so it leaves this sweep.
 - **The `spectrum*` keys** are settled and being renamed by the Presets Wave 1 session
   (`session_015KSkL4sc6jW8B6fZsc5HR9`). These PRs do not touch them. Where a rename here edits the
   same files (`deck-settings.js`, `lint-core.js`, the base docs), this session tells that one first.
@@ -140,8 +151,10 @@ retires it as a key.
 
 ## 4. How each rename ships
 
-One PR per rename, lowest risk first: D2, then D1 one key at a time, then Q1, Q2, Q3, Q5, Q6, then
-Q4, then D3.
+One PR per rename, in the order the owner set on 2026-11-23 (relayed by the command center and the
+release desk): D2 (#3415), then `pagination:` with the rename table, then Q4 (it must land before the
+release, so it goes early), then D1's six keys in ONE PR (the owner's call), then Q1, Q5 (with
+sketch-headings), Q3, Q2, Q6, and D3 last. The release waits for all of them.
 
 Each PR:
 
@@ -150,12 +163,16 @@ Each PR:
    field such as `liftNames`, a constant such as `MODE_REGISTER`), so the code reads the way
    authors write (rule 3). The owner agreed twice on 2026-11-22: "i'm aligned" in the naming session
    (about 00:10 UTC), then "yes, rename internals too" in the command center (00:27 UTC).
-2. Adds a lint rule in `lib/authoring/lint-core.js` (HARD RULE #7): the old name is an error that
-   names the new one, with a `--fix` rewrite. The `deck-settings.js` row for the old key becomes
+2. Adds a ROW to `KEY_RENAMES` in `lib/authoring/lint-core.js` (HARD RULE #7), not a rule: the one
+   `key-renamed` rule reads the table, so the old key is an error that names the new one, with a
+   `--fix` rewrite (the owner chose one table over a rule per key, 2026-11-23). A rename the table
+   cannot express (Q4's split) adds what it needs beside it. The `deck-settings.js` row for the old key becomes
    `kind: 'retired'` pointing at that rule, the pattern `guards-renamed` and `fonts-renamed` use.
 3. Runs `lint:deck --fix` over every repo deck.
 4. Updates `lib/base/*.docs.md` and the generated docs (`npm run build`).
 5. Adds a `changelog.d/` fragment led by `**Breaking:**` (HARD RULE #10).
-6. Ships a demo deck where a rendered surface changes (HARD RULE #9). A pure rename whose rendered
+6. Migrates `lib/presets/*/*.preset.json` (#3470), or a preset silently stops setting the renamed
+   key; #3470 adds a test that fails on a retired key.
+7. Ships a demo deck where a rendered surface changes (HARD RULE #9). A pure rename whose rendered
    slides match byte for byte owes the identity evidence instead (`npm run identity:check`).
 7. Goes to the owner with a checker-graded 🚦 card. This session never merges.

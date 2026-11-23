@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: onyx
-paginate: true
+pagination: true
 header: "Lattice · per-slide diagram band"
 footer: "Feature deck"
 ---

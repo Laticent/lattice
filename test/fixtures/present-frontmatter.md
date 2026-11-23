@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 present: true
 header: "Lattice · present front-matter fixture"
 ---

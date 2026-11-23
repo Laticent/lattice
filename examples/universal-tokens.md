@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · universal token system"
 footer: "Phase 1 — categorical vocabulary"
 ---

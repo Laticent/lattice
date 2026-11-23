@@ -61,7 +61,7 @@ const CORPUS_PAGE = path.join(TMP, 'corpus.html');
 const DECK_SRC = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 guards: strict
 header: "Adapter probe"
 footer: "A footer band, so the chrome exclusion is actually exercised"

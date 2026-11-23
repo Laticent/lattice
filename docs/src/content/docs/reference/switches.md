@@ -35,7 +35,7 @@ Studio, the Playground, the command line and an exported Marp bundle.
 |---|---|---|---|
 | Running header | `no-header` | `with-header` | `silent` turns it off too. |
 | Running footer | `no-footer` | `with-footer` | `silent` turns it off too. |
-| Page number | `no-pagination` | `with-pagination` | Also `paginate: false` for the deck. Title, divider and closing slides have none unless `with-pagination`. `silent` turns it off too. |
+| Page number | `no-pagination` | `with-pagination` | Also `pagination: false` for the deck. Title, divider and closing slides have none unless `with-pagination`. `silent` turns it off too. |
 | Section rail | `no-progress` | `with-progress` | Appears once the deck has a `divider`. `silent` turns it off too. |
 | Deck logo | `no-logo` | `with-logo` | Appears once the deck sets `logo:`. |
 

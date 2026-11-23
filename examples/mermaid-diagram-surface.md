@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 header: "Lattice · mermaid diagram surface"
 ---

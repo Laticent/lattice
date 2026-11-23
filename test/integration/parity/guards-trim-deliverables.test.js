@@ -101,7 +101,7 @@ const BR_DECK = path.join(TMP, 'br.md');
 const BR_SRC = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 guards: strict
 ---
 

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: story
-paginate: true
+pagination: true
 header: "Lattice · tone-edge on story split pages"
 ---
 

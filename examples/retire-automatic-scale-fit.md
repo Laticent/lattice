@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 venue: hall
 header: "Lattice · Venue is a fixed size"
 ---

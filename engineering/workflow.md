@@ -422,7 +422,7 @@ measured table, the arm that proves the thing can fail.*
 2. Keep the deck small — title slide, one slide per surface the work
    changes, closing. Six to ten slides is the comfortable cap.
 3. Use the same front matter as the galleries (`marp: true`, `theme:
-   indaco`, `paginate: true`, a deck-scoped `header:`).
+   indaco`, `pagination: true`, a deck-scoped `header:`).
 4. Author the slides as you would any boardroom deck — the eyebrow
    above the heading, the heading itself, the demo, and a one-line
    below-note explaining the change.

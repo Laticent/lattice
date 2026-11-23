@@ -212,7 +212,7 @@ describe('deck front matter — a producer that cannot carry local files', () =>
 describe('deck front matter — the export bundle carries it', () => {
   test('Marp keys stay on top, Lattice keys move into the settings block under it', () => {
     const out = withRuntimeScripts(DECK);
-    // The one addition on top is `paginate: true`: Lattice numbers by default and Marp does not, so the Marp
+    // The one addition on top is Marp's `paginate: true` (the deck's `pagination:`, in Marp's spelling): Lattice numbers by default and Marp does not, so the Marp
     // bridge says so (lib/core/marp-bundle-scope.js).
     assert.ok(out.startsWith([
       '---', 'marp: true', 'theme: indaco', 'paginate: true', '---',
@@ -220,7 +220,7 @@ describe('deck front matter — the export bundle carries it', () => {
     ].join('\n')), out.slice(0, 200));
     assert.match(out, /<script src="lattice-runtime-min\.js"><\/script>/);
     // A deck that already says, either way, is left as written.
-    const off = DECK.replace('theme: indaco', 'theme: indaco\npaginate: false');
+    const off = DECK.replace('theme: indaco', 'theme: indaco\npagination: false');
     assert.match(withRuntimeScripts(off), /^---\nmarp: true\ntheme: indaco\npaginate: false\n---\n/);
   });
 
@@ -238,12 +238,13 @@ describe('deck front matter — the export bundle carries it', () => {
     const out = withRuntimeScripts(DECK);
     const folded = foldSettingsBlock(out);
     const fm = readFrontMatterBlock(folded);
-    for (const k of ['marp: true', 'theme: indaco', 'paginate: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
+    for (const k of ['marp: true', 'theme: indaco', 'pagination: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
       assert.match(fm, new RegExp(`^${k}$`, 'm'), k);
-      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k), `${k} keeps its line`);
+      // Marp's `paginate:` comes back as `pagination:`, on the same line.
+      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k.replace(/^pagination/, 'paginate')), `${k} keeps its line`);
     }
     assert.equal(folded.split('\n').indexOf('# A'), out.split('\n').indexOf('# A'), 'the first slide keeps its line');
     assert.equal(foldSettingsBlockCompact(out).split('\n').slice(0, 7).join('\n'),
-      '---\nmarp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
+      '---\nmarp: true\ntheme: indaco\npagination: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
   });
 });

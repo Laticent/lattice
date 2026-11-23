@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart values"
 footer: "A mistyped value is no value, never a different one"
 ---

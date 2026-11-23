@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Spectrum keys"
 footer: "spectrum: solid left band · card-spectrum: solid band · trim-spectrum: mono"
 spectrum: solid left band

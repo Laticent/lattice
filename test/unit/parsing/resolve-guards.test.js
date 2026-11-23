@@ -28,7 +28,7 @@ test('a deck that says nothing is byte-identical to one written before the regis
 test('reads the key from front matter, case- and space-insensitively', () => {
   assert.equal(readFrontMatterGuards(fm('guards: strict')), 'strict');
   assert.equal(guardsClassFromSource(fm('guards:   STRICT  ')), 'guards-strict');
-  assert.equal(guardsClassFromSource(fm('theme: cuoio\nguards: strict\npaginate: true')), 'guards-strict');
+  assert.equal(guardsClassFromSource(fm('theme: cuoio\nguards: strict\npagination: true')), 'guards-strict');
 });
 
 test('an annotated value still resolves — the shared scalar rule, not a private regex', () => {

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: false
+pagination: false
 ---
 
 <!-- _class: diagram -->

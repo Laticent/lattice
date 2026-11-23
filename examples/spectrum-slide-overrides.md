@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 spectrum: duo
-paginate: true
+pagination: true
 header: "Lattice · spectrum overrides"
 ---
 

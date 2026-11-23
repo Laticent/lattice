@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · spectrum placement"
 footer: "Placement never moves the slide"
 ---

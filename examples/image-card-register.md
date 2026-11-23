@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · image-card register"
 image-card: top-right soft sm compact
 ---

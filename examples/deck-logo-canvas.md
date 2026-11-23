@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Deck logo on every canvas"
 meta: "Deck logo · the canvas decides the flip"
 logo: sample:logo-acme-mark.svg
