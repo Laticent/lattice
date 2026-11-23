@@ -6,7 +6,7 @@ header: "Lattice · image card classes"
 image-card: compact
 ---
 
-<!-- _class: image spotlight -->
+<!-- @meta{layout=image, class=spotlight} -->
 
 ## A deck-wide compact card.
 
@@ -16,7 +16,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight image-card-regular -->
+<!-- @meta{layout=image, class=spotlight image-card-regular} -->
 
 ## One slide steps back to regular.
 
@@ -26,7 +26,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight image-card-top-right image-card-sm -->
+<!-- @meta{layout=image, class=spotlight image-card-top-right image-card-sm} -->
 
 ## Placement and size.
 
@@ -38,7 +38,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight image-card-top-left image-card-sheer image-card-dark -->
+<!-- @meta{layout=image, class=spotlight image-card-top-left image-card-sheer image-card-dark} -->
 
 ## Backing and ink.
 
@@ -50,7 +50,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image statement image-card-bottom image-card-band image-card-65 image-card-light -->
+<!-- @meta{layout=image, class=statement image-card-bottom image-card-band image-card-65 image-card-light} -->
 
 ## A band at a 65% backing.
 
@@ -62,7 +62,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight image-card-center image-card-lg -->
+<!-- @meta{layout=image, class=spotlight image-card-center image-card-lg} -->
 
 ## A large card, centered.
 
@@ -74,7 +74,7 @@ image-card: compact
 
 ---
 
-<!-- _class: content tint-corner at-tr -->
+<!-- @meta{layout=content, class=tint-corner at-tr} -->
 
 ## `at-tr` places a tint, not a card.
 
@@ -84,7 +84,7 @@ image-card: compact
 
 ---
 
-<!-- _class: image spotlight image-card-top-right -->
+<!-- @meta{layout=image, class=spotlight image-card-top-right} -->
 
 ## The card has its own corner word.
 
