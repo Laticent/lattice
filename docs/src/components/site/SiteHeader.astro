@@ -46,6 +46,11 @@ const apps = annotate(appsNav(url));
 const content = annotate(contentNav(url));
 const catalog = annotate(catalogNav(url));
 const links = annotate(findableNav(url)); // the ⌘K palette: the menus, plus each library and plugin by name
+// The island gets only the fields NavLink reads (CommandMenu.tsx). Every page serializes these props
+// into its HTML, escaped, so `pkg` and `match` cost about 110 bytes per entry for nothing the client
+// uses: getting-started's htmlRaw ceiling is where that bill came due.
+const slim = (items) =>
+	items.map(({ label, href, desc, current, badge, searchOnly }) => ({ label, href, current, ...(desc ? { desc } : {}), ...(badge ? { badge } : {}), ...(searchOnly ? { searchOnly } : {}) }));
 const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
 
@@ -164,9 +169,9 @@ const paletteLabelCss = seedablePalettes
 			<NavActions
 				client:idle
 				palettes={palettes}
-				links={links}
-				apps={apps}
-				content={[...content, ...catalog]}
+				links={slim(links)}
+				apps={slim(apps)}
+				content={slim([...content, ...catalog])}
 				githubUrl={GITHUB_URL}
 				pagefindUrl={pagefindUrl}
 				homeHref={homeHref}
