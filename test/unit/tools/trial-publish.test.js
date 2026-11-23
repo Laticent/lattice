@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { publishSet, blockers } = require('../../../tools/trial-publish.js');
+const { publishSet, blockers, upstreamMiss } = require('../../../tools/trial-publish.js');
 
 /** A fixture repository: a root naming `workspaces`, each with the package.json given. */
 function fixture(t, packages) {
@@ -63,4 +63,19 @@ test('blockers names a private dependency, a private one reached through another
 test("the engine's own private flag is not a blocker: the root is never what installs", (t) => {
   const root = fixture(t, { 'packages/lattice': { ...engine({}), private: true } });
   assert.deepEqual(blockers(root), []);
+});
+
+// The install retries once, and only when npmjs had not finished serving a third-party package
+// (#3471's trial met @bramus/specificity 2.4.4 404ing for minutes after its release). A miss on an
+// @laticent package is the trial's own and must fail at once, and so must any other error.
+test('upstreamMiss names a third-party package npmjs could not serve, and nothing else', () => {
+  const miss = (s) => upstreamMiss(s);
+  assert.equal(miss('npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/@bramus%2fspecificity/-/specificity-2.4.4.tgz - Not found'), '@bramus/specificity');
+  assert.equal(miss('npm error 404 Not Found - GET https://registry.npmjs.org/@bramus/specificity'), '@bramus/specificity');
+  assert.equal(miss('npm error 404 Not Found - GET https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz'), 'jszip');
+  assert.equal(miss('npm error code ETARGET\nnpm error notarget No matching version found for left-pad@^9.0.0.'), 'left-pad');
+  assert.equal(miss('npm error code E404\nnpm error 404 Not Found - GET http://127.0.0.1:4873/@laticent%2flastra - no such package available'), null);
+  assert.equal(miss('npm error code ETARGET\nnpm error notarget No matching version found for @laticent/segno@^0.1.0.'), null);
+  assert.equal(miss('npm error code ECONNRESET\nnpm error network aborted'), null);
+  assert.equal(miss('`lattice --version` printed "lattice 0.9.0"'), null);
 });

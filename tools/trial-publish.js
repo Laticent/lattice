@@ -109,6 +109,36 @@ function blockers(root = ROOT) {
   return problems;
 }
 
+/**
+ * The package an `npm install` failure could not fetch, when the failure is npmjs's and not ours:
+ * an E404 or ETARGET for a package outside @laticent. A version npmjs has just published can be
+ * listed in its metadata minutes before its tarball serves (#3471's trial met `@bramus/specificity`
+ * 2.4.4 404ing for over 3 minutes after its release). A miss on an @laticent package is never
+ * upstream: the trial published those itself, so it fails at once.
+ * @param {string} output  npm's stderr and stdout
+ * @returns {string|null} the missing package's name, or null when the failure is not that
+ */
+function upstreamMiss(output) {
+  let name = null;
+  const get = /404 Not Found - GET (\S+)/.exec(output);
+  if (get) {
+    // https://registry/<name>[/-/<file>.tgz], <name> being `pkg`, `@scope/pkg` or `@scope%2fpkg`
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(get[1]).pathname).replace(/^\/+/, '');
+    } catch {
+      return null;
+    }
+    const parts = pathname.split('/-/')[0].split('/');
+    name = parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
+  } else {
+    const nv = /No matching version found for (@?[^@\s]+)@/.exec(output);
+    if (nv) name = nv[1];
+  }
+  if (!name || name.startsWith(SCOPE)) return null;
+  return name;
+}
+
 /** The deck the installed CLI renders: each slide reaches a different part of the engine. */
 const DECK = [
   '---\ntheme: indaco\n---',
@@ -265,10 +295,21 @@ async function main() {
       fs.mkdirSync(room);
       fs.writeFileSync(path.join(room, 'package.json'), '{"name":"trial-room","private":true}\n');
       fs.writeFileSync(path.join(room, '.npmrc'), `${SCOPE.slice(0, -1)}:registry=${url}/\n`);
-      await run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
+      const install = () => run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
         cwd: room,
         env: { ...process.env, PUPPETEER_SKIP_DOWNLOAD: '1' },
       });
+      try {
+        await install();
+      } catch (e) {
+        // One retry, and only for a third-party package npmjs has not finished serving
+        // (upstreamMiss). Anything else, our packages above all, fails here.
+        const missing = upstreamMiss(e.message);
+        if (!missing) throw e;
+        console.log(`  npmjs could not serve ${missing} yet (a fresh upstream release?); retrying the install once in 90 s`);
+        await new Promise((r) => setTimeout(r, 90000));
+        await install();
+      }
     });
 
     await phase('render', async () => {
@@ -317,4 +358,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { publishSet, blockers, workspaces };
+module.exports = { publishSet, blockers, workspaces, upstreamMiss };
