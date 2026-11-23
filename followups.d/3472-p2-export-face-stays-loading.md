@@ -1,6 +1,6 @@
 ---
 origin: 3472
-priority: P1
+priority: P2
 recorded: 2026-11-23
 area: website
 severity: low
