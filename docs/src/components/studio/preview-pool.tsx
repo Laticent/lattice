@@ -191,6 +191,15 @@ function shapeKey(p: PooledPreviewProps): string {
 	return `${drawn ? 'M' : '-'}|${p.extraCss || ''}|${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}`;
 }
 
+/** The part of `shapeKey` that is the deck's LOOK rather than the tile's kind: a palette, mode or theme change moves
+ *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). `deckCss`: the
+ *  grid's author CSS when every tile carries the same (the overview, the map, Reshape and the layout menu pass one
+ *  deck-wide sheet), so an edit to it is a look change too; a grid whose tiles carry their own (the Add slide gallery's
+ *  local components) says so with `PreviewPool tileCss`, and there the CSS is a tile's kind. PURE. */
+export function lookKey(p: PooledPreviewProps, deckCss: boolean): string {
+	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}${deckCss ? `\u0000${p.extraCss || ''}` : ''}`;
+}
+
 /**
  * What a slot can NEVER be re-pointed across, as opposed to what it merely prefers.
  *
@@ -206,15 +215,6 @@ function shapeKey(p: PooledPreviewProps): string {
  * docstring above exists to warn about, reappearing inside the pool. Every grid today is uniform,
  * so this partitions nothing; it is here so that stays true when one is not.
  */
-/** The part of `shapeKey` that is the deck's LOOK rather than the tile's kind: a palette, mode or theme change moves
- *  every tile off its old look at once, which is what makes a frame of that look stale (the slot pass). `deckCss`: the
- *  grid's author CSS when every tile carries the same (the overview, the map, Reshape and the layout menu pass one
- *  deck-wide sheet), so an edit to it is a look change too; a grid whose tiles carry their own (the Add slide gallery's
- *  local components) passes `null`, and there the CSS is a tile's kind. PURE. */
-export function lookKey(p: PooledPreviewProps, deckCss: boolean): string {
-	return `${identityKey(p)}\u0000${p.paletteOverride || ''}|${p.modeOverride || ''}|${p.extraTheme?.name || ''}${deckCss ? `\u0000${p.extraCss || ''}` : ''}`;
-}
-
 function identityKey(p: PooledPreviewProps): string {
 	const o = p.options;
 	return `${p.specimen ? 'S' : '-'}|${o.themeBase}|${o.runtimeUrl}|${o.engineUrl}|${o.katexUrl || ''}`;
@@ -399,7 +399,7 @@ function parkedProps(p: PooledPreviewProps): PooledPreviewProps {
  * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
  * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, tileCss = false, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; /** Each tile's `extraCss` is its own (a local component's sheet), not the deck's: it is then a tile's KIND, never part of the look, so a stale frame is never inferred from it. Only the Add slide gallery. */ tileCss?: boolean; onSettle?: (report: PoolReport) => void }) {
 	// Read at render. The tier can change once mid-session (decided after the first slide): the effect below re-renders the
 	// pool and runs a pass when it does, and the pass gives back the free frames above a lowered ceiling.
 	const [, setTierTick] = React.useState(0);
@@ -410,6 +410,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const ceiling = Number.isFinite(maxSlots) ? Math.max(1, Math.min(HARD_MAX_SLOTS, Math.floor(maxSlots))) : HARD_MAX_SLOTS;
 	const ceilingRef = React.useRef(ceiling);
 	ceilingRef.current = ceiling;
+	const tileCssRef = React.useRef(tileCss);
+	tileCssRef.current = tileCss;
 	const onSettleRef = React.useRef(onSettle);
 	onSettleRef.current = onSettle;
 	const layerRef = React.useRef<HTMLDivElement>(null);
@@ -591,8 +593,11 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is read from the look and never from which
 			// tiles happen to be registered: a filter or a remounted panel unregisters the Mermaid tile for a while, and
 			// calling its frame stale then handed it to a plain tile, or trimmed it, on every round trip (checker 18).
+			// `deckCss` comes from the HOST, never from the tiles: inferring it ("every registered tile carries the same CSS") turned
+			// true when a filter hid the Add slide gallery's local component, which then made its frame stale and trimmed it on
+			// every round trip, the Mermaid churn again through another shape (card grader, #3441).
 			const all = [...tiles.current.values()];
-			const deckCss = all.length > 0 && all.every((t) => (t.props.extraCss || '') === (all[0].props.extraCss || ''));
+			const deckCss = !tileCssRef.current;
 			const looks = new Set(all.map((t) => lookKey(t.props, deckCss)));
 			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props, deckCss));
 			// `mixed`: the grid holds more than one shape of the current look, counting the frames a filtered-out tile left

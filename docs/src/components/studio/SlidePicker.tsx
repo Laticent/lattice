@@ -404,7 +404,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 				    and minting a fresh set when the query matched again. Measured: 11 frames → 1 → 11 per
 				    empty-search bounce, which on WebKit is ~100MB never given back, reachable by any typo.
 				    The pool outlives what it is showing; that is the whole idea. */}
-				<PreviewPool>
+				<PreviewPool tileCss>
 					{searching && flat.length === 0 ? (
 						<Empty query={query} />
 					) : (

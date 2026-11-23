@@ -1011,6 +1011,47 @@ describe('PreviewPool — a tile of another shape', () => {
 		expect(slotRoom(HARD_MAX_SLOTS, true)).toBe(HARD_MAX_SLOTS);
 	});
 
+	it('keeps a local component frame through a filter round trip, the gallery saying its CSS is per tile', () => {
+		// The same round trip with a local component's own CSS as the second shape. Inferring "deck-wide CSS" from the
+		// registered tiles turned true once the filter hid the local tile (every tile left carried none), which made its
+		// frame stale and trimmed it: slots 4,5,4,5, three frames made and destroyed in three round trips (card grader).
+		const LOCAL = '# local';
+		const Pool = ({ withLocal }: { withLocal: boolean }) => (
+			<PreviewPool maxSlots={4} tileCss>
+				{['# 0', '# 1', '# 2', '# 3', ...(withLocal ? [LOCAL] : [])].map((sample, i) => (
+					<div key={sample} data-testid={`tile-${i}`}>
+						<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} extraCss={sample === LOCAL ? '.x{color:red}' : undefined} className="aspect-video w-full" />
+					</div>
+				))}
+			</PreviewPool>
+		);
+		const { container, rerender } = render(<Pool withLocal />);
+		const show = (on: number[], off: number[]) => {
+			for (const i of off) {
+				offScreen(face(container, i));
+				intersect(face(container, i), false);
+			}
+			for (const i of on) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+		};
+		show([0, 1, 2, 3], []);
+		settle();
+		show([4], [3]);
+		settle(RELEASE_GRACE + APPLY_MS + 50);
+		const [m0, u0] = [mounts, unmounts];
+		for (let round = 0; round < 3; round++) {
+			rerender(<Pool withLocal={false} />);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			rerender(<Pool withLocal />);
+			show([0, 1, 2, 4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			expect(showing(container)).toContain(LOCAL);
+		}
+		expect([mounts - m0, unmounts - u0], 'a filter round trip destroyed or made a frame').toEqual([0, 0]);
+	});
+
 	it('reuses the frames a palette change left stale instead of growing past them', () => {
 		// A one-shape grid, its frames free while the reader is away (the Add slide gallery stays mounted, closed), then a
 		// palette change. Every free frame is keyed to the old palette and matches no tile. Growing past them doubled the
