@@ -25,6 +25,8 @@ on:
       - 'tools/release.js'
       - 'tools/stage-engine-package.js'
       - 'tools/library-prepack.js'
+      - 'tools/build-*-lib.js' # each library's prepack runs its builder
+      - '.github/actions/puppeteer-chrome/**'
       - 'tools/trial-publish.js'
       - '.github/workflows/release.yml'
       - '.github/workflows/release-publish.yml'
@@ -37,9 +39,11 @@ on:
 permissions:
   contents: read
 
+# Only a PR's runs cancel each other. Called from release.yml, github.ref is the caller's (main),
+# the same as the nightly's, so cancel-in-progress there would let the nightly cancel a release.
 concurrency:
-  group: trial-publish-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: trial-publish-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   trial-publish:

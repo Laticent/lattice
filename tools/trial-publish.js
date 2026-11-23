@@ -19,7 +19,7 @@
  *            prepack (tools/library-prepack.js builds its dist/ and copies the license).
  *   engine   stages packages/lattice/ (tools/stage-engine-package.js) and publishes it with
  *            --ignore-scripts: the build is the caller's (CI already ran it), and the engine's
- *            prepublishOnly would only re-run the unit suite.
+ *            prepublishOnly would run `npm run build && npm test` again.
  *   install  `npm install @laticent/lattice` into an empty folder whose .npmrc points only the
  *            @laticent scope at the local registry; the rest comes from npmjs as for a user.
  *   render   `lattice --version` and `lat --version` print the published version, the root
@@ -29,7 +29,12 @@
  * Then it stops the registry and removes the temp folder and the staged files, pass or fail.
  *
  * It does not build: run `npm run build` first (dist/ must exist). The render needs Chrome
- * (CHROME_PATH, or Puppeteer's own download).
+ * (CHROME_PATH, or Puppeteer's own download). Linux and macOS only: it spawns npm and npx
+ * without a shell and stops the registry by process group, neither of which Windows supports.
+ *
+ * A failure names its phase. A red `install` usually means the network or an upstream release
+ * (the install resolves the newest versions in range from npmjs, as a user's would); a red
+ * `check`, `engine` or `render` is ours.
  *
  * Usage:
  *   node tools/trial-publish.js            run it; exit 0 on success, 1 on a failure
@@ -38,8 +43,9 @@
  * The CI job is .github/workflows/trial-publish.yml. RELEASE.md §The distribution contract
  * points here.
  */
-const { spawn, spawnSync, execFileSync } = require('node:child_process');
+const { spawn, execFile } = require('node:child_process');
 const fs = require('node:fs');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 
@@ -106,24 +112,47 @@ const DECK = [
 ].join('\n\n---\n\n');
 const DECK_PAGES = 4;
 
+/**
+ * Run a command and resolve to its stdout. Asynchronous on purpose: a synchronous spawn blocks
+ * the event loop, so a Ctrl-C or SIGTERM would wait for the whole trial before the cleanup ran.
+ */
 function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts });
-  if (r.status !== 0) {
-    throw new Error(`\`${cmd} ${args.join(' ')}\` exited ${r.status ?? r.signal}\n${(r.stdout || '').slice(-2000)}${(r.stderr || '').slice(-4000)}`);
-  }
-  return r.stdout;
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+      if (!err) return resolve(stdout);
+      if (err.code === 'ENOENT') return reject(new Error(`\`${cmd}\` did not start: ${err.message}`));
+      reject(new Error(`\`${cmd} ${args.join(' ')}\` exited ${err.code ?? err.signal}\n${String(stdout).slice(-2000)}${String(stderr).slice(-4000)}`));
+    });
+  });
 }
 
-async function waitForRegistry(url, deadlineMs) {
+/** A port nothing is listening on: the OS picks it, so a stale local registry cannot answer for ours. */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+/** Wait until the registry answers, or fail at once if its process has already exited. */
+async function waitForRegistry(url, deadlineMs, child, logFile) {
+  let exited = null;
+  child.once('exit', (code, signal) => { exited = code ?? signal; });
   const end = Date.now() + deadlineMs;
+  const logTail = () => (fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8').slice(-2000) : '');
   for (;;) {
+    if (exited !== null) throw new Error(`the local registry exited (${exited}) before it answered:\n${logTail()}`);
     try {
       const res = await fetch(`${url}/-/ping`);
       if (res.ok) return;
     } catch {
       /* not listening yet */
     }
-    if (Date.now() > end) throw new Error(`the local registry did not answer at ${url} within ${deadlineMs / 1000} s`);
+    if (Date.now() > end) throw new Error(`the local registry did not answer at ${url} within ${deadlineMs / 1000} s:\n${logTail()}`);
     await new Promise((r) => setTimeout(r, 250));
   }
 }
@@ -131,8 +160,10 @@ async function waitForRegistry(url, deadlineMs) {
 async function main() {
   const keep = process.argv.includes('--keep');
   const times = [];
+  let current = '';
   const phase = async (name, fn) => {
     const start = Date.now();
+    current = name;
     process.stdout.write(`▸ ${name}\n`);
     const out = await fn();
     times.push([name, (Date.now() - start) / 1000]);
@@ -150,11 +181,30 @@ async function main() {
   }
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-trial-publish-'));
-  const port = 4873 + Math.floor(Math.random() * 1000); // flaky-ok: a free-port pick, not test input
+  const port = await freePort();
   const url = `http://127.0.0.1:${port}`;
   const auth = `--//127.0.0.1:${port}/:_authToken=trial-only`;
   const stager = require('./stage-engine-package.js');
   let registry;
+  // The registry runs in its own process group (so one signal stops npx and Verdaccio together),
+  // which also means a Ctrl-C here never reaches it. Stop it, and the staged files, on a signal too.
+  const stopRegistry = () => {
+    if (!registry) return;
+    try {
+      process.kill(-registry.pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+    registry = null;
+  };
+  const onSignal = (sig) => {
+    stopRegistry();
+    stager.clean(stager.stagedEntries());
+    if (!keep) fs.rmSync(tmp, { recursive: true, force: true });
+    process.exit(sig === 'SIGINT' ? 130 : 143);
+  };
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
   try {
     await phase('registry', async () => {
       fs.mkdirSync(path.join(tmp, 'storage'));
@@ -169,71 +219,82 @@ async function main() {
         `log: { type: file, path: ${path.join(tmp, 'verdaccio.log')}, level: warn }`,
         'max_body_size: 300mb',
       ].join('\n'));
-      registry = spawn('npx', ['--yes', VERDACCIO, '--config', path.join(tmp, 'config.yaml')], { cwd: tmp, detached: true, stdio: 'ignore' });
-      await waitForRegistry(url, 120000);
+      const out = fs.openSync(path.join(tmp, 'verdaccio.out'), 'a');
+      registry = spawn('npx', ['--yes', VERDACCIO, '--config', path.join(tmp, 'config.yaml')], { cwd: tmp, detached: true, stdio: ['ignore', out, out] });
+      await waitForRegistry(url, 120000, registry, path.join(tmp, 'verdaccio.out'));
     });
 
     const libs = publishSet();
-    await phase(`libraries (${libs.length})`, () => {
-      for (const lib of libs) run('npm', ['publish', '--workspace', lib, '--registry', url, auth], { cwd: ROOT });
+    await phase(`libraries (${libs.length})`, async () => {
+      for (const lib of libs) await run('npm', ['publish', '--workspace', lib, '--registry', url, auth], { cwd: ROOT });
     });
 
     const version = readJson(stager.MANIFEST).version;
-    await phase('engine', () => {
+    await phase('engine', async () => {
       const entries = stager.stagedEntries();
       try {
         stager.stage(entries);
-        run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts', '--registry', url, auth], { cwd: ROOT });
+        await run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts', '--registry', url, auth], { cwd: ROOT });
       } finally {
         stager.clean(entries);
       }
     });
 
     const room = path.join(tmp, 'room');
-    await phase('install', () => {
+    await phase('install', async () => {
       fs.mkdirSync(room);
       fs.writeFileSync(path.join(room, 'package.json'), '{"name":"trial-room","private":true}\n');
       fs.writeFileSync(path.join(room, '.npmrc'), `${SCOPE.slice(0, -1)}:registry=${url}/\n`);
-      run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
+      await run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
         cwd: room,
         env: { ...process.env, PUPPETEER_SKIP_DOWNLOAD: '1' },
       });
     });
 
-    await phase('render', () => {
+    await phase('render', async () => {
       const bin = path.join(room, 'node_modules', '.bin');
       for (const name of ['lattice', 'lat']) {
-        const out = run(path.join(bin, name), ['--version'], { cwd: room }).trim();
+        const out = (await run(path.join(bin, name), ['--version'], { cwd: room })).trim();
         if (out !== `lattice ${version}`) throw new Error(`\`${name} --version\` printed "${out}", not "lattice ${version}"`);
       }
-      run(process.execPath, ['-e', `if (typeof require('${ENGINE}').render !== 'function') process.exit(1)`], { cwd: room });
-      run(process.execPath, ['--input-type=module', '-e', `const m = await import('${ENGINE}'); if (typeof m.default.render !== 'function') process.exit(1);`], { cwd: room });
+      await run(process.execPath, ['-e', `if (typeof require('${ENGINE}').render !== 'function') process.exit(1)`], { cwd: room });
+      await run(process.execPath, ['--input-type=module', '-e', `const m = await import('${ENGINE}'); if (typeof m.default.render !== 'function') process.exit(1);`], { cwd: room });
       fs.writeFileSync(path.join(room, 'deck.md'), DECK);
-      run(path.join(bin, 'lattice'), ['deck.md', 'deck.pdf', '--quiet'], { cwd: room });
+      await run(path.join(bin, 'lattice'), ['deck.md', 'deck.pdf', '--quiet'], { cwd: room });
       const pdf = fs.readFileSync(path.join(room, 'deck.pdf'));
       if (pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('the installed CLI wrote a deck.pdf that is not a PDF');
-      const pages = Number(execFileSync(process.execPath, ['-e', `require('pdf-lib').PDFDocument.load(require('fs').readFileSync(${JSON.stringify(path.join(room, 'deck.pdf'))})).then((d) => process.stdout.write(String(d.getPageCount())))`], { cwd: ROOT, encoding: 'utf8' }));
+      const pages = Number(await run(process.execPath, ['-e', `require('pdf-lib').PDFDocument.load(require('fs').readFileSync(${JSON.stringify(path.join(room, 'deck.pdf'))})).then((d) => process.stdout.write(String(d.getPageCount())))`], { cwd: ROOT }));
       if (pages !== DECK_PAGES) throw new Error(`the rendered deck has ${pages} pages, not ${DECK_PAGES}`);
     });
   } catch (e) {
-    console.error(`trial-publish: ${e.message}`);
+    console.error(`trial-publish: failed in the ${current} phase: ${e.message}`);
     return 1;
   } finally {
-    if (registry) {
+    stopRegistry();
+    process.removeListener('SIGINT', onSignal);
+    process.removeListener('SIGTERM', onSignal);
+    if (keep) console.log(`trial-publish: kept ${tmp}`);
+    else {
       try {
-        process.kill(-registry.pid, 'SIGTERM');
-      } catch {
-        /* already gone */
+        fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 3 });
+      } catch (e) {
+        console.error(`trial-publish: could not remove ${tmp}: ${e.message}`);
       }
     }
-    if (keep) console.log(`trial-publish: kept ${tmp}`);
-    else fs.rmSync(tmp, { recursive: true, force: true });
   }
   console.log('\ntrial-publish: OK');
   for (const [name, s] of times) console.log(`  ${name.padEnd(16)} ${s.toFixed(1)} s`);
   return 0;
 }
 
-if (require.main === module) main().then((code) => process.exit(code));
+if (require.main === module) {
+  main().then(
+    (code) => process.exit(code),
+    (e) => {
+      console.error(`trial-publish: ${e.stack || e}`);
+      process.exit(1);
+    },
+  );
+}
 
 module.exports = { publishSet, blockers, workspaces };
