@@ -192,7 +192,15 @@ handoffs.d/
 - **One folder per branch.** A tree with two folders under `handoffs.d/` is an error: it means one
   line of work merged another's branch.
 - **Subfolders are created when needed.** An empty one is not committed. Files go only in these six
-  subfolders and `LINKS.md`, so a reader always knows where to look.
+  subfolders and `LINKS.md`, so a reader always knows where to look. The inversion review asked for a
+  leaner layout with no fixed subfolders; the owner approved this one (H6), so it stays, and because a
+  subfolder exists only once something is in it, an ordinary handoff is HANDOFF.md plus one or two
+  folders.
+- **`since-<session>.md` after a lost race** (red-team R4). A session that loses the baton race
+  (#3427 rule 4) does not touch HANDOFF.md in its rescue commits, because the holder has rewritten
+  the same file and the merge would conflict on all of it, losing one side's decisions. It writes
+  what it learned to `handoffs.d/<slug>/since-<session>.md` instead. The holder merges the rescue,
+  folds the file into HANDOFF.md and deletes it in the same commit.
 
 ### HANDOFF.md (H6, H7)
 
@@ -216,7 +224,7 @@ G3 is …, G4 is …
 ## Open questions
 ### Q1 Does G3 cover the dark cover slide?
 Context: the measurements (artifacts/measurements/contrast-round1.csv) and what was tried.
-> "keep the cover as quiet as the agenda slide" (the owner, 2026-11-21, session_01…)
+> "keep the cover as quiet as the agenda slide" (the owner, 2026-11-21, session_01…, event <id>)
 Options: A … B … Recommendation: … Default if silent: …
 
 ## Next steps, in order
@@ -244,7 +252,10 @@ handoff is rushed or removed.
 paraphrase of an owner decision is how a later session re-asks a settled point (CLAUDE.md DEFAULT
 OPERATING MODE #3). An exact quote is an external string under `engineering/house-style.md` §1, so
 the US-English audit must not rewrite it; slice 2 checks that the audit and the typed-glyph census
-leave quoted lines alone. **Do not** names what a cold reader would otherwise get wrong, starting
+leave quoted lines alone. **Every quote carries the transcript event it came from** (red-team R5),
+because the other account cannot read this account's sessions: a reader who cannot check a quote
+treats it as unconfirmed and asks their own owner before acting on it as settled. A false quote that
+looks settled is worse than an open question. **Do not** names what a cold reader would otherwise get wrong, starting
 with branches other sessions own.
 
 **The repository is public, and so is every branch.** The owner's quoted words become public. Quote
@@ -354,6 +365,15 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
    `git checkout <permalink-sha> -- handoffs.d/<slug>`. The fetch matters after a merge: the branch
    is deleted on merge, and a fresh clone has the earlier commits only through the PR's ref.
 
+Two more checkpoint rules, from the red-team review:
+
+- **Checkpoint right after any owner answer** (R5). An answer that lives only in the session that
+  asked is lost if that session cannot push afterwards. The next commit writes it into Open questions
+  (moved to Where it stands once settled), with its event id.
+- **At the merge gate, checkpoint by comment edit only** (R8). After close the folder is gone and
+  the head is the one the 🚦 card names; a push would void the card and, with an old checkout,
+  bring the folder back. A parked session records new state with `card --living --note` instead.
+
 **What this costs.** The close commit is a new head, so ready-PR CI runs once more on it unless the
 session folds the removal into the last raise-loop fix. The rejected alternative removes the folder
 before the PR leaves draft, which costs no extra run but leaves the raise loop and any handover on a
@@ -370,6 +390,18 @@ checkpoint, budget, the 🎯 continuation card built from Next steps, the open q
 link to `handoffs.d/<slug>/HANDOFF.md` at the head commit. The `TRAPS` and `UNVERIFIED` lists that
 #3427 puts in the comment's `relay:` block move to HANDOFF.md's Gotchas met and Open questions. `CLAIMS` stay in the comment, copied from HANDOFF.md, because `npm run relay` reads claims
 from the comment to show the board across both accounts.
+
+**The generator checks who is writing** (red-team R7). Both people's sessions post as the same
+GitHub login, so any of them could edit the comment. `card --living` refuses unless the branch tip's
+`Claude-Session:` trailer is the session running it (the check #3427's tool already makes), and it
+writes the HANDOFF.md blob hash into the comment, so a reader can confirm the summary matches the file
+at that commit: `git rev-parse <head>:handoffs.d/<slug>/HANDOFF.md`. A hand-edited comment no longer
+matches.
+
+**The generated comment stays short** (inversion item e). Every session rewrites it at every
+checkpoint, so its size is a cost paid many times a day. It holds the `BATON` block, five front-matter
+fields, the 🎯 card, and one line per open question, about one screen; everything else is a link to
+the file. A checkpoint commit edits the sections that changed, not the whole file.
 
 Two cases where the pushed HANDOFF.md is not enough, and what the comment carries then:
 
@@ -404,7 +436,7 @@ checkpoint push and every one of those runs, which is the opposite of H2.
   anyway). At most one folder; a HANDOFF.md whose front matter has `owner`, `branch`, `pr`, `status`
   (one of `active`, `released`, `closing`), `updated` and `budget`, and `checkpoint` (one of
   `25%`, `50%`, `75%`, `90%`, with the account) when present; files only in the six `artifacts/`
-  subfolders and `LINKS.md`; a reason line for any text file over 1 MB. A malformed handoff on the
+  subfolders, `LINKS.md` and any `since-<session>.md`; a reason line for any text file over 1 MB. A malformed handoff on the
   branch is better than one a session could not push.
 - **Freshness: an error wherever the branch's history is available** (H8). The newest non-merge
   commit on the branch that changes anything outside `handoffs.d/` must not come after the newest
@@ -440,6 +472,11 @@ checkpoint push and every one of those runs, which is the opposite of H2.
 `npm run queue:precheck` is the earlier guard: it refuses the merge ask while the folder is in the
 tree, so the queue error is the backstop for a session that skipped the precheck, not the usual way a
 session finds out. A queue ejection costs one queue run; the precheck costs nothing.
+
+**What freshness does not read.** It uses local git ancestry only, never GitHub's push-activity API
+or the PR commits list, so two bugs the red team found elsewhere do not reach it: push-activity
+timestamps that miss branch creations and force pushes (R2), and the PR commits list that stops at
+250 commits (R11).
 
 The exact error text (merge queue):
 
@@ -491,6 +528,12 @@ One PR, one commit per slice (`workflow.md` §Batch a session's slices).
    CLAUDE.md table row for an idle session names the continuation brief; pointing it at the folder
    changes a canonical doc's meaning (SECOND FILTER row 4), so the PR puts that one-line change to the
    owner as an option, not a silent edit.
+
+**Proven before it merges** (inversion item a). The owner's rule for this week is not to merge an
+untested change to how sessions hand work over. The build PR's card carries one real cold pickup: a
+session on the second account (or, until that account is back, a fresh session on this one acting as
+the second person) takes a line of work from its handoff alone, adds a commit, and hands it back,
+with the freshness check and the generated comment exercised on the way.
 
 Slices 1 to 3 are internal tooling that no user of the engine sees, so they should owe no
 `changelog.d/` fragment; the build PR confirms that against `changelog.d/README.md`.
