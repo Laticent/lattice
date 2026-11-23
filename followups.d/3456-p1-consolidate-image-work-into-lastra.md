@@ -1,12 +1,12 @@
 ---
-origin: PRNUM
+origin: 3456
 priority: P1
 recorded: 2026-11-23
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-07-first-npm-release.md §9
 deferred: large — post-1.0 direction set by the owner on 2026-11-23; moving every image job behind one library touches the CLI export, the Studio and the player, and each move owes its own differential test
-source: https://github.com/Laticent/lattice/pull/PRNUM
+source: https://github.com/Laticent/lattice/pull/3456
 ---
 
 # Move the repo's remaining image work into lastra

@@ -1,12 +1,12 @@
 ---
-origin: PRNUM
+origin: 3456
 priority: P2
 recorded: 2026-11-23
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-07-13-lente-reader-lenses.md
 deferred: large — post-1.0 direction set by the owner on 2026-11-23; a new subsystem that changes how the Studio, the CLI export and the chat read a deck, and CLAUDE.md "Design-before-code" requires a design note and an owner round first
-source: https://github.com/Laticent/lattice/pull/PRNUM
+source: https://github.com/Laticent/lattice/pull/3456
 ---
 
 # Grow Lente into the deck's outline and its logical and physical views

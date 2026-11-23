@@ -76,7 +76,7 @@ export function compareSlides(html: string): SlideComparison {
 	}
 	const naive: { cls: string; title: string }[] = [];
 	for (const m of html.matchAll(/<section([^>]*)>([\s\S]*?)<\/section>/g)) {
-		const cls = /class="([^"]*)"/.exec(m[1])?.[1] ?? '';
+		const cls = /\sclass="([^"]*)"/.exec(m[1])?.[1] ?? '';
 		const h = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(m[2]);
 		naive.push({ cls, title: h ? h[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : '' });
 	}
