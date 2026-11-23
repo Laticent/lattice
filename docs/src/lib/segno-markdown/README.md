@@ -28,7 +28,7 @@ It is stages S0, S1 and S2 of the Segno deck pipeline
 ## Install
 
 ```sh
-npm i @laticent/segno-markdown
+npm i @laticent/segno-languages
 ```
 
 ## Use
@@ -59,7 +59,7 @@ model = updateDeckModel(model, '# One!\n\n---\n\n# Two\n');
 ### S2: inline structure
 
 ```js
-import { InlineParser, inlineOf, leafText, leafToBody, referencesOf, slideLeaves } from '@laticent/segno-markdown';
+import { InlineParser, inlineOf, leafText, leafToBody, referencesOf, slideLeaves } from '@laticent/segno-languages/markdown';
 
 // The entity table is the host's (Lattice's bridge asks markdown-it); `namedEntity` says whether `&name;` is one.
 const inline = new InlineParser({ namedEntity: (ref) => ENTITIES.has(ref) });

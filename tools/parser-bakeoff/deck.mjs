@@ -17,7 +17,7 @@
  *   --model    The deck model (P2, lib/core/deck-model.mjs): S0-S1 on the three decks against
  *              markdown-it's block parse, a keystroke's incremental update on the gallery, and the
  *              token-for-token differential on every file of the corpus. Exits 1 on any difference.
- *   --inline   S2, the inline pass (P4, @laticent/segno-markdown's InlineParser through lib/core/model-tokens.mjs):
+ *   --inline   S2, the inline pass (P4, @laticent/segno-languages/markdown's InlineParser through lib/core/model-tokens.mjs):
  *              the three speed figures of the pipeline doc's §Speed targets on the three decks: S0-S1 against
  *              markdown-it's block parse (as --model measures it), the inline parse alone on the same leaves, and
  *              S0-S2 (the model with every leaf read) against markdown-it's block + inline parse; then a keystroke that re-reads the edited slide's
@@ -235,7 +235,7 @@ async function model() {
 async function inlineArm() {
   const MarkdownIt = require('markdown-it');
   const mt = await import(path.join(ROOT, 'lib/core/model-tokens.mjs'));
-  const sm = require('@laticent/segno-markdown');
+  const sm = require('@laticent/segno-languages/markdown');
   const { FRONT_MATTER, normalizeSource } = await import(path.join(ROOT, 'lib/core/boundary-parser.mjs'));
   const { installPlugins } = require(path.join(ROOT, 'lib/plugins/host'));
   const { installSlidePipeline } = require(path.join(ROOT, 'lib/engine/slides'));

@@ -27,7 +27,7 @@ const { installPlugins } = require('../../../lib/plugins/host');
 const { installSlidePipeline } = require('../../../lib/engine/slides');
 const { tolerateRawtextClose } = require('../../../lib/core/rawtext-close.mjs');
 const { modelTokens, parseFromModel, parsersFor } = require('../../../lib/core/model-tokens.mjs');
-const { deckModel, isPunct, leafText, leafToBody, RSTRIDE, updateDeckModel } = require('@laticent/segno-markdown');
+const { deckModel, isPunct, leafText, leafToBody, RSTRIDE, updateDeckModel } = require('@laticent/segno-languages/markdown');
 const { charReads } = require('../../helpers/work-count.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -112,7 +112,7 @@ test('references a caller filled in `env.references` win, and resolve labels the
 });
 
 test('an update through one copy of the package with a parser from the other stays exact (each copy has its own scratch)', async () => {
-	const esm = await import('@laticent/segno-markdown');
+	const esm = await import('@laticent/segno-languages/markdown');
 	const { block } = parsersFor(md);
 	assert.notEqual(esm.deckModel, deckModel, 'the test needs the two copies');
 	const cjsModel = deckModel('\n\n\n', { parser: block, frontMatter: null, raw: true });
