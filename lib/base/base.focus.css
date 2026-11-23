@@ -233,7 +233,7 @@ section[data-focus-axis="mark"][data-focus-style="ring"] text.lat-focus { fill: 
  * NOTHING CHANGES SIZE: color, background, outline, opacity and stroke only, never a
  * weight or a padding. Text color animates; SVG paint switches in one step (an animated
  * token paint once interpolated to pure yellow, 2026-09-25 note §6.1), and the opacity
- * carries the motion. No render path writes any of it, so a PDF, a PPTX and an export
+ * carries the motion, stepped by the Guide itself rather than transitioned (see below). No render path writes any of it, so a PDF, a PPTX and an export
  * render exactly as before. */
 section[data-guide] {
   --guide-said: color-mix(in srgb, var(--accent) 30%, transparent);
@@ -241,18 +241,20 @@ section[data-guide] {
 }
 /* Somber refuses brand color: its one focus takes the heading ink. */
 section[data-guide="somber"] { --guide-ink: var(--text-heading); }
+/* NO OPACITY TRANSITION in this file. WebKit runs one on the compositor, and a compositing layer inside a slide
+   frame is sized by the frame's own box (3840x2160 for a 4K deck) times the pixel density: about 300 MB a layer on
+   an iPhone at 3x, which reloaded the tab (2026-11-20). The Guide steps the opacity itself (present-guide.ts
+   `crossfadeOpacity`); these rules hold each state's level, and color and background, which repaint, still transition. */
 section[data-guide] .lat-guide-dim {
   opacity: var(--guide-dim, 0.7);
-  transition: opacity var(--guide-fade, 200ms) ease;
 }
 section[data-guide] svg :is(rect, path, circle, polygon, polyline, line, ellipse).lat-guide-dim { opacity: var(--guide-dim-mark, 0.45); }
 section[data-guide] .lat-guide-dim-inner {
   opacity: var(--guide-dim-inner, 0.3);
-  transition: opacity var(--guide-fade, 200ms) ease;
 }
 /* The named part ARRIVES fast (ease-out: most of the change in the first third), so on a phone it
    reads as landing with the word; what recedes keeps the gentler ease. */
-section[data-guide] .lat-guide-undim { transition: opacity var(--guide-fade, 200ms) ease-out, color var(--guide-fade, 200ms) ease-out, background-color var(--guide-fade, 200ms) ease-out; }
+section[data-guide] .lat-guide-undim { transition: color var(--guide-fade, 200ms) ease-out, background-color var(--guide-fade, 200ms) ease-out; }
 /* focus */
 section[data-guide] .lat-guide-focus,
 section[data-guide] tr.lat-guide-focus > :is(td, th) { color: var(--guide-ink); }

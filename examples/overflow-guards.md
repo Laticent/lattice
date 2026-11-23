@@ -2,17 +2,17 @@
 marp: true
 theme: indaco
 pagination: true
-guards: strict
-header: "Lattice · guards: strict"
+fit: trim
+header: "Lattice · fit: trim"
 ---
 
 <!-- _class: title silent -->
 
-`Feature demo · the guards register`
+`Feature demo · the fit register`
 
 # Cut the tail, keep the shape — and still say so.
 
-`guards: strict` lets an overflowing slide end in an ellipsis instead of shearing mid-line. It does far less than the name suggests, on purpose: every slide after this one shows a limit rather than a win.
+`fit: trim` lets an overflowing slide end in an ellipsis instead of shearing mid-line. It does far less than the name suggests, on purpose: every slide after this one shows a limit rather than a win.
 
 ---
 
@@ -38,7 +38,7 @@ header: "Lattice · guards: strict"
 
 A slot's trim class is a property of what the text means, not of the component. An ellipsis on a sentence says "there is more". An ellipsis on `$1,234,567` states a different number, and the failure is silent — the deck looks better than the truth.
 
-So headings, KPI values, code, math, citations, legal text and footers are never trimmed. Anything unclassified defaults to never, which is why `strict` does less rather than something wrong.
+So headings, KPI values, code, math, citations, legal text and footers are never trimmed. Anything unclassified defaults to never, which is why `trim` does less rather than something wrong.
 
 ---
 
@@ -71,7 +71,7 @@ What the existing probes cannot see is a removal, so a trim stamps its own recor
 
 ## The honest number.
 
-On the decks this repo ships, `guards: strict` resolves **one of the six** slides that clip today. The other five are blocked by a heading, a callout box's own chrome, or a shell command one line-height from the frame edge.
+On the decks this repo ships, `fit: trim` resolves **one of the six** slides that clip today. The other five are blocked by a heading, a callout box's own chrome, or a shell command one line-height from the frame edge.
 
 That is the shape of the feature: the blocks that most often cause overflow are largely the ones it refuses to touch. It is a guard on the tail of a paragraph, not a fix for a slide with too much on it.
 
@@ -79,8 +79,8 @@ That is the shape of the feature: the blocks that most often cause overflow are 
 
 <!-- _class: closing -->
 
-`guards: loose is the default`
+`fit: heal is the default`
 
 # Nothing changes unless you ask for it.
 
-A deck that omits the key renders exactly as it did before. Per-slide, `<!-- _class: guards-loose -->` takes one slide back out.
+A deck that omits the key renders exactly as it did before. Per-slide, `<!-- _class: fit-heal -->` takes one slide back out.

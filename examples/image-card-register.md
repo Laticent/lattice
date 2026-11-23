@@ -26,21 +26,21 @@ Top right, at 80% strength, in the smaller type.
 
 ---
 
-<!-- _class: image spotlight at-bl -->
+<!-- _class: image spotlight image-card-bottom-left -->
 
 ## A slide moves one axis.
 
-`at-bl` brings this card back to the bottom left; it stays soft, small and compact.
+`image-card-bottom-left` brings this card back to the bottom left; it stays soft, small and compact.
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
-<!-- _class: image spotlight card-lg card-regular -->
+<!-- _class: image spotlight image-card-lg image-card-regular -->
 
 ## Or two.
 
-`card-lg card-regular` makes this card large and roomy, still top right and soft.
+`image-card-lg image-card-regular` makes this card large and roomy, still top right and soft.
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
@@ -50,11 +50,11 @@ Top right, at 80% strength, in the smaller type.
 
 ## Other slides are untouched.
 
-This prose slide keeps its own bottom-left tint and its regular spacing: the deck's `top-right` and `compact` ride image slides only.
+This prose slide keeps its own bottom-left tint and its regular spacing: the deck's `top-right` and `compact` are the card's own words, so they ride image slides only.
 
 ---
 
-<!-- _class: image spotlight ink-light card-solid -->
+<!-- _class: image spotlight image-card-light image-card-solid -->
 
 ## Ink and backing override per slide too.
 

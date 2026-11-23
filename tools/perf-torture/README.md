@@ -55,6 +55,22 @@ from the `?perf`/web-vitals artifact in `2026-07-21-studio-compose-listener-leak
 — run it on `--cycle idle,compose` and the production Studio is flat; point the surface at `/studio?perf`
 and it fires `⚠ PERSISTENT LISTENER LEAK: visibilitychange @ document` and names the web-vitals site.
 
+### `narration` — what Present keeps while it reads aloud
+
+`npm run torture -- --cycle idle,narration --k 30` presents the Studio's deck with Voice on and lets each
+slide read for 3 s before moving on. The `narration` surface stubs OpenRouter's speech endpoint with the
+answer Gemini's TTS gives: raw 24 kHz PCM, silent, as long as the sentence would take to say. So it reads
+the raw-audio path that reloaded the iPhone tab (#3289) without a key, and spends nothing (HARD RULE #24).
+It adds one probe, `liveDecodedMB`: the decoded audio the page still holds after the forced GC, tallied
+through a `WeakRef` to every buffer `decodeAudioData` returns. Flat means each sentence's audio is released
+once it has played; a rise means the page keeps it.
+
+`narrationguide` is the same run with Present's Guide on (the pointer, focus, ink and word read-along). The
+owner's iPhone played a 38-slide 4K narrated deck to the end on #3304 and reloaded only with Guide on
+(2026-11-19). Measured on the Studio's deck at `--k 20`: about 3.7 MB of JS heap growth, mostly compiled code,
+and flat DOM, listeners and detached nodes. Guide's cost is not in the JS heap, so read this cycle together with
+a process-memory measurement on WebKit.
+
 ## Report artifacts (`--out <dir>`)
 
 `--out <dir>` writes consumable, standard-ish artifacts (the run still prints to the console as well):

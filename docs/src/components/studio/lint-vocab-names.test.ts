@@ -19,8 +19,8 @@ describe('lint-vocab-names', () => {
 	});
 
 	it('withUnpackedNames restores the arrays and drops the packed field; a plain vocab passes through', () => {
-		expect(withUnpackedNames({ names: ['k'], packedNames: 'guardsNames:loose strict' })).toEqual({ names: ['k'], guardsNames: ['loose', 'strict'] });
-		const plain = { names: ['k'], guardsNames: ['loose'] };
+		expect(withUnpackedNames({ names: ['k'], packedNames: 'fitNames:heal trim' })).toEqual({ names: ['k'], fitNames: ['heal', 'trim'] });
+		const plain = { names: ['k'], fitNames: ['heal'] };
 		expect(withUnpackedNames(plain)).toBe(plain);
 		expect(withUnpackedNames(null)).toBe(null);
 	});
