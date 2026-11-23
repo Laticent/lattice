@@ -273,7 +273,12 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi, joined = false, pi
 	// than its placeholder, and the browser's scroll anchoring is right to move the frame for it. That skips the
 	// whole move, fitted swaps included, which is a known gap: a move goes in unfitted only before the frame's
 	// first fit, because every element carries its fit after that.
-	if (changed && !unfitted && win && Math.abs(win.scrollY - y0) >= 1) win.scrollTo({ top: y0, behavior: 'instant' });
+	// ONLY A JUMP OF HALF A PANE OR MORE. A finger scroll still in progress also moves `scrollY` across the swap:
+	// iOS Safari scrolls on its own thread, and the layout this read forces can hand the page the newer offset. A
+	// 1 px threshold took that for a drop and wrote the old offset back, which also kills the flick's momentum.
+	// On the owner's iPhone, the preview then did not move at all, with the map open (#3428). The drop it guards
+	// against moved the frame three panes. No reader's own scroll moves it half a pane inside one task.
+	if (changed && !unfitted && win && Math.abs(win.scrollY - y0) >= win.innerHeight / 2) win.scrollTo({ top: y0, behavior: 'instant' });
 	// Whatever was cached about this window is stale now — the next scroll re-reads it.
 	if (changed && frame.contentWindow) frame.contentWindow.__lvGeom = null;
 	if (unfitted) frame.contentWindow?.__latticeFit?.();

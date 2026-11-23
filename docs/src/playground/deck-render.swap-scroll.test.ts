@@ -83,12 +83,18 @@ describe('a window move does not move the reader', () => {
 		restore();
 	});
 
-	it('a move under one pixel writes nothing: a fractional offset is not a dropped scroll', () => {
-		const wheel = TOP + 3 * PITCH;
-		const { frame, win } = makeFrame({ fitted: true, drop: wheel + 0.5 });
-		win.scrollY = wheel;
-		expect(syncVirtual(frame, { lastSections: sections })).toBe(true);
-		expect(win.scrollTo).not.toHaveBeenCalled();
+	it('a move under half a pane writes nothing: a finger still scrolling is not a dropped scroll', () => {
+		// iOS Safari hands the page the newer offset of a scroll still in progress at the layout the swap forces. A 1 px
+		// threshold wrote the old offset back and pinned the preview on the owner's iPhone (#3428). 300 px forward is that
+		// case; a sub-pixel move is the trivial one.
+		for (const ahead of [0.5, 300, -300]) {
+			const wheel = TOP + 3 * PITCH;
+			const { frame, win } = makeFrame({ fitted: true, drop: wheel + ahead });
+			win.scrollY = wheel;
+			expect(syncVirtual(frame, { lastSections: sections })).toBe(true);
+			expect(win.scrollTo, `moved ${ahead} px`).not.toHaveBeenCalled();
+			vi.restoreAllMocks();
+		}
 	});
 
 	it('an UNFITTED swap is left to the browser: that slide really is taller than its placeholder until the fit runs', () => {
