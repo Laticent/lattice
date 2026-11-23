@@ -207,12 +207,14 @@ async function runPickerKeyboardProbe(id) {
 			await pause(250);
 		}
 	};
-	const centerOf = (js) => until(`const el = (${js}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;`);
+	const centerOf = (js, limitMs) => until(`const el = (${js}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;`, limitMs);
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	await run(fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'));
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
-	const door = await centerOf(`[...document.querySelectorAll('button[aria-label="New slide"], button')].find((b) => b.offsetParent && (b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide'))`);
-	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : 'not found in 30 s');
+	// A cold Studio in a fresh simulator: the same 150 s the other probes allow a first load (D3 on #3034).
+	const door = await centerOf(`[...document.querySelectorAll('button')].find((b) => b.offsetParent && (b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide'))`, 150000);
+	const seen = door ? '' : await run(`return [...document.querySelectorAll('button')].filter((b) => b.offsetParent).map((b) => b.getAttribute('aria-label') || b.textContent.trim()).filter(Boolean).slice(0, 40).join(' | ')`);
+	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : `not found in 150 s; visible buttons: ${seen}`);
 	if (!door) return { ok: false, error: 'no New slide door', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
 	await touchAt(id, door);
 	const after = await centerOf(`[...document.querySelectorAll('button')].find((b) => b.offsetParent && b.getAttribute('aria-label') === 'New slide after')`);
