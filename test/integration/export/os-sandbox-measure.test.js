@@ -77,12 +77,13 @@ test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platfor
     assert.equal(fs.existsSync(dir), false);
     return;
   }
-  const script = `$f = [System.IO.File]::Open($env:HELD, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); Start-Sleep -Milliseconds 1500; $f.Close()`;
+  const script = `$f = [System.IO.File]::Open($env:HELD, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); $r = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); Start-Sleep -Milliseconds 1500; $f.Close(); [Console]::Out.WriteLine("read=$r closed=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"); [Console]::Out.Flush()`;
   const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { env: { ...process.env, HELD: file }, stdio: ['pipe', 'pipe', 'inherit'] });
   const exited = new Promise((resolve) => holder.once('exit', resolve));
   // The signal, not a duration: go on once the child says it holds the file.
+  // Everything the holder says, kept: after it lets go it reports when it read `go` and when it closed the file.
+  let out = '';
   await new Promise((resolve, reject) => {
-    let out = '';
     holder.stdout.on('data', (d) => {
       out += d;
       if (out.includes('locked')) resolve();
@@ -93,8 +94,25 @@ test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platfor
     assert.throws(() => fs.rmSync(dir, { recursive: true, force: true }), (e) => ['EBUSY', 'EPERM'].includes(e.code), 'a bare rmSync removed a folder whose file is held: the lock is not real, so this test proves nothing');
     // `go` must reach the holder before removeProfile blocks the event loop, so wait for the write to flush.
     await new Promise((resolve) => holder.stdin.write('go\n', resolve));
-    removeProfile(dir);
-    assert.equal(fs.existsSync(dir), false, 'removeProfile left the folder behind');
+    const sentGo = Date.now();
+    let failure = null;
+    try {
+      removeProfile(dir);
+    } catch (e) {
+      failure = e;
+    }
+    const removed = Date.now() - sentGo;
+    if (failure || fs.existsSync(dir)) {
+      // A failure names its own cause (2026-11-23: one red run in 36 s, 7 times the usual, that no later run
+      // reproduced in 40 tries). The holder letting go AFTER removeProfile gave up means the machine stalled the
+      // holder past the budget; letting go INSIDE the budget means Windows held the file after it was closed, so
+      // the budget is too short for real Chromium helpers.
+      holder.stdin.end();
+      await exited;
+      const m = /read=(\d+) closed=(\d+)/.exec(out);
+      const when = m ? `the holder read go ${m[1] - sentGo} ms and closed the file ${m[2] - sentGo} ms after it was sent` : `the holder reported no times (${JSON.stringify(out)})`;
+      assert.fail(`removeProfile ${failure ? `threw ${failure.code}` : 'left the folder behind'} after ${removed} ms; ${when}`); // flaky-ok: the times only describe a failure already decided by EBUSY or a folder left behind
+    }
   } finally {
     holder.stdin.end();
     await exited;
