@@ -251,9 +251,9 @@ async function runStudioProbe(id) {
 /**
  * A finger on the deck band leaves a panel the ⋯ menu launched, on real Mobile Safari (e2e/back-gesture.spec.ts:172; the
  * cause and the fix are engineering/gotchas/studio-playground.md "A tap on a sheet's scrim does nothing in the sheet's
- * first moment"). Real WebDriver touch taps, on a fresh page each time so the Library loads cold: the Menu, then its
- * Library row, then the deck band above the sheet as soon as the Library sheet is on screen, which is when its loading
- * sheet swaps for the real one. A pass is the back stack at 0 and no sheet open. A phone layout only: on an iPad the
+ * first moment"). On a fresh page each time so the Library loads cold: the Menu, then its Library row (opened with a
+ * page-side click, a precondition), then a real WebDriver touch on the deck band above the sheet as soon as the Library
+ * sheet is on screen, which is when its loading sheet swaps for the real one. A pass is the back stack at 0 and no sheet open. A phone layout only: on an iPad the
  * Library docks and has no deck band to tap.
  */
 async function deckTapLeavesLibrary(id) {
@@ -277,10 +277,6 @@ async function deckTapLeavesLibrary(id) {
 			await new Promise((r) => setTimeout(r, 50));
 		}
 	};
-	// A point to touch only once the element is laid out INSIDE the viewport: on a fresh page WebDriver refused a point read
-	// before layout settled ("move target out of bounds", run 43990878644, the 4th repetition).
-	const centerOf = (find) =>
-		`const el = (${find})(); if (!el) return null; const r = el.getBoundingClientRect(); const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2); return r.width > 0 && r.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight ? { x, y } : null;`;
 	const live = `(el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0`;
 	try {
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
@@ -289,71 +285,54 @@ async function deckTapLeavesLibrary(id) {
 			step('a phone layout to tap on', true, `not applicable at ${width}px: the Library docks here`);
 			return { ok: true, steps };
 		}
-		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16, the compose tap's
-		// shape). A touch the page saw held for LONG_PRESS_MS or more AND answered by Safari as a long press (it selected text)
-		// was not the tap this step sends, and is delivered ONCE more after the multi-tap window. Nothing else is: a short touch
-		// that misses fails at once, and a stalled one fails under its own name. Each touch starts a fresh tap log, so the hold
-		// and the selection are read from that touch alone. On #3418's head an iPhone run held a deck-band touch 1393 ms and
-		// selected "slides" 737 ms in (run 45079764694): a simulator long press, the same shape this guard was written for.
-		const guarded = async (label, x, y, done) => {
-			const deliver = async () => {
-				await run(tapLogInstall());
-				await touch(x, y);
-				const ok = await done();
-				const log = await run('return window.__tapLog');
-				return { ok, log, hold: tapHold(log), selected: pressSelected(log) };
-			};
-			const tries = [await deliver()];
-			let decision = tapVerdict({ caret: tries[0].ok, hold: tries[0].hold, selected: tries[0].selected, delivery: 1, lag: tapLag(tries[0].log) });
-			if (decision === 'redeliver') {
-				console.log(`${LABEL}: deck tap probe, ${label} RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].log)}`);
-				await new Promise((r) => setTimeout(r, 1000));
-				tries.push(await deliver());
-				decision = tapVerdict({ caret: tries[1].ok, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].log) });
-			}
-			const last = tries.at(-1);
-			const note = tries.length > 1 ? ` (the first touch was a long press, so it was delivered again: ${redeliverWhy(tries[0].log)})` : '';
-			const why = decision === 'pass' ? '' : decision === 'fail-long-press' ? `; the simulator delivered a long press both times (holds ${tries.map((t) => t.hold).join(', ')} ms)` : decision === 'fail-sim-stall' ? `; ${simStall(last.log)}` : '';
-			return { ok: decision === 'pass', note, detail: `${why}; ${summarizeTapLog(last.log)}` };
-		};
-		// Polls a page-side expression for up to `ms`, true when it held: the outcome a guarded touch waits for.
-		const seen = async (script, ms) => {
+		// THE SETUP IS NOT THE STIMULUS. The Menu and its Library row are opened with a page-side click(), not a touch: they are
+		// preconditions, and a simulator that stalls a touch on a button (held 1683 ms, no click, run 45082917575) failed the
+		// repetition before the step under test began. Only the deck-band tap is a real WebDriver touch.
+		// THE TAP TIMING IS THE TEST. The touch goes out straight after the Library sheet is seen, with no WebDriver round trip
+		// between (the tap log is installed before the Menu opens): a round trip there lets Radix's setTimeout(0) pass, and then
+		// main's sheet.tsx closed 10 of 10 (run 45082908088) where it leaves 4 of 10 open with the tap in time.
+		// A LONG PRESS IS NOT A TAP (tap-guard.mjs, the flaky-test coordinator's approval of 2026-11-16, applied here): when the
+		// deck-band touch fails and the page saw it held LONG_PRESS_MS or more AND answered as a long press, the stimulus was not
+		// a tap, so the repetition is done again ONCE from a fresh page, logged RE-DELIVERED, and its second outcome counts. A
+		// re-delivered tap a second later would land after the gap and prove nothing either way. Anything else fails at once.
+		const library = `return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`;
+		const closed = `return (document.documentElement.dataset.overlayBack ?? '') + ' open=' + document.querySelectorAll('[role=dialog][data-state=open]').length`;
+		const rowFind = `() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`;
+		const once = async (i) => {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			await until(`return !!document.querySelector('[aria-label="Live deck preview"] iframe.live')`, 30000, 'the live preview');
+			await run(tapLogInstall());
+			const menu = await until(`const b = [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live}); if (!b) return false; b.click(); return true;`, 15000, 'the Menu button');
+			if (!menu) throw new Error(`rep ${i}: no Menu button`);
+			await until(`const b = (${rowFind})(); if (!b) return false; b.click(); return true;`, 15000, 'the Library row');
+			await until(library, 15000, 'the Library sheet');
+			// The deck band above the sheet, where a thumb reaches for "get out".
+			await touch(Math.round(width / 2), 25);
+			let last = '';
 			const t0 = Date.now();
-			while (Date.now() - t0 < ms) {
-				if (await run(script)) return true;
-				await new Promise((r) => setTimeout(r, 50));
+			while (Date.now() - t0 < 5000) {
+				last = await run(closed);
+				if (last === '0/0/0 open=0') return { ok: true };
+				await new Promise((r) => setTimeout(r, 100));
 			}
-			return false;
+			const log = await run('return window.__tapLog');
+			return { ok: false, last, log, hold: tapHold(log), selected: pressSelected(log), lag: tapLag(log) };
 		};
 		const REPS = 10;
 		let passed = 0;
 		for (let i = 1; i <= REPS; i++) {
-			if (i > 1) await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
-			await until(`return !!document.querySelector('[aria-label="Live deck preview"] iframe.live')`, 30000, 'the live preview');
-			const menu = await until(centerOf(`() => [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live})`), 15000, 'the Menu button');
-			const rowFind = `() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`;
-			const opened = await guarded('the Menu touch', menu.x, menu.y, () => seen(`return !!(${rowFind})()`, 15000));
-			if (!opened.ok) throw new Error(`rep ${i}: the Menu touch opened no menu${opened.note}${opened.detail}`);
-			// The row's point once the menu has stopped sliding: two reads in a row agree. One read taken while it slid in touched
-			// the next row down (Live) on run 43996905347.
-			const rowAt = centerOf(rowFind);
-			let row = await until(rowAt, 15000, 'the Library row');
-			for (let k = 0; k < 40; k++) {
-				await new Promise((r) => setTimeout(r, 50));
-				const again = await until(rowAt, 15000, 'the Library row');
-				if (again.x === row.x && again.y === row.y) break;
-				row = again;
+			const first = await once(i);
+			let r = first;
+			let note = '';
+			if (!first.ok && tapVerdict({ caret: false, hold: first.hold, selected: first.selected, delivery: 1, lag: first.lag }) === 'redeliver') {
+				note = ` (the first touch was a long press, so the repetition was done again: held ${first.hold} ms, ${redeliverWhy(first.log)})`;
+				console.log(`${LABEL}: deck tap ${i} RE-DELIVERED${note}`);
+				r = await once(i);
 			}
-			const library = `return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`;
-			const lib = await guarded('the Library row touch', row.x, row.y, () => seen(library, 15000));
-			if (!lib.ok) throw new Error(`rep ${i}: the Library row touch at ${row.x},${row.y} opened no Library${lib.note}${lib.detail}`);
-			// The deck band above the sheet, where a thumb reaches for "get out". Touched as soon as the Library sheet is on
-			// screen, which is when its loading sheet swaps for the real one.
-			const back = `return (document.documentElement.dataset.overlayBack ?? '') + ' open=' + document.querySelectorAll('[role=dialog][data-state=open]').length === '0/0/0 open=0'`;
-			const tap = await guarded('the deck band touch', Math.round(width / 2), 25, () => seen(back, 5000));
-			if (tap.ok) passed++;
-			const state = tap.ok ? '' : await run(`return (document.documentElement.dataset.overlayBack ?? '') + ' open=' + document.querySelectorAll('[role=dialog][data-state=open]').length`);
-			step(`tap ${i}: the deck band closes the Library`, tap.ok, `${tap.note}${tap.ok ? '' : `still ${state} after 5 s${tap.detail}`}`);
+			const verdict = r.ok ? 'pass' : tapVerdict({ caret: false, hold: r.hold, selected: r.selected, delivery: r === first ? 1 : 2, lag: r.lag });
+			const why = r.ok ? '' : verdict === 'fail-long-press' ? `; a long press both times (holds ${first.hold}, ${r.hold} ms)` : verdict === 'fail-sim-stall' ? `; ${simStall(r.log)}` : '';
+			if (r.ok) passed++;
+			step(`tap ${i}: the deck band closes the Library`, r.ok, `${note}${r.ok ? '' : `still ${r.last} after 5 s${why}; ${summarizeTapLog(r.log)}`}`);
 		}
 		const ok = passed === REPS;
 		return { ok, steps, ...(ok ? {} : { error: `${REPS - passed} of ${REPS} deck taps left the Library open` }) };
