@@ -195,6 +195,16 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 | The 1.0.0 date | **1.0.0 ships Friday 2026-11-27**, with a merge freeze from **Wednesday 2026-11-25 23:59 UTC**. |
 | §5 slice C, Changesets | **Lands before 1.0.0.** The owner does not want to ship known tech debt in public, so 1.0.0 is not cut on the fragment flow with Changesets promised for later. |
 
+**2026-11-23, the libraries ship ES modules only** (owner, in the release desk session, answering a question that
+measured the cost). Every workspace library builds and publishes only its ES-module bundle and its `.d.ts`; the
+CommonJS copy, the `require` export branch and the `.cjs` files are gone. The engine, which is CommonJS, loads them
+through Node's `require(esm)`, which the engines floor (`>=22.13.0`) has. What it buys: one build per library, one
+instance of each in a process, and about 1.33 MB less across the 12 published tarballs. What it does not buy, measured
+with TypeScript 6.0.3 afterwards: a CommonJS TypeScript consumer under `module: node16` or `node18` gets TS1471 with or
+without the CommonJS copy (a `.d.cts` would have silenced it, for a Node line our floor does not support), and one under
+`node20` or `nodenext` was clean either way. The engine itself stays CommonJS for 1.0; converting it is post-release work
+the owner asked to record (`followups.d/`, the engine ES modules item).
+
 **What option A costs, measured on `main` at `ff2d32e` (2026-11-22).**
 
 - The root `package.json` has 510 lines. The fields the engine publishes (`name`, `version`,

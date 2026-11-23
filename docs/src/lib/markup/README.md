@@ -44,7 +44,7 @@ and holds only what has use beyond one plugin).
 
 ## Build
 
-`npm run markup-lib:build` writes `dist/` (ESM + CJS + `.d.ts`); `npm run markup-lib:check` fails if it is stale.
+`npm run markup-lib:build` writes `dist/` (ES modules + `.d.ts`); `npm run markup-lib:check` fails if it is stale.
 Tests: `cd docs && npx vitest run src/lib/markup`.
 
 ## License
