@@ -157,7 +157,7 @@ describe('npm run relay', () => {
   test('one row per PR with a living comment; bots and unmarked PRs skipped', () => {
     const lines = board.board({ api, now: T0 });
     assert.equal(lines.length, 3);
-    assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \| test:a\.test\.js#b \| 1 waiting \|$/);
+    assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 10 min ago \| run the trio \| test:a\.test\.js#b \| 1 waiting \|$/);
   });
 
   test('a branch parked at the merge gate shows as parked on the board, not "free"', () => {

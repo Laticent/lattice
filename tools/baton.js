@@ -3,30 +3,32 @@
  * The relay baton: may this session push to a relay branch now? (HARD RULE #31, decision D1.)
  *
  * A relay branch belongs to its line of work, not to a session. Whoever holds the baton pushes:
- * the holder is the session in the newest commit (merges included) that carries a `Claude-Session:`
- * trailer. The baton is free when the PR's living handoff comment says `baton: released` and the
- * branch tip is still the `head:` it names, when neither a push (timed by GitHub, not the commit
- * date) nor an edit of that comment has happened for 60 minutes, or when a person typed "take over
- * <branch>" in this session (`--override`, which only a person's words license). Taking it is pushing: a push without --force lands only if it
- * fast-forwards, so of two sessions racing for a free baton exactly one wins, and the loser's push
- * is rejected. Design: engineering/decisions/2026-11-22-two-person-relay.md.
+ * the holder is the session in the newest first-parent commit (merges included) that carries a
+ * `Claude-Session:` trailer. The baton is free only when the PR's living handoff comment says
+ * `baton: released` (under the holder's own name, and while the tip is still the `head:` it names), or
+ * when a person typed "take over <branch>" in this session (`--override`, which only a person's words
+ * license). No clock frees it: silence alone never does (the owner, 2026-11-23). Taking it is pushing:
+ * a push without --force lands only if it fast-forwards, so of two sessions racing for a free baton
+ * exactly one wins, and the loser's push is rejected (`rescue` saves its commits). A relay line always
+ * has an open PR, because that is where its living comment and the board live.
+ * Design: engineering/decisions/2026-11-22-two-person-relay.md.
  *
  * Usage:
- *   npm run baton -- status  [branch] [--pr N]          who holds it, and the lease left
+ *   npm run baton -- status  [branch] [--pr N]          who holds it, and rescues waiting
  *   npm run baton -- take    [branch] [--pr N] [--override]   check it is free, then push to take it
  *   npm run baton -- release [branch] [--pr N] [--gate] write `baton: released` in the living comment;
  *                                                       --gate also marks it parked at the merge gate;
- *                                                       --pause marks the 75% usage pause
+ *                                                       --pause marks a stop for usage (90%)
  *   npm run baton -- rescue  [branch]                   after a lost race: push your rejected commits to
  *                                                       `relay-rescue/<branch>/<session>` so they outlive the sandbox
- * Options: --no-fetch (trust local origin/<branch>), --now <ISO time> (for a dry run of the lease).
+ * Options: --no-fetch (trust local origin/<branch>).
  * branch defaults to the current branch. Your session id comes from LATTICE_SESSION or the cloud
  * harness's CLAUDE_CODE_REMOTE_SESSION_ID.
  *
  * Exit codes (the dangerous direction is a false "free", so anything unclear is not 0):
  *   0  free, or yours (release: released)
- *   1  held by another session (release: not released, because you do not hold it or the PR has
- *      no living comment to write it in)
+ *   1  held by another session, or not takeable (no open PR, a ready PR, parked at the merge gate)
+ *      (release: not released, because you do not hold it or the PR has no living comment)
  *   3  could not check (remote, fetch, git log or GitHub failed)
  *  64  bad arguments, or no session id for take/release/rescue
  * rescue: 0 pushed (or nothing to rescue), 3 the push or a git read failed.
@@ -37,17 +39,12 @@ const relay = require('./relay-core');
 const VERBS = new Set(['status', 'take', 'release', 'rescue']);
 
 function parseArgs(argv) {
-  const o = { verb: null, branch: null, pr: null, fetch: true, now: null, override: false, gate: false, pause: false };
+  const o = { verb: null, branch: null, pr: null, fetch: true, override: false, gate: false, pause: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--pr') {
       o.pr = Number(argv[++i]);
       if (!Number.isInteger(o.pr) || o.pr <= 0) throw new relay.RelayError('--pr needs a pull request number', 64);
-    } else if (a === '--now') {
-      const raw = argv[++i] || '';
-      // An ISO time without a zone parses as local time; demand one so a dry run means the same everywhere.
-      o.now = /(?:Z|[+-]\d\d:?\d\d)$/.test(raw) ? Date.parse(raw) : Number.NaN;
-      if (!Number.isFinite(o.now)) throw new relay.RelayError('--now needs an ISO time with a zone, e.g. 2026-11-22T18:00:00Z', 64);
     } else if (a === '--no-fetch') o.fetch = false;
     else if (a === '--override') o.override = true;
     else if (a === '--gate') o.gate = true;
@@ -142,23 +139,28 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
     if (!branch) throw new relay.RelayError('no branch given and HEAD is detached', 64);
     const me = relay.sessionId(env);
     if (!me && o.verb !== 'status') throw new relay.RelayError(`${o.verb} needs your session id: set LATTICE_SESSION=session_<id>`, 64);
-    const at = o.now ?? now;
+    const at = now;
     if (o.verb === 'rescue') return rescue(branch, me, { gitRun, fetch: o.fetch, out, api, now: at });
 
-    const { head, pr, ready, comment, parsed, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, now: at, override: o.override, fetch: o.fetch, api, git });
+    const { exists, head, pr, open, ready, comment, parsed, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, override: o.override, fetch: o.fetch, api, git });
     const where = `${branch}${pr ? ` (PR #${pr})` : ''}`;
     if (o.verb === 'status' || o.verb === 'take') {
       out(`baton for ${where}: ${v.state.toUpperCase()} — ${v.reason}`);
-      if (v.holder && v.state !== 'free') out(`  lease left: ${relay.minutes(v.leaseLeftMs)}`);
+      if (comment) out(`  living comment last edited ${relay.ago(at - comment.updatedAt)} ago`);
+      if (exists && !open) out(`  no open PR for ${branch}${pr ? ` (#${pr} is closed)` : ''}: a relay line always has one (rule 6), so it is not on the board`);
       if (!comment && pr) out(`  PR #${pr} has no living handoff comment yet: npm run card -- --living ${pr} <card.yml>`);
-      if (parsed?.pause) out(`  paused: ${parsed.pause} (resumes on the owner's word; resuming starts with take)`);
+      if (parsed?.pause) out(`  paused: ${parsed.pause} (the next session takes it with take; nothing here is finished)`);
       const ls = o.fetch ? gitRun(['ls-remote', 'origin', `refs/heads/${relay.rescueRef(branch, '')}*`]) : null;
       for (const r of ls && ls.status === 0 ? relay.parseRescueRefs(ls.stdout, branch) : []) {
         out(`  rescue waiting: ${r.ref} (${r.sha.slice(0, 7)}); the holder merges it in and deletes it`);
       }
       if (o.verb === 'take') {
         if (v.state === 'held') {
-          out('  Not yours to push. Read the living comment, then wait for the lease or a release.');
+          out('  Not yours to push. Read the living comment; it frees only by its holder\'s release or the owner\'s "take over".');
+          return 1;
+        }
+        if (exists && !open) {
+          out(`  Open a draft PR for ${branch} first (§Relay rule 6): its living comment and the board need one.`);
           return 1;
         }
         if (v.state === 'free' && ready) {
@@ -194,7 +196,7 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
       return 1;
     }
     if (!comment) {
-      out(`baton for ${where}: not released: there is no living handoff comment to write it in${pr ? '' : ' (no open PR)'}. The baton frees on its own ${relay.minutes(v.leaseLeftMs)} after your last push or checkpoint.`);
+      out(`baton for ${where}: not released: there is no living handoff comment to write it in${pr ? '' : ' (no open PR)'}. Write one with npm run card -- --living <PR>, then release.`);
       return 1;
     }
     // The release names the tip it was written at: any later push re-takes the baton.
@@ -202,9 +204,9 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
     body = relay.setLivingLine(body, 'head', head.sha.slice(0, 7));
     body = relay.setLivingLine(body, 'checkpoint', new Date(at).toISOString());
     body = relay.setLivingLine(body, 'gate', o.gate ? `parked at ${head.sha.slice(0, 7)}` : 'open');
-    body = relay.setLivingLine(body, 'pause', o.pause ? `75% at ${new Date(at).toISOString()}` : 'none');
+    body = relay.setLivingLine(body, 'pause', o.pause ? `usage stop at ${new Date(at).toISOString()}` : 'none');
     api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
-    out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)}${o.gate ? ', parked at the merge gate' : ''}${o.pause ? ', paused at 75%' : ''} in ${comment.url}`);
+    out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)}${o.gate ? ', parked at the merge gate' : ''}${o.pause ? ', stopped for usage' : ''} in ${comment.url}`);
     return 0;
   } catch (e) {
     err(`baton: ${e.message}`);

@@ -68,21 +68,18 @@ function signature(name, session) {
 }
 
 
-// ── The baton (D1) ─────────────────────────────────────────────────────────────────────────────
+// ── The baton ──────────────────────────────────────────────────────────────────────────────────
 // Who may push to a relay branch now. The lock itself is git: a push without --force lands only if
 // it fast-forwards, so of two sessions racing for a free baton exactly one push wins. This code only
-// answers "is it free?" from three records:
-//   - the holder: the newest commit on the branch (merges included) that carries a Claude-Session
-//     trailer, so a merge of main renews the holder and a person's web commit does not unseat it;
-//   - the lease clock: GitHub's own timestamp for the push of the branch tip (the repository
-//     activity API), never a commit date, which the committer's clock sets and which can predate the
-//     push by hours; and the living comment's updated_at, also stamped by GitHub;
+// answers "is it free?" from two records:
+//   - the holder: the newest commit on the branch's first-parent line (merges included) that carries a
+//     Claude-Session trailer, so a merge of main keeps the holder and a person's web commit does not
+//     unseat it;
 //   - the release: `baton: released` in the living comment, valid only while the branch tip is still
 //     the `head:` it names, so any push after a release re-takes the baton.
+// No clock frees a branch (the owner's answer, 2026-11-23: "No: only explicit release"). A branch frees
+// only by its holder's release or a person's "take over"; silence alone never does.
 
-const LEASE_MS = 60 * 60 * 1000; // D1: 60 minutes, two missed 30-minute checkpoints
-// GitHub lists a push within seconds; a tip it still does not list after this long is not a fresh push.
-const UNLISTED_GRACE_MS = 30 * 60 * 1000;
 const MARKER = '<!-- relay-handoff -->';
 
 /**
@@ -134,32 +131,22 @@ function parseLiving(body) {
 }
 
 /**
- * Is the baton free?  Pure: every input is passed in, "now" included (HARD RULE #32).
+ * Is the baton free?  Pure: every input is passed in.
  *
  * @param {object} o
- * @param {{sha: string, session: string|null, actor: string|null, pushedAt: number|null}|null} o.head
- *   the branch tip beyond main, with the holder read from the newest trailer-carrying commit and
- *   GitHub's push time for the tip (null when GitHub does not show it yet: read as "just pushed"),
- *   or null when the branch has no commits beyond main
- * @param {{released: boolean, head: string|null, updatedAt: number}|null} o.living the living
- *   comment, or null when the PR has none (or there is no PR yet)
+ * @param {{sha: string, session: string|null, actor: string|null}|null} o.head the branch tip beyond main,
+ *   with the holder read from the newest trailer-carrying first-parent commit, or null when the branch
+ *   has no commits beyond main
+ * @param {{released: boolean, head: string|null}|null} o.living the living comment's trusted release
+ *   (see trustedLiving), or null when the PR has none (or there is no PR yet)
  * @param {string|null} o.me this session's `session_<id>`
- * @param {number} o.now ms
  * @param {boolean} [o.override] a person typed "take over <branch>" in this session
- * @returns {{state: 'yours'|'free'|'held', reason: string, holder: string|null, actor: string|null, leaseLeftMs: number}}
+ * @returns {{state: 'yours'|'free'|'held', reason: string, holder: string|null, actor: string|null}}
  */
-function batonVerdict({ head, living, me, now, override = false, leaseMs = LEASE_MS }) {
-  if (!Number.isFinite(now)) throw new TypeError('batonVerdict needs now (ms)');
+function batonVerdict({ head, living, me, override = false }) {
   const holder = head ? head.session : null;
   const actor = head ? head.actor : null;
-  // An unknown push time reads as "just pushed", the safe direction, but only while the tip commit is
-  // young enough for GitHub to be lagging; past that, the commit's own time stands in, so a tip GitHub
-  // never lists (an old branch, an API gap) cannot hold the lease forever.
-  const unlisted = !Number.isFinite(head?.committedAt) || now - head.committedAt < UNLISTED_GRACE_MS ? now : head.committedAt;
-  const pushed = head ? (Number.isFinite(head.pushedAt) ? head.pushedAt : unlisted) : -Infinity;
-  const last = Math.max(pushed, living ? living.updatedAt : -Infinity);
-  const leaseLeftMs = Number.isFinite(last) ? Math.max(0, leaseMs - (now - last)) : 0;
-  const v = (state, reason) => ({ state, reason, holder, actor, leaseLeftMs });
+  const v = (state, reason) => ({ state, reason, holder, actor });
 
   if (!head) return v('free', 'no commits beyond main: a new line of work');
   // A release holds only while the tip is still the commit it was written at.
@@ -167,11 +154,8 @@ function batonVerdict({ head, living, me, now, override = false, leaseMs = LEASE
   if (me && holder === me && !released) return v('yours', 'your session holds it (the newest commit with a session trailer)');
   if (released) return v('free', `the living comment says baton: released at ${living.head}, still the tip`);
   if (override) return v('free', 'a person typed "take over" in this session (the override)');
-  if (leaseLeftMs === 0) {
-    return v('free', `the lease expired: no push and no living-comment edit for ${Math.round(leaseMs / 60000)} minutes`);
-  }
-  if (!holder) return v('held', 'no commit on the branch carries a Claude-Session trailer (a person\'s work): wait out the lease or ask');
-  return v('held', `held by ${actor ? `${actor} · ` : ''}${holder}`);
+  if (!holder) return v('held', 'no commit on the branch carries a Claude-Session trailer (a person\'s work): ask the owner, who can say "take over"');
+  return v('held', `held by ${actor ? `${actor} · ` : ''}${holder}; it frees only when its holder releases it or the owner types "take over"`);
 }
 
 /** Replace one `key: value` line inside the living comment's BATON block. */
@@ -215,9 +199,12 @@ function parseRescueRefs(lsRemote, branch) {
     .map(([sha, ref]) => ({ ref: ref.replace(/^refs\/heads\//, ''), sha }));
 }
 
-/** "42 min" / "0 min" for a lease. */
-function minutes(ms) {
-  return `${Math.ceil(ms / 60000)} min`;
+/** How long ago, roughly: "12 min", "3 h", "2 d". */
+function ago(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 120) return `${m} min`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h`;
+  return `${Math.round(m / 1440)} d`;
 }
 
 // ── GitHub, through `gh api` (REST; cloud sessions cannot use GraphQL) ──────────────────────────
@@ -279,18 +266,6 @@ function livingComment(api, pr, login) {
 }
 
 /** GitHub's timestamp (ms) for the push that made `sha` the tip of `branch`, or null if not shown. */
-const TIP_ACTIVITY = new Set(['push', 'force_push', 'branch_creation', 'merge_queue_merge']);
-
-function pushTime(api, branch, sha) {
-  const ref = encodeURIComponent(`refs/heads/${branch}`);
-  // Every activity that can make a commit the tip, not only `push`: a branch created at its tip, a
-  // force-push or a merge-queue merge never appear as `push`, and missing them made the lease eternal.
-  const list = api('GET', `repos/${REPO}/activity?ref=${ref}&per_page=100`);
-  const hit = Array.isArray(list) ? list.find((a) => a.after === sha && TIP_ACTIVITY.has(a.activity_type)) : null;
-  const t = hit ? Date.parse(hit.timestamp) : Number.NaN;
-  return Number.isFinite(t) ? t : null;
-}
-
 /** The holder: the newest of `commits` (newest first, `{message}`) whose trailers name a session. */
 function holderOf(commits) {
   for (const c of commits) {
@@ -317,18 +292,18 @@ function readHead(branch, { fetch }) {
   }
   // --first-parent: the line's own history. A merged-in rescue ref (or any side branch) must not make its
   // commits' session the holder.
-  const log = git('log', '--first-parent', '-200', '--format=%H%x1f%ct%x1f%B%x1e', `origin/main..origin/${branch}`);
+  const log = git('log', '--first-parent', '-200', '--format=%H%x1f%B%x1e', `origin/main..origin/${branch}`);
   if (log.status !== 0) throw new RelayError(`git log origin/main..origin/${branch} failed (shallow clone?)`);
   const commits = log.stdout
     .split('\x1e')
     .map((r) => r.replace(/^\n/, ''))
     .filter((r) => r.includes('\x1f'))
     .map((r) => {
-      const [sha, ct, message] = r.split('\x1f');
-      return { sha, committedAt: Number(ct) * 1000, message };
+      const [sha, message] = r.split('\x1f');
+      return { sha, message };
     });
   if (!commits.length) return { exists: true, head: null };
-  return { exists: true, head: { sha: commits[0].sha, committedAt: commits[0].committedAt, ...holderOf(commits) } };
+  return { exists: true, head: { sha: commits[0].sha, ...holderOf(commits) } };
 }
 
 /**
@@ -336,24 +311,23 @@ function readHead(branch, { fetch }) {
  * the tip, the PR and its living comment, and the verdict. Shared by `npm run baton` and
  * `npm run card -- --living` so they can never disagree.
  */
-function readBaton({ branch, pr = null, me, now, override = false, fetch = true, api = ghApi, git = readHead }) {
-  const { exists, head: tip } = git(branch, { fetch });
-  const head = tip ? { ...tip, pushedAt: pushTime(api, branch, tip.sha) } : null;
+function readBaton({ branch, pr = null, me, override = false, fetch = true, api = ghApi, git = readHead }) {
+  const { exists, head } = git(branch, { fetch });
   const pull = pr ? api('GET', `repos/${REPO}/pulls/${pr}`) : exists ? prForBranch(api, branch) : null;
   const number = pull?.number ?? pr ?? null;
   const comment = number ? livingComment(api, number, authLogin(api)) : null;
   const parsed = comment ? parseLiving(comment.body) : null;
   const living = trustedLiving(parsed, comment, head);
-  const verdict = applyGate(batonVerdict({ head, living, me, now, override }), { gate: living?.gate, head, me, override });
-  const ready = Boolean(pull && pull.state !== 'closed' && pull.draft === false);
-  return { exists, head, pr: number, ready, comment, parsed, verdict };
+  const verdict = applyGate(batonVerdict({ head, living, me, override }), { gate: living?.gate, head, me, override });
+  const open = Boolean(pull && pull.state !== 'closed');
+  const ready = open && pull.draft === false;
+  return { exists, head, pr: number, open, ready, comment, parsed, verdict };
 }
 
 /**
  * The living comment's release and gate count only when its BATON block names the tip's holder. Both
  * people share one GitHub login, so any session can edit the comment; a `baton: released` or a gate
- * written under someone else's holder line is a forgery or a stale edit, and is ignored. Its updated_at
- * still renews the lease (the safe direction).
+ * written under someone else's holder line is a forgery or a stale edit, and is ignored.
  */
 function trustedLiving(parsed, comment, head) {
   if (!comment) return null;
@@ -418,7 +392,7 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
   const pull = api('GET', `repos/${REPO}/pulls/${pr}`);
   if (pull.state !== 'open') throw new RelayError(`PR #${pr} is ${pull.state}; a living comment belongs on an open PR`, 1);
   const branch = pull.head.ref;
-  const { head, comment, parsed, verdict: v } = readBaton({ branch, pr, me: session, now, api, git });
+  const { head, comment, parsed, verdict: v } = readBaton({ branch, pr, me: session, api, git });
   // A refresh at a head parked at the merge gate keeps it parked: the comment changes, the card's head does not.
   const keepGate = parsed?.gate && head?.sha.startsWith(parsed.gate) && parsed.session === session ? parsed.gate : null;
   if (v.state === 'held') throw new RelayError(`the baton on ${branch} is ${v.reason}; only the holder writes its handoff`, 1);
@@ -448,8 +422,8 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
 
 module.exports = {
   ROSTER_PATH, loadRoster, resolveActor, sessionId, signature, HOW_TO_SET,
-  LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes, rescueRef, parseRescueRefs, trustedLiving, UNLISTED_GRACE_MS,
-  ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton, applyGate,
+  MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, ago, rescueRef, parseRescueRefs, trustedLiving,
+  ghApi, authLogin, prForBranch, livingComment, holderOf, readHead, readBaton, applyGate,
   FOOTER, nextStep, buildLivingBody, postLiving,
 };
 

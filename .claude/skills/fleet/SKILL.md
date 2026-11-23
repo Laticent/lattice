@@ -29,7 +29,7 @@ command center, create it here with `create_trigger`. Its prompt: read this sess
 and not yet announced this week, send every live session on this account one line, `usage N: …` with
 the checkpoint rules from `engineering/workflow.md` §Relay. Then tell the owner the number in one line.
 If the field is missing, tell the owner once and stop. It is the backstop for idle sessions; it never
-pauses one by itself. Contract: `engineering/workflow.md` §Relay, the usage watch.
+stops one by itself. Contract: `engineering/workflow.md` §Relay, the usage watch.
 
 ## Arguments — `/fleet <what>`
 

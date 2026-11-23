@@ -16,6 +16,26 @@ workflow desk (`session_01DPMMjHSgQqpuNVxFhptqgf`).
 - D3 Signature: LATTICE_ACTOR env var (picard / kirk) validated against a committed roster; unset → tools refuse to sign.
 - D4 Merge: either person may merge any PR (no gate change); build now, Kirk reviews on the PR when back (Nov 27) and objections get changed.
 
+## Decisions, revised 2026-11-23
+
+After the command center's red-team and inversion reviews, the owner answered in the command center
+(an `AskUserQuestion` at 12:27 UTC, verified in its transcript):
+
+- **D1 lease, replaced: "No: only explicit release."** No clock frees a branch. A branch frees only by its
+  holder's release (at a checkpoint the rules name, at 90%, or when done) or the owner's typed "take
+  over". Why: the 60-minute lease stranded work. A session waiting overnight for an answer lost its branch,
+  and the answer landed in a session that could no longer push; the lease also never expired on some tips
+  (R2). **The cost the owner accepted:** a session that dies without releasing holds its branch until the
+  owner says "take over". The push-time reading that fed the lease is gone with it.
+- **U3′, replaced: "Checkpoint, keep working."** At 75%: checkpoint and make the work easy to take over,
+  then keep working; release-gate work never pauses. At 90%: checkpoint, stop and release. Why: pausing
+  everyone at 75% threw away the point of two accounts and could leave nothing running in release week.
+  The cost U3′ accepted (all work stops at 75% with nobody awake) is gone.
+- **Merge timing: "we don't want to settle, tech debt, broken windows or jank."** Instead of the offered
+  options (merge a core now, defer, or merge all now), the owner asked for no split: every red-team finding
+  fixed at the root before merge, and the cross-account behavior proven as far as a simulation honestly
+  can, with the remaining gaps stated.
+
 ## The owner's words (2026-11-22)
 
 > "I need a workflow optimization desk now that we have more than one person working on lattice. we
@@ -407,14 +427,14 @@ fix-level defects (folded in here) and design-level questions (put to the owner 
 
 | # | Finding | Fixed by |
 |---|---|---|
-| R2 | the lease never expired on a tip GitHub lists as a branch creation or force-push, not a push (demonstrated on `claude/carbone-first-category-followup`) | every tip activity counts; an unlisted tip reads fresh for 30 minutes after its commit, then the commit time stands in |
+| R2 | the lease never expired on a tip GitHub lists as a branch creation or force-push, not a push (demonstrated on `claude/carbone-first-category-followup`) | first fixed in the lease (every tip activity counted); then removed at the root with the lease itself (revised D1) |
 | R4 | rescue refs were orphaned: the loser could not post, the tools did not list them, and merging one could hand the baton to the dead session | `rescue` posts a marked PR note; `status` and the board list rescue refs; the holder is read first-parent; rescued work is described in the note, not the handoff |
 | R5 | an owner answer could be stranded when the lease lapsed during the wait | checkpoint right after an owner answer; quotes say where they were typed |
-| R6 | a 75% pause looked like finished work | `release --pause` writes `pause: 75% at <time>`; the board shows it |
+| R6 | a usage stop looked like finished work | `release --pause` writes `pause: usage stop at <time>` (now used at 90%); the board shows it |
 | R7 | any session on the shared login could write `baton: released` or a gate | both count only under the tip holder's own `holder:` line |
 | R8 | a parked session's refresh dropped the gate | a refresh at the parked head keeps `released` and the gate |
 | R9 | only the weekly window was read | read every window and act on the highest |
-| R10 | branches with no open PR do not appear on the board | stated: a relay line always has a PR |
+| R10 | branches with no open PR do not appear on the board | at the root: `baton take` refuses a branch that exists with no open PR (open a draft first), and `status` says when the PR is missing or closed |
 | R11 | the board read the PR's commit list, which stops at 250, oldest first | it reads the newest 100 from the tip and walks first-parent |
 
 ## What this does not fix

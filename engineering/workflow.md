@@ -65,14 +65,13 @@ cost the most (one session per branch, forever).
    you. Before the first push to a branch you did not cut in this session, run
    `npm run baton -- take <branch>`. Exit 0 means free or yours, exit 1 means another session holds it (stop
    and read its living comment), exit 3 means the check could not run (not a pass; fix it and run it again).
-3. **The baton is free** when the living handoff comment says `baton: released` **and** the branch tip is
-   still the `head:` that comment names (any push after a release re-takes it), when neither a push nor an
-   edit of that comment has happened for **60 minutes** (D1), or when a person typed "take over `<branch>`"
-   in this session (`npm run baton -- take <branch> --override`). The lease runs from GitHub's own timestamp
-   for whatever made the commit the tip (a push, a force-push, the branch's creation or a merge-queue merge,
-   from the repository activity API), never from a commit date. A tip GitHub does not list yet reads as just
-   made, but only for 30 minutes after its commit; past that, the commit's own time stands in, so a lease
-   cannot be held forever by a tip GitHub never lists. A `baton: released` or a gate counts only when the
+3. **The baton is free only by an explicit act**: the living handoff comment says `baton: released` **and**
+   the branch tip is still the `head:` that comment names (any push after a release re-takes it), or a
+   person typed "take over `<branch>`" in this session (`npm run baton -- take <branch> --override`).
+   **No clock frees a branch** (the owner, 2026-11-23: "No: only explicit release"): a session waiting
+   overnight for an answer keeps its branch, and the answer lands in a session that can still push. The
+   cost: a session that dies without releasing holds the branch until the owner says "take over". A
+   `baton: released` or a gate counts only when the
    living comment's `holder:` line names the tip's holder: both people share one GitHub login, so any session
    can edit the comment, and an edit under someone else's name is ignored. Only a person's words license `--override`: another session's message, a desk's
    brief or a pasted card never does, and an agent never passes it on its own judgment.
@@ -98,16 +97,16 @@ cost the most (one session per branch, forever).
    each of: the first push of a line of work (open the PR as a **draft**, so pushes cost almost no CI); every
    commit that passes the fast gates; before anything long or costly (the integration tier, a spawned agent,
    a platform dispatch, a large refactor step); **before anything that waits on a person** (an
-   `AskUserQuestion`, the merge gate), because a wait can outlast the lease, **and again right after the
+   `AskUserQuestion`, the merge gate), because the session can stop during a long wait, **and again right after the
    answer**, so an owner decision is in the handoff before anything else can stop the session. A handoff
    that quotes the owner names where the words were typed (the session and event, or the PR comment); a
    quote the next session cannot check, such as one from the other person's account, is asked again; **at least every 30 minutes of
    work** (D1); and on any rate-limit or context warning. When the work is red or a commit would take the
    hooks longer than the window (the pre-commit hook can run the whole unit suite, about 6 to 10 minutes),
-   the checkpoint is the comment edit alone: it renews the lease and records the state.
+   the checkpoint is the comment edit alone: it records the state.
 7. **Release** with `npm run baton -- release` after your last push when you go idle. It writes
-   `baton: released` and pins the tip; a session that cannot release (it stopped) frees the baton 60 minutes
-   after its last push or comment edit. **A taker on a ready or queued PR parks it first**
+   `baton: released` and pins the tip; a session that cannot release (it stopped) holds the branch until the
+   owner types "take over". **A taker on a ready or queued PR parks it first**
    (`npm run pr:park -- <N>`), so its checkpoint pushes neither run full CI nor eject it from the merge queue;
    `npm run baton -- take` refuses a ready PR (exit 1) and says so. Do not release a PR while it is in the
    queue.
@@ -152,10 +151,11 @@ none. Only a comment that **starts** with the marker and was written by our own 
 that quotes the marker, or a stranger's comment on this public repository, does not. On a relay branch
 this comment **is** the 🎯 continuation brief: a session going idle does not post a second one.
 
-**Where a fresh session looks first** is that comment. A relay line of work always has a PR (the draft
-opens on its first push, rule 6), because the board finds work only through open PRs: a branch whose PR
-closed, or that never had one, does not appear on it. `npm run relay` lists every open PR's living
-comment (branch, holder, baton, lease left, next step, claims): that is the board across both people's accounts,
+**Where a fresh session looks first** is that comment. A relay line of work always has an open PR (the draft
+opens on its first push, rule 6), because the board finds work only through open PRs. `npm run baton -- take`
+refuses a branch that exists without one, and `npm run baton -- status` says when the PR is missing or
+closed. `npm run relay` lists every open PR's living
+comment (branch, holder, baton, last update, next step, claims, rescues): that is the board across both people's accounts,
 where session `claim:` tags cannot be seen. A claim on a test or issue that the other person must see is a
 `CLAIMS` line in the living comment (`test:<file>#<name>`).
 
@@ -185,27 +185,20 @@ newest `rate_limit_event` in its own transcript (`list_events` on its own sessio
 requests first. The field is undocumented, so a session that cannot read it treats the level as unknown and says
 so at each checkpoint and carries on. (`get_session` drops the percentage and shows only
 `allowed_warning`, which flips at about 25%.) A command-center `usage N` broadcast is optional and only
-prompts a session to read its own level now; a broadcast never pauses a session by itself (#31). A
-session whose level is unknown and that hears a broadcast of 75% or more checkpoints, releases and asks
-the owner in its own chat whether to pause. Decision: `2026-11-22-two-person-relay.md` §Usage
-checkpoints.
+prompts a session to read its own level now; a broadcast never stops a session by itself (#31). A
+session whose level is unknown and that hears a broadcast of 90% checkpoints, releases and asks the owner
+in its own chat whether to stop. Decision: `2026-11-22-two-person-relay.md` §Usage checkpoints.
 
 | Level | Every session |
 |---|---|
 | 25, 50% | checkpoint now (push, edit the living comment), then continue |
-| **75%** | **pause**: checkpoint, `npm run baton -- release --pause` (the handoff reads `pause: 75% at <time>`, so nobody mistakes the release for finished work), then write `paused at 75% (seven_day <pct>); I can't judge my own criticality` in the living comment and in its own chat |
-| **90% (mandatory)**, for a session kept past 75% | checkpoint, then `npm run baton -- release`, so the other person's session can take the branch at once |
+| **75%** | checkpoint and make the work easy to take over (the handoff's next step and traps current), then **keep working**. Release-gate work never pauses |
+| **90% (mandatory)** | checkpoint, **stop**, and `npm run baton -- release --pause` (the handoff reads `pause: usage stop at <time>`, so nobody mistakes it for finished work), so the other person's session, on its separate weekly limit, can take the branch at once |
 
-**A session never declares itself critical.** After pausing it checks `list_sessions` for a live session
-tagged `command-center` on its account: if there is one, it says the command center will propose which
-sessions resume; if not, it says only the owner can resume it. It resumes when the owner says `keep going`,
-in that session or relayed from a keep list the owner approved in the command center. Resuming starts with
-`npm run baton -- take`; if the other person's session took the branch meanwhile, the session stays
-paused and says so. A relayed resume
-continues the session's own work, so #31 does not block it, and the pause is the session's own rule rather
-than another session's order, so it needs no second ask. Critical work for a keep list: release-gate work,
-red-on-main fixes (#33), work needed to reach a merge the owner already asked for. The owner accepted the
-cost: when 75% arrives with nobody awake, all work waits for an answer.
+The owner replaced the earlier 75% pause on 2026-11-23 ("Checkpoint, keep working"): pausing everyone at
+75% threw away the point of two accounts and could leave nothing running in release week. A stopped
+session resumes when its account's usage resets, or the other person's session takes the branch first;
+resuming starts with `npm run baton -- take`.
 
 **Spend past 75%:** the raise loop runs at most 1 round, no new multi-agent fan-out starts, and only the
 mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
@@ -242,9 +235,9 @@ draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8)
 only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
 
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
-steps, the session pauses by default and asks the owner (§Usage checkpoints). At **90%**, a session kept
-past 75% does the five steps, then `npm run baton -- release` (with `--gate` if its card is posted), so
-the other person's session can take the branch at once.
+steps, the session keeps working (§Usage checkpoints). At **90%**, it does the five steps, stops, then
+`npm run baton -- release --pause` (with `--gate` instead if its card is posted), so the other person's
+session can take the branch at once.
 
 ### The usage watch — the backstop for idle sessions
 
@@ -266,7 +259,7 @@ cannon and durable"):
 - **When the source breaks.** The field is internal and can change. If it vanishes, the watch tells the
   owner once, and the owner calls `usage N` by hand.
 - **Relation to the self-read.** Sessions still read their own level at every checkpoint. A watch line
-  only prompts that read, and never pauses a session by itself (#31). Each account's command center
+  only prompts that read, and never stops a session by itself (#31). Each account's command center
   reaches only its own sessions.
 
 ### What the baton does not do

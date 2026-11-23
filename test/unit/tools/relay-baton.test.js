@@ -79,35 +79,11 @@ describe('batonVerdict', () => {
   test('no commits beyond main: free', () => assert.equal(v({ head: null }).state, 'free'));
   test('my session holds it: yours', () => assert.equal(v({ head: head(ME) }).state, 'yours'));
 
-  test('another session pushed 59 minutes ago: held, 1 minute left', () => {
-    const r = v({ head: head(THEM, T0 - 59 * MIN) });
+  test('no clock frees a branch: a holder quiet for days still holds it until it releases or the owner says take over', () => {
+    const r = v({ head: head(THEM, T0 - 5 * 24 * 60 * MIN), living: { released: false, head: null } });
     assert.equal(r.state, 'held');
-    assert.equal(r.leaseLeftMs, MIN);
-    assert.match(r.reason, /James Tiberius Kirk · session_TH02/);
-  });
-
-  test('exactly 60 quiet minutes: free (the lease is 60, not 61)', () => {
-    assert.equal(v({ head: head(THEM, T0 - 60 * MIN) }).state, 'free');
-    assert.equal(v({ head: head(THEM, T0 - 60 * MIN + 1000) }).state, 'held');
-  });
-
-  test('GitHub has not shown the push yet: read as just pushed, never as expired', () => {
-    const r = v({ head: head(THEM, null) });
-    assert.equal(r.state, 'held');
-    assert.equal(r.leaseLeftMs, 60 * MIN);
-  });
-
-  test('a tip GitHub never lists (branch creation, API gap) is not "just pushed" forever: its commit time stands in', () => {
-    const old = { ...head(THEM, null), committedAt: T0 - 5 * 24 * 60 * MIN };
-    assert.equal(v({ head: old }).state, 'free');
-    const young = { ...head(THEM, null), committedAt: T0 - 10 * MIN };
-    assert.equal(v({ head: young }).state, 'held');
-  });
-
-  test('a living-comment edit renews the lease like a push', () => {
-    const r = v({ head: head(THEM, T0 - 90 * MIN), living: { released: false, head: null, updatedAt: T0 - 10 * MIN } });
-    assert.equal(r.state, 'held');
-    assert.equal(r.leaseLeftMs, 50 * MIN);
+    assert.match(r.reason, /James Tiberius Kirk · session_TH02; it frees only when its holder releases it or the owner types "take over"/);
+    assert.equal(Object.hasOwn(r, 'leaseLeftMs'), false);
   });
 
   test('released at the current tip: free, even seconds later', () => {
@@ -142,9 +118,6 @@ describe('batonVerdict', () => {
 
   test('the override frees a held baton', () => assert.equal(v({ head: head(THEM), override: true }).state, 'free'));
 
-  test('no clock: refuses to guess', () => {
-    assert.throws(() => relay.batonVerdict({ head: null, living: null, me: ME }), /now/);
-  });
 });
 
 describe('livingComment', () => {
@@ -160,25 +133,6 @@ describe('livingComment', () => {
     const stranger = marked(4, 'someone-else', T0);
     const quoted = { id: 5, user: { login: 'saden1' }, body: `a card that says \`${relay.MARKER}\`\n\nbaton: released`, updated_at: new Date(T0).toISOString() };
     assert.equal(relay.livingComment(api([stranger, quoted]), 1, 'saden1'), null);
-  });
-});
-
-describe('pushTime', () => {
-  test("GitHub's timestamp for the push whose `after` is the tip; null when it is not listed", () => {
-    const api = () => [
-      { activity_type: 'push', after: 'zzz', timestamp: '2026-11-22T11:00:00Z' },
-      { activity_type: 'push', after: TIP, timestamp: '2026-11-22T11:30:00Z' },
-    ];
-    assert.equal(relay.pushTime(api, 'claude/x', TIP), Date.parse('2026-11-22T11:30:00Z'));
-    assert.equal(relay.pushTime(api, 'claude/x', 'nope'), null);
-  });
-
-  test('a branch created at its tip, a force-push or a merge-queue merge also time the tip', () => {
-    for (const type of ['branch_creation', 'force_push', 'merge_queue_merge']) {
-      const api = () => [{ activity_type: type, after: TIP, timestamp: '2026-11-19T01:24:44Z' }];
-      assert.equal(relay.pushTime(api, 'claude/x', TIP), Date.parse('2026-11-19T01:24:44Z'), type);
-    }
-    assert.equal(relay.pushTime(() => [{ activity_type: 'branch_deletion', after: TIP, timestamp: '2026-11-19T01:24:44Z' }], 'claude/x', TIP), null);
   });
 });
 
@@ -227,7 +181,6 @@ describe('readHead (real git, throwaway origin)', () => {
     git('push', '-q', 'origin', 'claude/relay');
     const r = relay.readHead('claude/relay', { fetch: true });
     assert.equal(r.head.session, ME);
-    assert.ok(Number.isFinite(r.head.committedAt));
   });
 
   test('a branch the remote does not have reads as not existing, never as yours', () => {
@@ -364,22 +317,22 @@ describe('npm run baton', () => {
     updated_at: new Date(T0 - 2 * MIN).toISOString(),
     body: relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 's', checkpoint: 'c', head: 'abc1234', next: 'n' }),
   };
-  const fakeApi = ({ comments = [COMMENT], pushedAt = T0 - 5 * MIN, draft } = {}) => {
+  const fakeApi = ({ comments = [COMMENT], draft, prs } = {}) => {
     const calls = [];
     const api = (method, p, opts = {}) => {
       calls.push({ method, p, body: opts.body });
       if (p === 'user') return { login: 'saden1' };
-      if (p.includes('/pulls?')) return [{ number: 3427, draft }];
-      if (p.includes('/activity?')) return [{ activity_type: 'push', after: TIP, timestamp: new Date(pushedAt).toISOString() }];
+      if (p.includes('/pulls?')) return prs ?? [{ number: 3427, draft }];
+      if (/\/pulls\/\d+$/.test(p)) return { number: Number(p.split('/').pop()), state: 'closed', draft: false };
       if (p.endsWith('/comments?per_page=100')) return [{ id: 1, user: { login: 'saden1' }, body: 'unrelated' }, ...comments];
       if (method === 'PATCH') return {};
       throw new Error(`unexpected ${method} ${p}`);
     };
     return { api, calls };
   };
-  const go = (argv, { session = THEM, comments, pushedAt, draft, env = { LATTICE_SESSION: ME }, git } = {}) => {
+  const go = (argv, { session = THEM, comments, draft, prs, env = { LATTICE_SESSION: ME }, git } = {}) => {
     const lines = [];
-    const { api, calls } = fakeApi({ comments, pushedAt, draft });
+    const { api, calls } = fakeApi({ comments, draft, prs });
     const code = run(argv, {
       env,
       api,
@@ -393,11 +346,12 @@ describe('npm run baton', () => {
     return { code, text: lines.join('\n'), calls };
   };
 
-  test('status on a branch another session holds: exit 1, names the holder and lease', () => {
+  test('status on a branch another session holds: exit 1, names the holder, no lease', () => {
     const r = go(['status', 'claude/x']);
     assert.equal(r.code, 1);
     assert.match(r.text, /HELD .*session_TH02/);
-    assert.match(r.text, /lease left: 58 min/);
+    assert.match(r.text, /living comment last edited 2 min ago/);
+    assert.doesNotMatch(r.text, /\blease\b/);
   });
 
   test('take on a held branch: exit 1 and no write', () => {
@@ -406,12 +360,25 @@ describe('npm run baton', () => {
     assert.equal(r.calls.filter((c) => c.method !== 'GET').length, 0);
   });
 
-  test('take after the lease ran out: exit 0, tells you the push takes it', () => {
-    const old = { ...COMMENT, updated_at: new Date(T0 - 120 * MIN).toISOString() };
-    const r = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN });
-    assert.equal(r.code, 0);
-    assert.match(r.text, /FREE .*lease expired/);
+  test('take on a baton its holder released at the tip: exit 0, tells you the push takes it', () => {
+    const released = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'holder', `James Tiberius Kirk · ${THEM}`) };
+    const r = go(['take', 'claude/x'], { comments: [released] });
+    assert.equal(r.code, 0, r.text);
+    assert.match(r.text, /FREE .*baton: released/);
     assert.match(r.text, /next push takes it/);
+  });
+
+  test('a branch that exists with no open PR is not takeable: open a draft first (rule 6)', () => {
+    const r = go(['take', 'claude/x'], { session: ME, prs: [] });
+    assert.equal(r.code, 1);
+    assert.match(r.text, /Open a draft PR for claude\/x first/);
+    assert.match(go(['status', 'claude/x'], { prs: [] }).text, /no open PR for claude\/x/);
+  });
+
+  test('a PR named with --pr that is closed: not open, so the line is not takeable and status says so', () => {
+    const st = go(['status', 'claude/x', '--pr', '99'], { session: ME, comments: [] });
+    assert.match(st.text, /no open PR for claude\/x \(#99 is closed\)/);
+    assert.equal(go(['take', 'claude/x', '--pr', '99'], { session: ME, comments: [] }).code, 1);
   });
 
   test('release when I hold it: one PATCH that says released AND pins the tip', () => {
@@ -432,11 +399,11 @@ describe('npm run baton', () => {
   });
 
   test('take on a free baton of a READY PR: exit 1, says to park it first (rule 7)', () => {
-    const old = { ...COMMENT, updated_at: new Date(T0 - 120 * MIN).toISOString() };
-    const ready = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN, draft: false });
+    const released = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'holder', `James Tiberius Kirk · ${THEM}`) };
+    const ready = go(['take', 'claude/x'], { comments: [released], draft: false });
     assert.equal(ready.code, 1);
     assert.match(ready.text, /PR #3427 is ready, not a draft: .*npm run pr:park -- 3427/);
-    const draft = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN, draft: true });
+    const draft = go(['take', 'claude/x'], { comments: [released], draft: true });
     assert.equal(draft.code, 0, draft.text);
   });
 
@@ -489,13 +456,13 @@ describe('npm run baton', () => {
     assert.equal(parsed.gate, TIP.slice(0, 7));
   });
 
-  test('release --pause marks the 75% pause; status says paused', () => {
+  test('release --pause marks a usage stop; status says paused', () => {
     const r = go(['release', 'claude/x', '--pause'], { session: ME });
     assert.equal(r.code, 0, r.text);
     const body = r.calls.find((c) => c.method === 'PATCH').body.body;
-    assert.match(relay.parseLiving(body).pause, /^75% at 2026-11-22T12:00:00\.000Z$/);
+    assert.match(relay.parseLiving(body).pause, /^usage stop at \d{4}-\d\d-\d\dT/);
     const st = go(['status', 'claude/x'], { session: ME, comments: [{ ...COMMENT, body }] });
-    assert.match(st.text, /paused: 75% at/);
+    assert.match(st.text, /paused: usage stop at/);
     assert.equal(go(['take', '--pause']).code, 64);
   });
 
@@ -552,12 +519,11 @@ describe('npm run baton', () => {
     assert.equal(code, 64);
   });
 
-  test('bad arguments: exit 64, including a --now with no zone', () => {
+  test('bad arguments: exit 64 (--now is gone with the lease)', () => {
     assert.equal(go(['grab']).code, 64);
     assert.equal(go(['status', '--pr', 'x']).code, 64);
     assert.equal(go(['status', '--override']).code, 64);
     assert.equal(go(['take', '--gate']).code, 64);
-    assert.equal(go(['status', '--now', '2026-11-22T12:00:00']).code, 64);
-    assert.equal(go(['status', '--now', '2026-11-22T12:00:00Z']).code, 1);
+    assert.equal(go(['status', '--now', '2026-11-22T12:00:00Z']).code, 64);
   });
 });

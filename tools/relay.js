@@ -6,7 +6,7 @@
  *
  * Usage:
  *   npm run relay            one markdown row per open PR that has a living comment:
- *                            PR, branch, holder, baton, lease left, next step
+ *                            PR, branch, holder, baton, last update, next step, claims, rescues
  *   npm run relay -- sign    print this session's signature line (`— <name> · session_<id>`) for
  *                            a PR body or comment; exit 1 with how to set LATTICE_ACTOR if it cannot
  *   npm run relay -- trailer print the `Relay-Actor: <name>` commit trailer, or exit 1 the same way
@@ -47,10 +47,9 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     const recent = api('GET', `repos/${relay.REPO}/commits?sha=${pr.head.sha}&per_page=100`);
     const line = firstParentLine(Array.isArray(recent) ? recent : [], pr.head.sha);
     const trailers = relay.holderOf(line.map((c) => ({ message: c.commit?.message || '' })));
-    const committedAt = Date.parse(line[0]?.commit?.committer?.date);
-    const head = { sha: pr.head.sha, ...trailers, committedAt, pushedAt: relay.pushTime(api, pr.head.ref, pr.head.sha) };
+    const head = { sha: pr.head.sha, ...trailers };
     const living = relay.trustedLiving(parsed, comment, head);
-    const v = relay.applyGate(relay.batonVerdict({ head, living, me: null, now }), { gate: living.gate, head, me: null });
+    const v = relay.applyGate(relay.batonVerdict({ head, living, me: null }), { gate: living.gate, head, me: null });
     const next = (/^next: (.*)$/m.exec(comment.body) || [])[1] || '';
     const claims = (/\*\*CLAIMS\*\*\n((?:- .*\n?)+)/.exec(comment.body) || [])[1] || '';
     // GitHub refuses a trailing slash in this path (HTTP 400), so match the bare prefix and filter it.
@@ -66,18 +65,18 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     let state = v.reason.startsWith('parked at the merge gate')
       ? 'parked at merge gate'
       : v.state === 'free'
-        ? `free (${v.reason.startsWith('the living') ? 'released' : 'lease expired'})`
+        ? 'free (released)'
         : 'held';
     if (parsed.pause && living.released) state += `, paused (${parsed.pause})`;
-    const lease = v.state === 'free' ? '—' : relay.minutes(v.leaseLeftMs);
+    const updated = relay.ago(now - comment.updatedAt);
     const claimText = claims.trim().split('\n').filter(Boolean).map((l) => l.slice(2)).join('; ');
     const rescueText = rescues === null ? '?' : rescues.length ? `${rescues.length} waiting` : '';
     rows.push(
-      `| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${lease} | ${cell(next)} | ${cell(claimText)} | ${rescueText} |`,
+      `| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${updated} ago | ${cell(next)} | ${cell(claimText)} | ${rescueText} |`,
     );
   }
   if (!rows.length) return ['No open PR has a living handoff comment (`<!-- relay-handoff -->`).'];
-  return ['| PR | branch | holder | baton | lease left | next | claims | rescues |', '|---|---|---|---|---|---|---|---|', ...rows];
+  return ['| PR | branch | holder | baton | last update | next | claims | rescues |', '|---|---|---|---|---|---|---|---|', ...rows];
 }
 
 function run(argv, { env = process.env, api = relay.ghApi, now = Date.now(), out = console.log, err = console.error } = {}) {
