@@ -543,6 +543,8 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	// reads captions, as it should. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`), which
 	// device-tier.ts applies only after the first slide shows, so on a loaded machine LITE landed before Play: 3 in 24 runs at
 	// 4 workers read "Captions" instead of "Loading voice… 42%". A `?tier=` pin applies before first paint and outranks it.
+	// The page clock is ours (installed running, so the Studio boots normally), and it is paused before Play below.
+	await page.clock.install();
 	await gotoStudio(page, { query: '?tier=full' });
 	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
 	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
@@ -555,9 +557,7 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
 	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
 	// The page itself ends the "download" the moment the pill shows its progress, and records every label the pill
-	// shows with its time since Play. A read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still
-	// loading, then reads on captions by design; releasing through a test round trip lost that race under load. Both
-	// labels are brief, too: "Heart" shows only while the 0.3 s clip plays, so they are recorded, not polled.
+	// shows with its time since Play (page time, so a paused clock reads 0: a record, never an assertion).
 	await page.evaluate(() => {
 		const w = window as unknown as { __pill: { label: string; ms: number }[]; __playAt: number };
 		w.__pill = [];
@@ -578,6 +578,10 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 		note();
 		new MutationObserver(note).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
 	});
+	// Pause the page clock: a read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still loading, and
+	// that timer must not fire on the machine's load. Nothing between Play and the voice being ready waits on a page
+	// timer (the worker's clock is its own), so the load finishes and the wait is never cut short.
+	await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 	const pill = () => page.evaluate(() => (window as unknown as { __pill: { label: string; ms: number }[] }).__pill);
 	const labels = async () => (await pill()).map((p) => p.label).join(' | ');
