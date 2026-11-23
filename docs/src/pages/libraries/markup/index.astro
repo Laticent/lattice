@@ -49,6 +49,7 @@ import { SAMPLE_CODE, SAMPLE_SLIDES } from '../../../lib/markup-demo';
 			/* The two line lists: one row per fragment, each fragment set as its own element's HTML. */
 			.lines { list-style: none; margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
 				font: 12.5px/1.65 var(--mono); overflow-x: auto; }
+			.lines:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			.lines li { display: grid; grid-template-columns: 2.6em 1fr; padding: 0 12px 0 0; border-left: 3px solid transparent; }
 			.lines .n { color: var(--muted); text-align: right; padding-right: 12px; user-select: none; }
 			.lines code { font-size: inherit; white-space: pre; }
@@ -110,11 +111,11 @@ import { SAMPLE_CODE, SAMPLE_SLIDES } from '../../../lib/markup-demo';
 				<div class="cols">
 					<div class="pane">
 						<span class="label"><b>Split on newlines</b><span class="lib">html.split('\n')</span></span>
-						<ol class="lines" id="naive" aria-label="Split on newlines"></ol>
+						<ol class="lines" id="naive" aria-label="Split on newlines" tabindex="0"></ol>
 					</div>
 					<div class="pane">
 						<span class="label"><b>Markup</b><span class="lib">splitCodeLines(html)</span></span>
-						<ol class="lines" id="balanced" aria-label="splitCodeLines"></ol>
+						<ol class="lines" id="balanced" aria-label="splitCodeLines" tabindex="0"></ol>
 					</div>
 				</div>
 			</div>

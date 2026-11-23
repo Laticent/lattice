@@ -1889,7 +1889,7 @@
      "--paper": "@halo",
      "--stage": "#eeece6",
      "--ink": "@wm",
-     "--muted": "#646a72",
+     "--muted": "#5b6169",
      "--line": "#dcd9d1",
      "--accent": "@primary",
      "--glow": "@accent",
@@ -1897,7 +1897,7 @@
      "--panel": "#fbfaf7",
      "--tok-key": "#3b5a8c",
      "--tok-num": "#8a4b00",
-     "--tok-com": "#6a6f78",
+     "--tok-com": "#5c6169",
      "--shadow": "0 1px 2px rgba(29,36,43,.06), 0 8px 24px rgba(29,36,43,.06)",
      "color-scheme": "light"
     },
