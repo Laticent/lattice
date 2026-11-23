@@ -51,7 +51,7 @@ const PROVIDERS: Provider[] = [
 	{
 		id: 'openai',
 		label: 'OpenAI',
-		key: 'sk-proj-e2e-direct-openai-key-a1b2',
+		key: fakeKey('sk-proj-', 'e2e-direct-openai-key-a1b2'),
 		model: 'gpt-6.1-terra',
 		catalogId: 'openai/gpt-6.1-terra',
 		host: 'https://api.openai.com/v1',

@@ -1,7 +1,7 @@
 /**
  * `checkKeyShapedLiterals` (engineering/testing.md §Test data): no committed text file carries a string shaped like a
- * real API key. Its failing arms plant each prefix in a scratch repository and expect a finding that names the file,
- * the line and the prefix, and never echoes the literal itself.
+ * real API key. The pure matcher is checked for each prefix; the gate's arms plant a key in a scratch repository and
+ * expect a finding that names the file, the line and the prefix, and never echoes the literal itself.
  *
  * This file is itself in the check's scope, so every planted key is built from split strings.
  */
@@ -17,7 +17,7 @@ const key = (prefix, body) => prefix + body;
 const BODY = 'e2eFakeKeyBody0123456789';
 
 describe('keyShapedLiterals', () => {
-  for (const prefix of ['sk-ant-', 'sk-or-v1-', 'ghp_', 'github_pat_', 'AIza', 'xoxb-']) {
+  for (const prefix of ['sk-ant-', 'sk-or-v1-', 'sk-proj-', 'ghp_', 'github_pat_', 'AIza', 'AQ.', 'xoxb-']) {
     test(`finds ${prefix} followed by a long run of key characters`, () => {
       assert.deepEqual(keyShapedLiterals(`a\nconst k = '${key(prefix, BODY)}';\n`), [{ line: 2, prefix }]);
     });
@@ -67,6 +67,29 @@ describe('checkKeyShapedLiterals', () => {
       const errors = [];
       checkKeyShapedLiterals(errors, dir);
       assert.deepEqual(errors, []);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('passes a tree with no key prefix anywhere (git grep finds nothing and exits 1)', () => {
+    const dir = scratch({ 'a.test.ts': 'export const n = 1;\n' });
+    try {
+      const errors = [];
+      checkKeyShapedLiterals(errors, dir);
+      assert.deepEqual(errors, []);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('a colored git grep cannot hide a finding', () => {
+    const dir = scratch({ 'a.spec.ts': `'${key('AIza', BODY)}'\n` });
+    execFileSync('git', ['config', 'color.ui', 'always'], { cwd: dir });
+    try {
+      const errors = [];
+      checkKeyShapedLiterals(errors, dir);
+      assert.equal(errors.length, 1, errors.join('\n'));
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

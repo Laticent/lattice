@@ -177,8 +177,8 @@ table names the nine shapes F1–F9 and the fix for each. The short form:
 
 **A fixture never embeds a key-shaped literal; build the key at run time.** A secret scanner
 reads source, not intent: a string made of a provider's key prefix (`sk-ant-`, `sk-or-v1-`,
-`AIza`, `ghp_`, `github_pat_`, `AKIA`, `xoxb-` …) followed by a long run of key characters is
-flagged whether the key is live or a throwaway. On a public repository each flag becomes an alert
+`sk-proj-`, `AIza`, `AQ.`, `ghp_`, `github_pat_`, `AKIA`, `xoxb-` …) followed by a long run of
+key characters is flagged whether the key is live or a throwaway. On a public repository each flag becomes an alert
 that only the owner can resolve, and changing the string later does not clear one already raised
 on history.
 
@@ -193,7 +193,9 @@ Keep what the code under test reads: the prefix, the length and the character cl
 matcher checks (`docs/src/components/studio/key-providers.ts`). Code that runs inside the page
 and cannot import builds it with `['AIza', '…'].join('')`. `build:check` enforces this with
 `checkKeyShapedLiterals` in `tools/check-ownership.js`, which scans every committed text file at
-budget 0, with no allowlist.
+budget 0, with no allowlist. It counts 20 or more key characters after the prefix as "long" (for
+`AKIA`, exactly 16 upper-case letters or digits), so a short placeholder such as `sk-or-v1-…`
+passes; build a longer test key at run time all the same.
 
 ## Investigate a flaky test
 

@@ -9629,16 +9629,17 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
 // So a test fixture builds its fake key at run time from two strings (`fakeKey(prefix, body)`, docs/src/test/fake-key.ts),
 // and this gate holds every committed text file to zero literals of the shape (engineering/testing.md §Test data).
 // Budget 0, no allowlist: a real key is never committed either, and a fake one never needs to be one literal.
-// Known limits: it reads the prefixes below and nothing else (a provider with no fixed prefix passes), and a key split
-// across two literals passes by design: that is the fix.
-const KEY_SHAPED_LITERAL = /(?<![A-Za-z0-9_])(?:(?:sk-ant-|sk-or-v1-|gh[pousr]_|github_pat_|AIza|xox[abposr]-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}(?![0-9A-Z]))/g;
+// "Long" means 20 or more key characters after the prefix (AKIA: exactly 16 upper-case letters or digits); a shorter
+// placeholder such as `sk-or-v1-…` or a 12-character test body passes. Known limits: it reads the prefixes below and
+// nothing else (a provider with no fixed prefix passes), and a key split across two literals passes by design: that is the fix.
+const KEY_SHAPED_LITERAL = /(?<![A-Za-z0-9_])(?:(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}(?![0-9A-Z]))/g;
 
 /** The key-shaped literals in one file's text: [{ line, prefix }]. The match itself is never returned, so a real key never reaches a log. */
 function keyShapedLiterals(text) {
   const found = [];
   const src = String(text);
   for (const m of src.matchAll(KEY_SHAPED_LITERAL)) {
-    const prefix = /^(?:sk-ant-|sk-or-v1-|gh[pousr]_|github_pat_|AIza|xox[abposr]-|AKIA)/.exec(m[0])[0];
+    const prefix = /^(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-|AKIA)/.exec(m[0])[0];
     found.push({ line: src.slice(0, m.index).split('\n').length, prefix });
   }
   return found;
@@ -9649,7 +9650,7 @@ function checkKeyShapedLiterals(errors, root = ROOT) {
   // shape is then matched here, so no grep flavor (-P is not built into every git) decides the verdict.
   let files;
   try {
-    files = execFileSync('git', ['grep', '-lIzE', 'sk-ant-|sk-or-v1-|gh[pousr]_|github_pat_|AIza|xox[abposr]-|AKIA'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
+    files = execFileSync('git', ['grep', '--no-color', '-lIzE', 'sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\\.|xox[abposr]-|AKIA'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
   } catch (e) {
     if (e.status === 1) return; // git grep exits 1 when nothing matches
     errors.push(`the key-shaped-literal check could not search the committed files (${String(e.message).split('\n')[0]}). It needs git.`);
@@ -9659,7 +9660,9 @@ function checkKeyShapedLiterals(errors, root = ROOT) {
     let text;
     try {
       text = fs.readFileSync(path.join(root, rel), 'utf8');
-    } catch {
+    } catch (e) {
+      if (e.code === 'ENOENT') continue; // tracked, but deleted in the working tree
+      errors.push(`the key-shaped-literal check could not read ${rel} (${e.code || e.message}); it fails closed rather than skip a candidate.`);
       continue;
     }
     for (const { line, prefix } of keyShapedLiterals(text)) {
