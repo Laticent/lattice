@@ -55,7 +55,7 @@ per cycle, and the retainer chain or the listener's add-site that names the culp
    `memory-profiling.md`, a confession not routed this pass as a `followups.d/` file with its
    command line.
 6. **Report** to the command center: the cycle tortured, each confession and where it went,
-   what recovered on idle and was dismissed, and `budget: N/10 today`.
+   what recovered on idle and was dismissed, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

@@ -24,25 +24,51 @@ npm i @laticent/lente
 
 ## 60-second start
 
-```ts
-import { parseLensRegistry, lensSlides, readerLenses, lensEligibility } from '@laticent/lente';
+A deck declares its lenses in front matter, and each slide opts in with a comment tag:
 
-const slides = splitDeckIntoSlides(source);          // your `---`-splitter
-const registry = parseLensRegistry(frontMatterText); // the deck's `lenses:` block
-
-// AUTHOR-PREVIEW only — the members the "brief" lens WOULD show, ignoring approval.
-// Never render this to a reader; it is the editor's "what does this lens contain?" view:
-const briefPreview = lensSlides(slides, registry, 'brief');
-
-// What a READER sees — ALWAYS through the eligibility gate, which fails CLOSED
-// (never a silent full-deck fallback):
-const view = lensEligibility(slides, registry, 'brief');
-if (view.status === 'ok') render(view.pairs);
-else showUnavailable(view.reason);   // 'unapproved' | 'drifted' | 'empty' | 'hidden' | 'unknown'
-
-// The lenses a reader may actually pick (full + every APPROVED, non-empty, visible lens):
-const pickable = readerLenses(slides, registry);
+```md
+---
+title: Q3 review
+lenses:
+  brief: { label: "Bottom line", base: none }
+---
+<!-- _lens: brief -->
+# Q3 in one line
+---
+# Context
+---
+<!-- _lens: brief -->
+# Revenue up 12%
 ```
+
+```ts
+import { approvalHash, lensEligibility, lensSlides, parseLensRegistry, readerLenses, upsertLensRegistry } from '@laticent/lente';
+
+const slides = splitDeckIntoSlides(body);       // your own `---` splitter: one string per slide
+const registry = parseLensRegistry(frontMatter); // the text between the `---` fences
+
+// AUTHOR PREVIEW only: the slides "brief" WOULD show, ignoring approval. Never show this to a reader.
+lensSlides(slides, registry, 'brief');          // slides 0 and 2
+
+// What a READER sees always goes through the eligibility gate, which fails CLOSED:
+lensEligibility(slides, registry, 'brief');     // { status: 'unavailable', reason: 'unapproved' }
+
+// A human looked at that view and said yes: stamp it, and write the front matter back.
+registry.lenses.find((l) => l.id === 'brief')!.approved = approvalHash(slides, registry, 'brief');
+const saved = upsertLensRegistry(frontMatter, registry);
+// lenses:
+//   brief: { label: "Bottom line", base: none, approved: "sha256:9456ad8a…" }
+
+const view = lensEligibility(slides, parseLensRegistry(saved), 'brief');
+if (view.status === 'ok') render(view.pairs); // [{ slide, index: 0 }, { slide, index: 2 }]
+else showUnavailable(view.reason);            // 'unapproved' | 'drifted' | 'empty' | 'hidden' | 'unknown'
+
+// The lenses a reader may pick: full, plus every approved, non-empty, visible lens.
+readerLenses(slides, parseLensRegistry(saved)); // [full, brief]
+```
+
+Edit slide 2 after approving (say, 12% becomes 14%) and the same call returns
+`{ status: 'unavailable', reason: 'drifted' }` until someone approves the new view.
 
 ### Or chain it — the `lens()` front door
 
@@ -82,6 +108,11 @@ human-in-the-loop assurance is the **Approve gate itself** (a person looked and 
 cryptographic property of the hash.
 
 ## The default lenses
+
+Lente ships no lenses of its own except `full`. A host passes its defaults as the second argument,
+`parseLensRegistry(frontMatter, workspace)`, and a deck's `lenses:` block overrides them lens by lens.
+The table is the set Lattice's Studio offers; its "Default reader views" setting starts every deck
+with two of them, `brief` and `evidence`. The suggester (`suggestMembership`) has a rule for each of the four below `full`:
 
 | Lens | Base | Kind | Serves | Suggests |
 |---|---|---|---|---|

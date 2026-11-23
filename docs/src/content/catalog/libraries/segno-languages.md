@@ -1,7 +1,7 @@
 ---
 kind: library
 name: Segno Languages
-order: 15
+order: 18
 promise: Read a Markdown deck's structure once, then again only where it changed.
 intro: A slide deck written in Markdown has a shape before it has any pixels — where each slide starts and ends, the front matter, every comment directive and code fence. Segno Languages reads that shape in one CommonMark pass that agrees with markdown-it token for token, keeps it as a model, and after an edit re-reads only the slide that changed.
 group: Drawing and parsing

@@ -26,8 +26,8 @@ function split(text: string) {
 }
 
 describe('catalog content', () => {
-	it('has the fifteen libraries and eleven plugins', () => {
-		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(15);
+	it('has the eighteen libraries and eleven plugins', () => {
+		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(18);
 		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(11);
 	});
 
