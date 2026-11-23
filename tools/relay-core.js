@@ -104,7 +104,7 @@ function parseTrailers(message) {
 /**
  * Read the living comment's BATON block: the first fenced block of a body that STARTS with the
  * marker. A comment that merely quotes the marker is not a living comment.
- * @returns {{released: boolean, holder: string|null, session: string|null, since: string|null, head: string|null}|null}
+ * @returns {{released: boolean, gate: string|null, pause: string|null, holder: string|null, session: string|null, since: string|null, head: string|null}|null}
  */
 function parseLiving(body) {
   if (typeof body !== 'string' || !body.startsWith(MARKER)) return null;
@@ -265,7 +265,6 @@ function livingComment(api, pr, login) {
   return c ? { id: c.id, body: c.body, updatedAt: Date.parse(c.updated_at), url: c.html_url } : null;
 }
 
-/** GitHub's timestamp (ms) for the push that made `sha` the tip of `branch`, or null if not shown. */
 /** The holder: the newest of `commits` (newest first, `{message}`) whose trailers name a session. */
 function holderOf(commits) {
   for (const c of commits) {

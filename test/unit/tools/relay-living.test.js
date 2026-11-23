@@ -28,7 +28,6 @@ function fakeGitHub({ comments = [], headRef = 'claude/x', state = 'open' } = {}
   const api = (method, p, opts = {}) => {
     calls.push({ method, p, body: opts.body });
     if (p === 'user') return { login: 'saden1' };
-    if (p.includes('/activity?')) return [{ activity_type: 'push', after: 'abc1234def', timestamp: new Date(T0 - 5 * MIN).toISOString() }];
     if (method === 'GET' && /pulls\/\d+$/.test(p)) return { state, head: { ref: headRef, sha: 'f00dfeed00' } };
     if (method === 'GET' && p.includes('/comments?')) return comments;
     if (method === 'PATCH') return {};
@@ -147,10 +146,11 @@ describe('npm run relay', () => {
         { sha: 'aaa', parents: [{ sha: 'mid' }, { sha: 'side' }], commit: { message: "Merge branch 'main' into claude/a", committer: { date: new Date(T0 - 21 * MIN).toISOString() } } },
         { sha: 'side', parents: [{ sha: 'base' }], commit: { message: `wip\n\nClaude-Session: https://claude.ai/code/${ME}` } },
         { sha: 'mid', parents: [{ sha: 'base' }], commit: { message: `feat: a\n\nRelay-Actor: James Tiberius Kirk\nClaude-Session: https://claude.ai/code/${THEM}` } },
+        { sha: 'base', parents: [{ sha: 'older' }], commit: { message: 'feat: main squash\n\nClaude-Session: https://claude.ai/code/session_MAIN99' } },
       ];
     }
+    if (p.includes('/compare/main...aaa')) return { merge_base_commit: { sha: 'base' } };
     if (p.endsWith('git/matching-refs/heads/relay-rescue/claude/a')) return [{ ref: `refs/heads/relay-rescue/claude/a/${ME}` }, { ref: 'refs/heads/relay-rescue/claude/ab/session_X' }];
-    if (p.includes('/activity?')) return [{ activity_type: 'push', after: 'aaa', timestamp: new Date(T0 - 20 * MIN).toISOString() }];
     throw new Error(`unexpected ${method} ${p}`);
   };
 
@@ -168,11 +168,33 @@ describe('npm run relay', () => {
       if (p.includes('/pulls?')) return [{ number: 1, user: { login: 'saden1' }, head: { ref: 'claude/a', sha: 'aaa0000ffff' } }];
       if (p.includes('commits?sha=aaa0000ffff')) return [{ sha: 'aaa0000ffff', parents: [], commit: { message: `x\n\nClaude-Session: https://claude.ai/code/${THEM}`, committer: { date: new Date(T0 - 15 * MIN).toISOString() } } }];
       if (p.includes('git/matching-refs')) return [];
-      if (p.includes('/activity?')) return [];
       return api(method, p);
     };
     const lines = board.board({ api: api2, now: T0 });
     assert.match(lines[2], /\| parked at merge gate \|/);
+  });
+
+  test('the holder walk stops at the merge base: main\'s squash trailers never name a holder', () => {
+    // the branch's own commit has no trailer; the merge base (a main squash) does
+    const living2 = relay.livingHeader({ baton: 'held', holder: 'x', since: 's', checkpoint: 'c', head: 'h', next: 'n' });
+    const commits = [
+      { sha: 'aaa', parents: [{ sha: 'base' }], commit: { message: 'docs: a person\'s web edit' } },
+      { sha: 'base', parents: [{ sha: 'older' }], commit: { message: 'feat: main squash\n\nClaude-Session: https://claude.ai/code/session_MAIN99' } },
+    ];
+    const mk = (compare) => (method, p) => {
+      if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body: living2, updated_at: new Date(T0).toISOString(), html_url: 'u1' }];
+      if (p.includes('/pulls?')) return [{ number: 1, user: { login: 'saden1' }, base: { ref: 'main' }, head: { ref: 'claude/a', sha: 'aaa' } }];
+      if (p.includes('commits?sha=aaa&')) return commits;
+      if (p.includes('/compare/')) return compare();
+      if (p.includes('git/matching-refs')) return [];
+      return api(method, p);
+    };
+    const row = board.board({ api: mk(() => ({ merge_base_commit: { sha: 'base' } })), now: T0 })[2];
+    assert.doesNotMatch(row, /session_MAIN99/);
+    assert.match(row, /\| unattributed \| held \|/);
+    // the merge base could not be read: the board says it cannot tell, rather than guess
+    const unknown = board.board({ api: mk(() => { throw new relay.RelayError('404'); }), now: T0 })[2];
+    assert.match(unknown, /\| \? \(run npm run baton -- status\) \|/);
   });
 
   test('trailer prints the Relay-Actor line from the roster', () => {

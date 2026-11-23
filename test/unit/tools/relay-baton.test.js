@@ -105,15 +105,15 @@ describe('batonVerdict', () => {
     assert.equal(v({ head: head(ME, T0 - 5 * MIN), living }).state, 'free');
   });
 
-  test('no commit carries a session trailer: held for the lease, never free', () => {
+  test('no commit carries a session trailer: held until a person says "take over", never free', () => {
     const r = v({ head: head(null, T0 - 5 * MIN, null) });
     assert.equal(r.state, 'held');
     assert.match(r.reason, /no commit on the branch carries a Claude-Session trailer/);
   });
 
   test('no session id of my own: another session cannot read as yours, nor can an unattributed one', () => {
-    assert.equal(relay.batonVerdict({ head: head(THEM), living: null, me: null, now: T0 }).state, 'held');
-    assert.equal(relay.batonVerdict({ head: head(null, T0, null), living: null, me: null, now: T0 }).state, 'held');
+    assert.equal(relay.batonVerdict({ head: head(THEM), living: null, me: null }).state, 'held');
+    assert.equal(relay.batonVerdict({ head: head(null, T0, null), living: null, me: null }).state, 'held');
   });
 
   test('the override frees a held baton', () => assert.equal(v({ head: head(THEM), override: true }).state, 'free'));
@@ -414,8 +414,16 @@ describe('npm run baton', () => {
     const st = go(['status', 'claude/x'], { ...other, comments: [parked] });
     assert.equal(st.code, 1);
     assert.match(st.text, /parked at the merge gate at abc1234/);
-    assert.equal(go(['take', 'claude/x'], { ...other, comments: [parked] }).code, 1);
-    assert.equal(go(['take', 'claude/x', '--override'], { ...other, comments: [parked] }).code, 0);
+    assert.equal(go(['take', 'claude/x'], { ...other, comments: [parked], draft: false }).code, 1);
+    // A gate-parked PR is READY in real life. "take over" still owes the park first (rule 7):
+    // --override passes the gate but never the ready-PR refusal, since a push voids the card.
+    const readyOver = go(['take', 'claude/x', '--override'], { ...other, comments: [parked], draft: false });
+    assert.equal(readyOver.code, 1, readyOver.text);
+    assert.match(readyOver.text, /is ready, not a draft: .*pr:park/);
+    // after npm run pr:park (now a draft), the override reopens it
+    assert.equal(go(['take', 'claude/x', '--override'], { ...other, comments: [parked], draft: true }).code, 0);
+    // without the override, the gate holds even on a draft
+    assert.equal(go(['take', 'claude/x'], { ...other, comments: [parked], draft: true }).code, 1);
     // a gate for an OLDER head does not block: a push after parking re-opened the line
     const stale = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', 'parked at fff0000') };
     assert.doesNotMatch(go(['status', 'claude/x'], { ...other, comments: [stale] }).text, /merge gate/);
@@ -464,6 +472,37 @@ describe('npm run baton', () => {
     const st = go(['status', 'claude/x'], { session: ME, comments: [{ ...COMMENT, body }] });
     assert.match(st.text, /paused: usage stop at/);
     assert.equal(go(['take', '--pause']).code, 64);
+  });
+
+  test('release by a holder the living comment does not name yet: it names this session, so others see the release', () => {
+    // THEM wrote the comment; ME pushed since (ME holds the tip) but never ran card --living
+    const stale = { ...COMMENT, body: relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${THEM}`, since: 's', checkpoint: 'c', head: 'fff0000', next: 'n' }) };
+    const r = go(['release', 'claude/x'], { session: ME, comments: [stale], env: { LATTICE_SESSION: ME, LATTICE_ACTOR: 'kirk' } });
+    assert.equal(r.code, 0, r.text);
+    assert.match(r.text, /now names you/);
+    const body = r.calls.find((c) => c.method === 'PATCH').body.body;
+    const p = relay.parseLiving(body);
+    assert.equal(p.session, ME);
+    assert.equal(p.holder, 'James Tiberius Kirk');
+    assert.equal(p.released, true);
+    // the point: a third session now reads it free, not HELD by ME
+    const t = go(['take', 'claude/x'], { session: ME, comments: [{ ...COMMENT, body }], draft: true, env: { LATTICE_SESSION: 'session_OT03' } });
+    assert.equal(t.code, 0, t.text);
+  });
+
+  test('release --pause on an already-released baton still writes the pause line', () => {
+    const released = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'head', TIP.slice(0, 7)) };
+    const r = go(['release', 'claude/x', '--pause'], { session: ME, comments: [released] });
+    assert.equal(r.code, 0, r.text);
+    assert.match(r.text, /already released .*stopped for usage/);
+    const body = r.calls.find((c) => c.method === 'PATCH').body.body;
+    assert.match(relay.parseLiving(body).pause, /^usage stop at /);
+  });
+
+  test('status shows paused only for a release it trusts', () => {
+    // the comment names ME but THEM holds the tip: its release and pause are not trusted
+    const forged = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'head', TIP.slice(0, 7)), 'pause', 'usage stop at x') };
+    assert.doesNotMatch(go(['status', 'claude/x'], { session: THEM, comments: [forged], env: { LATTICE_SESSION: 'session_OT03' } }).text, /paused/);
   });
 
   test('status lists rescue refs waiting on the branch', () => {

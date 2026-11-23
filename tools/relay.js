@@ -26,11 +26,18 @@ const cell = (text) => String(text ?? '').replace(/[\\|`]/g, '\\$&').replace(/\r
  * `commit.message`, `commit.committer.date`): the line's own history, so a merged-in side branch (a
  * rescue ref) never names the holder. Same reading as `readHead`'s `git log --first-parent`.
  */
-function firstParentLine(commits, tip) {
+function firstParentLine(commits, tip, stop = null) {
   const bySha = new Map(commits.map((c) => [c.sha, c]));
   const line = [];
-  for (let c = bySha.get(tip); c; c = bySha.get(c.parents?.[0]?.sha)) line.push(c);
-  return line;
+  let reached = false;
+  for (let c = bySha.get(tip); c; c = bySha.get(c.parents?.[0]?.sha)) {
+    if (c.sha === stop) {
+      reached = true;
+      break;
+    }
+    line.push(c);
+  }
+  return Object.assign(line, { reached });
 }
 
 function board({ api = relay.ghApi, now = Date.now() } = {}) {
@@ -44,9 +51,20 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     const parsed = relay.parseLiving(comment.body);
     // Same reading as `npm run baton`. The newest 100 commits from the tip (not the PR's commit list,
     // which stops at 250 oldest-first and so loses the newest on a long branch), walked first-parent.
+    // The walk stops at the merge base, like readHead's `origin/main..`: past it lie main's squash
+    // commits, whose trailers name unrelated sessions.
+    let base = null;
+    try {
+      base = api('GET', `repos/${relay.REPO}/compare/${pr.base?.ref || 'main'}...${pr.head.sha}`)?.merge_base_commit?.sha || null;
+    } catch {
+      base = null;
+    }
     const recent = api('GET', `repos/${relay.REPO}/commits?sha=${pr.head.sha}&per_page=100`);
-    const line = firstParentLine(Array.isArray(recent) ? recent : [], pr.head.sha);
+    const line = firstParentLine(Array.isArray(recent) ? recent : [], pr.head.sha, base);
     const trailers = relay.holderOf(line.map((c) => ({ message: c.commit?.message || '' })));
+    // Without the merge base no trailer can be told from main's, and a branch line longer than the
+    // window with no trailer in it proves nothing: say we cannot tell rather than guess.
+    const unknown = !base || (!trailers.session && !line.reached);
     const head = { sha: pr.head.sha, ...trailers };
     const living = relay.trustedLiving(parsed, comment, head);
     const v = relay.applyGate(relay.batonVerdict({ head, living, me: null }), { gate: living.gate, head, me: null });
@@ -61,7 +79,7 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     } catch {
       rescues = null;
     }
-    const holder = [trailers.actor, trailers.session].filter(Boolean).join(' · ') || 'unattributed';
+    const holder = unknown ? '? (run npm run baton -- status)' : [trailers.actor, trailers.session].filter(Boolean).join(' · ') || 'unattributed';
     let state = v.reason.startsWith('parked at the merge gate')
       ? 'parked at merge gate'
       : v.state === 'free'
