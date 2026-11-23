@@ -20,7 +20,10 @@ const BODY = '## Icons\n\nStorage `^{database, c3}` and `{S3, icon=bucket, c4}` 
 /** True when the glyph's `::before` asks for Lattice Icons and a face of that family has LOADED in its document. */
 async function drawnInOurFace(el: Element): Promise<boolean> {
 	const doc = el.ownerDocument;
-	await doc.fonts.ready;
+	// Load the one face this glyph needs, not `fonts.ready`. That waits on every face of the document, and a 1 MB
+	// exported webpage carries many, so under load the wait outran the poll (gecko, 5 in 100 at 4 workers). `load` adds
+	// no face, so a missing Lattice Icons face still reads false below.
+	await doc.fonts.load('1em "Lattice Icons"', el.getAttribute('data-glyph') || ' ');
 	const asks = getComputedStyle(el, '::before').fontFamily.includes('Lattice Icons');
 	return asks && [...doc.fonts].some((f) => f.family.replace(/["']/g, '') === 'Lattice Icons' && f.status === 'loaded');
 }
