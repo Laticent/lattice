@@ -129,3 +129,67 @@ describe('literalSpans and firstSpanText match the lazy span regex', () => {
     assert.equal(keys.size, 0);
   });
 });
+
+// firstElementMatch replaces `/<h2[^>]*>[\s\S]*?<\/h2>/.exec(html)` in chart-frame.js, split-panels.js, premise.js and
+// the flowchart and state-chart transforms (regex PR 3). Same seeded differential fuzz.
+describe('firstElementMatch matches the first-heading regex', () => {
+  const { firstElementMatch } = require('../../../lib/core/tag-scan');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const PIECES = ['<h2', '<h2>', '</h2>', '</h2', '>', '<', 'h2', ' ', 'x', '\n', '"', '<h20>', '<h3>', '</h3>'];
+  const hand = ['', '<h2>', '<h2></h2>', '<h2 class="a">T</h2>', '<h2<h2>x</h2>', '<h2 x</h2>', '<h2>a</h2><h2>b</h2>', '<h20>x</h2>', '<h2>a'];
+
+  test('the same match and index (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 30000; i++) {
+      let s = '';
+      const n = Math.floor(rand() * 10);
+      for (let j = 0; j < n; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+      cases.push(s);
+    }
+    for (const s of cases) {
+      const want = /<h2[^>]*>[\s\S]*?<\/h2>/.exec(s);
+      const got = firstElementMatch(s, '<h2', '</h2>');
+      assert.deepEqual(got && { index: got.index, m: [...got] }, want && { index: want.index, m: [...want] }, `seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many `<h2` with no `>` run no regex', () => {
+    const { keys } = assertLinearRegexes(() => assert.equal(firstElementMatch('<h2 '.repeat(100000), '<h2', '</h2>'), null));
+    assert.equal(keys.size, 0);
+  });
+});
+
+// firstSectionOpen and sectionClassMatch replace `/<section\b[^>]*>/` (lib/engine/index.js) and
+// `/<section\b[^>]*\sclass="([^"]*)"/` (inline-run.js, label-set-key.js) (regex PR 3). Same seeded differential fuzz.
+describe('the section open-tag readers match their regexes', () => {
+  const { firstSectionOpen, sectionClassMatch } = require('../../../lib/core/tag-scan');
+  const SEED = Number(process.env.FUZZ_SEED || 3045);
+  const shape = (m) => m && { index: m.index, m: [...m] };
+  const PIECES = ['<section', '<section ', '<sections', '<section-', ' class="', 'class="', '"', 'a', ' ', '\n', '>', '<', 'data-class="b"', '\t'];
+  const hand = ['<section class="a">', '<section data-class="x" class="y">', '<section class="a" class="b">', '<section class="a" class="b', '<sections class="x">', '<section x> <section class="y">', '<section class="a>b">', '<section\nclass="a"'];
+
+  test('the same match, captures and index (seeded differential fuzz)', () => {
+    const rand = mulberry32(SEED);
+    const cases = [...hand];
+    for (let i = 0; i < 40000; i++) {
+      let s = '';
+      const n = Math.floor(rand() * 9);
+      for (let j = 0; j < n; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+      cases.push(s);
+    }
+    for (const s of cases) {
+      assert.deepEqual(shape(firstSectionOpen(s)), shape(s.match(/<section\b[^>]*>/)), `open, seed ${SEED}, input ${JSON.stringify(s)}`);
+      assert.deepEqual(shape(sectionClassMatch(s)), shape(/<section\b[^>]*\sclass="([^"]*)"/.exec(s)), `class, seed ${SEED}, input ${JSON.stringify(s)}`);
+    }
+  });
+
+  test('many `<section` with no `>` run no regex', () => {
+    const s = '<section '.repeat(50000);
+    const { keys } = assertLinearRegexes(() => {
+      assert.equal(firstSectionOpen(s), null);
+      assert.equal(sectionClassMatch(s), null);
+    });
+    assert.equal(keys.size, 0);
+  });
+});
