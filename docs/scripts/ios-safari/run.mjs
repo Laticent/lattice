@@ -548,6 +548,16 @@ async function composeTouchTap(id) {
 			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
 			return { seen, tapMs, hold, selected, landed, at: { x: at.x, y: at.y } };
 		};
+		// AIM AGAIN, THEN RE-SEND: what a re-delivery does, shared by the guarded tap and the forced control below. A long press
+		// selects, and iOS can scroll the editor to show that selection, so the first point can sit on another block by now:
+		// on job 137066156788 the re-sent tap at the same point landed in H2 "Probe slide two", above the paragraph. Read the
+		// paragraph's point again, held still five frames as before; keep the old point when no still point is found.
+		const reaimAndDeliver = async (n) => {
+			const again = await aimAt();
+			if (again.hit) at = again;
+			else console.log(`${LABEL}: compose tap re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
+			return deliver(n);
+		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
 		// held for LONG_PRESS_MS or more was a long press, not the tap this step tests, and is delivered once more after the
 		// multi-tap window (a second tap inside it is a double tap, which selects a word: a duration by its nature). A short tap
@@ -557,14 +567,7 @@ async function composeTouchTap(id) {
 		if (decision === 'redeliver') {
 			console.log(`${LABEL}: compose tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 			await new Promise((r) => setTimeout(r, 1000));
-			// AIM AGAIN. A long press selects, and iOS can scroll the editor to show that selection, so the first point can sit
-			// on another block by now: on job 137066156788 the re-sent tap at the same point landed in H2 "Probe slide two",
-			// above the paragraph (followups.d/3385-p2-ios-empty-deck-tap-focus.md). Read the paragraph's point again, held
-			// still five frames as before.
-			const again = await aimAt();
-			if (again.hit) at = again;
-			else console.log(`${LABEL}: compose tap re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
-			tries.push(await deliver(2));
+			tries.push(await reaimAndDeliver(2));
 			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 		}
 		const { seen, tapMs } = tries.at(-1);
@@ -606,11 +609,8 @@ async function composeTouchTap(id) {
 					if (el.scrollTop === before) el.scrollTop = before - 100;
 					return el.scrollTop - before;`);
 				if (moved) stale = await deliver('control-stale');
-				// Aim again, as the guarded tap above does.
-				const again = await aimAt();
-				if (again.hit) at = again;
-				else console.log(`${LABEL}: control re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
-				recovered = await deliver('control-2');
+				// The same re-aim and re-send the guarded tap above ships, so this run covers its lines.
+				recovered = await reaimAndDeliver('control-2');
 			}
 			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
 			// when the word clause catches the press first, plus where the selection sat after the lift (the checker on #3368).
