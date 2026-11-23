@@ -1,6 +1,8 @@
 # 🛰️ Fleet board. Render: npm run card -- engineering/card-examples/fleet.yml
 # Levels, loudest first: needs-you 🔴 · at-risk 🟠 · moving 🟢 · review 🔵 · done ✅
 # The renderer sorts the cards loudest first and folds `done` into HINDSIGHT.
+# A desk's item may carry its `meter:` ledger (see meter.yml); the board fills each
+# PR item's stage from GitHub before rendering.
 card: fleet
 as_of: Fri 20 Nov 19:40 UTC
 scope: on demand, all live sessions
@@ -43,3 +45,18 @@ items:
     session: session_015KSkL7pYsozV4EeRKQwxq9
     state: re-running a lint test that hung
     why: "a hang that passes on re-run may be flaky (HARD RULE #33)"
+  - level: moving
+    title: 🚢 Release desk
+    session: session_015KSkL7Rr3sYdWnq8KzPx2c
+    state: dry run queued; Segno rename not started
+    meter:
+      today: 2026-11-23
+      previous: { date: 2026-11-22, percent: 60, ids: [B1, B2, B3, B4, B5, B6] }
+      items:
+        - { id: B1, title: changelog fold, pr: 3390, stage: merged, merged: 2026-11-20 }
+        - { id: B2, title: dist-kits branch, pr: 3402, stage: merged, merged: 2026-11-22 }
+        - { id: B3, title: npm provenance, pr: 3409, stage: merged, merged: 2026-11-23 }
+        - { id: B4, title: dry run green, pr: 3455, stage: queued }
+        - { id: B5, title: README install path, pr: 3458, stage: green }
+        - { id: B6, title: npm name check, pr: 3441, stage: closed, dropped: name already ours }
+        - { id: B7, title: Segno rename, stage: not-started, blocking: true }

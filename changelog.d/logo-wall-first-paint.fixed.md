@@ -1,0 +1,1 @@
+- **Fixed: a logo wall no longer flashes the unpacked grid in the Studio's preview on a first visit.** The runtime marks a wall as measuring when its pass runs, which could be a frame after the slide appeared, so the plain grid painted once before the packed rows. The editing preview now holds a wall back until the runtime reaches it, too. Exports are unchanged.

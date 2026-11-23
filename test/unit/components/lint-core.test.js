@@ -1112,10 +1112,12 @@ describe('paginate-comment-retired', () => {
     assert.match(f.message, /drops its number/);
   });
 
-  test('the retired `no-paginate` class names its new spelling', () => {
+  // The rename hint was retired on 2026-11-23 to give back lint-core bytes (changelog.d/retire-old-rename-hints.removed.md):
+  // the old class is still reported, as an unknown class, rather than accepted as a `no-*` switch.
+  test('the retired `no-paginate` class is still reported, as an unknown class', () => {
     const f = core.lintTextWith(deck('<!-- _class: big-number no-paginate -->'), vocab).find((x) => x.classToken === 'no-paginate');
     assert.ok(f, 'the old class is reported');
-    assert.match(`${f.message} ${f.fix ?? ''}`, /no-pagination/);
+    assert.equal(f.rule, 'unknown-class');
   });
 
   test('a plain `paginate:` comment is caught too, and a fenced one is not', () => {
