@@ -866,7 +866,7 @@ function computeMeter(m, where = 'meter') {
     summary: [`${items.length} ${items.length === 1 ? 'item' : 'items'}${counts.length ? `: ${counts[0]}` : ''}`, ...counts.slice(1)],
     scope,
     estimate,
-    blocking: blocking.length ? blocking.join('; ') : null,
+    blocking: blocking.length ? blocking : null,
   };
 }
 
@@ -879,14 +879,17 @@ function wrapParts(parts, firstIndent, restIndent) {
   const lines = [];
   let line = firstIndent;
   let empty = true;
-  for (const part of parts) {
+  for (const [i, part] of parts.entries()) {
     const candidate = empty ? line + part : `${line} · ${part}`;
-    if (displayWidth(candidate) <= WIDTH) {
+    // Leave room for the ` ·` a break after this part would add, unless it is the last.
+    const room = i === parts.length - 1 ? WIDTH : WIDTH - 2;
+    if (displayWidth(candidate) <= room) {
       line = candidate;
       empty = false;
       continue;
     }
-    if (!empty) lines.push(`${line} ·`);
+    // A word-wrapped part can end a full line; then the break goes without its dot.
+    if (!empty) lines.push(displayWidth(`${line} ·`) <= WIDTH ? `${line} ·` : line);
     const words = wrap(part, empty ? line : restIndent, restIndent);
     line = words.pop();
     lines.push(...words);
@@ -899,9 +902,12 @@ function wrapParts(parts, firstIndent, restIndent) {
 /** The meter's body lines under its header, each wrapped to the card width. */
 function meterBody(page, r, where, indent = '   ') {
   const more = `${indent}  `;
-  page.push(wrapParts(r.summary, indent, more), `${where}.items`, MAX_FIELD_LINES, 'items');
-  page.push(wrapParts([...r.scope, r.estimate], indent, more), where, MAX_NESTED_LINES, 'scope');
-  if (r.blocking) page.push(wrap(`blocking: ${r.blocking}`, indent, more), `${where}.blocking`, MAX_FIELD_LINES, 'blocking');
+  // No line cap: these lines are computed from the ledger, not prose an author can
+  // shorten, so a cap would refuse a valid ledger (a desk with every stage in use
+  // needs four count lines). The wrap still holds every line to WIDTH columns.
+  page.push(wrapParts(r.summary, indent, more), `${where}.items`, Infinity, 'items');
+  page.push(wrapParts([...r.scope, r.estimate], indent, more), where, Infinity, 'scope');
+  if (r.blocking) page.push(wrapParts(r.blocking, `${indent}blocking: `, more), `${where}.blocking`, Infinity, 'blocking');
 }
 
 /** 📶 A desk's own meter report: the meter, then the ledger it was computed from. */
