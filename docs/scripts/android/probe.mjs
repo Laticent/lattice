@@ -156,12 +156,12 @@ async function cdpEval(urlPrefix, expression) {
 async function webClick(urlPrefix, source, ms, what) {
 	const expr = `(() => { const re = new RegExp(${JSON.stringify(source)}); const name = (e) => (e.getAttribute('aria-label') || e.labels?.[0]?.textContent || e.textContent || '').trim();
 		const els = [...document.querySelectorAll('button,[role=button],[role=menuitem],a,input[type=file]')].filter((e) => e.getClientRects().length && re.test(name(e)));
-		if (!els.length) return ''; els[0].click(); return name(els[0]); })()`;
+		if (!els.length) return '?' + [...document.querySelectorAll('button,[role=button],[role=menuitem]')].filter((e) => e.getClientRects().length).map(name).filter(Boolean).slice(0, 40).join(' | '); els[0].click(); return name(els[0]); })()`;
 	const t0 = Date.now();
 	for (;;) {
 		const r = await cdpEval(urlPrefix, expr).catch((e) => ({ ok: false, why: e.message }));
-		if (r.ok && r.value) return r.value;
-		if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}${r.why ? ` (${r.why})` : ''}`);
+		if (r.ok && r.value && !r.value.startsWith('?')) return r.value;
+		if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}${r.why ? ` (${r.why})` : ''}${r.value ? ` (visible: ${r.value.slice(1)})` : ''}`);
 		await sleep(500);
 	}
 }
@@ -313,6 +313,7 @@ try {
 	if (VIA_CDP) {
 		const S = `${BASE}/studio/`;
 		const first = await webClick(S, '^(Menu|Continue anyway)$', 150_000, "the Studio's Menu button");
+		console.log(`  clicked "${first}"`);
 		if (/Continue anyway/.test(first)) {
 			console.log('  (the Studio showed its low-device notice: Continue anyway)');
 			await webClick(S, '^Menu$', 30_000, "the Studio's Menu button");
