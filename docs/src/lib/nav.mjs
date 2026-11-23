@@ -85,7 +85,7 @@ export function catalogNav(url) {
 // reference implementation (spec audit §8.5), and every published library joins the family
 // (owner ruling 2026-11-23, first-npm-release §9). nav.test.ts fails when a workspace package is
 // missing from both lists, which is how LTT and Tavola once went unlisted. Anima is internal (no
-// package, no build), so it is not listed. Segno-markdown publishes because the engine depends on
+// package, no build), so it is not listed. Segno-languages publishes because the engine depends on
 // it, but has no page yet: nav.test.ts names it in `unlisted` until its page lands.
 const lib = (url, label, pkg, desc) => {
 	const slug = label.toLowerCase();
