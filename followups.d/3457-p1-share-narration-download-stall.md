@@ -22,11 +22,11 @@ where     — docs/src/components/studio/share-export.ts `shareHtmlPlayer`, from
 measured  — from the gecko trace (`test-results/share-narration-rate-limit-48c8a-…-gecko/trace.zip` in artifact
             `studio-e2e-45159654897-shard-2`; read with HTTP range requests, since the artifact is 6 GB). After the
             "Download webpage" click registered (logged as done, 1704110):
-            - ZERO /audio/speech requests in 240 s; the mock's only call was one models-list abort at +27.5 s.
+            - ZERO /audio/speech requests in 240 s; the mock's only call was one models-list abort at +27.8 s.
             - The `deck-export` chunk was never requested, and no capture document booted (no `[lattice-runtime]
               bootstrap`, no key/credits fetch).
             - The PASSING arm in the same shard requested `deck-export` 378 ms after its click, booted its capture
-              frame at +0.7 s, and sent its first speech request at +1.6 s.
+              frame at +0.95 s, and sent its first speech request at +1.6 s.
             Both runs loaded `font-embed` and `player-core.generated` right after the click.
 ruled out — `document.fonts.ready` in `ensureFontsLoaded` (font-embed.js). A replay that held `fonts.ready` forever
             in every frame still reached narration (4 speech requests) on both the old code and a bounded version, so
