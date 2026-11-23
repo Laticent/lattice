@@ -323,7 +323,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				const producer = async (item, { signal }) => {
 					produceCount++; mProduce.textContent = String(produceCount);
 					const v = mode === 'voice' ? voice || (voiceLoad && (await voiceLoad)) : null;
-					if (v) {
+					// Stopped or interrupted while the model loaded: ask the voice for nothing.
+					if (v && !signal?.aborted) {
 						try {
 							// The Kokoro picker is this page's, and applies only while the voice is Kokoro.
 							const kokoro = v.rung() === 'kokoro' || (v.rung() === 'openrouter-tts' && /kokoro/i.test(v.orModel()));
