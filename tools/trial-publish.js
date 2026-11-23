@@ -24,6 +24,9 @@
  *            @laticent scope at the local registry; the rest comes from npmjs, pinned to the
  *            repository lockfile's versions (pinnedOverrides) so a release npmjs published a
  *            minute ago cannot turn the job red. With npmjs down, this phase fails, and says so.
+ *            THE TRADE: pinned, the trial tests the lockfile's versions, not the newest in range a
+ *            user would get (the engine ships no shrinkwrap). It proves our packages publish and
+ *            install; it no longer catches an upstream release that breaks the engine in range.
  *   render   `lattice --version` and `lat --version` print the published version, the root
  *            import returns the engine from require and import, and the installed CLI renders
  *            a 4-slide deck (a list, display math, a Mermaid diagram, a two-pane slide) to a
@@ -168,6 +171,36 @@ function pinnedOverrides(lock) {
   return { overrides, floating };
 }
 
+/**
+ * The environment every publish runs in: the caller's, minus anything that could point npm at
+ * another registry, plus the local one at the ENVIRONMENT level. npm reads flags, then the
+ * environment, then a project .npmrc, then the user npmrc, so a userconfig alone loses to an
+ * inherited `npm_config_registry` (which `npm run` exports whenever ~/.npmrc names a mirror) and to
+ * a project .npmrc. A publish cannot be taken back, so every way in is closed here, in every case
+ * spelling npm accepts; our own publishes also pass `--registry`, which beats all of them.
+ */
+function registryEnv(env, npmrc, url) {
+  const out = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (/^npm_config_(registry|userconfig|globalconfig|_auth|_authtoken|always_auth|@[^_]+:registry|\/\/.*)$/i.test(k)) continue;
+    out[k] = v;
+  }
+  out.npm_config_registry = `${url}/`;
+  out.NPM_CONFIG_USERCONFIG = npmrc;
+  out.TRIAL_REGISTRY_URL = url;
+  return out;
+}
+
+/** Packages whose package.json sends their publish somewhere fixed (`publishConfig.registry`). */
+function pinnedRegistries(root = ROOT) {
+  const out = [];
+  for (const [name, w] of workspaces(root)) {
+    const pkg = readJson(path.join(root, w.dir, 'package.json'));
+    if (pkg.publishConfig?.registry) out.push(`${name} sets publishConfig.registry (${pkg.publishConfig.registry}) in ${w.dir}/package.json, so a trial publish of it would not go to the local registry`);
+  }
+  return out;
+}
+
 /** The deck the installed CLI renders: each slide reaches a different part of the engine. */
 const DECK = [
   '---\ntheme: indaco\n---',
@@ -190,6 +223,21 @@ function run(cmd, args, opts = {}) {
       reject(new Error(`\`${cmd} ${args.join(' ')}\` exited ${err.code ?? err.signal}\n${String(stdout).slice(-2000)}${String(stderr).slice(-4000)}`));
     });
   });
+}
+
+/** Poll `url` until it answers 2xx, or give up at the deadline (the reinstall then reports the miss). */
+async function waitForUrl(url, deadlineMs) {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok) return true;
+    } catch {
+      /* network blip: keep polling until the deadline */
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  return false;
 }
 
 /** A port nothing is listening on: the OS picks it, so a stale local registry cannot answer for ours. */
@@ -236,9 +284,9 @@ async function main() {
     return out;
   };
 
-  const problems = await phase('check', () => blockers());
+  const problems = await phase('check', () => [...blockers(), ...pinnedRegistries()]);
   if (problems.length) {
-    console.error(`trial-publish: ${ENGINE} cannot be installed from a registry:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
+    console.error(`trial-publish: the trial cannot run:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
     return 1;
   }
   if (!fs.existsSync(path.join(ROOT, 'dist', 'lattice.js'))) {
@@ -293,7 +341,7 @@ async function main() {
     // TRIAL_PUBLISH_COMMAND (a release tool that calls `npm publish` itself) needs no flags of ours.
     const npmrc = path.join(tmp, 'npmrc');
     fs.writeFileSync(npmrc, `registry=${url}/\n//127.0.0.1:${port}/:_authToken=trial-only\n`);
-    const publishEnv = { ...process.env, NPM_CONFIG_USERCONFIG: npmrc, TRIAL_REGISTRY_URL: url };
+    const publishEnv = registryEnv(process.env, npmrc, url);
 
     const custom = process.env.TRIAL_PUBLISH_COMMAND;
     if (custom) {
@@ -305,13 +353,13 @@ async function main() {
     } else {
       const libs = publishSet();
       await phase(`libraries (${libs.length})`, async () => {
-        for (const lib of libs) await run('npm', ['publish', '--workspace', lib], { cwd: ROOT, env: publishEnv });
+        for (const lib of libs) await run('npm', ['publish', '--workspace', lib, '--registry', `${url}/`], { cwd: ROOT, env: publishEnv });
       });
       await phase('engine', async () => {
         const entries = stager.stagedEntries();
         try {
           stager.stage(entries);
-          await run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts'], { cwd: ROOT, env: publishEnv });
+          await run('npm', ['publish', '--workspace', ENGINE, '--ignore-scripts', '--registry', `${url}/`], { cwd: ROOT, env: publishEnv });
         } finally {
           stager.clean(entries);
         }
@@ -322,7 +370,7 @@ async function main() {
     const room = path.join(tmp, 'room');
     await phase('install', async () => {
       fs.mkdirSync(room);
-      const { overrides } = pinnedOverrides(readJson(path.join(ROOT, 'package-lock.json')));
+      const { overrides, floating } = pinnedOverrides(readJson(path.join(ROOT, 'package-lock.json')));
       fs.writeFileSync(path.join(room, 'package.json'), `${JSON.stringify({ name: 'trial-room', private: true, overrides }, null, 2)}\n`);
       fs.writeFileSync(path.join(room, '.npmrc'), `${SCOPE.slice(0, -1)}:registry=${url}/\n`);
       const install = () => run('npm', ['install', ENGINE, '--no-audit', '--no-fund', '--cache', path.join(tmp, 'cache')], {
@@ -332,13 +380,15 @@ async function main() {
       try {
         await install();
       } catch (e) {
-        // One retry, and only for a third-party package npmjs has not finished serving
-        // (upstreamMiss). The pins above make that rare: only a name the lockfile holds at several
-        // versions can still float to a fresh release. Anything else, ours above all, fails here.
+        // One retry, and only for a FLOATING third-party name (one the lockfile holds at several
+        // versions, so it is not pinned) that npmjs has listed but not yet served. A pinned version
+        // is old and served, so a 404 on it, like any miss on ours and any other error, fails here.
+        // The retry waits for the signal, the missed URL answering, not for a fixed time.
         const missing = upstreamMiss(e.message);
-        if (!missing) throw e;
-        console.log(`  npmjs could not serve ${missing} yet (a fresh upstream release?); retrying the install once in 90 s`);
-        await new Promise((r) => setTimeout(r, 90000));
+        const missedUrl = /404 Not Found - GET (\S+)/.exec(e.message)?.[1];
+        if (!missing || !floating.includes(missing) || !missedUrl) throw e;
+        console.log(`  npmjs has not served ${missing} yet (${missedUrl}); waiting up to 5 min for it, then installing once more`);
+        await waitForUrl(missedUrl, 5 * 60 * 1000);
         await install();
       }
     });
@@ -389,4 +439,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { publishSet, blockers, workspaces, upstreamMiss, pinnedOverrides };
+module.exports = { publishSet, blockers, workspaces, upstreamMiss, pinnedOverrides, registryEnv, pinnedRegistries };

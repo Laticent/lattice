@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { publishSet, blockers, upstreamMiss, pinnedOverrides } = require('../../../tools/trial-publish.js');
+const { publishSet, blockers, upstreamMiss, pinnedOverrides, registryEnv, pinnedRegistries } = require('../../../tools/trial-publish.js');
 
 /** A fixture repository: a root naming `workspaces`, each with the package.json given. */
 function fixture(t, packages) {
@@ -99,4 +99,38 @@ test('pinnedOverrides pins single-version third-party names and leaves ours and 
   const { overrides, floating } = pinnedOverrides(lock);
   assert.deepEqual(overrides, { '@bramus/specificity': '2.4.3', jszip: '3.10.1' });
   assert.deepEqual(floating, ['ansi-regex']);
+});
+
+// A publish cannot be taken back, so nothing the caller's environment carries may point npm at
+// another registry: npm reads flags, then the environment, then a project .npmrc, then the user
+// npmrc, and `npm run` exports npm_config_registry whenever ~/.npmrc names a mirror.
+test('registryEnv drops every inherited registry, userconfig and auth setting, and sets the local registry', () => {
+  const env = registryEnv({
+    PATH: '/bin',
+    npm_config_registry: 'https://mirror.example/',
+    NPM_CONFIG_REGISTRY: 'https://mirror.example/',
+    npm_config_userconfig: '/root/.npmrc',
+    npm_config__authToken: 'secret',
+    'npm_config_@laticent:registry': 'https://mirror.example/',
+    'npm_config_//registry.npmjs.org/:_authToken': 'secret',
+    npm_config_cache: '/tmp/cache',
+  }, '/tmp/x/npmrc', 'http://127.0.0.1:5000');
+  assert.deepEqual(env, {
+    PATH: '/bin',
+    npm_config_cache: '/tmp/cache',
+    npm_config_registry: 'http://127.0.0.1:5000/',
+    NPM_CONFIG_USERCONFIG: '/tmp/x/npmrc',
+    TRIAL_REGISTRY_URL: 'http://127.0.0.1:5000',
+  });
+});
+
+test('pinnedRegistries names a package whose publishConfig.registry would send its publish elsewhere', (t) => {
+  const root = fixture(t, {
+    'packages/lattice': engine({}),
+    'docs/src/lib/segno': { name: '@laticent/segno', publishConfig: { access: 'public' } },
+    'docs/src/lib/ltt': { name: '@laticent/ltt', publishConfig: { access: 'public', registry: 'https://npm.example/' } },
+  });
+  const found = pinnedRegistries(root);
+  assert.equal(found.length, 1);
+  assert.match(found[0], /@laticent\/ltt sets publishConfig\.registry \(https:\/\/npm\.example\/\)/);
 });
