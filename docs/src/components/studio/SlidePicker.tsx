@@ -93,8 +93,13 @@ const PILLS_COLLAPSED = { hideFirst: FOLD_FIRST, collapse: true, collapsedLabel:
 // chrome that steps aside and the sheet that shrinks never disagree, and a tap on a result
 // cannot make the rows move under the finger. CSS rather than state for that reason: the hold
 // is an attribute, and a focus handler would undo the layout at `mousedown`.
-const WHILE_TYPING_HIDE = '[[role=dialog]:has(input:focus,[data-typing-held])_&]:hidden';
-const WHILE_TYPING_SHOW = 'hidden [[role=dialog]:has(input:focus,[data-typing-held])_&]:flex';
+//
+// The third clause is the "Family ▾" menu itself. Opening it moves focus out of the field (the
+// menu renders outside the dialog), so without it the typing layout undid itself under the tap:
+// the trigger went `display:none`, the open menu lost its anchor and jumped to the page corner,
+// and a pick returned focus to <body> (found by the checker, reproduced at 390px).
+const WHILE_TYPING_HIDE = '[[role=dialog]:has(input:focus,[data-typing-held],[data-typing-strip]_[aria-expanded=true])_&]:hidden';
+const WHILE_TYPING_SHOW = 'hidden [[role=dialog]:has(input:focus,[data-typing-held],[data-typing-strip]_[aria-expanded=true])_&]:flex';
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 // A tile's React key. Function-band tiles keep a BARE-NAME key so the same tile
@@ -273,11 +278,14 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	// nothing at all, and that was most queries.
 	const labelByName = React.useMemo(() => {
 		const m = new Map<string, string>();
+		// FIRST hit per name wins: a saved local component sharing a built-in's name is two hits,
+		// and the second must not relabel the leader.
 		(hits ?? []).forEach((h, i) => {
+			if (m.has(h.item.name)) return;
 			if (i === 0) m.set(h.item.name, 'Best match');
 			else {
 				const why = matchReason(h, q);
-				if (why) m.set(h.item.name, why === 'spelling' ? 'close spelling' : `${why} match`);
+				if (why) m.set(h.item.name, why === 'spelling' ? 'close spelling' : why === 'several' ? 'matches across fields' : `${why} match`);
 			}
 		});
 		return m;
@@ -329,6 +337,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	}, [ranked, byName]);
 
 	const count = searching ? flat.length : facet ? pool.length : items.length;
+	const focusSearch = React.useCallback(() => searchRef.current, []);
 	const facetTabs = React.useMemo(() => [{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))], [functions]);
 	// A component's variants that match the current query — the looks a variant-term
 	// search is surfacing under their parent (e.g. "insight" → quote's insight-* looks).
@@ -420,8 +429,9 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 					</div>
 					{/* A phone while typing: "All · Family ▾", so the results get the room. */}
 					{compact && (
-						<div className={cn('px-4 py-2', WHILE_TYPING_SHOW)}>
-							<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_COLLAPSED} />
+						<div data-typing-strip className={cn('px-4 py-2', WHILE_TYPING_SHOW)}>
+							{/* A pick from the menu hands focus back to the FIELD, not the trigger: you were typing. */}
+							<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_COLLAPSED} menuReturnFocus={focusSearch} />
 						</div>
 					)}
 				</>

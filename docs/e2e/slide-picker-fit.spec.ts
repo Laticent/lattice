@@ -59,6 +59,29 @@ test('a phone typing gives the results the room: the filters fold into one pill 
 	const room = await grid(page).evaluate((e) => e.getBoundingClientRect().height);
 	const tile = await page.getByRole('button', { name: /^Insert timeline-list/ }).evaluate((e) => (e.parentElement as HTMLElement).getBoundingClientRect().height);
 	expect(room).toBeGreaterThanOrEqual(tile);
+
+	// Opening the menu moves focus out of the field. The typing layout must hold while it is open:
+	// the trigger stays put and the menu opens under it (it used to vanish, and the menu jumped to
+	// the page corner), and a pick hands focus back to the field, not to <body>.
+	// By DOM, not role: an open Radix menu hides everything outside it from the accessibility tree.
+	// The SHEET may resize as the field blurs: that is the panel's no-keyboard height (on an iPhone
+	// the keyboard closes on the same tap). What must hold is the strip — still the collapsed one —
+	// and a menu attached to its trigger.
+	const family = page.locator('[data-typing-strip] button[aria-haspopup="menu"]');
+	await family.click();
+	const menu = page.getByRole('menu');
+	await expect(menu).toBeVisible();
+	await expect(family).toBeVisible();
+	await expect(page.getByText(/^Adds it /)).toBeHidden();
+	await expect
+		.poll(async () => {
+			const [t, m] = [await family.boundingBox(), await menu.boundingBox()];
+			return t && m ? Math.round(Math.abs(m.x - t.x) + Math.abs(m.y - (t.y + t.height))) : -1;
+		})
+		.toBeLessThanOrEqual(12);
+	await page.getByRole('menuitemradio', { name: 'Progression', exact: true }).click();
+	await expect(search(page)).toBeFocused();
+	await expect(page.getByRole('button', { name: 'Slide categories: Progression, more' })).toBeVisible();
 });
 
 test('a new query starts at the top of its results @crosswidth', async ({ page }) => {
@@ -81,6 +104,6 @@ test('every result says how it matched: the leader is the best match @crosswidth
 	await expect(tiles.first()).toHaveAccessibleName(/^Insert timeline-list, best match/);
 	const names = await tiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''));
 	expect(names.length).toBeGreaterThan(1);
-	for (const n of names.slice(1)) expect(n).toMatch(/, (name|tag|look|family|description) match|, close spelling|% as close a match/);
+	for (const n of names.slice(1)) expect(n).toMatch(/, (name|tag|look|category|description) match|, matches across fields|, close spelling|% as close a match/);
 	await expect(page.getByRole('dialog').getByText('Best match', { exact: true })).toBeVisible();
 });

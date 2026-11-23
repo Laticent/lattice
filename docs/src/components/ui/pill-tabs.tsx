@@ -59,6 +59,7 @@ export function PillTabs({
 	className,
 	dense = false,
 	overflow,
+	menuReturnFocus,
 }: {
 	tabs: PillTab[];
 	value: string;
@@ -74,6 +75,8 @@ export function PillTabs({
 	 * A folded tab that is selected names the More pill, so the choice stays visible.
 	 */
 	overflow?: { hideFirst: string[]; collapse?: boolean; moreLabel?: string; collapsedLabel?: string };
+	/** Where focus goes when the More menu closes; the trigger by default. */
+	menuReturnFocus?: () => HTMLElement | null;
 }) {
 	const rowRef = React.useRef<HTMLDivElement>(null);
 	const measureRef = React.useRef<HTMLDivElement>(null);
@@ -84,6 +87,12 @@ export function PillTabs({
 		const row = rowRef.current;
 		const meas = measureRef.current;
 		if (!overflow || !row || !meas) return;
+		// A row with no width has not been laid out, or is `display:none` (the phone gallery swaps
+		// two strips on focus): keep the last good fold rather than folding everything, which would
+		// flash "All · More" for a frame when it shows again. SettingsSectionTabs learned the same.
+		// `collapse` needs no measurement, so it folds even while hidden: a strip that starts
+		// `display:none` must show folded on its first visible frame.
+		if (row.clientWidth === 0 && !overflow.collapse) return;
 		const pills = [...meas.children] as HTMLElement[];
 		const widths = pills.slice(0, tabs.length).map((el) => el.getBoundingClientRect().width);
 		// The More pill can carry any folded tab's name, so budget for the widest one plus the
@@ -98,6 +107,9 @@ export function PillTabs({
 		if (!overflow || !row || typeof ResizeObserver === 'undefined') return;
 		const ro = new ResizeObserver(() => refit());
 		ro.observe(row);
+		// The ruler too: the web font lands after first paint and changes every pill's width
+		// without changing the row's, so watching the row alone kept a stale fold.
+		if (measureRef.current) ro.observe(measureRef.current);
 		return () => ro.disconnect();
 	}, [overflow, refit]);
 
@@ -160,7 +172,15 @@ export function PillTabs({
 							<ChevronDown className="size-3.5" aria-hidden />
 						</button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start">
+					<DropdownMenuContent
+						align="start"
+						onCloseAutoFocus={(e) => {
+							const el = menuReturnFocus?.();
+							if (!el) return;
+							e.preventDefault();
+							el.focus();
+						}}
+					>
 						<DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
 							{hidden.map((t) => (
 								<DropdownMenuRadioItem key={t.value} value={t.value}>
@@ -173,7 +193,10 @@ export function PillTabs({
 			)}
 			{/* The ruler: every pill at its natural width, plus the More pill, off-screen and inert.
 			    Measuring the live row would measure only the pills already shown. */}
-			<div ref={measureRef} aria-hidden inert className={cn('pointer-events-none invisible absolute left-0 top-0 flex', dense ? 'gap-1' : 'gap-1.5')}>
+			{/* Clipped to the row, so the ruler (wider than the row when pills fold) can never give an
+			    ancestor a sideways scroll. `w-max` keeps the pills at their natural width inside it. */}
+			<div aria-hidden inert className="pointer-events-none invisible absolute inset-0 overflow-hidden">
+			<div ref={measureRef} className={cn('flex w-max', dense ? 'gap-1' : 'gap-1.5')}>
 				{tabs.map((t) => (
 					<span key={t.value} className={pillClass(false)}>
 						{t.icon}
@@ -184,6 +207,7 @@ export function PillTabs({
 					{moreLabel}
 					<ChevronDown className="size-3.5" />
 				</span>
+			</div>
 			</div>
 		</div>
 	);

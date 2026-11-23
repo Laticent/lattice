@@ -22,8 +22,15 @@ describe('matchReason', () => {
 		for (const q of ['timeline', 'chart', 'quote', 'step']) {
 			const r = reasons(q);
 			expect(Object.keys(r).length).toBeGreaterThan(0);
-			for (const why of Object.values(r)) expect(why).toMatch(/^(name|tag|look|family|description|spelling)$/);
+			for (const why of Object.values(r)) expect(why).toMatch(/^(name|tag|look|category|description|several|spelling)$/);
 		}
+	});
+
+	it('"description" only when the description holds the query: a query spanning two fields says so', () => {
+		// The substring pass matches the fields joined, so two adjacent tags can match together.
+		const item: CatalogItem = { name: 'zz-probe', bucket: 'b', function: 'f', form: '', substance: '', family: '', familyLabel: '', description: 'nothing relevant', purpose: '', tags: ['alpha', 'beta'], variants: [] };
+		expect(matchReason({ item, via: 'substring', match: null }, 'alpha beta')).toBe('several');
+		expect(matchReason({ item: { ...item, description: 'an alpha beta pairing' }, via: 'substring', match: null }, 'alpha beta')).toBe('description');
 	});
 
 	it('a misspelled name is a close spelling', () => {
