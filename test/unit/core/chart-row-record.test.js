@@ -60,19 +60,15 @@ function elementsVisited(fn) {
   return visited;
 }
 /**
- * Characters handed to chart-rows.js's tag-by-tag raw scan, the one pattern with a `{0,4000}` tag body. One `<`
- * can cost that scan up to 4000 steps, so `rawBlockCounts` caps what it is pointed at: a block past
- * RAW_SCAN_LIMIT, or past what is left of the slide's RAW_SCAN_BUDGET, is counted by tag names instead.
+ * Characters handed to chart-rows.js's tag-by-tag raw scan (`anyTagScanner`, which counts them in `TAG_SCAN`). The scan
+ * was a regex with a `{0,4000}` tag body, so one `<` could cost it 4000 steps; it is one pass now (regex PR 3), and
+ * `rawBlockCounts` still caps what it is pointed at: a block past RAW_SCAN_LIMIT, or past what is left of the slide's
+ * RAW_SCAN_BUDGET, is counted by tag names instead.
  */
 function tagScanned(fn) {
-  const exec = RegExp.prototype.exec;
-  let read = 0;
-  RegExp.prototype.exec = function (s) {
-    if (this.lastIndex === 0 && this.source.includes('{0,4000}')) read += String(s).length;
-    return exec.call(this, s);
-  };
-  try { fn(); } finally { RegExp.prototype.exec = exec; }
-  return read;
+  const before = rows.TAG_SCAN.chars;
+  fn();
+  return rows.TAG_SCAN.chars - before;
 }
 
 /** [chart, old body, record body]: the same rows, written both ways. */

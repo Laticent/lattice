@@ -33,7 +33,7 @@
     "lib/core/carousel.js": 34,
     "lib/core/chart-narration.js": 46,
     "lib/core/chart-row-source.js": 1,
-    "lib/core/chart-rows.js": 2,
+    "lib/core/chart-rows.js": 1,
     "lib/core/chart-source-bridge.js": 1,
     "lib/core/coda.js": 1,
     "lib/core/code-door-core.mjs": 1,
@@ -51,7 +51,6 @@
     "lib/core/front-matter-groups.js": 1,
     "lib/core/front-matter-style.js": 2,
     "lib/core/glossary-auto.mjs": 2,
-    "lib/core/hidden-slides.mjs": 1,
     "lib/core/hub-spoke-grammar.js": 4,
     "lib/core/image-aspect.js": 3,
     "lib/core/image-dimensions.js": 1,
@@ -79,8 +78,7 @@
     "lib/core/split-envelope.js": 17,
     "lib/core/split-panels.js": 5,
     "lib/core/style-markdown-scan.mjs": 3,
-    "lib/core/svg-a11y-names.js": 2,
-    "lib/core/table-row-label.js": 2,
+    "lib/core/table-row-label.js": 1,
     "lib/core/table-shape.js": 1,
     "lib/core/tower-size.js": 1,
     "lib/core/url-scheme.js": 1,
@@ -637,10 +635,6 @@
     "/<!--\\s*tier:\\s*(short|standard|full)\\s*-->/i": "safe",
     "/<!--|--!?>/g": "safe",
     "/<!--|<(\\/?)([a-zA-Z][\\w-]*)\\b/g": "safe",
-    "/<!--|<(\\/?)([a-z][a-z0-9-]*)\\b(?:[^>\"']|\"[^\"]*\"|'[^']*'){0,4000}>/gi": {
-      "verdict": "unknown",
-      "why": "recheck could not decide it within a 3072 MB heap (the checker exits 1)"
-    },
     "/<!--|<(style|script|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=[\\t\\n\\f\\r />])/gi": "safe",
     "/<!--|<\\/?div\\b[^>]*>/g": "polynomial",
     "/<((?:https?|mailto):[^>\\s]*)>/g": "polynomial",
@@ -650,10 +644,6 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/<(?![/a-z])/i": "safe",
-    "/<(?!\\/)([a-zA-Z][\\w-]*)\\b(?:\"[^\"]*\"|'[^']*'|[^>\"'])*>/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/<(?:img|image)\\b(?:\"[^\"]*\"|'[^']*'|[^'\">])*>/gi": "polynomial",
     "/<(?:polygon|rect|path|circle|ellipse|line|polyline|g|text)\\b[^>]*\\sdata-anima-role=/": "polynomial",
     "/<(?:p|ul|ol|div|table|blockquote|pre)\\b/i": "safe",
@@ -879,7 +869,6 @@
     "/<style/i": "safe",
     "/<style\\b[^>]*>[\\s\\S]*?<\\/style>|<!--[\\s\\S]*?-->/gi": "polynomial",
     "/<style\\b[^>]*>[\\s\\S]*?<\\/style>|<[^>]*>/g": "polynomial",
-    "/<svg\\b(?:\"[^\"]*\"|'[^']*'|[^>\"'])*>/gi": "polynomial",
     "/<svg\\b[\\s\\S]*?<\\/svg>/i": "polynomial",
     "/<svg\\b[^>]*>/i": "polynomial",
     "/<svg\\b[^>]*?(\\/?)>|<\\/svg\\s*>|(<style\\b[^>]*>)([\\s\\S]*?)(<\\/style\\s*>)/gi": "polynomial",
@@ -990,10 +979,6 @@
     "/[()[\\]<> \\t\\\\]/g": "safe",
     "/[()[\\]{}*+?.^$|\\\\]/": "safe",
     "/[*_]/g": "safe",
-    "/[*_]{1,3}(?=\\S)([\\s\\S]*?\\S)[*_]{1,3}/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/[*_`]/g": "safe",
     "/[*_~]/g": "safe",
     "/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g": "safe",
@@ -1500,10 +1485,6 @@
     "/\\sdata-lat-escaped\\b/": "safe",
     "/\\sdata-lat-escaped\\b|\\sdata-lattice-off\\b/i": "safe",
     "/\\sdata-lattice-berth\\b/": "safe",
-    "/\\sdata-lattice-hidden\\s*=\\s*([\"'])true\\1/i": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
-    },
     "/\\sdata-lattice-media=\"image\"/": "safe",
     "/\\sdata-lattice-off=\"avatars\"/": "safe",
     "/\\sdata-lattice-off=/": "safe",
