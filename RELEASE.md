@@ -100,6 +100,21 @@ That listing is the root tarball's, file for file: on 2026-11-22 both shipped
 empty. `test/integration/export/installed-package.test.js` stages a copy and
 installs from it on every PR.
 
+**The trial publish** goes one step further: it really publishes. `node
+tools/trial-publish.js` (after `npm run build`) starts a throwaway Verdaccio,
+publishes every non-private `@laticent` library (each through its own prepack)
+and the staged engine, runs `npm install @laticent/lattice` in an empty folder
+whose `.npmrc` points only the `@laticent` scope at it, and renders a 4-slide
+deck with the installed CLI. Before any of that, it fails on a `@laticent`
+package the engine needs that is `"private": true`, since npm would refuse to
+publish it. `.github/workflows/trial-publish.yml` runs it on PRs that touch a
+manifest or the release tooling, nightly, and as the first job of
+`release.yml`, so a release PR never opens on a package that would not
+install. About 50 s after the build; the whole job 3 min 36 s on a runner
+(measured 2026-11-23). The install pins third-party packages to the
+repository lockfile's versions, so it tests our packages, not the newest
+upstream release in range a user would get.
+
 And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
