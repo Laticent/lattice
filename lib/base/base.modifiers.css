@@ -1330,6 +1330,19 @@ section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not
   --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
 }
+/* …AND A FINISH LIFTS THE PANEL UNDER IT. `--on-inverse-muted` is tuned to the FIRST value that clears AA on
+ * the flat panel (indaco: 4.58:1 on #003D66), so any wash, glow or band a finish paints there takes it
+ * under: Brand-forward's `strata` and Annual Report's `meridian` measured 4.00 to 4.42:1 on indaco's
+ * dividers (the preset gate, 2026-11-21 and 2026-11-23; followups.d/3389-p1). On a finished panel the
+ * chrome ink moves 30% toward white in OKLab, hue held, which clears the lifted panel and still sits
+ * under the heading's white. A flat panel keeps the tuned ink, so a deck with no finish renders exactly
+ * as before. Same (0,1,1) weight as the rule above and later, so it wins there and an author's chrome
+ * color still wins over both. `no-finish` slides keep the flat-panel ink. */
+section:where(.finish:not(.no-finish):is(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light))):not(.print) {
+  --marp-slide-header-color: color-mix(in oklab, var(--on-inverse-muted, var(--text-muted)) 70%, white);
+  --marp-slide-footer-color: color-mix(in oklab, var(--on-inverse-muted, var(--text-muted)) 70%, white);
+  --marp-slide-pagination-color: color-mix(in oklab, var(--on-inverse-muted, var(--text-muted)) 70%, white);
+}
 
 /* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
  * The front and back cover on the deck's own light canvas instead of the inverse panel. The
