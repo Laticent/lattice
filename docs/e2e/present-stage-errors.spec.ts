@@ -111,7 +111,12 @@ test('a live Stage keeps its deck when a rebuild fails while a rewrite is in fli
 	await setFail(page, true);
 	await repaint('rgb(160, 40, 40)');
 	await expect(buildOutcome(page)).toHaveAttribute('data-stage-build', 'failed');
-	// The Stage keeps the deck it has: still open, still pressed.
+	// A LATER signal before reading the keep: one more change that builds. If the failure had closed the Stage, that
+	// close (and the console's re-render) is done by the time this build lands, so the reads below cannot run early.
+	await setFail(page, false);
+	await repaint('rgb(40, 140, 60)');
+	await expect(buildOutcome(page)).toHaveAttribute('data-stage-build', 'built');
+	// The Stage kept the deck it had: still open, still pressed.
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 	expect(stage.isClosed()).toBe(false);
 });
