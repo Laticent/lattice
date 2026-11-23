@@ -42,10 +42,12 @@ const PACKAGES = {
 	tavola: ['.', './trystero'],
 	markup: ['.'],
 	lastra: ['.', './decode'],
-	'segno-markdown': ['.'],
+	'segno-languages': ['./markdown'],
 	filo: ['.'],
 	veduta: ['.'],
 };
+/** A package whose folder keeps an older name than the package. */
+const DIRS = { 'segno-languages': 'segno-markdown' };
 const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
 // A consumer's own strict settings. `skipLibCheck` skips only `.d.ts`, so while `types` pointed at
 // the `.ts` source a consumer compiled our source under these and got 904 errors inside our
@@ -65,7 +67,7 @@ function packedConsumer(tmp) {
 	fs.mkdirSync(path.join(consumer, 'node_modules', '@laticent'), { recursive: true });
 	const entries = [];
 	for (const name of Object.keys(PACKAGES)) {
-		const tgz = pack(path.join(LIB, name), tmp);
+		const tgz = pack(path.join(LIB, DIRS[name] ?? name), tmp);
 		const dest = path.join(consumer, 'node_modules', '@laticent', name);
 		fs.mkdirSync(dest, { recursive: true });
 		execFileSync('tar', ['-xzf', tgz, '-C', dest, '--strip-components=1']);

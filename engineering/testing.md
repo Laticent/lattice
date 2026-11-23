@@ -136,6 +136,8 @@ modes, and a control is where a thumb can reach it.
   launches really runs with its OS sandbox on.
 - **The OpenRouter guard** (HARD RULE #24, `checkOpenRouterBudget`): our paid key never reaches the
   site, a test, or a per-PR workflow.
+- **The key-shaped-literal guard** (`checkKeyShapedLiterals`): no committed file carries a string
+  shaped like a real API key, so a secret scanner has nothing to flag ([Test data](#test-data)).
 - **CodeQL**, GitHub's default code-scanning setup, outside `ci.yml`.
 
 **What it proves.** That the gates guard the known routes to harm, and catch a new route of a known
@@ -170,6 +172,30 @@ table names the nine shapes F1–F9 and the fix for each. The short form:
 - **Write temp files to `os.tmpdir()`**, never into `lib/` or `examples/`, where other tests walk
   (Part 3, #3238).
 - **No retries.** Playwright's `retries` is 0 and stays 0 (F9, #34).
+
+## Test data
+
+**A fixture never embeds a key-shaped literal; build the key at run time.** A secret scanner
+reads source, not intent: a string made of a provider's key prefix (`sk-ant-`, `sk-or-v1-`,
+`sk-proj-`, `AIza`, `AQ.`, `ghp_`, `github_pat_`, `AKIA`, `xoxb-` …) followed by a long run of
+key characters is flagged whether the key is live or a throwaway. On a public repository each flag becomes an alert
+that only the owner can resolve, and changing the string later does not clear one already raised
+on history.
+
+So pass the prefix and the body as two strings:
+
+```ts
+import { fakeKey } from '../src/test/fake-key'; // docs/src/test/fake-key.ts
+const key = fakeKey('sk-or-v1-', 'e2e-mock-key-0a0a'); // the same value, never one literal
+```
+
+Keep what the code under test reads: the prefix, the length and the character class a key-shape
+matcher checks (`docs/src/components/studio/key-providers.ts`). Code that runs inside the page
+and cannot import builds it with `['AIza', '…'].join('')`. `build:check` enforces this with
+`checkKeyShapedLiterals` in `tools/check-ownership.js`, which scans every committed text file at
+budget 0, with no allowlist. It counts 20 or more key characters after the prefix as "long" (for
+`AKIA`, exactly 16 upper-case letters or digits), so a short placeholder such as `sk-or-v1-…`
+passes; build a longer test key at run time all the same.
 
 ## Investigate a flaky test
 

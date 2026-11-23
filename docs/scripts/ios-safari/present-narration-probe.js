@@ -202,14 +202,16 @@ function latticeNarrationVoice(provider = 'openrouter-gemini') {
 			});
 		};
 	}
+	// Throwaway keys, joined at run time so no literal in the file has a key's shape
+	// (engineering/testing.md §Test data). This body runs in the page, so it cannot import fakeKey.
 	if (provider === 'openrouter-gemini') {
-		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-db-or-key', ['sk-or-v1-', 'probe-present-narration-0d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Kore' }));
 	} else if (provider === 'gemini') {
-		localStorage.setItem('lattice-db-gemini-key', 'AIzaProbePresentNarration000d0d');
+		localStorage.setItem('lattice-db-gemini-key', ['AIza', 'ProbePresentNarration000d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' }));
 	} else {
-		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-db-or-key', ['sk-or-v1-', 'probe-present-narration-0d0d'].join(''));
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart' }));
 	}
 	return { ok: true, provider };

@@ -1,0 +1,248 @@
+---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
+// Markup — a standalone showcase driven by the REAL library (docs/src/lib/markup, the
+// `@laticent/markup` workspace). Two comparisons, each the library beside the string shortcut it
+// replaces (docs/src/lib/markup-demo.ts, whose numbers markup-demo.test.ts holds): highlighted
+// code split into one balanced fragment per source line, and rendered slide HTML split into its
+// top-level sections, each with its own title. Reached at /libraries/markup/; its Learn page is
+// /libraries/markup/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+import { SAMPLE_CODE, SAMPLE_SLIDES } from '../../../lib/markup-demo';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Markup — HTML read as a string, ended where a browser would</title>
+		<link rel="icon" href="/markup-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="markup" />
+		<style is:global>
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1040px; margin: 0 auto; }
+			.brand { display: flex; align-items: center; gap: 13px; margin-top: 14px; }
+			.brand img { width: 46px; height: 46px; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			h2 { font-family: var(--stage-serif); font-size: 21px; font-weight: 600; margin: 0; }
+			.promise { font-family: var(--stage-serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 72ch; margin: 10px 0 0; }
+			code { font-family: var(--mono); font-size: .92em; }
+			.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-top: 34px; }
+			.head p { color: var(--muted); font-size: 13px; margin: 0; max-width: 60ch; }
+			.stagebox { margin-top: 12px; display: grid; gap: 14px; background: var(--stage); border: 1px solid var(--line);
+				border-radius: 18px; box-shadow: var(--shadow); padding: clamp(12px, 2.4vw, 20px); }
+			.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+			.pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+			.label { font-size: 12px; color: var(--muted); letter-spacing: .02em; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+			.label b { color: var(--ink); font-weight: 600; }
+			.label .lib { font-family: var(--mono); font-size: 11.5px; }
+			textarea { width: 100%; resize: vertical; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+				border-radius: 12px; padding: 12px 14px; font: 13px/1.6 var(--mono); tab-size: 2; }
+			#code { min-height: 222px; }
+			#slides { min-height: 250px; }
+			textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+			/* The two line lists: one row per fragment, each fragment set as its own element's HTML. */
+			.lines { list-style: none; margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+				font: 12.5px/1.65 var(--mono); overflow-x: auto; }
+			.lines:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.lines li { display: grid; grid-template-columns: 2.6em 1fr; padding: 0 12px 0 0; border-left: 3px solid transparent; }
+			.lines .n { color: var(--muted); text-align: right; padding-right: 12px; user-select: none; }
+			.lines code { font-size: inherit; white-space: pre; }
+			.lines li[data-cut] { border-left-color: var(--glow); background: var(--glow-bg); }
+			.hljs-comment { color: var(--tok-com); font-style: italic; }
+			.hljs-keyword { color: var(--tok-key); font-weight: 600; }
+			.hljs-string { color: var(--glow); }
+			.hljs-number { color: var(--tok-num); }
+			.hljs-title { color: var(--accent); font-weight: 600; }
+
+			/* The section readers: one card per section found. */
+			.found { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+			.found li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+				display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
+			.found .i { font-family: var(--mono); font-size: 12px; color: var(--muted); grid-row: span 2; min-width: 1.6em; }
+			.found .t { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+			.found .c { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+			.found li[data-wrong] { border-color: var(--glow); background: var(--glow-bg); }
+			.found li[data-wrong] .c::after { content: attr(data-why); color: var(--ink); font-family: var(--sans); font-size: 12px; margin-left: 8px; }
+			.found .none { color: var(--muted); font-weight: 400; font-style: italic; }
+
+			.stats { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+			.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+			.stat b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); }
+			.stat span { font-size: 12px; color: var(--muted); }
+			.actions { display: flex; gap: 8px; }
+			.actions button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+				font: inherit; font-size: 13px; cursor: pointer; }
+			.actions button:hover, .actions button:focus-visible { border-color: var(--accent); }
+			.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin-top: 16px; }
+			@media (max-width: 720px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+			/* After every `font` shorthand, which resets it: `=>` and `<!--` must read as typed. */
+			code, textarea, .lines, .lines code { font-variant-ligatures: none; }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="markup" />
+			<div class="brand">
+				<img src="/markup-mark.svg" alt="" />
+				<h1>Markup</h1>
+			</div>
+			<p class="promise">Read HTML as a string, and end each piece where a browser would.</p>
+			<p class="sub">
+				A string search finds the characters <code>&lt;/section&gt;</code> wherever they sit: in a comment, in an attribute,
+				in a nested element. The real <code>@laticent/markup</code> walks tags the way a browser does. Each panel below runs
+				it beside the shortcut it replaces. Edit either input and both sides update.
+			</p>
+
+			<div class="head">
+				<h2>One balanced line per source line</h2>
+				<p>highlight.js colors the code; a comment or a string that crosses a newline is one span across several lines.</p>
+			</div>
+			<div class="stagebox">
+				<div class="pane">
+					<span class="label"><span id="code-label">The code (JavaScript)</span></span>
+					<textarea id="code" spellcheck="false" aria-labelledby="code-label">{SAMPLE_CODE}</textarea>
+				</div>
+				<div class="cols">
+					<div class="pane">
+						<span class="label"><b>Split on newlines</b><span class="lib">html.split('\n')</span></span>
+						<ol class="lines" id="naive" aria-label="Split on newlines" tabindex="0"></ol>
+					</div>
+					<div class="pane">
+						<span class="label"><b>Markup</b><span class="lib">splitCodeLines(html)</span></span>
+						<ol class="lines" id="balanced" aria-label="splitCodeLines" tabindex="0"></ol>
+					</div>
+				</div>
+			</div>
+			<div class="stats">
+				<div class="stat"><b id="s-lines">0</b><span>source lines</span></div>
+				<div class="stat"><b id="s-broken">0</b><span>lines the shortcut cuts (shaded)</span></div>
+				<div class="stat"><b id="s-reopened">0</b><span>lines that start inside a token</span></div>
+				<div class="stat"><b id="s-split">0</b><span>ms to split</span></div>
+			</div>
+
+			<div class="head">
+				<h2>A slide's own title</h2>
+				<p>Rendered slide HTML, with a section quoted in a comment, a heading nested in an aside, and a <code>&gt;</code> inside an attribute.</p>
+			</div>
+			<div class="stagebox">
+				<div class="pane">
+					<span class="label"><span id="slides-label">The slide HTML</span></span>
+					<textarea id="slides" spellcheck="false" aria-labelledby="slides-label">{SAMPLE_SLIDES}</textarea>
+					<div class="actions"><button id="reset">Reset both inputs</button></div>
+				</div>
+				<div class="cols">
+					<div class="pane">
+						<span class="label"><b>A regex</b><span class="lib">/&lt;section…&lt;\/section&gt;/g, first &lt;h2&gt;</span></span>
+						<ul class="found" id="regex" aria-label="What the regex finds" aria-live="polite"></ul>
+					</div>
+					<div class="pane">
+						<span class="label"><b>Markup</b><span class="lib">splitSections · readTopLevelH2Text</span></span>
+						<ul class="found" id="walk" aria-label="What Markup finds" aria-live="polite"></ul>
+					</div>
+				</div>
+			</div>
+			<p class="note">
+				Shaded rows are where the shortcut and Markup disagree. Markup's tokenizer skips comments and the bodies
+				of <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code>, honors quoted attribute values, counts nested sections
+				by depth, and takes a section's title only from its own direct child. It is not a sanitizer: it reads HTML you
+				already trust, and its tag stripping is for text, not for safety.
+			</p>
+		</div>
+
+		<script>
+			import hljs from 'highlight.js/lib/core';
+			import javascript from 'highlight.js/lib/languages/javascript';
+			import { compareLines, compareSlides, SAMPLE_CODE, SAMPLE_SLIDES } from '../../../lib/markup-demo';
+
+			hljs.registerLanguage('javascript', javascript);
+			const $ = (id) => document.getElementById(id);
+			const code = $('code');
+			const slides = $('slides');
+
+			// One row per fragment. Each fragment is set as the HTML of its own element, so an
+			// unbalanced one is closed by the browser where that row ends, exactly as a slide would draw it.
+			function fill(list, frags, cut) {
+				list.replaceChildren();
+				frags.forEach((html, i) => {
+					const li = document.createElement('li');
+					if (cut(i)) li.dataset.cut = '';
+					const n = document.createElement('span');
+					n.className = 'n';
+					n.textContent = String(i + 1);
+					const c = document.createElement('code');
+					c.innerHTML = html; // highlight.js output: the source is escaped, only its <span>s are markup
+					li.append(n, c);
+					list.append(li);
+				});
+			}
+
+			function renderLines() {
+				const html = hljs.highlight(code.value, { language: 'javascript', ignoreIllegals: true }).value;
+				const t0 = performance.now();
+				const c = compareLines(html);
+				$('s-split').textContent = (performance.now() - t0).toFixed(2);
+				const cut = (i) => c.naive[i] !== c.balanced[i];
+				fill($('naive'), c.naive, cut);
+				fill($('balanced'), c.balanced, () => false);
+				$('s-lines').textContent = String(c.balanced.length);
+				$('s-broken').textContent = String(c.broken);
+				$('s-reopened').textContent = String(c.reopened);
+			}
+
+			function card(i, cls, title, why) {
+				const li = document.createElement('li');
+				if (why) li.dataset.wrong = '';
+				const n = document.createElement('span');
+				n.className = 'i';
+				n.textContent = String(i + 1);
+				const t = document.createElement('span');
+				t.className = 't';
+				if (title) t.textContent = title;
+				else {
+					const none = document.createElement('span');
+					none.className = 'none';
+					none.textContent = 'No title';
+					t.append(none);
+				}
+				const c = document.createElement('span');
+				c.className = 'c';
+				c.textContent = cls ? `section.${cls}` : 'section';
+				if (why) c.dataset.why = why;
+				li.append(n, t, c);
+				return li;
+			}
+
+			function renderSlides() {
+				const { slides: walk, naive } = compareSlides(slides.value);
+				// A regex row is wrong when Markup found no section with its class and title.
+				const real = new Set(walk.map((s) => `${s.cls}\u0000${s.title}`));
+				const realCls = new Set(walk.map((s) => s.cls));
+				$('regex').replaceChildren(...naive.map((s, i) => {
+					const ok = real.has(`${s.cls}\u0000${s.title}`);
+					const why = ok ? '' : realCls.has(s.cls) ? 'wrong title' : 'not a slide';
+					return card(i, s.cls, s.title, why);
+				}));
+				$('walk').replaceChildren(...walk.map((s, i) => card(i, s.cls, s.title, '')));
+			}
+
+			let codeTimer = 0;
+			let slidesTimer = 0;
+			code.addEventListener('input', () => { clearTimeout(codeTimer); codeTimer = setTimeout(renderLines, 80); });
+			slides.addEventListener('input', () => { clearTimeout(slidesTimer); slidesTimer = setTimeout(renderSlides, 80); });
+			$('reset').addEventListener('click', () => {
+				code.value = SAMPLE_CODE;
+				slides.value = SAMPLE_SLIDES;
+				renderLines();
+				renderSlides();
+			});
+			renderLines();
+			renderSlides();
+		</script>
+	</body>
+</html>

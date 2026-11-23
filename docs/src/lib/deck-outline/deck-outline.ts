@@ -58,7 +58,7 @@ import { normalizeSourceText } from '../normalize-source-text';
 const headingSplitPoints = headingSplitPointsJs as (tokens: unknown[]) => number[];
 const resolveSplitMode = resolveSplitModeJs as (md: string) => 'rule' | 'headings';
 
-/** The part of `@laticent/segno-markdown`'s DeckModel the outline reads (the model of a deck BODY). */
+/** The part of `@laticent/segno-languages/markdown`'s DeckModel the outline reads (the model of a deck BODY). */
 interface BodyModel {
 	readonly body: string;
 	readonly boundaries: Int32Array;

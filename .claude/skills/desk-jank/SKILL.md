@@ -43,7 +43,7 @@ here is a `check:jank` table, never a screenshot alone.
    found but will not fix this pass becomes a `followups.d/` file
    (`deferred: large|blocked|off-path`). A census run updates §The census.
 6. **Report** to the command center: the top items as fleet rows, the follow-ups claimed
-   and closed, and `budget: N/10 today`.
+   and closed, and `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

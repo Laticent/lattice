@@ -79,9 +79,9 @@ the root's `$puppeteer` override needs a root dependency of the same range
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`).
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-languages`).
   The bundled CLI inlines nine of them (`INLINE_PACKAGES` in `tools/build-cli.js`); it
-  still `require`s `@laticent/markup` and `@laticent/segno-markdown`, so the CLI needs those
+  still `require`s `@laticent/markup` and `@laticent/segno-languages`, so the CLI needs those
   two installed like any other dependency. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
   `devDependency`: the build refreshes the copy from it, and no install
@@ -100,6 +100,21 @@ That listing is the root tarball's, file for file: on 2026-11-22 both shipped
 empty. `test/integration/export/installed-package.test.js` stages a copy and
 installs from it on every PR.
 
+**The trial publish** goes one step further: it really publishes. `node
+tools/trial-publish.js` (after `npm run build`) starts a throwaway Verdaccio,
+publishes every non-private `@laticent` library (each through its own prepack)
+and the staged engine, runs `npm install @laticent/lattice` in an empty folder
+whose `.npmrc` points only the `@laticent` scope at it, and renders a 4-slide
+deck with the installed CLI. Before any of that, it fails on a `@laticent`
+package the engine needs that is `"private": true`, since npm would refuse to
+publish it. `.github/workflows/trial-publish.yml` runs it on PRs that touch a
+manifest or the release tooling, nightly, and as the first job of
+`release.yml`, so a release PR never opens on a package that would not
+install. About 50 s after the build; the whole job 3 min 36 s on a runner
+(measured 2026-11-23). The install pins third-party packages to the
+repository lockfile's versions, so it tests our packages, not the newest
+upstream release in range a user would get.
+
 And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
@@ -110,7 +125,7 @@ npx @laticent/lattice deck.md deck.pdf   # also: npx lat deck.md deck.pdf (the s
 ```
 
 `--workspaces` packs every `@laticent/*` workspace, the engine included, so a new dependency can't be left out.
-A hand-kept list here missed `@laticent/segno-markdown`, and the install then failed with a
+A hand-kept list here missed `@laticent/segno-markdown` (since renamed `@laticent/segno-languages`), and the install then failed with a
 404 for a package that wasn't published yet (found 2026-11-11, PR #3142).
 
 ## Versioning
@@ -290,7 +305,7 @@ Prerequisites:
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
 - **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on eleven workspace
-  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`) that are not
+  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-languages`) that are not
   on npm, and this workflow publishes only the engine package (`packages/lattice`). An engine-only publish
   would make every `npm i @laticent/lattice` fail with E404. The libraries
   publish first, from the multi-package release that replaces this step (slices C

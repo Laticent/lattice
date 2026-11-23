@@ -174,7 +174,7 @@ describe('hostile-input cost, round 1 findings', () => {
 // parsed its slide from nothing (594 of 595 full parses per 10 keystrokes in the real Studio, 2026-11-06).
 describe('commentBlocks remembers each text', () => {
   test('asking again for the same text parses nothing; new text parses once', async () => {
-    const { deckModelStats } = await import('@laticent/segno-markdown');
+    const { deckModelStats } = await import('@laticent/segno-languages/markdown');
     const slide = '<!-- _class: kpi -->\n\n## Remembered\n';
     const first = m.commentBlocks(slide);
     const before = deckModelStats.full;

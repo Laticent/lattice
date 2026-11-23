@@ -1,3 +1,4 @@
+import { fakeKey } from '../src/test/fake-key';
 import { storedOpenRouterRaw } from './openrouter-key-helper';
 import { expect, gotoStudio, test } from './studio-fixture';
 
@@ -11,7 +12,7 @@ import { expect, gotoStudio, test } from './studio-fixture';
 // MOCKED, NOT SPENT (HARD RULE #24): the route handler answers every openrouter.ai request.
 
 type Page = Parameters<typeof gotoStudio>[0];
-const MINTED = 'sk-or-v1-e2e-just-minted-key-5a5a';
+const MINTED = fakeKey('sk-or-v1-', 'e2e-just-minted-key-5a5a');
 const PASTED = 'sk-or-v1-e2e-pasted-key-6b6b';
 
 /** Answer openrouter.ai: the key exchange gives MINTED; /api/v1/key answers 401 until `state.accept`. */
