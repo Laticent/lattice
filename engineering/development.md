@@ -1345,6 +1345,15 @@ locally from `docs/`:
   (`scripts/perf-regression.mjs`) — a **relative** budget, not absolute
   thresholds (which rotted + flapped — issue #327). On a regression it opens a
   `[perf-nightly]` tracking issue. Tolerances live in `perf-regression.mjs`.
+  **Speed numbers from before and after 2026-11-22 do not compare.** That day lhci
+  0.15 → 0.16 (Lighthouse 12.6 → 13.6) landed through #3201 (`fe71a9956`), and Lighthouse 13
+  measures the same build differently: TBT is 30–110% higher on the script-heavy pages
+  (`/playground/`, `/studio/`, mobile `/`) and LCP is lower where the largest paint is text
+  (`/components/` mobile 4.6 s → 1.4 s). Accessibility, SEO, CLS and the report files did not
+  change. Best practices rose 3 points on one row (mobile `/studio/`) because Lighthouse 13
+  dropped its `font-size` audit. A night's verdict is still sound, since both arms run the
+  head's lhci; a trend line across the date is not. The table is in
+  `decisions/2026-11-22-lighthouse-13-measurement-shift.md`.
 - **BYTES are NOT gated by that nightly — they are gated per-PR.**
   `docs/scripts/check-route-budget.mjs` reads gzipped `/_astro/*.js` and the HTML
   document off the built `dist/`, compares them to `docs/route-budget.json`, and
