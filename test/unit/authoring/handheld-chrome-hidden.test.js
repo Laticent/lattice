@@ -6,7 +6,8 @@
  * on every page with no word. The rule names it as INFO and never blocks.
  *
  *   FIRES      a portrait deck with `footer:` and no venue; `venue: phone` / `tablet`; header and footer named together
- *   QUIET      a 16:9 deck, a room venue (`laptop`), the deck class `with-footer`, a deck with neither key
+ *   QUIET      a 16:9 deck, a room venue (`laptop`), the deck class `with-footer`, a deck with neither key, a footer
+ *              that is only spaces
  *
  * FALSIFIABLE: without the rule every FIRES case reports nothing.
  */
@@ -43,6 +44,14 @@ test('QUIET: a 16:9 deck, a room venue, the with- class, and a deck with neither
   assert.equal(found('size: portrait\nfooter: Q3\nvenue: hall').length, 0);
   assert.equal(found('size: portrait\nfooter: Q3\nclass: with-footer').length, 0);
   assert.equal(found('size: portrait').length, 0);
+});
+
+test('QUIET: a footer that is only spaces has no line to hide', () => {
+  assert.equal(found('size: portrait\nfooter: "   "').length, 0);
+});
+
+test('the message names the pages that still show the line: chart, code and math keep laptop chrome', () => {
+  assert.match(found('size: portrait\nfooter: Q3')[0].message, /only chart, code and math pages show it/);
 });
 
 test('QUIET for the half the class brings back: with-footer leaves only the header named', () => {
