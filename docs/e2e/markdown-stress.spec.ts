@@ -743,9 +743,16 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
 	const marker = page.locator('.cm-lint-marker').first();
 	await marker.waitFor();
-	await marker.hover();
-	const action = page.locator('.cm-diagnosticAction').first();
-	await action.waitFor();
+	// The marker carries two findings: `unknown-class` (this test's) and `legacy-directive-comment`, whose own action
+	// reads "Quick fix". Under load the marker can appear on a pass that holds only the legacy finding, and a lint popup
+	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
+	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
+	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
+	await expect(async () => {
+		await page.mouse.move(0, 0);
+		await marker.hover();
+		await expect(action).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 30_000 });
 	expect(await action.textContent(), 'the action must name the component it will write').toContain('kpi');
 	await action.click();
 	await expect
