@@ -247,8 +247,8 @@ async function runStudioProbe(id) {
 	// Twice: a dropped connection, then a 503. Browsers recover from the two differently (engine-retry.mjs).
 	// ONLY ON A MANUAL DISPATCH (or ENGINE_RETRY=1 by hand). It costs minutes, and the iPad suite already ends near its
 	// 30-minute job cap on a slow runner: on run 44966439518 Safari's launch took 207 s and the cap stopped the job inside
-	// this probe. A nightly or pull-request run skips it, so their time is unchanged; a regular home for it would be its
-	// own suite, which is a CI job and the owner's call (PR #3385).
+	// this probe. A nightly or pull-request run skips it, so their time is unchanged. Its regular home is its own nightly
+	// suite, which the owner approved (followups.d/3385-p1-nightly-engine-retry-suite.md).
 	const wantEngine = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.ENGINE_RETRY === '1';
 	const engineRun = (mode) => runEngineRetryProbe(wd, id, BASE, mode).catch((e) => ({ ok: false, error: String(e), steps: [] }));
 	const skipped = { ok: true, steps: [{ name: 'skipped: runs on a manual dispatch only (job time)', pass: true }] };
