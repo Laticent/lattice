@@ -1,0 +1,20 @@
+# THROWAWAY: never merged. Calls trial-publish.yml the way release.yml does (workflow_call, the
+# caller's permissions and a caller-level concurrency group), to prove that path on a real runner.
+name: trial-publish-call
+on:
+  push:
+    branches: [scratch/trial-publish-call]
+concurrency:
+  group: trial-publish-call
+  cancel-in-progress: false
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  trial-publish:
+    uses: ./.github/workflows/trial-publish.yml
+  after:
+    needs: trial-publish
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "needs trial-publish satisfied"
