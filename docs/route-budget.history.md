@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — raise the studio chartKernelGz ceiling by 1,000 B (90,460 → 91,460), by hand, at the owner's direction
+
+Owner OK 2026-11-22, in PR 3431's session: "don't settle and create jank. raise it if that's a better option." PR 3431 deletes the dead tall-canvas code, and with it the chart dispatch's `boxAspect`, the engine's only import of `chart-box.js`. That module now loads with the lazy chart kernels that use it (the callout placement and the phone page). Measured on PR 3431's build against main's: the engine closure falls 642 B on every page load, and `chart-map.js`'s closure, the largest kernel, rises 202 B. Main measures 88.2 KB, 0.1 KB under the old ceiling, so the move needs room. The alternatives were weighed: keeping `chart-box.js` imported in the engine only to satisfy this gate puts the 0.2 KB back on every startup; the standard rebaseline (soft to about 90,324, ceiling to about 99,356) would leave about 9 KB of slack on the largest kernel, which the gate could no longer see. So this row is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 82,236.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelGz | 82236 | 82236 | +0 | 91460 |
+
 ### 2026-11-22 — the owner raised one ceiling by hand, for PR 3294: getting-started engineJsGz to 346.0 KB
 
 Owner OK 2026-11-22, relayed by the Segno desk: "raise that page's limit by 4 KB."
