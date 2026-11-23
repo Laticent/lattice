@@ -814,7 +814,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// describe the open window and hold through it. Keyed on `stageHost` alone they blinked off
 	// for a frame on every palette change, and the talk clock re-zeroed (stage-window.spec :372).
 	const [stageRewriting, setStageRewriting] = React.useState(false);
-	const stageOn = !!stageHost || stageRewriting;
 	// WHEN THE STAGE DOCUMENT IS BUILT. Built whenever Present opened, it was the whole hang on a deck of
 	// photos on a phone: ~13 s of main thread and ~0.5 GB on lattice.style for 18 phone photos, enough for
 	// iOS to kill the tab, for a window a phone cannot even offer (engineering/decisions/2026-11-11-deferred-asset-bytes.md).
@@ -824,6 +823,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// and a phone never pays for it.
 	const [stageWanted, setStageWanted] = React.useState(false);
 	const stageOffered = useMinWidth('(min-width: 768px)');
+	// THE CONSOLE CHANGES ON THE PRESS, NOT A SECOND LATER. `stageWanted` is set inside the Stage press itself (true only
+	// when a window really opened) and cleared by the teardown, so the presenter view, the pressed pill and the talk clock
+	// arrive in the frame of the press. Keyed on `stageHost` alone they arrived when the Stage document said `ready`, 0.9
+	// to 1.2 s later, and the Next arrow jumped 337 px (1440 wide) or 280 px (1180) under a pointer that had already moved
+	// on: a click aimed at it could start on one layout and end on the other, and the browser fired none (the gecko flake
+	// in present-steps.spec.ts, #3439). A layout change answers the input that caused it, or it does not happen.
+	const stageOn = !!stageHost || stageRewriting || stageWanted;
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────
 	//
 	// Present opens as Present: the slide, the transport, the lens, the grid. It becomes a
@@ -2973,7 +2979,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							{/* IMMERSIVE CAPTIONS ride ON the slide, as subtitles, sized by the slide (`.latt-cc-over`); docked
 							    below it they would float mid-slide once the dock floats. Lifted clear of the controls while
 							    they show. */}
-							{immersive && !stageHost && (
+							{immersive && !stageOn && (
 								<div className="latt-cc-over" data-present-cc-over style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
 									{captionBand}
 								</div>
@@ -3093,7 +3099,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				}}
 				onBlurCapture={() => { pinnedRef.current = false; wake(); }}
 			>
-				{stageHost || immersive ? null : captionBand}
+				{/* `stageOn`, not `stageHost`: the dock lets go of the band and the rail on the Stage press, in that frame, and the
+				    Stage takes them when its document is live. Keyed on `stageHost` they left a few frames later and the row
+				    shifted 12 px after the press. */}
+				{stageOn || immersive ? null : captionBand}
 
 				{/* Controls row (middle). The transport pill is always-on and hugs its content
 				    (Play + position); the CC / Voice cluster BLOOMS beside it — collapsing to zero
@@ -3169,7 +3178,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					)}
 				</div>
 
-				{stageHost || !railOn ? null : immersive ? <div className={cn('w-full', fadeCls)}>{railBar}</div> : railBar}
+				{stageOn || !railOn ? null : immersive ? <div className={cn('w-full', fadeCls)}>{railBar}</div> : railBar}
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}
