@@ -11,9 +11,10 @@ summary: >
 
 # Lighthouse 13: the same build, different numbers (2026-11-22)
 
-`docs/package.json` moved `@lhci/cli` from `^0.15.1` to `^0.16.1`, which carries Lighthouse from 12.6.1 to 13.6.0. The
-change touches only the tool. This note records what that tool change alone does to the nightly's numbers, so a step
-in the history of issue #2085 on the merge date is not mistaken for a site regression.
+Dependabot's security group (#3201, merged 2026-11-22 23:08 UTC) moved `@lhci/cli` in `docs/package.json` from
+`^0.15.1` to `^0.16.1`, which carries Lighthouse from 12.6.1 to 13.6.0. The change touches only the tool. This note
+records what that tool change alone does to the nightly's numbers, so the step in issue #2085's history from the
+2026-11-23 run on is not mistaken for a site regression.
 
 ## What the release notes say
 
