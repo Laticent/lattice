@@ -202,7 +202,7 @@ function open(url) {
 }
 
 /** Packages that are never the chooser: Chrome's own page, the launcher, the status bar. */
-const NOT_CHOOSER = /^(com\.android\.chrome|com\.google\.android\.apps\.nexuslauncher|com\.android\.systemui)$/;
+const NOT_CHOOSER = new RegExp(`^(${PKG.replace(/\./g, '\\.')}|com\\.google\\.android\\.apps\\.nexuslauncher|com\\.android\\.systemui)$`);
 
 /** What the chooser lists once it is on screen. It is another app's window (the system chooser, Files, the photo picker),
  *  so it is found by PACKAGE, never by words: the sixth dispatch matched the page's own title ("Chooser control") and its
