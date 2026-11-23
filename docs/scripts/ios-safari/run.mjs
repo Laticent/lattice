@@ -793,6 +793,28 @@ async function emptyDeckTap(id) {
 		if (prep.hit) {
 			const deliver = async (n) => {
 				await wd('POST', `/session/${id}/execute/sync`, { script: tapLogInstall(), args: [] });
+				// THE START GRID'S FALLBACK, made visible. When Safari withholds the tap's click, the grid's touch release arms a
+				// START_GRID_CLICK_WAIT_MS (500 ms) timer that puts the caret (StudioShell `armStartGridFallback`). A failure with
+				// no click and no focus (iPad, job 137920664351) could be the timer never armed, armed and cancelled by a later
+				// press, or fired without the focus taking. The log shows presses and focus already; this adds the timer's set and
+				// its firing, so the next such failure names which. Probe-only: the page's own timer still runs as written.
+				await wd('POST', `/session/${id}/execute/sync`, {
+					args: [],
+					script: `if (!window.__startGridTimerLog) {
+						window.__startGridTimerLog = true;
+						const set0 = window.setTimeout;
+						window.setTimeout = function (fn, ms, ...rest) {
+							if (ms !== 500 || typeof fn !== 'function') return set0.call(this, fn, ms, ...rest);
+							const L = window.__tapLog;
+							if (L) L.events.push({ type: 'timer500-set', t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, target: '' });
+							return set0.call(this, function () {
+								const M = window.__tapLog;
+								if (M) M.events.push({ type: 'timer500-fire', t: Math.round(performance.now() - M.t0), lag: 0, x: 0, y: 0, target: String(document.activeElement && document.activeElement.tagName) });
+								return fn.apply(this, arguments);
+							}, ms, ...rest);
+						};
+					}`,
+				});
 				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 				// NO HOLD between down and up, for composeTouchTap's reason: a simulator can stretch a hold into a long press.
 				await wd('POST', `/session/${id}/actions`, {
