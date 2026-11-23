@@ -51,7 +51,11 @@ export async function buildDeck(slides: readonly string[], deckPace: PaceName = 
 		}
 		const last = track.cues[track.cues.length - 1];
 		const display = last.words[last.words.length - 1]?.display ?? '';
-		const tailMs = Math.round(Math.max(beats.leave, interCueGapMs(display, !!last.endsParagraph, 1)));
+		// The same tail as lib/core/ltt-deck.mjs: the plain breath, never under the leave beat, plus any
+		// emphasis hold a weighted closing line earns on top.
+		const plain = interCueGapMs(display, !!last.endsParagraph, 1);
+		const emphasis = interCueGapMs(display, !!last.endsParagraph, last.weight) - plain;
+		const tailMs = Math.max(0, Math.round(Math.max(beats.leave, plain) + emphasis));
 		const hash = `sha256:${await sha256Hex(segmentHashInput(text, inputs))}`;
 		segments.push({ id, kind: 'slide', at, hash, basis: 'estimate', holdMs, track, tailMs });
 	}

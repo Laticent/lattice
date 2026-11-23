@@ -1,8 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import { deckLtt } from '../../../lib/core/ltt-deck.mjs';
+import { buildTrack, ENGINE_HASH, PACE_PRESETS } from './cadenza/index';
 import { pack, positionAt, timeline, unpack, validateLtt } from './ltt/index';
-import { BREAKS, buildDeck, clock, momentAt, SAMPLE_SLIDES, sizes, validateWith } from './ltt-demo';
+import { BREAKS, buildDeck, clock, DECK_PACES, momentAt, SAMPLE_SLIDES, sizes, validateWith } from './ltt-demo';
 
 describe('the LTT demo model', () => {
+	it('writes the same file as Lattice\'s deck export (lib/core/ltt-deck.mjs) for the same narration', async () => {
+		// The page says the file it shows is the one Lattice's export would write. Hold it to that: the
+		// same slides, pace and engine through deckLtt must give back the demo's file, tails and hashes too.
+		const hex = async (t: string) =>
+			[...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+		const slides = [...SAMPLE_SLIDES, '   ', 'Close on the ask!'];
+		for (const deckPace of DECK_PACES) {
+			const beats = PACE_PRESETS[deckPace];
+			const exported = await deckLtt({
+				id: 'board.md',
+				slides: slides.map((t) => ({ text: t.trim(), track: buildTrack(t.trim(), { pace: 'moderate' }) })),
+				slideCount: slides.length,
+				isSection: () => false,
+				beats: { slide: beats.slide, section: beats.slide, leave: beats.leave },
+				inputs: { pace: 'moderate', deckPace },
+				engine: ENGINE_HASH,
+				sha256Hex: hex,
+			});
+			expect(await buildDeck(slides, deckPace), deckPace).toEqual(exported);
+		}
+	});
+
 	it('writes a valid, seekable deck file from the sample narration', async () => {
 		const ltt = await buildDeck(SAMPLE_SLIDES);
 		expect(validateLtt(ltt)).toEqual([]);
