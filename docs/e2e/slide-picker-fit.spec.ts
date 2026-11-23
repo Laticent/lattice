@@ -56,12 +56,13 @@ test('a phone typing gives the results the room: no pills while the field has fo
 	// whole strip step aside.
 	await expect(page.getByText(/^Adds it /)).toBeHidden();
 	await expect(page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true })).toHaveCount(0);
-	await expect(page.getByRole('dialog').getByText(/\d+ slides · Progression/)).toBeVisible();
+	await expect(page.getByRole('dialog').getByText(/[1-9]\d* slides · Progression/)).toBeVisible();
 	// A full result tile fits between the top of the results and the docked search field. Measured
 	// against the sheet as the panel sizes it for a focused field; the iOS probe (PROBE=picker-keyboard)
 	// measures it with the real software keyboard up.
 	const room = await grid(page).evaluate((e) => e.getBoundingClientRect().height);
-	const tile = await page.getByRole('button', { name: /^Insert timeline-list/ }).evaluate((e) => (e.parentElement as HTMLElement).getBoundingClientRect().height);
+	// The first result, whichever it is: the family filter decides which ones remain.
+	const tile = await grid(page).getByRole('button', { name: /^Insert / }).first().evaluate((e) => (e.parentElement as HTMLElement).getBoundingClientRect().height);
 	expect(room).toBeGreaterThanOrEqual(tile);
 	// Leaving the field brings the strip back as it was.
 	await search(page).blur();
