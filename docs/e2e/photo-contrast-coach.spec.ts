@@ -188,7 +188,7 @@ for (const width of [1440, 390]) {
 		await page.screenshot({ path: info.outputPath(`statement-flagged-${width}.png`) });
 
 		await page.getByRole('button', { name: 'Set card ink dark' }).filter({ visible: true }).first().click();
-		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear ink-dark\}/);
+		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear image-card-dark\}/);
 		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 		await page.screenshot({ path: info.outputPath(`statement-fixed-${width}.png`) });
 	});
@@ -199,7 +199,7 @@ for (const width of [1440, 390]) {
 test('a statement under a thin scrim is flagged with an "at most" ratio', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class="statement card-o10"'));
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('class="spotlight image-card-clear"', 'class="statement image-card-10"'));
 	await openCoach(page);
 	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
 	await expect(warning).toContainText('reads at most', { timeout: 20_000 });
@@ -388,7 +388,7 @@ for (const [name, ref, note] of [
 		await expect(page.getByText(note)).toBeVisible();
 		await expect(page.locator('.cm-diagnosticAction', { hasText: /Set card ink/ })).toHaveCount(0);
 		await solid.click();
-		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight card-solid\}/);
+		await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=spotlight image-card-solid\}/);
 	});
 }
 
@@ -437,7 +437,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	const tip = page.locator('.cm-tooltip-lint');
 	await expect(tip).toContainText(said);
 	await tip.locator('.cm-diagnosticAction', { hasText: 'Set card ink dark' }).click();
-	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear ink-dark\}/);
+	await expect.poll(() => persistedSource(page)).toMatch(/layout=image, class=statement image-card-clear image-card-dark\}/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 	await expect(page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 });
