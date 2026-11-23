@@ -83,6 +83,46 @@ flowchart LR
   classDef risk fill:#fde2e1,stroke:#b42318,color:#7a271a
   class B risk
 ${F}
+
+---
+
+<!-- _class: diagram dark -->
+
+## Every node shape, dark
+
+${F}mermaid
+flowchart LR
+  A([stadium]) --> B((circle)) --> C{{hex}} --> D[(cyl)]
+  D --> E[/para/] --> F(((dbl))) --> G>flag] --> H[\\trap/]
+${F}
+
+---
+
+<!-- _class: split-panel watermark -->
+
+## Watermark
+
+- The accent panel decorates
+  - A large letterform behind the heading.
+- The column carries the content
+  - Same three-item budget as the default split.
+
+---
+
+<!-- _class: split-panel capstone -->
+
+\`Level 6 · Creating\`
+
+## Build what did not exist before.
+
+*What should exist?* You synthesize new frameworks, platforms and operating models, and what you produce becomes the standard.
+
+- The signal
+  - Teams across the enterprise adopt your framework.
+- Reference architecture
+  - The implementation exists and is validated.
+- Organization-wide adoption
+  - Measurable outcomes follow.
 `;
 
 describe('Wave 1 judge fixes — rendered', () => {
@@ -156,6 +196,49 @@ describe('Wave 1 judge fixes — rendered', () => {
       assert.equal(m.fills.length, 1, `node fills should be one family, got ${m.fills.join(' | ')}`);
       assert.deepEqual(m.strokes, [m.accent], 'every node is outlined in --accent');
       assert.ok(m.inkRatio >= 4.5, `node label ink reads ${m.inkRatio.toFixed(2)}:1 on its fill`);
+    });
+  }
+
+  test('every flowchart node shape takes the one accent fill, including shapes drawn inside a group', async () => {
+    const m = await page.evaluate(() => {
+      const svg = document.querySelectorAll('section')[5].querySelector('svg[aria-roledescription="flowchart-v2"]');
+      const filled = [];
+      for (const node of svg.querySelectorAll('g.nodes > g.node')) {
+        // The drawn shape: the label-container itself, or (stadium, flag, double circle) its painted children.
+        const own = node.querySelector(':scope > .label-container:not(g)');
+        const kids = [...node.querySelectorAll(':scope > g.label-container > :is(path, circle, ellipse, polygon, rect)')]
+          .filter((el) => el.getAttribute('fill') !== 'none');
+        for (const el of own ? [own] : kids) filled.push({ id: node.id.replace(/.*flowchart-/, ''), fill: getComputedStyle(el).fill });
+      }
+      return filled;
+    });
+    assert.ok(m.length >= 8, `expected a painted shape for each of the 8 nodes, got ${m.length}`);
+    const fills = [...new Set(m.map((x) => x.fill))];
+    assert.equal(fills.length, 1, `one fill across every shape, got ${JSON.stringify(m)}`);
+  });
+
+  for (const [n, name] of [[7, 'watermark'], [8, 'capstone']]) {
+    test(`${name}: the panel's last line clears the running footer by at least --sp-md`, async () => {
+      const m = await page.evaluate((n) => {
+        const sec = document.querySelectorAll('section')[n - 1];
+        const left = sec.querySelector(':scope > .panel-left');
+        const footer = sec.querySelector(':scope > footer');
+        const range = document.createRange();
+        let bottom = 0;
+        for (const el of left.querySelectorAll('h2, p, li, blockquote, cite, .panel-eyebrow')) {
+          if (!el.textContent.trim() || getComputedStyle(el).position === 'absolute') continue;
+          range.selectNodeContents(el);
+          for (const r of range.getClientRects()) bottom = Math.max(bottom, r.bottom);
+        }
+        const probe = document.createElement('div');
+        probe.style.height = 'var(--sp-md)';
+        sec.appendChild(probe);
+        const spMd = probe.getBoundingClientRect().height;
+        probe.remove();
+        return { clearance: footer.getBoundingClientRect().top - bottom, spMd, overflow: left.scrollHeight - left.clientHeight };
+      }, n);
+      assert.ok(m.clearance >= m.spMd, `${name}: last line ${m.clearance.toFixed(1)}px over the footer, under --sp-md ${m.spMd}px`);
+      assert.ok(m.overflow <= 0, `${name}: the panel overflows by ${m.overflow}px`);
     });
   }
 

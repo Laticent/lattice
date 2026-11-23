@@ -1043,8 +1043,15 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
  * look's node (see the rough block above: the palette goes on `stroke`). */
 :is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node :is(rect, polygon, circle, ellipse, path).label-container,
 :is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node > :is(rect, polygon, circle, ellipse, path),
-:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node .outer-path {
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node .outer-path,
+/* Stadium, flag and double-circle nodes put `label-container` (and `outer-path`) on a <g> and draw
+ * the shape as its children with their own `fill` attribute, which beats any value the <g> passes
+ * down, so the rule names the drawn children. A part Mermaid draws as outline only keeps no fill. */
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node > g.label-container > :is(path, circle, ellipse, polygon, rect):not([fill="none"]) {
   fill: color-mix(in oklab, var(--accent) 14%, var(--bg)) !important;
+  stroke: var(--accent) !important;
+}
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node > g.label-container > :is(path, circle, ellipse, polygon, rect)[fill="none"] {
   stroke: var(--accent) !important;
 }
 :is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.rough-node > g:first-of-type > path:first-child {
