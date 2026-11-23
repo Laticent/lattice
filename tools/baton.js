@@ -156,7 +156,10 @@ function claim(branch, me, head, { gitRun, env, out }) {
   const push = gitRun(['push', 'origin', `${sha}:refs/heads/${branch}`]);
   if (push.status !== 0) {
     const text = `${push.stdout || ''}${push.stderr || ''}`;
-    if (/non-fast-forward|fetch first|\[rejected\]|stale info/.test(text)) {
+    // A loser that pushed after the winner gets git's `[rejected] (fetch first)`; one that pushed at the
+    // same moment gets GitHub's `[remote rejected] (cannot lock ref ... but expected <old tip>)`, as the
+    // live race on #3482 showed (2026-11-23). Both mean another claim landed.
+    if (/non-fast-forward|fetch first|\[rejected\]|stale info|cannot lock ref .* but expected/.test(text)) {
       out(`  Not taken: another session's push landed on ${branch} first. Do no work here: fetch, run status, read the living comment.`);
       return 1;
     }

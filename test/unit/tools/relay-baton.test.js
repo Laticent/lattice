@@ -406,6 +406,15 @@ describe('npm run baton', () => {
     assert.doesNotMatch(lost.text, /TAKEN/);
   });
 
+  test('a loser at the same instant gets GitHub\'s ref-lock refusal: still exit 1, not 3 (the live race on #3482)', () => {
+    // verbatim from the real race, 2026-11-23: the winner's claim landed while this push was in flight
+    const stderr =
+      " ! [remote rejected]     be04ac3030d5a487953cccc1a480ae46be0e6573 -> claude/relay-sim-handover (cannot lock ref 'refs/heads/claude/relay-sim-handover': is at 4436dfb3231d437af057afc9374ca4969bbe69f3 but expected b4675b4cf2d77a5412b4ab63af97e692783a281c)\nerror: failed to push some refs to 'https://github.com/Laticent/lattice'";
+    const lost = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { push: { status: 1, stdout: '', stderr } } });
+    assert.equal(lost.code, 1, lost.text);
+    assert.match(lost.text, /Not taken: another session's push landed/);
+  });
+
   test('a claim push that fails for another reason (a hook, the network): exit 3, never "taken"', () => {
     const r = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { push: { status: 1, stdout: 'build-check failed', stderr: 'error: failed to push some refs' } } });
     assert.equal(r.code, 3, r.text);

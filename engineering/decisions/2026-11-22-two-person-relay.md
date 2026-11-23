@@ -438,6 +438,14 @@ Kirk's session (14:55 UTC, verified in its transcript).
      changes no file; on a draft PR its CI run is cheap.
    - *What it does not change.* `take` on a baton you hold, or on a branch that does not exist yet,
      pushes nothing. A held baton still needs the holder's release or a person's "take over".
+   - *Proven on real GitHub* (#3482, 2026-11-23), two `take` runs started at the same moment each time:
+     - Race 1, from `b4675b4`: one claim landed (`4436dfb`, stand-in `session_RACEbbbb`). The loser was
+       refused by GitHub's ref lock (`[remote rejected] … cannot lock ref … but expected b4675b4`), not by
+       git's "non-fast-forward", and so exited 3 ("NOT yours") instead of 1. `take` now reads that refusal
+       as a lost race too; the test uses the real message.
+     - Race 2, from `4436dfb` after the stand-in released (its `release` renamed the comment's holder to
+       itself, the checker's finding 1): one claim landed (`26f326d`, stand-in `session_RACEcccc`), and
+       the loser exited 1 with "Not taken … Do no work here".
 4. **The sim line's only setup commit was empty**, so Kirk's note had no file to go in, and it went in
    this note on the sim line. That throwaway branch never merges; this section is the record.
 5. **UNVERIFIED: a second real GitHub account.** Both sessions share one login, so the signatures make
