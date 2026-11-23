@@ -235,7 +235,11 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			if (PGref.splitForPreview && mayMeasure && mayWantMeasuredSplit(source)) {
 				const [ms, sz] = await Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]).catch(() => [null, null]);
 				const measureDoc = DPref.measureDoc;
-				if (ms && sz && measureDoc && ms.measuredSplitWanted(source)) {
+				// Did this render get its measured split? A deck that wants one and does not get it (the module did not
+				// load, no frame builder, or the measure failed) keeps the structural split, with its insight on the slide.
+				let measuredOk = false;
+				const wanted = !ms || ms.measuredSplitWanted(source);
+				if (ms && sz && measureDoc && wanted) {
 					const measured = await ms
 						.measuredSplitInFrame({
 							html: out.html,
@@ -253,7 +257,15 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 					if (measured) {
 						html = measured.html;
 						fitMemory = measured.memory;
+						measuredOk = true;
 					}
+				}
+				if (wanted && !measuredOk) {
+					// The engine drew each chart for the room a moved insight frees (`data-coda-moves`, chart-phone.js
+					// `codaMoves`), but without the measured split the insight stays on its slide: draw the deck again for
+					// the room the insight takes. One more render, on this failure path only.
+					out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, measured: false });
+					html = (PGref.splitForPreview as NonNullable<typeof PGref.splitForPreview>)(out.html, source, geom.w, geom.h).html;
 				}
 			}
 			// Which authored slide and part each page of this render is: built once per render, and only when

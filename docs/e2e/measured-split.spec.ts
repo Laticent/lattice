@@ -193,6 +193,32 @@ test.describe('@mobile @webkit-phone @crosswidth @gecko a 16:9 deck in the Playg
 	});
 });
 
+// The engine draws a phone chart for the room its key insight frees when the insight moves to the closing page
+// (`data-coda-moves`, lib/plugins/chart-family/shared/chart-phone.js). The insight moves only when the measured split
+// runs, so a Playground render whose measure does not load draws the deck again unmeasured: the chart is drawn for the
+// room the insight takes on its slide (code checker, 2026-11-23: it had kept the measured drawing).
+test.describe('@crosswidth @gecko the Playground when its measured split does not load', () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test('draws a phone chart for the insight that stays on its slide', async ({ page }) => {
+		await page.route(/measured-split[^/]*\.js(\?|$)/, (route) => route.abort());
+		const chart = '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: bar -->\n\n## Support load sits with two teams.\n\n- Platform `412`\n- Billing `388`\n- Mobile `96`\n- Web `71`\n\n> Two teams take four tickets in five, and the other two together take well under a fifth of the volume.\n';
+		await page.addInitScript((s) => {
+			try {
+				localStorage.setItem('lattice-docs-pg-source', s);
+			} catch {
+				/* the assertions below then fail loudly */
+			}
+		}, chart);
+		await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+		const bar = page.frameLocator('#preview').locator('section.bar.chart-frame').first();
+		await expect(bar).toBeAttached({ timeout: 30_000 });
+		// The insight is still on the slide, and the chart was drawn for the room it takes: no coda-moves stamp.
+		await expect(page.frameLocator('#preview').getByText('Two teams take four tickets in five').first()).toBeAttached();
+		await expect(bar).not.toHaveAttribute('data-coda-moves', 'true');
+	});
+});
+
 test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studio\'s webpage export', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 
