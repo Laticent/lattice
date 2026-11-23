@@ -64,24 +64,32 @@ test('foldEngineManifest: root imports of engine dependencies are listed; undecl
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, 'packages', 'lattice'), { recursive: true });
   fs.writeFileSync(path.join(root, 'packages', 'lattice', 'package.json'), JSON.stringify({
-    dependencies: { jszip: '1', 'never-loaded': '1', '@laticent/lib': '1', puppeteer: '1' },
+    dependencies: { jszip: '1', 'never-loaded': '1', '@laticent/lib': '1', '@laticent/dead': '1', puppeteer: '1' },
     optionalDependencies: { 'css-tree': '1' },
   }));
-  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ private: true, devDependencies: { puppeteer: '1' } }));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ private: true, workspaces: ['libs/other', 'packages/lattice'], devDependencies: { puppeteer: '1' } }));
+  // Two workspace packages: shipped code imports @laticent/lib (lib/a.js), and nothing imports @laticent/dead.
   fs.mkdirSync(path.join(root, 'node_modules', '@laticent'), { recursive: true });
-  fs.mkdirSync(path.join(root, 'workspace-lib'));
-  fs.symlinkSync(path.join(root, 'workspace-lib'), path.join(root, 'node_modules', '@laticent', 'lib'), 'junction');
+  for (const name of ['lib', 'dead']) {
+    fs.mkdirSync(path.join(root, `workspace-${name}`));
+    fs.symlinkSync(path.join(root, `workspace-${name}`), path.join(root, 'node_modules', '@laticent', name), 'junction');
+  }
+  fs.mkdirSync(path.join(root, 'lib'));
+  fs.writeFileSync(path.join(root, 'lib', 'a.js'), "const s = require('@laticent/lib/read');\n");
   const report = {
     issues: [
       { file: 'lattice.js', unlisted: [{ name: 'jszip' }, { name: 'css-tree' }, { name: 'left-pad' }] },
-      { file: 'packages/lattice/package.json', dependencies: [{ name: 'jszip' }, { name: 'never-loaded' }, { name: '@laticent/lib' }, { name: 'puppeteer' }] },
+      // Another workspace importing an engine-only package is a real finding the engine manifest does not cover.
+      { file: 'libs/other/index.js', unlisted: [{ name: 'jszip' }] },
+      { file: 'packages/lattice/package.json', dependencies: [{ name: 'jszip' }, { name: 'never-loaded' }, { name: '@laticent/lib' }, { name: '@laticent/dead' }, { name: 'puppeteer' }] },
     ],
   };
   const totals = tallyKnip(foldEngineManifest(report, root), 0);
   assert.deepEqual(report.issues[0].unlisted.map((u) => u.name), ['left-pad'], 'an import nobody declares must stay unlisted');
-  assert.deepEqual(report.issues[1].dependencies.map((d) => d.name), ['never-loaded'], 'an engine dependency nothing loads must stay unused');
-  assert.equal(totals.unlistedDependencies, 1);
-  assert.equal(totals.unusedDependencies, 1);
+  assert.deepEqual(report.issues[1].unlisted.map((u) => u.name), ['jszip'], "another workspace's import of an engine-only package must stay unlisted");
+  assert.deepEqual(report.issues[2].dependencies.map((d) => d.name), ['never-loaded', '@laticent/dead'], 'an engine dependency nothing loads must stay unused, workspace package or not');
+  assert.equal(totals.unlistedDependencies, 2);
+  assert.equal(totals.unusedDependencies, 2);
 });
 
 test('foldEngineManifest leaves a report alone where there is no publish folder', (t) => {
@@ -90,4 +98,9 @@ test('foldEngineManifest leaves a report alone where there is no publish folder'
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const report = { issues: [{ file: 'a.js', unlisted: [{ name: 'jszip' }] }] };
   assert.equal(foldEngineManifest(report, root).issues[0].unlisted.length, 1);
+});
+
+test('tallyKnip counts a finding category reported as an object, so a new shape fails the ratchet', () => {
+  const totals = tallyKnip({ issues: [{ file: 'a.js', owners: [], futureCategory: { x: {}, y: {} } }] }, 1);
+  assert.equal(totals.other, 2);
 });

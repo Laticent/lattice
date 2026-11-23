@@ -253,6 +253,9 @@ already covers workspaces from `/`, so it needs no change.
 
 **Dead-code ratchet.** knip reads `packages/lattice` as a workspace whose code is elsewhere, so it
 called the engine's dependencies unused (28) and the root's imports of them unlisted (400).
-`tools/quality-assessment.js` `foldEngineManifest` credits one to the other; an import nobody declares
-and an engine dependency nothing loads still count. Slice C (Changesets, the fragment archive, the gate, the
+`tools/quality-assessment.js` `foldEngineManifest` credits one to the other, for root-workspace files
+only. A workspace package (`@laticent/*`), which knip never lists as unlisted, counts as used only when
+`lattice.js` or `lib/` names it in an import specifier. An import nobody declares, another workspace's
+import of an engine-only package, and an engine dependency nothing loads all still count; the second
+checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
