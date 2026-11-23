@@ -29,6 +29,7 @@ the owner typed it.
 | H5 One source | the workflow desk's brief to this session; the command center's 12:03 relay calls it an earlier pick, but no owner answer this session could read contains it | **not** found in an owner answer; open to veto |
 | H6 Artifacts and shape | the command center showed the owner a worked example, the artifact rules and the table against `followups.d/` (`session_01DPMMjGth4jH37uLv1XPwcA`, 2026-11-23 12:01 and 12:03 UTC); the owner typed "yes, put that in #3454" (event `107c227e-7c9a-4f05-990d-6d4b66209796`, 12:03:45 UTC) | owner's own answer |
 | H8 Freshness is machine-checked | the owner asked "are we efficient and deterministic in our handoff workflow? … are there edge cases we have not considered?" and typed "do all three" (command center, event `c0034b91-35e9-4fee-8cb0-44b0a389e06d`, 12:12:25 UTC); the command center's 12:12:55 relay names this as item 1 of 3 | owner's own answer, to the command center's proposal |
+| H9 75% and the lease | two answers to the command center's `AskUserQuestion` (event `4d1ec72c-82d0-4572-8662-988aad4b3aca`, 12:27:53 UTC): "What should happen at 75%?" = "Checkpoint, keep working (Recommended)", and "Should silence alone ever free a branch?" = "No: only explicit release (Recommended)" | owner's own answers; they change #3427 |
 | H7 Update in place | the owner asked "will handoff be duplicated or updated at 25, 50,75 and 90?" and typed "yes, update in place" (same session, event `63b640e1-1a70-4601-9e8b-b6b2ac34f015`, 12:05:27 UTC) | owner's own answer |
 
 The W1 to W5 incident facts below reached the desk in a command-center message (the desk's
@@ -71,6 +72,11 @@ with it.
   `checkpoint:` beside `updated:`; this note adds whose meter it read (`checkpoint: 50% (picard)`),
   because each account has its own weekly meter. At 90% the session also sets `status: released`, so the next owner
   can take the branch. The folder is gone by the time the PR merges (H3).
+- **H9 75% keeps working; no timed lease.** At 75% weekly usage a session checkpoints and keeps
+  working (release-gate work never pauses); at 90% it stops and releases. A branch is freed only by
+  an explicit release or the owner's "take over", never by silence, which replaces #3427's 60-minute
+  lease. Both change #3427's rules, which #3427 has to amend; this note follows them and needs
+  nothing from the lease.
 - **H8 Freshness is machine-checked.** The `build:check` rule fails when the branch has work newer
   than its HANDOFF.md. It never blocks a push that updates the handoff itself, and when it fails it
   prints one exact command that fixes it, so a session saving its work can always land the handoff
@@ -192,7 +198,7 @@ Front matter that tools read, then fixed sections that people read, in this orde
 owner: John Luke Picard · session_01…      # the session holding the line of work now
 branch: claude/presets-wave-1
 pr: 3401                                    # or: none yet
-status: active                              # active | paused | released | closing
+status: active                              # active | released | closing
 checkpoint: 50% (picard)                    # the last usage checkpoint written, and whose weekly meter it was
 updated: 2026-11-23T18:40:00Z
 budget: 3 of 4 agent runs (Opus)            # the line of work's running total, all sessions
@@ -311,15 +317,15 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
    earlier versions. At the usage checkpoints (25, 50, 75 and 90% of the weekly limit, #3427
    §Usage checkpoints) the checkpoint is one commit that sets `checkpoint:` and `updated:`, and the
    living PR comment is edited in place, never reposted.
-3. **Pause at 75%, release at 90%.** At 75% the holder stops by default (#3427 §Usage checkpoints),
-   sets `status: paused` and releases the baton; the owner restarts it or another session takes it.
-   At 90% the session sets `status: released` in the same commit and runs
+3. **Keep working at 75%, release at 90%** (H9). At 75% the checkpoint commit makes the work easy to
+   take over and the session keeps working: `status:` stays `active` and the baton stays held. At
+   90% the session stops and sets `status: released` in the same commit and runs
    `npm run baton -- release` (#3427 rule 7), so the folder and the baton say the same thing: the
    branch is free for the next owner. A taker sets `status: active` and its own `owner:` in its first
    commit.
 4. **Keep it through ready, CI and the raise loop.** The folder stays while the PR is ready, so the
    raise loop's judge packets, measurements and checker results (`workflow.md` §The raise loop) have a
-   home, and a taker on a ready PR (#3427 rule 7, or a 75% or 90% budget pause) finds the same folder
+   home, and a taker on a ready PR (#3427 rule 7, or a 90% release) finds the same folder
    a taker on a draft does. The presence check (below) fails only in the merge queue, so ready-PR CI
    stays green with the folder present.
 5. **Close** it in the last commit before the merge ask: `npm run handoff -- close` (slice 1). It
@@ -388,7 +394,7 @@ checkpoint push and every one of those runs, which is the opposite of H2.
   saved a few minutes later; the fix (delete the file, or move it to `LINKS.md`) is one command.
 - **Layout: a warning, and an error only in the merge queue** (where the presence check fails
   anyway). At most one folder; a HANDOFF.md whose front matter has `owner`, `branch`, `pr`, `status`
-  (one of `active`, `paused`, `released`, `closing`), `updated` and `budget`, and `checkpoint` (one of
+  (one of `active`, `released`, `closing`), `updated` and `budget`, and `checkpoint` (one of
   `25%`, `50%`, `75%`, `90%`, with the account) when present; files only in the six `artifacts/`
   subfolders and `LINKS.md`; a reason line for any text file over 1 MB. A malformed handoff on the
   branch is better than one a session could not push.
