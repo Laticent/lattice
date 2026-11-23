@@ -2,7 +2,8 @@
   a row bar chart's and a row stacked bar's category names now get a column as wide as their widest word, so
   `AMER`, `Onboarding` or `Q1 FY24` no longer lose a letter at the left edge. An ep-curve's last return period
   (`1-in-250`) no longer runs past the right edge. A radar `quadrant` slide's sector name (`RISK`) no longer
-  sits against an axis name. Demo deck: `examples/chart-phone-edges.md`.
+  sits against an axis name or another sector name, at any size, and a name moved clear never leaves its
+  canvas. Demo deck: `examples/chart-phone-edges.md`.
 - Portrait charts no longer draw two unused trial drawings. Since the chart form kernel took over portrait
   charts, the old tall-canvas check drew each portrait chart twice more and then left the output unchanged. The
   engine no longer runs it, and that change alone leaves every export byte-identical.
