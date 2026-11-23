@@ -45,6 +45,9 @@ to find them.
 - **A new published package, `@laticent/segno-languages`**, named for future languages (formulas, Djot). It holds
   standard languages only, with subpath exports `/css`, `/html` and `/front-matter`. `flowchart-row` and `list-text`
   stay in `lib/core`. Readers stay in `lib/core` and import the package. Its first release needs the owner.
+  **Set on 2026-11-23:** the deck model is its first language. `@laticent/segno-markdown` is renamed
+  `@laticent/segno-languages`, with Markdown at the `./markdown` subpath and no root entry; the folder keeps its name,
+  `docs/src/lib/segno-markdown/`.
 - **`TEXTURE_REF_RE` is kept on purpose,** because over-matching is the safe side. Four markup `url()` readers go to
   the plan's "Later: HTML islands" row.
 - **The owner's bar:** "no jank, no tech debt, no settling, no broken windows".
@@ -54,6 +57,7 @@ to find them.
   The Segno desk coordinates every session on Segno or related work, as partners who own their own work. Source: the
   owner's reply to the desk's ❓ card, in the desk's session at 16:54 UTC ("D1 yes D2 15-20 but be efficient and
   effective. D3 direct it as if it is your own and finish it"). The `merge #N` rule is the desk's standing order.
+- **Set on 2026-11-23:** 1.0.0 ships Nov 27 with markdown-it still rendering (owner: 'A: ship Friday'). P7 removes it in a later weekly release, about mid-December. Segno's 1.0 scope is P4 (#3256), P5a (#3294), #3441 and this rename. P4b, P5a′+P5b, P5c and P7 follow 1.0.
 
 ## The slices, in the order they stack
 
@@ -79,9 +83,9 @@ P4b and P5 run side by side because they touch different code (the editors and t
 P4 rather than P4b because the engine path does not read the editors. P4b removes Compose's markdown-it, which P7c
 also needs, so P7c waits on both.
 
-## What "complete for release" means
+## What "complete" means
 
-Segno is complete for release when every line below holds on `main`, each measured by the command named.
+Segno is complete when every line below holds on `main`, each measured by the command named.
 
 1. **PRs 1 to 8 have merged.**
 2. **markdown-it is gone.** `npm ls markdown-it` is empty for the engine package. No file in `dist/` or the docs

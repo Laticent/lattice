@@ -117,7 +117,7 @@ describe('nav model', () => {
 		// published library is official and gets a page (ruling 2026-11-23), so this list only shrinks:
 		// a library leaves it in the PR that adds its page. Each entry must be a published engine
 		// dependency, so it cannot outlive its package.
-		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-markdown'];
+		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-languages'];
 		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
 		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'packages', 'lattice', 'package.json'), 'utf8')).dependencies ?? {});
 		for (const name of unlisted) expect(engineDeps, `${name} is in \`unlisted\` but @laticent/lattice does not depend on it`).toContain(name);

@@ -7105,7 +7105,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
   {
     file: 'lib/engine/index.js',
     count: 1,
-    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() test '
        + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
        + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
        + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
@@ -11084,7 +11084,7 @@ function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
     allowNode: false,
     allowBare: new Set(),
     describe: (rel, spec) =>
-      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-languages/markdown takes the host's ` +
       `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
       `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });

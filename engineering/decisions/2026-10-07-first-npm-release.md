@@ -191,7 +191,7 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 | §5 slice 0, a second owner | **Later, and not a blocker** for the first publish. |
 | §4, archive the pending fragments | **Confirmed.** |
 | §4, the libraries keep `AGPL-3.0-only` | **Confirmed.** |
-| §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
+| §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`, since renamed `@laticent/segno-languages`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
 | The 1.0.0 date | **1.0.0 ships Friday 2026-11-27**, with a merge freeze from **Wednesday 2026-11-25 23:59 UTC**. |
 | §5 slice C, Changesets | **Lands before 1.0.0.** The owner does not want to ship known tech debt in public, so 1.0.0 is not cut on the fragment flow with Changesets promised for later. |
 

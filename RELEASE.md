@@ -79,9 +79,9 @@ the root's `$puppeteer` override needs a root dependency of the same range
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`).
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-languages`).
   The bundled CLI inlines nine of them (`INLINE_PACKAGES` in `tools/build-cli.js`); it
-  still `require`s `@laticent/markup` and `@laticent/segno-markdown`, so the CLI needs those
+  still `require`s `@laticent/markup` and `@laticent/segno-languages`, so the CLI needs those
   two installed like any other dependency. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
   `devDependency`: the build refreshes the copy from it, and no install
@@ -110,7 +110,7 @@ npx @laticent/lattice deck.md deck.pdf   # also: npx lat deck.md deck.pdf (the s
 ```
 
 `--workspaces` packs every `@laticent/*` workspace, the engine included, so a new dependency can't be left out.
-A hand-kept list here missed `@laticent/segno-markdown`, and the install then failed with a
+A hand-kept list here missed `@laticent/segno-markdown` (since renamed `@laticent/segno-languages`), and the install then failed with a
 404 for a package that wasn't published yet (found 2026-11-11, PR #3142).
 
 ## Versioning
@@ -290,7 +290,7 @@ Prerequisites:
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
 - **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on eleven workspace
-  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`) that are not
+  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-languages`) that are not
   on npm, and this workflow publishes only the engine package (`packages/lattice`). An engine-only publish
   would make every `npm i @laticent/lattice` fail with E404. The libraries
   publish first, from the multi-package release that replaces this step (slices C

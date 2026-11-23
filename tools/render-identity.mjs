@@ -31,9 +31,12 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const { linkOwnWorkspaces } = createRequire(import.meta.url)('./lib/workspace-links.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -148,11 +151,8 @@ function withRefTree(ref, fn) {
     for (const e of fs.readdirSync(path.join(ROOT, 'node_modules'))) {
       if (e !== '@laticent') fs.symlinkSync(path.join(ROOT, 'node_modules', e), path.join(nm, e));
     }
-    for (const lib of fs.readdirSync(path.join(ROOT, 'node_modules', '@laticent'))) {
-      const target = fs.readlinkSync(path.join(ROOT, 'node_modules', '@laticent', lib));
-      const own = path.resolve(path.join(nm, '@laticent'), target);
-      fs.symlinkSync(fs.existsSync(own) ? own : path.join(ROOT, 'node_modules', '@laticent', lib), path.join(nm, '@laticent', lib));
-    }
+    // Under the names the OTHER tree's workspaces declare, so a base from before a package rename still resolves.
+    linkOwnWorkspaces(dir);
     if (fs.existsSync(path.join(ROOT, 'docs/node_modules'))) fs.symlinkSync(path.join(ROOT, 'docs/node_modules'), path.join(dir, 'docs/node_modules'), 'dir');
     buildTree(dir, ref);
     return fn(dir);

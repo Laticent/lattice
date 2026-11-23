@@ -1,5 +1,5 @@
 /**
- * @laticent/segno-markdown — the deck model: S0 (ingest) and S1 (the CommonMark block pass) of the Segno deck
+ * @laticent/segno-languages/markdown — the deck model: S0 (ingest) and S1 (the CommonMark block pass) of the Segno deck
  * pipeline, and the views every reader of a deck's structure asks for. Zero dependencies, no DOM, no Node.
  * engineering/decisions/2026-10-22-segno-deck-pipeline.md.
  */

@@ -416,7 +416,7 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 	setBoundaryDeriver(deriveFromNearest);
 	try {
 	const { bodyModel } = require('../../../lib/core/deck-model.mjs');
-	const { deckModelStats } = await import('@laticent/segno-markdown');
+	const { deckModelStats } = await import('@laticent/segno-languages/markdown');
 	const ATOMS = ['# A', 'text', '', '---', '***', '- item', '> quote', '```', '~~~', '<div>', '</div>', '<!-- _class: a -->', '<!--', '-->',
 		'- <!--\n  _class: b\n\t c -->', '$$', 'x = 1', '$$', '    code', '| a | b |\n| - | - |', '[r]: /u', 'para\n---', '> <!--\n> _footer: q\n> -->'];
 	const view = (m) => ({

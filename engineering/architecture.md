@@ -230,7 +230,7 @@ component folders free of render-path plumbing.
 The render splits slides on markdown-it's top-level `hr` tokens. Everything that has to answer the same
 question from SOURCE (the Studio's outline and rail, the chat edit path, narration export) reads it from
 the **deck model**, `lib/core/deck-model.mjs`, never from its own regex. The model is
-`@laticent/segno-markdown` (docs/src/lib/segno-markdown), S0 and S1 of the Segno deck pipeline: markdown-it's
+`@laticent/segno-languages/markdown` (docs/src/lib/segno-markdown), S0 and S1 of the Segno deck pipeline: markdown-it's
 block rules ported onto a flat tape, configured as `buildMd` configures markdown-it (plugin block rules
 included), and held to markdown-it token for token by `test/unit/core/deck-model.test.js`. It returns the
 slides, the boundaries, the front matter and the directive, fence, plugin-block and leaf ranges from one parse,
