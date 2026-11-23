@@ -399,7 +399,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			// The desktop placeholder already carries the whole catalog's count; the read-out is for a
 			// number it does not say — a search, a family, or a phone, whose placeholder is short.
 			// The active family rides on the count, so it stays readable while the pills are hidden for typing.
-			hint={compact || searching || facet ? `${count} ${pane ? 'components' : 'slides'}${facet ? ` · ${cap(facet)}` : ''}` : undefined}
+			hint={compact || searching || facet ? `${count} ${pane ? 'component' : 'slide'}${count === 1 ? '' : 's'}${facet ? ` · ${cap(facet)}` : ''}` : undefined}
 		/>
 	);
 

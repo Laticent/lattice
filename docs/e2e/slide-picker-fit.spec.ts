@@ -24,7 +24,7 @@ async function pillsHoldStill(page: Page): Promise<void> {
 	// in the pill row and re-wrap it, moving the grid 40px at 820px.
 	for (const q of ['tim', 'timeline', 'timeline-list', 'zq']) {
 		await search(page).fill(q);
-		await expect(page.getByRole('dialog').getByText(/\d+ slides/).first()).toBeVisible();
+		await expect(page.getByRole('dialog').getByText(/^\d+ slides?$/).first()).toBeVisible();
 		expect(await grid(page).evaluate((e) => Math.round(e.getBoundingClientRect().top))).toBe(before);
 	}
 }
@@ -56,7 +56,7 @@ test('a phone typing gives the results the room: no pills while the field has fo
 	// whole strip step aside.
 	await expect(page.getByText(/^Adds it /)).toBeHidden();
 	await expect(page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true })).toHaveCount(0);
-	await expect(page.getByRole('dialog').getByText(/[1-9]\d* slides · Progression/)).toBeVisible();
+	await expect(page.getByRole('dialog').getByText(/^(1 slide|\d+ slides) · Progression$/)).toBeVisible();
 	// A full result tile fits between the top of the results and the docked search field. Measured
 	// against the sheet as the panel sizes it for a focused field; the iOS probe (PROBE=picker-keyboard)
 	// measures it with the real software keyboard up.
@@ -91,4 +91,7 @@ test('every result says how it matched: the leader is the best match @crosswidth
 	expect(names.length).toBeGreaterThan(1);
 	for (const n of names.slice(1)) expect(n).toMatch(/, (name|tag|look|category|description) match|, matches across fields|, close spelling|% as close a match/);
 	await expect(page.getByRole('dialog').getByText('Best match', { exact: true })).toBeVisible();
+	// One result reads "1 slide", not "1 slides" (seen on the owner's iPhone).
+	await search(page).fill('policy-recommendation');
+	await expect(page.getByRole('dialog').getByText(/^1 slide$/)).toBeVisible();
 });
