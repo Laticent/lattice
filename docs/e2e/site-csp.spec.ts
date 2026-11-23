@@ -294,7 +294,12 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground prev
 // view, so check that one too: an inline script patched into the built builder passed the bake-only check
 // above in Chromium and Gecko. Its own test and its own first navigation: this was a second `goto` in the
 // cell above, made while the bake page's frames were still loading, and WebKit dropped it ("WebKit
-// encountered an internal error", 1 in 50 runs on webkit-phone, 2026-11-21; lessons.spec.ts met the same).
+// encountered an internal error", 1 in 50 runs on webkit-phone, 2026-11-21; lessons.spec.ts met the same;
+// 1,320 runs of the old cell later passed, so that drop is rare, not proven gone).
+// The one run that ever lost the agents mark (a1e50c1's message) came right after its preview server was
+// stopped: killing the server mid-test gives this test's exact error with `its loads: []`, 3 of 3 runs on
+// webkit-phone, desktop and gecko (2026-11-22). Read a failure by its loads: `[]` means the page lost its
+// server, while a 404, a failed request or a 200 with no mark is a product fault.
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground live preview runs its agents under the CSP', async ({ page }) => {
 	const violations = await watchViolations(page);
 	// Every load of the agents file, frames included, so a missing mark says whether the file arrived.
