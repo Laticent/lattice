@@ -6,6 +6,26 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-23 — raise the playground htmlRaw ceiling by 2,048 B (520,570 → 522,618), by hand, at the owner's direction
+
+The owner chose a 2 KB raise and nothing more, written by hand for the same reason as the lintCoreGz entry below; soft stays 471,849.
+
+Why: rebased onto today's main, PR #3415 (the image card's own `image-card-*` classes) measured the playground page at about 520,806 B, 236 B over the old ceiling; main measures about 518,450 B. The page embeds the component catalog and lint vocabulary, and #3415 adds 2,260 B there: the new `image-card-compact` gallery variant (about 530 B), the longer class names (about 960 B), the image-card placement lint axis (about 290 B) and docs text (about 120 B). The raise leaves about 1.8 KB after #3415.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 522618 |
+
+### 2026-11-22 — raise the studio lintCoreGz ceiling by 1,024 B (171,974 → 172,998), by hand, at the owner's direction
+
+The owner chose a 1 KB ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too and put the ceiling 10% above it, so this entry is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 152,151, so the lint core stays flagged above it.
+
+Why: PR #3415 (the image card gets its own `image-card-*` classes; the `guards:` spelling of `fit:` is removed) measured 168.3 KB on CI, 0.4 KB over the old ceiling. Its lint core adds 0.76 KB gzipped: most of it is the longer class names in the tables the lint core carries, and about 0.2 KB is the `image-card-renamed` logic that keeps a tint's `at-*` from moving or losing the card silently. Shortening its messages gave back 0.14 KB; dropping that logic would ship the silent change the review found.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 172998 |
+
 ### 2026-11-22 — the owner raised one ceiling by hand, for PR 2988: studio lintCoreGz to 168.9 KB
 
 Owner OK 2026-11-22, in PR 2988's session: "Raise ceiling 1 KB", chosen over dropping the `handheld-chrome-hidden` lint note the owner asked for the same day and over trimming other rules' messages in lint-core.

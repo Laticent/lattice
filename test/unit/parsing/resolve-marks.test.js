@@ -185,9 +185,8 @@ describe('marks: both render paths', () => {
     assert.deepEqual(finishesOn(s), ['marks-tone'], 'exactly one real finish: the deck\'s');
     assert.ok(s.includes('chart-finish-off'), 'the author\'s own class is left in place');
     const stale = lint(md).findings.find((f) => f.rule === 'unknown-class');
-    assert.ok(stale, 'the stale token is reported');
-    assert.match(stale.message, /retired/, 'and said to be retired, not renamed or merely unknown');
-    assert.match(stale.fix, /marks-pigment/);
+    // Its named "retired" hint was itself retired on 2026-11-23 (changelog.d/retire-old-rename-hints.removed.md).
+    assert.ok(stale, 'the stale token is still reported');
   });
 
   test('a per-slide token lints clean', () => {
