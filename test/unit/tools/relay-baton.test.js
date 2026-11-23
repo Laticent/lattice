@@ -342,6 +342,7 @@ describe('npm run baton', () => {
       if (args[0] === 'push') return push;
       if (args[0] === 'branch') return { status: 0, stdout: `${branch}\n` };
       if (args[0] === 'rev-parse' && args[1] === 'HEAD') return { status: 0, stdout: `${headAt}\n` };
+      if (args[0] === 'rev-parse' && args[3] === 'origin/claude/x') return { status: 0, stdout: `${TIP}\n` };
       if (args[0] === 'merge') return { status: 0, stdout: '' };
       return { status: 0, stdout: '', stderr: '' };
     };
@@ -418,7 +419,9 @@ describe('npm run baton', () => {
   test('a claim push that fails for another reason (a hook, the network): exit 3, never "taken"', () => {
     const r = go(['take', 'claude/x'], { comments: [RELEASED()], gitOpts: { push: { status: 1, stdout: 'build-check failed', stderr: 'error: failed to push some refs' } } });
     assert.equal(r.code, 3, r.text);
-    assert.match(r.text, /NOT yours/);
+    // a push can fail after GitHub accepted it, so exit 3 sends the session to status, not to "not yours"
+    assert.match(r.text, /The claim push failed\. Do no work yet: run npm run baton -- status/);
+    assert.doesNotMatch(r.text, /TAKEN/);
     assert.match(r.text, /build-check failed/);
   });
 
@@ -440,6 +443,22 @@ describe('npm run baton', () => {
     assert.equal(fresh.code, 0, fresh.text);
     assert.match(fresh.text, /first push creates the branch/);
     assert.equal(fresh.gits.filter((a) => a[0] === 'push').length, 0);
+  });
+
+  test('a branch that exists with no commit beyond main is claimed on its tip, not left to a later push', () => {
+    const r = go(['take', 'claude/x'], { git: () => ({ exists: true, head: null }), env: { LATTICE_SESSION: ME, LATTICE_ACTOR: 'picard' } });
+    assert.equal(r.code, 0, r.text);
+    assert.deepEqual(r.gits.find((a) => a[0] === 'commit-tree').slice(0, 4), ['commit-tree', 'tree0001', '-p', TIP]);
+    assert.deepEqual(r.gits.filter((a) => a[0] === 'push'), [['push', 'origin', `${CLAIM}:refs/heads/claude/x`]]);
+    assert.doesNotMatch(r.text, /first push creates the branch/);
+  });
+
+  test('a claim without LATTICE_ACTOR says it is unsigned (#35), and still claims', () => {
+    const r = go(['take', 'claude/x'], { comments: [RELEASED()], env: { LATTICE_SESSION: ME } });
+    assert.equal(r.code, 0, r.text);
+    assert.match(r.text, /Unsigned: the claim carries no Relay-Actor trailer/);
+    const msg = r.gits.find((a) => a[0] === 'commit-tree').at(-1);
+    assert.doesNotMatch(msg, /Relay-Actor/);
   });
 
   test('take on a held branch makes no claim push', () => {

@@ -27,7 +27,8 @@
  * harness's CLAUDE_CODE_REMOTE_SESSION_ID.
  *
  * Exit codes (the dangerous direction is a false "free", so anything unclear is not 0):
- *   0  free, or yours (release: released)
+ *   0  free, or yours (take: the claim commit landed, or a new branch your first push creates;
+ *      release: released)
  *   1  held by another session, or not takeable (no open PR, a ready PR, parked at the merge gate),
  *      or (take) another session's claim landed first
  *      (release: not released, because you do not hold it or the PR has no living comment)
@@ -138,6 +139,7 @@ function rescue(branch, me, { gitRun, fetch, out, api, now }) {
  */
 function claim(branch, me, head, { gitRun, env, out }) {
   const actor = relay.resolveActor(env, relay.loadRoster());
+  if (actor.status !== 'ok') out(`  Unsigned: the claim carries no Relay-Actor trailer. ${actor.message}`);
   const msg = [
     'chore(relay): take the baton',
     '',
@@ -156,14 +158,16 @@ function claim(branch, me, head, { gitRun, env, out }) {
   const push = gitRun(['push', 'origin', `${sha}:refs/heads/${branch}`]);
   if (push.status !== 0) {
     const text = `${push.stdout || ''}${push.stderr || ''}`;
-    // A loser that pushed after the winner gets git's `[rejected] (fetch first)`; one that pushed at the
-    // same moment gets GitHub's `[remote rejected] (cannot lock ref ... but expected <old tip>)`, as the
-    // live race on #3482 showed (2026-11-23). Both mean another claim landed.
+    // Git learns the remote tip before the pre-push hook's minute, so a winner that lands during that
+    // minute gets the loser GitHub's `[remote rejected] (cannot lock ref ... but expected <old tip>)`, the
+    // usual case (both live races on #3482, 2026-11-23). A loser that started after the winner landed gets
+    // git's `[rejected] (fetch first)`. Both mean another claim landed. A loser whose hook also fails sees
+    // neither and exits 3, which also means "not yours".
     if (/non-fast-forward|fetch first|\[rejected\]|stale info|cannot lock ref .* but expected/.test(text)) {
       out(`  Not taken: another session's push landed on ${branch} first. Do no work here: fetch, run status, read the living comment.`);
       return 1;
     }
-    out(`  The claim push failed, so the baton is NOT yours:\n${text.trim().split('\n').slice(-8).map((l) => `    ${l}`).join('\n')}`);
+    out(`  The claim push failed. Do no work yet: run npm run baton -- status to see whether it landed\n  (a dropped connection can fail after GitHub accepted it):\n${text.trim().split('\n').slice(-8).map((l) => `    ${l}`).join('\n')}`);
     return 3;
   }
   out(`  TAKEN: ${sha.slice(0, 7)} is the tip of ${branch}, carrying your trailers. Say so in the living comment (npm run card -- --living).`);
@@ -230,12 +234,19 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
           out('  You already hold it. Keep checkpointing.');
           return 0;
         }
-        if (!head) {
+        if (!exists) {
           out('  A new line of work: your first push creates the branch and takes it. Open a draft PR right after (rule 6).');
           return 0;
         }
+        // The branch exists with no commit beyond main yet: claim on its tip like any other.
+        let tip = head;
+        if (!tip) {
+          const r = gitRun(['rev-parse', '--verify', '--quiet', `origin/${branch}`]);
+          if (r.status !== 0) throw new relay.RelayError(`no local ref origin/${branch}: cannot claim; run without --no-fetch`);
+          tip = { sha: r.stdout.trim() };
+        }
         if (o.override) out('  Override used: only valid because a person typed "take over" in this session. Say so in the living comment.');
-        return claim(branch, me, head, { gitRun, env, out });
+        return claim(branch, me, tip, { gitRun, env, out });
       }
       return v.state === 'held' ? 1 : 0;
     }

@@ -63,8 +63,9 @@ cost the most (one session per branch, forever).
    first-parent line (the line's own history, merges included) that carries a `Claude-Session:` trailer (its `Relay-Actor:` trailer names the person). A merge
    of `main` with your trailer keeps you the holder; a person's web commit with no trailer does not unseat
    you. Before the first push to a branch you did not cut in this session, run
-   `npm run baton -- take <branch>`. Exit 0 means yours (it pushed a claim commit if the baton was free), exit 1 means another session holds it or claimed it first (stop
-   and read its living comment), exit 3 means the check could not run (not a pass; fix it and run it again).
+   `npm run baton -- take <branch>`. Exit 0 means yours (it pushed a claim commit if the baton was free; a branch that does not exist yet is taken by your first push), exit 1 means another session holds it or its claim landed first (stop
+   and read its living comment), exit 3 means the check could not run or the claim push failed (not a pass;
+   run `npm run baton -- status` to see whether a claim landed, fix the cause and run it again).
 3. **The baton is free only by an explicit act**: the living handoff comment says `baton: released` **and**
    the branch tip is still the `head:` that comment names (any push after a release re-takes it), or a
    person typed "take over `<branch>`" in this session (`npm run baton -- take <branch> --override`).

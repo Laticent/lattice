@@ -446,6 +446,9 @@ Kirk's session (14:55 UTC, verified in its transcript).
      - Race 2, from `4436dfb` after the stand-in released (its `release` renamed the comment's holder to
        itself, the checker's finding 1): one claim landed (`26f326d`, stand-in `session_RACEcccc`), and
        the loser exited 1 with "Not taken … Do no work here".
+     - Take-back: the race-2 loser was Picard's session, so the stand-in released and Picard's
+       session ran `take` again alone. Its claim `1f1fb76` landed on `26f326d`, and Picard's session
+       wrote the closing handoff and released, leaving the throwaway line FREE under a real session.
 4. **The sim line's only setup commit was empty**, so Kirk's note had no file to go in, and it went in
    this note on the sim line. That throwaway branch never merges; this section is the record.
 5. **UNVERIFIED: a second real GitHub account.** Both sessions share one login, so the signatures make
