@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-23 — raise the playground htmlRaw ceiling by 2,048 B (520,570 → 522,618), by hand, at the owner's direction
+
+The owner chose a 2 KB raise and nothing more, written by hand for the same reason as the lintCoreGz entry below; soft stays 471,849.
+
+Why: rebased onto today's main, PR #3415 (the image card's own `image-card-*` classes) measured the playground page at about 520,806 B, 236 B over the old ceiling; main measures about 518,450 B. The page embeds the component catalog and lint vocabulary, and #3415 adds 2,260 B there: the new `image-card-compact` gallery variant (about 530 B), the longer class names (about 960 B), the image-card placement lint axis (about 290 B) and docs text (about 120 B). The raise leaves about 1.8 KB after #3415.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 522618 |
+
 ### 2026-11-22 — raise the studio lintCoreGz ceiling by 1,024 B (171,974 → 172,998), by hand, at the owner's direction
 
 The owner chose a 1 KB ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too and put the ceiling 10% above it, so this entry is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 152,151, so the lint core stays flagged above it.
