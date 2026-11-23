@@ -70,7 +70,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public"

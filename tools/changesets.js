@@ -26,10 +26,19 @@ const path = require('node:path');
 const cl = require('./changelog.js');
 const { PUBLISH_SET, ENGINE, workspacePackages } = require('./release-packages.js');
 
-// Changesets' own changeset reader (ESM; Node >= 22.12 loads it with require, and the engines floor is 22.13).
-// The gate runs it so a changeset `changeset version` would reject fails when it lands, not on release day.
-const changesetsParseModule = require('@changesets/parse');
-const changesetsParse = changesetsParseModule.default || changesetsParseModule;
+/**
+ * Changesets' own changeset reader (ESM; Node >= 22.12 loads it with require, and the engines floor is 22.13).
+ * The gate runs it so a changeset `changeset version` would reject fails when it lands, not on release day.
+ *
+ * Loaded on first use, never at the top of the file: release-publish.yml runs `tools/release.js --plan`
+ * BEFORE `npm ci`, and a top-level require of a devDependency crashed that gate, so a release commit would
+ * have published nothing (the card grader reproduced it on PR #3471). test/unit/release/changesets-release.test.js
+ * loads the release tools from a tree with no node_modules to hold this.
+ */
+function changesetsParse(text) {
+  const mod = require('@changesets/parse');
+  return (mod.default || mod)(text);
+}
 
 const ROOT = path.resolve(__dirname, '..');
 const CHANGESET_DIRNAME = '.changeset';

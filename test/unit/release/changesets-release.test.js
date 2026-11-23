@@ -256,6 +256,27 @@ describe('constraint 3: the publish phase', () => {
   });
 });
 
+describe('the publish gate runs before npm ci', () => {
+  // release-publish.yml runs `tools/release.js --plan` before `npm ci`, so the release tools must load with
+  // nothing installed. A top-level require of @changesets/parse once crashed that gate: the release commit
+  // would have merged and published nothing (found by the card grader on PR #3471).
+  test('the release tools load and plan from a tree with no node_modules', (t) => {
+    const f = fixture(t);
+    fs.mkdirSync(path.join(f.dir, 'tools'));
+    for (const name of ['release.js', 'changesets.js', 'changelog.js', 'release-packages.js']) {
+      fs.copyFileSync(path.join(ROOT, 'tools', name), path.join(f.dir, 'tools', name));
+    }
+    assert.ok(!fs.existsSync(path.join(f.dir, 'node_modules')));
+    const script = [
+      "const r = require('./tools/release.js');",
+      "const plan = r.publishPlan(process.cwd(), { registry: () => false, hasTag: () => false });",
+      'process.stdout.write(String(plan.length));',
+    ].join(' ');
+    const out = execFileSync(process.execPath, ['-e', script], { cwd: f.dir, encoding: 'utf8', env: { ...process.env, NODE_PATH: '' } });
+    assert.equal(out, String(PUBLISH_SET.length));
+  });
+});
+
 describe('prepare, end to end', () => {
   test('the first release commits exactly the release surface and hands its outputs to the workflow', (t) => {
     const f = fixture(t);

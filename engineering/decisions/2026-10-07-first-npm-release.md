@@ -334,6 +334,11 @@ found three more ways Friday could go wrong:
   workflow refuses when a GitHub Release named `v<version>` already exists. Both run before npm.
 - The changeset gate also runs `@changesets/parse`, the reader `changeset version` uses, so an
   unquoted `@scope/name` key or a package named twice fails when it lands.
+- The card grader then found that this last fix broke the publish gate: `--plan` runs before
+  `npm ci`, and a top-level require of `@changesets/parse` crashed it, so a release commit would have
+  published nothing. The parser now loads on first use, and a test plans from a tree with no
+  `node_modules`. Nine libraries now list `CHANGELOG.md` in `files`; markup, lastra and
+  segno-markdown follow once #3451 and #3256 land (`followups.d/3471-p3`).
 
 **Changelogs.** Each package keeps its own `CHANGELOG.md`, written by `changeset version`. The
 engine's is `packages/lattice/CHANGELOG.md`, committed; `tools/stage-engine-package.js` treats it as

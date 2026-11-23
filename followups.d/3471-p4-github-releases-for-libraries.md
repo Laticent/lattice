@@ -5,7 +5,7 @@ recorded: 2026-11-23
 area: infra
 severity: low
 swimlane: engineering/decisions/2026-10-07-first-npm-release.md §5
-deferred: large — it depends on how slice F shapes weekly releases, which is its own PR after 1.0.0
+deferred: blocked — it depends on how slice F shapes weekly releases, which is its own PR after 1.0.0
 source: https://github.com/Laticent/lattice/pull/3471
 ---
 # Decide whether a library-only release gets a GitHub Release
