@@ -1281,8 +1281,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// yet is held back exactly as a `measuring` one is (logo-wall.styles.css). The stamp comes when the runtime's pass
 			// runs, which can be a frame after the slide's markup lands, so the unpacked grid painted once first
 			// (logo-wall-first-visit.spec.ts: 1 run in 48 at eight workers). Only the lists the stamp takes (the stage's first
-			// child, holding marks: lib/transformers/logo-marks.js), so a wall it never stamps is never hidden.
-			'html[data-lattice-live-layout] section.logo-wall>.cell-stage>ul:first-child:not([data-logo-wall]):has(>li>.logo-mark){visibility:hidden}'
+			// child, holding marks: lib/transformers/logo-marks.js), so a wall the stamp does not take is never hidden. And a
+			// wall the stamp never REACHES (the runtime failed to load, or an earlier transform threw) is not stranded: past
+			// the measure kit's cap (4 s, measure-kit.js DEFAULT_CAP_MS) plus a margin, the animation shows it as the grid,
+			// which is what the preview showed before. A stamp removes the match, and the animation with it.
+			'@keyframes lat-logo-unhold{to{visibility:visible}}' +
+			'html[data-lattice-live-layout] section.logo-wall>.cell-stage>ul:first-child:not([data-logo-wall]):has(>li>.logo-mark){visibility:hidden;animation:lat-logo-unhold 0s 4.5s forwards}'
 		);
 	}
 
