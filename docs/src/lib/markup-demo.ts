@@ -4,6 +4,7 @@
 import { splitCodeLines } from './markup/code-lines';
 import { splitSections } from './markup/sections';
 import { readTopLevelH2Text } from './markup/tags';
+import { removeTags } from './markup/text';
 
 /** Source with tokens that span lines: a block comment and a template string. */
 export const SAMPLE_CODE = `/* Revenue by quarter.
@@ -78,7 +79,7 @@ export function compareSlides(html: string): SlideComparison {
 	for (const m of html.matchAll(/<section([^>]*)>([\s\S]*?)<\/section>/g)) {
 		const cls = /\sclass="([^"]*)"/.exec(m[1])?.[1] ?? '';
 		const h = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(m[2]);
-		naive.push({ cls, title: h ? h[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : '' });
+		naive.push({ cls, title: h ? removeTags(h[1]).replace(/\s+/g, ' ').trim() : '' });
 	}
 	return { slides, naive };
 }
