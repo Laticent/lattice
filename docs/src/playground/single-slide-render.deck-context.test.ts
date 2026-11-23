@@ -554,6 +554,20 @@ describe('deck-derived fact registry', () => {
 		}
 	});
 
+	// Only a record's CLASS counts. A footer, a note or an alt text is prose: on the math gallery a footer reading "A proof
+	// chain" sent the preview down the whole-deck route and typeset every slide's math (docs/e2e/math-typeset-edit-cost).
+	// The failing arm: the old probes grepped the record's whole text, and this deck tripped `split-panel proof run`.
+	it('a word in a record field other than the class trips nothing', () => {
+		const decks = [
+			'<!-- @meta{layout=math, class=derivation, footer="A proof chain in two columns"} -->',
+			'<!-- @meta{footer="the capstone result"} -->',
+			'<!-- @meta{layout=content, footer="we carry this forward"} -->',
+			'<!-- @meta{layout=content, footer="see the agenda"} -->',
+			'<!-- @meta{layout=content, footer="after the divider"} -->',
+		];
+		for (const d of decks) expect(deckDerivedFactsFor(`# A\n\n---\n\n${d}\n\n## B\n\n- one\n`), d).toEqual([]);
+	});
+
 	it('names are unique, so a duplicate entry is visible', () => {
 		const names = DECK_DERIVED_FACTS.map((f) => f.fact);
 		expect(new Set(names).size).toBe(names.length);
