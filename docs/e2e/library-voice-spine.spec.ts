@@ -148,6 +148,30 @@ test.describe('@crosswidth @webkit-phone @webkit-tablet @gecko library pages rea
 		expect(spoke.openrouter).toEqual([]);
 	});
 
+	test('/suono speaks the stored Gemini voice when Play is pressed before the voice model has loaded', async ({ page }) => {
+		const sel = SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'kore' });
+		await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': sel });
+		const spoke = await mockProviders(page);
+		// Hold the lazily loaded voice model until Play has been pressed: the order a slow device or a loaded runner produces.
+		let release = () => {};
+		const held = new Promise<void>((r) => {
+			release = r;
+		});
+		let asked = false;
+		await page.route(/\/voice-model\.[^/]*\.js$/, async (route) => {
+			asked = true;
+			await held;
+			await route.continue();
+		});
+		await page.goto('/libraries/suono/');
+		await expect(page.locator('#keyDotLabel')).toHaveText('voice ready', { timeout: 30_000 });
+		await expect.poll(() => asked, { timeout: 30_000 }).toBe(true);
+		await page.locator('#playBtn').click();
+		release();
+		await expect.poll(() => spoke.gemini.length, { timeout: 30_000 }).toBeGreaterThan(0);
+		expect(spoke.openrouter).toEqual([]);
+	});
+
 	test('/suono speaks in a stored Gemini voice when its voice mode is on', async ({ page }) => {
 		const sel = SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'kore' });
 		await seed(page, { 'lattice-db-or-key': OR_FAKE, 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': sel });

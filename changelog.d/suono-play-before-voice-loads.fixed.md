@@ -1,0 +1,1 @@
+- The Suono demo page (`/libraries/suono/`) now speaks in the chosen cloud voice when Play is pressed right after "voice ready" appears. Before, the voice model was still loading in that moment, so the sequence quietly played tones instead. Play now waits for the model and the voice's key to open.

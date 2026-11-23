@@ -263,6 +263,9 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			let paused = false;          // clock is frozen (a run is paused) vs free-running idle
 			let mode = 'tones';          // 'tones' (keyless) | 'voice' (cloud)
 			let voice = null, selVoice = 'af_heart';
+			// The voice model loads lazily once a key opens; a Play pressed before it lands awaits this, so it
+			// speaks in the chosen voice rather than tones. Resolves to the model, or null when it failed to load.
+			let voiceLoad = null;
 			let curBeat = null;          // active beat id, for scenario options
 			let onDone = null;           // one-shot: fired when a run ENDS naturally (not aborted)
 
@@ -319,11 +322,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				const withGaps = opts.gaps !== false;
 				const producer = async (item, { signal }) => {
 					produceCount++; mProduce.textContent = String(produceCount);
-					if (mode === 'voice' && voice) {
+					const v = mode === 'voice' ? voice || (voiceLoad && (await voiceLoad)) : null;
+					if (v) {
 						try {
 							// The Kokoro picker is this page's, and applies only while the voice is Kokoro.
-							const kokoro = voice.rung() === 'kokoro' || (voice.rung() === 'openrouter-tts' && /kokoro/i.test(voice.orModel()));
-							const { bytes } = await voice.synthOne({ text: item.text, voice: kokoro ? selVoice : undefined, signal });
+							const kokoro = v.rung() === 'kokoro' || (v.rung() === 'openrouter-tts' && /kokoro/i.test(v.orModel()));
+							const { bytes } = await v.synthOne({ text: item.text, voice: kokoro ? selVoice : undefined, signal });
 							if (bytes) return bytes;
 						} catch { /* fall through to a tone */ }
 					}
@@ -510,17 +514,19 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					usageEl.hidden = false;
 					usageEl.innerHTML = 'Cloud voice (TTS) is billed by the provider per synthesis; unlike chat generation it returns no per-token cost, so no dollar meter is shown here. Suono spends nothing — it only <b>plays</b> the bytes your voice source returns.';
 					// Lazily load the shared voice model (byte producer) — the sanctioned pattern.
-					if (!voice) {
-						import('@/playground/voice-model.js')
+					if (!voice && !voiceLoad) {
+						voiceLoad = import('@/playground/voice-model.js')
 							// The author's STORED voice selection (Workspace › AI), resolved without a ladder; a
 							// selection never set gets this page's default, the OpenRouter voice (page-voice-selection.js).
-							.then((m) => {
+							.then(async (m) => {
 								const pageSel = pageVoiceSelection({ whenUnset: () => ({ source: 'cloud', provider: 'openrouter' }) });
-								voice = m.createVoiceModel({ getOpenRouterKey: readKey, selection: pageSel });
-								// Open a cloud voice's key now; an on-device Kokoro voice loads only on Play.
-								if (pageSel.read().provider !== 'kokoro') voice.prepareSelectedVoice().catch(() => {});
+								const model = m.createVoiceModel({ getOpenRouterKey: readKey, selection: pageSel });
+								// Open a cloud voice's key before a Play uses it; an on-device Kokoro voice loads only on Play.
+								if (pageSel.read().provider !== 'kokoro') await model.prepareSelectedVoice().catch(() => {});
+								voice = model;
+								return model;
 							})
-							.catch(() => { voice = null; setDiag('Could not load the cloud voice model; staying on tones.', true); });
+							.catch(() => { voice = null; voiceLoad = null; setDiag('Could not load the cloud voice model; staying on tones.', true); return null; });
 					}
 				} else {
 					mode = 'tones';
