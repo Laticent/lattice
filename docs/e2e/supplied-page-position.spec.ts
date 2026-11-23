@@ -47,7 +47,7 @@ test('a paginated deck paints its true page number on the slice path', async ({ 
 		await expect(sec).toBeVisible();
 		// Present moves its counter on the click, but the frame repaints only when the coalesced render
 		// lands. Wait until the FRAME shows this slide; reading it straight after the counter can catch
-		// the slide before it (a HARD RULE #32 race: once in 48 runs at 8 workers).
+		// a stale slide (a HARD RULE #32 race: once in 48 runs at 8 workers, "9" with the counter at 8).
 		await expect(sec).toHaveAttribute('data-lattice-pagination', String(slide));
 		seen.push(
 			await sec.evaluate((el) => ({
