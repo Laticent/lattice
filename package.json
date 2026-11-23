@@ -396,6 +396,10 @@
     },
     "marp-core-4.4.0": {
       "@marp-team/marpit": "3.2.2"
+    },
+    "test-exclude": {
+      "glob": "14.0.6",
+      "minimatch": "11.0.9"
     }
   }
 }
