@@ -272,3 +272,10 @@ only. A workspace package (`@laticent/*`), which knip never lists as unlisted, c
 import of an engine-only package, and an engine dependency nothing loads all still count; the second
 checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
+
+**Trial publish (2026-11-23).** The owner approved the local-registry trial for #3438 and then a CI job
+for it ("targeted + nightly + release"): `tools/trial-publish.js` and `.github/workflows/trial-publish.yml`.
+Before #3451 it stopped on three private engine dependencies (markup, lastra, segno-markdown); with #3451
+on `main` the whole trial passes in about 49 s. The clean install pins its third-party packages to the
+repository lockfile's versions (513 names; 36 held at several versions stay on their ranges), after a
+#3471 trial went red on a release npmjs had listed but not yet served.
