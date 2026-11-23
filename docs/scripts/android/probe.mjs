@@ -138,30 +138,46 @@ function cdpSocket() {
 	console.log(`  (DevTools socket @${name} forwarded to tcp:${cdpPort})`);
 	return cdpPort;
 }
-async function cdpEval(urlPrefix, expression) {
+async function cdpSession(urlPrefix) {
 	const port = cdpSocket();
 	const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 	const page = pages.find((p) => p.type === 'page' && p.url.startsWith(urlPrefix));
-	if (!page) return { ok: false, why: `no page at ${urlPrefix} (${pages.map((p) => p.url).join(', ')})` };
+	if (!page) throw new Error(`no page at ${urlPrefix} (${pages.map((p) => p.url).join(', ')})`);
 	const ws = new WebSocket(page.webSocketDebuggerUrl);
 	await new Promise((r, j) => { ws.onopen = r; ws.onerror = () => j(new Error('devtools websocket failed')); });
-	const reply = await new Promise((r) => {
-		ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id === 1) r(d); };
-		ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, userGesture: true, returnByValue: true, awaitPromise: true } }));
-	});
-	ws.close();
-	return { ok: true, value: reply.result?.result?.value };
+	let id = 0;
+	const waiting = new Map();
+	ws.onmessage = (m) => { const d = JSON.parse(m.data); waiting.get(d.id)?.(d); };
+	const send = (method, params = {}) => new Promise((r) => { waiting.set(++id, r); ws.send(JSON.stringify({ id, method, params })); });
+	return { send, close: () => ws.close() };
 }
-/** Click the first visible button, menu item or file input whose accessible name matches `source` (a regex source). */
+/** Press and release at the center of the first visible button, menu item or file input whose accessible name matches
+ *  `source` (a regex source): real input events, so a pointerdown-driven menu opens and a file input gets its gesture. */
 async function webClick(urlPrefix, source, ms, what) {
 	const expr = `(() => { const re = new RegExp(${JSON.stringify(source)}); const name = (e) => (e.getAttribute('aria-label') || e.labels?.[0]?.textContent || e.textContent || '').trim();
-		const els = [...document.querySelectorAll('button,[role=button],[role=menuitem],a,input[type=file]')].filter((e) => e.getClientRects().length && re.test(name(e)));
-		if (!els.length) return '?' + [...document.querySelectorAll('button,[role=button],[role=menuitem]')].filter((e) => e.getClientRects().length).map(name).filter(Boolean).slice(0, 40).join(' | '); els[0].click(); return name(els[0]); })()`;
+		const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+		const els = [...document.querySelectorAll('button,[role=button],[role=menuitem],a,input[type=file]')].filter((e) => vis(e) && re.test(name(e)));
+		if (!els.length) return { miss: [...document.querySelectorAll('button,[role=button],[role=menuitem]')].filter(vis).map(name).filter(Boolean).slice(0, 40).join(' | ') };
+		const r = els[0].getBoundingClientRect(); return { name: name(els[0]), x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`;
 	const t0 = Date.now();
 	for (;;) {
-		const r = await cdpEval(urlPrefix, expr).catch((e) => ({ ok: false, why: e.message }));
-		if (r.ok && r.value && !r.value.startsWith('?')) return r.value;
-		if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}${r.why ? ` (${r.why})` : ''}${r.value ? ` (visible: ${r.value.slice(1)})` : ''}`);
+		let why = '';
+		try {
+			const c = await cdpSession(urlPrefix);
+			try {
+				const v = (await c.send('Runtime.evaluate', { expression: expr, returnByValue: true })).result?.result?.value;
+				if (v?.name) {
+					for (const type of ['mousePressed', 'mouseReleased']) await c.send('Input.dispatchMouseEvent', { type, x: v.x, y: v.y, button: 'left', clickCount: 1, pointerType: 'mouse' });
+					return v.name;
+				}
+				why = v?.miss ? `visible: ${v.miss}` : '';
+			} finally {
+				c.close();
+			}
+		} catch (e) {
+			why = e.message;
+		}
+		if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}${why ? ` (${why})` : ''}`);
 		await sleep(500);
 	}
 }
