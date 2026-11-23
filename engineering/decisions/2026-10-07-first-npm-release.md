@@ -182,6 +182,16 @@ Slices D and E wait on C, so the first publish waits on this choice.
 
 ## 9. Owner rulings (2026-11-22)
 
+**2026-11-23, the current state, given in the release desk session (tracker #3449).** These
+rulings extend the 2026-11-22 table below; they do not reverse it.
+
+| Item | Ruling |
+|---|---|
+| Which packages 1.0.0 publishes | **The engine plus 12 libraries:** `segno`, `segno-languages`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra` and `lente`. The first eleven are the engine's `dependencies` that the 2026-11-22 row publishes. `segno-languages` is `segno-markdown` under its new name, with a `/markdown` subpath. `lente` is the one library on the list the engine does not depend on. |
+| Their standing | **Every published library is official** and joins the family on the docs site, with a page under `/libraries/`. None is plumbing-only. The owner plans to extend them. |
+| Lastra's scope | **All image work belongs in `@laticent/lastra`**: in the owner's words, "all image work we do for example belongs lastra". Moving the image code that lives elsewhere today is post-1.0 work: `followups.d/PRNUM-p1-consolidate-image-work-into-lastra.md`. |
+| Lente's scope | **Lente grows past reader lenses**: in the owner's words, "lente will become more than it is today including being able to host outline and slice and dice a deck into views logically and physically (we have had trouble with this and the export)". Post-1.0, and a design note comes before code: `followups.d/PRNUM-p2-lente-outline-and-views.md`. |
+
 A release-audit session put the open items in §4, §5 and §8 to the owner, who answered:
 
 | Item | Ruling |
