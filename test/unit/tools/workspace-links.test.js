@@ -47,3 +47,27 @@ test('skips a workspace with no package.json, and links a name once', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('throws, naming the tree, on a shape it does not read', () => {
+	const shapes = [
+		[{ name: 'root' }, /no "workspaces" array/],
+		[{ name: 'root', workspaces: { packages: ['a/one'] } }, /no "workspaces" array/],
+		[{ name: 'root', workspaces: ['docs/src/lib/*'] }, /glob workspace \(docs\/src\/lib\/\*\)/],
+	];
+	for (const [root, message] of shapes) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-links-'));
+		try {
+			fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(root));
+			assert.throws(() => linkOwnWorkspaces(dir), message);
+			assert.throws(() => linkOwnWorkspaces(dir), new RegExp(dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}
+	const unscoped = tree({ 'a/plain': 'plain-name' });
+	try {
+		assert.throws(() => linkOwnWorkspaces(unscoped), /named "plain-name", not a scoped name/);
+	} finally {
+		fs.rmSync(unscoped, { recursive: true, force: true });
+	}
+});

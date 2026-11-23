@@ -19,12 +19,18 @@ const path = require('node:path');
 function linkOwnWorkspaces(tree) {
   const nm = path.join(tree, 'node_modules');
   const linked = new Set();
-  const { workspaces = [] } = JSON.parse(fs.readFileSync(path.join(tree, 'package.json'), 'utf8'));
+  const { workspaces } = JSON.parse(fs.readFileSync(path.join(tree, 'package.json'), 'utf8'));
+  // Fail loudly on a shape this does not read: linking nothing would surface later as an ERR_MODULE_NOT_FOUND that
+  // names a package, not this function. The repo's root is an explicit list of scoped packages; a change to that is
+  // a change to this.
+  if (!Array.isArray(workspaces)) throw new Error(`linkOwnWorkspaces: ${tree}/package.json has no "workspaces" array`);
   for (const rel of workspaces) {
+    if (rel.includes('*')) throw new Error(`linkOwnWorkspaces: ${tree}/package.json lists a glob workspace (${rel}); list each folder`);
     const manifest = path.join(tree, rel, 'package.json');
     if (!fs.existsSync(manifest)) continue;
     const { name } = JSON.parse(fs.readFileSync(manifest, 'utf8'));
     if (!name || linked.has(name)) continue;
+    if (!name.startsWith('@')) throw new Error(`linkOwnWorkspaces: workspace ${rel} in ${tree} is named "${name}", not a scoped name, and would collide with a shared link`);
     const at = path.join(nm, ...name.split('/'));
     fs.mkdirSync(path.dirname(at), { recursive: true });
     fs.symlinkSync(path.join(tree, rel), at, 'dir');
