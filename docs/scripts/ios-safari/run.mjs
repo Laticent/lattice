@@ -198,6 +198,7 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
 
 /**
  * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
+ * the logo wall first-paint probe (logo-wall-probe.js, #3492),
  * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
  * the Compose page a touch tap on a paragraph and one on an empty deck's start grid (empty-deck-probe.js). One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
@@ -221,6 +222,8 @@ async function runStudioProbe(id) {
 	};
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
+	// A logo wall's first paint in the editing preview (logo-wall-probe.js, #3492): never the unpacked grid, then packed.
+	const wall = await shotIfFailed('logo-wall', await studioPage(id, 'logo-wall-probe.js', 'latticeLogoWallProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
@@ -239,11 +242,11 @@ async function runStudioProbe(id) {
 	if (!leave.ok) await shotIfFailed('deck-tap', leave);
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
 	};
 }
 

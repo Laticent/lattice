@@ -13,6 +13,7 @@
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
+ *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -338,6 +339,22 @@ if (process.env.PROBE === 'empty-deck') {
 		}
 		const result = { ok: !error && steps.every((s) => s.pass), error, width: page.viewportSize()?.width, steps };
 		report(label, 'empty-deck-probe.js', result);
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'logo-wall') {
+	// The logo wall's first paint, as run.mjs runs it: a fresh page, the probe pastes its deck and steps onto the wall.
+	// Its failing arm is in logo-wall-probe.js's header: it needs a source change and a rebuild, not a page-side knob.
+	const WALL = withEditorHelper(fs.readFileSync(path.join(here, 'logo-wall-probe.js'), 'utf8'));
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: WALL });
+		report(label, 'logo-wall-probe.js', await page.evaluate(() => globalThis.latticeLogoWallProbe()));
 		await context.close();
 	}
 	await browser.close();
