@@ -5,9 +5,10 @@ summary: >
   artifacts/ on its own work branch. The baton holder updates it, it travels with every handover,
   and the session removes it in the last commit before the merge ask; a new rule inside the existing
   build:check fails when it would reach main. The PR's living handoff comment becomes a summary
-  npm run card generates from HANDOFF.md. The owner picked the place and the lifecycle on 2026-11-23,
-  in a question that also stated the shape; the single source came from the workflow desk's brief and
-  the size and secret limits are desk defaults, all open to the owner's veto. Nothing is built yet.
+  npm run card generates from HANDOFF.md. The owner picked the place, the lifecycle, the artifact
+  layout and rules, and rewriting one HANDOFF.md in place at each usage checkpoint; the single source
+  came from the workflow desk's brief and the size numbers are desk defaults, both open to the owner's
+  veto. Nothing is built yet.
 ---
 
 # Handoff folder: `handoffs.d/<slug>/` on the work branch, removed before merge
@@ -15,46 +16,57 @@ summary: >
 **Status:** proposed; the build has not started. This note is docs only: no tool, gate or workflow
 rule changes until the follow-up PR in §Implementation slices.
 
-**Where each decision comes from.** The owner answered one `AskUserQuestion` round in the workflow
-desk's session (`session_01DPMMjHSgQqpuNVxFhptqgf`, transcript event
-`38af7cc9-92b2-4c8a-96c0-7064aa34a1ad`, 2026-11-23 00:25:52 UTC), and this session read that answer
-there:
+**Where each decision comes from.** This session read every owner answer below in the session where
+the owner typed it.
 
 | Decision | Source | Strength |
 |---|---|---|
-| H1 Shape | the question's wording, "handoffs.d/<line-of-work>/: HANDOFF.md + artifacts/"; the contents list came from the owner's request in the presets desk's session, relayed by the command center | stated in the question the owner answered; not picked as an option |
-| H2 Where | the owner picked "On the work branch itself (Recommended)" | owner's own answer |
-| H3 Lifecycle | the owner picked "Removed before merge; build:check enforces (Recommended)" | owner's own answer |
-| H4 Size and secrets | the workflow desk's default | open to veto |
-| H5 One source | the workflow desk's brief to this session | **not** in the owner's answer; open to veto |
+| H1 Shape | the workflow desk's question (`session_01DPMMjHSgQqpuNVxFhptqgf`, event `38af7cc9-92b2-4c8a-96c0-7064aa34a1ad`, 2026-11-23 00:25:52 UTC) named "handoffs.d/<line-of-work>/: HANDOFF.md + artifacts/"; H6 then made it concrete | owner's answer, through H6 |
+| H2 Where | the owner picked "On the work branch itself (Recommended)" in that answer | owner's own answer |
+| H3 Lifecycle | the owner picked "Removed before merge; build:check enforces (Recommended)" in that answer | owner's own answer |
+| H4 Size and secrets | the workflow desk's default numbers (5 MB per folder, 1 MB per binary file); H6 made a binary cap and a scrub rule the owner's | numbers open to veto |
+| H5 One source | the workflow desk's brief to this session; the command center's 12:03 relay calls it an earlier pick, but no owner answer this session could read contains it | **not** found in an owner answer; open to veto |
+| H6 Artifacts and shape | the command center showed the owner a worked example, the artifact rules and the table against `followups.d/` (`session_01DPMMjGth4jH37uLv1XPwcA`, 2026-11-23 12:01 and 12:03 UTC); the owner typed "yes, put that in #3454" (event `107c227e-7c9a-4f05-990d-6d4b66209796`, 12:03:45 UTC) | owner's own answer |
+| H7 Update in place | the owner asked "will handoff be duplicated or updated at 25, 50,75 and 90?" and typed "yes, update in place" (same session, event `63b640e1-1a70-4601-9e8b-b6b2ac34f015`, 12:05:27 UTC) | owner's own answer |
 
-The W1 to W5 incident facts below reached the desk in a command-center message (the same transcript,
-2026-11-22 22:36 UTC), relayed from the presets desk. This session could not read the presets desk's
-own sessions.
+The W1 to W5 incident facts below reached the desk in a command-center message (the desk's
+transcript, 2026-11-22 22:36 UTC), relayed from the presets desk. This session could not read the
+presets desk's own sessions.
 
 **Builds on** the two-person relay, PR #3427
 (`engineering/decisions/2026-11-22-two-person-relay.md`, `engineering/workflow.md` §Relay). That PR
-makes a branch belong to its line of work, adds the baton (who may push) and the living handoff
-comment. This note adds the place a line of work keeps what a comment cannot hold. If #3427 changes
-before it merges, the slices below change with it.
+makes a branch belong to its line of work, adds the baton (who may push), the living handoff comment
+and the usage checkpoints at 25, 50, 75 and 90% of the weekly limit. This note adds the place a line
+of work keeps what a comment cannot hold. If #3427 changes before it merges, the slices below change
+with it.
 
 ## Decisions (2026-11-23; sources above)
 
-- **H1 Shape.** `handoffs.d/<line-of-work-slug>/HANDOFF.md` plus `artifacts/`. HANDOFF.md holds the
-  owner session(s), the status, the 🎯 brief, the open questions with their full context and the
-  owner's earlier words quoted exactly, the agent budget used, and gotchas and know-how. `artifacts/`
-  holds recipes, small renders, judge packets and measurement tables.
+- **H1 Shape.** `handoffs.d/<line-of-work-slug>/HANDOFF.md` plus `artifacts/`, laid out as H6 says.
 - **H2 Where.** On the work branch itself. The baton holder updates it, it travels with every
   handover, and each line of work has one folder, so two PRs never edit the same file and the merge
   queue never ejects one on a conflict (#1593).
 - **H3 Lifecycle.** Removed before merge. A new rule inside the **existing** `build:check` fails when
   `handoffs.d/` would reach `main`; no new CI job or hook. What is worth keeping moves to
   `followups.d/` or a decision note first.
-- **H4 Size and secrets** *(desk defaults, not asked separately; the owner can veto either)*. 5 MB cap
-  per folder; any single file over 1 MB needs a reason line in HANDOFF.md. Never an environment value
-  or a key. GitHub secret scanning is the backstop.
-- **H5 One source** *(desk proposal; the owner can veto it)*. The PR's living handoff comment becomes a short summary that `npm run card`
-  generates from HANDOFF.md, so a session updates one thing.
+- **H4 Size and secrets** *(the numbers are desk defaults; the owner can veto them)*. At most 5 MB per
+  folder and 1 MB per binary file; a text file over 1 MB needs a reason line. Never an environment
+  value, key or token. GitHub secret scanning is the backstop.
+- **H5 One source** *(desk proposal; the owner can veto it)*. The PR's living handoff comment becomes
+  a short summary that `npm run card` generates from HANDOFF.md, so a session updates one thing.
+- **H6 Artifacts and shape.** `artifacts/` has the subfolders `decks/`, `css/`, `recipes/`,
+  `prototypes/`, `tools/`, `measurements/`, plus `LINKS.md`. HANDOFF.md's front matter carries the
+  owner session, branch, PR, status, updated time and budget used; its sections are Where it stands
+  (with SHAs), Open questions (full context, the owner's earlier words quoted exactly, options and a
+  recommendation), Next steps in order, Gotchas met, and Do not. Small text is always committed;
+  PDFs and large images are linked in `LINKS.md`, never committed; anything binary has a size cap;
+  no tokens or secrets. A handoff is distinct from a follow-up (§Not `followups.d/`).
+- **H7 Update in place.** One handoff per line of work for its whole life. At each usage checkpoint
+  (25, 50, 75 and 90%) the session rewrites the same HANDOFF.md and adds or replaces files in
+  `artifacts/`, one commit per checkpoint, and never keeps a copy per checkpoint: git history holds
+  the earlier versions. The living PR comment is edited in place, not reposted. Front matter gains
+  `checkpoint:` beside `updated:`. At 90% the session also sets `status: released`, so the next owner
+  can take the branch. The folder is gone by the time the PR merges (H3).
 
 ## Why
 
@@ -82,7 +94,8 @@ and W4 need files next to the code; W5 rules out the one file store each account
 | **A2 How long it lives** | forever · until the next session picks it up · until merge | until merge (H3) |
 | **A3 What enforces the end** | nothing · a new CI job · a hook · a rule inside `build:check` | a rule inside `build:check` (H3) |
 | **A4 How many sources** | comment and folder each hand-written · folder is the source, comment generated | folder is the source (H5) |
-| **A5 What it may hold** | text only (like `followups.d/` evidence) · text plus small images · anything | text plus small images, no PDFs, capped (H4, §Contents) |
+| **A5 What it may hold** | text only (like `followups.d/` evidence) · text plus small images · anything | small text always; PDFs and large images linked; binaries capped (H4, H6) |
+| **A6 How it changes over time** | a copy per checkpoint · one file rewritten in place | rewritten in place; git history keeps the earlier versions (H7) |
 
 ## Rejected options
 
@@ -110,25 +123,46 @@ state on `main`, where every gate that walks the tree then reads it.
 ready PR then have nowhere to write (§Lifecycle, What this costs).
 
 **PR comments only** (#3427 as it stands). Ruled out by the 65,536-character limit and by having no
-files (W2). **claude.ai Artifacts.** Ruled out by W5: each link is private to one account. **GitHub
+files (W2). **claude.ai Artifacts as the store.** Ruled out by W5: each page is private to one account unless it
+is shared. A shared page can still appear as a link in `LINKS.md` (H6). **GitHub
 Actions artifacts.** They need a workflow run to create them and expire after at most 90 days, and
 neither person can attach one from a session without a dispatch.
 
+## Not `followups.d/`
+
+The two folders look alike and do different jobs. The owner saw this table and approved it
+(H6).
+
+| | `followups.d/` | `handoffs.d/` |
+|---|---|---|
+| **What it records** | one piece of work **not being done now**: deferred, blocked or off the path | work **in flight** that the next session picks up and continues |
+| **Shape** | one small Markdown file (plus an optional text-only evidence folder) | a folder: `HANDOFF.md` plus `artifacts/` |
+| **Who reads it** | whoever triages the backlog, someday | the next session, right away, starting cold |
+| **Where it lives** | on `main`, until it is done or becomes an issue | on the work branch only, removed before merge |
+| **Lifetime** | weeks or months | hours to days |
+| **Required field** | `deferred: large \| blocked \| off-path` | owner session, branch, status, budget used |
+| **Checked by** | `checkFollowups` in `build:check` | `checkHandoffs` in `build:check` (§The `build:check` rule) |
+
+In short: a follow-up says "this was left for later"; a handoff says "here is everything needed to
+continue this now". At close (§Lifecycle), anything in a handoff that will not be done in this PR
+becomes a follow-up.
+
 ## The contract
 
-### Layout
+### Layout (H6)
 
 ```
 handoffs.d/
   <slug>/
-    HANDOFF.md
+    HANDOFF.md            the one file a new session reads first
     artifacts/
-      README.md          optional: one line per file if HANDOFF.md's index gets long
-      candidates.json
-      study-gallery.md
-      round-6-judge-packet.md
-      route-budget.tsv
-      cover-a.png
+      decks/              source .md decks the work used or a judge scored
+      css/                the CSS as last tried
+      recipes/            config and JSON, e.g. candidates.json
+      prototypes/         HTML mockups shown to the owner
+      tools/              scripts that built the evidence
+      measurements/       CSV and other tables
+      LINKS.md            PDFs and large images: links, never the files
 ```
 
 - **`<slug>` is the work branch's name with a leading `claude/` removed and every other `/`
@@ -138,82 +172,107 @@ handoffs.d/
   `gh-readonly-queue/…`, so CI never sees the branch name in the tree. The slug only helps a reader.
 - **One folder per branch.** A tree with two folders under `handoffs.d/` is an error: it means one
   line of work merged another's branch.
+- **Subfolders are created when needed.** An empty one is not committed. Files go only in these six
+  subfolders and `LINKS.md`, so a reader always knows where to look.
 
-### HANDOFF.md
+### HANDOFF.md (H6, H7)
 
-Front matter that tools read, then fixed sections that people read.
+Front matter that tools read, then fixed sections that people read, in this order.
 
 ```markdown
 ---
-line: presets-wave-1
-pr: 3401
-status: active            # active | parked (baton released) | closing (items being moved out)
-owners:
-  - John Luke Picard · session_01…
-  - James Tiberius Kirk · session_015…
-budget: 3 of 4 agent runs (Opus)
+owner: John Luke Picard · session_01…      # the session holding the line of work now
+branch: claude/presets-wave-1
+pr: 3401                                    # or: none yet
+status: active                              # active | released | closing
+checkpoint: 50%                             # the last usage checkpoint written: 25%, 50%, 75% or 90%
 updated: 2026-11-23T18:40:00Z
-head: 0b81839
+budget: 3 of 4 agent runs (Opus)
 ---
 
-# Presets Wave 1
-
-## 🎯 Brief
-(the fenced 🎯 continuation card, workflow.md §The continuation brief)
+## Where it stands
+Commits and what each holds (ed32c33, ae181a0). Terms the work coined, defined here: G2 is …,
+G3 is …, G4 is …
 
 ## Open questions
 ### Q1 Does G3 cover the dark cover slide?
-Context: …, with the measurements and the options considered.
+Context: the measurements (artifacts/measurements/contrast-round1.csv) and what was tried.
 > "keep the cover as quiet as the agenda slide" (the owner, 2026-11-21, session_01…)
-Recommendation and default if silent: …
+Options: A … B … Recommendation: … Default if silent: …
 
-## Gaps and definitions
-- **G2** — …  **G3** — …  **G4** — …
+## Next steps, in order
+1. …
+2. …
 
-## Agent budget
-| Session | Agent | Effort | Why |
-|---|---|---|---|
-
-## Gotchas and know-how
+## Gotchas met
 - Route budget: …
 - Export byte-diff method: …
 - `marp-cli` is pinned at …; install it with …
 - Firefox fails in the sandbox only because …
 
-## Artifacts
-| File | What it is | Made by | At commit |
-|---|---|---|---|
-| `artifacts/candidates.json` | the round-6 recipes | `node …` | `0b81839` |
+## Do not
+- Push to claude/… (another session's branch, HARD RULE #31).
 ```
 
-Each section answers one of W1 to W4: **Gaps and definitions** is W1, **Artifacts** (with how each
-file was made and at which commit) is W2, **Agent budget** is W3 (one row per run, so the count is a
-sum, not a memory), and **Gotchas and know-how** is W4. **Open questions** keeps the owner's words
-exactly, in quotes, with date and session, because a paraphrase of an owner decision is how a later
-session re-asks a settled point (CLAUDE.md DEFAULT OPERATING MODE #3). An exact quote is an external
-string under `engineering/house-style.md` §1, so the US-English audit must not rewrite it; slice 2
-checks that the audit and the typed-glyph census leave quoted lines alone.
+The sections map onto what went missing in §Why. **Where it stands** defines the work's own terms
+(W1). The **artifacts** subfolders hold what a reclaimed sandbox lost (W2): each `tools/` script
+names in its header what it produced and at which commit, and each `measurements/` table carries
+the commit it was measured at. **`budget:`** is one running total the holder updates at each agent
+run, so there is one number, not two memories (W3). **Gotchas met** is the know-how (W4).
+**Open questions** keeps the owner's words exactly, in quotes, with date and session, because a
+paraphrase of an owner decision is how a later session re-asks a settled point (CLAUDE.md DEFAULT
+OPERATING MODE #3). An exact quote is an external string under `engineering/house-style.md` §1, so
+the US-English audit must not rewrite it; slice 2 checks that the audit and the typed-glyph census
+leave quoted lines alone. **Do not** names what a cold reader would otherwise get wrong, starting
+with branches other sessions own.
 
 **The repository is public, and so is every branch.** The owner's quoted words become public. Quote
 only what the owner said in a session about the work, never anything marked private, and never
 personal details.
 
-### Contents and limits (H4, desk defaults)
+### Worked example: presets Wave 1
 
-- **5 MB per folder**, counted over every file under `handoffs.d/<slug>/`.
-- **A file over 1 MB needs a reason line** in HANDOFF.md's Artifacts table (`reason: …` in its row).
-- **Text plus small images.** Recipes, JSON, Markdown, TSV/CSV tables, scripts, and PNG, WebP or JPEG
-  renders. **No PDFs:** `checkCommittedPdfs` already fails on a PDF no `PDF_OWNERSHIP` rule claims,
-  and pull requests never commit PDFs (CLAUDE.md, cloud sandbox section). CI renders the PR's decks;
-  a render worth keeping in the folder is a PNG of the slide in question. No archives and no symbolic
-  links, as in `followups.d/` evidence folders.
-- **Never a secret.** No environment variable values, no keys or tokens, no `.env` contents, no
-  claude.ai links (W5: they do not open for the other person anyway). GitHub secret scanning is the
-  backstop, not the check: it runs after the push, when the secret is already public.
+The example the owner approved (H6), with the Wave 1 names as they were relayed. Slice 1 commits a
+filled-in version as the test fixture.
+
+```
+handoffs.d/presets-wave-1/
+  HANDOFF.md
+  artifacts/
+    decks/wave1-sample.md            the source deck the judges scored
+    css/earnings.css                 the preset as last tried
+    css/museum-cuoio.css
+    recipes/candidates.json          the exact looks that scored 8.5 and up (lost last time)
+    prototypes/cover-sizes.html      the G4 mockup shown to the owner
+    tools/judge-packet.mjs           the script that builds a judge packet
+    measurements/contrast-round1.csv tone ramp 1.4 to 2.9:1 on pies and bars
+    LINKS.md                         CI-render links to the round's PDFs
+```
+
+### Contents and limits (H4, H6)
+
+- **Always commit small text** (H6): source decks, CSS, HTML prototypes, tool scripts, recipe and
+  config JSON, measurement tables, Markdown notes.
+- **PDFs and large images are linked, never committed** (H6, HARD RULE #9): `checkCommittedPdfs`
+  already fails on a PDF no `PDF_OWNERSHIP` rule claims, and pull requests never commit PDFs
+  (CLAUDE.md, cloud sandbox section). The link goes in `artifacts/LINKS.md`, one line each: what it
+  is, the URL, and the commit it shows. **A link must open for both people.** A CI-render link on the
+  PR always does, since the repository is public. A claude.ai Artifact page opens for the other
+  person only if it was shared with them (W5), so `LINKS.md` says which it is, and a CI link is
+  preferred when both exist.
+- **A size cap on anything binary** (H6; the numbers are desk defaults, H4): a binary file (a PNG,
+  WebP or JPEG screenshot) is at most **1 MB**; anything larger is linked. The whole folder is at most
+  **5 MB**. A text file over 1 MB needs a reason line in HANDOFF.md under Gotchas met. No archives and
+  no symbolic links, as in `followups.d/` evidence folders. A file is binary when its first 8 KB hold
+  a NUL byte, the test `followups.d/` evidence folders already use.
+- **Never a secret** (H6 scrub rule): no environment variable values, no keys or tokens, no `.env`
+  contents. GitHub secret scanning is the backstop, not the check: it runs after the push, when the
+  secret is already public.
 - **Nothing for an unfixed vulnerability**, by the same rule as `followups.d/` evidence folders.
 - **Every gate that reads the tree reads it**, as for `followups.d/` evidence: a script passes Biome,
   prose passes the US-English audit. Slice 2 lists which gates walk the folder and fixes any that
-  would misfire on it (for example a deck-shaped `.md` picked up by `lint:deck:all`).
+  would misfire on it (a deck in `decks/` picked up by `lint:deck:all`, CSS in `css/` read by an
+  ownership arm that walks `*.css`).
 
 The cost to the repository is bounded: the folder never reaches `main`, and a squash merge keeps only
 the final tree, so clones of `main` never fetch it. That depends on the merge queue's
@@ -227,24 +286,34 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
 
 1. **Create** the folder with the first checkpoint of a line of work (#3427 §Relay rule 6): the PR
    opens as a draft, and the folder goes in the same push.
-2. **Update** it at every checkpoint, in the same commit as the work when there is one. The holder
-   writes it; nobody else pushes to the branch (#3427 rule 2).
-3. **Keep it through ready, CI and the raise loop.** The folder stays while the PR is ready, so the
+2. **Update it in place** (H7) at every checkpoint, in the same commit as the work when there is one.
+   The holder writes it; nobody else pushes to the branch (#3427 rule 2). The session rewrites the
+   same HANDOFF.md and adds or replaces files in `artifacts/`. It never keeps a copy per checkpoint
+   (no `HANDOFF-50.md`, no `candidates-v2.json` beside `candidates.json`): git history holds the
+   earlier versions. At the usage checkpoints (25, 50, 75 and 90% of the weekly limit, #3427
+   §Usage checkpoints) the checkpoint is one commit that sets `checkpoint:` and `updated:`, and the
+   living PR comment is edited in place, never reposted.
+3. **Release at 90%.** The session sets `status: released` in the same commit and runs
+   `npm run baton -- release` (#3427 rule 7), so the folder and the baton say the same thing: the
+   branch is free for the next owner. A taker sets `status: active` and its own `owner:` in its first
+   commit.
+4. **Keep it through ready, CI and the raise loop.** The folder stays while the PR is ready, so the
    raise loop's judge packets, measurements and checker results (`workflow.md` §The raise loop) have a
    home, and a taker on a ready PR (#3427 rule 7, or a 75% or 90% budget pause) finds the same folder
    a taker on a draft does. The presence check (below) fails only in the merge queue, so ready-PR CI
    stays green with the folder present.
-4. **Close** it in the last commit before the merge ask: `npm run handoff -- close` (slice 1). It
-   moves nothing on its own. It lists every open question, gap and artifact, and the session moves
+5. **Close** it in the last commit before the merge ask: `npm run handoff -- close` (slice 1). It
+   moves nothing on its own. It sets `status: closing`, lists every open question, next step and
+   artifact, and the session moves
    each item worth keeping into `followups.d/`, a decision note or an issue. Recipes and tables can
    go in a `followups.d/` evidence folder, which takes text only and at most 512 KB
    (`followups.d/README.md` §Evidence folders); a PNG or a larger file stays reachable through the
    permalink instead. Then `close` prints a permalink to the folder at the current head, removes the
    folder with `git rm -r`, and writes the permalink into the living comment.
-5. **Ask to merge** once CI is green on that head. `npm run queue:precheck`, which every merge ask
+6. **Ask to merge** once CI is green on that head. `npm run queue:precheck`, which every merge ask
    already runs (HARD RULE #16), refuses while `handoffs.d/` is in the tree (slice 2), so a session
    cannot reach the ask with the folder still there.
-6. **Reopen** if the PR needs more work after close: the taker parks it (`npm run pr:park`, #3427
+7. **Reopen** if the PR needs more work after close: the taker parks it (`npm run pr:park`, #3427
    rule 7) and restores the folder with `git checkout <permalink-sha> -- handoffs.d/<slug>`.
 
 **What this costs.** The close commit is a new head, so ready-PR CI runs once more on it unless the
@@ -252,17 +321,16 @@ session folds the removal into the last raise-loop fix. The rejected alternative
 before the PR leaves draft, which costs no extra run but leaves the raise loop and any handover on a
 ready PR with nowhere to write, which is the W2 and W4 loss this note exists to stop. Only the owner's
 merge needs the folder gone, and CLAUDE.md DEFAULT OPERATING MODE #7 already makes a new head
-need a fresh ask, so the removal sits
-just before the ask.
+need a fresh ask, so the removal sits just before the ask.
 
 ### One source (H5)
 
 `npm run card -- --living <PR>` reads HANDOFF.md instead of a hand-written YAML card. The living
 comment keeps the `BATON` block that `npm run baton` and `npm run relay` parse (holder, since,
-checkpoint, head, next), then a short summary generated from HANDOFF.md: status, owners, budget, the
-🎯 brief, the open question titles, and a link to `handoffs.d/<slug>/HANDOFF.md` at the head commit.
-The `TRAPS` and `UNVERIFIED` lists that #3427 puts in the comment's `relay:` block move to HANDOFF.md
-sections. `CLAIMS` stay in the comment, copied from HANDOFF.md, because `npm run relay` reads claims
+checkpoint, head, next), then a short summary generated from HANDOFF.md: status, owner, usage
+checkpoint, budget, the 🎯 continuation card built from Next steps, the open question titles, and a
+link to `handoffs.d/<slug>/HANDOFF.md` at the head commit. The `TRAPS` and `UNVERIFIED` lists that
+#3427 puts in the comment's `relay:` block move to HANDOFF.md's Gotchas met and Open questions. `CLAIMS` stay in the comment, copied from HANDOFF.md, because `npm run relay` reads claims
 from the comment to show the board across both accounts.
 
 Two cases where the pushed HANDOFF.md is not enough, and what the comment carries then:
@@ -290,9 +358,11 @@ dispatches them on a work branch (`workflow.md` documents branch dispatches, and
 platform dispatch as a checkpoint). A rule that failed whenever `handoffs.d/` exists would block every
 checkpoint push and every one of those runs, which is the opposite of H2.
 
-- **Shape: always an error**, locally and in CI. At most one folder; a HANDOFF.md with the front
-  matter above; total under 5 MB; a reason line for any file over 1 MB; no PDF, archive or symbolic
-  link.
+- **Shape: always an error**, locally and in CI. At most one folder; a HANDOFF.md whose front matter
+  has `owner`, `branch`, `pr`, `status` (one of `active`, `released`, `closing`), `updated` and
+  `budget`, and `checkpoint` (one of `25%`, `50%`, `75%`, `90%`) when present; files only in the six
+  `artifacts/` subfolders and `LINKS.md`; total under 5 MB; no binary file over 1 MB; a reason line
+  for any text file over 1 MB; no PDF, archive or symbolic link.
 - **Presence: an error only in the merge queue**, when `GITHUB_EVENT_NAME` is `merge_group`. The
   queue's run tests the exact tree that lands, so this is the one place the folder is certainly headed
   for `main`. Every other run, a ready PR's `pull_request` run included, prints a notice and passes.
@@ -323,8 +393,10 @@ handoffs.d/<slug>/ present (fine on a work branch). Close it before the merge as
 One PR, one commit per slice (`workflow.md` §Batch a session's slices).
 
 1. **Tool: `tools/handoff.js`, `npm run handoff`.** `init` writes the skeleton for the current
-   branch; `check` reports shape problems (the function the gate calls); `close` runs §Lifecycle step
-   4. Unit tests cover each shape problem. Reuse `tools/followups.js` for the evidence-folder move and
+   branch; `checkpoint <25|50|75|90>` rewrites the front matter in place (and at 90 sets
+   `status: released`); `check` reports shape problems (the function the gate calls); `close` runs
+   §Lifecycle step 5. Unit tests cover each shape problem, against a fixture filled in from the
+   presets Wave 1 example (§Worked example), which `handoffs.d/README.md` also shows. Reuse `tools/followups.js` for the evidence-folder move and
    `tools/card.js` for the 🎯 card. Check `dist/engineering/capabilities.md` first (HARD RULE #15).
 2. **Gate: `checkHandoffs` with a failing arm, and the precheck refusal.** Add the arm and a unit test
    that proves each kind can fail (HARD RULE #34): a fixture tree with a folder and
