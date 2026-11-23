@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Squadra library's consumable dist/ — the ESM + CJS entry and type declarations that
+ * Build the Squadra library's consumable dist/ — the ESM entry and type declarations that
  * let ROOT CJS `require('@laticent/squadra')` and a plain Node-ESM or bundler consumer
  * `import` it, from `.` (the whole library), `./driver` (the fix path alone) or `./markdown`
  * (the reference Markdown language) or `./runtime` (the browser entry,

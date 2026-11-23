@@ -17,29 +17,17 @@
   "sideEffects": false,
   "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.mjs",
   "exports": {
     ".": {
       "@laticent/source": "./index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
     },
     "./radial": {
       "@laticent/source": "./radial.ts",
-      "import": {
-        "types": "./dist/radial.d.ts",
-        "default": "./dist/radial.mjs"
-      },
-      "require": {
-        "types": "./dist/radial.d.ts",
-        "default": "./dist/radial.cjs"
-      }
+      "types": "./dist/radial.d.ts",
+      "default": "./dist/radial.mjs"
     },
     "./package.json": "./package.json"
   },

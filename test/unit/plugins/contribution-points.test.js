@@ -97,7 +97,7 @@ describe('contributes.inline', () => {
     expectError([plugin('a', { inline: { k: { sigil: '^' } } }, { detect: false })], /contributes an inline kind but its syntax module exports no detect/);
   });
   test('the copied tag list matches Segno\'s', () => {
-    const { TAGS } = require('../../../docs/src/lib/segno/dist/read.cjs');
+    const { TAGS } = require('../../../docs/src/lib/segno/dist/read.mjs');
     if (TAGS) assert.deepEqual([...INLINE_TAGS].sort(), [...TAGS].sort());
     const src = require('node:fs').readFileSync(require.resolve('../../../docs/src/lib/segno/notation-grammar.ts'), 'utf8');
     const m = /export const TAGS = '([^']*)'/.exec(src);

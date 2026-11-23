@@ -12,7 +12,7 @@ const path = require('node:path');
 const calco = require('@laticent/calco');
 const { skipUnlessCI } = require('../../helpers/chrome');
 
-const DIST = path.join(__dirname, '../../../docs/src/lib/calco/dist/index.cjs');
+const DIST = path.join(__dirname, '../../../docs/src/lib/calco/dist/index.mjs');
 
 // The functions a headless page receives as source.
 const SHIPPED = [calco.readSlide, calco.restoreSlide, calco.splitSlide, calco.restoreSplit, calco.splitKey, calco.isContinuousTone, calco.describeBackground, calco.readsBackdrop, calco.splitError, calco.cropPictures, calco.logoKey, calco.resolvePalette];

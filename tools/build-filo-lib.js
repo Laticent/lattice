@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Filo library's consumable dist/ — the ESM + CJS entry + type declarations that
+ * Build the Filo library's consumable dist/ — the ESM entry + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-27-filo-undo-history.md §8).
  *   docs/src/lib/filo/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
  * Veduta's recipe (tools/build-veduta-lib.js) with ONE entrypoint: Filo is a framework-free,

@@ -98,7 +98,8 @@ const oneMarkdownItPlugin = {
 };
 
 // ONE copy of each workspace library, for the same reason as markdown-it above. `@laticent/markup`, `@laticent/segno`
-// and the rest ship `require` (dist/index.cjs) and `import` (dist/index.mjs) builds; lib/authoring/lint-core.js
+// and the rest once shipped `require` (dist/index.cjs) and `import` (dist/index.mjs) builds (ES modules only since
+// 2026-11-23, so this plugin is now a guard that a CommonJS build can never come back); lib/authoring/lint-core.js
 // `require`s markup while lib/diagnostics/slice-equivalence-core.mjs `import`s it, and esbuild honored each condition,
 // so the lint chunk carried a second section walker beside the engine's. Every bare `@laticent/*` specifier now
 // resolves as an import would; esbuild hands an ESM module's exports to a `require` call.

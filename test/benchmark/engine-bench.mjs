@@ -633,7 +633,7 @@ async function flowchartTier() {
   // Trama's built kernel (the graph-chart library), or, on a tree from before Trama, the
   // kernel's old home in the chart family, so a base arm cut from an older main still runs.
   const kernelPath = [
-    join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
+    join(ROOT, 'docs/src/lib/trama/dist/index.mjs'),
     join(ROOT, 'lib/plugins/chart-family/shared/graph-layout.js'),
   ].find((p) => existsSync(p));
   if (!kernelPath) return { summary: [] };
@@ -715,7 +715,7 @@ async function collageTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
   const packPath = join(ROOT, 'lib/components/imagery/collage/collage.pack.js');
-  const libPath = join(ROOT, 'docs/src/lib/mosaico/dist/index.cjs');
+  const libPath = join(ROOT, 'docs/src/lib/mosaico/dist/index.mjs');
   if (!existsSync(packPath) || !existsSync(libPath)) {
     console.log('\n=== COLLAGE PACK \u00b7 not comparable (no @laticent/mosaico in this tree) ===');
     return { summary: [] };
@@ -763,7 +763,7 @@ const SPLIT_SIZES = ['square', 'portrait', 'mobile'];
 async function splitTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
-  const fluidoPath = join(ROOT, 'docs/src/lib/fluido/dist/index.cjs');
+  const fluidoPath = join(ROOT, 'docs/src/lib/fluido/dist/index.mjs');
   if (!existsSync(fluidoPath)) {
     console.log('\n=== SPLIT \u00b7 not comparable (no @laticent/fluido in this tree) ===');
     return { summary: [] };
@@ -829,7 +829,7 @@ function timeRuns(n, fn) {
   return median(out);
 }
 async function filoTier() {
-  const libPath = join(ROOT, 'docs/src/lib/filo/dist/index.cjs');
+  const libPath = join(ROOT, 'docs/src/lib/filo/dist/index.mjs');
   if (!existsSync(libPath) || !existsSync(FILO_DECK)) {
     console.log('\n=== FILO · not comparable (no built @laticent/filo, or no deck, in this tree) ===');
     return { summary: [] };

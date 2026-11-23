@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Veduta library's consumable dist/ — the ESM + CJS entry + type declarations that
+ * Build the Veduta library's consumable dist/ — the ESM entry + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-16-preview-as-library-audit.md).
  *   docs/src/lib/veduta/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
  * Fuoco's recipe (tools/build-fuoco-lib.js) with ONE entrypoint: Veduta is a framework-free,

@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * Build the LTT library's consumable dist/ — the ESM entry + the CJS entry + type
+ * Build the LTT library's consumable dist/ — the ESM entry + type
  * declarations that let ROOT CJS `require('@laticent/ltt')` AND a plain Node-ESM /
  * bundler consumer `import '@laticent/ltt'`.
  *
  *   docs/src/lib/ltt/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/ltt/dist/index.mjs   (bundled ESM, esbuild)
- *     →  docs/src/lib/ltt/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/ltt/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: the LTT format package ships the library-shape recipe its siblings use
  * (2026-07-08-library-shape-cadenza-vetrina.md): a per-lib package.json whose `exports`
- * map sends `require` to dist/index.cjs and `import` to dist/index.mjs. The docs runtime
+ * map sends every consumer, `import` and `require` alike, to dist/index.mjs (ES modules only since 2026-11-23). The docs runtime
  * does not read this dist/: the docs, Vitest and Cadenza's own build all resolve
  * `@laticent/ltt` to the TS SOURCE through an alias (see tools/build-cadenza-lib.js), so
  * this build has no ordering dependency on anything. What reads it is root CJS — the

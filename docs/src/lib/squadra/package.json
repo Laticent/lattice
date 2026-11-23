@@ -17,51 +17,27 @@
   "sideEffects": false,
   "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.mjs",
   "exports": {
     ".": {
       "@laticent/source": "./index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
     },
     "./driver": {
       "@laticent/source": "./driver.ts",
-      "import": {
-        "types": "./dist/driver.d.ts",
-        "default": "./dist/driver.mjs"
-      },
-      "require": {
-        "types": "./dist/driver.d.ts",
-        "default": "./dist/driver.cjs"
-      }
+      "types": "./dist/driver.d.ts",
+      "default": "./dist/driver.mjs"
     },
     "./markdown": {
       "@laticent/source": "./markdown.ts",
-      "import": {
-        "types": "./dist/markdown.d.ts",
-        "default": "./dist/markdown.mjs"
-      },
-      "require": {
-        "types": "./dist/markdown.d.ts",
-        "default": "./dist/markdown.cjs"
-      }
+      "types": "./dist/markdown.d.ts",
+      "default": "./dist/markdown.mjs"
     },
     "./runtime": {
       "@laticent/source": "./runtime.ts",
-      "import": {
-        "types": "./dist/runtime.d.ts",
-        "default": "./dist/runtime.mjs"
-      },
-      "require": {
-        "types": "./dist/runtime.d.ts",
-        "default": "./dist/runtime.cjs"
-      }
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.mjs"
     },
     "./package.json": "./package.json"
   },

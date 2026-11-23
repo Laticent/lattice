@@ -17,7 +17,7 @@
   "sideEffects": false,
   "types": "./dist/index.d.ts",
   "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.mjs",
   "peerDependencies": {
     "react": ">=18"
   },
@@ -29,25 +29,13 @@
   "exports": {
     ".": {
       "@laticent/source": "./index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
     },
     "./react": {
       "@laticent/source": "./react.ts",
-      "import": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.mjs"
-      },
-      "require": {
-        "types": "./dist/react.d.ts",
-        "default": "./dist/react.cjs"
-      }
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.mjs"
     },
     "./package.json": "./package.json"
   },

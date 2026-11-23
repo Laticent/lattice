@@ -40,6 +40,9 @@ const PACKAGES = {
 	trama: ['.', './radial'],
 	calco: ['.'],
 	tavola: ['.', './trystero'],
+	markup: ['.'],
+	lastra: ['.', './decode'],
+	'segno-markdown': ['.'],
 };
 const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
 // A consumer's own strict settings. `skipLibCheck` skips only `.d.ts`, so while `types` pointed at
@@ -53,40 +56,72 @@ function pack(dir, into) {
 	return path.join(into, out.trim().split('\n').pop());
 }
 
+/** Pack every library, unpack it into a scratch consumer's node_modules as an install would, and
+ *  return the consumer folder with each entry's specifier and a safe identifier. */
+function packedConsumer(tmp) {
+	const consumer = path.join(tmp, 'consumer');
+	fs.mkdirSync(path.join(consumer, 'node_modules', '@laticent'), { recursive: true });
+	const entries = [];
+	for (const name of Object.keys(PACKAGES)) {
+		const tgz = pack(path.join(LIB, name), tmp);
+		const dest = path.join(consumer, 'node_modules', '@laticent', name);
+		fs.mkdirSync(dest, { recursive: true });
+		execFileSync('tar', ['-xzf', tgz, '-C', dest, '--strip-components=1']);
+		for (const entry of PACKAGES[name]) {
+			entries.push({
+				id: `${name}${entry === '.' ? '' : entry}`.replace(/\W/g, '_'),
+				spec: entry === '.' ? `@laticent/${name}` : `@laticent/${name}/${entry.slice(2)}`,
+			});
+		}
+	}
+	for (const dep of PEER_TYPES) fs.cpSync(path.join(ROOT, 'node_modules', dep), path.join(consumer, 'node_modules', dep), { recursive: true });
+	return { consumer, entries };
+}
+
+/** Typecheck one consumer source under nodenext and the strictest settings; '' when clean. */
+function typecheck(consumer, type, source) {
+	fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ name: 'consumer', private: true, type }));
+	fs.writeFileSync(path.join(consumer, 'index.ts'), source);
+	fs.writeFileSync(
+		path.join(consumer, 'tsconfig.json'),
+		JSON.stringify({
+			compilerOptions: { module: 'nodenext', moduleResolution: 'nodenext', target: 'es2022', lib: ['es2022', 'dom'], strict: true, ...STRICTEST, noEmit: true, skipLibCheck: true, types: [] },
+			files: ['index.ts'],
+		}),
+	);
+	try {
+		return execFileSync(process.execPath, [TSC, '-p', consumer], { encoding: 'utf8' }).trim();
+	} catch (e) {
+		return `${e.stdout || ''}${e.stderr || ''}`.trim();
+	}
+}
+
+// THE SAME LIBRARIES, FROM A COMMONJS TYPESCRIPT PROJECT. The libraries are ES modules only
+// (owner ruling 2026-11-23, engineering/decisions/2026-10-07-first-npm-release.md §9), so a
+// CommonJS consumer loads them through Node's `require(esm)`, which our engines floor (>=22.13)
+// has, and TypeScript types that under `module: nodenext`. While each library also shipped a
+// CommonJS copy typed with the ES build's `.d.ts`, this consumer failed with TS1471 on every
+// library. Under `module: node16` TypeScript refuses `require` of an ES module (TS1479) by
+// design: Node 16 could not do it, and Node 16 is below our floor.
+test('every library typechecks from a CommonJS nodenext consumer through require(esm)', { timeout: 180000 }, () => {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nodenext-cjs-'));
+	try {
+		const { consumer, entries } = packedConsumer(tmp);
+		const source = entries.map(({ id, spec }) => `import ${id} = require('${spec}');\nexport const ${id}Keys = Object.keys(${id});`).join('\n');
+		const output = typecheck(consumer, 'commonjs', `${source}\n`);
+		assert.equal(output, '', `a CommonJS nodenext consumer cannot typecheck the published libraries:\n${output.split('\n').slice(0, 30).join('\n')}`);
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+});
+
 test('every library typechecks in a nodenext consumer, from its packed tarball', { timeout: 180000 }, () => {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nodenext-'));
 	try {
-		const consumer = path.join(tmp, 'consumer');
-		fs.mkdirSync(path.join(consumer, 'node_modules', '@laticent'), { recursive: true });
-		const imports = [];
-		for (const name of Object.keys(PACKAGES)) {
-			const tgz = pack(path.join(LIB, name), tmp);
-			const dest = path.join(consumer, 'node_modules', '@laticent', name);
-			fs.mkdirSync(dest, { recursive: true });
-			execFileSync('tar', ['-xzf', tgz, '-C', dest, '--strip-components=1']);
-			for (const entry of PACKAGES[name]) {
-				const id = `${name}${entry === '.' ? '' : entry.replace(/\W/g, '_')}`;
-				const spec = entry === '.' ? `@laticent/${name}` : `@laticent/${name}/${entry.slice(2)}`;
-				imports.push(`import * as ${id} from '${spec}';`, `export const ${id}Keys = Object.keys(${id});`);
-			}
-		}
-		for (const dep of PEER_TYPES) fs.cpSync(path.join(ROOT, 'node_modules', dep), path.join(consumer, 'node_modules', dep), { recursive: true });
-		fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ name: 'consumer', private: true, type: 'module' }));
-		fs.writeFileSync(path.join(consumer, 'index.ts'), `${imports.join('\n')}\n`);
-		fs.writeFileSync(
-			path.join(consumer, 'tsconfig.json'),
-			JSON.stringify({
-				compilerOptions: { module: 'nodenext', moduleResolution: 'nodenext', target: 'es2022', lib: ['es2022', 'dom'], strict: true, ...STRICTEST, noEmit: true, skipLibCheck: true, types: [] },
-				files: ['index.ts'],
-			}),
-		);
-		let output = '';
-		try {
-			output = execFileSync(process.execPath, [TSC, '-p', consumer], { encoding: 'utf8' });
-		} catch (e) {
-			output = `${e.stdout || ''}${e.stderr || ''}`;
-		}
-		assert.equal(output.trim(), '', `a nodenext consumer cannot typecheck the published libraries:\n${output.split('\n').slice(0, 30).join('\n')}`);
+		const { consumer, entries } = packedConsumer(tmp);
+		const source = entries.map(({ id, spec }) => `import * as ${id} from '${spec}';\nexport const ${id}Keys = Object.keys(${id});`).join('\n');
+		const output = typecheck(consumer, 'module', `${source}\n`);
+		assert.equal(output, '', `a nodenext consumer cannot typecheck the published libraries:\n${output.split('\n').slice(0, 30).join('\n')}`);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}

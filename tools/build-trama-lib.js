@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build the Trama library's consumable dist/: the ESM and CJS entries and the type
+ * Build the Trama library's consumable dist/: the ESM entries and the type
  * declarations that let the engine `require('@laticent/trama')` and a plain Node-ESM or
  * bundler consumer `import` it.
  *
  *   docs/src/lib/trama/*.ts  (source, strict TypeScript)
  *     ->  docs/src/lib/trama/dist/index.mjs   (bundled ESM, esbuild)
- *     ->  docs/src/lib/trama/dist/index.cjs   (bundled CJS, esbuild)
  *     ->  docs/src/lib/trama/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: Trama is the graph-chart library (engineering/decisions/

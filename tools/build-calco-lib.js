@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build the Calco library's consumable dist/: the ESM and CJS entries and the type
+ * Build the Calco library's consumable dist/: the ESM entries and the type
  * declarations that let the CLI `require('@laticent/calco')` and a plain Node-ESM or
  * bundler consumer `import` it.
  *
  *   docs/src/lib/calco/*.ts  (source, strict TypeScript)
  *     ->  docs/src/lib/calco/dist/index.mjs   (bundled ESM, esbuild)
- *     ->  docs/src/lib/calco/dist/index.cjs   (bundled CJS, esbuild)
  *     ->  docs/src/lib/calco/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: Calco is the office-export library (engineering/decisions/

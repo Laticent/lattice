@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Markup library's consumable dist/: the ESM entry, the CJS entry and type declarations.
+ * Build the Markup library's consumable dist/: the ESM entry and type declarations.
  *
  *   docs/src/lib/markup/*.ts  →  docs/src/lib/markup/dist/index.{mjs,cjs,d.ts}
  *

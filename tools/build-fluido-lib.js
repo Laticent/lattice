@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Fluido library's consumable dist/ — the ESM + CJS entry and type declarations that
+ * Build the Fluido library's consumable dist/ — the ESM entry and type declarations that
  * let ROOT CJS `require('@laticent/fluido')` (the split kernels) and a plain Node-ESM or
  * bundler consumer `import` it (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).
  *   docs/src/lib/fluido/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts

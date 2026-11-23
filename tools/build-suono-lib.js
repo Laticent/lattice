@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 /**
- * Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type
+ * Build the Suono library's consumable dist/ — the ESM entry + type
  * declarations that let ROOT CJS `require('@laticent/suono')` AND a plain Node-ESM /
  * bundler consumer `import '@laticent/suono'`.
  *
  *   docs/src/lib/suono/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/suono/dist/index.mjs   (bundled ESM, esbuild)
- *     →  docs/src/lib/suono/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/suono/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: Suono ships the library-shape recipe from 2026-07-08-library-shape-cadenza-vetrina.md
  * (the packaging follow-up named in 2026-07-12-suono-audio-library.md §8): a per-lib
- * package.json whose `exports` map sends `require` to dist/index.cjs and `import` to
- * dist/index.mjs. The docs runtime is unaffected because docs + Vitest import the TS SOURCE
+ * package.json whose `exports` map sends every consumer, `import` and `require` alike, to dist/index.mjs (ES modules only since 2026-11-23). The docs runtime is unaffected because docs + Vitest import the TS SOURCE
  * through the `@/lib/*` path ALIAS (not the package name), so these dist artifacts are only
  * what an external consumer / npm publish resolves. The `import` condition used to point at
  * raw ./index.ts, which crashed a plain Node-ESM consumer with ERR_UNKNOWN_FILE_EXTENSION —

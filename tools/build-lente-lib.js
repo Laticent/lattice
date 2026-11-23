@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * Build the Lente library's consumable dist/ — the ESM + CJS entries + type
+ * Build the Lente library's consumable dist/ — the ESM entries + type
  * declarations that let ROOT CJS `require('@laticent/lente')` AND a plain
  * Node-ESM / bundler consumer `import '@laticent/lente'`.
  *
  *   docs/src/lib/lente/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/lente/dist/index.mjs   (bundled ESM, esbuild)
- *     →  docs/src/lib/lente/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/lente/dist/*.d.ts      (declarations, tsc)
  *
- * WHY: Lente's package.json already declares `main`/`require` → ./dist/index.cjs
+ * WHY: Lente's package.json already declares `main` → ./dist/index.mjs
  * and it is an npm-workspace member, but no build ever produced that dist/ — so
  * `require('@laticent/lente')` (and any npm publish) resolves a missing file.
  * This completes the library-shape recipe the Lente ADR always called for
  * (2026-07-13-lente-reader-lenses.md, following 2026-07-08-library-shape-cadenza-vetrina.md):
- * the `exports` map sends `require` → dist/index.cjs and `import` → dist/index.mjs. Vitest
+ * the `exports` map sends every consumer, `import` and `require` alike, to dist/index.mjs (ES modules only since 2026-11-23). Vitest
  * imports the TS SOURCE. The docs SITE does not: `@/lib/lente` is a directory import, and Vite
  * resolves it through this package's `module` field, so the Studio bundles dist/index.mjs, and a
  * source edit reaches the built site only after this build runs (`npm run build` runs it, and `npm install` through `prepare`; a

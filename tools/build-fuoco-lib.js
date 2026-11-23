@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Fuoco library's consumable dist/ — the ESM + CJS entries + type declarations that
+ * Build the Fuoco library's consumable dist/ — the ESM entries + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-15-fuoco-focus-sync.md).
  *   docs/src/lib/fuoco/*.ts  →  dist/index.{mjs,cjs} + dist/react.{mjs,cjs} + dist/*.d.ts
  * Vetrina's recipe (tools/build-vetrina-lib.js): two entrypoints, the framework-free core (`.`)

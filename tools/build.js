@@ -97,29 +97,29 @@ const STEPS = [
   // committed source, so it is a PR-owned step of its own that runs first; the dist step only
   // verifies it is fresh and writes nothing outside dist/.
   { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
-  { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
+  { label: 'Segno library dist (ESM + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
   // Markup, balanced-HTML string walking: the engine's transformers and the code plugin require it for the
   // code-line split, so it builds before anything that bundles lib/.
-  { label: 'Markup library dist (ESM + CJS + .d.ts)', script: 'build-markup-lib.js', uncommitted: true },
+  { label: 'Markup library dist (ESM + .d.ts)', script: 'build-markup-lib.js', uncommitted: true },
   // Segno-markdown, the deck model (2026-10-22-segno-deck-pipeline.md P2): lib/core/slide-boundaries.mjs and
   // lib/core/section-source-split.js read every slide boundary through it, so it builds before anything that
   // loads lib/core.
-  { label: 'Segno-markdown library dist (ESM + CJS + .d.ts)', script: 'build-segno-markdown-lib.js', uncommitted: true },
+  { label: 'Segno-markdown library dist (ESM + .d.ts)', script: 'build-segno-markdown-lib.js', uncommitted: true },
   // Mosaico, the box-packing library (2026-10-16-mosaico-layout-library.md). FOREGROUND and this
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.
-  { label: 'Mosaico library dist (ESM + CJS + .d.ts)', script: 'build-mosaico-lib.js', uncommitted: true },
+  { label: 'Mosaico library dist (ESM + .d.ts)', script: 'build-mosaico-lib.js', uncommitted: true },
   // Lastra, the image library (2026-11-13-image-library.md). FOREGROUND and early for the same reason: the image
   // layout's shape (lib/core/image-dimensions.js, which the transformer registry loads) requires `@laticent/lastra`,
   // and the PDF writer, player-core and CLI bundles inline it through the export spine.
-  { label: 'Lastra library dist (ESM + CJS + .d.ts)', script: 'build-lastra-lib.js', uncommitted: true },
+  { label: 'Lastra library dist (ESM + .d.ts)', script: 'build-lastra-lib.js', uncommitted: true },
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
-  { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
+  { label: 'Fluido library dist (ESM + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
   // Squadra, the lint-and-fix library (2026-10-26-squadra-lint-library.md). FOREGROUND and early for
   // the same reason: lint-core's fix path requires `@laticent/squadra/driver` (lib/authoring/squadra/
   // bridge.js), and the playground, authoring-core and CLI bundles inline it.
-  { label: 'Squadra library dist (ESM + CJS + .d.ts)', script: 'build-squadra-lib.js', uncommitted: true },
+  { label: 'Squadra library dist (ESM + .d.ts)', script: 'build-squadra-lib.js', uncommitted: true },
   // The shipped finish rules, written into base.finish.css from their recipes
   // (portable-packages §3.6). BEFORE lattice.css bundles that file, or a recipe edit would
   // reach the bundle one build late. The full package index runs later, after the catalogs
@@ -212,10 +212,10 @@ const STEPS = [
   // Trama, the graph-chart library (2026-09-27-trama-graph-chart-library.md). FOREGROUND and
   // ahead of the runtime and the emulator, which both bundle `@laticent/trama` from this
   // dist/: as a background step it would be joined only at player-core, far too late.
-  { label: 'Trama library dist (CJS + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
+  { label: 'Trama library dist (ESM + .d.ts)', script: 'build-trama-lib.js', uncommitted: true },
   // Calco, the office-export library (2026-10-06-calco-office-export-library.md). FOREGROUND
   // and ahead of the emulator, which bundles `@laticent/calco` from this dist/.
-  { label: 'Calco library dist (CJS + .d.ts)', script: 'build-calco-lib.js', uncommitted: true },
+  { label: 'Calco library dist (ESM + .d.ts)', script: 'build-calco-lib.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice.js', script: 'build-cli.js', uncommitted: true },
   // The shared PDF writer the CLI injects into its own Chrome (the Studio imports the same
@@ -259,27 +259,26 @@ const STEPS = [
   // Guardrail G1: the LTT JSON Schema is GENERATED from docs/src/lib/ltt/types.ts and
   // committed, so build:check fails when a type changes without it. Reads source only.
   { label: 'LTT JSON Schema (docs/src/lib/ltt/ltt.schema.json)', script: 'build-ltt-schema.js' },
-  { label: 'LTT library dist (CJS + .d.ts)', script: 'build-ltt-lib.js', uncommitted: true },
+  { label: 'LTT library dist (ESM + .d.ts)', script: 'build-ltt-lib.js', uncommitted: true },
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
-  { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
-  { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
+  { label: 'Cadenza library dist (ESM + .d.ts)', script: 'build-cadenza-lib.js', uncommitted: true },
+  { label: 'Vetrina library dist (ESM + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
   // Fuoco is a browser library (the Studio's focus hub); nothing at the root requires it, but it
   // publishes ./dist like its siblings, so it builds like them.
-  { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
-  { label: 'Veduta library dist (ESM + CJS + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
+  { label: 'Fuoco library dist (ESM + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
+  { label: 'Veduta library dist (ESM + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
   // Cenno is a browser library (popovers; the player's chart detail cards); it publishes ./dist like its siblings.
-  { label: 'Cenno library dist (ESM + CJS + .d.ts)', script: 'build-cenno-lib.js', uncommitted: true },
+  { label: 'Cenno library dist (ESM + .d.ts)', script: 'build-cenno-lib.js', uncommitted: true },
   // Cenno has no byte budget; its README carries a per-module size table instead, kept current here.
   { label: 'Cenno size table (README)', script: 'build-cenno-sizes.js' },
-  { label: 'Filo library dist (ESM + CJS + .d.ts)', script: 'build-filo-lib.js', uncommitted: true },
-  // Lente has no root CJS consumer today, but its package.json promises
-  // ./dist/index.cjs (main/require) and it is a workspace member, so it must
-  // build like its siblings or `require('@laticent/lente')` / publish break.
-  { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
-  { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
+  { label: 'Filo library dist (ESM + .d.ts)', script: 'build-filo-lib.js', uncommitted: true },
+  // Lente has no root consumer today, but its package.json promises ./dist/index.mjs
+  // and it is a workspace member, so it must build like its siblings or publish breaks.
+  { label: 'Lente library dist (ESM + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
+  { label: 'Suono library dist (ESM + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
   // Tavola is a browser library (the Studio's live collaboration); nothing at the root
   // requires it, but it publishes ./dist like its siblings, so it builds like them.
-  { label: 'Tavola library dist (ESM + CJS + .d.ts)', script: 'build-tavola-lib.js', uncommitted: true },
+  { label: 'Tavola library dist (ESM + .d.ts)', script: 'build-tavola-lib.js', uncommitted: true },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
@@ -357,11 +356,11 @@ const STEPS = [
 // audited, so parallelizing further risks output collisions this narrow slice
 // avoids by construction).
 const BACKGROUND_LABELS = new Set([
-  'LTT library dist (CJS + .d.ts)',
-  'Cadenza library dist (CJS + .d.ts)',
-  'Vetrina library dist (CJS + .d.ts)',
-  'Lente library dist (CJS + .d.ts)',
-  'Suono library dist (CJS + .d.ts)',
+  'LTT library dist (ESM + .d.ts)',
+  'Cadenza library dist (ESM + .d.ts)',
+  'Vetrina library dist (ESM + .d.ts)',
+  'Lente library dist (ESM + .d.ts)',
+  'Suono library dist (ESM + .d.ts)',
 ]);
 
 // EVERY foreground step that bundles a background step's output in. Whichever
@@ -495,27 +494,27 @@ async function main(argv) {
   // Segno's dist too: the guard loads lint-core, which reads every inline-code directive
   // through `@laticent/segno/read` and `@laticent/segno/values` (Segno phase 2), so without
   // them the guard dies on a require. Every entry lib/ requires is listed, not just the
-  // barrel: a tree built before an entry existed has index.cjs and lacks the new one.
+  // barrel: a tree built before an entry existed has index.mjs and lacks the new one.
   const GUARD_INPUTS = [
     'dist/lattice.css',
     'docs/src/playground/player-core.generated.js',
-    'docs/src/lib/segno/dist/index.cjs',
-    'docs/src/lib/segno/dist/read.cjs',
-    'docs/src/lib/segno/dist/values.cjs',
+    'docs/src/lib/segno/dist/index.mjs',
+    'docs/src/lib/segno/dist/read.mjs',
+    'docs/src/lib/segno/dist/values.mjs',
     // The guard loads the transformer registry, whose collage transform requires
     // `@laticent/mosaico` (2026-10-16-mosaico-layout-library.md).
-    'docs/src/lib/mosaico/dist/index.cjs',
+    'docs/src/lib/mosaico/dist/index.mjs',
     // …and the image layout's shape reads picture headers through `@laticent/lastra` (2026-11-13-image-library.md).
-    'docs/src/lib/lastra/dist/index.cjs',
+    'docs/src/lib/lastra/dist/index.mjs',
     // …and the split kernels require `@laticent/fluido` (2026-10-27-fluid-layout-library.md).
-    'docs/src/lib/fluido/dist/index.cjs',
+    'docs/src/lib/fluido/dist/index.mjs',
     // …and lint-core's fix path requires `@laticent/squadra/driver` (2026-10-26-squadra-lint-library.md).
-    'docs/src/lib/squadra/dist/driver.cjs',
+    'docs/src/lib/squadra/dist/driver.mjs',
     // …and the deck ruleset's stamps step compiles with the main entry, and the entry loads the runtime and the
     // Markdown language (2026-11-13-squadra-replaces-lint-core.md), so a dist built before those entries is cold.
-    'docs/src/lib/squadra/dist/index.cjs',
-    'docs/src/lib/squadra/dist/markdown.cjs',
-    'docs/src/lib/squadra/dist/runtime.cjs',
+    'docs/src/lib/squadra/dist/index.mjs',
+    'docs/src/lib/squadra/dist/markdown.mjs',
+    'docs/src/lib/squadra/dist/runtime.mjs',
   ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');

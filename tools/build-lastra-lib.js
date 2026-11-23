@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Lastra image library's consumable dist/: the ESM entry, the CJS entry and type declarations.
+ * Build the Lastra image library's consumable dist/: the ESM entries and type declarations.
  *
  *   docs/src/lib/lastra/*.ts         →  docs/src/lib/lastra/dist/index.{mjs,cjs,d.ts}
  *   docs/src/lib/lastra/decode/*.ts  →  docs/src/lib/lastra/dist/decode.{mjs,cjs}, dist/decode/index.d.ts
