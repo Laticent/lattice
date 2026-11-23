@@ -5,7 +5,7 @@ recorded: 2026-11-23
 area: infra
 severity: medium
 swimlane: engineering/decisions/2026-10-07-first-npm-release.md §11
-deferred: blocked — trusted publishing can only be attached to a package that exists, so it follows the first publish (Fri Nov 27); the upgrade belongs with slice F
+deferred: blocked — trusted publishing can only be attached to a package that exists, so it follows the first publish (Sun Nov 29); the upgrade belongs with slice F
 source: https://github.com/Laticent/lattice/pull/3471
 ---
 # Upgrade npm in the publish job so NPM_TOKEN can be revoked
