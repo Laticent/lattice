@@ -24,8 +24,9 @@
  *   2. Gate on build:check (no stale / colliding dist/).
  *   3. Read the bump level — `auto` derives it from CHANGELOG `## Unreleased`
  *      (tools/changelog.js); an explicit patch|minor|major overrides.
- *   4. Compute the next version from package.json.
- *   5. `npm version <next> --no-git-tag-version` (updates package.json + lock).
+ *   4. Compute the next version from packages/lattice/package.json.
+ *   5. `npm version <next> --no-git-tag-version --workspace packages/lattice`
+ *      (updates packages/lattice/package.json + lock).
  *   6. Roll the changelog: `## Unreleased` → `## <version> - <date>`, fresh
  *      empty Unreleased seeded above it.
  *   7. `npm run build` — regenerate dist/ from the bumped tree.
@@ -33,7 +34,7 @@
  *
  * --publish sequence (HEAD = the merged release commit on main):
  *   1. Require a clean tree; gate on build:check.
- *   2. Read the version from package.json; refuse if `v<version>` already tags
+ *   2. Read the version from packages/lattice/package.json; refuse if `v<version>` already tags
  *      something (the release already went out).
  *   3. Rederive release/notes-v<version>.md from the `## <version>` section.
  *   4. Tag HEAD, build the release zip from it.
@@ -58,7 +59,9 @@ const path = require('node:path');
 const cl   = require('./changelog.js');
 
 const ROOT          = path.resolve(__dirname, '..');
-const PKG_PATH      = path.join(ROOT, 'package.json');
+// The engine's manifest, not the root's: the root is a private workspace root, and the published
+// version lives in the engine's publish folder (decision 2026-10-07-first-npm-release §8, option A).
+const PKG_PATH      = path.join(ROOT, 'packages', 'lattice', 'package.json');
 const CHANGELOG     = path.join(ROOT, 'CHANGELOG.md');
 const RELEASE_DIR   = path.join(ROOT, 'release');
 
@@ -234,7 +237,7 @@ function main() {
   if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted']);
 
   // Bump version, roll changelog, rebuild dist.
-  run('npm', ['version', next, '--no-git-tag-version']);
+  run('npm', ['version', next, '--no-git-tag-version', '--workspace', 'packages/lattice']);
   // Assemble from the file on disk (not the in-memory `md` above, which predates
   // `npm version`), then consume the fragments: a fragment that survived the roll
   // would be re-released in the next cut.
@@ -251,9 +254,9 @@ function main() {
   // `changelog.d` stages the fragment DELETIONS the roll just made.
   // NOT 'dist' — the bundles are built, not committed (.gitignore), so staging
   // them here did nothing but look reassuring. They reach consumers through the
-  // npm tarball, which `prepack` builds and package.json's `files` whitelist
+  // npm tarball, which `prepack` builds and packages/lattice/package.json's `files` whitelist
   // includes regardless of .gitignore (verified: 135 dist/ files in npm pack).
-  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', cl.FRAGMENT_DIRNAME]);
+  git(['add', 'packages/lattice/package.json', 'package-lock.json', 'CHANGELOG.md', cl.FRAGMENT_DIRNAME]);
 
   // `npm run build` regenerates 36 artifacts; only those four are the release
   // surface. If it touched anything else the tree was stale before the release

@@ -62,6 +62,32 @@ afterEach(() => {
 	localStorage.clear();
 });
 
+// THE STRIP'S NOTES DO NOT FADE IN THIS FILE. StudioShell clears the strip note (`stripNote`, its Undo included) after
+// 6 s and the New slide door's "Added before/after" note (`addedNote`) after 1.8 s, both on real timers. A test that
+// reads a note, or its Undo, a few clicks after the op that wrote it then passed or failed on the machine's speed: a
+// loaded run spent the 1.8 s and found no note, and an "the Undo is gone" check could pass because the timer, not the
+// rule it tests, removed it (HARD RULE #32, followups.d/3367-p1 G4). With those two timers dropped, a note stays until
+// the next action replaces it, which is the behavior these tests are about. The filter matches the delay AND the
+// caller, so every other timer runs. No test here checks the fade itself.
+const NOTE_FADE_MS = new Set([6000, 1800]);
+const realSetTimeout = globalThis.setTimeout;
+// Which fade timers this test dropped, by delay: two note-writing tests assert it, so a changed delay fails loudly
+// there instead of quietly bringing the race back.
+const droppedFades: number[] = [];
+beforeEach(() => {
+	droppedFades.length = 0;
+	vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+		if (ms !== undefined && NOTE_FADE_MS.has(ms) && /StudioShell\.tsx/.test(new Error().stack ?? '')) {
+			droppedFades.push(ms);
+			return 0 as unknown as ReturnType<typeof setTimeout>;
+		}
+		return realSetTimeout(fn, ms, ...rest);
+	}) as typeof setTimeout);
+});
+afterEach(() => {
+	vi.restoreAllMocks();
+});
+
 // StudioShell loads the Editor through `React.lazy` (StudioShell.tsx:127) behind a Suspense
 // fallback, and React.lazy memoizes its resolution on a MODULE-scope object. So only the FIRST
 // test in this file to mount the Studio pays CodeMirror's cold import and sees `EditorSkeleton`;
@@ -94,7 +120,7 @@ async function setup() {
  *  vitest happened to run first, and passed for every later one. Explicit budget for the same
  *  reason `editorReady` carries one. */
 async function openFabricate(user: ReturnType<typeof userEvent.setup>) {
-	await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+	await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 	await user.click(await screen.findByText('Fabricate'));
 	await screen.findByRole('button', { name: /Component/ }, { timeout: 15000 });
 }
@@ -448,6 +474,7 @@ describe('Studio — every top-bar control responds', () => {
 		await stripAction(user, /^Duplicate/);
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 2);
+		expect(droppedFades, 'the strip-note fade filter matched nothing: its delay or caller changed').toContain(6000);
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start + 1));
 	});
@@ -552,6 +579,7 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(firstHeading()).not.toBe(before));
 		expect(document.querySelector('[data-confirming]')?.textContent).toMatch(/Added before “/);
 		expect(screen.queryByRole('button', { name: /^Move before$/i })).toBeNull();
+		expect(droppedFades, 'the door-note fade filter matched nothing: its delay or caller changed').toContain(1800);
 	});
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {

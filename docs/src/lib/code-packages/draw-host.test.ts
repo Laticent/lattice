@@ -5,35 +5,43 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDrawHost, type DrawJob, type DrawLibrary } from './draw-host';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SHELL_DOC, SHELL_READY } from '../../../../lib/packages/sandbox-shell.mjs';
+import { createDrawHost, type DrawJob, type DrawLibrary, OFFLINE_SHELL_MESSAGE } from './draw-host';
 
 const ROOT = path.join(__dirname, '../../../..');
 const PLOT_LIB = fs.readFileSync(path.join(ROOT, 'lib/plugins/function-plot/vendor/function-plot.js'), 'utf8');
 const JOB: DrawJob = { kind: 'function-plot', configB64: 'e30=', configText: '{}', width: 600, height: 300, index: 0 };
 
-type Fake = { frame: unknown; posted: Array<Record<string, unknown>>; removed: boolean; reply: (data: unknown) => void };
+type Fake = { frame: unknown; posted: Array<Record<string, unknown>>; doc?: string; removed: boolean; reply: (data: unknown) => void };
 
-function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: boolean; libraries?: Record<string, DrawLibrary> } = {}) {
+function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: boolean; hello?: boolean; libraries?: Record<string, DrawLibrary> } = {}) {
 	const frames: Fake[] = [];
 	const doc = {
 		body: {
 			appendChild(el: { __fake: Fake }) {
 				const f = el.__fake;
-				// The frame says it is ready once its document is in.
-				if (opts.autoReady !== false) queueMicrotask(() => f.reply({ t: 'ready' }));
+				// The frame loads the sandbox shell, which says hello; the host then hands it the document
+				// (lib/packages/sandbox-shell.mjs), and the frame says it is ready once that is in.
+				if (opts.hello !== false) queueMicrotask(() => f.reply({ t: SHELL_READY }));
 			},
 		},
 		createElement() {
 			const fake: Fake = { frame: null, posted: [], removed: false, reply: () => {} };
-			const contentWindow = { postMessage: (m: Record<string, unknown>) => fake.posted.push(m) };
+			const contentWindow = {
+				postMessage: (m: Record<string, unknown>) => {
+					if (m.t !== SHELL_DOC) return void fake.posted.push(m);
+					fake.doc = String(m.html);
+					if (opts.autoReady !== false) queueMicrotask(() => fake.reply({ t: 'ready' }));
+				},
+			};
 			const el = {
 				__fake: fake,
 				contentWindow,
 				dataset: {} as Record<string, string>,
 				style: {} as Record<string, string>,
 				title: '',
-				srcdoc: '',
+				src: '',
 				setAttribute() {},
 				remove() {
 					fake.removed = true;
@@ -52,9 +60,36 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 /** Wait until frame `i` is open and has been sent `n` draws: the host's own signal, where the test used to sleep and hope. */
 const sent = (frames: Fake[], i: number, n: number) => vi.waitFor(() => expect(frames[i]?.posted.length ?? 0).toBe(n), { timeout: 10_000, interval: 1 });
 
+/** Pass the offline hello deadline: the 2 s timer, then the message it posts to decide after queued messages (jsdom delivers a posted message on a short timer of its own, which the fake clock drives). */
+const passHelloDeadline = async () => {
+	await vi.advanceTimersByTimeAsync(2_000);
+	await vi.advanceTimersByTimeAsync(10);
+};
+
+/** Wait (on real turns of the event loop, which the library's hashing needs) until the host has made its frame: its open timer is set in the same step. */
+const frameCreated = async (frames: Fake[]) => {
+	while (!frames.length) await new Promise((r) => setImmediate(r));
+};
+
+// The draw host runs on pages with a content policy (every docs page that previews a deck), so the rig
+// gives the page one: the frame then opens through the sandbox shell (lib/packages/sandbox-shell.mjs).
+beforeEach(() => {
+	const meta = document.createElement('meta');
+	meta.setAttribute('http-equiv', 'Content-Security-Policy');
+	meta.setAttribute('content', "script-src 'self'");
+	meta.dataset.testPolicy = '';
+	document.head.appendChild(meta);
+});
+afterEach(() => {
+	for (const m of document.querySelectorAll('meta[data-test-policy]')) m.remove();
+});
+
 const opened: Array<() => void> = [];
 afterEach(() => {
 	for (const close of opened.splice(0)) close();
+	// Here, not only in a test's own `finally`: a test that times out never reaches it, and its fake clock would hang the next.
+	vi.useRealTimers();
+	vi.restoreAllMocks();
 });
 
 describe('the draw host', () => {
@@ -117,6 +152,154 @@ describe('the draw host', () => {
 		await sent(frames, 0, 1);
 		frames[0].reply({ t: 'result', id: 1, error: 'functionplot error: bad config' });
 		await expect(a).rejects.toThrow('functionplot error: bad config');
+	});
+
+	it('offline, a shell that never says hello fails in two seconds and tells the visitor what to do', async () => {
+		// Firefox sends a sandboxed frame's navigation past the service worker, so offline a shell it never fetched
+		// does not load (followups.d/3277 OFFLINE). The full 30 s outlasted the slide's own budgets (function-plot: 4 s).
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		try {
+			const { host, frames } = rig({ hello: false });
+			opened.push(host.close);
+			const draw = host.draw(JOB);
+			await frameCreated(frames);
+			const failed = expect(draw).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
+			await passHelloDeadline();
+			await failed;
+			// function-plot compiles code, which the page's policy refuses, so it is NOT left to the page: the figure shows this message.
+			await expect(draw.catch((e) => (e as { drawUnavailable?: boolean }).drawUnavailable)).resolves.toBeUndefined();
+			expect(frames[0].removed).toBe(true);
+		} finally {
+			onLine.mockRestore();
+			vi.useRealTimers();
+		}
+	});
+
+	it('offline, a failed shell is remembered: the next try fails at once, with no second frame', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false });
+		opened.push(host.close);
+		const first = host.draw(JOB);
+		await frameCreated(frames);
+		const failed = expect(first).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
+		await passHelloDeadline();
+		await failed;
+		// Still offline: no second frame, no second wait.
+		await expect(host.draw(JOB)).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
+		expect(frames).toHaveLength(1);
+	});
+
+	it('offline, a shell that says hello is given the full open deadline, even if the frame is ready only after the check', async () => {
+		// The real order: hello, then the document, then (much later, once the library loads) ready. The check lands in between,
+		// so only the shell's hello stands between it and a false offline verdict.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ autoReady: false });
+		opened.push(host.close);
+		const draw = host.draw(JOB);
+		let settled = false;
+		draw.then(() => (settled = true), () => (settled = true));
+		await frameCreated(frames);
+		await vi.waitFor(() => expect(frames[0].doc).toBeDefined(), { timeout: 5_000, interval: 1 }); // hello said, document handed over
+		await passHelloDeadline();
+		expect(settled).toBe(false);
+		expect(frames[0].removed).toBe(false);
+		frames[0].reply({ t: 'ready' });
+		await sent(frames, 0, 1);
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(draw).resolves.toBe('<svg/>');
+	});
+
+	it('back online, a kind that failed offline is tried again', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false });
+		opened.push(host.close);
+		const first = host.draw(JOB);
+		await frameCreated(frames);
+		const failed = expect(first).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
+		await passHelloDeadline();
+		await failed;
+		onLine.mockReturnValue(true);
+		void host.draw(JOB).catch(() => {});
+		await vi.waitFor(() => expect(frames).toHaveLength(2), { timeout: 5_000, interval: 1 });
+	});
+
+	it('offline, a hello queued behind a busy page still opens the frame: the deadline decides after queued messages', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false, autoReady: false });
+		opened.push(host.close);
+		const draw = host.draw(JOB);
+		let settled = false;
+		draw.then(() => (settled = true), () => (settled = true));
+		await frameCreated(frames);
+		await vi.advanceTimersByTimeAsync(2_000); // the deadline fires and posts its check…
+		frames[0].reply({ t: SHELL_READY }); // …but the shell's hello was already queued ahead of it
+		await vi.advanceTimersByTimeAsync(10); // the check is delivered; the frame is not ready yet
+		expect(settled).toBe(false);
+		frames[0].reply({ t: 'ready' });
+		await sent(frames, 0, 1);
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(draw).resolves.toBe('<svg/>');
+	});
+
+	it('offline, a look-alike check from another frame does not end the wait early', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const { host, frames } = rig({ hello: false, autoReady: false });
+		opened.push(host.close);
+		const draw = host.draw(JOB);
+		let settled = false;
+		draw.then(() => (settled = true), () => (settled = true));
+		await frameCreated(frames);
+		await vi.advanceTimersByTimeAsync(2_000); // the deadline posts its first check
+		// Another frame sends every check id it could guess, before the page's own check is delivered.
+		const other = {} as Window;
+		for (let id = 1; id <= 500; id++) window.dispatchEvent(Object.assign(new Event('message'), { source: other, data: { t: 'lattice-draw-hello-check', id } }));
+		frames[0].reply({ t: SHELL_READY }); // the shell's hello, still ahead of the page's own check
+		await vi.advanceTimersByTimeAsync(10);
+		expect(settled).toBe(false);
+		frames[0].reply({ t: 'ready' });
+		await sent(frames, 0, 1);
+		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(draw).resolves.toBe('<svg/>');
+	});
+
+	it('offline, a kind the page can draw itself is left to the page', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+		const lib = { file: 'plain.js', sha256: createHash('sha256').update('/* plain */').digest('hex'), global: 'plain', adapter: 'function draw() { return "<svg/>"; }' };
+		const { host, frames } = rig({ hello: false, fetchText: async () => '/* plain */', libraries: { plain: lib } });
+		opened.push(host.close);
+		const draw = host.draw({ kind: 'plain' } as unknown as DrawJob);
+		await frameCreated(frames);
+		const failed = expect(draw).rejects.toThrow(OFFLINE_SHELL_MESSAGE);
+		await passHelloDeadline();
+		await failed;
+		await expect(draw.catch((e) => (e as { drawUnavailable?: boolean }).drawUnavailable)).resolves.toBe(true);
+	});
+
+	it('online, a slow shell keeps the full open deadline', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			const { host, frames } = rig({ hello: false });
+			opened.push(host.close);
+			const draw = host.draw(JOB);
+			await frameCreated(frames);
+			let settled = false;
+			draw.then(() => (settled = true), () => (settled = true));
+			await vi.advanceTimersByTimeAsync(5_000);
+			expect(settled).toBe(false);
+			const failed = expect(draw).rejects.toThrow(/did not open within 30000 ms/);
+			await vi.advanceTimersByTimeAsync(25_000);
+			await failed;
+			expect(frames[0].removed).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('spends a frame whose draw overran, and opens a fresh one for the next draw', async () => {
@@ -214,7 +397,9 @@ describe('the draw host', () => {
 		const first = host.draw({ kind: 'sparkline', fonts: [face] });
 		await sent(frames, 0, 1);
 		expect(frames).toHaveLength(1);
-		expect((frames[0].frame as { srcdoc: string }).srcdoc).toContain('function draw(m, env)');
+		expect(frames[0].doc).toContain('function draw(m, env)');
+		// …written through the shell beside the engine, never as a srcdoc the page's policy would govern.
+		expect((frames[0].frame as { src: string }).src).toBe('/assets/lattice-sandbox.html');
 		expect(frames[0].posted[0].fonts).toEqual([face]);
 		frames[0].reply({ t: 'result', id: 1, out: 'a' });
 		await expect(first).resolves.toBe('a');

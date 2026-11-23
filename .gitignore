@@ -170,3 +170,18 @@ platform-suite-artifacts/
 
 # Playwright run output when the suite is started from the repo root (docs/ ignores its own copy).
 /test-results/
+
+# The engine's publish folder: only its manifest is source. `tools/stage-engine-package.js` stages
+# lattice.js, lib/, dist/, themes/ and the shipped docs here for `npm pack`, and removes them after.
+# Listed one by one, not `/packages/lattice/*`: a blanket ignore hides the folder from Biome too
+# (the lint-coverage probe). test/unit/tools/stage-engine-package.test.js keeps this list in step.
+/packages/lattice/lattice.js
+/packages/lattice/dist/
+/packages/lattice/lib/
+/packages/lattice/themes/
+/packages/lattice/design/
+/packages/lattice/README.md
+/packages/lattice/CHANGELOG.md
+/packages/lattice/LICENSE
+/packages/lattice/LICENSE-EXCEPTIONS
+/packages/lattice/TRADEMARKS.md

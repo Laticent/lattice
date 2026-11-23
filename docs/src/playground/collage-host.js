@@ -8,7 +8,7 @@
 // bridges the frame's coordinates and reads the tile.
 //
 // Two ways a click reaches the opener, because not every host lets a tap reach the frame:
-//   - the frame's own guard (deck-preview.js `linkGuardAgent`) calls `window.__collageOpen(tile)`
+//   - the frame's own guard (lib/core/frame-agents.mjs `linkGuardAgent`, the `data-agent="link"` tag) calls `window.__collageOpen(tile)`
 //     on a `.collage-tile` click or Enter/Space — the Playground and the Present stage;
 //   - a host whose slide box is `pointer-events-none` hit-tests the tap itself with `tapCollageAt`
 //     (the Studio), the way `tapVideoAt` does for a video poster.

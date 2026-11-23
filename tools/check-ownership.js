@@ -7134,7 +7134,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
   {
     file: 'lib/engine/index.js',
     count: 1,
-    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() test '
        + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
        + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
        + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
@@ -7202,10 +7202,11 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
-    file: 'lib/cli/migrate-meta.mjs',
-    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
-       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
-       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
+    file: 'lib/authoring/meta-migrate.mjs',
+    why: 'migrateMetaDeck — the one whole-deck meta migration (`lattice migrate meta`, `lint:deck --fix`, the Studio\'s '
+       + '`legacy-directive-comment` quick fix) reads an author\'s deck, folds CRLF to LF and strips the BOM so the '
+       + 'kernel reads it as the engine does (it refuses anything else), then puts both back on write: a codemod must not '
+       + 'rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',
@@ -9651,6 +9652,58 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
   }
 }
 
+// ── Key-shaped literals: no committed file carries a string shaped like a real API key ──
+// A secret scanner reads source, not intent: `'<provider prefix><long run of key characters>'` is flagged whether the key
+// is live or a throwaway test value, and an alert raised on a public repo's history stays open until a human resolves it.
+// So a test fixture builds its fake key at run time from two strings (`fakeKey(prefix, body)`, docs/src/test/fake-key.ts),
+// and this gate holds every committed text file to zero literals of the shape (engineering/testing.md §Test data).
+// Budget 0, no allowlist: a real key is never committed either, and a fake one never needs to be one literal.
+// "Long" means 20 or more key characters after the prefix (AKIA: exactly 16 upper-case letters or digits); a shorter
+// placeholder such as `sk-or-v1-…` or a 12-character test body passes. Known limits: it reads the prefixes below and
+// nothing else (a provider with no fixed prefix passes), and a key split across two literals passes by design: that is the fix.
+const KEY_SHAPED_LITERAL = /(?<![A-Za-z0-9_])(?:(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}(?![0-9A-Z]))/g;
+
+/** The key-shaped literals in one file's text: [{ line, prefix }]. The match itself is never returned, so a real key never reaches a log. */
+function keyShapedLiterals(text) {
+  const found = [];
+  const src = String(text);
+  for (const m of src.matchAll(KEY_SHAPED_LITERAL)) {
+    const prefix = /^(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-|AKIA)/.exec(m[0])[0];
+    found.push({ line: src.slice(0, m.index).split('\n').length, prefix });
+  }
+  return found;
+}
+
+function checkKeyShapedLiterals(errors, root = ROOT) {
+  // `git grep` (tracked text files only, binaries skipped) names the candidates by prefix in ~0.1 s; the exact
+  // shape is then matched here, so no grep flavor (-P is not built into every git) decides the verdict.
+  let files;
+  try {
+    files = execFileSync('git', ['grep', '--no-color', '-lIzE', 'sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\\.|xox[abposr]-|AKIA'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
+  } catch (e) {
+    if (e.status === 1) return; // git grep exits 1 when nothing matches
+    errors.push(`the key-shaped-literal check could not search the committed files (${String(e.message).split('\n')[0]}). It needs git.`);
+    return;
+  }
+  for (const rel of files) {
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch (e) {
+      if (e.code === 'ENOENT') continue; // tracked, but deleted in the working tree
+      errors.push(`the key-shaped-literal check could not read ${rel} (${e.code || e.message}); it fails closed rather than skip a candidate.`);
+      continue;
+    }
+    for (const { line, prefix } of keyShapedLiterals(text)) {
+      errors.push(
+        `${rel}:${line}: a literal shaped like an API key (\`${prefix}…\` and a long run of key characters). A secret scanner flags the ` +
+        `shape whether or not the key is real. Build a test key at run time, e.g. fakeKey('${prefix}', '<body>') from docs/src/test/fake-key.ts ` +
+        `(engineering/testing.md §Test data). If it is a real key, revoke it first: it is already in history.`,
+      );
+    }
+  }
+}
+
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
   let baseline;
   try {
@@ -10161,7 +10214,10 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
 //   2. NO ABUSE — our key must never be spent by the automated suite: no `test/**` file reads
 //      it or hits the live API, no CI workflow injects it, no `test`-family npm script invokes
 //      a spender. The one sanctioned spender is on-demand + opt-in (OPENROUTER_ALLOW_SPEND).
-const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/destructure reads too
+// The bare name catches bracket/destructure reads too. It also matches the spellings OpenRouter's own docs and SDK
+// examples use (OPENROUTER_KEY, OPENROUTER_API_KEY, OPEN_ROUTER_API_KEY), so the same key under another name is caught.
+// The word boundaries keep endpoint constants like OPENROUTER_KEY_URL out (release audit, 2026-11-06).
+const OPENROUTER_KEY_NAME = /\bOPEN_?ROUTER_(?:API_)?KEY\b/;
 // The gate's own test fixtures legitimately CONTAIN the key name as data (they build probe
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
@@ -11057,7 +11113,7 @@ function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
     allowNode: false,
     allowBare: new Set(),
     describe: (rel, spec) =>
-      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-languages/markdown takes the host's ` +
       `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
       `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });
@@ -15929,6 +15985,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkKeyShapedLiterals(errors);
   checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
@@ -16022,6 +16079,8 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
   readCssSource,
+  keyShapedLiterals,
+  checkKeyShapedLiterals,
   checkSpecParts,
   specPartProblems,
   checkTavolaBoundary,

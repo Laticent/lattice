@@ -17,7 +17,14 @@ const withImageMarkdown = (md, opts, ctx) => translate(md, { ...opts, placement:
 const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 
-const deck = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+// A slide in the old `_class:` spelling (the one the `![bg]` fix edits) and in a `@meta` record (record note §15). The
+// "no machine fix" tests use the record, so Fix all has no old comment to migrate and leaves the deck byte for byte.
+const legacyDeck = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+const recordDeck = (cls, body) => {
+  const [layout, ...rest] = cls.split(' ');
+  return `---\ntheme: indaco\n---\n\n<!-- @meta{layout=${layout}${rest.length ? `, class="${rest.join(' ')}"` : ''}} -->\n\n## T\n\n${body}\n`;
+};
+const deck = legacyDeck;
 const html = (md) => engine.render(md).html;
 
 describe('the address comes only from the author\'s record (§4.5)', () => {
@@ -112,7 +119,7 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
 
   test('two `![bg]` on one slide: named, never rewritten into two pictures that place neither', () => {
     for (const body of ['![bg](a.jpg)\n![bg](b.jpg)', '![bg](a.jpg)\n\n![bg](b.jpg)']) {
-      const md = deck('content', body);
+      const md = recordDeck('content', body);
       assert.ok(keyword(md).length >= 2, body);
       assert.equal(fixed(md), md, `${body}: no machine fix`);
     }
@@ -120,16 +127,17 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
 
   test('a `![bg]` sharing its paragraph with text, or beside another lone picture, is not rewritten', () => {
     for (const [cls, body] of [['image', '![bg right](x.jpg)\nA caption on the next line.'], ['image', '![bg right](photo.jpg)\n\n![Acme](logo.png)'], ['content', '![bg](photo.jpg)\n\n![Chart](chart.png)']]) {
-      const md = deck(cls, body);
+      const md = recordDeck(cls, body);
       assert.equal(keyword(md).length, 1, body);
       assert.equal(fixed(md), md, `${body}: no machine fix`);
     }
   });
 
   test('the plain case still rewrites, and the result is the slide\'s photo', () => {
-    const md = deck('content dark', '![bg](photo.jpg "The lake")');
+    const md = legacyDeck('content dark', '![bg](photo.jpg "The lake")');
     const out = fixed(md);
-    assert.match(out, /<!-- _class: content dark bleed -->/);
+    // The fix adds `bleed` to the `_class:` line; the meta migration then writes that line as a record (it runs last).
+    assert.match(out, /<!-- @meta\{layout=content, class=dark bleed\} -->/);
     assert.match(out, /^!\[The lake\]\(photo\.jpg\)$/m);
     assert.match(html(out), /class="lattice-bg /);
     assert.equal(keyword(out).length, 0);

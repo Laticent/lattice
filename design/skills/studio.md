@@ -157,7 +157,9 @@ opens the presenter's second window; Esc leaves.
    layouts and `---` breaks, the whole deck as the deck file.
 2. **Open a file**: "Import deck…" or drop the file on the Studio. It opens
    `.md`, `.lattice`, and a webpage, PDF or PowerPoint that Lattice exported
-   re-openable. See `import.md`.
+   re-openable. A deck imported into the Library instead lands on its Files
+   tab as reference material for the chat, with "Open as deck" on its card.
+   See `import.md`.
 3. **Check the deck**: open Coach. "Fix all issues" applies every machine fix;
    a finding's own fix shows a diff with Apply and Discard. See
    `fix-findings.md`.

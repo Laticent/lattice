@@ -84,7 +84,8 @@ export function catalogNav(url) {
 // both lines). LTT is listed under specsNav instead: it is a format first, and @laticent/ltt is
 // its reference implementation (spec audit §8.5). nav.test.ts fails when a workspace package is
 // missing from both lists, which is how LTT and Tavola once went unlisted. Anima is internal (no
-// package, no build), so it is not listed.
+// package, no build), so it is not listed. Markup, Lastra and Segno-markdown publish because the
+// engine depends on them, but have no page yet: nav.test.ts names them in `unlisted`.
 const lib = (url, label, pkg, desc) => {
 	const slug = label.toLowerCase();
 	return { label, href: url(`libraries/${slug}/`), match: [`libraries/${slug}`], pkg, desc, searchOnly: true };

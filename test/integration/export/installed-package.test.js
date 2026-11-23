@@ -7,9 +7,11 @@
  * (followup 2577-p1, fixed by the 1.0 packaging work). This builds the install a consumer
  * would get, without the network:
  *
- * - the root package's files are exactly the tarball's (`npm pack --dry-run --json`), and so
- *   are the workspace libraries it depends on, copied into a scratch node_modules;
- * - every other entry in that node_modules is a link to the repo's copy of a package the root
+ * - the engine's files are exactly the tarball's: `tools/stage-engine-package.js` stages the
+ *   publish folder `packages/lattice/` as its `prepack` does, and `npm pack --dry-run --json`
+ *   there lists what ships. So are the workspace libraries it depends on, copied into a scratch
+ *   node_modules;
+ * - every other entry in that node_modules is a link to the repo's copy of a package the engine
  *   DECLARES in `dependencies` or `optionalDependencies`, and nothing else. A require from the
  *   copied files resolves only through that folder, so an undeclared package fails as it would
  *   after a real install. One assertion proves the harness has that property (a devDependency
@@ -31,7 +33,9 @@ const os = require('node:os');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+// The engine publishes from packages/lattice/ (the root is a private workspace root).
+const stager = require('../../../tools/stage-engine-package.js');
+const PKG = JSON.parse(fs.readFileSync(path.join(stager.PKG_DIR, 'package.json'), 'utf8'));
 const LIBS = Object.keys(PKG.dependencies).filter((n) => n.startsWith('@laticent/'));
 const TIMEOUT = 600000;
 
@@ -61,7 +65,14 @@ describe('export: an installed @laticent/lattice renders with only what it decla
   before(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-installed-'));
     nm = path.join(dir, 'node_modules');
-    copyPackage(ROOT, path.join(nm, '@laticent', 'lattice'));
+    // Staged into this test's own folder, not packages/lattice/, so a suite running beside it
+    // never walks a half-staged copy of lib/.
+    const staged = path.join(dir, 'staged');
+    fs.mkdirSync(staged);
+    fs.copyFileSync(stager.MANIFEST, path.join(staged, 'package.json'));
+    stager.stage(stager.stagedEntries(), staged);
+    copyPackage(staged, path.join(nm, '@laticent', 'lattice'));
+    fs.rmSync(staged, { recursive: true, force: true });
     for (const lib of LIBS) {
       copyPackage(path.dirname(require.resolve(`${lib}/package.json`, { paths: [ROOT] })), path.join(nm, lib));
     }
@@ -101,6 +112,14 @@ describe('export: an installed @laticent/lattice renders with only what it decla
   test('the harness hides what the package does not declare', { timeout: TIMEOUT }, () => {
     const r = nodeIn("require.resolve('lefthook', { paths: [require.resolve('@laticent/lattice/package.json')] })");
     assert.notEqual(r.status, 0, 'a devDependency resolved from the installed package, so this harness cannot catch a missing one');
+  });
+
+  // The CLI reads its version through lib/core/pkg-root.js engineManifestPath: in the repository
+  // that is packages/lattice/package.json, installed it is the package's own manifest.
+  test('the installed CLI reports the published version', { timeout: TIMEOUT }, () => {
+    const r = spawnSync(process.execPath, [path.join(nm, '@laticent', 'lattice', PKG.bin.lattice), '--version'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), `lattice ${PKG.version}`);
   });
 
   test('the engine export loads', { timeout: TIMEOUT }, () => {

@@ -13,10 +13,11 @@ name: Release (publish)
 on:
   push:
     branches: [main]
-    # package.json's version only moves on a release commit, so this is a
-    # tight filter — and the tag-existence guard below makes it idempotent
-    # for every other reason package.json changes (a dependency bump).
-    paths: ['package.json']
+    # The engine's version (packages/lattice/package.json, its publish folder)
+    # only moves on a release commit, so this is a tight filter — and the
+    # tag-existence guard below makes it idempotent for every other reason
+    # that manifest changes (a dependency bump).
+    paths: ['packages/lattice/package.json']
   workflow_dispatch: # recovery: re-run against main after a partial failure
 
 concurrency:
@@ -44,13 +45,13 @@ jobs:
           fetch-tags: true
 
       # Nothing below runs unless main is sitting on an untagged version. A
-      # dependency bump touches package.json too, and workflow_dispatch can be
+      # dependency bump touches the manifest too, and workflow_dispatch can be
       # fired at any time — both must be quiet no-ops, not failures.
       - name: Is this an unreleased version?
         id: gate
         run: |
           set -euo pipefail
-          V="$(node -p "require('./package.json').version")"
+          V="$(node -p "require('./packages/lattice/package.json').version")"
           echo "version=$V" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
             echo "v$V is already tagged — nothing to publish."
@@ -110,4 +111,4 @@ jobs:
             echo "::notice::NPM_TOKEN is not set — skipping npm publish (the GitHub Release still shipped)."
             exit 0
           fi
-          npm publish --access public --provenance
+          npm publish --workspace @laticent/lattice --access public --provenance

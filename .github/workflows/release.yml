@@ -125,7 +125,7 @@ jobs:
 
           ## What changed
 
-          - \`package.json\` + \`package-lock.json\` — version bumped to $V.
+          - \`packages/lattice/package.json\` + \`package-lock.json\` — version bumped to $V.
           - \`CHANGELOG.md\` — pending \`changelog.d/\` fragments folded into \`## Unreleased\` under their category headings, then rolled into a dated \`## $V\` section, fresh empty Unreleased seeded above it.
           - \`changelog.d/\` — the fragments this release consumed, deleted.
           - \`dist/\` — rebuilt from the bumped tree.

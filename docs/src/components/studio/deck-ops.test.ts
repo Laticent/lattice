@@ -131,6 +131,16 @@ describe('splitSlideInHalf — the one-click fix for a slide too full for its ve
 		expect(out[1]).not.toContain('Speaker note');
 	});
 
+	it('carries a slide record (`@meta{…}`) onto the second half, a wrapped one whole, like the comment it replaces', () => {
+		for (const rec of ['<!-- @meta{layout=list-steps, footer="Q3"} -->', '<!-- @meta{layout=list-steps,\n  footer="Q3"} -->']) {
+			const src = `${FM}${slide(5).replace('<!-- _class: list-steps -->', rec)}`;
+			const out = splitSlides(stripFrontMatter(splitSlideInHalf(src, 0)!.source));
+			expect(out).toHaveLength(2);
+			expect(out[1].startsWith(`${rec}\n\n\`Eyebrow\``)).toBe(true);
+			expect(out[0].startsWith(rec)).toBe(true);
+		}
+	});
+
 	it('a table keeps its header on both halves', () => {
 		const t = '## Rows.\n\n| A | B |\n|---|---|\n| 1 | x |\n| 2 | y |\n| 3 | z |\n| 4 | w |';
 		const out = splitSlides(stripFrontMatter(splitSlideInHalf(t, 0)!.source));

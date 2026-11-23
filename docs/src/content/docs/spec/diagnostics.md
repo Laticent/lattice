@@ -425,7 +425,7 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 
 ### 3.11 Slide metadata comments
 
-A **record comment** opens with `{` or `@meta{` (`<!-- {layout=content} -->`). These rules report a
+A **record comment** opens with `@meta{` (`<!-- @meta{layout=content} -->`), or `{` in the retired bare spelling. These rules report a
 record in a position no reader will take it from, and the old directive form the record replaces
 (`engineering/decisions/2026-10-17-meta-record.md` §5.3, §5.5). A record inside a code fence is
 literal text and is never reported.
@@ -438,7 +438,7 @@ literal text and is never reported.
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
 | `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
 | `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
-| `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
+| `legacy-directive-comment` | warning | ✓ | An old-form directive comment (`<!-- _class: x -->`), on every deck. The fix rewrites every old comment in the deck as a `<!-- @meta{…} -->` record, the same text `lattice migrate meta` writes. It becomes an error when the engine stops reading the form. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
@@ -529,7 +529,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
   `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
-  findings on a record it reads, and `meta-class-overridden`.
+  findings on a record it reads, and `meta-class-overridden`. Then `legacy-directive-comment`
+  turns on for every deck with a whole-deck autofix (record note §15). `@meta` is the one record
+  spelling; a warning on the bare form joins at the cut.
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

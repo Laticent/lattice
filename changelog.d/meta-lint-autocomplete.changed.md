@@ -1,0 +1,5 @@
+- Lint now warns on every old directive comment (`<!-- _class: cards -->`, `<!-- _footer: … -->`, …) with `legacy-directive-comment`, and its fix rewrites the whole deck as `<!-- @meta{…} -->` records: the Studio's quick fix and "Fix all", `lint:deck --fix` and `lattice migrate meta` all write the same text, and the slides render the same.
+- `@meta` is the one record spelling. `lattice migrate meta` and the fix now write `<!-- @meta{…} -->` and respell a bare `<!-- {…} -->` record as `@meta`.
+- `lattice migrate meta` now merges a slide's adjacent records into one, as its help always said; the merge had never run.
+- The Studio editor and the editable sample on each component page complete `<!-- @meta{`: `<!-- @m` offers it, then the fields, then each register's values. The blank-line insert list offers `<!-- @meta{layout=} -->` and `<!-- @meta{} -->` in place of `<!-- _class: -->` and the bare `<!-- {} -->`. Lint fix messages teach the record.
+- `lint:deck --strict`, the pre-commit deck check and the Coach's Contract score do not count the old-comment warnings yet. `lint:deck` lists them once per file. This lasts until the committed decks are converted.

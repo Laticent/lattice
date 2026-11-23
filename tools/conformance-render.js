@@ -36,6 +36,7 @@
  *                                    [--no-axe] [--no-themes] [--changed[=<base ref>]]
  */
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -107,7 +108,9 @@ function buildMatrixDeck(files) {
     if (!header) throw new Error(`conformance-render: ${path.relative(ROOT, f.file)} has no front-matter header:`);
     if (headers.has(header)) throw new Error(`conformance-render: galleries ${headers.get(header)} and ${f.name} share the header "${header}"`);
     headers.set(header, f.name);
-    return galleryBody(f.file).replace(/(<!--\s*_class:)/g, `<!-- _header: ${JSON.stringify(header)} -->\n$1`);
+    // Before each slide's class, a comment or a record (`@meta{layout=…}`). A writer (slice C of the record note's §15 owns
+    // the written form): it writes the comment, which the engine reads until the cut.
+    return galleryBody(f.file).replace(/(<!--\s*(?:_class:|@meta\{))/g, `<!-- _header: ${JSON.stringify(header)} -->\n$1`);
   });
   // `size: 4k` is the canvas the shared contrast exemptions are calibrated to (a watermark counts as
   // decoration at fs >= 200, which a 1280 px hd canvas never reaches) and the one palette-sweep's
@@ -280,7 +283,7 @@ const now = () => Number(process.hrtime.bigint() / 1000000n);
 const CHUNK_SLIDES = Number(process.env.CONF_CHUNK) || 150;
 
 /** Slides a gallery contributes: one per `_class` directive (the galleries are generated). */
-const slideCount = (file) => (galleryBody(file).match(/<!--\s*_class:/g) || []).length;
+const slideCount = (file) => classEntries(galleryBody(file)).filter((e) => e.spot).length;
 
 /** Pack galleries, in order, into chunks of at most `max` slides (one gallery is never split). */
 function chunkFiles(files, max = CHUNK_SLIDES) {

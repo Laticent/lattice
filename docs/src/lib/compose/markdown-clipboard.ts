@@ -29,7 +29,7 @@ import { isRawBlockText } from './raw-block';
 
 /** Line-level marks only Markdown (or a deck) writes. One is enough: a plain sentence carries none, and a
  *  plain sentence pastes the same either way. */
-const BLOCK_SIGNAL = /^(?:#{1,6}\s+\S|\s{0,3}[-*+]\s+\S|\s{0,3}\d{1,3}[.)]\s+\S|>\s?\S|(?:---|\*\*\*|___)\s*$|```|~~~|\|.*\|\s*$|<!--\s*_?[A-Za-z][\w-]*\s*:)/m;
+const BLOCK_SIGNAL = /^(?:#{1,6}\s+\S|\s{0,3}[-*+]\s+\S|\s{0,3}\d{1,3}[.)]\s+\S|>\s?\S|(?:---|\*\*\*|___)\s*$|```|~~~|\|.*\|\s*$|<!--\s*_?[A-Za-z][\w-]*\s*:|<!--\s*@[a-z]+\{)/m;
 /** Inline marks: emphasis, code, a link or an image. Not `__x__`: in prose that is far more often an identifier
  *  (`__init__`) than bold, and reading it as Markdown would eat the underscores. */
 const INLINE_SIGNAL = /\*\*[^*\n]+\*\*|(?:^|[\s(])\*[^*\s][^*\n]*\*|`[^`\n]+`|!?\[[^\]\n]+\]\([^)\s]+\)/;
