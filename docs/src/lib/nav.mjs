@@ -84,10 +84,10 @@ export function catalogNav(url) {
 // both lines). LTT is listed under specsNav instead: it is a format first, and @laticent/ltt is
 // its reference implementation (spec audit §8.5). nav.test.ts fails when a workspace package is
 // missing from both lists, which is how LTT and Tavola once went unlisted. Anima is internal (no
-// package, no build), so it is not listed. Markup, Lastra and Segno-markdown publish because the
-// engine depends on them, but have no page yet: nav.test.ts names them in `unlisted`.
-const lib = (url, label, pkg, desc) => {
-	const slug = label.toLowerCase();
+// package, no build), so it is not listed. Markup and Lastra publish because the engine depends
+// on them, but have no page yet: nav.test.ts names them in `unlisted`. The slug is the label in
+// lower case unless an entry names it: a two-word label ("Segno Languages") needs one.
+const lib = (url, label, pkg, desc, slug = label.toLowerCase()) => {
 	return { label, href: url(`libraries/${slug}/`), match: [`libraries/${slug}`], pkg, desc, searchOnly: true };
 };
 export function librariesNav(url) {
@@ -106,6 +106,7 @@ export function librariesNav(url) {
 		lib(url, 'Fluido', '@laticent/fluido', 'Content that fits any box, and breaks only where it may'),
 		lib(url, 'Filo', '@laticent/filo', 'One undo history for every way a document changes'),
 		lib(url, 'Squadra', '@laticent/squadra', 'Lint and fix text, with rules that have to prove they work'),
+		lib(url, 'Segno Languages', '@laticent/segno-languages', "A deck's structure, read again only where it changed", 'segno-languages'),
 	];
 }
 

@@ -154,6 +154,7 @@ export default defineConfig({
 		'/veduta': '/libraries/veduta/',
 		'/filo': '/libraries/filo/',
 		'/squadra': '/libraries/squadra/',
+		'/segno-languages': '/libraries/segno-languages/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one

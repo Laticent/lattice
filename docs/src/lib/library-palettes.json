@@ -1690,6 +1690,95 @@
      "color-scheme": "dark"
     }
    }
+  },
+  "segno-languages": {
+   "roles": {
+    "s": [
+     "#1f2430",
+     "#e8e4de"
+    ],
+    "accent": [
+     "#9e3db0",
+     "#c96ddb"
+    ],
+    "plate": [
+     "#f6f1ea",
+     "#15171c"
+    ]
+   },
+   "mark": [
+    [
+     "s",
+     [
+      [
+       "stroke",
+       "@s"
+      ]
+     ]
+    ],
+    [
+     "cut",
+     [
+      [
+       "stroke",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "hub",
+     [
+      [
+       "fill",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "plate",
+     [
+      [
+       "fill",
+       "@plate"
+      ]
+     ]
+    ],
+    [
+     "wm",
+     [
+      [
+       "fill",
+       "@s"
+      ]
+     ]
+    ]
+   ],
+   "page": {
+    "light": {
+     "--paper": "@plate",
+     "--stage": "#efe8de",
+     "--ink": "@s",
+     "--muted": "#675f55",
+     "--line": "#e0d5c7",
+     "--accent": "@accent",
+     "--accent-bg": "#f4e3f3",
+     "--panel": "#fffdf9",
+     "--shadow": "0 1px 2px rgba(31,36,48,.06), 0 8px 24px rgba(31,36,48,.06)",
+     "--serif": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, Georgia, \"Times New Roman\", serif"
+    },
+    "dark": {
+     "--paper": "#111318",
+     "--stage": "#171a21",
+     "--ink": "@s",
+     "--muted": "#9a938a",
+     "--line": "#272b34",
+     "--accent": "@accent",
+     "--accent-ink": "#1d0b21",
+     "--accent-bg": "#2e1a33",
+     "--panel": "#14171d",
+     "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)"
+    }
+   }
   }
  }
 }
