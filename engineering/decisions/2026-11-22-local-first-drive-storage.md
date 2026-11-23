@@ -303,6 +303,12 @@ interface Vault {
 - **Quota and eviction.** OPFS shares the origin's quota and its eviction rules with IndexedDB. The Studio already
   calls `navigator.storage.persist()`. With sync on, eviction becomes a re-download. Without sync, the backup nudge
   stays.
+- **Where OPFS is refused** (measured in spike #3443). Linux WebKit refuses OPFS in an ephemeral context:
+  `getDirectory()` throws `UnknownError`. In a persistent context, all three write paths pass (main-thread
+  `createWritable`, worker `createSyncAccessHandle`, worker `createWritable`), as they do in Chromium and Firefox in
+  both contexts. Safari Private Browsing probably behaves like the ephemeral context; that is untested. The vault fails
+  visibly with `VaultError('unavailable')` (slice 1, #3442). What it falls back to is slice 2's decision (D1 on
+  #3442), and e2e tests run in persistent profiles.
 
 ### 6.3 Sync
 
@@ -328,6 +334,54 @@ queue is empty, the token is valid, and the engine has polled since the tab last
 **Account.** Renewal passes the expected account (`login_hint` / `hint`). Before any upload or download, the engine
 compares the `permissionId` from `about.get` on every new token with the stored one. A mismatch pauses sync and shows
 the ask-before-upload prompt.
+
+**Quotas and cost.** Storage is the user's: every file counts against their own Drive plan, and a full Drive is the
+`storageQuotaExceeded` state above. API calls are Lattice's: Google counts them against the Cloud project that owns
+the client ID, summed over every user. Google's usage-limits page (read 2026-11-22) says the following. The page has
+no last-updated date, and it is not self-consistent: its daily per-project row reads "1 TB" in one table and
+400,000,000 quota units in the next, so both are listed here as it gives them.
+
+| Limit | Value |
+|---|---|
+| Per minute, per project | 1,000,000 quota units |
+| Per minute, per user | 325,000 quota units |
+| Daily billing threshold, per project | 400,000,000 quota units |
+| Daily egress, per project, "before charges apply" | 1 TB |
+| One file / uploads per user per day | 5 TB / 750 GB (stated for Workspace users) |
+
+A call costs 50 units to write (`files.create`, `files.update`), 100 to list (`changes.list`), 5 to read metadata
+and 200 to download content. Use is free today; the page says exceeding quota "is planned to incur charges … later
+in 2026", with at least 90 days' notice and no prices yet.
+
+At this design's rates, one active tab spends 150 units a minute: a 100-unit poll and at most one 50-unit update
+file. A user with a second tab or device, the extra poll after each debounced write, and the occasional download
+spends up to about 400. From those two ends:
+
+- **Per minute:** 1,000,000 / 400 to 1,000,000 / 150 is about **2,500 to 6,700 users active at the same moment.**
+- **Per day:** an 8-hour working day costs 72,000 to 192,000 units a user, so 400,000,000 covers about **2,100 to
+  5,500 users editing a full working day.** Editing around the clock, 24 hours, it covers about 700 to 1,900.
+- **Egress:** 1 TB is about **10,000 downloads of a 100 MB video**, the limit large media could reach first.
+
+These are estimates from the design's rates, not measurements. Slice 0 measures what each call costs on a test
+project, and slice 6 counts the units an hour of editing spends.
+
+**Required in slice 6, so usage stays low before Google ever refuses** (the owner's ruling, 2026-11-22):
+
+- **Idle polling slows down.** The engine polls every 60 s only while the tab is visible and was used in the last
+  5 minutes. After that it polls every 5 minutes, and a hidden tab does not poll. Focus and a local write still
+  trigger an immediate poll.
+- **Large media downloads on open.** On a second device, an image or video over 5 MB arrives as its metadata and a
+  thumbnail. The engine downloads the bytes when someone opens or plays it, or when a deck being presented uses it.
+- **Content-hash deduplication** stays: the same bytes never upload twice (the assets row below).
+- **Backoff on 403 and 429** stays: truncated exponential backoff, seeded jitter, capped at 64 s, as in the journal
+  paragraph above.
+- **A measured budget.** Slice 6's proof counts the quota units an hour of editing spends, on the fake Drive server,
+  and reports it in the PR.
+
+The owner's side is two Cloud-console guardrails, tracked as follow-ups. The first keeps the project's billing account
+unlinked, so going over quota should throttle sync rather than charge. That is unconfirmed until Google publishes its
+billing terms, and the follow-up asks for the check (`followups.d/3432-p1-drive-project-billing-off.md`). The second
+alerts on quota use before a limit is near (`followups.d/3432-p2-drive-quota-alerts.md`).
 
 **Conflicts:**
 
@@ -380,6 +434,11 @@ Lattice/
   that tab last loaded (a three-way diff), never against the doc's current text. A stale tab, a checkpoint restore or
   an AI apply therefore cannot delete newer text.
 - **Minimal line diffs.** The engine applies minimal line diffs, never delete-all plus insert, so history stays small.
+- **History size, measured** (spike #3443; Node 22, yjs 13.6.33, seed 20261122). The state vector grows about 4.4 B per
+  session, linearly (2,000 sessions: 8.8 KB). A heavily edited deck over a simulated year, 250 days of 20 edits and 2
+  AI applies touching 10% of lines, gave an 11 KB `deck.md`, a 727 KB compacted `gc:false` base and 1,500 update files
+  totaling 854 KB. Delete-all plus insert is 5.9 times bigger than minimal line diffs. Keeping all history costs about
+  0.7 MB per heavily edited deck per year.
 - **`deck.md` follows the doc.** Any device rewrites `deck.md` from the merged doc.
 
 **Compaction and files:**
@@ -387,8 +446,12 @@ Lattice/
 - **Bases are immutable**, named by content hash: `base-<sha256>.yjs`.
 - **One device compacts**, elected by a lease.
 - **An update file is deleted only after** a base that contains it has been read back.
-- **Merging is lossless only** (`Y.mergeUpdates`); nothing trims history. A device holding updates from an older base
-  applies them as a text diff.
+- **Merging is lossless only** (`Y.mergeUpdates`); nothing trims history. An update made against an older base still
+  applies raw while every base comes from `mergeUpdates` (measured in spike #3443).
+- **A rebuilt base is detected, not assumed.** After every `applyUpdate`, the engine checks `store.pendingStructs` and
+  `pendingDs`. An update made against a base with new history (for example, `.lattice/` rebuilt from `deck.md`) sits
+  pending without an error and without changing the text. When anything is left pending, the engine falls back to
+  the three-way text merge, which recovered every edit in the spike.
 - **At most one update file per journal drain**, and no more than one a minute.
 - **`seq` is assigned under a Web Lock**, so two tabs never write the same `<device-id>-<seq>`. A backup never includes
   the device id.
@@ -406,7 +469,13 @@ Lattice/
   id, so two devices adopting the same edit produce the same items and the text appears once. A claim decides only
   which device shows the review.
 - **A chained base.** Each adoption's diff base is the previous one, so a second outside edit does not re-apply the
-  first. The engine walks every revision since the last known head, not just the head.
+  first. The engine keeps the chained base's Yjs state, not just its text, and walks every revision since the last
+  known head, not just the head.
+- **Adoption runs on a fork.** The engine forks a doc at the chained base's Yjs state, applies the diff there as the
+  synthetic client, and merges the fork's delta into the live doc. Measured in spike #3443 (Node 22, yjs 13.6.33,
+  seed 20261122): applying the diff straight to a live doc that had unsynced local edits diverged permanently in 11 of
+  200 trials, with no error, because both devices create the same item ids with different origins. The fork passed
+  200 of 200: no divergence, no duplicates, no lost local edits.
 - **The review's safety version.** The "Drive edit" version saved before a review is pinned (it never falls out of
   the 25-version cap) and written into the vault, so it syncs.
 
@@ -485,13 +554,13 @@ Google. Publishing the Google app "In production" is a gate before slice 9 or sl
 
 | # | Slice | Proof |
 |---|---|---|
-| 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder |
-| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko`, including WebKit's worker write path |
+| 0 | **Spike** (throwaway, not merged): a real sign-in, a real test Drive, two devices, one compaction, iOS Safari | Confirms the Google facts in §12: the Picker API key and app id, folder grants under `drive.file`, the size limit of `appProperties`, uploads into a trashed folder, and the quota units each call costs (§6.3) |
+| 1 | **The vault.** The interface plus the OPFS/IndexedDB and memory backings; no caller moves yet | Unit tests over all backings; e2e write → reload → read on `chromium`, `webkit-phone` and `gecko` in persistent profiles, including WebKit's worker write path; a visible `VaultError('unavailable')` where OPFS is refused (#3442) |
 | 2 | **Assets into the vault.** Photos, videos, PDFs, themes and other kinds; narration audio; closes `3148-p2` | The 2026-11-11 bench extended to 50 photos: boot, photo open, backup export, before and after. iOS eviction on a real device, or UNVERIFIED and handed to the devices desk |
 | 3 | **Decks into the vault, in their final form:** text plus the per-device update files, so there is no second migration. The pre-paint cache stays; fixes the silent quota failure | `storage-bench.cjs` rows 1–3: first slide, blocked time and heap within the repeated runs' spread; an e2e proving a full disk shows a notice |
 | 4 | **The Library, local, with the Track 4 layout** (§7). Includes icon-only pills and the mask tokens added to the Studio sheet; shipping seven labeled pills first would wrap at 320 px. Takes over `3356-p1` after #3356 merges | e2e on three projects; `tools/screenshot.js` at 1440, 820 and 390 |
 | 5 | **Auth.** GIS token client, the `getAccessToken()` seam, Connect and Disconnect in the Library, the privacy page. **Gated on both §9.2 requirements** | The adversarial trio; e2e against a stubbed GIS; a real sign-in on a test Google account, otherwise UNVERIFIED (HARD RULE #23) |
-| 6 | **Sync v1, plus the review and every failure state, behind a flag.** Push and pull; changes polling; journal; retries; per-device update files and compaction; outside-edit adoption; the per-slide review; the copy rewrite (§9.1). The hold and its way out ship together | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a seeded property test of the merge; real Drive on a test account, otherwise UNVERIFIED |
+| 6 | **Sync v1, plus the review and every failure state, behind a flag.** Push and pull; changes polling; journal; retries; per-device update files and compaction; outside-edit adoption; the per-slide review; the copy rewrite (§9.1); the quota guardrails (§6.3, Quotas and cost). The hold and its way out ship together | A fake Drive server covering the API calls the engine uses, driven by e2e on three projects, with two browser contexts as two devices, offline and back; a seeded property test of the merge; the quota units an hour of editing spends; real Drive on a test account, otherwise UNVERIFIED |
 | 8 | **Chats and roaming settings sync**, after #3147 | Two-context e2e; Yjs merge test |
 | 9 | **Broker.** The stateless Worker (§4.2); a gate before sync goes public | The adversarial trio; e2e against a stubbed Google token endpoint; a real renewal on a test account, otherwise UNVERIFIED |
 | 10 | **Desktop:** the file-system vault plus loopback PKCE and the keychain. Waits on #2354 landing (5 weeks quiet, no merge base) | The desktop app under Xvfb: a deck edited on disk shows in the app, and the reverse |
@@ -532,6 +601,10 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
     run on the browser token model until then (§4.2). This supersedes ruling 1's "optional later upgrade".
 12. **Undo and versions:** Filo owns the deck's undo and versions. Yjs is only the format that carries changes between
     devices (§6.4). This supersedes the "Yjs snapshots" versions of the first rulings.
+13. **Quota guardrails:** slower idle polling, large media downloaded on open, deduplication and backoff are REQUIRED
+    in slice 6 (§6.3, Quotas and cost). The Cloud-console guardrails (billing left unlinked, quota alerts that are not
+    email) are the owner's, tracked in `followups.d/3432-p1-drive-project-billing-off.md` and
+    `followups.d/3432-p2-drive-quota-alerts.md`.
 
 ## 12. What was not checked
 
@@ -540,11 +613,15 @@ Slices 4 and 6 absorb the former 4b and 7, so there is no slice 7.
   (the web client's secret requirement, the 7-day Testing expiry). The spike (slice 0) checks each against a real
   test account, together with the Picker API key and app id, folder grants under `drive.file`, the size limit of
   `appProperties`, and uploads into a trashed folder.
-- Whether WebKit (iOS Safari) supports `FileSystemWritableFileStream` today was not tested; the design writes through
-  `createSyncAccessHandle` in a worker, which WebKit has supported since 16.4. Slice 1 proves it on `webkit-phone`
-  (Linux WebKit); iOS stays UNVERIFIED until the iOS Simulator suite or a real device covers it.
-- Drive API quotas were not measured. Polling at 60 s per visible tab is far below Google's published per-user
-  defaults, which slice 6 confirms.
+- **Measured in spike #3443 (Part A, this sandbox):** OPFS write → reload → read in Chromium, Firefox and Linux
+  WebKit (WebKit refuses ephemeral contexts, §6.2); per-device update files merging in any order; an older-base update
+  on a lossless base; the silent pending update on a rebuilt base (§6.4); idempotent adoption, and the divergence that
+  makes it run on a fork; the three-way save from a stale tab; state-vector growth and a year of history. iOS Safari
+  and Safari Private Browsing stay UNVERIFIED: Linux WebKit is not iOS.
+- **Still pending the owner's run (spike #3443, Part B):** every real-Google fact above.
+- Drive API quotas were not measured. §6.3 (Quotas and cost) estimates them from Google's published limits and the
+  design's rates; slice 0 measures what each call costs on a test project, and slice 6 counts the units an hour of
+  editing spends.
 - Where `lattice.style`'s DNS is hosted was not checked (§4.3).
 - The adversarial trio ran on the picked Library design on 2026-11-22. Its findings are folded into §4.2, §6.3, §6.4,
   §9.2 and §10.
