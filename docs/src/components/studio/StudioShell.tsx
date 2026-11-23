@@ -113,7 +113,7 @@ import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
-import { activeGuards, GUARDS } from './guards-catalog';
+import { activeFit, FIT } from './fit-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -2910,11 +2910,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
 	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
 	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
-	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
-	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
-	// key. Writing the new key also drops the old one, so a deck never carries both.
-	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
-	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+	// Fit (`fit:`) — what the engine may do to make a slide fit: report / heal / trim.
+	// lib/core/resolve-fit.js; `heal` is the baseline and writes no key. Writing it also drops a
+	// `guards:` line, the retired spelling the engine no longer reads (lint `guards-renamed`).
+	const fit = activeFit(getFrontMatterName(source, 'fit')).name;
+	const setFit = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
 		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
 	});
@@ -6982,7 +6982,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
 					</Field>
 					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(fit, 'heal', setFit, [{ options: catalogOptions(FIT, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>

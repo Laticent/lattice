@@ -3,7 +3,7 @@ import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 // The color of the photo behind a spotlight card, read from the live preview.
 //
 // card-ink-pick.ts reads this when an image slide opens, and the Card backing slider then asks the
-// kernel (lib/core/card-ink.mjs) which of `ink-light` / `ink-dark` reads better on it. This finds
+// kernel (lib/core/card-ink.mjs) which of `image-card-light` / `image-card-dark` reads better on it. This finds
 // the slide in the preview frame, reads where the card actually sits on that slide, maps that box
 // onto the photo and averages the pixels there. Every step can come back empty (no preview, a
 // preview still showing another slide, a photo that will not load, a cross-origin photo the canvas
@@ -114,7 +114,7 @@ export function photoMatches(ref: string | null, url: string): boolean {
 }
 
 /** The slide's classes that decide what its card looks like; the preview must already carry them. */
-export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
+export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|mirror|image-card-.+)$/;
 
 /**
  * The mean color of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
