@@ -554,12 +554,32 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
 	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
+	// The page itself ends the "download" the moment the pill shows its progress, and records every label the pill
+	// shows. A read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still loading, then reads on
+	// captions by design, so a release that waits on a test round trip raced that timer under load (1 in 150 at 4
+	// workers). Both labels are brief, too: "Heart" shows only while the 0.3 s clip plays, so they are recorded, not polled.
+	await page.evaluate(() => {
+		const dialogEl = document.querySelector('[role="dialog"]');
+		const seen: string[] = [];
+		(window as unknown as { __pillLabels: string[] }).__pillLabels = seen;
+		let released = false;
+		const note = () => {
+			const pill = [...(dialogEl?.querySelectorAll('button') ?? [])].find((b) => /^Voice (on|off)/.test(b.getAttribute('aria-label') ?? ''));
+			const t = pill?.textContent ?? '';
+			if (seen[seen.length - 1] !== t) seen.push(t);
+			if (!released && t.includes('Loading voice… 42%')) {
+				released = true;
+				new BroadcastChannel('fake-kokoro').postMessage('go');
+			}
+		};
+		note();
+		if (dialogEl) new MutationObserver(note).observe(dialogEl, { subtree: true, childList: true, characterData: true, attributes: true });
+	});
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-	// The first read starts the load and waits for it, visibly: no other voice stands in.
-	await expect(voice).toContainText('Loading voice… 42%', { timeout: 30_000 });
-	await shot(page, 'present-loading-voice');
-	await page.evaluate(() => new BroadcastChannel('fake-kokoro').postMessage('go'));
-	await expect(voice).toContainText('Heart · on-device', { timeout: 30_000 });
+	const labels = () => page.evaluate(() => (window as unknown as { __pillLabels: string[] }).__pillLabels.join(' | '));
+	// The first read starts the load and waits for it, visibly (no other voice stands in), then reads in the chosen voice.
+	await expect.poll(labels, { timeout: 30_000 }).toMatch(/Loading voice… 42%.*Heart · on-device/);
+	expect(await labels()).not.toMatch(/Loading voice… 42%.*Captions.*Heart/); // nothing read on captions in between
 });
 
 // CLS 0 opening Workspace › AI, at the three widths the Studio ships to. Every card paints its
