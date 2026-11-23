@@ -222,7 +222,8 @@ async function runPickerKeyboardProbe(id) {
 	// OPENING the gallery is not what this probe tests, so it uses a script click: a WebDriver touch on the door did not
 	// register in the simulator (harness runs #2 to #4 on #3484). The one gesture that must be real is the tap on the
 	// search field below, because only a user gesture raises the iOS keyboard.
-	const click = (label) => run(`const b = [...document.querySelectorAll('button')].filter(${onScreen}).find((x) => x.getAttribute('aria-label') === ${JSON.stringify(label)} || x.textContent.trim() === ${JSON.stringify(label)}); if (b) b.click(); return !!b;`);
+	// The label travels as a WebDriver script ARGUMENT, never spliced into the script text.
+	const click = (label) => wd('POST', `/session/${id}/execute/sync`, { script: `const label = arguments[0]; const b = [...document.querySelectorAll('button')].filter(${onScreen}).find((x) => x.getAttribute('aria-label') === label || x.textContent.trim() === label); if (b) b.click(); return !!b;`, args: [label] });
 	await click('New slide');
 	const after = await until(`return [...document.querySelectorAll('button')].some((b) => b.getAttribute('aria-label') === 'New slide after')`, 15000);
 	step('the door split into Before | After', after, after ? '' : `on-screen buttons: ${await seenButtons()}`);
