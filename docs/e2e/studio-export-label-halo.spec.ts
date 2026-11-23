@@ -9,7 +9,8 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
 // that is `--pass-on-mark`, white in dark, so after the toggle the label read light ink on a white box, 1.07:1
 // (lib/plugins/chart-family/shared/standalone-svg.js `HALO_SURFACE_TOKENS`). The CLI path is pinned by
 // test/integration/export/html-player.test.js; this drives the Studio's copy of the bake through the real Share sheet,
-// opens the file it downloads and clicks the player's real toggle.
+// opens the file it downloads and clicks the player's real toggle. Tagged for WebKit and Gecko: the bake matches
+// resolved color strings, and each engine resolves (and formats) colors itself.
 const F = String.fromCharCode(96, 96, 96);
 const DECK = [
 	'---', 'theme: cuoio', '---', '',
@@ -17,7 +18,7 @@ const DECK = [
 	`${F}mermaid`, 'flowchart LR', '  A[Quote] --> B{Above floor?}', '  B -->|yes| C[Send]', '  B -->|no| D[Review]', F, '',
 ].join('\n');
 
-test('a baked edge label keeps AA contrast after the exported player toggles to dark', async ({ page }, testInfo) => {
+test('a baked edge label keeps AA contrast after the exported player toggles to dark @webkit-tablet @gecko', async ({ page }, testInfo) => {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
