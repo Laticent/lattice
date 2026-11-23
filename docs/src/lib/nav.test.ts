@@ -112,12 +112,14 @@ describe('nav model', () => {
 			.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')))
 			.filter((p) => !p.private && p.name !== '@laticent/lattice')
 			.map((p) => p.name);
-		// Published WITHOUT a page: plumbing @laticent/lattice depends on, published so a clean
-		// `npm i @laticent/lattice` resolves (owner ruling 2026-11-22, first-npm-release §9), not a
-		// product the hub pitches yet. Each must be published, so an entry cannot outlive its package.
+		// Published but WITHOUT a page yet. @laticent/lattice depends on each, so each publishes for a
+		// clean `npm i @laticent/lattice` (owner ruling 2026-11-22, first-npm-release §9). Every
+		// published library is official and gets a page (ruling 2026-11-23), so this list only shrinks:
+		// a library leaves it in the PR that adds its page. Each entry must be a published engine
+		// dependency, so it cannot outlive its package.
 		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-markdown'];
 		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
-		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies ?? {});
+		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'packages', 'lattice', 'package.json'), 'utf8')).dependencies ?? {});
 		for (const name of unlisted) expect(engineDeps, `${name} is in \`unlisted\` but @laticent/lattice does not depend on it`).toContain(name);
 		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
 		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
