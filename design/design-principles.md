@@ -174,8 +174,8 @@ title, divider, topic and closing: the divider's section marker and the topic's 
 logo stays everywhere. An author writes nothing for the default, and overrides one slide with the band's switch:
 
 ```markdown
-<!-- @meta{layout=title, class=with-header} -->
-<!-- @meta{layout=divider, class=no-footer} -->
+<!-- _class: title with-header -->
+<!-- _class: divider no-footer -->
 ```
 
 ## 2.3 Header, Footer & Pagination CSS

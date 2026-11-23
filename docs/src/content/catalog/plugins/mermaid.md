@@ -115,7 +115,7 @@ flowchart LR
 To make a diagram the subject of a slide, use the `diagram` slide, which gives it the room:
 
 ````markdown
-<!-- @meta{layout=diagram} -->
+<!-- _class: diagram -->
 
 ## How signals move from input to decision.
 

@@ -55,7 +55,13 @@ const {
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const CARD_STYLE = new Set(CARD_STYLE_LAYOUTS);
-const CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+// The slide's own class, in either spelling (`<!-- _class: … -->` or `<!-- @meta{layout=…} -->`), through the shared
+// reader: the corpus is written in records since the meta sweep, and a `_class:` regex saw almost none of it.
+const { slideClassDirectives } = require('../../../lib/core/class-directive-scan.mjs');
+const classOf = (slide) => {
+  const [own] = slideClassDirectives(slide);
+  return own?.text ? [own.text, own.payload] : null;
+};
 
 function walkMarkdown(dir, suffix, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -78,7 +84,7 @@ function scanDeck(absPath) {
   const slides = text.split(/^---$/m);
   const offenses = [];
   slides.forEach((slide, slideIdx) => {
-    const m = slide.match(CLASS_DIRECTIVE);
+    const m = classOf(slide);
     if (!m) return;
     const classes = m[1].split(/\s+/);
     const cardClasses = classes.filter((c) => CARD_STYLE.has(c));

@@ -1,5 +1,5 @@
 <!-- galleryAuthored: curated Mermaid tour with chart-synergy handoff; tools/build-bucket-galleries.js reads this .md verbatim and will not overwrite it -->
-<!-- @meta{layout=title, class=silent} -->
+<!-- _class: title silent -->
 
 # Diagrams
 
@@ -9,8 +9,8 @@ When the relationship between things is the message — flow, structure, hierarc
 
 ---
 
-<!-- @meta{layout=split-panel, footer=orientation · diagram survey} -->
-
+<!-- _class: split-panel -->
+<!-- _footer: "orientation · diagram survey" -->
 
 `How to read this deck`
 
@@ -29,8 +29,8 @@ One product told two ways: the chart family plots its data, this deck maps its s
 
 ---
 
-<!-- @meta{layout=divider, footer=""} -->
-
+<!-- _class: divider -->
+<!-- _footer: '' -->
 
 `Group 01 · Flow & sequence`
 
@@ -38,8 +38,8 @@ One product told two ways: the chart family plots its data, this deck maps its s
 
 ---
 
-<!-- @meta{layout=diagram, footer=flowchart · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "flowchart · diagram survey" -->
 
 `Flow & sequence · Flowchart`
 
@@ -56,8 +56,8 @@ flowchart LR
 
 ---
 
-<!-- @meta{layout=diagram, footer=sequence · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "sequence · diagram survey" -->
 
 `Flow & sequence · Sequence`
 
@@ -79,8 +79,8 @@ sequenceDiagram
 
 ---
 
-<!-- @meta{layout=diagram, footer=sankey · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "sankey · diagram survey" -->
 
 `Flow & sequence · Sankey`
 
@@ -99,8 +99,8 @@ Escalated,Decision log,280
 
 ---
 
-<!-- @meta{layout=divider, footer=""} -->
-
+<!-- _class: divider -->
+<!-- _footer: '' -->
 
 `Group 02 · Structure & schema`
 
@@ -108,8 +108,8 @@ Escalated,Decision log,280
 
 ---
 
-<!-- @meta{layout=diagram, footer=class · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "class · diagram survey" -->
 
 `Structure & schema · Class`
 
@@ -137,8 +137,8 @@ classDiagram
 
 ---
 
-<!-- @meta{layout=diagram, footer=entity-relationship · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "entity-relationship · diagram survey" -->
 
 `Structure & schema · Entity relationship`
 
@@ -172,8 +172,8 @@ erDiagram
 
 ---
 
-<!-- @meta{layout=diagram, footer=requirement · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "requirement · diagram survey" -->
 
 `Structure & schema · Requirement`
 
@@ -202,8 +202,8 @@ requirementDiagram
 
 ---
 
-<!-- @meta{layout=diagram, footer=packet · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "packet · diagram survey" -->
 
 `Structure & schema · Packet`
 
@@ -222,8 +222,8 @@ title Decision-log record
 
 ---
 
-<!-- @meta{layout=divider, footer=""} -->
-
+<!-- _class: divider -->
+<!-- _footer: '' -->
 
 `Group 03 · Hierarchy & systems`
 
@@ -231,8 +231,8 @@ title Decision-log record
 
 ---
 
-<!-- @meta{layout=diagram, footer=mindmap · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "mindmap · diagram survey" -->
 
 `Hierarchy & systems · Mindmap`
 
@@ -257,8 +257,8 @@ mindmap
 
 ---
 
-<!-- @meta{layout=diagram, footer=tree · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "tree · diagram survey" -->
 
 `Hierarchy & systems · Tree`
 
@@ -277,8 +277,8 @@ treeView-beta
 
 ---
 
-<!-- @meta{layout=diagram, footer=architecture · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "architecture · diagram survey" -->
 
 `Hierarchy & systems · Architecture`
 
@@ -298,8 +298,8 @@ architecture-beta
 
 ---
 
-<!-- @meta{layout=diagram, footer=c4 context · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "c4 context · diagram survey" -->
 
 `Hierarchy & systems · C4 context`
 
@@ -318,8 +318,8 @@ C4Context
 
 ---
 
-<!-- @meta{layout=divider, footer=""} -->
-
+<!-- _class: divider -->
+<!-- _footer: '' -->
 
 `Group 04 · Cause, set & history`
 
@@ -327,8 +327,8 @@ C4Context
 
 ---
 
-<!-- @meta{layout=diagram, footer=ishikawa · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "ishikawa · diagram survey" -->
 
 `Cause, set & history · Ishikawa`
 
@@ -352,8 +352,8 @@ ishikawa-beta
 
 ---
 
-<!-- @meta{layout=diagram, footer=venn · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "venn · diagram survey" -->
 
 `Cause, set & history · Venn`
 
@@ -370,8 +370,8 @@ venn-beta
 
 ---
 
-<!-- @meta{layout=diagram, footer=gitgraph · diagram survey} -->
-
+<!-- _class: diagram -->
+<!-- _footer: "gitgraph · diagram survey" -->
 
 `Cause, set & history · Git graph`
 
@@ -393,8 +393,8 @@ gitGraph
 
 ---
 
-<!-- @meta{layout=table, footer=synergy · prefer the native component} -->
-
+<!-- _class: table -->
+<!-- _footer: "synergy · prefer the native component" -->
 
 `The chart handoff`
 
@@ -410,8 +410,8 @@ These shapes exist as both a Mermaid diagram and a native SVG-kernel component. 
 
 ---
 
-<!-- @meta{layout=closing, footer=""} -->
-
+<!-- _class: closing -->
+<!-- _footer: '' -->
 
 `Diagrams · graph substance`
 

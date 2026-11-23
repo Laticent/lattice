@@ -246,7 +246,7 @@ pagination: true
 header: "Trailhead · Launch plan"
 ---
 
-<!-- @meta{layout=title, class=silent} -->
+<!-- _class: title silent -->
 
 # Trailhead Launch
 
@@ -256,7 +256,7 @@ We open the beta to three cities in April, and the board decides the fourth.
 
 ---
 
-<!-- @meta{layout=big-number} -->
+<!-- _class: big-number -->
 
 `Beta waitlist`
 
@@ -267,7 +267,7 @@ We open the beta to three cities in April, and the board decides the fourth.
 
 ---
 
-<!-- @meta{layout=closing, class=silent} -->
+<!-- _class: closing silent -->
 
 ## Pick the fourth city by March.
 

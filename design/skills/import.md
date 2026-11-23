@@ -201,7 +201,7 @@ pagination: true
 header: "Onboarding plan · Engineering"
 ---
 
-<!-- @meta{layout=title, class=silent} -->
+<!-- _class: title silent -->
 
 # Onboarding Plan
 
@@ -211,7 +211,7 @@ New engineers ship their first change in their second week, and own a service by
 
 ---
 
-<!-- @meta{layout=cards-grid, class=three} -->
+<!-- _class: cards-grid three -->
 
 ## Each week of the first month ends in something the new hire shipped.
 
@@ -224,7 +224,7 @@ New engineers ship their first change in their second week, and own a service by
 
 ---
 
-<!-- @meta{layout=content} -->
+<!-- _class: content -->
 
 ## A named buddy answers the questions a wiki cannot.
 
@@ -232,7 +232,7 @@ Each new hire gets one engineer for the month who reviews their code and joins t
 
 ---
 
-<!-- @meta{layout=closing, class=silent} -->
+<!-- _class: closing silent -->
 
 ## Name a buddy before the start date.
 

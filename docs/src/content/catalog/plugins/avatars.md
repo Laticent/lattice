@@ -107,7 +107,7 @@ Pin traits with `key=value`, then style the tile with words:
 On a team slide, put the avatar on the line where a photo would go:
 
 ```markdown
-<!-- @meta{layout=team-profile} -->
+<!-- _class: team-profile -->
 
 ## The account team
 

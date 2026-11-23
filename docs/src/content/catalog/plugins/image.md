@@ -88,7 +88,7 @@ A picture on a slide carries three things: where it comes from, what it shows, a
 Put the record on a line of its own, with a blank line above and below it:
 
 ```markdown
-<!-- @meta{layout=content} -->
+<!-- _class: content -->
 
 ## The lake at dawn.
 

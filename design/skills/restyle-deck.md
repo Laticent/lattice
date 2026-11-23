@@ -151,7 +151,7 @@ header: "Harbor Analytics · Pricing review"
 One bright slide inside that dark deck:
 
 ```markdown
-<!-- @meta{layout=content, class=light} -->
+<!-- _class: content light -->
 
 ## Small teams leave when one busy month doubles their bill.
 
@@ -162,7 +162,7 @@ A layout swap: five reference rows were crammed into `cards-grid` (hard cap 4).
 Same words, poured into `list-tabular`, which takes numbered rows:
 
 ```markdown
-<!-- @meta{layout=list-tabular} -->
+<!-- _class: list-tabular -->
 
 ## Usage pricing moved revenue toward our largest accounts.
 
@@ -191,7 +191,7 @@ pagination: true
 header: "Harbor Analytics · Pricing review"
 ---
 
-<!-- @meta{layout=title, class=silent} -->
+<!-- _class: title silent -->
 
 # Harbor Analytics
 
@@ -201,7 +201,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- @meta{layout=divider} -->
+<!-- _class: divider -->
 
 `Section 01`
 
@@ -209,7 +209,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- @meta{layout=list-tabular} -->
+<!-- _class: list-tabular -->
 
 ## Usage pricing moved revenue toward our largest accounts.
 
@@ -226,7 +226,7 @@ Usage pricing grew revenue, but small teams need a cap before renewal season.
 
 ---
 
-<!-- @meta{layout=content, class=light} -->
+<!-- _class: content light -->
 
 ## Small teams leave when one busy month doubles their bill.
 
@@ -234,7 +234,7 @@ Exit interviews name surprise invoices first, ahead of price and features.
 
 ---
 
-<!-- @meta{layout=closing, class=silent} -->
+<!-- _class: closing silent -->
 
 ## Cap small-team bills and protect renewals.
 

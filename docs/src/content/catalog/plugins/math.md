@@ -116,7 +116,7 @@ $$
 To make an equation the subject of a slide, use the `math` slide, which frames the equation and explains its terms:
 
 ```markdown
-<!-- @meta{layout=math} -->
+<!-- _class: math -->
 
 ## The energy-mass equivalence.
 

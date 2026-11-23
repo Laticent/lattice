@@ -109,7 +109,7 @@ see `chart-from-data.md`) or positions on two scores (`quadrant`).
 **A Mermaid flowchart:**
 
 ````markdown
-<!-- @meta{layout=diagram} -->
+<!-- _class: diagram -->
 
 `Claims · intake to payout`
 
@@ -128,7 +128,7 @@ flowchart LR
 **A sequence diagram** (only Mermaid draws these):
 
 ````markdown
-<!-- @meta{layout=diagram} -->
+<!-- _class: diagram -->
 
 `Claims · adjuster handoff`
 
@@ -150,7 +150,7 @@ sequenceDiagram
 `=>` is the heavy main path):
 
 ```markdown
-<!-- @meta{layout=flowchart} -->
+<!-- _class: flowchart -->
 
 `Claims · who decides`
 

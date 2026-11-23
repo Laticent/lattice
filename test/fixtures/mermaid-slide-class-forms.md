@@ -5,7 +5,7 @@ theme: indaco
 split: headings
 ---
 
-<!-- @meta{layout=diagram} -->
+<!-- _class: diagram -->
 
 ## The deck default reaches a slide that names no color token.
 
@@ -19,7 +19,7 @@ flowchart LR
 
 ---
 
-<!-- @meta{layout=diagram, class=dark, carry} -->
+<!-- class: diagram dark -->
 
 ## A GLOBAL class directive applies from its own slide.
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ---
 
-<!-- @meta{layout=diagram, class=dark} -->
+<!-- _class: diagram dark -->
 
 ## A directive quoted as prose is prose.
 
@@ -61,7 +61,7 @@ flowchart LR
 
 ---
 
-<!-- @meta{layout=diagram, class=dark} -->
+<!-- _class: diagram dark -->
 
 ## An equation is opaque, and does not start a slide.
 

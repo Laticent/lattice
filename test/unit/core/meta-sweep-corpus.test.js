@@ -36,6 +36,9 @@ const NOT_DECKS = Object.freeze([
  */
 const KEEP = Object.freeze({
   'kit/Sample-Deck.md': "Marp's own sample deck, shipped in the Marp kit; Marp reads only directive comments.",
+  // Until the cut the engine reads every spelling, and these two are where each comment form is rendered end to end.
+  'test/fixtures/mermaid-slide-class-forms.md': 'Pins every comment form of a class (spot, running global, quoted) through the Mermaid bake (mermaid-slide-class-forms.test.js).',
+  'examples/slide-class-forms.md': 'The demo deck of the comment forms of a class; its eyebrows name each form.',
   'tools/vscode-harness/decks/mermaid-click.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
   // LFM 1.x defines the directive comment; these are its conformance cases, run by tools/lfm-conformance.js. The cut
   // (slice E) marks them `until: LFM-2.0` and the LFM 2.0 draft gets record cases.
@@ -50,19 +53,14 @@ const KEEP = Object.freeze({
 });
 
 /**
- * THE GENERATED GALLERIES, until their generators write records. `tools/build-component-docs.js`,
- * `tools/build-bucket-galleries.js` and `tools/build-showcase-galleries.js` compose them from the manifests, and moving
- * those writers is #3433 (slice C). They are never hand-edited (`build:check` regenerates them); once #3433 lands, the
- * sweep converts the manifest `sample` strings, regenerates, and deletes this rule. The hand-curated galleries are
- * swept already, so a curated one cannot hide here: the rule fails when it covers no file.
+ * THE GALLERIES UNDER lib/, until the gallery tools read and write records. `tools/build-component-docs.js`,
+ * `tools/build-bucket-galleries.js` and `tools/build-showcase-galleries.js` compose most of them from the manifests, and
+ * the hand-authored ones (`galleryAuthored`, the bucket marker, `EXTRA_GALLERIES`) still go through
+ * `tools/build-galleries.js` `injectDark`, which darkens only a `_class:` comment: a record gallery would render its
+ * dark PDF light (the checker on slice D). Moving those tools is #3433 (slice C). Once it lands, the sweep converts the
+ * manifest `sample` strings and these galleries, and deletes this rule; it fails when it covers nothing.
  */
-const PENDING_GENERATORS = (rel) => rel === 'examples/data-viz-gallery.md' || (/^lib\/.*\.gallery\.md$/.test(rel) && !CURATED_GALLERIES.has(rel));
-const CURATED_GALLERIES = new Set([
-  'lib/components/diagram/diagram.gallery.md',
-  'lib/components/diagram/diagram/diagram.gallery.md',
-  'lib/components/legal/legal.gallery.md',
-  'lib/base/_logo/logo.gallery.md',
-]);
+const PENDING_GALLERY_TOOLS = (rel) => rel === 'examples/data-viz-gallery.md' || /^lib\/.*\.gallery\.md$/.test(rel);
 
 /** Every tracked `.md` that is a shipped deck, with its text. */
 function shippedDecks() {
@@ -89,9 +87,9 @@ test('no shipped deck holds an old directive comment or a bare record, outside t
   const decks = shippedDecks();
   assert.ok(decks.length > 900, `the walk reaches the corpus (${decks.length} files)`);
   const found = await oldSpellings(decks);
-  const pending = [...found.keys()].filter(PENDING_GENERATORS);
-  assert.ok(pending.length > 0, 'every generated gallery is in records: delete PENDING_GENERATORS');
-  const stray = [...found].filter(([rel]) => !Object.hasOwn(KEEP, rel) && !PENDING_GENERATORS(rel)).map(([rel, what]) => `${rel}: ${what}`);
+  const pending = [...found.keys()].filter(PENDING_GALLERY_TOOLS);
+  assert.ok(pending.length > 0, 'every gallery is in records: delete PENDING_GALLERY_TOOLS');
+  const stray = [...found].filter(([rel]) => !Object.hasOwn(KEEP, rel) && !PENDING_GALLERY_TOOLS(rel)).map(([rel, what]) => `${rel}: ${what}`);
   assert.deepEqual(stray, [], 'run `lattice migrate meta <file>` (or `lint:deck --fix`) on each; a deck that must keep the old form goes in KEEP with its reason');
   const stale = Object.keys(KEEP).filter((rel) => !found.has(rel));
   assert.deepEqual(stale, [], 'these KEEP entries no longer hold an old spelling (or are gone): remove them');

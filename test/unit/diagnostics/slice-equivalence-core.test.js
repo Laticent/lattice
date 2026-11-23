@@ -64,6 +64,15 @@ test('synthesizePrelude carries a `carry` record forward, field by field, and dr
   assert.equal(core.synthesizePrelude(['<!-- @meta{build, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{build, carry} -->');
 });
 
+test('synthesizePrelude resolves a record and a comment of one key in document order, and writes record fields', () => {
+  // The checker on slice D: two separate walks let an earlier record beat a later comment on the same slide.
+  assert.equal(core.synthesizePrelude(['<!-- @meta{class=a, carry} -->\n<!-- class: b -->\n# One', '# Two'], 1, VOCAB), '<!-- class: b -->');
+  assert.equal(core.synthesizePrelude(['<!-- class: b -->\n<!-- @meta{class=a, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{class=a, carry} -->');
+  // The engine key `backgroundColor` goes back as the record FIELD `background-color`, which the door reads.
+  const v = { known: new Set(['backgroundColor']), flags: new Set(), slide: new Set() };
+  assert.equal(core.synthesizePrelude(['<!-- @meta{background-color="rgb(1, 2, 3)", carry} -->\n# One', '# Two'], 1, v), '<!-- @meta{background-color="rgb(1, 2, 3)", carry} -->');
+});
+
 test('synthesizePrelude does not carry a slide-only key, in either spelling', () => {
   // `header` and `footer` set their own slide only (audit §11r), so a later slice inherits neither.
   const slides = ['<!-- header: Q3 -->\n<!-- _footer: F -->\n# One', '# Two'];

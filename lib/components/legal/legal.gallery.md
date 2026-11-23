@@ -9,9 +9,9 @@ footer: "Six anchors · five variants each · candidate deck"
 
 <!-- galleryAuthored: legal-family domain composition; tools/build-bucket-galleries.js will not overwrite -->
 
-<!-- @meta{layout=title, header="", footer=""} -->
-
-
+<!-- _class: title -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
 
 # Legal layouts.
 
@@ -21,8 +21,8 @@ Six anchors. Five variants per anchor. Pick the strongest of each row.
 
 ---
 
-<!-- @meta{layout=divider, class=light, footer=Orientation · divider light} -->
-
+<!-- _class: divider light -->
+<!-- _footer: "Orientation · divider light" -->
 
 `How to read this deck`
 
@@ -32,8 +32,8 @@ Mark the one that earns the room. Slot labels lift via the slotLabelLift transfo
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 01 · statute-stack} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 01 · statute-stack" -->
 
 `Anchor 01 · Federal / State / Local`
 
@@ -41,8 +41,8 @@ Mark the one that earns the room. Slot labels lift via the slotLabelLift transfo
 
 ---
 
-<!-- @meta{layout=statute-stack, footer="Variant 1A · statute-stack (rails, default)"} -->
-
+<!-- _class: statute-stack -->
+<!-- _footer: "Variant 1A · statute-stack (rails, default)" -->
 
 ## Children's data — three jurisdictions, three obligations.
 
@@ -66,8 +66,8 @@ Pick this when the room wants three parallel facts at a glance.
 
 ---
 
-<!-- @meta{layout=statute-stack, class=hierarchy, footer=Variant 1B · statute-stack hierarchy} -->
-
+<!-- _class: statute-stack hierarchy -->
+<!-- _footer: "Variant 1B · statute-stack hierarchy" -->
 
 ## Children's data — Federal floor, State stricter, Local narrowest.
 
@@ -83,8 +83,8 @@ Pick this when the room wants three parallel facts at a glance.
 
 ---
 
-<!-- @meta{layout=statute-stack, class=bands, footer=Variant 1C · statute-stack bands} -->
-
+<!-- _class: statute-stack bands -->
+<!-- _footer: "Variant 1C · statute-stack bands" -->
 
 ## Three jurisdictions, full prose, one row each.
 
@@ -100,8 +100,8 @@ Pick this when the room wants three parallel facts at a glance.
 
 ---
 
-<!-- @meta{layout=statute-stack, class=preemption, footer=Variant 1D · statute-stack preemption} -->
-
+<!-- _class: statute-stack preemption -->
+<!-- _footer: "Variant 1D · statute-stack preemption" -->
 
 ## Federal floor, then State opt-in, then Local audit duty.
 
@@ -117,8 +117,8 @@ Pick this when the room wants three parallel facts at a glance.
 
 ---
 
-<!-- @meta{layout=statute-stack, class=lane, footer=Variant 1E · statute-stack lane} -->
-
+<!-- _class: statute-stack lane -->
+<!-- _footer: "Variant 1E · statute-stack lane" -->
 
 ## Children's data — jurisdiction, citation, obligation, status.
 
@@ -132,8 +132,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 02 · citation-card} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 02 · citation-card" -->
 
 `Anchor 02 · quote, translate, act`
 
@@ -141,8 +141,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=citation-card, footer="Variant 2A · citation-card (stack, default)"} -->
-
+<!-- _class: citation-card -->
+<!-- _footer: "Variant 2A · citation-card (stack, default)" -->
 
 ## What counts as "personal information" under CCPA.
 
@@ -156,8 +156,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=citation-card, class=split, footer=Variant 2B · citation-card split} -->
-
+<!-- _class: citation-card split -->
+<!-- _footer: "Variant 2B · citation-card split" -->
 
 ## What counts as "personal information" under CCPA.
 
@@ -171,8 +171,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=citation-card, class=pull-quote, footer=Variant 2C · citation-card pull-quote} -->
-
+<!-- _class: citation-card pull-quote -->
+<!-- _footer: "Variant 2C · citation-card pull-quote" -->
 
 ## "Personal information" includes the household, not just the person.
 
@@ -185,8 +185,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=citation-card, class=margin, footer=Variant 2D · citation-card margin} -->
-
+<!-- _class: citation-card margin -->
+<!-- _footer: "Variant 2D · citation-card margin" -->
 
 ## Personal information, defined.
 
@@ -201,8 +201,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=citation-card, class=triptych, footer=Variant 2E · citation-card triptych} -->
-
+<!-- _class: citation-card triptych -->
+<!-- _footer: "Variant 2E · citation-card triptych" -->
 
 ## Personal information — three columns, three jobs.
 
@@ -216,8 +216,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 03 · obligation-matrix} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 03 · obligation-matrix" -->
 
 `Anchor 03 · regimes × obligations`
 
@@ -225,8 +225,8 @@ Pick this when the audience wants to scan many obligations at once.
 
 ---
 
-<!-- @meta{layout=obligation-matrix, footer="Variant 3A · obligation-matrix (grid, default)"} -->
-
+<!-- _class: obligation-matrix -->
+<!-- _footer: "Variant 3A · obligation-matrix (grid, default)" -->
 
 ## Privacy obligations across regimes — state grid.
 
@@ -243,8 +243,8 @@ Check · dash · slash. Neutral ink — applies / partial / exempt as data.
 
 ---
 
-<!-- @meta{layout=obligation-matrix, class=heat, footer=Variant 3B · obligation-matrix heat} -->
-
+<!-- _class: obligation-matrix heat -->
+<!-- _footer: "Variant 3B · obligation-matrix heat" -->
 
 ## Privacy obligations across regimes — heat map.
 
@@ -261,8 +261,8 @@ Same grammar, semantic palette — red = applies, amber = partial, exempt stays 
 
 ---
 
-<!-- @meta{layout=obligation-matrix, class=pills, footer=Variant 3C · obligation-matrix pills} -->
-
+<!-- _class: obligation-matrix pills -->
+<!-- _footer: "Variant 3C · obligation-matrix pills" -->
 
 ## Privacy obligations across regimes — same grammar, no heat.
 
@@ -279,8 +279,8 @@ Pills (no heat) — same data, neutral chrome. Less assertive than heat.
 
 ---
 
-<!-- @meta{layout=obligation-matrix, class=lanes, footer=Variant 3D · obligation-matrix lanes} -->
-
+<!-- _class: obligation-matrix lanes -->
+<!-- _footer: "Variant 3D · obligation-matrix lanes" -->
 
 ## Privacy obligations — categorical row stripes.
 
@@ -297,8 +297,8 @@ Lane stripes signal "this row is its own regime."
 
 ---
 
-<!-- @meta{layout=obligation-matrix, class=asymmetric, footer=Variant 3E · obligation-matrix asymmetric} -->
-
+<!-- _class: obligation-matrix asymmetric -->
+<!-- _footer: "Variant 3E · obligation-matrix asymmetric" -->
 
 ## Three regimes, three obligations, room to breathe.
 
@@ -312,8 +312,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 04 · regulatory-update} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 04 · regulatory-update" -->
 
 `Anchor 04 · what's new`
 
@@ -321,8 +321,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=regulatory-update, footer="Variant 4A · regulatory-update (changelog, default)"} -->
-
+<!-- _class: regulatory-update -->
+<!-- _footer: "Variant 4A · regulatory-update (changelog, default)" -->
 
 ## Privacy & AI motion — Q1 2026.
 
@@ -345,8 +345,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=regulatory-update, class=cards, footer=Variant 4B · regulatory-update cards} -->
-
+<!-- _class: regulatory-update cards -->
+<!-- _footer: "Variant 4B · regulatory-update cards" -->
 
 ## Privacy & AI motion — Q1 2026.
 
@@ -369,8 +369,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=regulatory-update, class=timeline, footer=Variant 4C · regulatory-update timeline} -->
-
+<!-- _class: regulatory-update timeline -->
+<!-- _footer: "Variant 4C · regulatory-update timeline" -->
 
 ## Privacy & AI motion — Q1 2026 timeline.
 
@@ -391,8 +391,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=regulatory-update, class=diff-bands, footer=Variant 4D · regulatory-update diff-bands} -->
-
+<!-- _class: regulatory-update diff-bands -->
+<!-- _footer: "Variant 4D · regulatory-update diff-bands" -->
 
 ## Privacy & AI motion — Q1 2026 by kind of change.
 
@@ -419,8 +419,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=regulatory-update, class=priority, footer=Variant 4E · regulatory-update priority} -->
-
+<!-- _class: regulatory-update priority -->
+<!-- _footer: "Variant 4E · regulatory-update priority" -->
 
 ## Privacy & AI motion — Q1 2026 priorities.
 
@@ -438,8 +438,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 05 · redline} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 05 · redline" -->
 
 `Anchor 05 · textual diff`
 
@@ -447,8 +447,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=redline, footer="Variant 5A · redline (inline, default)"} -->
-
+<!-- _class: redline -->
+<!-- _footer: "Variant 5A · redline (inline, default)" -->
 
 ## SB-362 rewrote the opt-out link rule.
 
@@ -460,8 +460,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=redline, class=split, footer=Variant 5B · redline split} -->
-
+<!-- _class: redline split -->
+<!-- _footer: "Variant 5B · redline split" -->
 
 ## SB-362 rewrote the opt-out link rule — side-by-side.
 
@@ -475,8 +475,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=redline, class=annotated, footer=Variant 5C · redline annotated} -->
-
+<!-- _class: redline annotated -->
+<!-- _footer: "Variant 5C · redline annotated" -->
 
 ## SB-362 — annotated.
 
@@ -490,8 +490,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=redline, class=stacked, footer=Variant 5D · redline stacked} -->
-
+<!-- _class: redline stacked -->
+<!-- _footer: "Variant 5D · redline stacked" -->
 
 ## SB-362 — old block on top, new block below.
 
@@ -503,8 +503,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=redline, class=three-col, footer=Variant 5E · redline three-col} -->
-
+<!-- _class: redline three-col -->
+<!-- _footer: "Variant 5E · redline three-col" -->
 
 ## SB-362 — old, new, and why it changed.
 
@@ -520,8 +520,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=divider, footer=Anchor 06 · authority-chain} -->
-
+<!-- _class: divider -->
+<!-- _footer: "Anchor 06 · authority-chain" -->
 
 `Anchor 06 · statute, regulation, guidance, case`
 
@@ -529,8 +529,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=authority-chain, footer="Variant 6A · authority-chain (chain, default)"} -->
-
+<!-- _class: authority-chain -->
+<!-- _footer: "Variant 6A · authority-chain (chain, default)" -->
 
 ## COPPA — the chain, tier by tier.
 
@@ -549,8 +549,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=authority-chain, class=pyramid, footer=Variant 6B · authority-chain pyramid} -->
-
+<!-- _class: authority-chain pyramid -->
+<!-- _footer: "Variant 6B · authority-chain pyramid" -->
 
 ## COPPA — authority weight, top binds, bottom illustrates.
 
@@ -569,8 +569,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=authority-chain, class=branching, footer=Variant 6C · authority-chain branching} -->
-
+<!-- _class: authority-chain branching -->
+<!-- _footer: "Variant 6C · authority-chain branching" -->
 
 ## COPPA — one statute, many branches.
 
@@ -583,8 +583,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=authority-chain, class=bracket, footer=Variant 6D · authority-chain bracket} -->
-
+<!-- _class: authority-chain bracket -->
+<!-- _footer: "Variant 6D · authority-chain bracket" -->
 
 ## COPPA — bracketed tiers.
 
@@ -603,8 +603,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=authority-chain, class=trail, footer=Variant 6E · authority-chain trail} -->
-
+<!-- _class: authority-chain trail -->
+<!-- _footer: "Variant 6E · authority-chain trail" -->
 
 ## COPPA — four steps to the operative test.
 
@@ -619,8 +619,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=list, class=takeaway, footer=Closing · list takeaway over 1.} -->
-
+<!-- _class: list takeaway -->
+<!-- _footer: "Closing · list takeaway over 1." -->
 
 ## What this deck delivers.
 
@@ -632,8 +632,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 ---
 
-<!-- @meta{layout=closing, footer=""} -->
-
+<!-- _class: closing -->
+<!-- _footer: '' -->
 
 ## Mark the winners. The rest goes to the cutting room floor.
 
