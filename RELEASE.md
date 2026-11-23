@@ -291,7 +291,7 @@ Prerequisites:
   phase 2 (`id-token` for npm `--provenance`).
 - **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on eleven workspace
   libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-markdown`) that are not
-  on npm, and this workflow publishes only the root package. A root-only publish
+  on npm, and this workflow publishes only the engine package (`packages/lattice`). An engine-only publish
   would make every `npm i @laticent/lattice` fail with E404. The libraries
   publish first, from the multi-package release that replaces this step (slices C
   and E of `engineering/decisions/2026-10-07-first-npm-release.md`). All eleven are publishable, the three that were
