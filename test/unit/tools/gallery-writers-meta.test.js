@@ -44,3 +44,10 @@ test('the failing arm: a comment-only dark pass leaves a record slide light', ()
   assert.doesNotMatch(lit, /class="[^"]*\bdark\b/);
   assert.match(dark, /class="[^"]*\bdark\b/);
 });
+
+test('injectDark leaves a class comment quoted in the slide text alone', () => {
+  // The failing arm: the old regex added `dark` to every `<!-- _class: … -->` in the file, so a dark gallery showed the
+  // author's quoted example as `<!-- _class: kpi dark -->` (design/design-system.gallery.md, examples/slide-class-forms.md).
+  const md = '<!-- _class: content -->\n\n## Names\n\n- `<!-- _class: kpi -->` names a layout.\n';
+  assert.equal(injectDark(md), '<!-- _class: content dark -->\n\n## Names\n\n- `<!-- _class: kpi -->` names a layout.\n');
+});

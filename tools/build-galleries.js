@@ -43,6 +43,7 @@ const EMULATOR = path.join(ROOT, 'lattice.js');
 const THEME = path.join(ROOT, 'dist', 'lattice.css');
 
 const { classLineWith, isClassLine } = require('../lib/core/meta-class-line.mjs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 
 const THEMES = ['light', 'dark'];
 
@@ -56,18 +57,18 @@ const THEMES = ['light', 'dark'];
 // `<!-- @meta{footer=…} -->` under a sample's old class comment) is left alone: a class there would override the
 // comment's.
 function injectDark(markdown) {
-  const withComments = markdown.replace(
-    /<!--\s*_class:\s*([^>]+?)\s*-->/g,
-    (whole, classList) => {
-      const tokens = classList.split(/\s+/).filter(Boolean);
-      if (tokens.includes('dark')) return whole;
-      tokens.push('dark');
-      return `<!-- _class: ${tokens.join(' ')} -->`;
-    },
-  );
-  return withComments
+  return markdown
     .split('\n')
-    .map((line) => (isClassLine(line) && !/^\s*<!--\s*_class/.test(line) ? (classLineWith(line, 'dark') ?? line) : line))
+    .map((line) => {
+      if (!isClassLine(line)) return line;
+      const entry = classEntries(line)[0];
+      // A record gains `dark` in its class field; an old sample comment keeps its own spelling until the corpus sweep.
+      if (!entry || entry.record) return classLineWith(line, 'dark') ?? line;
+      const tokens = String(entry.value).trim().split(/\s+/).filter(Boolean);
+      if (tokens.includes('dark')) return line;
+      const open = line.indexOf('<!--');
+      return `${line.slice(0, open)}<!-- _class: ${[...tokens, 'dark'].join(' ')} -->${line.slice(line.lastIndexOf('-->') + 3)}`;
+    })
     .join('\n');
 }
 
