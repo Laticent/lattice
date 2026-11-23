@@ -232,6 +232,17 @@ describe('npm run card -- relay: block', () => {
     assert.match(r.stderr, /relay: is read only with --living/);
   });
 
+  test('--check validates a relay: block, so the living card can be dry-run before posting', () => {
+    fs.writeFileSync(yml, `${base}\nrelay:\n  traps:\n    - "ci.yml skips on draft"\n`);
+    const ok = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'card.js'), '--check', yml], { encoding: 'utf8' });
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stdout, /card: OK \(continuation/);
+    fs.writeFileSync(yml, `${base}\nrelay:\n  nonsense:\n    - "x"\n`);
+    const bad = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'card.js'), '--check', yml], { encoding: 'utf8' });
+    assert.equal(bad.status, 1);
+    assert.match(bad.stderr, /relay: is read only with --living/);
+  });
+
   test('--living needs a PR number', () => {
     const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'card.js'), '--living', 'x', yml], { encoding: 'utf8' });
     assert.equal(r.status, 2);

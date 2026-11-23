@@ -24,7 +24,8 @@
  * Living comment (engineering/workflow.md §Relay): `--living <PR>` posts the card as the PR's one
  * `<!-- relay-handoff -->` comment, under a BATON block, editing it in place if it exists. Only the
  * baton holder may (push first). The YAML may carry a `relay:` block (`traps`, `unverified`,
- * `claims` lists) that prints under the card; it is read only with `--living`.
+ * `claims` lists) that prints under the card; it is read only with `--living`, and `--check`
+ * validates it so the living card can be dry-run first.
  *
  * Exit codes:
  *   0  the card is valid and was printed
@@ -113,8 +114,9 @@ const card = doc.toJS();
 // The living comment's extra lists ride in a `relay:` block the card schema does not know.
 let relayExtra = {};
 if (card && Object.hasOwn(card, 'relay')) {
+  // --check validates the block too, so the exact living card can be dry-run before it is posted.
   const ok =
-    livingPr &&
+    (livingPr || check) &&
     card.relay &&
     typeof card.relay === 'object' &&
     Object.entries(card.relay).every(
@@ -122,7 +124,7 @@ if (card && Object.hasOwn(card, 'relay')) {
     );
   if (!ok) {
     console.error('card: not valid, fix these and run again:');
-    console.error('  - relay: is read only with --living, and holds only traps / unverified / claims lists of strings');
+    console.error('  - relay: is read only with --living (or validated with --check), and holds only traps / unverified / claims lists of strings');
     process.exit(1);
   }
   relayExtra = card.relay;

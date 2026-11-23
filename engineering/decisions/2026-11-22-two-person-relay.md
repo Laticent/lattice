@@ -400,6 +400,38 @@ printed the Kirk lines.
 
 The owner chose to fix these, merge, and re-run the simulation on real work under rules that are in force.
 
+### The simulated handover (2026-11-23, throwaway draft PR #3482)
+
+The owner approved a second run in #3427's budget (command center, 14:08 UTC). Picard's session put
+#3427's code on the throwaway line `claude/relay-sim-handover`, wrote its living comment and released the
+baton at `1208389`. Kirk's session (`session_01DPMMjGBqfQgvcc5CHWpJQ8`, `LATTICE_ACTOR=kirk`) picked it
+up cold. #3427 had not merged, so `main`'s #31 still applied, and the owner typed "OK to push to #3482" in
+Kirk's session (14:55 UTC, verified in its transcript).
+
+**What happened, all on real GitHub.**
+
+| Step | Who | `baton status` after |
+|---|---|---|
+| release at `1208389` | Picard | FREE (released at `1208389`, still the tip) |
+| one commit `b4675b4`, trailers `Relay-Actor: James Tiberius Kirk` + Kirk's session, pushed fast-forward | Kirk | YOURS (to Kirk) |
+| `card --living 3482` (holder line names Kirk), then `release` | Kirk | FREE (released at `b4675b4`) |
+| take back: `1208389` is an ancestor of `b4675b4`, so nothing was forced | Picard | FREE; the board shows Kirk as holder, released |
+
+**What the taker hit, and what changed.**
+
+1. **A worktree with linked `node_modules` fails the pre-push gate** (38 "file belongs to no part" paths
+   outside the repo). It was Kirk's setup, not the commit. §Relay rule 4 now says to work in a checkout
+   with its own `npm install`.
+2. **`card --check` refused a `relay:` block**, so the exact living card could not be dry-run. `--check`
+   now validates the block.
+3. **`baton take` records nothing**, though its name suggests a claim; two sessions can both read FREE.
+   That is the design (the push is the claim, and git lands one), and `take` and rule 4 now say so.
+4. **The sim line's only setup commit was empty**, so Kirk's note had no file to go in, and it went in
+   this note on the sim line. That throwaway branch never merges; this section is the record.
+
+**Still not shown:** a second real GitHub account. Both sessions share one login, so the signatures make
+the record readable but not authenticated (see "What this does not fix").
+
 ## Checkpoint rules and the usage watch (2026-11-23)
 
 Two owner directions typed in the command center on 2026-11-23 (verified in its transcript, 12:06 UTC),

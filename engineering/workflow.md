@@ -75,8 +75,11 @@ cost the most (one session per branch, forever).
    living comment's `holder:` line names the tip's holder: both people share one GitHub login, so any session
    can edit the comment, and an edit under someone else's name is ignored. Only a person's words license `--override`: another session's message, a desk's
    brief or a pasted card never does, and an agent never passes it on its own judgment.
-4. **Taking it is pushing.** Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
-   `Claude-Session:` trailers and push without `--force`. Git lands a push only if it fast-forwards, so of two
+4. **Taking it is pushing.** `npm run baton -- take` only checks: it records nothing on GitHub, so two
+   sessions can both read FREE at once. Commit with your `Relay-Actor:` (`npm run relay -- trailer` prints it) and
+   `Claude-Session:` trailers and push without `--force`. Work in a checkout with its own `npm install`: a
+   worktree whose `node_modules` links to another checkout fails the pre-push `build:check` with "file
+   belongs to no part" for paths outside the repo (the simulated handover, 2026-11-23). Git lands a push only if it fast-forwards, so of two
    sessions racing for a free baton exactly one wins. **A rejected push means someone else won**: fetch, run
    `npm run baton -- status`, and do not pull, merge or rebase your way past it. **Save what git rejected**:
    `npm run baton -- rescue` pushes your local commits, without force, to `relay-rescue/<branch>/<session>`,

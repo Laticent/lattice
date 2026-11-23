@@ -174,7 +174,7 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
             ? '  Override used: only valid because a person typed "take over" in this session. Your next push takes it; say so in the living comment.'
             : v.state === 'yours'
             ? '  You already hold it. Keep checkpointing.'
-            : '  Free. Your next push takes it: commit with your Relay-Actor and Claude-Session trailers and push (fast-forward only).\n  If git rejects the push, someone else won the race: fetch, run status, do not force.',
+            : '  Free. Your next push takes it: commit with your Relay-Actor and Claude-Session trailers and push (fast-forward only).\n  take records nothing on GitHub, so another session may read FREE too. If git rejects the push,\n  someone else won the race: fetch, run status, do not force.',
         );
       }
       return v.state === 'held' ? 1 : 0;
