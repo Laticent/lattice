@@ -201,6 +201,46 @@ usage cap is a stop reason for the raise loop (§The raise loop): the card's `ra
 (`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
 reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 
+### Checkpoint rules — what "checkpoint now" means at 25, 50, 75 and 90%
+
+The owner's direction (2026-11-23, in the command center: "write the checkpoint rules"). A checkpoint at a
+usage level is the same act as the 30-minute floor in rule 6, done now and done carefully:
+
+1. **Finish the current step to a natural stopping point**, and do not start the next one.
+2. **Commit only what passes the push hooks**, with a `wip:` prefix when the work is incomplete. Never
+   `--no-verify` (#14).
+3. **If mid-change work cannot pass, do not push it broken.** Write the plan, the files touched and the next
+   step into the handoff instead, so the next session can redo it.
+4. **Mark the PR honestly** so nobody grades or merges a checkpoint: park it as a draft
+   (`npm run pr:park -- <N>`), or mark its 🚦 card `stale: WIP since <sha>`.
+5. **Update the handoff in place**: its `checkpoint:` line and the card, never a second copy. Today the
+   handoff is the PR's living comment; `handoffs.d/<slug>/HANDOFF.md` replaces it once the design in #3454
+   is built.
+
+Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
+steps, the session pauses by default and asks the owner (§Usage checkpoints). At **90%**, a session kept
+past 75% does the five steps, then `npm run baton -- release` (the handoff reads `baton: released`), so
+the colleague's session on the other account can take the branch at once.
+
+### The usage watch — the backstop for idle sessions
+
+A session reads its own level only when it takes a turn, so an idle session reads nothing. The owner made
+a standing watch the backstop (2026-11-23, in the command center: "set the usage watch, this needs to be
+cannon and durable"):
+
+- **What it is.** A recurring **scheduled task** on the live command center (not a CI job), every 2 hours.
+  It reads the command center's own newest `rate_limit_event` (`…unifiedWindows.seven_day.utilization`).
+  Once per crossed level per week (25, 50, 75, 90%), it sends every live session on that account one
+  line, `usage N: …` with the checkpoint rules above, then tells the owner the number. The current one is
+  "Usage watch: checkpoint at 75% and 90%" (`7 */2 * * *`), created by the command center on 2026-11-23.
+- **Durable.** Every new command center checks, on its first `/fleet`, that the task exists
+  (`list_triggers`), and re-creates it if it is missing (`.claude/skills/fleet/SKILL.md`).
+- **When the source breaks.** The field is internal and can change. If it vanishes, the watch tells the
+  owner once, and the owner calls `usage N` by hand.
+- **Relation to the self-read.** Sessions still read their own level at every checkpoint. A watch line
+  only prompts that read, and never pauses a session by itself (#31). Each account's command center
+  reaches only its own sessions.
+
 ### What the baton does not do
 
 It is discipline plus a tool, not a gate: nothing blocks a push, and a pre-push hook for it would be a

@@ -380,6 +380,22 @@ printed the Kirk lines.
 
 The owner chose to fix these, merge, and re-run the simulation on real work under rules that are in force.
 
+## Checkpoint rules and the usage watch (2026-11-23)
+
+Two owner directions typed in the command center on 2026-11-23 (verified in its transcript, 12:06 UTC),
+relayed by the workflow desk: "write the checkpoint rules" and "set the usage watch, this needs to be
+cannon and durable". Earlier, the owner had answered "yes, update in place" when asked whether a handoff
+is duplicated or updated at each level.
+
+- **Checkpoint rules** (`workflow.md` §Relay): finish the step and stop there; push only what passes the
+  hooks (`wip:` if partial, never `--no-verify`); write the plan instead of pushing broken work; mark the
+  PR draft, or the card stale; update the handoff in place. At 75%, pause and ask; at 90%, release.
+- **Usage watch**: a recurring scheduled task on the command center, every 2 hours, that reads its own
+  `rate_limit_event` and broadcasts `usage N` once per crossed level per week. It is the backstop for idle
+  sessions, which take no turns and so read nothing. Each new command center re-creates it on its first
+  `/fleet` if it is missing (`.claude/skills/fleet/SKILL.md`). Created 2026-11-23 as
+  "Usage watch: checkpoint at 75% and 90%" (`7 */2 * * *`).
+
 ## What this does not fix
 
 - A session that stops loses what it had not pushed (see §As built).

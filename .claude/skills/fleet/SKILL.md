@@ -19,6 +19,17 @@ the owner's sidebar. On every `/fleet`, also set the title (`set_session_title`)
 (`TZ=America/New_York date +%F`), so the owner can tell today's command center from
 yesterday's at a glance. Skip the call when the title already reads that.
 
+**Usage watch (the owner's standing rule, 2026-11-23).** On the first `/fleet` of a new command
+center, check `list_triggers` for the recurring scheduled task "Usage watch: checkpoint at 75% and 90%"
+(every 2 hours, `7 */2 * * *`, bound to this session). If it is missing, or bound to an archived
+command center, create it here with `create_trigger`. Its prompt: read this session's newest
+`rate_limit_event` (`list_events`, `kinds: ["rate_limit_event"]`) for
+`…unifiedWindows.seven_day.utilization` and `resetsAt`. When a level (25, 50, 75 or 90%) has been crossed
+and not yet announced this week, send every live session on this account one line, `usage N: …` with
+the checkpoint rules from `engineering/workflow.md` §Relay. Then tell the owner the number in one line.
+If the field is missing, tell the owner once and stop. It is the backstop for idle sessions; it never
+pauses one by itself. Contract: `engineering/workflow.md` §Relay, the usage watch.
+
 ## Arguments — `/fleet <what>`
 
 | Typed | Does |
