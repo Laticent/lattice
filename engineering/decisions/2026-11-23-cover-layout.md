@@ -90,6 +90,26 @@ background: the weakest chapter cue, a light divider is nearly the content slide
 always-dark brand panel (a second mode mechanism, and in a dark deck it barely differs from content).
 Prototype renders: the presets-desk session, 2026-11-23.
 
+## 5b. How the engine does it (the approach, 2026-11-23)
+
+Covers and dividers look dark today only because they FORCE `color-scheme: dark`
+(`base.modifiers.css` `section:is(.title, .closing):not(.print, .cover-light), section.divider:not(.light)`);
+the theme tokens are already `light-dark()` pairs (39 in `base.tokens.css`, 122 in indaco). So the change is
+narrow, not a rewrite of every cover rule:
+
+1. **Drop the force.** The slide's own scheme (deck `color-mode:`, slide `light` / `dark`, the player's
+   toggle) reaches covers and dividers like every slide. The player's `BOOKEND_FORCES_DARK` /
+   `PINNED_TO_LIGHT` go with it.
+2. **Remap the on-dark inks on these slides only.** The cover and divider CSS was written for a panel that
+   was always dark, so it names `--on-dark-primary` / `-secondary` / `-ghost` and `--on-inverse-muted`
+   (17 uses). On `title`, `closing` and `divider` those tokens are redefined as
+   `light-dark(<the light ink>, <today's value>)`, so every existing rule keeps working in both modes and
+   the dark arm is byte-identical to today.
+3. **Paint the field per mode.** Covers: `light-dark(var(--bg), var(--surface-inverse))` (D4b). Dividers:
+   `light-dark(var(--accent), <the dimmed accent>)`, inked `light-dark(var(--on-accent), white)` (D12).
+4. **Retire the second mechanism.** `cover-light` / `cover-inverse` / `divider light` leave the engine;
+   `lint:deck --fix` rewrites old decks (§4).
+
 ## 6. Build and verification
 
 **The owner's bar for D-dim (2026-11-23): validate it everywhere, settle for nothing.** "We curate and hold
