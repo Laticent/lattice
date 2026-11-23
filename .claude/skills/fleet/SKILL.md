@@ -12,9 +12,26 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 # Fleet board
 
-Tag this session `command-center` and `ui:pinned` (`set_session_tags`) the first
-time it builds a board: desks find it by the first tag, and the second pins it in
-the owner's sidebar. On every `/fleet`, also set the title (`set_session_title`) to
+**One command center, claimed only when free.** Desks send their reports to the
+session tagged `command-center`, so a second holder silently steals them. Before
+tagging, run `list_sessions(mine:true, limit:100)` and page with `after_id` until
+`has_more` is false, reading each row's `tags` (the `tags:` filter is refused from
+inside a session, and the command center is the oldest live session, so one page
+can miss it). A holder counts while its
+session is not archived, even if it is yesterday's: a stale holder moves only on
+the owner's word, never by being older. If another such session already holds the
+tag, build the board read-only: tag nothing, retitle nothing, start no desk or
+scheduled task, act on no `go`, and say which session is the command center, as a
+link, so the owner can act there. Only the owner's own word in this session that
+it should be the command center moves the role; then untag the old holder
+(`set_session_tags` remove `command-center` and `ui:pinned`) in the same step.
+When the tag is free, tag this session `command-center` and `ui:pinned`
+(`set_session_tags`) the first time it builds a board: desks find it by the first
+tag, and the second pins it in the owner's sidebar. As the command center, repeat
+the check on every `/fleet` and every scheduled wake, and tell the owner if another
+session holds the tag (two sessions that claim at the same moment are caught this
+way). On every
+`/fleet` this session holds the role for, also set the title (`set_session_title`) to
 `🛰️ Command Center · YYYY-MM-DD`, today's date in US Eastern time
 (`TZ=America/New_York date +%F`), so the owner can tell today's command center from
 yesterday's at a glance. Skip the call when the title already reads that.
