@@ -12,6 +12,40 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const rows = require('../../../lib/core/chart-rows.js');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
+
+/**
+ * The regexes the heatmap render guard below runs that tools/regex-census.json cannot hold: markdown-it's own rules,
+ * @laticent/markup's, and patterns built at run time. recheck 4.6.2 (automaton) called each `safe` on 2026-11-23
+ * unless its own reason says otherwise. A new one fails the guard until it is named here with a reason.
+ */
+const SAFE_OUTSIDE_LIB = 'not a lib/** literal (markdown-it, @laticent/markup, or built at run time); recheck 4.6.2 automaton: safe, 2026-11-23';
+const RENDER_PATH_ALLOW = {
+  "/[.?*+^$[\\]\\\\(){}|-]/g": SAFE_OUTSIDE_LIB,
+  "/<script type=\"application\\/lattice-export-settings\">[^<]*<\\/script>\\n?/g": SAFE_OUTSIDE_LIB,
+  "/\\r\\n?|\\n/g": SAFE_OUTSIDE_LIB,
+  "/^<(script|pre|style|textarea)(?=(\\s|>|$))/i": SAFE_OUTSIDE_LIB,
+  "/-->/": SAFE_OUTSIDE_LIB,
+  "/^<\\/?(address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=(\\s|\\/?>|$))/i": SAFE_OUTSIDE_LIB,
+  "/^$/": SAFE_OUTSIDE_LIB,
+  "/^:?-+:?$/": SAFE_OUTSIDE_LIB,
+  "/^ (.+) $/": SAFE_OUTSIDE_LIB,
+  "/data-(lattice-(?:hydrate|config|settle|final|off|held|media|media-url|poster|title|description))(?![a-z0-9_-])/gi": SAFE_OUTSIDE_LIB,
+  "/(?<![\\w-])(compare-prose|decision|split-panel|split-compare|statute-stack|regulatory-update|authority-chain|redline|timeline|actors|kpi|stats|q-and-a|premise)(?![\\w-])/": SAFE_OUTSIDE_LIB,
+  "/^(?:Mio|Mrd|mn|Md|Cr)$/": SAFE_OUTSIDE_LIB,
+  "/[&<>\"]/": SAFE_OUTSIDE_LIB,
+  "/<(\\/?)section(?![a-zA-Z0-9-])/gi": SAFE_OUTSIDE_LIB,
+  "/<!|<\\?|<(?:script|style|textarea)(?![a-zA-Z0-9-])|=\\s*(?:\"[^\"<>]*[<>]|'[^'<>]*[<>])|<\\/?[a-zA-Z][^<>]*</gi": "@laticent/markup, a workspace library outside lib/**; recheck: unknown. Every open-ended run stops at the next <, > or quote, so runs from different starts do not overlap",
+  "/<(\\/?)([a-zA-Z][a-zA-Z0-9-]*)/y": SAFE_OUTSIDE_LIB,
+  "/[>\"']/g": SAFE_OUTSIDE_LIB,
+  "/(?:^|\\s)class=\"([^\"]*)\"/": SAFE_OUTSIDE_LIB,
+  "/^(?:(?:USD|EUR|GBP|JPY|CHF|CNY|HKD|SGD|AUD|CAD|NZD|INR|BRL|ZAR|SEK|NOK|DKK|MXN|KRW|AED|SAR|ILS|PLN|CZK|HUF|TRY|THB|MYR|IDR|PHP|TWD|CLP|COP|PEN|ARS|EGP|NGN|KES|QAR|KWD|BHD|OMR|VND|PKR|BDT|ISK|RON|BGN)|(?:US|AU|A|CA|C|HK|NZ|SG|S|NT|MX|R)\\$|\\p{Sc})$/u": SAFE_OUTSIDE_LIB,
+  "/<div\\s+class=\"(?:bar-figure|bullet-figure|ep-curve-figure|flowchart-figure|funnel-figure|gantt-chart|histogram-figure|hub-spoke-figure|journey-board|heatmap-figure|kanban-board|line-figure|map-figure|matrix-grid-figure|piechart-figure|progress-bars|radar-figure|quadrant-figure|risk-matrix-figure|roadmap-figure|scatter-figure|slope-figure|stacked-bar-figure|state-chart-figure|timeline-spine|tower-figure|waterfall-figure|word-cloud-canvas)\"[^>]*>/": "chart-frame.js BODY_RE, built from FIGURE_CLASSES at run time; recheck timed out on the alternation. Every start is a literal <div, and [^>]* stops at the first >",
+  "/\\bclass\\s*=\\s*([\"'])(.*?)\\1/i": "@laticent/markup readClassAttr; recheck: unknown (back-reference). The lazy value ends at the next matching quote on its line, and every later class= start supplies one",
+  "/<svg\\b|<\\/svg\\s*>/gi": SAFE_OUTSIDE_LIB,
+  "/^\\s*<p(?:\\s[^>]*)?>\\s*<code[^>]*>(?:(?!<\\/code>)[\\s\\S])*<\\/code>\\s*<\\/p>/": "masthead.transform.js, regex-ok: anchored at ^ with no m flag, so it is tried at one position, and each piece is deterministic",
+  "/(?<!\\s)\\s+data-debug(?:=\"[^\"]*\")?/g": "lib/engine/index.js, regex-ok: (?<!\\s) starts a match only at a blank run's first character, so each run is tried once",
+};
 // The bound, written out, not read from the module it guards: read from `rows.RAW_SCAN_BUDGET`, a raised budget raised
 // the bound with it and the scan tests passed on `Infinity`. A deliberate change to the budget changes this line too.
 const SCAN_BUDGET = 32000;
@@ -852,9 +886,12 @@ describe('the paths agree on the data row', () => {
     });
 
     test('the stamped-cell rewrite stays linear when raw HTML holds many `<td` with no `>`', () => {
+      // Asked of the automaton, not the clock (HARD RULE #32): every regex this render runs is `safe` in
+      // tools/regex-census.json, or named in RENDER_PATH_ALLOW with why it is safe. This replaced a hang guard that timed
+      // the render (`ms < 5000`, flaky-ok); regex PR 3 rewrote the 14 slow patterns it ran as one-pass readers.
       const raw = `<div>${'<td'.repeat(200000)}</div>`;
-      const { ms } = timed(() => render(deck('heatmap', `${raw}\n\n| | A |\n|---|---|\n| E | \`{1.5}\` |`)));
-      assert.ok(ms < 5000, `render took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 70 ms cold today; the old shape took 4 s at 40k, about 100 s here
+      const { result } = assertLinearRegexes(() => render(deck('heatmap', `${raw}\n\n| | A |\n|---|---|\n| E | \`{1.5}\` |`)), { allow: RENDER_PATH_ALLOW });
+      assert.match(result, /heatmap/, 'the heatmap path is the one the guard covers');
     });
 
     test('hub-spoke: a bullet-character or list-kind switch starts a NEW list, so a pill there is still reported', () => {

@@ -22,3 +22,7 @@ done when — §8 of the plan: lint-core.js is gone, the reference diff is 0 or 
             signed off dark and light export renders.
 evidence  — the reference diff and the fix diff reports; the bundle measurement; the export renders.
 verify    — tier 3, the adversarial trio, on the finished PR.
+            2026-11-23 (regex PR 3, #3491, closing 3045-p2): the render path's hang guard is retired. Three LINT hang
+            guards are left, all on lint-core's path, which this rewrite replaces: chart-row-record.test.js's two
+            `lint took … ms` bounds and lint-core.test.js's `195 KB must not take …`. Each becomes `assertLinearRegexes`
+            (test/helpers/regex-trace.js) over the Squadra path, with no `flaky-ok`, in this PR.
