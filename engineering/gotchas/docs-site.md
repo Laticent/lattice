@@ -40,6 +40,47 @@ justification. The same gate also fires if a *listed* builder drops its
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
 
+## A slide preview is blank, or a draw frame never opens, on a page with the strict CSP
+
+**Symptom.** On a docs page that carries `<meta http-equiv="Content-Security-Policy">`, a preview
+frame stays hidden (`.lattice` never turns visible), or a function plot or a code package never
+answers. The page's own console may show nothing: Chromium and Gecko print the refusal (`Refused to
+execute inline script…`) from inside the frame and fire no `securitypolicyviolation` event there.
+
+**Cause.** A `srcdoc` frame inherits its parent's policy, and so do `data:` and `blob:` frames
+(measured in all three engines, 2026-11-17). The site's policy (`docs/scripts/csp.mjs`) allows only
+same-origin files and the hashes of the page's own inline scripts, so any script a builder writes
+INLINE into a frame is refused.
+
+**Fix.** Never write an inline script into a preview frame. A preview agent belongs in
+`lib/core/frame-agents.mjs`, staged as `lattice-frame-agents.js` beside the runtime, and a builder
+names it with `agentTag(frameAgentsUrl(runtimeUrl), '<agent>', { …data })`; a per-deck value is a
+data attribute the agent reads at run time. A SANDBOXED frame whose document has its own policy and
+hashed script loads through `loadSandboxed` (`lib/packages/sandbox-shell.mjs`), which escapes the
+inheritance. `docs/src/playground/frame-agents.test.ts` fails `buildSrcdoc` or the Stage when either
+writes an inline script; `e2e/site-csp.spec.ts` reads refusals from every frame and from the
+console, which is what covers the single-slide builder.
+
+## Firefox only: a preview falls back to the default serif on the SECOND page a visitor opens
+
+**Symptom.** In Firefox, a slide preview on a docs page with the strict CSP renders in the default
+serif, unfitted, on any page after the first one opened in that tab; a reload of the first page is
+fine. The console shows `The page's settings blocked a script … lattice-runtime.js` and
+`… blocked the loading of a resource (font-src) … woff2`, both same-origin files. Chromium and WebKit
+are clean, and the e2e stays green unless the cell lets the service worker run.
+
+**Cause.** The service worker (`public/sw.js`) controls a page only from the navigation after it
+activates, and a `srcdoc` preview inherits the page's policy. Gecko matches that inherited `'self'`
+wrongly for a subresource the worker answers, so the frame's own runtime, agents file and fonts are
+refused (measured 2026-11-19: 5 refusals on a component page after one earlier page, 0 with the
+worker blocked, 0 with the origin named).
+
+**Fix.** Name the site's origins beside `'self'` in every directive that has it: `csp.mjs`
+`selfOrigins()` (lattice.style; on a pull-request build the Cloudflare preview project too; plus
+`--self-origin=` for a local build, which `build:e2e` passes). Any cell that checks a preview under the policy should also run with
+`test.use({ serviceWorkers: 'allow' })`, after one navigation: `site-csp.spec.ts` "under the service
+worker" is the guard, and it is red without the named origins.
+
 ## `build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)
 
 The **stylesheet** channel of the same frame. A preview builder assembles one

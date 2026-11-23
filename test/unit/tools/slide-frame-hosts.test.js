@@ -126,7 +126,10 @@ test('the slide hosts that wrap their own box use the shared frame, and nothing 
 		'docs/src/components/landing/sections.tsx': /data-slide-frame\s*style=\{slideFrameStyle\('tile'\)\}/,
 		'docs/src/playground/specimen.js': /slideFrameShadow\('tile'\)[\s\S]*data-slide-frame/,
 		'docs/src/pages/studio.astro': /\.ssr-slidebox\{[^}]*box-shadow:\$\{slideFrameShadow\('card'\)\}/,
-		'docs/src/playground/deck-preview.js': /^(?=[\s\S]*slideFrameFilter\('card'\))(?=[\s\S]*"--slide-edge-k")/,
+		// The filmstrip's frame is the builder's; its scale is the FIT agent's, which rides in the agents
+		// file (lib/core/frame-agents.mjs) and is asked for by the geometry tag's `edge`.
+		'docs/src/playground/deck-preview.js': /^(?=[\s\S]*slideFrameFilter\('card'\))(?=[\s\S]*edge: !!slideEdge)/,
+		'lib/core/frame-agents.mjs': /if\(window\.__SLIDE_EDGE\)[^\n]*setProperty\("--slide-edge-k",k\)/,
 		'lib/export/player-core.mjs': /slideFrameShadow\('stage'\)[\s\S]*slideFrameShadow\('card'\)[\s\S]*slideFrameShadow\('card'\)/,
 		// The hosts that SCALE a slide hand the engine its scale, so its edge stays a true 1px…
 		'docs/src/playground/single-slide-render.ts': /setProperty\('--slide-edge-k', String\(slideEdgeK\(w\)\)\)/,

@@ -69,6 +69,7 @@ const LIVE_BAR = '.scene-live [data-anima-role="bar"]';
 
 // anime.js is injected as its UMD bundle rather than imported, because the assertion is
 // about the PREVIEW FRAME's document — a same-origin `srcdoc` iframe with its own window.
+// It is served from our origin (injectAnime), since the frame inherits the page's policy.
 // The package's `exports` map does not expose the bundle path, so resolve the manifest and
 // walk from its directory.
 const ANIME_UMD = readFileSync(
@@ -96,6 +97,29 @@ test.beforeEach(async ({ context, page }) => {
 		[SOURCE_KEY, DECK, SEEDED] as const,
 	);
 });
+
+/** A same-origin path the test serves anime.js from. The Playground carries the strict site
+ *  policy (`script-src 'self'`), and a preview frame inherits it, so an INLINE script in the
+ *  frame is refused. Loading the bundle by `<script src>` from our own origin keeps the policy
+ *  on and still runs anime in the frame's window. */
+const ANIME_PATH = '/__e2e-anime.umd.js';
+
+/** Load anime.js into the preview frame and wait until it has run. */
+async function injectAnime(page: import('@playwright/test').Page): Promise<void> {
+	await page.route(`**${ANIME_PATH}`, (route) => route.fulfill({ contentType: 'text/javascript', body: ANIME_UMD }));
+	await page.evaluate(
+		(src) =>
+			new Promise<void>((resolve, reject) => {
+				const d = (document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document;
+				const s = d.createElement('script');
+				s.src = new URL(src, location.origin).href;
+				s.onload = () => resolve();
+				s.onerror = () => reject(new Error(`anime.js did not load from ${src}`));
+				d.head.appendChild(s);
+			}),
+		ANIME_PATH,
+	);
+}
 
 /** Open the Playground and wait for the host to have mounted a LIVE chart copy. */
 async function gotoLiveChart(page: import('@playwright/test').Page): Promise<void> {
@@ -178,12 +202,7 @@ test('anime.js paints every frame the shipped painter emits, on the real marks',
 	const frames = [...new Map(rows.map((r) => [r.join('|'), r])).values()];
 	expect(frames.length, 'enough distinct frames to be a real sequence').toBeGreaterThan(20);
 
-	await page.evaluate((src) => {
-		const d = (document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document;
-		const s = d.createElement('script');
-		s.textContent = src;
-		d.head.appendChild(s);
-	}, ANIME_UMD);
+	await injectAnime(page);
 
 	const result = await page.evaluate(
 		([sel, framesIn]) => {
@@ -246,12 +265,7 @@ test('anime.js paints every frame the shipped painter emits, on the real marks',
 
 test('createDrawable normalizes real marks and seeks deterministically', async ({ page }) => {
 	await gotoLiveChart(page);
-	await page.evaluate((src) => {
-		const d = (document.querySelector('iframe') as HTMLIFrameElement).contentDocument as Document;
-		const s = d.createElement('script');
-		s.textContent = src;
-		d.head.appendChild(s);
-	}, ANIME_UMD);
+	await injectAnime(page);
 
 	const out = await page.evaluate((sel) => {
 		const frame = document.querySelector('iframe') as HTMLIFrameElement;
