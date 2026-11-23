@@ -5,11 +5,11 @@ summary: >
   artifacts/ on its own work branch. The baton holder updates it, it travels with every handover,
   and the session removes it in the last commit before the merge ask; a new rule inside the existing
   build:check fails when it would reach main. The PR's living handoff comment becomes a summary
-  npm run card generates from HANDOFF.md. The owner picked the place, the lifecycle, the artifact
-  layout and rules, and rewriting one HANDOFF.md in place at each usage checkpoint; the single source
-  came from the workflow desk's brief and the size numbers are desk defaults, both open to the owner's
-  veto. The same rule fails when the branch has work newer than its HANDOFF.md, and never blocks the
-  push that saves it. Nothing is built yet.
+  npm run card generates from HANDOFF.md, never edited by hand. The owner picked the place, the
+  lifecycle, the artifact layout and rules, rewriting one HANDOFF.md in place at each usage
+  checkpoint, HANDOFF.md as the single source, gotchas written to engineering/gotchas/ when found, and
+  building it this week; only the size numbers are desk defaults. The same rule fails when the branch
+  has work newer than its HANDOFF.md, and never blocks the push that saves it. Nothing is built yet.
 ---
 
 # Handoff folder: `handoffs.d/<slug>/` on the work branch, removed before merge
@@ -26,7 +26,8 @@ the owner typed it.
 | H2 Where | the owner picked "On the work branch itself (Recommended)" in that answer | owner's own answer |
 | H3 Lifecycle | the owner picked "Removed before merge; build:check enforces (Recommended)" in that answer | owner's own answer |
 | H4 Size and secrets | the workflow desk's default numbers (5 MB per folder, 1 MB per binary file); H6 made a binary cap and a scrub rule the owner's | numbers open to veto |
-| H5 One source | the workflow desk's brief to this session; the command center's 12:03 relay calls it an earlier pick, but no owner answer this session could read contains it | **not** found in an owner answer; open to veto |
+| H5 One source | first a desk proposal (no earlier owner answer contained it); then the owner answered "One store or two?" with "HANDOFF.md is the source (Recommended)" (command center, event `a48dc38f…`, 12:33:14 UTC) | owner's own answer |
+| H10 Gotchas, artifacts, timing | the same answer: gotchas "To gotchas/ when found (Recommended)"; artifacts "On the work branch (Recommended)"; build timing "This week" (the recommendation was after 1.0.0) | owner's own answers |
 | H6 Artifacts and shape | the command center showed the owner a worked example, the artifact rules and the table against `followups.d/` (`session_01DPMMjGth4jH37uLv1XPwcA`, 2026-11-23 12:01 and 12:03 UTC); the owner typed "yes, put that in #3454" (event `107c227e-7c9a-4f05-990d-6d4b66209796`, 12:03:45 UTC) | owner's own answer |
 | H8 Freshness is machine-checked | the owner asked "are we efficient and deterministic in our handoff workflow? … are there edge cases we have not considered?" and typed "do all three" (command center, event `c0034b91-35e9-4fee-8cb0-44b0a389e06d`, 12:12:25 UTC); the command center's 12:12:55 relay names this as item 1 of 3 | owner's own answer, to the command center's proposal |
 | H9 75% and the lease | two answers to the command center's `AskUserQuestion` (event `4d1ec72c-82d0-4572-8662-988aad4b3aca`, 12:27:53 UTC): "What should happen at 75%?" = "Checkpoint, keep working (Recommended)", and "Should silence alone ever free a branch?" = "No: only explicit release (Recommended)" | owner's own answers; they change #3427 |
@@ -56,8 +57,12 @@ with it.
   folder and 1 MB per binary file; a text file over 1 MB needs a reason line. Never an environment
   value, key or token; `checkHandoffs` runs its own token-pattern scan over the folder and blocks the
   push, because the branch is public the moment it lands. GitHub-side scanning is not assumed.
-- **H5 One source** *(desk proposal; the owner can veto it)*. The PR's living handoff comment becomes
-  a short summary that `npm run card` generates from HANDOFF.md, so a session updates one thing.
+- **H5 One source.** HANDOFF.md is the single truth. The PR's living handoff comment is a short
+  summary that `npm run card` generates from it and is never edited by hand, so a session writes one
+  thing and the two cannot drift.
+- **H10 Gotchas when found; artifacts on the branch; build this week.** A session writes know-how to
+  `engineering/gotchas/<topic>.md` the moment it learns it, not at close. Artifacts stay in
+  `artifacts/` on the work branch, with no side refs. The build PR lands this week, before 1.0.0.
 - **H6 Artifacts and shape.** `artifacts/` has the subfolders `decks/`, `css/`, `recipes/`,
   `prototypes/`, `tools/`, `measurements/`, plus `LINKS.md`. HANDOFF.md's front matter carries the
   owner session, branch, PR, status, updated time and budget used; its sections are Where it stands
@@ -219,10 +224,9 @@ Options: A … B … Recommendation: … Default if silent: …
 2. …
 
 ## Gotchas met
-- Route budget: …
-- Export byte-diff method: …
-- `marp-cli` is pinned at …; install it with …
-- Firefox fails in the sandbox only because …
+- Route budget: see engineering/gotchas/ci.md §Route budget (written when found, H10)
+- Export byte-diff method: see engineering/gotchas/<topic>.md §…
+- This branch only: the fixture in decks/wave1-sample.md must not be renamed while …
 
 ## Do not
 - Push to claude/… (another session's branch, HARD RULE #31).
@@ -232,7 +236,10 @@ The sections map onto what went missing in §Why. **Where it stands** defines th
 (W1). The **artifacts** subfolders hold what a reclaimed sandbox lost (W2): each `tools/` script
 names in its header what it produced and at which commit, and each `measurements/` table carries
 the commit it was measured at. **`budget:`** is one running total the holder updates at each agent
-run, so there is one number, not two memories (W3). **Gotchas met** is the know-how (W4).
+run, so there is one number, not two memories (W3). **Gotchas met** holds pointers to the
+`engineering/gotchas/` entries the session wrote the moment it learned them (H10), plus traps that
+apply only to this branch (W4). Know-how lives where every session reads it, and is not lost if the
+handoff is rushed or removed.
 **Open questions** keeps the owner's words exactly, in quotes, with date and session, because a
 paraphrase of an owner decision is how a later session re-asks a settled point (CLAUDE.md DEFAULT
 OPERATING MODE #3). An exact quote is an external string under `engineering/house-style.md` §1, so
@@ -282,8 +289,9 @@ handoffs.d/presets-wave-1/
 - **Never a secret** (H6 scrub rule): no environment variable values, no keys or tokens, no `.env`
   contents. `checkHandoffs` scans every file in the folder for token patterns (provider key prefixes,
   `Authorization:` headers, private-key blocks, long high-entropy strings) and fails the push, at
-  pre-push, before the branch makes it public. Nothing on GitHub's side is assumed to catch what the
-  scan misses; push protection is an owner decision outside this note.
+  pre-push, before the branch makes it public. GitHub's secret scanning and push protection are a
+  second layer once the repository enables them; this scan stays either way, because it runs before
+  the push and covers patterns GitHub's provider list does not.
 - **Prefer a link for an image that changes every checkpoint.** Replacing a binary in place still
   keeps every earlier version in the branch's history, so a 1 MB screenshot refreshed at four
   checkpoints costs 4 MB there. The per-file cap bounds each version, not the sum.
@@ -335,9 +343,9 @@ already turns it off for relay branches. The branch commits stay reachable on Gi
    go in a `followups.d/` evidence folder, which takes text only and at most 512 KB
    (`followups.d/README.md` §Evidence folders); a PNG or a larger file stays reachable through the
    permalink instead. Then `close` prints a permalink to the folder at the current head, removes the
-   folder with `git rm -r`, and writes the permalink into the living comment. Gotchas met that a
-   future session on any line of work could hit go to the matching `engineering/gotchas/<topic>.md`
-   in the same commit, so the know-how outlives the folder (W4).
+   folder with `git rm -r`, and writes the permalink into the living comment. The gotchas are
+   already in `engineering/gotchas/` (H10), so close checks that each pointer under Gotchas met
+   resolves to an entry there, and lists any branch-only trap that should become one.
 6. **Ask to merge** once CI is green on that head. `npm run queue:precheck`, which every merge ask
    already runs (HARD RULE #16), refuses while `handoffs.d/` is in the tree (slice 2), so a session
    cannot reach the ask with the folder still there.
@@ -449,7 +457,7 @@ handoffs.d/<slug>/ present (fine on a work branch). Close it before the merge as
 `npm run handoff -- close`.
 ```
 
-## Implementation slices (a later PR, after #3427 merges)
+## Implementation slices (the build PR, this week, after #3427 merges)
 
 One PR, one commit per slice (`workflow.md` §Batch a session's slices).
 
