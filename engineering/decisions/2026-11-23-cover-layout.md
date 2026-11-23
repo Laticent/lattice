@@ -92,6 +92,23 @@ Prototype renders: the presets-desk session, 2026-11-23.
 
 ## 6. Build and verification
 
+**The owner's bar for D-dim (2026-11-23): validate it everywhere, settle for nothing.** "We curate and hold
+ourselves to the highest standard": no jank, no tech debt, no broken windows. Before the PR is review-ready:
+
+- **Every theme**, including the print theme(s) and every `a11y-*` palette, in light and dark, and the
+  `--print` band. A theme where the dimmed accent reads as plain gray (onyx, the a11y palettes, concrete)
+  is judged on its own terms, not waved through.
+- **Contrast, measured, on every theme and mode:** white on the dimmed divider (AA), the light-mode
+  `--on-accent` on `--accent` (already gated), and the divider's jump from the content background (a
+  floor). Both land as `tools/contrast-audit.js` rows, so the gate holds them after merge.
+- **Every finish** layered on a divider and a cover, light and dark: the backdrop must not break the field,
+  the ink or the jump.
+- **Artistic review, looked at, not only measured:** each theme's divider and covers beside its content
+  slides, judged for whether the break reads as a chapter and the field looks curated, not just compliant.
+  A visual fan-out per the Quality Bar if the sweep is large.
+- **Jank:** `check:jank` on the divider and both covers as the heading grows; the section number and the
+  rail hold still.
+
 - **Engine:** the force-dark rule and `cover-light` CSS (`base.modifiers.css`, `base.finish.css`,
   `base.variants.css`, `title.styles.css`), the register (`resolve-cover.js` → composition only,
   key `cover-layout`), the player's `BOOKEND_FORCES_DARK` / `PINNED_TO_LIGHT`, lint
