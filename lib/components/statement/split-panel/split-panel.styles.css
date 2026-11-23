@@ -856,6 +856,14 @@ section.split-panel:not(.mirror):not([data-orientation="portrait"]):has(> footer
 section.split-panel.mirror:not([data-orientation="portrait"]):has(> footer) .panel-right {
   padding-bottom: max(var(--sp-xl), var(--_chrome-band));
 }
+/* The two FLOOR-BUILT variants keep their floor, and get the same room above the footer the
+ * centered masthead has. `watermark` composes its letterform on the panel's floor and `capstone`
+ * spreads its signal and pillars top to bottom, so neither centers; but the band alone left their
+ * last line a hairline (`--sp-xs`) over the running footer, the crowding both Wave 1 judges docked
+ * (#3470; found again on these two by the #3496 maker-checker). `--sp-md` more clears it. */
+section.split-panel:is(.watermark, .capstone):not(.mirror):not([data-orientation="portrait"]):has(> footer) .panel-left {
+  padding-bottom: max(var(--sp-xl), calc(var(--_chrome-band) + var(--sp-md)));
+}
 /* `.steps` pins its phase numeral (the eyebrow, at `--fs-hero`) to the panel's top-left corner
  * with `position: absolute`, so padding cannot move it — and that corner is the header band.
  * The numeral's box sat under the running header on every steps slide that had one; found by
