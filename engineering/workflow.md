@@ -2806,9 +2806,9 @@ passed. The audit is read-only and can run as one subagent; it never archives.
 reports to the one live session with that tag. If two or more live sessions hold
 it, the desk reports to none of them: it stops and asks the owner which one is the
 command center, because a second holder would otherwise receive desk reports,
-relays and merge confirmations meant for the first. A session claims the tag only
-when no other live session holds it, or on the owner's own word in that session,
-and it untags the old holder in the same step (`/fleet`, `.claude/skills/fleet/SKILL.md`).
+relays and merge confirmations meant for the first. "Live" means not archived. If none holds it, the desk asks the owner where to
+report. A session claims the tag only when no other live session holds it, or on
+the owner's own word in that session, and it untags the old holder in the same step (`/fleet`, `.claude/skills/fleet/SKILL.md`).
 Born 2026-11-23, when a `/fleet table` typed in a worker session made it a second
 command center. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and
