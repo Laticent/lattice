@@ -321,13 +321,20 @@ function readBaton({ branch, pr = null, me, now, override = false, fetch = true,
   const comment = number ? livingComment(api, number, authLogin(api)) : null;
   const parsed = comment ? parseLiving(comment.body) : null;
   const living = comment ? { released: parsed.released, head: parsed.head, updatedAt: comment.updatedAt } : null;
-  let verdict = batonVerdict({ head, living, me, now, override });
-  // A branch parked at the merge gate (its 🚦 card is for this exact tip) is not takeable even with a
-  // free baton: any push voids the card the owner is deciding on. Only a person's words reopen it.
-  if (parsed?.gate && head?.sha.startsWith(parsed.gate) && verdict.state !== 'held' && !override) {
-    verdict = { ...verdict, state: 'held', reason: `parked at the merge gate at ${parsed.gate} (its 🚦 card is for this head); only the owner reopens it` };
-  }
-  return { exists, head, pr: number, ready: pull ? pull.draft === false : false, comment, parsed, verdict };
+  const verdict = applyGate(batonVerdict({ head, living, me, now, override }), { gate: parsed?.gate, head, me, override });
+  const ready = Boolean(pull && pull.state !== 'closed' && pull.draft === false);
+  return { exists, head, pr: number, ready, comment, parsed, verdict };
+}
+
+/**
+ * A branch parked at the merge gate (its 🚦 card is for this exact tip) is not takeable even with a free
+ * baton: any push voids the card the owner is deciding on. Only a person's words reopen it (`override`).
+ * The session that parked it is not locked out: it can still release again or refresh its handoff.
+ */
+function applyGate(verdict, { gate, head, me, override = false }) {
+  if (!gate || !head?.sha.startsWith(gate) || verdict.state === 'held' || override) return verdict;
+  if (me && verdict.holder === me) return verdict;
+  return { ...verdict, state: 'held', reason: `parked at the merge gate at ${gate} (its 🚦 card is for this head); only the owner reopens it` };
 }
 
 // ── The living handoff comment (Tension 3) ──────────────────────────────────────────────────────
@@ -396,7 +403,7 @@ function postLiving({ pr, card, extra, cardText, signatureLine, holderName, env,
 module.exports = {
   ROSTER_PATH, loadRoster, resolveActor, sessionId, signature, HOW_TO_SET,
   LEASE_MS, MARKER, REPO, RelayError, parseTrailers, parseLiving, batonVerdict, setLivingLine, livingHeader, minutes, rescueRef,
-  ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton,
+  ghApi, authLogin, prForBranch, livingComment, pushTime, holderOf, readHead, readBaton, applyGate,
   FOOTER, nextStep, buildLivingBody, postLiving,
 };
 

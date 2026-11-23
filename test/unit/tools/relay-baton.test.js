@@ -406,6 +406,23 @@ describe('npm run baton', () => {
     assert.doesNotMatch(go(['status', 'claude/x'], { comments: [stale] }).text, /merge gate/);
   });
 
+  test('the session that parked it is not locked out: it can release again and its status is not "held"', () => {
+    const parked = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', `parked at ${TIP.slice(0, 7)}`) };
+    const again = go(['release', 'claude/x'], { session: ME, comments: [parked] });
+    assert.equal(again.code, 0, again.text);
+    assert.match(again.text, /already released/);
+    const st = go(['status', 'claude/x'], { session: ME, comments: [parked] });
+    assert.doesNotMatch(st.text, /HELD/);
+  });
+
+  test('release --gate on a baton already released adds the gate line', () => {
+    const released = { ...COMMENT, body: relay.setLivingLine(COMMENT.body, 'baton', 'released') };
+    const r = go(['release', 'claude/x', '--gate'], { session: ME, comments: [released] });
+    assert.equal(r.code, 0, r.text);
+    assert.match(r.text, /now parked at the merge gate/);
+    assert.equal(relay.parseLiving(r.calls.find((c) => c.method === 'PATCH').body.body).gate, TIP.slice(0, 7));
+  });
+
   test('release --gate writes released, the tip, and the gate line', () => {
     const r = go(['release', 'claude/x', '--gate'], { session: ME });
     assert.equal(r.code, 0, r.text);

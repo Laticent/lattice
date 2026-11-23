@@ -35,16 +35,23 @@ function board({ api = relay.ghApi, now = Date.now() } = {}) {
     const commits = api('GET', `repos/${relay.REPO}/pulls/${pr.number}/commits?per_page=100`, { paginate: true });
     const trailers = relay.holderOf(commits.map((c) => ({ message: c.commit?.message || '' })).reverse());
     const head = { sha: pr.head.sha, ...trailers, pushedAt: relay.pushTime(api, pr.head.ref, pr.head.sha) };
-    const v = relay.batonVerdict({
-      head,
-      living: { released: living.released, head: living.head, updatedAt: comment.updatedAt },
-      me: null,
-      now,
-    });
+    const v = relay.applyGate(
+      relay.batonVerdict({
+        head,
+        living: { released: living.released, head: living.head, updatedAt: comment.updatedAt },
+        me: null,
+        now,
+      }),
+      { gate: living.gate, head, me: null },
+    );
     const next = (/^next: (.*)$/m.exec(comment.body) || [])[1] || '';
     const claims = (/\*\*CLAIMS\*\*\n((?:- .*\n?)+)/.exec(comment.body) || [])[1] || '';
     const holder = [trailers.actor, trailers.session].filter(Boolean).join(' · ') || 'unattributed';
-    const state = v.state === 'free' ? `free (${v.reason.startsWith('the living') ? 'released' : 'lease expired'})` : 'held';
+    const state = v.reason.startsWith('parked at the merge gate')
+      ? 'parked at merge gate'
+      : v.state === 'free'
+        ? `free (${v.reason.startsWith('the living') ? 'released' : 'lease expired'})`
+        : 'held';
     const lease = v.state === 'free' ? '—' : relay.minutes(v.leaseLeftMs);
     const claimText = claims.trim().split('\n').filter(Boolean).map((l) => l.slice(2)).join('; ');
     rows.push(`| [#${pr.number}](${comment.url}) | ${cell(pr.head.ref)} | ${cell(holder)} | ${state} | ${lease} | ${cell(next)} | ${cell(claimText)} |`);

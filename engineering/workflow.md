@@ -104,7 +104,8 @@ cost the most (one session per branch, forever).
    reopens it (a person's "take over", `--override`). Its 🚦 card is for that exact head, and any push
    voids the card the owner is deciding on. The session that posts the card releases with
    `npm run baton -- release --gate`, which writes `gate: parked at <sha>`; `npm run baton -- status`
-   then reports it parked. A push after parking moves the tip off that sha, so the gate stops applying.
+   and `npm run relay` then report it parked. The session that parked it can still release again or refresh
+   its living comment. A push after parking moves the tip off that sha, so the gate stops applying.
 9. **When I tell you what another session is doing, treat it as a constraint.** Stay off a branch it holds
    and away from the files it is changing (`git diff --stat origin/main...origin/<its-branch>`), and write a
    `Related sessions:` line in your PR body. To learn more, read it (`get_session`, `list_events`) or its PR's

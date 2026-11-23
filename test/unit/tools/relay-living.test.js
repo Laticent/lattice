@@ -144,6 +144,21 @@ describe('npm run relay', () => {
     assert.match(lines[2], /^\| \[#1\]\(u1\) \| claude\/a \| James Tiberius Kirk · session_TH02 \| held \| 50 min \| run the trio \| test:a\.test\.js#b \|$/);
   });
 
+  test('a branch parked at the merge gate shows as parked on the board, not "free"', () => {
+    const gated = relay.setLivingLine(relay.setLivingLine(living, 'baton', 'released'), 'gate', 'parked at aaa0000');
+    const api2 = (method, p) => {
+      if (p.includes('issues/1/comments')) return [{ id: 1, user: { login: 'saden1' }, body: gated, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }];
+      if (p.includes('/pulls?')) return [{ number: 1, user: { login: 'saden1' }, head: { ref: 'claude/a', sha: 'aaa0000ffff' } }];
+      if (p.endsWith('commits/aaa0000ffff') || p.includes('pulls/1/commits')) return p.includes('pulls/1/commits') ? [{ commit: { message: `x\n\nClaude-Session: https://claude.ai/code/${THEM}` } }] : {};
+      if (p.includes('/activity?')) return [];
+      return api(method, p);
+    };
+    const gatedHeader = gated.replace(/^head: .*$/m, 'head: aaa0000');
+    const api3 = (method, p) => (p.includes('issues/1/comments') ? [{ id: 1, user: { login: 'saden1' }, body: gatedHeader, updated_at: new Date(T0 - 10 * MIN).toISOString(), html_url: 'u1' }] : api2(method, p));
+    const lines = board.board({ api: api3, now: T0 });
+    assert.match(lines[2], /\| parked at merge gate \|/);
+  });
+
   test('trailer prints the Relay-Actor line from the roster', () => {
     const out = [];
     assert.equal(board.run(['trailer'], { env: { LATTICE_ACTOR: 'picard' }, out: (s) => out.push(s), err: () => {} }), 0);

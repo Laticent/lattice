@@ -142,7 +142,8 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
           return 1;
         }
         if (v.state === 'free' && ready) {
-          out(`  PR #${pr} is ready, not a draft: §Relay rule 7 says park it first (npm run pr:park -- ${pr}), then take.`);
+          out(`  PR #${pr} is ready, not a draft: §Relay rule 7 says park it first (npm run pr:park -- ${pr}), then take`);
+          out('  (with --override as well if the owner reopened a branch parked at the merge gate).');
           out('  A checkpoint push to a ready PR runs full CI, and one in the merge queue ejects it.');
           return 1;
         }
