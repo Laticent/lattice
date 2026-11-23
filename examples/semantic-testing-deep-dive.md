@@ -15,7 +15,7 @@ acronyms:
   ISTQB: { expansion: International Software Testing Qualifications Board }
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Semantic Testing, in Depth
 
@@ -35,7 +35,7 @@ Timing: 90 to 120 minutes with three exercises. It splits cleanly into two sitti
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## The deep dive adds each claim's mechanics, then a reference.
 
@@ -47,7 +47,7 @@ Timing: 90 to 120 minutes with three exercises. It splits cleanly into two sitti
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 1`
 
@@ -61,7 +61,7 @@ Timing: 90 to 120 minutes with three exercises. It splits cleanly into two sitti
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Common test labels answer six different questions.
 
@@ -88,7 +88,7 @@ Timing matters, but it is a scheduling decision. A unit test runs at commit; a c
 
 ---
 
-<!-- _class: compare-prose vertical chosen -->
+<!-- @meta{layout=compare-prose, class=vertical chosen} -->
 
 `A better first question`
 
@@ -111,7 +111,7 @@ Ask the room for a test they wrote last week, and have them state its mission in
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Only a tool that names its evidence is a strategy.
 
@@ -129,7 +129,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 2`
 
@@ -142,7 +142,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 <!-- @say{Part two. Five missions, each reducing a different kind of risk. We will follow one five hundred dollar transfer through all of them.} -->
 
 ---
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Each mission answers a question the others cannot.
 
@@ -169,7 +169,7 @@ The word System here means production parity. That is narrower than the ISTQB us
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 ## Later missions feed what they find back to earlier ones.
 
@@ -196,7 +196,7 @@ The dashed arrow is the important one. When a System test finds a logic bug, the
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## One transfer serves five missions, each with its own limit.
 
@@ -217,7 +217,7 @@ Categories overlap by design. One test run can contribute evidence to several mi
 <!-- @say{One transfer gives evidence to all five missions, and each has its own limit. Authorization and amount rules are Unit evidence, with dependencies controlled. One stored row and one event are Integration evidence, with local or virtual resources. Settlement under load and failover is System evidence, if parity and data are representative. Whether the customer knows the money moved needs representative users. And no duplicate charge across retries is judged on the whole operation.} -->
 
 ---
-<!-- _class: inventory editorial compact -->
+<!-- @meta{layout=inventory, class=editorial compact} -->
 
 ## Five kinds of test double do five different jobs.
 
@@ -239,11 +239,11 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Unit and integration tests catch different defects in the transfer.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Unit
 
@@ -254,7 +254,7 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 - Blind spot
   - Concurrent production writes.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Integration
 
@@ -277,7 +277,7 @@ The objective decides the Integration label. A real database in a container, suc
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Local, virtual and parity resources prove different things.
 
@@ -300,7 +300,7 @@ The reverse trap is more common: "we use a real PostgreSQL" while the dataset is
 
 ---
 
-<!-- _class: list-tabular compact -->
+<!-- @meta{layout=list-tabular, class=compact} -->
 
 ## Write production parity down as a contract for each objective.
 
@@ -329,7 +329,7 @@ Example: two PostgreSQL clusters on the same minor version can still differ in i
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Schema-valid test data can still misrepresent production.
 
@@ -353,7 +353,7 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Declare a fidelity gap instead of throwing the evidence away.
 
@@ -377,7 +377,7 @@ Write the gap down with three parts: what was substituted, what claim it weakens
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## Scope a fidelity gap to the one claim it weakens.
 
@@ -400,7 +400,7 @@ Record the three steps on the slide: keep the evidence, limit the claim, and wri
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Parity and test data decay unless someone checks them.
 
@@ -421,7 +421,7 @@ Put a recurring check on the parity contract from earlier in this section. Repre
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 `Experience mission`
 
@@ -444,11 +444,11 @@ Experience evidence comes from watching representative people do real tasks: mod
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Safety testing looks for harm from any cause, attackers included.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Security asks
 
@@ -459,7 +459,7 @@ Experience evidence comes from watching representative people do real tasks: mod
 - Example harm
   - Stolen credentials move money.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Safety asks
 
@@ -481,7 +481,7 @@ Harm can be financial, physical, legal, or a privacy loss. Security is one input
 <!-- @say{Safety testing looks for harm from any cause, attackers included. Security asks whether an attacker can break it, using threat models, penetration tests and scans; its classic harm is stolen credentials moving money. Safety asks whether the operation can cause harm at all, using hazard analysis, fault injection and drills. A five hundred dollar transfer sent twice needs no attacker.} -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Safety judges the whole operation, people and processes included.
 
@@ -506,7 +506,7 @@ Harm often comes from parts that each behave correctly, which is the next slide.
 
 ---
 
-<!-- _class: flowchart tb -->
+<!-- @meta{layout=flowchart, class=tb} -->
 
 ## Every service keeps its contract, yet the money moves twice.
 
@@ -528,7 +528,7 @@ The global invariant has to be tested across the assembled operation: one intend
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 3`
 
@@ -542,7 +542,7 @@ The global invariant has to be tested across the assembled operation: one intend
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Confirm the known, and search for what you never imagined.
 
@@ -568,7 +568,7 @@ The cards describe the dominant intent. Fuzzing can confirm robustness against a
 <!-- @say{Confirm the known, and search for what you never imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents.} -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Five techniques reach past examples; mutation testing tests the tests.
 
@@ -596,7 +596,7 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Each technique needs a different kind of oracle.
 
@@ -623,7 +623,7 @@ Metamorphic testing is the least known. It is useful wherever the right answer i
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## Tests sharing one wrong assumption are one piece of evidence.
 
@@ -648,7 +648,7 @@ The remedy is an oracle from a different source.} -->
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 ## Two tests, same coverage: only one can catch the defect.
 
@@ -690,7 +690,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## A green assertion can hide a failing system.
 
@@ -713,7 +713,7 @@ Negative astonishment is behavior that looks harmful: investigate it even when t
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Flakiness`
 
@@ -740,7 +740,7 @@ The practice: keep the trace from the failure, reproduce it under load, fix the 
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## Test suites take on debt like any other code.
 
@@ -762,7 +762,7 @@ More tests are not automatically better. More useful, trustworthy evidence is be
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Testability is an architecture decision, made before the first test.
 
@@ -785,7 +785,7 @@ The analyzers slide earlier showed why this matters: a green assertion can sit o
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 4`
 
@@ -799,7 +799,7 @@ The analyzers slide earlier showed why this matters: a green assertion can sit o
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `A rough guide for judgment`
 
@@ -827,7 +827,7 @@ K includes the hidden costs: run time on every commit, and the hours spent diagn
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Blast radius, reversibility and diagnosis cost set the evidence budget.
 
@@ -848,7 +848,7 @@ It is a decision aid, not a license to ignore rare catastrophic risks. Whoever a
 <!-- @say{Blast radius, reversibility and diagnosis cost set how much evidence to buy. Blast radius means how many users or systems a failure can reach. A large blast radius needs more evidence and containment. A change that is hard to reverse needs stronger assurance before release. A catastrophic outcome justifies deep testing even for rare failures. A fast, safe rollback can justify less. And expensive diagnosis favors earlier, more localized detection.} -->
 
 ---
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## An early failure is cheaper: it points at fewer causes.
 
@@ -872,7 +872,7 @@ A System test that catches a logic bug has done its job, but leaves an expensive
 <!-- @say{An early failure is cheaper: it points at fewer causes. These are illustrative orders of cost. A unit test failure points at one function, and diagnosis takes minutes. An integration failure points at one boundary, about an hour. A system failure has many candidate causes and can take days. In production, customer harm comes first, then the same search. A test's cost includes understanding why it failed.} -->
 
 ---
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Costly defects hide at the edges of a critical path.
 
@@ -899,7 +899,7 @@ Most suites walk down the middle of the road: the success case. The consequentia
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Each stage trades feedback speed for fidelity.
 
@@ -924,7 +924,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle} -->
 
 ## Judgment decides which checks are worth automating.
 
@@ -951,7 +951,7 @@ Do not automate merely because you can. A usability observation or an adaptive r
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## An escaped defect reveals gaps in product and tests alike.
 
@@ -974,7 +974,7 @@ This is a blameless review question. The goal is a better system; nobody is hunt
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A complete plan gives every mission an objective and evidence.
 
@@ -998,7 +998,7 @@ Run the exercise in pairs for five minutes, then take one answer per mission.} -
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We run Playwright against staging to check transfers.
 
@@ -1014,7 +1014,7 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 `Reveal`
 
@@ -1043,7 +1043,7 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We fuzz a transfer endpoint against staging.
 
@@ -1057,7 +1057,7 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 `Reveal`
 
@@ -1082,11 +1082,11 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Ten axioms hold the framework together.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### Evidence
 
@@ -1096,7 +1096,7 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 4. Fidelity must match the evidence required.
 5. Unexpected behavior deserves investigation.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### Practice
 
@@ -1118,7 +1118,7 @@ This is the slide to leave up during questions.} -->
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## Start with the mission you have the least evidence for.
 
@@ -1143,7 +1143,7 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Good testing buys evidence where being wrong costs the most.
 
@@ -1159,7 +1159,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Reference`
 
@@ -1172,7 +1172,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- @say{The reference section follows, with definitions, mission specifications, tactics and more.} -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Analyzer through invariant describe what a test checks.
 
@@ -1192,7 +1192,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- @say{Analyzer through invariant: these six terms describe what a test checks. An analyzer inspects code, runtime or output for undesirable behavior. An assertion compares one observation with one expected condition. A critical path is behavior whose failure has material consequences. Evidence is observations that change how much confidence is justified. A fidelity gap limits what a result can claim. An invariant must hold under every defined condition.} -->
 
 ---
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## These terms cover intent and fault, from mission to system.
 
@@ -1216,7 +1216,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- @say{These terms cover intent and fault, from mission to system. The mission is the risk a test exists to reduce. An objective is a specific outcome that shows progress on it. Residual risk is risk left after testing, accepted by a named owner. A software defect is a flaw in code or configuration that can cause a failure. A strategy is the approach chosen to reach an objective. And the system under test is the software the test examines.} -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Tactic through test surface name the parts of a suite.
 
@@ -1237,7 +1237,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Each mission has its own tactics and blind spot.
 
@@ -1272,7 +1272,7 @@ Safety: the complete operation avoids unacceptable harm under foreseeable failur
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Six tactics serve several missions, and none picks the mission.
 
@@ -1297,7 +1297,7 @@ Safety: the complete operation avoids unacceptable harm under foreseeable failur
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Seven more tactics suit deeper or more specialized questions.
 
@@ -1319,11 +1319,11 @@ Safety: the complete operation avoids unacceptable harm under foreseeable failur
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Judge a test by what it shows and takes.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### What it shows
 
@@ -1333,7 +1333,7 @@ Safety: the complete operation avoids unacceptable harm under foreseeable failur
 - Interpretable: a failure helps diagnosis
 - Sensitive: a real defect can fail it
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### What it takes
 
@@ -1353,7 +1353,7 @@ Flakiness is a defect in the testing system, and re-running until green does not
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Six common claims about testing need a better reading.
 
@@ -1374,11 +1374,11 @@ Flakiness is a defect in the testing system, and re-running until green does not
 
 ---
 
-<!-- _class: columns no-spine -->
+<!-- @meta{layout=columns, class=no-spine} -->
 
 ## Scope, mission and fidelity get confused in six more claims.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Claims about scope
 
@@ -1389,7 +1389,7 @@ Flakiness is a defect in the testing system, and re-running until green does not
 - "System tests are superior."
   - They answer different questions, at higher cost.
 
-<!-- _pane: cards-stack -->
+<!-- @meta{pane=cards-stack} -->
 
 ### Claims about practice
 
@@ -1408,7 +1408,7 @@ Flakiness is a defect in the testing system, and re-running until green does not
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## These six questions turn the framework into a team discussion.
 
@@ -1427,7 +1427,7 @@ Flakiness is a defect in the testing system, and re-running until green does not
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Before teaching, check the session covers each core distinction.
 

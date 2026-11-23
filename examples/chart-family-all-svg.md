@@ -5,9 +5,9 @@ pagination: true
 header: 'Lattice · every chart label inside the drawing'
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
-<!-- _footer: "chart-family-all-svg — the last two HTML labels move into their viewBoxes" -->
+<!-- @meta{footer="chart-family-all-svg — the last two HTML labels move into their viewBoxes"} -->
 
 # Every label inside the drawing
 
@@ -20,9 +20,9 @@ asserted.
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
-<!-- _footer: "word-cloud · the size key is SVG, in the cloud's own viewBox" -->
+<!-- @meta{footer="word-cloud · the size key is SVG, in the cloud's own viewBox"} -->
 
 `SIZE = FREQUENCY`
 
@@ -41,9 +41,9 @@ than the chart's. Inside the viewBox it is locked to the cloud it explains.*
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
-<!-- _footer: "radar small-multiples · each series name inside its own mini" -->
+<!-- @meta{footer=radar small-multiples · each series name inside its own mini} -->
 
 `[{Scale, 0..10}]`
 
@@ -79,9 +79,9 @@ captions sitting outside the drawing.*
 
 ---
 
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
-<!-- _footer: "radar small-multiples · a long name wraps, and every mini shares the band" -->
+<!-- @meta{footer="radar small-multiples · a long name wraps, and every mini shares the band"} -->
 
 `[{Scale, 0..10}]`
 
@@ -105,9 +105,9 @@ aligned — and a chart of one-line names pays for one line, not two.*
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
-<!-- _footer: "piechart · the model both conversions follow" -->
+<!-- @meta{footer=piechart · the model both conversions follow} -->
 
 `Q3 · effort split`
 
@@ -123,9 +123,9 @@ shares that spine builder instead of a third copy of the same gradient.*
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
-<!-- _footer: "radar default · the legend was already SVG" -->
+<!-- @meta{footer=radar default · the legend was already SVG} -->
 
 `[{Scale, 0..10}]`
 
@@ -149,9 +149,9 @@ small-multiples captions had stayed outside — 22 characters of HTML.*
 
 ---
 
-<!-- _class: closing index -->
+<!-- @meta{layout=closing, class=index} -->
 
-<!-- _footer: "chart-family-all-svg · seven SVG, two hybrid, four HTML" -->
+<!-- @meta{footer="chart-family-all-svg · seven SVG, two hybrid, four HTML"} -->
 
 ## What changed, and what proves it
 

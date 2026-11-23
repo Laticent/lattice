@@ -6,7 +6,7 @@ pagination: true
 header: "Lakeside Community Health · Capital campaign"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Capital campaign · $8M to build the Eastside clinic`
@@ -17,7 +17,7 @@ In Eastside, a family waits three weeks for a doctor and drives an hour for a de
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Eastside has 28,000 residents and not one full-service health clinic.
@@ -29,7 +29,7 @@ For two decades, Lakeside Community Health has run pop-up clinics out of a conve
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Meet the Reyes family — they are why this clinic cannot wait.
@@ -41,7 +41,7 @@ Marisol Reyes brought her son Diego to our bus clinic with a toothache he'd had 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The need, in one number`
@@ -51,7 +51,7 @@ Marisol Reyes brought her son Diego to our bus clinic with a toothache he'd had 
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `The gap we close · Eastside, 2025`
@@ -71,7 +71,7 @@ Marisol Reyes brought her son Diego to our bus clinic with a toothache he'd had 
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: short -->
 
 > I shouldn't have to choose between my son's tooth and a day's pay. A clinic down the street changes everything for us.
@@ -80,7 +80,7 @@ Marisol Reyes brought her son Diego to our bus clinic with a toothache he'd had 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The campaign`
@@ -90,7 +90,7 @@ Marisol Reyes brought her son Diego to our bus clinic with a toothache he'd had 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The plan is finished, the land is secured — we are funding the building.
@@ -102,7 +102,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## What your gift funds.
@@ -118,7 +118,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 <!-- tier: short -->
 
 `Campaign · as of June 2026`
@@ -131,7 +131,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Momentum`
@@ -141,7 +141,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Who has stepped up · campaign to date`
@@ -161,7 +161,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: standard -->
 
 ## Giving levels — every one carries a permanent place in the building.
@@ -177,7 +177,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Naming opportunities · still open`
@@ -196,7 +196,7 @@ We hold a 99-year lease on the old Eastside firehouse lot, the architectural pla
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A leadership gift now is what lets us break ground this fall.
@@ -208,7 +208,7 @@ Construction bids are firm for 90 days. With $2.8M committed by September, we po
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We are asking you to lead the final phase of this campaign.
@@ -222,9 +222,9 @@ Construction bids are firm for 90 days. With $2.8M committed by September, we po
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Let's build Eastside the clinic it has earned.

@@ -35,7 +35,7 @@ section.finish.finish-graph.lattice-exporting {
 }
 </style>
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Restrain any finish
 
@@ -55,7 +55,7 @@ The finish still frames the slide at the margins.
 
 ---
 
-<!-- _class: backdrop-full backdrop-open -->
+<!-- @meta{class=backdrop-full backdrop-open} -->
 
 `backdrop-full backdrop-open`
 
@@ -65,7 +65,7 @@ This slide opts out of both deck values: full strength, no mask. The glow and gr
 
 ---
 
-<!-- _class: divider no-finish -->
+<!-- @meta{layout=divider, class=no-finish} -->
 
 `no-finish`
 
@@ -73,7 +73,7 @@ This slide opts out of both deck values: full strength, no mask. The glow and gr
 
 ---
 
-<!-- _class: backdrop-full -->
+<!-- @meta{class=backdrop-full} -->
 
 `backdrop-full · deck mask kept`
 
@@ -83,7 +83,7 @@ This slide sets only its strength. It keeps the deck's `clear`, so atrium return
 
 ---
 
-<!-- _class: backdrop-spot-tr -->
+<!-- @meta{class=backdrop-spot-tr} -->
 
 `backdrop-spot-tr`
 
@@ -93,7 +93,7 @@ This slide sets only its strength. It keeps the deck's `clear`, so atrium return
 
 ---
 
-<!-- _class: finish-graph backdrop-40 backdrop-spot-bl -->
+<!-- @meta{class=finish-graph backdrop-40 backdrop-spot-bl} -->
 
 `finish-graph · backdrop-40 backdrop-spot-bl`
 
@@ -103,7 +103,7 @@ The graph grid at 40%, shown only in the bottom-left corner. The words sit on cl
 
 ---
 
-<!-- _class: finish-graph backdrop-full backdrop-open -->
+<!-- @meta{class=finish-graph backdrop-full backdrop-open} -->
 
 `finish-graph · backdrop-full backdrop-open`
 
@@ -113,7 +113,7 @@ The **graph** finish bakes 60% strength and a clearance. Here `backdrop-full bac
 
 ---
 
-<!-- _class: finish-graph backdrop-spot-c -->
+<!-- @meta{class=finish-graph backdrop-spot-c} -->
 
 `finish-graph · backdrop-spot-c`
 
@@ -123,7 +123,7 @@ Graph bakes 60% strength and a clearance. `spot-c` swaps only the mask for a cen
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Any finish, any slide.
 

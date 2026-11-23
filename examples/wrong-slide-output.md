@@ -9,7 +9,7 @@ lenses:
   footer: { label: "Footer view", base: none }
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every slide you write, as you wrote it
 
@@ -19,7 +19,7 @@ lenses:
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Fix 1 · split titles`
 
@@ -36,7 +36,7 @@ At this size the panel splits into a cover and one page per point. Each point be
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Fix 1 · the slide after`
 
@@ -46,7 +46,7 @@ Before the fix, the split page emitted `<strong>6</span>`, an open bold tag the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Fix 2 · a close tag with a space`
 
@@ -61,7 +61,7 @@ margin    44%
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Fix 2 · the next slide`
 
@@ -71,7 +71,7 @@ Before the fix, the parser read the separator above as text inside the block, so
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 `Fix 3 · front matter`
 
@@ -84,7 +84,7 @@ Before the fix, the parser read the separator above as text inside the block, so
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Spaces beside inline marks are kept.
 
@@ -99,7 +99,7 @@ Before the fix, the parser read the separator above as text inside the block, so
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## Check a deck after these fixes.
 
@@ -112,7 +112,7 @@ Before the fix, the parser read the separator above as text inside the block, so
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # The deck renders as written.
 

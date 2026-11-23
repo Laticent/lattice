@@ -6,7 +6,7 @@ header: "Lattice · Reinsurance tower"
 meta: "Tower"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · tower`
 
@@ -16,7 +16,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 `Property catastrophe program · 2027`
 
@@ -37,7 +37,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 `Renewal status · November 12`
 
@@ -57,7 +57,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 `Casualty excess · EUR`
 
@@ -77,7 +77,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 `Structure only`
 
@@ -90,7 +90,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: tower dark -->
+<!-- @meta{layout=tower, class=dark} -->
 
 `Property catastrophe program · 2027`
 
@@ -112,7 +112,7 @@ Write each layer as its limit in excess of its attachment, then list the reinsur
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## How to write a tower.
 

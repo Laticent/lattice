@@ -16,7 +16,7 @@ section.finish-meridian.ghost { --fin-mark-text: "Q3"; }
 section:nth-of-type(7) { --backdrop-opacity: 0.5; }
 </style>
 
-<!-- _class: statement finish-gallery -->
+<!-- @meta{class=statement finish-gallery} -->
 
 ## A lone glow.
 
@@ -24,7 +24,7 @@ The gallery finish paints one radial wash.
 
 ---
 
-<!-- _class: statement finish-loom -->
+<!-- @meta{class=statement finish-loom} -->
 
 ## A glow under a weave.
 
@@ -32,7 +32,7 @@ The loom finish: a corner glow with a diagonal lattice over it.
 
 ---
 
-<!-- _class: statement finish-nimbus dark -->
+<!-- @meta{class=statement finish-nimbus dark} -->
 
 ## Blooms on a dark canvas.
 
@@ -40,7 +40,7 @@ Four soft blooms and an edge vignette.
 
 ---
 
-<!-- _class: statement finish-atrium backdrop-clear -->
+<!-- @meta{class=statement finish-atrium backdrop-clear} -->
 
 ## A clear panel.
 
@@ -48,7 +48,7 @@ The grid and the glow fade out behind the words.
 
 ---
 
-<!-- _class: statement finish-halo backdrop-spot-tr -->
+<!-- @meta{class=statement finish-halo backdrop-spot-tr} -->
 
 ## A spotlight.
 
@@ -56,7 +56,7 @@ The halo rings show through one window.
 
 ---
 
-<!-- _class: statement finish-meridian ghost -->
+<!-- @meta{class=statement finish-meridian ghost} -->
 
 ## A ghost numeral.
 
@@ -64,7 +64,7 @@ The numeral is text, so it stays in the photo.
 
 ---
 
-<!-- _class: statement finish-gallery -->
+<!-- @meta{class=statement finish-gallery} -->
 
 ## Half strength.
 
@@ -72,7 +72,7 @@ A group opacity dims the finish, and not the frame keyline: the slide's own ring
 
 ---
 
-<!-- _class: statement finish-loom -->
+<!-- @meta{class=statement finish-loom} -->
 
 ## A busy photo.
 
@@ -80,7 +80,7 @@ A group opacity dims the finish, and not the frame keyline: the slide's own ring
 
 ---
 
-<!-- _class: statement finish-loom -->
+<!-- @meta{class=statement finish-loom} -->
 
 ## Under the canvas.
 

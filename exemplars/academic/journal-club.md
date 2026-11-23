@@ -6,7 +6,7 @@ pagination: true
 header: "Wearable AF screening · Journal club"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Cardiology Journal Club · Week 12`
@@ -17,7 +17,7 @@ A critical read of the HEARTBEAT screening trial — and what its endpoints leav
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 <!-- tier: short -->
 
 ## The paper claims a wearable doubled the detection of silent atrial fibrillation.
@@ -32,7 +32,7 @@ A critical read of the HEARTBEAT screening trial — and what its endpoints leav
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The question this club is here to answer: detection or outcomes?
@@ -41,7 +41,7 @@ Finding more atrial fibrillation is only useful if treating it prevents the stro
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Methods: a large, well-randomized pragmatic trial — with one soft endpoint.
@@ -53,7 +53,7 @@ Finding more atrial fibrillation is only useful if treating it prevents the stro
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `HEARTBEAT · 12-month results as reported`
@@ -73,7 +73,7 @@ Finding more atrial fibrillation is only useful if treating it prevents the stro
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The detection doubled — the strokes did not budge.
@@ -85,7 +85,7 @@ The screened arm caught twice as much AF, but the stroke difference (−0.3%) di
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The cost of looking harder: false positives and the cascade they trigger.
@@ -97,7 +97,7 @@ Eleven percent of screened participants got an alert that turned out to be noise
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## Whether screening helps depends on who you screen.
@@ -113,7 +113,7 @@ Eleven percent of screened participants got an alert that turned out to be noise
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## What we would have designed differently.
@@ -125,7 +125,7 @@ We would power for stroke, not detection; enrich for high-risk patients where tr
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The verdict: a strong sensor study, a weak screening study.
@@ -137,9 +137,9 @@ The technology detects AF reliably — that much is convincing. But the leap fro
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Detecting more disease is not the same as preventing more harm.

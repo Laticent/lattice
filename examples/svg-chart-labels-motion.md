@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Labels that wrap. Charts that build.
 
@@ -14,7 +14,7 @@ Every chart the family treats as a diagram is now fully SVG — geometry **and**
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## Native SVG text does not wrap.
 
@@ -22,7 +22,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Long stage names wrap instead of clipping.
 
@@ -33,7 +33,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -54,7 +54,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -69,7 +69,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, Jan..Dec, today=Jun}]`
 
@@ -88,7 +88,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Submission lifecycle`
 
@@ -105,7 +105,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## Why not `foreignObject`.
 
@@ -113,7 +113,7 @@ It wraps natively, so it looks like the obvious answer. It is not "fully SVG", i
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## Measured in viewBox units, baked at build time.
 

@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · avatars"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Hijabs, turbans, caps, earrings and a wardrobe.
 
@@ -16,7 +16,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `headwear=`
 
@@ -37,7 +37,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A hijab or a turban hides all hair.
 
@@ -47,7 +47,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Caps and hats hide the fringe and any volume above it.
 
@@ -58,7 +58,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Earrings sit on the ears of every face shape.
 
@@ -69,7 +69,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## `clothing=` is the cut of the top; `top=` is still its color.
 
@@ -79,7 +79,7 @@ Four new traits, all opt-in: `\!{Ada Okafor}` draws exactly the face it drew bef
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `All together`
 

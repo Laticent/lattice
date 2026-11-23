@@ -6,7 +6,7 @@ pagination: true
 header: "Dept. of Transit · FY28 Budget Proposal"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Appropriations hearing · FY2028`
@@ -17,7 +17,7 @@ A $214M capital request to clear the backlog that is driving service failures ac
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The repair backlog`
@@ -27,7 +27,7 @@ A $214M capital request to clear the backlog that is driving service failures ac
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The backlog is now driving the delays riders feel every morning.
@@ -36,7 +36,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: short -->
 
 ## Where the $214M request goes, by asset class.
@@ -52,7 +52,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Projected FY28–FY30 returns in reliability and cost avoidance.
@@ -69,7 +69,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Context · The cost of waiting`
@@ -89,7 +89,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: standard -->
 
 ## How the request is funded across three sources.
@@ -105,7 +105,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The federal match is the reason to fund this cycle, not next.
@@ -114,7 +114,7 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: full -->
 
 ## The network through FY30 without this appropriation.
@@ -131,7 +131,7 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: standard -->
 
 ## Where each funding scenario sits on cost against service risk.
@@ -147,7 +147,7 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## The criteria the capital plan was built to meet.
@@ -163,7 +163,7 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Approve the $128M state share to unlock the full $214M repair program.
@@ -177,9 +177,9 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Fund the repair now, or pay for the failure later.

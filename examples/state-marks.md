@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · state marks"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · state markers`
 
@@ -15,7 +15,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Six answers, six marks.
 
@@ -30,7 +30,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: checklist dark -->
+<!-- @meta{layout=checklist, class=dark} -->
 
 ## Theme- and canvas-aware.
 
@@ -44,7 +44,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Same grammar inside verdict badges.
 
@@ -66,7 +66,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 
 ## And across a coverage matrix.
 
@@ -79,7 +79,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: checklist checks-outline -->
+<!-- @meta{layout=checklist, class=checks-outline} -->
 
 ## Variant — `checks-outline`.
 
@@ -92,7 +92,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: checklist checks-bold -->
+<!-- @meta{layout=checklist, class=checks-bold} -->
 
 ## Variant — `checks-bold`.
 
@@ -105,7 +105,7 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Shape first, color second.
 

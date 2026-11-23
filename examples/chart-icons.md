@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · icons in charts"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A node can say what it is before you read it.
 
@@ -15,7 +15,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: flowchart lr -->
+<!-- @meta{layout=flowchart, class=lr} -->
 
 `System map`
 
@@ -32,7 +32,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: flowchart tb -->
+<!-- @meta{layout=flowchart, class=tb} -->
 
 `Paging`
 
@@ -51,7 +51,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: flowchart lr -->
+<!-- @meta{layout=flowchart, class=lr} -->
 
 `Clients`
 
@@ -69,7 +69,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Order lifecycle`
 
@@ -89,7 +89,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: state-chart inline -->
+<!-- @meta{layout=state-chart, class=inline} -->
 
 `Order lifecycle`
 
@@ -105,7 +105,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: flowchart lr icon-etch -->
+<!-- @meta{layout=flowchart, class=lr icon-etch} -->
 
 `Look`
 
@@ -120,7 +120,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A name that does not draw is coached, and the node shows its text.
 

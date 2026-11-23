@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · inline icons"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # An icon is a drawing the size of a word.
 
@@ -15,7 +15,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## One icon, three looks, framed or bare.
 
@@ -29,7 +29,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 ## Framed by default, bare when a line needs it quiet.
 
@@ -42,7 +42,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Uploads reach the warehouse in under a minute.
 
@@ -57,7 +57,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A cloud service is a role icon and its name.
 
@@ -71,7 +71,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## An icon takes the size of the text around it.
 
@@ -83,7 +83,7 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 
 ---
 
-<!-- _class: icon-bare -->
+<!-- @meta{class=icon-bare} -->
 
 ## One class sets every icon on a slide.
 
@@ -95,7 +95,7 @@ A deck sets the same thing for every slide with `icon: bare` in its front matter
 
 ---
 
-<!-- _class: sketch -->
+<!-- @meta{class=sketch} -->
 
 ## On a sketch slide, the tile is drawn by hand.
 
@@ -105,7 +105,7 @@ The drawing inside stays crisp, and a bare icon `^{rocket, c5, bare}` has no til
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A name that is not in the set stays code, and lint says why.
 

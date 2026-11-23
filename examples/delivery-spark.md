@@ -6,7 +6,7 @@ delivery: restrained
 footer: "Laticent · the Guide focuses what it names"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The Guide focuses the thing it names.
 
@@ -16,7 +16,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- @say{The quarter closed well. ARR closed at $48.6M, ahead of plan. Payback stretched to 19 months.} -->
 
 ## The quarter, line by line
@@ -28,7 +28,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 <!-- @say{Look at the SMB row first. Churn there reached 9.4% in the fourth quarter. Then read the Europe column.} -->
 
 ## SMB churn is the number to watch.
@@ -41,7 +41,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## EMEA is where the quarter was won.
 
@@ -52,7 +52,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -75,7 +75,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- @say{Three presets, three deliveries. Restrained recedes the rest to the chart hover's own depth. Somber recedes it gently and hands off slowly. Expressive recedes it deepest and draws ink on the moment that matters most.} -->
 
 ## Three presets read three ways
@@ -86,7 +86,7 @@ Press Present, turn Guide on and play. As the narration names a bullet, a table 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One lever. Nothing moves.
 

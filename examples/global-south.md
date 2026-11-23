@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Global South"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The Global South, first-class
 
@@ -15,8 +15,8 @@ A stated, dated definition that ships with the data — pinned to the UN Group o
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Why ship it" -->
+<!-- @meta{layout=content, footer=Why ship it} -->
+
 
 ## Omission isn't neutral.
 
@@ -24,8 +24,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world highlight -->
-<!-- _footer: "Global South vs Global North · G77 + China (2025)" -->
+<!-- @meta{layout=map, class=world highlight, footer="Global South vs Global North · G77 + China (2025)"} -->
+
 
 ## Two worlds, one stated definition.
 
@@ -34,8 +34,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world highlight -->
-<!-- _footer: "Global South by continent · G77 + China (2025)" -->
+<!-- @meta{layout=map, class=world highlight, footer="Global South by continent · G77 + China (2025)"} -->
+
 
 ## The Global South, by region.
 
@@ -47,8 +47,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world highlight -->
-<!-- _footer: "View 1 · global-south · G77 + China (2025)" -->
+<!-- @meta{layout=map, class=world highlight, footer="View 1 · global-south · G77 + China (2025)"} -->
+
 
 ## Contested term, two sourced views — #1: G77 + China.
 
@@ -56,8 +56,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world highlight -->
-<!-- _footer: "View 2 · global-south-brandt · Brandt Line (1980)" -->
+<!-- @meta{layout=map, class=world highlight, footer="View 2 · global-south-brandt · Brandt Line (1980)"} -->
+
 
 ## #2: the Brandt Line — Mexico, Turkey, the Koreas shift in.
 
@@ -65,8 +65,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world -->
-<!-- _footer: "Per-region authoring · world choropleth" -->
+<!-- @meta{layout=map, class=world, footer=Per-region authoring · world choropleth} -->
+
 
 ## Or color the members directly.
 
@@ -79,8 +79,8 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: map world highlight robinson -->
-<!-- _footer: "robinson variant · the default is Equal Earth" -->
+<!-- @meta{layout=map, class=world highlight robinson, footer=robinson variant · the default is Equal Earth} -->
+
 
 ## The default projection is Equal Earth — and that's the point.
 
@@ -88,7 +88,7 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## The boundary stays provable.
 

@@ -5,9 +5,9 @@ pagination: true
 footer: "Laticent · Studio Present"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The deck that presents itself.
 
@@ -19,9 +19,9 @@ Sections become a progress rail, your speaker notes sit beside the slide, and th
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 01`
 
@@ -31,7 +31,7 @@ Sections become a progress rail, your speaker notes sit beside the slide, and th
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Why Present grew`
 
@@ -52,7 +52,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## Three numbers that made the case.
 
@@ -70,9 +70,9 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 02`
 
@@ -82,7 +82,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## One source, four things it now does.
 
@@ -99,7 +99,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > The best presenter tool disappears in use — it carries your voice, not itself.
 
@@ -109,9 +109,9 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 03`
 
@@ -121,7 +121,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: list-steps timeline -->
+<!-- @meta{layout=list-steps, class=timeline} -->
 
 ## From open to close, one continuous flow.
 
@@ -136,9 +136,9 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Write the substance. Let the deck carry the talk.
 

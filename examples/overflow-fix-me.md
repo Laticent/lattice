@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · overflow cause highlighting"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · Fix-Me overlay`
 
@@ -15,7 +15,7 @@ The red "Overflows" ring names the slide. The yellow tag names the element respo
 
 ---
 
-<!-- _class: split-compare confidential stamp-pin -->
+<!-- @meta{layout=split-compare, class=confidential stamp-pin} -->
 
 `Decision Required`
 
@@ -34,7 +34,7 @@ This slide overflows on purpose: in a live preview the ring and the yellow tag l
 
 ---
 
-<!-- _class: cards-grid wip stamp-flag -->
+<!-- @meta{layout=cards-grid, class=wip stamp-flag} -->
 
 ## Which card is the actual problem?
 
@@ -49,7 +49,7 @@ This slide overflows on purpose: in a live preview the ring and the yellow tag l
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two signals, tiered by confidence — never a guess dressed as a fact.
 
@@ -57,7 +57,7 @@ A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`) that ov
 
 ---
 
-<!-- _class: timeline-list draft -->
+<!-- @meta{layout=timeline-list, class=draft} -->
 
 `Case B · no clip-cell in play`
 
@@ -76,7 +76,7 @@ A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`) that ov
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## No clip-cell at all is now covered, hedged honestly.
 
@@ -84,7 +84,7 @@ A slide with no bounded cell falls back to the component's own word budget: whic
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # The overlay is for you. The export isn't.
 

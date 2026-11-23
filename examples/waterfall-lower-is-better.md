@@ -6,7 +6,7 @@ header: "Lattice · Waterfall lower-is-better"
 meta: "Lower is better"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · waterfall`
 
@@ -16,7 +16,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 `Underwriting result · default`
 
@@ -31,7 +31,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: waterfall lower-is-better zoom -->
+<!-- @meta{layout=waterfall, class=lower-is-better zoom} -->
 
 `Combined ratio · %`
 
@@ -46,7 +46,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: waterfall lower-is-better -->
+<!-- @meta{layout=waterfall, class=lower-is-better} -->
 
 `Incurred claims · USD M`
 
@@ -61,7 +61,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: waterfall lower-is-better zoom -->
+<!-- @meta{layout=waterfall, class=lower-is-better zoom} -->
 
 `Expense ratio · %`
 
@@ -76,7 +76,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: waterfall lower-is-better -->
+<!-- @meta{layout=waterfall, class=lower-is-better} -->
 
 `Customer churn · % of policies`
 
@@ -90,7 +90,7 @@ A waterfall paints a rise green and a fall red. For a loss ratio, claims or cost
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What changes and what does not.
 

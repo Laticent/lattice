@@ -7,7 +7,7 @@ meta: "Q3 2026 · Design"
 footer: "Four curated sets, one front-matter word"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Board review · Q3 2026`
 
@@ -27,7 +27,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: content typography-ledger -->
+<!-- @meta{layout=content, class=typography-ledger} -->
 
 `Ledger · reports, government, academic`
 
@@ -39,7 +39,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: bar typography-ledger -->
+<!-- @meta{layout=bar, class=typography-ledger} -->
 
 `Ledger · a chart`
 
@@ -52,7 +52,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: divider typography-poster -->
+<!-- @meta{layout=divider, class=typography-poster} -->
 
 `Poster · launches, sales, brand`
 
@@ -60,7 +60,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: bar typography-poster -->
+<!-- @meta{layout=bar, class=typography-poster} -->
 
 `Poster · a chart`
 
@@ -73,7 +73,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: quote typography-festival -->
+<!-- @meta{layout=quote, class=typography-festival} -->
 
 > The river was the stage, and for ten nights the city came to the bank to watch.
 
@@ -81,7 +81,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: content typography-festival -->
+<!-- @meta{layout=content, class=typography-festival} -->
 
 `Festival · culture, nonprofit, donors`
 
@@ -93,7 +93,7 @@ footer: "Four curated sets, one front-matter word"
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Choose once, in front matter`
 

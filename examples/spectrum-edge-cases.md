@@ -10,7 +10,7 @@ footer: "Edge-case deck"
      page through every slide. The bar changes sides; no word, mark, stamp or photo may move, and nothing may sit
      on top of the bar. Each slide below is an edge case; its eyebrow names what it checks.} -->
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The spectrum bar owns its edge.
 
@@ -31,7 +31,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: content draft -->
+<!-- @meta{layout=content, class=draft} -->
 
 `Draft stamp · corner tab`
 
@@ -42,7 +42,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: content confidential stamp-ribbon -->
+<!-- @meta{layout=content, class=confidential stamp-ribbon} -->
 
 `Confidential · ribbon`
 
@@ -53,7 +53,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: content confidential stamp-veil -->
+<!-- @meta{layout=content, class=confidential stamp-veil} -->
 
 `Confidential · full-slide wash`
 
@@ -64,7 +64,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: dark wip -->
+<!-- @meta{class=dark wip} -->
 
 `Dark · work in progress stamp`
 
@@ -75,7 +75,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: accent -->
+<!-- @meta{class=accent} -->
 
 `Accent · its own top stripe`
 
@@ -86,7 +86,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: image spectrum-left -->
+<!-- @meta{layout=image, class=spectrum-left} -->
 
 `Image · full bleed, overlay bar`
 
@@ -98,7 +98,7 @@ The bar lies over the photo and takes no room from it.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Split panel · the panel claims`
 
@@ -111,7 +111,7 @@ The bar lies over the photo and takes no room from it.
 
 ---
 
-<!-- _class: split-compare dark -->
+<!-- @meta{layout=split-compare, class=dark} -->
 
 `Split compare, dark panel`
 
@@ -130,7 +130,7 @@ One sentence of context sits under the headline.
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `The atelier`
 
@@ -148,7 +148,7 @@ Each pair starts as a last carved to one foot.
 
 ---
 
-<!-- _class: big-number claim-bleed -->
+<!-- @meta{layout=big-number, class=claim-bleed} -->
 
 `Big number, claim-bleed`
 
@@ -157,7 +157,7 @@ Each pair starts as a last carved to one foot.
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## The claim holds the left, its rows the right.
 
@@ -172,13 +172,13 @@ The spectrum rail runs above both, and neither column nudges it.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Divider · its own rail
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # The bar is the frame.
 

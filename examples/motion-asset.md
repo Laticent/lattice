@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Fabricate Motion"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A drawing, and the order it arrives in
 
@@ -15,9 +15,9 @@ Describe a drawing or bring one, and Lattice finds its parts. You give each one 
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `The premise`
 
@@ -25,8 +25,8 @@ Describe a drawing or bring one, and Lattice finds its parts. You give each one 
 
 ---
 
-<!-- _footer: "one beat — every part arrives together" -->
-<!-- _class: scene gallery -->
+<!-- @meta{footer="one beat — every part arrives together", layout=scene, class=gallery} -->
+
 
 ## Together, the pipeline is just a picture.
 
@@ -102,8 +102,8 @@ Three stages and two arrows, all on one beat. Everything arrives at once — whi
 
 ---
 
-<!-- _footer: "five beats — the same drawing, now an argument" -->
-<!-- _class: scene gallery -->
+<!-- @meta{footer="five beats — the same drawing, now an argument", layout=scene, class=gallery} -->
+
 
 ## Beat by beat, it becomes a sequence.
 
@@ -179,8 +179,8 @@ The same five parts, one per beat, each drawing itself. Now the drawing says *fi
 
 ---
 
-<!-- _footer: "slides in — a part that arrives from somewhere" -->
-<!-- _class: scene gallery -->
+<!-- @meta{footer="slides in — a part that arrives from somewhere", layout=scene, class=gallery} -->
+
 
 ## A part can arrive from somewhere.
 
@@ -252,8 +252,8 @@ Slide pairs with a fade, always. A shape that travels home while fully opaque re
 
 ---
 
-<!-- _footer: "the poster is the finished drawing — this page in print" -->
-<!-- _class: scene gallery -->
+<!-- @meta{footer="the poster is the finished drawing — this page in print", layout=scene, class=gallery} -->
+
 
 ## The still is the finished drawing, never a half-drawn one.
 
@@ -312,7 +312,7 @@ Every plan the faculty writes sets a hero of 1, so the frame the PDF freezes is 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Craft it once. Place it anywhere.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · hub-spoke"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One center, its satellites, and what flows between them.
 
@@ -17,8 +17,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "PMO · status pills mark their own spoke; nothing else recedes" -->
+<!-- @meta{layout=hub-spoke, footer="PMO · status pills mark their own spoke; nothing else recedes"} -->
+
 
 `Transformation program · Workstream status · Q3`
 
@@ -36,8 +36,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Strategy · names only, one neutral register" -->
+<!-- @meta{layout=hub-spoke, footer="Strategy · names only, one neutral register"} -->
+
 
 `Partner ecosystem · 2026`
 
@@ -55,8 +55,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Strategy · a group pill gives the group a hue and a key" -->
+<!-- @meta{layout=hub-spoke, footer=Strategy · a group pill gives the group a hue and a key} -->
+
 
 `Partner ecosystem · By capability`
 
@@ -74,8 +74,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke marks-tone -->
-<!-- _footer: "Chart finish · tone: groups, key, connectors and names in one hue; the hub stays the heaviest mark" -->
+<!-- @meta{layout=hub-spoke, class=marks-tone, footer="Chart finish · tone: groups, key, connectors and names in one hue; the hub stays the heaviest mark"} -->
+
 
 `Partner ecosystem · By capability · marks: tone`
 
@@ -93,8 +93,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke sized -->
-<!-- _footer: "CFO · sized scales disc area; the printed share carries the claim" -->
+<!-- @meta{layout=hub-spoke, class=sized, footer="CFO · sized scales disc area; the printed share carries the claim"} -->
+
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -110,8 +110,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke flow-out -->
-<!-- _footer: "Ops · flow-out steps connector weight; one flow:in pill marks the exception" -->
+<!-- @meta{layout=hub-spoke, class=flow-out, footer="Ops · flow-out steps connector weight; one flow:in pill marks the exception"} -->
+
 
 `Memphis distribution center · Pallets per week`
 
@@ -127,8 +127,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke tiered -->
-<!-- _footer: "tiered · each branch is a group; leaves hang off it" -->
+<!-- @meta{layout=hub-spoke, class=tiered, footer="tiered · each branch is a group; leaves hang off it"} -->
+
 
 `Platform organization · Service ownership · 2026`
 
@@ -153,8 +153,8 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "Twelve satellites, with values — the cap" -->
+<!-- @meta{layout=hub-spoke, footer="Twelve satellites, with values — the cap"} -->
+
 
 `Regional sales · Bookings this quarter`
 

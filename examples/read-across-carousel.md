@@ -6,7 +6,7 @@ header: "Lattice · Read-across carousel"
 footer: "Read-across carousel"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The read-across carousel
 
@@ -16,7 +16,7 @@ A comparison can't be cut down the middle — so when it won't fit, it becomes a
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the carousel solves
 
@@ -27,7 +27,7 @@ A comparison can't be cut down the middle — so when it won't fit, it becomes a
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Scoring model: before and after the calibration loop
 
@@ -38,7 +38,7 @@ A comparison can't be cut down the middle — so when it won't fit, it becomes a
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## The evaluation came down to a question the vendors could not answer
 
@@ -51,7 +51,7 @@ The conclusion came first; the evaluation was built to hold it. Everyone in the 
 
 ---
 
-<!-- _class: compare-prose transition -->
+<!-- @meta{layout=compare-prose, class=transition} -->
 
 ## Decisions used to require a quarterly re-litigation
 
@@ -62,7 +62,7 @@ The conclusion came first; the evaluation was built to hold it. Everyone in the 
 
 ---
 
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 `Section 01 · Deep dive`
 
@@ -85,7 +85,7 @@ The most configurable component. Six dimensions:
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## The six signal dimensions, what they measure, and how they score
 
@@ -110,7 +110,7 @@ The most configurable component. Six dimensions:
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `Decision · 2026 Q1`
 
@@ -125,7 +125,7 @@ The most configurable component. Six dimensions:
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 `Before & After · Scoring Mechanics`
 
@@ -156,7 +156,7 @@ cal.decisions.log_if_changed(signals)
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One finish, more slides
 
@@ -167,7 +167,7 @@ cal.decisions.log_if_changed(signals)
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # More slides, never a clipped comparison
 

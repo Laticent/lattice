@@ -5,7 +5,7 @@ header: "Lattice · pane layouts"
 footer: "Pane layouts — columns and rows"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Columns and rows
 
@@ -13,13 +13,13 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns ratio-60-40 -->
+<!-- @meta{layout=columns, class=ratio-60-40} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -27,7 +27,7 @@ footer: "Pane layouts — columns and rows"
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -37,7 +37,7 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns -->
+<!-- @meta{layout=columns} -->
 
 `Support · after the migration`
 
@@ -57,17 +57,17 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: rows -->
+<!-- @meta{layout=rows} -->
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |
@@ -77,18 +77,18 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns ratio-45-55 no-spine -->
+<!-- @meta{layout=columns, class=ratio-45-55 no-spine} -->
 
 `Field report · Lisbon`
 
 ## The new office opened on time and under budget.
 
-<!-- _pane: image no-title -->
+<!-- @meta{pane=image no-title} -->
 ### The Lisbon office in its opening week
 
 ![The Lisbon office in its opening week](sample:photo-tall.svg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 ### Eleven weeks, lease to open
 
 Forty desks, two studios and a roof terrace.
@@ -100,17 +100,17 @@ Forty desks, two studios and a roof terrace.
 
 ---
 
-<!-- _class: columns ratio-40-60 dark -->
+<!-- @meta{layout=columns, class=ratio-40-60 dark} -->
 
 ## Two vendors cleared the security review.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### Cleared
 
 - Northwind
 - Contoso
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### Findings by vendor
 
 | Vendor | Critical | High | Status |
@@ -123,7 +123,7 @@ Forty desks, two studios and a roof terrace.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Write the slide, then the panes.
 

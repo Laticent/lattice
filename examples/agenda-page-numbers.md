@@ -6,7 +6,7 @@ header: "Lattice · Agenda page numbers"
 footer: "Acme · release review"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,14 +16,14 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Three parts, in order.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 01`
 
@@ -31,7 +31,7 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## The agenda you just saw kept every number.
 
@@ -41,8 +41,8 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 02`
 
@@ -50,7 +50,7 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## The same list, reordered by hand: no numbers.
 
@@ -60,7 +60,7 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## Why the reordered agenda shows no page numbers.
 
@@ -70,8 +70,8 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 03`
 
@@ -79,8 +79,8 @@ A filled agenda prints where each section starts, and only when every line still
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 ## A number only where it names the section.
 

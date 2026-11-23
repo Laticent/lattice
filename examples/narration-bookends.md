@@ -7,8 +7,8 @@ greeting: "{greeting}, and welcome to a short tour of narration bookends."
 closing: "Thank you for listening. Questions are welcome."
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # Narration that says hello.
 
@@ -50,8 +50,8 @@ A narrated deck can open with a greeting and end with a closing, set once in fro
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 `Narration bookends`
 

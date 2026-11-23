@@ -10,7 +10,7 @@ theme: indaco
      construction rather than by coincidence. Do not "fix" the density: the whole
      point is that it does not fit.} -->
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 ## Five long names in one corner
 
@@ -26,7 +26,7 @@ theme: indaco
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Twenty rows in a chart sized for far fewer
 

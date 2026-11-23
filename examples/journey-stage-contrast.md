@@ -7,9 +7,9 @@ acronyms:
   CI: continuous integration
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, header="", footer=Title slide · title} -->
+
+
 
 # The stage ribbon takes the canvas it is painted on
 
@@ -19,8 +19,8 @@ The section bar on every journey board was inked for a dark surface it only reac
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The defect · content" -->
+<!-- @meta{layout=content, footer=The defect · content} -->
+
 
 `Defect · #1702`
 
@@ -30,8 +30,8 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Classic board · journey" -->
+<!-- @meta{layout=journey, footer=Classic board · journey} -->
+
 
 ## A team's first month runs from pain to belief, in that order, twice.
 
@@ -47,8 +47,8 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: journey heatmap -->
-<!-- _footer: "Mood-tinted chips · journey heatmap" -->
+<!-- @meta{layout=journey, class=heatmap, footer=Mood-tinted chips · journey heatmap} -->
+
 
 ## Tinting the chips surfaces the same month's emotional contour.
 
@@ -64,8 +64,8 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: journey weighted -->
-<!-- _footer: "Volume-weighted chips · journey weighted" -->
+<!-- @meta{layout=journey, class=weighted, footer=Volume-weighted chips · journey weighted} -->
+
 
 ## Chip width shows where the traffic in that month actually went.
 
@@ -81,8 +81,8 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: journey swimlane -->
-<!-- _footer: "Per-actor rows · journey swimlane" -->
+<!-- @meta{layout=journey, class=swimlane, footer=Per-actor rows · journey swimlane} -->
+
 
 ## Lanes show who was carrying each step, and where it handed off.
 
@@ -98,8 +98,8 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The fix and the gate · content" -->
+<!-- @meta{layout=content, footer=The fix and the gate · content} -->
+
 
 `Fix · Ink follows the fill`
 
@@ -109,9 +109,9 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Closing bookend · closing" -->
+<!-- @meta{layout=closing, header="", footer=Closing bookend · closing} -->
+
+
 
 `What This Change Leaves Behind`
 

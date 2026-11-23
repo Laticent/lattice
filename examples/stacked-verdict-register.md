@@ -4,7 +4,7 @@ pagination: true
 header: "Lattice · stacked verdicts"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Stacked verdict cards follow the cards register
 
@@ -14,12 +14,12 @@ In a narrow pane the verdict grid goes to one column. Its cards now sit where `c
 
 ---
 
-<!-- _footer: "default · the manifest asks for center" -->
+<!-- @meta{footer=default · the manifest asks for center} -->
 
 ## By default the stack sits as a centered band.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: verdict-grid -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=verdict-grid} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -30,18 +30,18 @@ In a narrow pane the verdict grid goes to one column. Its cards now sit where `c
   - [x] Audit
   - Fits our controls. This is the pick.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 A 35% pane is too narrow for two cards a row, so the grid stacks. Each card keeps its content height and the band sits in the middle of the pane. Before this fix every card stretched to fill the pane, whatever the register said.
 
 ---
 
-<!-- _footer: "cards-stretch · each card takes an equal share" -->
+<!-- @meta{footer=cards-stretch · each card takes an equal share} -->
 
 ## Stretch shares the height among the cards.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: verdict-grid cards-stretch -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=verdict-grid cards-stretch} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -52,18 +52,18 @@ A 35% pane is too narrow for two cards a row, so the grid stacks. Each card keep
   - [x] Audit
   - Fits our controls. This is the pick.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 Under `cards-stretch` each card grows to an equal share of the pane, and its content sits centered inside it. This is the one register that fills, and before the fix a pane never applied it: the pane set two of the register's four values.
 
 ---
 
-<!-- _footer: "cards-top · the band starts at the top" -->
+<!-- @meta{footer=cards-top · the band starts at the top} -->
 
 ## Top puts the stack under the pane's top edge.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: verdict-grid cards-top -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=verdict-grid cards-top} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -74,18 +74,18 @@ Under `cards-stretch` each card grows to an equal share of the pane, and its con
   - [x] Audit
   - Fits our controls. This is the pick.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 Under `cards-top` the cards keep their content height and start at the top of the pane. The spare height collects below the last card.
 
 ---
 
-<!-- _footer: "cards-spread · even gaps around each card" -->
+<!-- @meta{footer=cards-spread · even gaps around each card} -->
 
 ## Spread puts the spare between the cards.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: verdict-grid cards-spread -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=verdict-grid cards-spread} -->
 
 - Path A · Spreadsheet
   - [x] Speed
@@ -96,13 +96,13 @@ Under `cards-top` the cards keep their content height and start at the top of th
   - [x] Audit
   - Fits our controls. This is the pick.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 Under `cards-spread` the spare height is shared out as even gaps around the cards, so the two options read as separate decisions rather than one block.
 
 ---
 
-<!-- _footer: "a portrait page holds one option and it still fills" -->
+<!-- @meta{footer=a portrait page holds one option and it still fills} -->
 
 ## A lone option on its own page still fills it.
 

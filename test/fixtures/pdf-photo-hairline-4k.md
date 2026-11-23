@@ -6,8 +6,8 @@ pagination: true
 header: "Lattice · photo hairline at 4K"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # A 4K deck
 
@@ -15,7 +15,7 @@ A 4K slide's photo is downsampled to 2560 px; its edge rules are drawn as vector
 
 ---
 
-<!-- _class: dark -->
+<!-- @meta{class=dark} -->
 
 ## A dark slide: a 1 px gradient hairline on its top edge
 

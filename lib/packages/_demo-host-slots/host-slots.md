@@ -6,7 +6,7 @@ header: "Host slots"
 plugins: [status-card]
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Host slots
 

@@ -18,7 +18,7 @@ pagination: true
   this deck exists to be rendered twice and diffed. See
   engineering/decisions/2026-08-12-sketch-label-voice.md, "Found, and now CLOSED".} -->
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -41,7 +41,7 @@ Every group name below carries `―` (horizontal bar), `→` (rightwards arrow) 
 
 ---
 
-<!-- _class: quadrant cohort -->
+<!-- @meta{layout=quadrant, class=cohort} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -64,7 +64,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: quadrant magic -->
+<!-- @meta{layout=quadrant, class=magic} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -83,7 +83,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -104,7 +104,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: quadrant sketch -->
+<!-- @meta{layout=quadrant, class=sketch} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -127,7 +127,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: quadrant cohort sketch -->
+<!-- @meta{layout=quadrant, class=cohort sketch} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -148,7 +148,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: quadrant magic sketch -->
+<!-- @meta{layout=quadrant, class=magic sketch} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -165,7 +165,7 @@ The cohort label wraps around its centroid, so a wider estimate breaks it earlie
 
 ---
 
-<!-- _class: radar sketch -->
+<!-- @meta{layout=radar, class=sketch} -->
 
 `[{Scale, 0..10}]`
 

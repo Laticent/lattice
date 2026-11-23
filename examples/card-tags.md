@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Card tags"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One recipe for every card tag.
 
@@ -13,7 +13,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Numbered cards carry a flush corner tag.
 
@@ -28,7 +28,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: cards-stack tag-bare -->
+<!-- @meta{layout=cards-stack, class=tag-bare} -->
 
 ## tag-bare keeps the number and drops the box.
 
@@ -39,7 +39,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## Every tag on a slide takes the widest tag's size.
 
@@ -52,7 +52,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: decision banner-tag -->
+<!-- @meta{layout=decision, class=banner-tag} -->
 
 ## A band may run to two lines, and every band matches it.
 
@@ -65,7 +65,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: compare-prose transition -->
+<!-- @meta{layout=compare-prose, class=transition} -->
 
 ## Before and after tags wear the accent.
 
@@ -76,7 +76,7 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision Required`
 
@@ -95,7 +95,7 @@ Building is settled; the question is which layers earn our engineers.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## The step label speaks in the same voice.
 
@@ -110,7 +110,7 @@ Building is settled; the question is which layers earn our engineers.
 
 ---
 
-<!-- _class: cards-grid sketch -->
+<!-- @meta{layout=cards-grid, class=sketch} -->
 
 ## Sketch roughens every tag.
 
@@ -125,7 +125,7 @@ Building is settled; the question is which layers earn our engineers.
 
 ---
 
-<!-- _class: decision tag-plain tag-large -->
+<!-- @meta{layout=decision, class=tag-plain tag-large} -->
 
 ## tag-plain and tag-large quiet the color and lift the size.
 

@@ -5,7 +5,7 @@ pagination: true
 header: 'kanban · redesign'
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The kanban board, recomposed.
 
@@ -16,7 +16,7 @@ calm; category coding is there when you ask for it.
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 `Phase 2 · Sprint 14`
 
@@ -43,7 +43,7 @@ calm; category coding is there when you ask for it.
 
 ---
 
-<!-- _class: kanban keyline -->
+<!-- @meta{layout=kanban, class=keyline} -->
 
 `Delivery · week 30`
 
@@ -70,7 +70,7 @@ calm; category coding is there when you ask for it.
 
 ---
 
-<!-- _class: kanban tinted -->
+<!-- @meta{layout=kanban, class=tinted} -->
 
 `Delivery · week 30`
 
@@ -97,7 +97,7 @@ calm; category coding is there when you ask for it.
 
 ---
 
-<!-- _class: kanban -->
+<!-- @meta{layout=kanban} -->
 
 `Release train · go / no-go`
 
@@ -128,7 +128,7 @@ calm; category coding is there when you ask for it.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One board, three readings.
 

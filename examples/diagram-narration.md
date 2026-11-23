@@ -7,9 +7,9 @@ header: "Lattice · diagram narration"
 footer: "read-aloud narrates the flowchart topology"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Read-aloud that reads the graph.
 
@@ -19,7 +19,7 @@ footer: "read-aloud narrates the flowchart topology"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Labeled architecture`
 
@@ -37,7 +37,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Dependency graph`
 
@@ -58,7 +58,7 @@ flowchart TD
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · Noun labels`
 
@@ -75,7 +75,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · Decision branch`
 
@@ -93,7 +93,7 @@ flowchart TD
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · Chained + feedback`
 
@@ -110,7 +110,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `06 · The gist, first`
 
@@ -134,7 +134,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `07 · Honest fallback`
 
@@ -152,8 +152,8 @@ classDiagram
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # The arrows are spoken now.
 

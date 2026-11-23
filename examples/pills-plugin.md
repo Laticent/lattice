@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · pills plugin"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One pill, built once
 
@@ -16,8 +16,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "the notation · shape, color and size words in any order" -->
+<!-- @meta{layout=list, footer="the notation · shape, color and size words in any order"} -->
+
 
 ## A label first, then the words that shape it.
 
@@ -30,8 +30,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "cards-grid · the card places the pill; the plugin draws it" -->
+<!-- @meta{layout=cards-grid, footer="cards-grid · the card places the pill; the plugin draws it"} -->
+
 
 ## A card title can carry a pill.
 
@@ -46,8 +46,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "kpi · uppercase, wide tracking and the status color are the tile's, passed in" -->
+<!-- @meta{layout=kpi, footer="kpi · uppercase, wide tracking and the status color are the tile's, passed in"} -->
+
 
 ## The tile asks for capitals and a status color.
 
@@ -63,8 +63,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "actors · each row hands the pill its categorical hue" -->
+<!-- @meta{layout=actors, footer=actors · each row hands the pill its categorical hue} -->
+
 
 ## Each owner gets a color from the row.
 
@@ -77,8 +77,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: regulatory-update -->
-<!-- _footer: "regulatory-update · the accent-tinted effective-date pill" -->
+<!-- @meta{layout=regulatory-update, footer=regulatory-update · the accent-tinted effective-date pill} -->
+
 
 ## The last bullet of a row can be a pill.
 
@@ -99,8 +99,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "roadmap · the header pill sits on the spectrum line, sized from the grid cell" -->
+<!-- @meta{layout=roadmap, footer="roadmap · the header pill sits on the spectrum line, sized from the grid cell"} -->
+
 
 ## A phase header can carry its date.
 
@@ -111,8 +111,8 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: glossary -->
-<!-- _footer: "glossary · the range pill is built by the plugin, in the engine and the runtime alike" -->
+<!-- @meta{layout=glossary, footer="glossary · the range pill is built by the plugin, in the engine and the runtime alike"} -->
+
 
 ## Three terms the deck leans on.
 
@@ -125,7 +125,7 @@ slide. Components place and tint it; none of them paints its own.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The plugin draws, the component places
 

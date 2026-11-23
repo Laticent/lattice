@@ -7,7 +7,7 @@ spectrum: off
 
 <!-- @note{Demo deck for the gift-card component (engineering/decisions/2026-11-06-gift-link-cli.md §5). Every link here carries a fake key that OpenRouter never issued.} -->
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 `A deck on us`
 
@@ -19,7 +19,7 @@ spectrum: off
 
 ---
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 `A deck on us`
 
@@ -32,7 +32,7 @@ spectrum: off
 
 ---
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 `For Sam`
 
@@ -43,7 +43,7 @@ spectrum: off
 
 ---
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 ## Plain writing in, a finished deck out.
 
@@ -53,7 +53,7 @@ spectrum: off
 
 ---
 
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 `Coffee & decks`
 
@@ -66,7 +66,7 @@ spectrum: off
 
 ---
 
-<!-- _class: gift-card dark -->
+<!-- @meta{layout=gift-card, class=dark} -->
 
 `A deck on us`
 

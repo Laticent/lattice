@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · actors, dense roster"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · actors`
 
@@ -15,8 +15,8 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "Four rows · unchanged. Two lines per row, chip on the header line." -->
+<!-- @meta{layout=actors, footer="Four rows · unchanged. Two lines per row, chip on the header line."} -->
+
 
 ## Four rows keep the two-line card.
 
@@ -31,8 +31,8 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "Five rows · the first dense slide. Before: 537px of rows in a 435px stage." -->
+<!-- @meta{layout=actors, footer=Five rows · the first dense slide. Before: 537px of rows in a 435px stage.} -->
+
 
 ## Five rows share a line each.
 
@@ -49,8 +49,8 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "Six rows · the soft ceiling." -->
+<!-- @meta{layout=actors, footer=Six rows · the soft ceiling.} -->
+
 
 ## Six rows are the soft ceiling.
 
@@ -69,8 +69,8 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "Seven rows · the hard ceiling. Before: titles overprinted their bodies." -->
+<!-- @meta{layout=actors, footer=Seven rows · the hard ceiling. Before: titles overprinted their bodies.} -->
+
 
 ## Seven rows fit without overprint.
 
@@ -91,8 +91,8 @@ At four rows the ledger keeps its two-line cards. From five, each row is respons
 
 ---
 
-<!-- _class: actors dark -->
-<!-- _footer: "Seven rows · dark." -->
+<!-- @meta{layout=actors, class=dark, footer=Seven rows · dark.} -->
+
 
 ## The same seven rows in dark.
 

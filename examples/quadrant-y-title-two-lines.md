@@ -7,7 +7,7 @@ venue: hall
 header: "Lattice · quadrant axis titles"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · quadrant`
 
@@ -17,8 +17,8 @@ The title beside the plane wraps to two lines, and the band holds both.
 
 ---
 
-<!-- _class: quadrant magic -->
-<!-- _footer: "magic · a two-line y title at square, hall" -->
+<!-- @meta{layout=quadrant, class=magic, footer="magic · a two-line y title at square, hall"} -->
+
 
 `[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
@@ -36,8 +36,8 @@ The title beside the plane wraps to two lines, and the band holds both.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Short titles · one line, as before" -->
+<!-- @meta{layout=quadrant, footer="Short titles · one line, as before"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -55,8 +55,8 @@ The title beside the plane wraps to two lines, and the band holds both.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Two long titles · both axes wrap" -->
+<!-- @meta{layout=quadrant, footer=Two long titles · both axes wrap} -->
+
 
 `[{Analyst weeks to ship the first version, 0..10}, {Share of teams adopting, 0..100}]`
 
@@ -74,8 +74,8 @@ The title beside the plane wraps to two lines, and the band holds both.
 
 ---
 
-<!-- _class: quadrant magic dark -->
-<!-- _footer: "Dark · the two-line title keeps the axis ink" -->
+<!-- @meta{layout=quadrant, class=magic dark, footer=Dark · the two-line title keeps the axis ink} -->
+
 
 `[{Completeness of vision, 0..100}, {Ability to execute, 0..100}]`
 
@@ -93,7 +93,7 @@ The title beside the plane wraps to two lines, and the band holds both.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Measured`
 

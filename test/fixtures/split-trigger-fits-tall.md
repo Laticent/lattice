@@ -4,7 +4,7 @@ theme: indaco
 size: portrait
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Closing checklist
 

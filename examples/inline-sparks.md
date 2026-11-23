@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · inline sparks"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A spark is a chart the size of a word.
 
@@ -15,7 +15,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Seven types, three sizes, one grammar.
 
@@ -30,7 +30,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## One color, three looks: pigment fills, etch draws, tone steps.
 
@@ -43,7 +43,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## Every spark is framed, and the frame is yours to set.
 
@@ -58,7 +58,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 ---
 
-<!-- _class: content spark-bare -->
+<!-- @meta{layout=content, class=spark-bare} -->
 
 ## On a prose slide, `spark-bare` keeps the lines even.
 
@@ -70,7 +70,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## In a table, every row's trend reads at a glance.
 
@@ -83,7 +83,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A line shows shape; `zero` shows size.
 
@@ -96,7 +96,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -113,7 +113,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 
 ---
 
-<!-- _class: table table-fill sketch -->
+<!-- @meta{layout=table, class=table-fill sketch} -->
 
 ## In a sketch deck, sparks are drawn by hand too.
 
@@ -125,7 +125,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- @meta{layout=table, class=table-fill} -->
 
 ## A broken spark stays code, and lint:deck says why.
 

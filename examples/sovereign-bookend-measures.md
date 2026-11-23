@@ -5,9 +5,9 @@ pagination: true
 header: "Lattice · Sovereign bookend measures"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Heading measure · title" -->
+<!-- @meta{layout=title, header="", footer=Heading measure · title} -->
+
+
 
 # A measure counts characters, not slide width
 
@@ -17,9 +17,9 @@ Sixteen em, about thirty-three characters — the default heading measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: "Heading measure · divider" -->
+<!-- @meta{layout=divider, header="", footer=Heading measure · divider} -->
+
+
 
 `Section 01 · The defect`
 
@@ -27,8 +27,8 @@ Sixteen em, about thirty-three characters — the default heading measure.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What changed · content" -->
+<!-- @meta{layout=content, footer=What changed · content} -->
+
 
 `Diagnosis · Units`
 
@@ -42,9 +42,9 @@ The two agree only while the type size holds still — and it doesn't. Lattice c
 
 ---
 
-<!-- _class: divider light -->
-<!-- _header: '' -->
-<!-- _footer: "Lede measure · divider light" -->
+<!-- @meta{layout=divider, class=light, header="", footer=Lede measure · divider light} -->
+
+
 
 `Section 02 · The lede`
 
@@ -54,9 +54,9 @@ The frame alone would allow roughly ninety characters on one line, well past the
 
 ---
 
-<!-- _class: closing index -->
-<!-- _header: '' -->
-<!-- _footer: "List rows · closing index" -->
+<!-- @meta{layout=closing, class=index, header="", footer=List rows · closing index} -->
+
+
 
 ## Where the measure is written down.
 
@@ -68,9 +68,9 @@ The frame alone would allow roughly ninety characters on one line, well past the
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Heading and lede · closing" -->
+<!-- @meta{layout=closing, header="", footer=Heading and lede · closing} -->
+
+
 
 ## Balance decides the breaks; the measure decides the width
 

@@ -6,7 +6,7 @@ fit: trim
 header: "Lattice · fit: trim"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the fit register`
 
@@ -16,8 +16,8 @@ header: "Lattice · fit: trim"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- stress-slide -->
+<!-- @meta{layout=cards-grid, stress-slide} -->
+
 
 ## What it does: the card keeps its shape.
 
@@ -32,7 +32,7 @@ header: "Lattice · fit: trim"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What a number never gets: an ellipsis.
 
@@ -42,8 +42,8 @@ So headings, KPI values, code, math, citations, legal text and footers are never
 
 ---
 
-<!-- _class: content -->
-<!-- stress-slide -->
+<!-- @meta{layout=content, stress-slide} -->
+
 
 ## It declines rather than cut where nobody can see the mark.
 
@@ -57,7 +57,7 @@ There is a second refusal behind this one. The policy guarantees fit-or-nothing 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The alarm survives the guard, because it is a different alarm.
 
@@ -67,7 +67,7 @@ What the existing probes cannot see is a removal, so a trim stamps its own recor
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The honest number.
 
@@ -77,7 +77,7 @@ That is the shape of the feature: the blocks that most often cause overflow are 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `fit: heal is the default`
 

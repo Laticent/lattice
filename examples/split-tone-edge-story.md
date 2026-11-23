@@ -10,7 +10,7 @@ header: "Lattice · tone-edge on story split pages"
      `tone-edge` draws the tone color as the top bar on every page of the run, as on a landscape slide.
      Before the fix each page kept the deck's rainbow bar.} -->
 
-<!-- _class: split-panel tone-fail tone-edge -->
+<!-- @meta{layout=split-panel, class=tone-fail tone-edge} -->
 
 `Fail`
 
@@ -25,7 +25,7 @@ Every page of this split run carries the fail color at its top edge.
 
 ---
 
-<!-- _class: split-panel tone-pass tone-edge -->
+<!-- @meta{layout=split-panel, class=tone-pass tone-edge} -->
 
 `Pass`
 
@@ -40,7 +40,7 @@ The same run with a pass tone.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Control`
 

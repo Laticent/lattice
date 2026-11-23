@@ -7,7 +7,7 @@ split: headings
 header: "Lattice · Slide class forms"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Fix deck`
 
@@ -17,7 +17,7 @@ A Mermaid SVG bakes its colors before the page exists. Every diagram here proves
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## What this deck shows.
 
@@ -25,8 +25,8 @@ A Mermaid SVG bakes its colors to literal hex before the page exists; the chip u
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Control · the deck default, no directive in force yet" -->
+<!-- @meta{layout=diagram, footer="Control · the deck default, no directive in force yet"} -->
+
 
 `No color token named`
 
@@ -45,8 +45,8 @@ flowchart LR
 
 ---
 
-<!-- class: diagram dark -->
-<!-- _footer: "Form 1 · the GLOBAL class directive" -->
+<!-- @meta{layout=diagram, class=dark, carry} -->
+<!-- @meta{footer=Form 1 · the GLOBAL class directive} -->
 
 `class: diagram dark`
 
@@ -67,7 +67,7 @@ flowchart LR
 
 ---
 
-<!-- _footer: "Form 2 · the global carries, with nothing declared here" -->
+<!-- @meta{footer="Form 2 · the global carries, with nothing declared here"} -->
 
 ## And it carries forward to a slide that declares nothing.
 
@@ -84,8 +84,8 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram dark -->
-<!-- _footer: "Form 3 · a directive quoted as prose is prose" -->
+<!-- @meta{layout=diagram, class=dark, footer=Form 3 · a directive quoted as prose is prose} -->
+
 
 `Quoted, not applied`
 
@@ -110,8 +110,8 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram dark -->
-<!-- _footer: "Form 4 · an equation is opaque, and starts no slide" -->
+<!-- @meta{layout=diagram, class=dark, footer="Form 4 · an equation is opaque, and starts no slide"} -->
+
 
 `$$ … $$`
 
@@ -139,7 +139,7 @@ flowchart LR
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

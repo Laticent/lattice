@@ -6,7 +6,7 @@ pagination: true
 header: "Halcyon Bank · Platform budget request"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Budget request · FY2027`
@@ -17,7 +17,7 @@ A $6.2M investment to retire the mainframe — and stop paying $9M a year to kee
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `The ask`
@@ -27,7 +27,7 @@ A $6.2M investment to retire the mainframe — and stop paying $9M a year to kee
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We're asking for $6.2M to retire a mainframe that costs $9M every year.
@@ -39,7 +39,7 @@ Halcyon's core banking still runs on a 1990s mainframe. It's stable but expensiv
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The mainframe isn't just costly — it's a growing operational risk.
@@ -51,7 +51,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: standard -->
 
 ## Where the $6.2M goes, and what each line buys.
@@ -67,7 +67,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: full -->
 
 ## The savings are recurring; the cost is one time.
@@ -83,7 +83,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The recurring prize`
@@ -93,7 +93,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `ROI · FY2027–2029`
@@ -112,7 +112,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Risk reduction · post-migration`
@@ -130,7 +130,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We ask the committee to approve $6.2M for FY2027 core modernization.
@@ -142,9 +142,9 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Stop renting the past. Buy the future once.

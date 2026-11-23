@@ -5,7 +5,7 @@ pagination: true
 footer: "split veto — a horizontally overflowing collection"
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How the migration runs.
 

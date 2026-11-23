@@ -7,9 +7,9 @@ header: "Lattice · universal token system"
 footer: "Phase 6 — chart categorical"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Two categorical systems, two clear names.
 
@@ -19,7 +19,7 @@ footer: "Phase 6 — chart categorical"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The near-collision, resolved.
 
@@ -34,7 +34,7 @@ footer: "Phase 6 — chart categorical"
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Where the quarter went`
 
@@ -48,7 +48,7 @@ footer: "Phase 6 — chart categorical"
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -69,9 +69,9 @@ footer: "Phase 6 — chart categorical"
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## --chart-cat-* for charts, --cat-* for diagrams.
 

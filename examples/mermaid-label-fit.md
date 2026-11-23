@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · Mermaid labels fit their boxes"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Mermaid labels fit their boxes
 
@@ -76,7 +76,7 @@ State names fit their rounded boxes at the size Mermaid measured them.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Why it happened
 

@@ -6,7 +6,7 @@ pagination: true
 footer: "Fit Ladder · reflow, then split"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A split that reads the other axis
 
@@ -18,8 +18,8 @@ past the edge were simply gone from the export.
 
 ---
 
-<!-- _class: premise -->
-<!-- _footer: "The lede belongs on the cover, once" -->
+<!-- @meta{layout=premise, footer="The lede belongs on the cover, once"} -->
+
 
 ## Eight is where one palette cycle ends.
 
@@ -52,8 +52,8 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 ---
 
-<!-- _class: cards-stack horizontal -->
-<!-- _footer: "Three cards that used to be one" -->
+<!-- @meta{layout=cards-stack, class=horizontal, footer=Three cards that used to be one} -->
+
 
 ## A sideways stack overflows sideways.
 
@@ -66,8 +66,8 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "One step per page, links kept" -->
+<!-- @meta{layout=list-steps, footer="One step per page, links kept"} -->
+
 
 ## How the migration runs.
 
@@ -88,7 +88,7 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## What changed
 

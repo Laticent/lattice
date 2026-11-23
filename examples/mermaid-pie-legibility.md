@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Mermaid pie legibility"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Fix demo · Mermaid pie`
 
@@ -13,7 +13,7 @@ header: "Lattice · Mermaid pie legibility"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Pie beside a callout · the case that shipped at 8px`
 
@@ -32,7 +32,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A pie with only two wedges.
 
@@ -44,7 +44,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Long labels widen the legend, not the pie.
 
@@ -58,7 +58,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Ten wedges stay legible.
 
@@ -78,7 +78,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## The same pie on a dark slide.
 

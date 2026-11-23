@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Per-mark detail, across the chart family.
 
@@ -14,7 +14,7 @@ The pie's authored-detail pattern now generalizes. A funnel stage, a map region,
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## One source, two surfaces.
 
@@ -22,7 +22,7 @@ The sublist under a mark powers **both** the present-mode reveal popover **and**
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 `Pipeline · 312 opportunities`
 
@@ -42,7 +42,7 @@ The bands show the drop-off; the notes carry the why.
 
 ---
 
-<!-- _class: map -->
+<!-- @meta{layout=map} -->
 
 `Program reach · active deployments`
 
@@ -61,7 +61,7 @@ Hover a region on screen; read the note in the PDF.
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -84,7 +84,7 @@ Each dot carries its own rationale in the note.
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Capability, 0..100}]`
 
@@ -106,7 +106,7 @@ Radar reveals **per-axis** — each dimension carries its own note.
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 `Onboarding · 1,000 signups`
 
@@ -121,7 +121,7 @@ No sublists here — so this chart emits **no note** and exports exactly as a pl
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Read the notes.
 

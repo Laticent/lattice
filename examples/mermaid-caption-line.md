@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · a caption under a diagram"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A caption right under a diagram
 

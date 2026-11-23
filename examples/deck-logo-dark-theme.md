@@ -7,7 +7,7 @@ meta: "Deck logo · the theme is a canvas too"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Deck mark · the theme decides too`
 
@@ -17,7 +17,7 @@ This whole deck is `theme: indaco-dark` — a wrapper whose entire content is `c
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The gap this closes`
 
@@ -34,7 +34,7 @@ Before this, the mark took the **light**-canvas treatment on every slide of a da
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `How it is reached`
 
@@ -49,7 +49,7 @@ Before this, the mark took the **light**-canvas treatment on every slide of a da
 
 ---
 
-<!-- _class: content light -->
+<!-- @meta{layout=content, class=light} -->
 
 `A light slide inside a dark deck`
 
@@ -62,7 +62,7 @@ This slide is `content light`. The ground went white, so the mark went **dark** 
 
 ---
 
-<!-- _class: content dark light -->
+<!-- @meta{layout=content, class=dark light} -->
 
 `Stacked modifiers`
 
@@ -77,7 +77,7 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Bookends`
 
@@ -85,7 +85,7 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What to take away`
 
@@ -100,7 +100,7 @@ Stack both and the later one wins: this slide is light, and so is its mark.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The honest gap`
 
