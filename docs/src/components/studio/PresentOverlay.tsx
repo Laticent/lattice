@@ -1032,6 +1032,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Build (and rebuild) the Stage document while a Stage is open — async (engine render): the
 	// window opens on the press with its holding page, and the deck is written once the doc lands.
 	const fmAll = frontMatter;
+	// The last Stage build's outcome on `<html data-stage-build>`, so a spec can wait for a build that failed before it
+	// presses Stage instead of sleeping (HARD RULE #32; present-stage-errors.spec.ts). Nothing in the app reads it, like
+	// `data-stage-placement`.
+	const publishStageBuild = (outcome: 'built' | 'failed') => {
+		try {
+			document.documentElement.dataset.stageBuild = outcome;
+		} catch {
+			/* no document */
+		}
+	};
 	// One boolean, so opening the Stage on a laptop (offered → offered and wanted) does not rebuild what is built.
 	const stageBuild = open && (stageWanted || stageOffered);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes, or a Stage press retries a failed build; extraTheme keyed by name (its content hash).
@@ -1043,6 +1053,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			.then(({ doc, bg }) => {
 				if (canceled) return;
 				stageBuildFailedRef.current = false;
+				publishStageBuild('built');
 				stageDocRef.current = doc;
 				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
@@ -1053,6 +1064,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// the presenter no Stage exists while the room reads a loading message.
 				if (canceled) return;
 				stageBuildFailedRef.current = true;
+				publishStageBuild('failed');
 				if (!stageRef.current?.isOpen()) return;
 				// A Stage that never showed the deck closes: the console let go of its captions and rail on the press, and
 				// they would otherwise be on neither surface while the room reads a holding page. One that is already showing
