@@ -7,6 +7,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createEngine } = require('../../../lib/engine');
+const { engineTokens } = require('../../../lib/engine/test-seams.js');
 
 // The same deck twice: directive comments, then records. CRLF on purpose: the hooks run after the line-ending fold.
 const COMMENTS = ['---', 'size: 4:3', '---', '', '<!-- _class: columns -->', '', '## Two panes.', '', '<!-- _pane: list -->', '### Left', '', '- One', '', '<!-- _pane: list -->', '### Right', '', '- Two', ''].join('\r\n');
@@ -29,10 +30,16 @@ describe('every engine door reads records as it reads directive comments', () =>
     assert.deepEqual(engine.paneOrientations(RECORDS), comments);
   });
 
-  test('the token seam (_tokens)', () => {
+  test('the token seam is off the engine object: only lib/engine/test-seams.js reaches it', () => {
+    assert.equal('_tokens' in engine, false, 'the engine object carries no undocumented _tokens');
+    assert.ok(Array.isArray(engineTokens(engine, '# A\n')));
+    assert.throws(() => engineTokens({}, '# A\n'), /not an engine made by createEngine/);
+  });
+
+  test('the token seam (engineTokens)', () => {
     const lf = (s) => s.replace(/\r\n/g, '\n');
     // `data-pane-slot` is a hash of the source text, a placeholder the render replaces (render() above matches whole).
-    const directives = (src) => engine._tokens(lf(src)).filter((t) => t.type === 'html_block').map((t) => t.content.trim().replace(/data-pane-slot="[^"]*"/, 'data-pane-slot'));
+    const directives = (src) => engineTokens(engine, lf(src)).filter((t) => t.type === 'html_block').map((t) => t.content.trim().replace(/data-pane-slot="[^"]*"/, 'data-pane-slot'));
     assert.deepEqual(directives(RECORDS), directives(COMMENTS));
   });
 });

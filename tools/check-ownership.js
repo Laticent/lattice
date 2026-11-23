@@ -7105,7 +7105,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
   {
     file: 'lib/engine/index.js',
     count: 1,
-    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() test '
        + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
        + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
        + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
