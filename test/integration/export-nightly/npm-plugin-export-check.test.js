@@ -194,6 +194,16 @@ const AT_ONCE = 4;
  */
 const RUN_DEADLINE = 120000;
 
+/**
+ * How many times each walled pair re-witnesses the control's slowest vector before its walled page closes, one after
+ * another. Each round is a real page load and a real hit, so the slack it buys grows with the machine's load, as the
+ * old wait's did. The old wait kept all 20 walled pages open while 20 witness pages loaded and were heard, about 1 to 2
+ * s on a quiet machine. Measured 2026-11-22, Chromium, with every walled vector deferred by a setTimeout, exits seen
+ * (player / plain): 500 ms, main 20/20 and this design 20/20; 1 s, main 20/20, 4 rounds 20/20, 2 rounds 0/20; 2 s,
+ * main 0/3, 4 rounds 0/13. So 4 rounds match or beat the old wait at every delay measured.
+ */
+const REWITNESS = 4;
+
 /** Open `file` in a fresh page of `browser`, run vector `name` against `log`, and return whether it RAN. */
 async function attempt(browser, file, log, name) {
   const page = await browser.newPage();
@@ -228,11 +238,11 @@ async function pool(items, limit, work) {
  *     times how long that took;
  *   - a walled run makes the vector's attempt first and only then runs its WITNESS, the same vector in the control
  *     file against a second listener. Once the witness has heard it, the walled attempt has had at least that long to
- *     land. Then it witnesses the control's SLOWEST vector once more, against a listener of its own, and only then
- *     closes the walled page. So every walled page stays open at least as long as the slowest witness takes, which
- *     is what the old wait gave it (all 20 walled pages open until all 20 witnesses had heard), and a walled leak
- *     somewhat slower than its own control still lands. A leak held back for longer than that needs its own signal,
- *     as request-log.js says; neither wait covers it (a 3 s setTimeout leak is missed by both).
+ *     land. Then it witnesses the control's SLOWEST vector REWITNESS more times, each against a listener of its own,
+ *     and only then closes the walled page. That keeps a walled leak that is slower than its own control in reach
+ *     for as long as the old wait did (all 20 walled pages open until all 20 witnesses had heard): see REWITNESS for
+ *     the measurement. A leak held back for longer than that needs its own signal, as request-log.js says; neither
+ *     wait covers a 3 s setTimeout leak.
  * A vector this engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and its page stays open to
  * the end of the run. Then the browser closes and the listener is drained, so an attempt already on the wire is
  * counted.
@@ -262,7 +272,7 @@ async function reached(eng, file, { witness = null, slowest = null } = {}) {
         const own = await attempt(browser, witness, w, name);
         if (!(await heard(w, name))) missed.push(`${name} (witness ran: ${own.ran}, loaded: ${own.loaded}, url: ${own.page.url().slice(0, 60)})`);
         await own.page.close().catch(() => {});
-        if (slowest && slowest !== name) {
+        for (let round = 0; slowest && round < REWITNESS; round++) {
           const sl = await listener();
           try {
             const again = await attempt(browser, witness, sl, slowest);
