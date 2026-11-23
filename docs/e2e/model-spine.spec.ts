@@ -1,3 +1,4 @@
+import { fakeKey } from '../src/test/fake-key';
 import { expect, gotoStudio, isPhone, openChatAtWidth, setEditorContent, test } from './studio-fixture';
 
 // THE MODEL SPINE on the real Studio (engineering/decisions/2026-11-07-studio-model-spine.md).
@@ -25,7 +26,7 @@ const toolReply = () =>
 		{ id: 't', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call1', type: 'function', function: { name: 'read_slides', arguments: '{"from":1}' } }] } }] },
 		{ id: 't', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }], usage: USAGE },
 	]);
-const OR_KEY = 'sk-or-v1-e2e-spine-mock-key-0a0a';
+const OR_KEY = fakeKey('sk-or-v1-', 'e2e-spine-mock-key-0a0a');
 const SEL = (o: object) => JSON.stringify({ v: 1, last: {}, ...o });
 const shot = async (page: Page, name: string) => {
 	if (process.env.SPINE_SHOTS) await page.screenshot({ path: `${process.env.SPINE_SHOTS}/${name}.png` });
@@ -361,7 +362,7 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 // decode on the main thread costs the most.
 for (const tags of ['@crosswidth @gecko', '@webkit-tablet @webkit-phone'])
 test(`${tags} Present decodes a Gemini clip on a worker and plays it at the declared rate`, async ({ page }) => {
-	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
+	const GEM = fakeKey('AIza', 'E2eSpineGeminiKey0000a1b2');
 	await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' }) }, { promptApi: false });
 	await page.addInitScript(() => {
 		const w = window as unknown as { __played: number[] };
@@ -417,7 +418,7 @@ test(`${tags} Present decodes a Gemini clip on a worker and plays it at the decl
 });
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key fills a chat model that is not set, and never moves a voice that is', async ({ page }) => {
-	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
+	const GEM = fakeKey('AIza', 'E2eSpineGeminiKey0000a1b2');
 	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) }, { promptApi: false });
 	await mockOpenRouter(page);
 	const gemini = { calls: [] as string[] };
@@ -481,7 +482,7 @@ test('@crosswidth @webkit-tablet @gecko a chat model the config retires stops ch
 });
 
 test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off and says so, never another voice', async ({ page }) => {
-	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
+	const GEM = fakeKey('AIza', 'E2eSpineGeminiKey0000a1b2');
 	await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' }) }, { promptApi: false });
 	const seen = await mockOpenRouter(page);
 	const speak: string[] = [];

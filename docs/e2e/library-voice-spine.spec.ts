@@ -2,11 +2,12 @@
 // library pages speak in the author's STORED voice selection (the Studio's), never a ladder of whatever
 // was ready, and never write it. Every provider is mocked; nothing reaches the network.
 import type { Page } from '@playwright/test';
+import { fakeKey } from '../src/test/fake-key';
 import { expect, test } from './studio-fixture';
 
 // Fake credentials: named FAKE, not KEY, so no reader (or scanner) mistakes them for secrets.
-const OR_FAKE = 'sk-or-v1-e2e-library-voice-0b0b';
-const GEM = 'AIzaE2eLibraryVoiceFake000c3d4';
+const OR_FAKE = fakeKey('sk-or-v1-', 'e2e-library-voice-0b0b');
+const GEM = fakeKey('AIza', 'E2eLibraryVoiceFake000c3d4');
 const SEL = (o: object) => JSON.stringify({ v: 1, last: {}, ...o });
 
 /** A 0.2 s silent 16-bit mono WAV at 24 kHz: real audio bytes for the players to decode. */

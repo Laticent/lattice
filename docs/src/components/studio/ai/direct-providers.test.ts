@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readChatSelection, selectChat } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { fakeKey } from '../../../test/fake-key';
 import { createArchitectModel } from './architect-model.js';
 import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
 
@@ -198,7 +199,7 @@ describe('the transports', () => {
 	});
 
 	it('Gemini: the OpenAI-compatible endpoint with a Bearer key', async () => {
-		writeProviderKey('gemini', 'AIzaTestKey000000000000000');
+		writeProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		const seen: { url: string; auth: string }[] = [];
 		vi.stubGlobal(
@@ -210,7 +211,7 @@ describe('the transports', () => {
 		);
 		const b = directBackend('gemini', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
 		expect(await b.complete({ model: 'gemini-3.8-flash', messages: [{ role: 'user', content: 'hi' }] })).toBe('{"x":1}');
-		expect(seen[0]).toEqual({ url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', auth: 'Bearer AIzaTestKey000000000000000' });
+		expect(seen[0]).toEqual({ url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', auth: `Bearer ${fakeKey('AIza', 'TestKey000000000000000')}` });
 	});
 
 	it('a 401 names the provider and marks its key rejected', async () => {
@@ -257,7 +258,7 @@ describe('the adapter routes the cloud tier to the chosen provider', () => {
 
 	it('the stored direct key is sealed, never in clear', async () => {
 		const m = createArchitectModel({});
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		m.saveProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		const raw = localStorage.getItem('lattice-db-gemini-key') ?? '';
 		// jsdom has no IndexedDB, so the key is kept in memory only (§9), never written in clear.
@@ -285,17 +286,17 @@ describe('red-team and checker findings (BYOK phase 2)', () => {
 	});
 
 	it('Gemini answers a bad key with 400 API_KEY_INVALID: read as a rejected key', async () => {
-		writeProviderKey('gemini', 'AIzaTestKey000000000000000');
+		writeProviderKey('gemini', fakeKey('AIza', 'TestKey000000000000000'));
 		await openRouterKeySettled();
 		const body = '[{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}]';
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 400 })));
 		const b = directBackend('gemini', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
-		expect(await b.checkKey('AIzaTestKey000000000000000')).toBe(401);
+		expect(await b.checkKey(fakeKey('AIza', 'TestKey000000000000000'))).toBe(401);
 		await expect(b.complete({ model: 'gemini-3.8-flash', messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/^Gemini error 401: /);
 		expect(b.keyInvalid()).toBe(true);
 		// Any other 400 stays a 400.
 		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"bad field"}}', { status: 400 })));
-		expect(await b.checkKey('AIzaTestKey000000000000000')).toBe(400);
+		expect(await b.checkKey(fakeKey('AIza', 'TestKey000000000000000'))).toBe(400);
 	});
 
 	it('never asks for reasoning or thinking on a direct key', () => {

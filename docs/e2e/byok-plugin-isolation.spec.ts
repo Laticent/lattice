@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { fakeKey } from '../src/test/fake-key';
 import { storedOpenRouterKey } from './openrouter-key-helper';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
@@ -25,7 +26,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 // specs: on WebKit, intercepting requests stops the package's blob-URL worker from loading at all
 // (the package then reports "failed to load"), which would hide the probe rather than test it.
 
-const CANARY = 'sk-or-v1-plugin-isolation-canary-4d9e';
+const CANARY = fakeKey('sk-or-v1-', 'plugin-isolation-canary-4d9e');
 
 // Runs in the package's worker, and (as the control) in the Studio page. ES5 on purpose: it is
 // spliced into a transform.js and into page.evaluate as text.

@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fakeKey } from '../../test/fake-key';
 import { ChatCost, chipLabel, readableModelId } from './ChatCost';
 
 // The chat header: one chip that names the model and opens the picker, and one session figure.
@@ -62,7 +63,7 @@ describe('ChatCost — the chip reaches every source (model spine)', () => {
 	afterEach(() => localStorage.clear());
 	it('lists each provider holding a key plus On-device; a provider pick selects it, an engine pick selects that engine', async () => {
 		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
-		localStorage.setItem('lattice-db-gemini-key', 'AIzaPlainTestKey000000000a1b2');
+		localStorage.setItem('lattice-db-gemini-key', fakeKey('AIza', 'PlainTestKey000000000a1b2'));
 		const user = userEvent.setup();
 		render(<ChatCost source="# One" />);
 		await user.click(screen.getByRole('button', { name: /Change model/ }));
