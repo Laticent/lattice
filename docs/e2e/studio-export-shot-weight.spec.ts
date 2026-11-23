@@ -64,7 +64,8 @@ test('the Studio PDF export carries only the fonts each slide draws in its pictu
 		};
 	});
 	await gotoStudio(page);
-	await page.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'shot-weight.lattice', mimeType: 'application/zip', buffer: await latticeFile() });
+	// "Import deck…"'s input, by its test id: it names no `accept` list (#3356), so an `accept*=".lattice"` lookup matches nothing.
+	await page.getByTestId('deck-import-input').setInputFiles({ name: 'shot-weight.lattice', mimeType: 'application/zip', buffer: await latticeFile() });
 	await expect(railButtons(page)).toHaveCount(SLIDES, { timeout: 60_000 });
 
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
