@@ -28,9 +28,28 @@ for (const [name, svg, deck, notes, shape, nodes] of [
 		// The notes sit UNDER the figure: the note's text starts below the lowest shape the chart drew. Both are read in the
 		// frame's own coordinates (`getBoundingClientRect`); `boundingBox()` on SVG text in an iframe disagreed with the
 		// shapes' boxes in WebKit.
-		const lowest = Math.max(...(await live(page).locator(nodes).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().bottom))));
-		const noteTop = await noteText.evaluate((el) => el.getBoundingClientRect().top);
-		expect(noteTop, 'the note is set under the lowest shape').toBeGreaterThan(lowest - 1);
+		// One read, in one script in the frame, polled until the drawing holds it. The live preview repaints the chart each
+		// layout round and once more when it settles (trama/pipeline.ts `writeSvg` replaces the SVG's children), and a
+		// locator's `evaluate` resolves the element in one round trip and runs in another: a repaint between them measured
+		// a detached `<text>`, whose box is all zeros (noteTop 0 against lowest 373, once in a full webkit-tablet run).
+		const placement = () =>
+			live(page)
+				.locator('body')
+				.evaluate(
+					(body, [svgSel, nodeSel, text]) => {
+						const noteEl = [...body.querySelectorAll(`${svgSel} text`)].find((t) => (t.textContent ?? '').includes(text));
+						const bottoms = [...body.querySelectorAll(nodeSel)].map((el) => el.getBoundingClientRect().bottom);
+						return { noteTop: noteEl ? noteEl.getBoundingClientRect().top : null, lowest: bottoms.length ? Math.max(...bottoms) : null };
+					},
+					[svg, nodes, note] as const,
+				);
+		// The gap from the lowest shape's bottom to the note's top; a missing note or shape reads as no gap at all.
+		await expect
+			.poll(async () => {
+				const { noteTop, lowest } = await placement();
+				return noteTop === null || lowest === null ? Number.NEGATIVE_INFINITY : noteTop - lowest;
+			}, { message: 'the note is set under the lowest shape' })
+			.toBeGreaterThan(-1);
 		// The notes are words the author wrote, so the callout source is not left on the slide as text.
 		await expect(live(page).getByText('@callout{')).toHaveCount(0);
 		// And the shape the first note names carries its ring.
