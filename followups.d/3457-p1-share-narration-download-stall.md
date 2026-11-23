@@ -3,26 +3,39 @@ origin: 3457
 priority: P1
 recorded: 2026-11-23
 area: website
-severity: low
+severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §HARD RULES #33 and #34
-deferred: blocked — did not reproduce (44 of 44 green on webkit-phone, including 4 workers with CPU load, both variants paired at 2 workers, and a full 289-test run); needs the failing run's trace
+deferred: blocked — narrowed from a failing trace to one stretch of shareHtmlPlayer, but not to one await; needs a failing run that records the export's progress
 source: https://github.com/Laticent/lattice/pull/3457
 ---
 
-# share-narration-rate-limit.spec.ts:48 timed out waiting for the download on webkit-phone
+# A narrated Webpage export stalls before it starts, and share-narration-rate-limit.spec.ts:48 times out
 
-why now   — the meta desk saw it once on 2026-11-22: `page.waitForEvent('download', 240 s)` timed out after "Download
-            webpage", during a full 287-test webkit-phone run on main 2676373. The command center handed it over under
-            HARD RULE #33.
-where     — docs/e2e/share-narration-rate-limit.spec.ts:48; the export path is narration-bake.ts (3 attempts, 45 s
-            patience each) over voice-scheduler.js (2 retries per request, AIMD up to the cap of 6).
-measured  — click to download: 32 s alone, 54–93 s at --workers=4, 48–107 s with 4 CPU-burning loops added, 32 s and
-            40 s inside a full webkit-phone run, 20 of 20 with both variants running together (--workers=2
-            --repeat-each=10 -g 'rides out a rate limit'), the pairing the failing run had. Request latency rose only from ~200 to ~350 ms under load (slowest
-            request 1.6 s). The export cannot refuse on 429s alone: a sentence needs 9 refusals and the mock sends 6.
-            So 240 s needs a real stall that load alone does not produce.
-done when — the cause is shown from the failing run's trace (or a repro that turns red), fixed at its root, with the
-            HARD RULE #34 evidence. No longer timeout, no retry.
-evidence  — the 2026-11-22 run's trace is gone (a later run cleared docs/test-results); its log shows only the
-            'Retry-After exposed' variant timed out, in parallel with its sibling. Needs a nightly failure's trace.
-verify    — the #34 runs on webkit-phone.
+why now   — the "Retry-After exposed" arm of :48 timed out on `page.waitForEvent('download', 240 s)` twice: once on
+            webkit-phone in a full local run (2026-11-22, no trace kept), and once on gecko in the Studio e2e nightly,
+            run 45159654897, shard 2/8 (2026-11-23). It is 44 of 44 green in this sandbox, alone, loaded, paired and in a
+            full run. Severity is medium, not low: the stall is in the PRODUCT. A narrated export that never starts
+            would leave a real author waiting with no error.
+where     — docs/src/components/studio/share-export.ts `shareHtmlPlayer`, from its start (line 450) to the
+            `deck-export` import (line 518): `ensureReady` → `ensureTheme` (theme fetch, KaTeX faces) → `assetOpts` →
+            `renderMarkdown`. One of these never resolved. Nothing in that stretch is bounded.
+measured  — from the gecko trace (`test-results/share-narration-rate-limit-48c8a-…-gecko/trace.zip` in artifact
+            `studio-e2e-45159654897-shard-2`; read with HTTP range requests, since the artifact is 6 GB). After the
+            "Download webpage" click registered (logged as done, 1704110):
+            - ZERO /audio/speech requests in 240 s; the mock's only call was one models-list abort at +27.5 s.
+            - The `deck-export` chunk was never requested, and no capture document booted (no `[lattice-runtime]
+              bootstrap`, no key/credits fetch).
+            - The PASSING arm in the same shard requested `deck-export` 378 ms after its click, booted its capture
+              frame at +0.7 s, and sent its first speech request at +1.6 s.
+            Both runs loaded `font-embed` and `player-core.generated` right after the click.
+ruled out — `document.fonts.ready` in `ensureFontsLoaded` (font-embed.js). A replay that held `fonts.ready` forever
+            in every frame still reached narration (4 speech requests) on both the old code and a bounded version, so
+            that wait is not where this stalls. Load alone does not explain it either: the export takes 32–107 s here
+            under every load tried, and a sentence needs 9 refusals to fail, where the mock sends 6.
+done when — the stalled await is named. Have the test record each `onStatus` message with a timestamp: the panel's
+            progress line, or a `console.debug` from `shareHtmlPlayer`, which the trace keeps. Then fix it at its cause,
+            or bound that await with a visible error as deck-export.js bounds its own, and add the HARD RULE #34
+            evidence.
+evidence  — a failing run (nightly or loaded gecko) whose trace carries the export's progress messages.
+verify    — tier 1, since the change would touch the export pipeline: a checker, plus the export sign-off if the
+            exported bytes can change.
