@@ -52,12 +52,18 @@ export function engineRetryVerdict(r) {
 /** A proxy to `target` that cuts engine sub-file requests while `state.fail` is on. Resolves once it listens. */
 export function startFaultProxy(target, mode = 'drop') {
 	const up = new URL(target);
-	const state = { fail: false, cut: 0, subFiles: 0 };
+	const state = { fail: false, cut: 0, subFiles: 0, seen: [] };
 	const server = http.createServer((req, res) => {
+		// Every engine-side request and what the proxy did with it, so a card that did not come from the fault can be traced
+		// to the gate that failed (followups.d/3368-p1: which request never came, or came back bad).
+		const note = (status) => {
+			if (/\/playground\/v\/|\/sw\.js/.test(String(req.url)) && state.seen.length < 60) state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
+		};
 		if (isEngineSubFile(req.url)) {
 			state.subFiles++;
 			if (state.fail) {
 				state.cut++;
+				note(mode === '503' ? 'cut-503' : 'cut-drop');
 				if (mode === '503') {
 					res.writeHead(503, { 'cache-control': 'no-store', 'content-type': 'text/plain' });
 					res.end('unavailable');
@@ -66,10 +72,12 @@ export function startFaultProxy(target, mode = 'drop') {
 			}
 		}
 		const fwd = http.request({ hostname: up.hostname, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host } }, (r) => {
+			note(r.statusCode || 502);
 			res.writeHead(r.statusCode || 502, r.headers);
 			r.pipe(res);
 		});
-		fwd.on('error', () => {
+		fwd.on('error', (e) => {
+			note(`upstream-error ${e.code || e.message}`);
 			if (!res.headersSent) res.writeHead(502);
 			res.end();
 		});
@@ -160,6 +168,12 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		r.cut = proxy.state.cut;
 		// What the card said, so a card that did not come from the fault names its own cause.
 		const said = r.card ? await wd('POST', `/session/${id}/execute/sync`, { script: `return (document.querySelector('${PREVIEW} .nacre-failed__text')?.textContent || '').slice(0, 160);`, args: [] }).catch(() => '') : '';
+		if (r.card && !r.cut) {
+			// Trace a card the fault did not cause: what reached the proxy, and what Safari's own resource timing says it fetched
+			// for the engine (a request served by the service worker or a cache never reaches the proxy).
+			const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `return performance.getEntriesByType('resource').filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
+			console.log(`engine retry ${mode}: the card came without a cut. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
+		}
 		step('sub-files cut: the failure card appears', r.card && r.cut > 0, `${first}; ${r.cut} sub-file requests cut${r.card ? `; the card: "${said}"` : ''}${r.card && !r.cut ? ' (NOTHING was cut, so this card did not come from the fault)' : ''}`);
 		if (!r.card || !r.cut) return finish();
 
