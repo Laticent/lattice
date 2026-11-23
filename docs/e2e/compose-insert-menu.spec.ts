@@ -1,4 +1,4 @@
-import { closeInsertMenu, insertEntry, insertTrigger, insertVia, openDeckInCompose, openInsertMenu, savedDeck } from './compose-insert';
+import { caretInto, closeInsertMenu, insertEntry, insertTrigger, insertVia, openDeckInCompose, openInsertMenu, savedDeck } from './compose-insert';
 import { expect, test } from './studio-fixture';
 
 /**
@@ -15,7 +15,7 @@ const DECK = ['<!-- _class: content -->', '', '## Plan', '', 'Lead of the projec
 test.describe('compose insert menu', () => {
 	test('@smoke the menu names every thing an author can put on a slide, and the blocks it writes are tagged and ready to edit', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		await caretInto(page.locator('.cs-slide').first());
 		await openInsertMenu(page);
 		for (const name of ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Image', 'Pill', 'Spark', 'Avatar', 'Icon'] as const) await expect(insertEntry(page, name), name).toBeVisible();
 		await closeInsertMenu(page);
@@ -32,9 +32,12 @@ test.describe('compose insert menu', () => {
 	test('@parity the Insert door fits the bar and writes a block by touch', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		const touch = await page.evaluate(() => navigator.maxTouchPoints > 0);
-		const para = page.locator('.cs-slide').first().locator('.cs-slide-content p').first();
+		const first = page.locator('.cs-slide').first();
+		const para = first.locator('.cs-slide-content p').first();
 		if (touch) await para.tap({ position: { x: 3, y: 8 } });
 		else await para.click({ position: { x: 3, y: 8 } });
+		// The slide bar follows the caret a moment later; wait for it, or the door measured is the other slide's (see caretInto).
+		await expect(first).toHaveClass(/\bcs-slide-active\b/);
 		const width = page.viewportSize()?.width ?? 0;
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 		const door = await insertTrigger(page).boundingBox();
@@ -45,7 +48,7 @@ test.describe('compose insert menu', () => {
 
 	test('Equation and Plot write their fences', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		await caretInto(page.locator('.cs-slide').first());
 		await insertVia(page, 'Equation');
 		await expect.poll(() => savedDeck(page)).toContain('```math\nE = mc^2\n```');
 		// The caret is in the new fence now, where a block cannot nest: the menu says so.
@@ -53,7 +56,7 @@ test.describe('compose insert menu', () => {
 		await expect(insertEntry(page, 'Plot')).toHaveAttribute('data-disabled', '');
 		await expect(insertEntry(page, 'Plot')).toContainText('already in a code block');
 		await closeInsertMenu(page);
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		await caretInto(page.locator('.cs-slide').first());
 		await insertVia(page, 'Plot');
 		await expect.poll(() => savedDeck(page)).toContain('```functionplot\n{ "data": [{ "fn": "x^2" }] }\n```');
 	});
@@ -61,7 +64,7 @@ test.describe('compose insert menu', () => {
 	test('a table does not suit a title slide: the menu says so instead of hiding the item', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		const title = page.locator('.cs-slide').nth(1);
-		await title.locator('.cs-slide-content p').first().click();
+		await caretInto(title);
 		await openInsertMenu(page, { slide: title });
 		await expect(insertEntry(page, 'Table')).toHaveAttribute('data-disabled', '');
 		await expect(insertEntry(page, 'Table')).toContainText('does not suit this layout');
@@ -70,7 +73,7 @@ test.describe('compose insert menu', () => {
 
 	test('the keyboard reaches every item: Enter opens, the arrow keys move, Enter chooses, and focus goes back to the text', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		await caretInto(page.locator('.cs-slide').first());
 		await insertTrigger(page).focus();
 		await page.keyboard.press('Enter');
 		await insertEntry(page, 'Table').waitFor();
@@ -90,7 +93,7 @@ test.describe('compose insert menu', () => {
 
 	test('a locked slide gets no insert, and the menu names the reason on every item', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('Lead of the project.', 'Lead with ~~old~~ words.'));
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		await caretInto(page.locator('.cs-slide').first());
 		await openInsertMenu(page);
 		for (const name of ['Table', 'Code', 'Diagram', 'Pill', 'Avatar'] as const) {
 			await expect(insertEntry(page, name), name).toHaveAttribute('data-disabled', '');

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { confirmPhotoFormat } from './photo-format';
-import { gotoStudio, persistedSource, setEditorContent } from './studio-fixture';
+import { expect, gotoStudio, persistedSource, setEditorContent } from './studio-fixture';
 
 /**
  * The Insert menu in the active slide's bar (docs/src/components/studio/InsertControls.tsx).
@@ -10,6 +10,19 @@ import { gotoStudio, persistedSource, setEditorContent } from './studio-fixture'
  * open the menu and pick the item by name here, so the way in lives in one place.
  */
 export type InsertItem = 'Motion' | 'Table' | 'Code' | 'Diagram' | 'Equation' | 'Plot' | 'Image' | 'Pill' | 'Spark' | 'Avatar' | 'Icon' | 'Check' | 'Link';
+
+/**
+ * Put the caret in `slide`'s first paragraph and wait until that slide is the active one.
+ *
+ * The click moves the caret at once, but the `cs-slide-active` decoration (ComposeView.tsx), and with it
+ * the slide bar and its Insert button, follows a moment later. A spec that reaches for the active slide's
+ * trigger straight after the click can get the slide the caret just LEFT: under load the menu opened on the
+ * title slide, where Diagram is unavailable, and Enter inserted nothing (1 run in 60 at --workers=4).
+ */
+export async function caretInto(slide: Locator): Promise<void> {
+	await slide.locator('.cs-slide-content p').first().click();
+	await expect(slide).toHaveClass(/\bcs-slide-active\b/);
+}
 
 /** The menu's trigger on the active slide, or on `slide` when a spec names one. */
 export const insertTrigger = (page: Page, slide?: Locator): Locator => (slide ?? page.locator('.cs-slide-active')).getByRole('button', { name: 'Insert', exact: true });
