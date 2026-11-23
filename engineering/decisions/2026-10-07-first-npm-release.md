@@ -194,6 +194,7 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 | §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`, since renamed `@laticent/segno-languages`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
 | The 1.0.0 date | **1.0.0 ships Friday 2026-11-27**, with a merge freeze from **Wednesday 2026-11-25 23:59 UTC**. |
 | The 1.0.0 date, corrected 2026-11-23 | **Moved by the owner:** Release (prepare) is dispatched **Sunday 2026-11-29, 14:00 UTC or later**, with the merge freeze **Saturday 2026-11-28 23:59 UTC** (relayed by the release desk, issue #3449). This row replaces the one above. |
+| The 1.0.0 date, corrected again 2026-11-23 (about 20:45 UTC) | **Moved by the owner:** 1.0.0 waits until **all nine deck-key rename PRs are on `main`, likely Tuesday–Wednesday 2026-12-01–02** (relayed by the release desk, issue #3449). This row replaces both above. |
 | §5 slice C, Changesets | **Lands before 1.0.0.** The owner does not want to ship known tech debt in public, so 1.0.0 is not cut on the fragment flow with Changesets promised for later. |
 
 **What option A costs, measured on `main` at `ff2d32e` (2026-11-22).**
