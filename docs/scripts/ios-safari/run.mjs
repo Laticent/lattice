@@ -161,7 +161,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -748,7 +748,7 @@ async function composeTouchTap(id) {
  */
 async function runPlayerChartsProbe(id) {
 	return runPlayerCharts({
-		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html` },
+		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html`, k4: `${BASE}/deck-4k.html` },
 		go: (url) => wd('POST', `/session/${id}/url`, { url }),
 		call: (expr) =>
 			wd('POST', `/session/${id}/execute/async`, {
@@ -958,13 +958,17 @@ async function runPhotoProbe(id) {
  * the cost an iPhone would weigh, not the reload itself.
  */
 async function runPresentMemoryProbe(id) {
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const pieces = Math.ceil(b64.length / PIECE);
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		const b64 = Buffer.from(deck.bytes).toString('base64');
+		return { deck, b64, pieces: Math.ceil(b64.length / PIECE), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const deck = hd.deck;
 	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
 	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -974,20 +978,20 @@ async function runPresentMemoryProbe(id) {
 		if (r?.error) throw new Error(`${what}: ${r.error}`);
 		return r;
 	};
-	const arm = async (name, base) => {
-		const out = { arm: name, base };
+	const arm = async (name, base, { b64, pieces, title, deck: armDeck } = hd) => {
+		const out = { arm: name, base, wantHeading: `${title}.` };
 		try {
 			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
 			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
 			for (let i = 0; i < pieces; i++) failIf(await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`), 'sending the deck');
-			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`), 'importing the deck');
+			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(title)}, ${armDeck.slides})`), 'importing the deck');
 			out.importMs = imported.importMs;
 			out.ua = imported.ua;
 			out.width = imported.width;
 			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
-			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			failIf(await call(`latticePresentReady(${JSON.stringify(title)})`), 'the deck after the reload');
 			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
 			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
 			await sleep(8000);
@@ -995,6 +999,8 @@ async function runPresentMemoryProbe(id) {
 			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
 			out.openMs = opened.openMs;
 			out.slides = opened.total;
+			out.heading = opened.heading;
+			out.box = opened.box;
 			await sleep(3000);
 			const m1 = await readMB();
 			const stepped = failIf(await call('latticePresentStep(6)'), 'stepping through Present');
@@ -1013,19 +1019,153 @@ async function runPresentMemoryProbe(id) {
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 		}
-		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
+		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `slide laid out ${out.box} wide, opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
 		return out;
 	};
-	const arms = [await arm('this build', BASE)];
+	// The 4K arm (#3304): the same photos on a `size: 4k` deck, judged like the first arm and on one more check, that the
+	// presented slide is laid out at HD's 1280 px. A 4K frame is the one WebKit paid for at 3840x2160 times the density
+	// squared, and an iPhone reloaded the tab presenting one (owner, 2026-11-20).
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arms = [await arm('this build', BASE), await arm('this build, 4K deck', BASE, k4)];
 	const baseline = process.env.PRESENT_BASELINE_URL;
 	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
 	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
 	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
 	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
 	const a = arms[0];
-	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
+	const steps = [
+		...presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac }),
+		...presentChecks(arms[1], { slides: k4.deck.slides, capMB: CAP_MB, memory: !mac, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * Turn the booted simulator sideways. simctl has no rotate verb, so this drives Simulator.app, the way a person at the
+ * Mac does: show the device in it, then Device > Rotate Left from its menu bar; if the page is still upright, the same
+ * command's shortcut (Command-Left). Each try waits for the PAGE to report a landscape viewport (a signal, bounded:
+ * HARD RULE #32). Returns which try turned it, or '' with what each try said; the verdict then fails "the simulator is
+ * turned to landscape" by name rather than judging an upright screen as a sideways one.
+ */
+async function turnSimulatorSideways(id) {
+	const sideways = async () => {
+		const [w, h] = (await wd('POST', `/session/${id}/execute/sync`, { script: 'return [innerWidth, innerHeight];', args: [] })) || [0, 0];
+		return w > h;
+	};
+	const settled = async () => {
+		for (let i = 0; i < 30; i++) {
+			if (await sideways()) return true;
+			await sleep(500);
+		}
+		return false;
+	};
+	if (await sideways()) return { by: 'already sideways', notes: [] };
+	const notes = [];
+	const osa = (lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+	try {
+		execFileSync('open', ['-a', 'Simulator', '--args', '-CurrentDeviceUDID', UDID], { timeout: 30000 });
+		await sleep(8000); // Simulator.app has no "window shown" signal to wait on from here; the page check below is the judge.
+	} catch (e) {
+		notes.push(`open Simulator: ${String(e.message || e).slice(0, 120)}`);
+	}
+	const tries = [
+		['the Device menu', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to tell process "Simulator" to click menu item "Rotate Left" of menu 1 of menu bar item "Device" of menu bar 1']],
+		['Command-Left', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to key code 123 using command down']],
+	];
+	for (const [by, lines] of tries) {
+		try {
+			osa(lines);
+		} catch (e) {
+			notes.push(`${by}: ${String(e.stderr || e.message || e).trim().slice(0, 160)}`);
+			continue;
+		}
+		if (await settled()) return { by, notes };
+		notes.push(`${by}: ran, the page stayed upright`);
+	}
+	return { by: '', notes };
+}
+
+/**
+ * The Present LANDSCAPE probe (PROBE=present-landscape, #3304): the 4K photo deck presented on a simulator turned
+ * sideways, the case the 🚦 card named as unrun. The iPad Pro 13-inch (run.sh picks it) is the iPad with the widest
+ * landscape screen, about 2,752 device px, over FOUR_K_FROM; Present's own chrome leaves its slide host about 1,100 CSS
+ * px, so the rule lays the deck out on HD (the Linux self-test read 1,099 px). An iPhone turned sideways plays the deck
+ * with its spoken notes, so the captions ride over the slide (#3333) in the band #3304 sized to its sentence.
+ *
+ * Present opens upright and the simulator is turned after (turnSimulatorSideways): a phone held sideways shows the Studio
+ * no Present button, and turning mid-Present is what a presenter does. Then the canvas is read (latticePresentGeometry),
+ * the captions played on the phone (latticePresentCaptions), and six slides stepped. The footprint is read before
+ * Present, after the turn and after the steps, judged against PRESENT_MEMORY_CAP_MB like the upright probe. The verdict
+ * is present-memory.mjs `presentChecks` plus `landscapeChecks`: states and sizes, never time (HARD RULE #32).
+ */
+async function runPresentLandscapeProbe(id) {
+	const { buildPresentDeck, PRESENT_TITLE_LANDSCAPE, presentChecks, landscapeChecks } = await import('./present-memory.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
+	const PIECE = 4_000_000;
+	const phone = /iphone/i.test(LABEL);
+	const deck = await buildPresentDeck(undefined, undefined, '4k', PRESENT_TITLE_LANDSCAPE, true);
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const pieces = Math.ceil(b64.length / PIECE);
+	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const call = async (expr, what) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const shot = (name) => {
+		try {
+			execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', path.join(OUT, `${PROBE}-${LABEL}-${name}.png`)], { timeout: 30000, stdio: 'ignore' });
+		} catch (e) {
+			console.log(`${LABEL}: no ${name} screenshot (${e.message})`);
+		}
+	};
+	const out = { wantHeading: `${PRESENT_TITLE_LANDSCAPE}.` };
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		for (let i = 0; i < pieces; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`, 'sending the deck');
+		const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)}, ${deck.slides})`, 'importing the deck');
+		Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		await call(`latticePresentReady(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)})`, 'the deck after the reload');
+		await sleep(8000); // memory has no "settled" event: the upright probe reads the same way
+		const m0 = await simulatorWebContentMB();
+		const opened = await call('latticePresentOpen()', 'opening Present');
+		Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading });
+		await call('latticePresentWatchTurn()', 'watching the turn');
+		const turned = await turnSimulatorSideways(id);
+		out.rotatedBy = turned.by || `nothing (${turned.notes.join('; ')})`;
+		console.log(`${LABEL}: turned by ${out.rotatedBy}${turned.notes.length && turned.by ? ` after ${turned.notes.join('; ')}` : ''}`);
+		out.geo = await call('latticePresentGeometry()', 'reading the canvas');
+		out.box = out.geo.box;
+		shot('sideways');
+		await sleep(3000);
+		const m1 = await simulatorWebContentMB();
+		if (phone) {
+			out.captions = await call('latticePresentCaptions()', 'playing the captions');
+			shot('captions');
+		}
+		const stepped = await call('latticePresentStep(6)', 'stepping through Present');
+		Object.assign(out, { stepsMs: stepped.steps.map((x) => x.ms), photos: stepped.steps.every((x) => x.photo) });
+		await sleep(3000);
+		const m2 = await simulatorWebContentMB();
+		out.alive = (await call('latticePresentAlive()', 'the page mark'))?.mark === opened.mark;
+		const open = growthMB(m0, m1);
+		const all = growthMB(m0, m2);
+		Object.assign(out, { baseMB: all.baseMB, openGrewMB: open.grew, grewMB: all.grew, freedMB: all.freed });
+	} catch (e) {
+		out.error = String(e.message || e).slice(0, 300);
+	}
+	const g = out.geo || {};
+	console.log(`${LABEL}: sideways ${g.innerW}x${g.innerH} at ${g.dpr}x, slide host ${g.hostW} px (${Math.round((g.hostW || 0) * (g.dpr || 0))} device px), laid out ${g.box}; ${out.grewMB ?? '?'} MB above ${out.baseMB ?? '?'} MB`);
+	// Reported, not judged: what Present showed between the turn and the rotation hold (see latticePresentWatchTurn).
+	console.log(`${LABEL}: through the turn (hold ${g.sawHold ? 'seen' : 'not seen'}): ${g.turn || 'no rows'}`);
+	const steps = [...presentChecks(out, { slides: deck.slides, capMB: CAP_MB, memory: true }), ...landscapeChecks(out, { expect: 'hd', captions: phone })];
+	const failed = steps.filter((x) => !x.pass);
+	return { ok: failed.length === 0, error: failed.map((x) => x.name).join('; ') || undefined, ua: out.ua, width: g.innerW ?? out.width, deckBytes: deck.bytes.length, arm: out, steps };
 }
 
 /**
@@ -1165,6 +1305,11 @@ async function runPresentNarrationProbe(id) {
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.peakGrewMB = peak;
 			out.alive = out.samples.at(-1)?.mark === played.mark;
+			// Reported, never judged: the audio still uncollected after the page is pushed to collect. It tells collection
+			// lag (falls to a few clips) from audio something still holds (stays high); see latticeNarrationPressure.
+			const p = await call('latticeNarrationPressure()').catch((e) => ({ error: String(e.message || e).slice(0, 120) }));
+			out.pressure = p;
+			console.log(`${LABEL}: narration ${out.arm} after collection pressure: ${p?.error ? `ERROR ${p.error}` : `${p.beforeMB} -> ${p.afterMB} MB of decoded audio uncollected (${p.clips} clips, ${p.decodedMB} MB decoded in all)`}`);
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 			console.log(`${LABEL}: narration ${out.arm}: ERROR ${out.error}`);
@@ -1501,6 +1646,40 @@ async function runFocusSyncProbe(id) {
 		result.error = String(e?.message ?? e);
 	}
 	return result;
+}
+
+/**
+ * The narration codec probe (PROBE=codec-support, codec-probe.js): the iOS arm of the narration codec bake-off. On a blank
+ * page it decodes every file in codec-fixtures/ with decodeAudioData, reads what WebCodecs' AudioEncoder and AudioDecoder
+ * support, and round-trips the 2 s source speech through AudioEncoder and AudioDecoder (Opus, AAC). Linux WebKit uses
+ * GStreamer, so only this run can say what an iPhone decodes and encodes. The checks are the streaming design's needs
+ * (codecs.mjs `codecChecks`); everything else is reported for the bake-off.
+ */
+async function runCodecProbe(id) {
+	const { codecChecks } = await import('./codecs.mjs');
+	// The page gets Suono's Ogg writer (docs/src/lib/suono/ogg-opus.ts), the one the Studio uses, as plain script: esbuild
+	// strips the types, and its `export`s are removed.
+	// Suono's Opus encoder and Ogg writer (docs/src/lib/suono/opus.ts), the code the Studio ships, bundled by esbuild into
+	// one plain script that puts them on `SuonoOpus`.
+	const { buildSync } = await import('esbuild');
+	const muxer = buildSync({ entryPoints: [path.join(ROOT, 'docs/src/lib/suono/opus.ts')], bundle: true, format: 'iife', globalName: 'SuonoOpus', write: false }).outputFiles[0].text;
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	const r = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticeCodecProbe(arguments[0]).then(done, (e) => done({ error: String(e) }));`,
+		args: [files],
+	});
+	if (r?.error) return { ok: false, error: r.error, steps: [] };
+	for (const [f, d] of Object.entries(r.decode)) console.log(`${LABEL}: decode ${f}: ${d.ok ? `ok, +${d.extraMs} ms` : `NO (${d.error})`}`);
+	console.log(`${LABEL}: WebCodecs encoder ${JSON.stringify(r.encoder)}`);
+	console.log(`${LABEL}: WebCodecs decoder ${JSON.stringify(r.decoder)}`);
+	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}${v.ogg ? `; as our Ogg: ${v.ogg.ok ? `${v.ogg.bytes} B, ${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
+	console.log(`${LABEL}: Opus in a worker: ${r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : `NO (${r.worker?.error})`}`);
+	const steps = codecChecks(r);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ...r, width: r.width, steps };
 }
 
 async function runJpegProbe(id) {

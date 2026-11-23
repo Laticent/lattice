@@ -158,7 +158,9 @@
         "docs/scripts/ios-safari/player-charts.mjs",
         "docs/scripts/ios-safari/player-charts-probe.js",
         "docs/scripts/ios-safari/player-charts-hostile.md",
+        "docs/scripts/ios-safari/player-4k.md",
         "examples/chart-detail-reveal.md",
+        "lib/core/screen-canvas.mjs",
         "lib/runtime/chart-reveal/*",
         "lib/export/player-core.mjs",
         "lib/export/chart-reveal-player-bundle.generated.mjs",
@@ -179,7 +181,9 @@
         "docs/scripts/ios-safari/player-charts.mjs",
         "docs/scripts/ios-safari/player-charts-probe.js",
         "docs/scripts/ios-safari/player-charts-hostile.md",
+        "docs/scripts/ios-safari/player-4k.md",
         "examples/chart-detail-reveal.md",
+        "lib/core/screen-canvas.mjs",
         "lib/runtime/chart-reveal/*",
         "lib/export/player-core.mjs",
         "lib/export/chart-reveal-player-bundle.generated.mjs",
@@ -257,10 +261,56 @@
         "docs/src/components/studio/PresentOverlay.tsx",
         "docs/src/components/studio/present/stage-window.js",
         "docs/src/components/studio/studio-stage.ts",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/screen-canvas.mjs",
         "lib/engine/deferred-urls.js"
       ],
       "run": "PROBE=present-memory PRESENT_BASELINE_URL=https://lattice.style bash docs/scripts/ios-safari/run.sh",
-      "why": "What Present costs real Mobile Safari, in an iPhone iOS Simulator, on a deck of eighteen phone photos imported through \"Import deck…\" (present-memory.mjs, 24 MB; the owner's deck was 33 MB of data: text and reloaded the tab on an iPhone before #3148). It opens Present, steps six slides, times each until the next slide shows and its photo decodes, and reads the simulator's WebKit footprint with vmmap before and after. It fails when a step's photo does not decode, the page reloads, or Present adds more than PRESENT_MEMORY_CAP_MB (300; the first run read 795 MB on main and 124 MB after #3148). Times are reported, never judged (HARD RULE #32). The production site runs as a second arm that is reported, not judged, and time-boxed: the before until #3148 deployed, the live site after. A simulator has no memory limit, so it shows the cost, not the reload.",
+      "why": "What Present costs real Mobile Safari, in an iPhone iOS Simulator, on a deck of eighteen phone photos imported through \"Import deck…\" (present-memory.mjs, 24 MB; the owner's deck was 33 MB of data: text and reloaded the tab on an iPhone before #3148). It opens Present, steps six slides, times each until the next slide shows and its photo decodes, and reads the simulator's WebKit footprint with vmmap before and after. It fails when a step's photo does not decode, the page reloads, or Present adds more than PRESENT_MEMORY_CAP_MB (300; the first run read 795 MB on main and 124 MB after #3148). Times are reported, never judged (HARD RULE #32). The production site runs as a second arm that is reported, not judged, and time-boxed: the before until #3148 deployed, the live site after. A second judged arm presents the same photos on a `size: 4k` deck (#3304) and also checks that the presented slide is laid out 1280 px wide: a 4K frame is the one WebKit paid for at 3840x2160 times the density squared, and an iPhone reloaded the tab presenting one. A simulator has no memory limit, so it shows the cost, not the reload.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-present-landscape-ipad",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/present-memory.mjs",
+        "docs/scripts/ios-safari/present-memory-probe.js",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/present/stage-chrome.js",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/screen-canvas.mjs"
+      ],
+      "run": "PROBE=present-landscape DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Present on a phone or tablet turned sideways, in real Mobile Safari (#3304, the owner's choice of a suite of its own). The present-memory suite runs upright, on the iPhone alone, and uses 16.5 of its 30 minutes, so the 🚦 card named landscape as unrun. This presents a deck of eighteen phone photos (about 24 MB) at `size: 4k`, with spoken notes, on an iPad Pro 13-inch (the widest iPad screen, about 2,752 device px sideways). Present opens upright and run.mjs turns the simulator through Simulator.app (simctl has no rotate verb). It fails when the page is not sideways, when the slide is not laid out on the canvas lib/core/screen-canvas.mjs picks for the host width the page measures, when the 4K deck is not on HD (Present's chrome left the 13-inch iPad's slide host 1,099 CSS px, 2,198 device px, in the Playwright self-test), when a step does not reach its photo, the page reloads or Present adds more than PRESENT_MEMORY_CAP_MB (300), and on the iPhone when the captions do not play over the slide with every line whole, or Play and Pause change the slide's size. States and sizes, never times (HARD RULE #32). Proved first by `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` on Playwright's WebKit. Nightly and on dispatch only. One device per job (DEVICES), as the other two-device iOS suites run (#3365): two devices with their boots would sit near the 30-minute limit.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-present-landscape-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/present-memory.mjs",
+        "docs/scripts/ios-safari/present-memory-probe.js",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/present/stage-chrome.js",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/screen-canvas.mjs"
+      ],
+      "run": "PROBE=present-landscape DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Present on a phone or tablet turned sideways, in real Mobile Safari (#3304, the owner's choice of a suite of its own). The present-memory suite runs upright, on the iPhone alone, and uses 16.5 of its 30 minutes, so the 🚦 card named landscape as unrun. This presents a deck of eighteen phone photos (about 24 MB) at `size: 4k`, with spoken notes, on an iPhone. Present opens upright and run.mjs turns the simulator through Simulator.app (simctl has no rotate verb). It fails when the page is not sideways, when the slide is not laid out on the canvas lib/core/screen-canvas.mjs picks for the host width the page measures, when the 4K deck is not on HD (Present's chrome left the 13-inch iPad's slide host 1,099 CSS px, 2,198 device px, in the Playwright self-test), when a step does not reach its photo, the page reloads or Present adds more than PRESENT_MEMORY_CAP_MB (300), and on the iPhone when the captions do not play over the slide with every line whole, or Play and Pause change the slide's size. States and sizes, never times (HARD RULE #32). Proved first by `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` on Playwright's WebKit. Nightly and on dispatch only. One device per job (DEVICES), as the other two-device iOS suites run (#3365): two devices with their boots would sit near the 30-minute limit.",
       "on_pull_request": false,
       "docs_site": true
     },
@@ -568,6 +618,24 @@
       "run": "cd docs && npm ci && npx playwright install chromium firefox && E2E_PREBUILT=1 E2E_RECORD=off npx playwright test e2e/scrollbar-width.spec.ts e2e/wheel-sideways.spec.ts --project=desktop --project=gecko --trace off",
       "why": "Windows draws CLASSIC scrollbars that take layout space, which is where the owner saw inner panes keep the thick OS default (15-17px) because `scrollbar-width` is not inherited (#3345). scrollbar-width.spec.ts measures the Compose pane's bar against an `auto` control in Chromium and in a HEADED Firefox (Playwright's headless Firefox reports `scrollbar-width: none` for every element; Linux has no display for it, and its GTK bars are overlay anyway) and writes the widths to platform-suite-artifacts/. wheel-sideways.spec.ts checks a mouse wheel scrolls the slide pills and the slide map sideways, the owner's Windows report. Added at the owner's request (2026-11-21, \"raise it\") to verify on the platform the bug was reported on. It serves the docs site built on Linux by the workflow's docs-site job (E2E_PREBUILT=1): the site does not build on Windows (bake-newcomer-frame: `module is not defined` in lib/core/content-policy.js, run 44853144110; followups.d/3345-p3-docs-build-on-windows.md).",
       "docs_site": true
+    },
+    {
+      "name": "ios-safari-codec-support",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/codec-probe.js",
+        "docs/scripts/ios-safari/codecs.mjs",
+        "docs/scripts/ios-safari/codec-fixtures/**",
+        "docs/src/lib/suono/ogg-opus.ts",
+        "docs/src/lib/suono/opus.ts"
+      ],
+      "run": "PROBE=codec-support bash docs/scripts/ios-safari/run.sh",
+      "why": "The iOS arm of the narration codec bake-off: what real Mobile Safari, in an iPhone iOS Simulator, decodes and encodes. The streaming narration design keeps audio compressed in browser storage, so the codec must decode on an iPhone, encode in the page, and add no lead-in silence; Linux WebKit decodes with GStreamer, not Apple's media stack, so only an iOS run answers for an iPhone. On a blank page it decodes every file in codec-fixtures/ (Opus in Ogg, WebM, MP4 and CAF; AAC in MP4 and ADTS; MP3 from LAME with and without a gapless tag; FLAC; Vorbis; the 2 s WAV source) with decodeAudioData at 48 kHz and reports the added length, reads WebCodecs' AudioEncoder and AudioDecoder support, and round-trips the source through AudioEncoder and AudioDecoder (Opus at 24 and 32 kbps, AAC at 64). It fails when Opus does not decode from Ogg or WebM, adds 20 ms or more of lead-in, or does not round-trip through WebCodecs; the rest is reported (codecs.mjs). No docs build, about 8 minutes, mostly the simulator's boot.",
+      "on_pull_request": false
     },
     {
       "name": "android-chrome-chooser",

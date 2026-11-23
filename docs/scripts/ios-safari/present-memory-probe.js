@@ -7,11 +7,19 @@
  *                                      WebDriver call carries a string, not 25 MB of bytes
  *   latticePresentImport(title, n)     hand the bytes to the Studio's own "Import deck…" input, as a person picking the file
  *                                      does, and wait until the preview shows the deck
- *   latticePresentReady()              after a reload: the deck back from the browser's store, its title in the preview
- *   latticePresentOpen()               tap Present; time until the presented frame shows the first (title) slide
+ *   latticePresentReady(title)         after a reload: the deck back from the browser's store, its title in the preview
+ *   latticePresentOpen()               tap Present; time until the presented frame shows the first (title) slide, and read
+ *                                      the width that slide is laid out at
  *   latticePresentStep(k)              tap Next k times; time each step until the presented slide is the next one and the
  *                                      photo it points at loads and decodes
  *   latticePresentAlive()              the mark latticePresentOpen left: gone means the page reloaded under the probe
+ *   latticePresentWatchTurn()          (the landscape probe) record Present's layout through the turn that follows
+ *   latticePresentGeometry()           (the landscape probe) the viewport, the density, the slide host's width and the
+ *                                      slide's own width on screen, and the width the slide is laid out at, once
+ *                                      Present has settled on a canvas
+ *   latticePresentCaptions()           (the landscape probe, on a phone) press Play: the captions show over the slide,
+ *                                      inside its frame, every line whole, the highlight walking; press Pause; the
+ *                                      slide's size never changed
  *
  * A step is done when the counter moved, the presented frame's heading is the new slide's, and the photo URL that slide
  * shows decodes (read back through a fresh Image: it proves the URL the slide holds is a real picture, which a stand-in
@@ -100,12 +108,13 @@ async function latticePresentImport(title, slides) {
 	return result;
 }
 
-async function latticePresentReady() {
+async function latticePresentReady(title) {
 	const h = latticePresentHelpers();
 	const t0 = Date.now();
+	const want = `${title || 'Present memory probe'}.`;
 	const doc = await h.until(() => {
 		const d = h.preview();
-		return d && /Present memory probe\.|Photo \d+\./.test(h.heading(d)) ? d : null;
+		return d && (h.heading(d) === want || /Photo \d+\./.test(h.heading(d))) ? d : null;
 	}, 150000, 'the imported deck in the preview after the reload');
 	return { readyMs: Date.now() - t0, heading: h.heading(doc), ua: navigator.userAgent, width: innerWidth };
 }
@@ -125,7 +134,10 @@ async function latticePresentOpen() {
 	const shownMs = Date.now() - t0;
 	const [at, total] = h.counter();
 	if (at !== 1) throw new Error(`Present opened on slide ${at}, not the first`);
-	return { openMs: shownMs, total, heading: h.heading(doc), mark: window.__latticePresentMark };
+	// The width the presented slide is laid out at, before the frame's scale (the 4K arm judges it).
+	const sec = doc.querySelector('section');
+	const box = sec ? getComputedStyle(sec).width : '';
+	return { openMs: shownMs, total, heading: h.heading(doc), mark: window.__latticePresentMark, box };
 }
 
 async function latticePresentStep(k) {
@@ -153,6 +165,123 @@ function latticePresentAlive() {
 	return { mark: window.__latticePresentMark || null };
 }
 
+/**
+ * Start recording what Present does through a turn, before the driver turns the device: every 50 ms, the slide host's
+ * width, the viewport, and whether the rotation hold (`data-settling`, the cover) and the immersive layout are on.
+ * latticePresentGeometry() stops it and reports the changes. Reported, never judged: it shows whether real iOS, like
+ * Playwright's WebKit, leaves the slide a small uncovered box until the orientation `change` event arrives.
+ */
+function latticePresentWatchTurn() {
+	const t0 = performance.now();
+	const rows = [];
+	let last = '';
+	window.__latticeTurnSawHold = false;
+	clearInterval(window.__latticeTurnWatch);
+	window.__latticeTurnWatch = setInterval(() => {
+		const d = document.querySelector('[role="dialog"][aria-label="Present"]');
+		const host = [...(d?.querySelectorAll('*') || [])].find((el) => el.__latticeScreenCanvas && el.querySelector('iframe.live'));
+		const hold = !!d?.hasAttribute('data-settling');
+		if (hold) window.__latticeTurnSawHold = true;
+		const v = `host ${host?.clientWidth ?? '-'} vw ${innerWidth}x${innerHeight}${hold ? ' hold' : ''}${d?.querySelector('[data-present-immersive]') ? ' immersive' : ''}`;
+		if (v !== last && rows.length < 40) rows.push(`${Math.round(performance.now() - t0)}ms ${v}`);
+		last = v;
+		if (performance.now() - t0 > 30000) clearInterval(window.__latticeTurnWatch);
+	}, 50);
+	window.__latticeTurnRows = rows;
+	return { watching: true };
+}
+
+async function latticePresentGeometry() {
+	const h = latticePresentHelpers();
+	// The host the renderer measured: the element single-slide-render.ts tagged with its screen-canvas record, inside
+	// Present. Its clientWidth is the width screenCanvas() was given, so the verdict applies the rule to the same number.
+	const host = () => [...(h.dialog()?.querySelectorAll('*') || [])].find((el) => el.__latticeScreenCanvas && el.querySelector('iframe.live'));
+	const read = () => {
+		const el = host();
+		const fr = el?.querySelector('iframe.live');
+		const sec = fr?.contentDocument?.querySelector('section');
+		const r = fr?.getBoundingClientRect();
+		return { innerW: innerWidth, innerH: innerHeight, dpr: devicePixelRatio, orientation: screen.orientation?.type || '', hostW: el?.clientWidth ?? 0, slideW: r ? Math.round(r.width) : 0, box: sec ? getComputedStyle(sec).width : '', canvas: el ? String(el.__latticeScreenCanvas.canvas) : '' };
+	};
+	// A turned phone re-lays Present out in steps (`data-settling`), and a resize that crosses the screen canvas line
+	// re-renders the slide once after it settles (single-slide-render.ts scaleFrame). The settling mark can arrive AFTER
+	// the turn's first frame, so its absence alone proved nothing (a self-test read a 100 px host mid-turn). Wait for the
+	// layout to hold: no settling mark, a host of at least 100 px, and the same host, slide and canvas on two reads a
+	// quarter-second apart, bounded at 20 s. A layout that never holds is returned with `settled: false`, and the verdict fails on it.
+	// The signal is Present's own rotation hold: once it has come and gone, the layout is the turned one. In Playwright's
+	// WebKit the hold arrived up to about 0.9 s after the resize, and until then the slide host was a box under 100 px
+	// (34 to 100 px in the traces) that held still,
+	// so "still for a moment" alone was not enough. Where the hold is never seen (a real device can finish it before
+	// the driver's own landscape check returns), the layout must instead stay unchanged for 2 s. Bounded at 20 s.
+	const key = (x) => `${x.hostW}|${x.slideW}|${x.box}|${x.innerW}x${x.innerH}`;
+	let prev = read();
+	let since = Date.now();
+	let g = prev;
+	let settled = false;
+	for (const t0 = Date.now(); Date.now() - t0 < 20000; ) {
+		await h.sleep(250);
+		const x = read();
+		if (key(x) !== key(prev)) since = Date.now();
+		prev = x;
+		const holding = !!h.dialog()?.hasAttribute('data-settling');
+		const ready = x.hostW >= 100 && x.box && !holding && Date.now() - since >= (window.__latticeTurnSawHold ? 250 : 2000);
+		g = x;
+		if (ready) {
+			settled = true;
+			break;
+		}
+	}
+	clearInterval(window.__latticeTurnWatch);
+	return { ...g, settled, sawHold: !!window.__latticeTurnSawHold, turn: (window.__latticeTurnRows || []).join(' | ') };
+}
+
+async function latticePresentCaptions() {
+	const h = latticePresentHelpers();
+	const d = h.dialog();
+	const frame = () => d.querySelector('[data-slide-frame]');
+	const band = () => d.querySelector('.latt-cc-band[data-shown="1"]');
+	const size = () => {
+		const r = frame().getBoundingClientRect();
+		return `${Math.round(r.width)}x${Math.round(r.height)}`;
+	};
+	const walked = (b) => b.querySelectorAll('.latt-cc-line[data-state="now"] [data-spoken="1"]').length + b.querySelectorAll('.latt-cc-line[data-state="read"]').length;
+	const out = { frameBefore: size() };
+	try {
+		(await h.until(() => h.button(/^Play the presentation$/, d), 15000, 'Play')).click();
+		await h.until(() => h.button(/^Pause$/, d), 15000, 'the transport to read Pause');
+		const b = await h.until(band, 30000, 'the captions');
+		await h.until(() => walked(b) > 1, 20000, 'the caption highlight to move past the first word');
+		// The band fades in: wait for its height, not a duration.
+		await h.until(() => b.getBoundingClientRect().height > 20, 10000, 'the caption band to take its height');
+		const fr = frame().getBoundingClientRect();
+		const cr = b.getBoundingClientRect();
+		const cs = getComputedStyle(b);
+		const inner = b.clientHeight - Number.parseFloat(cs.paddingTop) - Number.parseFloat(cs.paddingBottom);
+		const track = b.querySelector('.latt-cc-track');
+		const now = b.querySelector('.latt-cc-line[data-state="now"]');
+		const lineH = now ? Number.parseFloat(getComputedStyle(now).lineHeight) || 0 : 0;
+		Object.assign(out, {
+			lineH: Math.round(lineH * 10) / 10,
+			screenLines: lineH > 0 && track ? Math.round(track.offsetHeight / lineH) : 0,
+			inside: cr.top >= fr.top - 1 && cr.bottom <= fr.bottom + 1 && cr.left >= fr.left - 1 && cr.right <= fr.right + 1,
+			lit: walked(b),
+			caption: (b.querySelector('.latt-cc-line[data-state="now"]')?.textContent || '').trim().slice(0, 60),
+			bandH: Math.round(inner),
+			trackH: track ? track.offsetHeight : 0,
+			// The band over the slide sizes to its sentence (stage-chrome.js `.latt-cc-over .latt-cc-band`, height:auto):
+			// a fixed band either clips a caption that wraps or leaves it adrift in empty space. Within 2 px of rounding.
+			clipped: !track || Math.abs(inner - track.offsetHeight) > 2 || b.scrollHeight > b.clientHeight + 1,
+		});
+		h.button(/^Pause$/, d).click();
+		await h.until(() => h.button(/^Play the presentation$/, d), 15000, 'the transport to read Play');
+	} catch (e) {
+		out.error = String(e.message || e).slice(0, 200);
+	}
+	out.frameAfter = size();
+	out.resized = out.frameAfter !== out.frameBefore;
+	return out;
+}
+
 // The steps are reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), never imported,
 // so they are put on the page's global object here rather than left as declarations that look unused.
-Object.assign(globalThis, { latticePresentReceive, latticePresentImport, latticePresentReady, latticePresentOpen, latticePresentStep, latticePresentAlive });
+Object.assign(globalThis, { latticePresentReceive, latticePresentImport, latticePresentReady, latticePresentOpen, latticePresentStep, latticePresentAlive, latticePresentWatchTurn, latticePresentGeometry, latticePresentCaptions });

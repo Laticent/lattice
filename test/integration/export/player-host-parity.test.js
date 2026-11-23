@@ -76,9 +76,16 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{…}`, and the Read article gains its
 // `.lp-handout` rule set, where each slide's handout now prints. CSS only (+223 bytes). Both
 // hosts give the new SHA.
-// Both re-blesses above, together (rebased on the light cover): 108,581 + 223 = 108,804 bytes.
-const GOLDEN_SHA = '3951c244bc7cafe110a396ab36811cebd65e93ea2a0f5eae7da3a46b1988b238';
-const GOLDEN_BYTES = 108804;
+// Re-blessed 2026-11-20 (#3304, the screen canvas): the player's JS-path frame and slide rules read the canvas from
+// --lp-cw/--lp-ch/--lp-cwn with the export's canvas as the fallback, and fit()/fitRead() pick it with lpCanvas, which
+// carries lib/core/screen-canvas.mjs `screenCanvas` as text and stamps --_sec-1cqi on a switch (108,543 -> +2,184 bytes
+// = 110,727; the CSP `script-src` hash moves with the script). The fixture is not 4K, so its canvas is unchanged at run
+// time. Both hosts produce the new SHA, so parity holds.
+// other's bytes), measured on the merged tree. Both hosts produce it.
+// Merged again 2026-11-21 with the four notes (main): 108,804 + 2,184 (#3304) = 110,988 bytes, measured on the merged
+// tree. Both hosts produce it.
+const GOLDEN_SHA = '10914d4686da74cd59741872d7ba70705bc723d66a989faac9cc1ce72b1ffbbb';
+const GOLDEN_BYTES = 110988;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
