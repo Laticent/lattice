@@ -213,6 +213,8 @@ if (process.env.PROBE === 'present-narration') {
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.alive = out.samples.at(-1)?.mark === played.mark;
+			out.pressure = await call('latticeNarrationPressure()');
+			console.log(`  ${out.arm} after collection pressure: ${out.pressure.beforeMB} -> ${out.pressure.afterMB} MB of decoded audio uncollected (${out.pressure.clips} clips, ${out.pressure.decodedMB} MB decoded in all)`);
 		} catch (e) {
 			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
 		}

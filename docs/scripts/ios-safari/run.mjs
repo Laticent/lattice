@@ -1139,6 +1139,11 @@ async function runPresentNarrationProbe(id) {
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.peakGrewMB = peak;
 			out.alive = out.samples.at(-1)?.mark === played.mark;
+			// Reported, never judged: the audio still uncollected after the page is pushed to collect. It tells collection
+			// lag (falls to a few clips) from audio something still holds (stays high); see latticeNarrationPressure.
+			const p = await call('latticeNarrationPressure()').catch((e) => ({ error: String(e.message || e).slice(0, 120) }));
+			out.pressure = p;
+			console.log(`${LABEL}: narration ${out.arm} after collection pressure: ${p?.error ? `ERROR ${p.error}` : `${p.beforeMB} -> ${p.afterMB} MB of decoded audio uncollected (${p.clips} clips, ${p.decodedMB} MB decoded in all)`}`);
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 			console.log(`${LABEL}: narration ${out.arm}: ERROR ${out.error}`);
