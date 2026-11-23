@@ -23,8 +23,10 @@ name: Fit nightly (per-component split ratchet)
 # not ratcheted here. Cross-engine runs and a visual montage are recorded in §9 as later
 # steps.
 #
-# COST. 94 galleries x 3 boxes x 2 venues x 2 renders (as shipped, and whole) = 1,128 CLI
-# renders of the AUTHORED slides only (`--edits none`), then the in-page scoring. Measured on
+# COST. 94 galleries x 3 boxes x 3 venues x 2 renders (as shipped, and whole) = 1,692 CLI
+# renders of the AUTHORED slides only (`--edits none`), then the in-page scoring. With the phone
+# venue and the measured split, the sweep step took 48.5 minutes against 30.0 with two venues
+# (runs 45231947037 and 45150936734, 2026-11-23); the owner kept phone at that cost. Measured on
 # ubuntu-latest (4 cores) before `--edits none`, with every perturbed copy as well: 2,421 s to
 # render and 2,009 s to score, 74 minutes, which a 75-minute ceiling cut at its last step
 # (run 40839485067, 2026-10-29). The ratchet counts authored slides only, so the edits bought
