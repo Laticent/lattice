@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // A Library card's action row must FIT INSIDE ITS CARD at every width.
 //
@@ -19,15 +19,6 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 const KINDS = ['Probe Theme', '.quarter-callout', 'Boardroom Linen'];
 
-/**
- * A confirmation pill that is still LIVE, never one on its way out. Two Saves 2.6 s apart land on
- * the first pill's dying edge, and notify.ts (trap 3 in `raiseSlot`) then raises the new message
- * again on a fresh id: for Sonner's 200 ms exit the dying pill, marked `data-removed="true"` with
- * the new text merged into it, sits beside the fresh one. A bare `getByText` matches both and fails
- * strict mode, which is what studio-smoke hit on #3451. The fresh pill is the one a reader sees.
- */
-const liveToast = (page: Parameters<typeof gotoStudio>[0], text: RegExp) =>
-	page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
 
 async function retype(page: Parameters<typeof gotoStudio>[0], label: string, text: string) {
 	await page.getByRole('textbox', { name: label }).click();

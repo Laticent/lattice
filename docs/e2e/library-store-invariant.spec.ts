@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // THE UI GUARD IS STALE ACROSS TABS. THE STORE IS WHAT ACTUALLY HOLDS THE LINE.
 //
@@ -23,7 +23,7 @@ test('@smoke a stale collision guard cannot write two records under one name', a
 	await page.getByRole('button', { name: 'Finish', exact: true }).click();
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Alpha Wash');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved "Alpha Wash"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Alpha Wash"/)).toBeVisible();
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('button', { name: 'Edit Alpha Wash' }).click();
@@ -37,7 +37,7 @@ test('@smoke a stale collision guard cannot write two records under one name', a
 	await two.getByRole('button', { name: 'Finish', exact: true }).click();
 	await two.getByRole('textbox', { name: /finish name/i }).fill('Beta Wash');
 	await two.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(two.getByText(/Saved "Beta Wash"/)).toBeVisible();
+	await expect(liveToast(two, /Saved "Beta Wash"/)).toBeVisible();
 	await two.close();
 
 	// Tab 1 renames its pinned record onto the name tab 2 just took. The guard is blind

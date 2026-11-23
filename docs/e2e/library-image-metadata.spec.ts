@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, liveToast, setEditorContent, shareExport, test } from './studio-fixture';
 
 // The Library's photo detail dialog, driven on the real Studio: open a card, edit description, credit,
 // date and name, and prove the record, the reopened dialog and the fit of the dialog at 1440 / 820 / 390.
@@ -193,7 +193,7 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	// (its trap 3), so for a moment the closing copy (`data-removed="true"`, fading out) and the fresh one are both in the
 	// DOM. Leaving out the closing copy keeps the check to the pill the person can read, so it cannot pass on a copy that
 	// is already on its way out, and exactly one live copy means a doubled notice would still fail.
-	const renamedNotice = page.locator('[data-sonner-toast]:not([data-removed="true"])', { hasText: /“probe-old” was taken/ });
+	const renamedNotice = liveToast(page, /“probe-old” was taken/);
 	await expect(renamedNotice).toHaveCount(1);
 	await expect(renamedNotice).toBeVisible();
 });
