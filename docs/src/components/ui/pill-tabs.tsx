@@ -33,12 +33,10 @@ export type PillTab = {
  * `hideFirst` lists tab values in the order they give up their place: least likely first.
  * The FIRST tab (an "All") never folds. Selection does NOT change who folds: a tab picked from
  * the menu names the More pill instead of swapping a neighbor out, because a row that rearranges
- * itself under a tap is the jank this exists to remove. `collapse` folds every tab but the first: the phone
- * while the keyboard is up, where one row of pills is still too much of what is left.
+ * itself under a tap is the jank this exists to remove.
  * Returns the folded values; an empty set means everything fits and no More pill is drawn.
  */
-export function foldPills({ values, widths, room, gap, moreWidth, hideFirst, collapse = false }: { values: string[]; widths: number[]; room: number; gap: number; moreWidth: number; hideFirst: string[]; collapse?: boolean }): Set<string> {
-	if (collapse) return new Set(values.slice(1));
+export function foldPills({ values, widths, room, gap, moreWidth, hideFirst }: { values: string[]; widths: number[]; room: number; gap: number; moreWidth: number; hideFirst: string[] }): Set<string> {
 	const total = (shown: number[]) => shown.reduce((a, w) => a + w, 0) + gap * Math.max(0, shown.length - 1);
 	if (total(widths) <= room) return new Set();
 	const folded = new Set<string>();
@@ -59,7 +57,6 @@ export function PillTabs({
 	className,
 	dense = false,
 	overflow,
-	menuReturnFocus,
 }: {
 	tabs: PillTab[];
 	value: string;
@@ -71,12 +68,9 @@ export function PillTabs({
 	/**
 	 * Keep the strip to ONE row: tabs that do not fit fold into a "More ▾" pill, `hideFirst`
 	 * (least likely first) deciding who folds. Without it the strip wraps, as it always has.
-	 * `collapse` folds everything but the first tab, and `collapsedLabel` names the More pill then.
 	 * A folded tab that is selected names the More pill, so the choice stays visible.
 	 */
-	overflow?: { hideFirst: string[]; collapse?: boolean; moreLabel?: string; collapsedLabel?: string };
-	/** Where focus goes when the More menu closes; the trigger by default. */
-	menuReturnFocus?: () => HTMLElement | null;
+	overflow?: { hideFirst: string[]; moreLabel?: string };
 }) {
 	const rowRef = React.useRef<HTMLDivElement>(null);
 	const measureRef = React.useRef<HTMLDivElement>(null);
@@ -90,15 +84,13 @@ export function PillTabs({
 		// A row with no width has not been laid out, or is `display:none` (the phone gallery swaps
 		// two strips on focus): keep the last good fold rather than folding everything, which would
 		// flash "All · More" for a frame when it shows again. SettingsSectionTabs learned the same.
-		// `collapse` needs no measurement, so it folds even while hidden: a strip that starts
-		// `display:none` must show folded on its first visible frame.
-		if (row.clientWidth === 0 && !overflow.collapse) return;
+		if (row.clientWidth === 0) return;
 		const pills = [...meas.children] as HTMLElement[];
 		const widths = pills.slice(0, tabs.length).map((el) => el.getBoundingClientRect().width);
 		// The More pill can carry any folded tab's name, so budget for the widest one plus the
 		// chevron. Budgeting for the CURRENT selection would refold the row when you pick from it.
 		const moreWidth = Math.max(pills[tabs.length]?.getBoundingClientRect().width ?? 0, ...widths.slice(1).map((w) => w + 20));
-		const next = foldPills({ values: tabs.map((t) => t.value), widths, room: row.clientWidth, gap: gapPx, moreWidth: moreWidth + gapPx, hideFirst: overflow.hideFirst, collapse: overflow.collapse });
+		const next = foldPills({ values: tabs.map((t) => t.value), widths, room: row.clientWidth, gap: gapPx, moreWidth: moreWidth + gapPx, hideFirst: overflow.hideFirst });
 		setFolded((prev) => (prev.size === next.size && [...next].every((v) => prev.has(v)) ? prev : next));
 	}, [overflow, tabs, gapPx]);
 	useIsomorphicLayoutEffect(refit, [refit]);
@@ -168,19 +160,11 @@ export function PillTabs({
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<button type="button" aria-label={pickedHidden ? `${ariaLabel}: ${pickedHidden.label}, more` : `More ${ariaLabel.toLowerCase()}`} className={pillClass(!!pickedHidden)}>
-							{pickedHidden ? pickedHidden.label : overflow.collapse && overflow.collapsedLabel ? overflow.collapsedLabel : moreLabel}
+							{pickedHidden ? pickedHidden.label : moreLabel}
 							<ChevronDown className="size-3.5" aria-hidden />
 						</button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent
-						align="start"
-						onCloseAutoFocus={(e) => {
-							const el = menuReturnFocus?.();
-							if (!el) return;
-							e.preventDefault();
-							el.focus();
-						}}
-					>
+					<DropdownMenuContent align="start">
 						<DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
 							{hidden.map((t) => (
 								<DropdownMenuRadioItem key={t.value} value={t.value}>

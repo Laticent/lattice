@@ -86,7 +86,6 @@ const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progr
 const FOLD_FIRST = ['layout', 'imagery', 'comparison', 'progression', 'inventory', 'statement', 'evidence', 'anchor'];
 // Module constants, so PillTabs' measuring effect does not re-run on every render of the gallery.
 const PILLS_ONE_ROW = { hideFirst: FOLD_FIRST };
-const PILLS_COLLAPSED = { hideFirst: FOLD_FIRST, collapse: true, collapsedLabel: 'Family' };
 // While a phone types, the sheet answers to the keyboard (panel.tsx MOBILE_HEIGHT) and has
 // about 330px left. These two variants key off the SAME question the panel asks — is a field in
 // this sheet focused, or held through the tap that ends the typing (`useSheetTapHold`)? — so the
@@ -94,12 +93,13 @@ const PILLS_COLLAPSED = { hideFirst: FOLD_FIRST, collapse: true, collapsedLabel:
 // cannot make the rows move under the finger. CSS rather than state for that reason: the hold
 // is an attribute, and a focus handler would undo the layout at `mousedown`.
 //
-// The third clause is the "Family ▾" menu itself. Opening it moves focus out of the field (the
-// menu renders outside the dialog), so without it the typing layout undid itself under the tap:
-// the trigger went `display:none`, the open menu lost its anchor and jumped to the page corner,
-// and a pick returned focus to <body> (found by the checker, reproduced at 390px).
-const WHILE_TYPING_HIDE = '[[role=dialog]:has(input:focus,[data-typing-held],[data-typing-strip]_[aria-expanded=true])_&]:hidden';
-const WHILE_TYPING_SHOW = 'hidden [[role=dialog]:has(input:focus,[data-typing-held],[data-typing-strip]_[aria-expanded=true])_&]:flex';
+// WHILE A PHONE TYPES THERE ARE NO PILLS AT ALL (owner, 2026-11-23, from a real iPhone). The
+// first cut folded them to "All · Family ▾". Any control in that strip is a tap that ends the
+// typing: the keyboard drops, the sheet grows back, the menu opens on a moving page, and focus
+// sent back to the field afterwards cannot raise the keyboard again (iOS raises it only for a
+// gesture), which left the typing layout with no keyboard. Typing is the job while the field
+// has focus; a family picked BEFORE typing still filters, and the count in the field says so.
+const WHILE_TYPING_HIDE = '[[role=dialog]:has(input:focus,[data-typing-held])_&]:hidden';
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 // A tile's React key. Function-band tiles keep a BARE-NAME key so the same tile
@@ -337,7 +337,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	}, [ranked, byName]);
 
 	const count = searching ? flat.length : facet ? pool.length : items.length;
-	const focusSearch = React.useCallback(() => searchRef.current, []);
 	const facetTabs = React.useMemo(() => [{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))], [functions]);
 	// A component's variants that match the current query — the looks a variant-term
 	// search is surfacing under their parent (e.g. "insight" → quote's insight-* looks).
@@ -399,7 +398,8 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			className="flex-1"
 			// The desktop placeholder already carries the whole catalog's count; the read-out is for a
 			// number it does not say — a search, a family, or a phone, whose placeholder is short.
-			hint={compact || searching || facet ? `${count} ${pane ? 'components' : 'slides'}` : undefined}
+			// The active family rides on the count, so it stays readable while the pills are hidden for typing.
+			hint={compact || searching || facet ? `${count} ${pane ? 'components' : 'slides'}${facet ? ` · ${cap(facet)}` : ''}` : undefined}
 		/>
 	);
 
@@ -427,13 +427,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 					<div className={cn('px-4 py-2.5 sm:px-5', compact && WHILE_TYPING_HIDE)}>
 						<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_ONE_ROW} />
 					</div>
-					{/* A phone while typing: "All · Family ▾", so the results get the room. */}
-					{compact && (
-						<div data-typing-strip className={cn('px-4 py-2', WHILE_TYPING_SHOW)}>
-							{/* A pick from the menu hands focus back to the FIELD, not the trigger: you were typing. */}
-							<PillTabs ariaLabel="Slide categories" value={facet ?? 'all'} onValueChange={(v) => setFacet(v === 'all' ? null : v)} tabs={facetTabs} overflow={PILLS_COLLAPSED} menuReturnFocus={focusSearch} />
-						</div>
-					)}
 				</>
 			)}
 

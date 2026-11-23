@@ -186,10 +186,10 @@ process.exit(ok ? 0 : 1);
  * typed keys, never a script `focus()`: iOS raises the keyboard only for a user gesture.
  *
  * What it asserts, with the keyboard up: the visual viewport really shrank (else the run proves nothing and says so);
- * the gallery's results area holds at least one full result tile above the docked search field; the subtitle is hidden and
- * the pills are folded to "All" plus the Family menu; opening Family keeps that layout with the menu under its trigger;
- * a pick returns focus to the search field. The whole device screen, keyboard included, is captured at each stage
- * (`xcrun simctl io screenshot`; a WebDriver screenshot shows only the page).
+ * the gallery's results area holds at least one full result tile above the docked search field, which itself sits
+ * above the keyboard; the subtitle and every family pill are hidden (no control there to end the typing, owner
+ * 2026-11-23). The whole device screen, keyboard included, is captured at each stage (`xcrun simctl io screenshot`;
+ * a WebDriver screenshot shows only the page).
  */
 async function runPickerKeyboardProbe(id) {
 	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
@@ -208,7 +208,6 @@ async function runPickerKeyboardProbe(id) {
 		}
 	};
 	const centerOf = (js) => until(`const el = (${js}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;`);
-	const visible = (sel, text) => `[...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.offsetParent && ${text ? `e.textContent.trim() === ${JSON.stringify(text)}` : 'true'})`;
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	await run(fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'));
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
@@ -246,24 +245,9 @@ async function runPickerKeyboardProbe(id) {
 		step('one full result tile fits between the strip and the field', m.room >= m.card, `room ${m.room}px, tile ${m.card}px (results ${m.resultsTop}-${m.resultsBottom})`);
 		step('the first result tile is wholly visible', m.cardTop >= m.vvTop && m.cardBottom <= m.fieldTop + 1, `tile ${m.cardTop}-${m.cardBottom}, field top ${m.fieldTop}`);
 		step('the subtitle steps aside while typing', !m.subtitleShown);
-		step('the pills fold to All plus the Family menu', m.tabs.join(',') === 'All', m.tabs.join(','));
+		step('no family pills while typing', m.tabs.length === 0, m.tabs.join(',') || 'none');
 	}
 	shot('2-typed');
-	const fam = await centerOf(`document.querySelector('[data-typing-strip] button[aria-haspopup="menu"]')`);
-	if (fam) {
-		await touchAt(id, fam);
-		const menu = await until(`const menu = document.querySelector('[role=menu]'); const t = document.querySelector('[data-typing-strip] button[aria-haspopup="menu"]'); if (!menu || !t) return null;
-			const a = menu.getBoundingClientRect(), b = t.getBoundingClientRect(); return { dx: Math.round(Math.abs(a.left - b.left)), dy: Math.round(a.top - b.bottom), triggerShown: !!t.offsetParent };`, 10000);
-		step('Family opens its menu under the trigger, the folded strip stays', menu?.triggerShown && menu.dx <= 12 && menu.dy >= -2 && menu.dy <= 16, menu ? JSON.stringify(menu) : 'no menu');
-		shot('3-family');
-		const item = await centerOf(visible('[role=menuitemradio]', 'Progression'));
-		if (item) {
-			await touchAt(id, item);
-			const back = await until(`const a = document.activeElement; return a && a.tagName === 'INPUT' && /Search/.test(a.placeholder) ? { label: document.querySelector('[data-typing-strip] button[aria-haspopup="menu"]')?.textContent.trim() } : null`, 10000);
-			step('a pick returns focus to the search field', back, back ? `More pill reads ${back.label}` : `focus on ${await run('return document.activeElement?.tagName')}`);
-		} else step('the Progression item is in the menu', false);
-		shot('4-picked');
-	} else step('the Family trigger is on screen while typing', false);
 	const ok = steps.every((s) => s.pass);
 	return { ok, error: ok ? '' : steps.filter((s) => !s.pass).map((s) => s.name).join('; '), steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
 }

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, isPhone, openAddSlide, test } from './studio-fixture';
+import { chooseGalleryFamily, expect, gotoStudio, isPhone, openAddSlide, test } from './studio-fixture';
 
 // The add-slide gallery holding still and leaving room for its results (owner, 2026-11-23:
 // "search is janky", "a preview in a place it is half visible", "the pills take way too
@@ -42,45 +42,29 @@ test.describe('at the 820px tablet width', () => {
 	});
 });
 
-test('a phone typing gives the results the room: the filters fold into one pill @mobile @webkit-phone', async ({ page }) => {
+test('a phone typing gives the results the room: no pills while the field has focus @mobile @webkit-phone', async ({ page }) => {
 	await gotoStudio(page);
 	test.skip(!isPhone(page), 'phone layout only');
 	await openAddSlide(page);
 	await expect(page.getByText(/^Adds it /)).toBeVisible();
+	// A family picked BEFORE typing keeps filtering, and the count in the field names it.
+	await chooseGalleryFamily(page, 'Progression');
 	await search(page).click();
 	await search(page).fill('timeline');
-	// The subtitle steps aside and the strip becomes "All · Family ▾".
+	// While the field has focus there is nothing to tap but results (owner, 2026-11-23, from an iPhone:
+	// any control here ends the typing, drops the keyboard and moves the page). The subtitle and the
+	// whole strip step aside.
 	await expect(page.getByText(/^Adds it /)).toBeHidden();
-	await expect(strip(page).getByRole('tab')).toHaveText(['All']);
-	await expect(page.getByRole('button', { name: 'More slide categories' })).toContainText('Family');
-	// A full result tile fits between the strip and the docked search field. Measured against
-	// the sheet as the panel sizes it for a focused field; with a real keyboard that sheet is the
-	// visual viewport (UNVERIFIED here: Chromium and WebKit report no keyboard).
+	await expect(page.getByRole('tablist', { name: 'Slide categories' }).filter({ visible: true })).toHaveCount(0);
+	await expect(page.getByRole('dialog').getByText(/\d+ slides · Progression/)).toBeVisible();
+	// A full result tile fits between the top of the results and the docked search field. Measured
+	// against the sheet as the panel sizes it for a focused field; the iOS probe (PROBE=picker-keyboard)
+	// measures it with the real software keyboard up.
 	const room = await grid(page).evaluate((e) => e.getBoundingClientRect().height);
 	const tile = await page.getByRole('button', { name: /^Insert timeline-list/ }).evaluate((e) => (e.parentElement as HTMLElement).getBoundingClientRect().height);
 	expect(room).toBeGreaterThanOrEqual(tile);
-
-	// Opening the menu moves focus out of the field. The typing layout must hold while it is open:
-	// the trigger stays put and the menu opens under it (it used to vanish, and the menu jumped to
-	// the page corner), and a pick hands focus back to the field, not to <body>.
-	// By DOM, not role: an open Radix menu hides everything outside it from the accessibility tree.
-	// The SHEET may resize as the field blurs: that is the panel's no-keyboard height (on an iPhone
-	// the keyboard closes on the same tap). What must hold is the strip — still the collapsed one —
-	// and a menu attached to its trigger.
-	const family = page.locator('[data-typing-strip] button[aria-haspopup="menu"]');
-	await family.click();
-	const menu = page.getByRole('menu');
-	await expect(menu).toBeVisible();
-	await expect(family).toBeVisible();
-	await expect(page.getByText(/^Adds it /)).toBeHidden();
-	await expect
-		.poll(async () => {
-			const [t, m] = [await family.boundingBox(), await menu.boundingBox()];
-			return t && m ? Math.round(Math.abs(m.x - t.x) + Math.abs(m.y - (t.y + t.height))) : -1;
-		})
-		.toBeLessThanOrEqual(12);
-	await page.getByRole('menuitemradio', { name: 'Progression', exact: true }).click();
-	await expect(search(page)).toBeFocused();
+	// Leaving the field brings the strip back as it was.
+	await search(page).blur();
 	await expect(page.getByRole('button', { name: 'Slide categories: Progression, more' })).toBeVisible();
 });
 
