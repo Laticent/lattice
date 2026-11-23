@@ -43,6 +43,8 @@ const PACKAGES = {
 	markup: ['.'],
 	lastra: ['.', './decode'],
 	'segno-markdown': ['.'],
+	filo: ['.'],
+	veduta: ['.'],
 };
 const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
 // A consumer's own strict settings. `skipLibCheck` skips only `.d.ts`, so while `types` pointed at
@@ -96,17 +98,32 @@ function typecheck(consumer, type, source) {
 	}
 }
 
-// THE SAME LIBRARIES, FROM A COMMONJS TYPESCRIPT PROJECT. The libraries are ES modules only
-// (owner ruling 2026-11-23, engineering/decisions/2026-10-07-first-npm-release.md §9), so a
-// CommonJS consumer loads them through Node's `require(esm)`, which our engines floor (>=22.13)
-// has, and TypeScript types that under `module: nodenext`. While each library also shipped a
-// CommonJS copy typed with the ES build's `.d.ts`, this consumer failed with TS1471 on every
-// library. Under `module: node16` TypeScript refuses `require` of an ES module (TS1479) by
-// design: Node 16 could not do it, and Node 16 is below our floor.
-test('every library typechecks from a CommonJS nodenext consumer through require(esm)', { timeout: 180000 }, () => {
+// THE SAME LIBRARIES, FROM A COMMONJS PROJECT. The libraries are ES modules only (owner ruling
+// 2026-11-23, engineering/decisions/2026-10-07-first-npm-release.md §9): no packed library may carry a
+// `.cjs` file or a `require` export branch, and a CommonJS consumer must still load every entry, at
+// run time through Node's `require(esm)` (our engines floor, >=22.13, has it) and in TypeScript under
+// `module: nodenext`. The first assertion is what fails on a tree that still ships CommonJS copies.
+// TypeScript under `module: node16`/`node18` refuses `require` of an ES module with TS1471 by design,
+// with or without a CommonJS copy typed by the ES build's `.d.ts`; that targets Node lines our floor
+// does not support, so it is not tested here.
+test('every library is ES modules only, and a CommonJS consumer loads and typechecks it', { timeout: 180000 }, () => {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nodenext-cjs-'));
 	try {
 		const { consumer, entries } = packedConsumer(tmp);
+		const cjsLeft = [];
+		for (const name of Object.keys(PACKAGES)) {
+			const dir = path.join(consumer, 'node_modules', '@laticent', name);
+			const files = execFileSync('find', [dir, '-name', '*.cjs'], { encoding: 'utf8' }).trim();
+			if (files) cjsLeft.push(`${name}: ${files.split('\n').length} .cjs file(s)`);
+			const exportsMap = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).exports ?? {};
+			for (const [key, target] of Object.entries(exportsMap)) if (target && typeof target === 'object' && 'require' in target) cjsLeft.push(`${name}: exports['${key}'] has a require branch`);
+		}
+		assert.deepEqual(cjsLeft, [], 'a published library still ships CommonJS');
+		// The `/react` and `/trystero` entries import a peer the consumer brings (React, Trystero), which this
+		// scratch consumer has only the types of, so those two typecheck below but are not loaded here.
+		const script = entries.filter(({ spec }) => !/\/(react|trystero)$/.test(spec)).map(({ spec }) => `if (!Object.keys(require('${spec}')).length) throw new Error('${spec} loaded empty');`).join('\n');
+		const loaded = execFileSync(process.execPath, ['-e', `${script}\nprocess.stdout.write('ok')`], { cwd: consumer, encoding: 'utf8' });
+		assert.equal(loaded, 'ok');
 		const source = entries.map(({ id, spec }) => `import ${id} = require('${spec}');\nexport const ${id}Keys = Object.keys(${id});`).join('\n');
 		const output = typecheck(consumer, 'commonjs', `${source}\n`);
 		assert.equal(output, '', `a CommonJS nodenext consumer cannot typecheck the published libraries:\n${output.split('\n').slice(0, 30).join('\n')}`);
