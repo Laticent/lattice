@@ -343,20 +343,20 @@ describe('the fit: register in lint', () => {
 
   test('the old guards: spelling is an error, and the fix keeps what the deck rendered', () => {
     const src = deck(null, '## x\n').replace('marp: true', 'marp: true\nguards: strict  # board pack');
-    const f = rules(src).find((x) => x.rule === 'guards-renamed');
+    const f = rules(src).find((x) => x.rule === 'key-renamed' && x.classToken === 'guards');
     assert.equal(f?.severity, 'error');
     assert.match(f.fix, /fit: trim/);
     assert.equal(f.replaceLine, 'fit: trim  # board pack', '`strict` was TRIM, so the line becomes `fit: trim` and keeps its comment');
     const fixed = core.applyFix(src, f);
     assert.ok(fixed.includes('\nfit: trim  # board pack\n') && !fixed.includes('guards:'), fixed);
-    assert.equal(rules(fixed).filter((x) => x.rule === 'guards-renamed').length, 0);
+    assert.equal(rules(fixed).filter((x) => x.rule === 'key-renamed' && x.classToken === 'guards').length, 0);
   });
 
   test('guards: loose, an unknown value, or guards: beside fit: is an error whose fix deletes the line', () => {
     for (const fm of ['guards: loose', 'guards: strct', 'fit: report\nguards: strict']) {
       const src = deck(null, '## x\n').replace('marp: true', `marp: true\n${fm}`);
-      const out = rules(src).filter((x) => /guards/.test(x.rule));
-      assert.deepEqual(out.map((x) => [x.rule, x.severity]), [['guards-renamed', 'error']], fm);
+      const out = rules(src).filter((x) => x.rule === 'key-renamed' && x.classToken === 'guards');
+      assert.deepEqual(out.map((x) => [x.rule, x.severity]), [['key-renamed', 'error']], fm);
       assert.equal(out[0].replaceLine, '', `${fm}: the line goes`);
       const fixed = core.applyFix(src, out[0]);
       assert.ok(!fixed.includes('guards:'), fixed);

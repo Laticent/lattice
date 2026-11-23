@@ -163,7 +163,7 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 **The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
 (`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
 says `guards:` gets the default, `heal`, and `lint:deck` reports the line as an error
-(`guards-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
+(`key-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
 `guards: loose`, which was the default. A typo (`fit: reprot`) resolves to the default and
 is flagged as `unknown-fit`.
 

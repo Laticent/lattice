@@ -5,7 +5,7 @@
  *   · `heal` is the default and stamps no token (byte-identical renders);
  *   · an annotated or oddly cased value still resolves, and an unknown one falls to the default;
  *   · the retired `guards:` spelling resolves to NOTHING (renames decision D2, 2026-11-21) —
- *     lint's `guards-renamed` rewrites it, the engine never reads it;
+ *     lint's `key-renamed` rewrites it, the engine never reads it;
  *   · `trimEnabled` (the TRIM gate, injected on its own) and `fitLevel` agree on every
  *     combination of override tokens — the two are written out separately because the
  *     injected one may not call the other, and this is what keeps them one rule.
