@@ -68,7 +68,7 @@ author's original TeX.
 
 ## Styling
 
-**KaTeX is the plugin's own copy.** `vendor/katex/` holds KaTeX 0.16.46's `katex.min.js`, its
+**KaTeX is the plugin's own copy.** `vendor/katex/` holds KaTeX 0.18.2's `katex.min.js`, its
 `katex.min.css`, its 20 woff2 faces and its `LICENSE`, each recorded with its version and SHA-256 in the manifest's
 `vendor` (a directory is hashed as a tree). Every surface reads that copy: the engine typesets with it
 on the CLI, the docs site's on-demand `lattice-katex.js` bundles it, and the stylesheet and faces below

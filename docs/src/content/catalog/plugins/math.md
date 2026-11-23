@@ -8,7 +8,7 @@ useWhen: Your slides carry formulas — a model, a proof, a rate — and a scree
 syntax: '$\pi r^2$  ·  $$ E = mc^2 $$'
 facts:
   - { k: You write, v: '$…$, $$…$$ or a ```math fence' }
-  - { k: Draws with, v: 'KaTeX 0.16 (MIT), bundled' }
+  - { k: Draws with, v: 'KaTeX 0.18 (MIT), bundled' }
   - { k: Surfaces, v: Every one — drawn at render time }
   - { k: Loaded, v: By default }
 reference:
