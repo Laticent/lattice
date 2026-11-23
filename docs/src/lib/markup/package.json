@@ -1,7 +1,6 @@
 {
   "name": "@laticent/markup",
   "version": "0.1.0",
-  "private": true,
   "description": "Balanced-HTML string walking for highlighted code and rendered slides: the tokenizer, the section walker, top-level element and list readers, tag stripping, escaping, and the per-line split of highlighted code. Reads only the string it is given: no DOM, no Node, no dependencies.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
@@ -13,6 +12,9 @@
   "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/markup#readme",
   "bugs": {
     "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "sideEffects": false,

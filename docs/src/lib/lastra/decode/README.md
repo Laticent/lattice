@@ -132,6 +132,7 @@ the committed files.
 
 ### Notices
 
-The JPEG decoder is a TypeScript re-expression of parts of libjpeg-turbo. This software is based in part
-on the work of the Independent JPEG Group. The IJG README and libjpeg-turbo's license file sit beside this
+The JPEG decoder is a TypeScript re-expression of parts of libjpeg-turbo. The JPEG encoder (`../jpeg.ts`)
+follows libjpeg too: `jfdctflt.c`'s float DCT constants, `jpeg_quality_scaling` and `jpeg_gen_optimal_table`.
+This software is based in part on the work of the Independent JPEG Group. The IJG README and libjpeg-turbo's license file sit beside this
 file, unaltered (`README.ijg.txt`, `LICENSE.libjpeg-turbo.md`), and ship with the package.

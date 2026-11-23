@@ -15,6 +15,14 @@ It is stages S0 and S1 of the Segno deck pipeline
   set (D3): the corpus, a fuzz over CommonMark's rule surface and the 652 CommonMark 0.31.2 spec examples
   agree with markdown-it on every token.
 
+## Install
+
+```sh
+npm i @laticent/segno-markdown
+```
+
+## Use
+
 ```js
 import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-markdown';
 
@@ -60,4 +68,7 @@ containers. The tests hold each rule to a hostile ladder, about 10x time for 10x
 fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`, and
 `node --test test/unit/core/deck-model.test.js` for the differential against markdown-it.
 
-Ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin).
+## License
+
+AGPL-3.0-only. Its parsing rules are ported from markdown-it (MIT, Copyright (c) 2014 Vitaly Puzrin, Alex
+Kocharin); its license text ships beside this file as `LICENSE.markdown-it.md`.

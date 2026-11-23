@@ -17,6 +17,10 @@
  * Measured for a 2560 × 1440 slide at quality 90: about 3 MB of log for a photo-heavy slide, and 20 MB for pure noise at
  * quality 95 (the worst case; the slide's own pixels are 14.7 MB).
  *
+ * NOTICE. The DCT constants, the quality scaling and the Huffman table builder follow libjpeg (`jfdctflt.c`,
+ * `jpeg_quality_scaling`, `jpeg_gen_optimal_table`). This software is based in part on the work of the Independent
+ * JPEG Group; the terms ship in decode/README.ijg.txt and decode/LICENSE.libjpeg-turbo.md.
+ *
  * SELF-CONTAINED. `createJpegEncoder` uses nothing outside its own body, so a host can send its source into a page as
  * text (Lattice's lib/export/chrome-recode.js does). jpeg.test.ts rebuilds it from `toString()` alone. Keep it that way.
  */

@@ -1,7 +1,6 @@
 {
   "name": "@laticent/segno-markdown",
   "version": "0.1.0",
-  "private": true,
   "description": "The deck model for Lattice-flavored Markdown: one CommonMark block pass (markdown-it's block rules, matched token for token) writing a flat tape, with slides, slide boundaries, front matter, directive, fence and leaf ranges read off it, and an incremental re-parse that re-reads only the edited slide. Zero dependencies, no DOM, no Node.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
@@ -13,6 +12,9 @@
   "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/segno-markdown#readme",
   "bugs": {
     "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "sideEffects": false,
@@ -38,7 +40,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSE.markdown-it.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"
