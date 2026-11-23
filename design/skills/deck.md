@@ -135,7 +135,7 @@ Bookends are stereotyped. **Title** puts `# h1` first (MD041 wants h1 first),
 then the eyebrow, then a one-sentence subtitle:
 
 ```markdown
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Meridian Freight
 
@@ -148,7 +148,7 @@ The quarter beat plan, but a carrier-capacity squeeze needs a board decision tod
 a full sentence, then tight body:
 
 ```markdown
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Performance · Q2 2026`
 
@@ -162,7 +162,7 @@ a full sentence, then tight body:
 **Closing** is one sentence and a signature — never a bullet list of next steps:
 
 ```markdown
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Strong quarter — let's protect the peak.
 

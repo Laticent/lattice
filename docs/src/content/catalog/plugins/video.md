@@ -83,7 +83,7 @@ What you want is a picture that says "this is a video", names where it plays, an
 Put the record on a line of its own, with a blank line above and below it. A `video` slide lays it out beside its claim; on any other slide it sits among your words as a figure:
 
 ```markdown
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## The 90-second tour.
 

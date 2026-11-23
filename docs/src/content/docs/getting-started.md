@@ -51,7 +51,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # From Signal to Strategy
 
@@ -61,7 +61,7 @@ A decision framework for product leaders.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 - 38%
   - of pipeline stalls trace to a single approval step.

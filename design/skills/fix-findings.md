@@ -151,7 +151,7 @@ pagination: true
 header: "Field service · Q3 update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Field Service Update
 
@@ -161,7 +161,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Overview
 
@@ -198,7 +198,7 @@ pagination: true
 header: "Field service · Q3 update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Field Service Update
 
@@ -208,7 +208,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three fixes put technicians in front of customers sooner.
 
@@ -223,7 +223,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Five smaller fixes close the gaps around each visit.
 
@@ -240,7 +240,7 @@ Eight fixes are live, and routing alone gives each technician forty minutes a da
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Fund winter routing and keep the forty minutes.
 

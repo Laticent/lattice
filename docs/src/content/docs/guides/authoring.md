@@ -16,7 +16,7 @@ pagination: true
 header: "Quarterly Review"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Deck title
 
@@ -26,7 +26,7 @@ One-line subtitle that frames the deck.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three pillars
 
@@ -275,7 +275,7 @@ type yourself:
 title: Board pack — Q4 FY26 (final)
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Q4
 ```
@@ -397,7 +397,7 @@ For a slide that wants **none** of the standard chrome — a bookend, a full-ble
 statement — `silent` clears the header, footer, and page number in one token:
 
 ```markdown
-<!-- _class: content silent -->
+<!-- @meta{layout=content, class=silent} -->
 ## Nothing but the message
 ```
 

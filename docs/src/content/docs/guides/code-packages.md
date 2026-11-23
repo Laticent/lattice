@@ -293,7 +293,7 @@ section.dateline .dateline-date { color: var(--cat-1-mark); }
 `dateline.gallery.md`:
 
 ```md
-<!-- _class: dateline -->
+<!-- @meta{class=dateline} -->
 
 ## Plan
 
@@ -328,7 +328,7 @@ npx lattice deck.md deck.pdf
 ```
 
 ```md
-<!-- _class: dateline -->
+<!-- @meta{class=dateline} -->
 
 ## Launch plan
 

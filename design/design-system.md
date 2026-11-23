@@ -368,7 +368,7 @@ Lattice follows the same pattern. The four-layer model organizes
 authoring grammar. Authors write:
 
 ```markdown
-<!-- _class: cards-grid compact dark -->
+<!-- @meta{layout=cards-grid, class=compact dark} -->
 ```
 
 The first token is the **component name** (the layout). The rest are

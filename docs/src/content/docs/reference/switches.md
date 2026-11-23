@@ -20,7 +20,7 @@ deck's `class:` reaches every slide, including one that sets its own
 class: no-progress
 ---
 
-<!-- _class: content with-progress -->
+<!-- @meta{layout=content, class=with-progress} -->
 
 # This slide keeps its section rail
 ```

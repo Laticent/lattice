@@ -125,7 +125,7 @@ To set the frame, look or corners for the whole deck, use the `spark:` front-mat
 spark: etch rounded
 ---
 
-<!-- _class: table spark-bare -->
+<!-- @meta{layout=table, class=spark-bare} -->
 ```
 
 In the Studio, type `` `~ `` for a menu of starter sparks. After a comma, the menu offers only the words that fit next.

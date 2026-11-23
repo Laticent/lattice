@@ -118,7 +118,7 @@ Set what's visible with each axis's `domain`:
 To put a plot beside its equation, use the `math` slide's `canvas` variant — write the equation with the [Math](/plugins/math/learn/) plugin, then the plot:
 
 ````markdown
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 ## The logistic curve.
 

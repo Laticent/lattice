@@ -186,7 +186,7 @@ pagination: true
 header: "Northwind Clinics · Ops review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Northwind Clinics
 
@@ -196,7 +196,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Median wait, Q3`
 
@@ -205,7 +205,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three changes cut the wait, and none of them cost headcount.
 
@@ -218,7 +218,7 @@ Wait times fell by a third, and one staffing call decides whether that holds.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Monday mornings still undo most of the gain.
 
@@ -228,7 +228,7 @@ Walk-ins double on Mondays, and the shared rota cannot cover all six clinics at 
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision required`
 
@@ -247,7 +247,7 @@ The rota holds every day but Monday, and winter adds a fifth more walk-ins.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Approve two nurses and keep the wait under twenty minutes.
 
