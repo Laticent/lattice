@@ -808,6 +808,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// there is one implementation of each, not a second hand-rolled copy — the cost
 	// that ruled out putting the browser itself on the projector.
 	const [stageHost, setStageHost] = React.useState<{ win: Window; cc: HTMLElement | null; rail: HTMLElement | null } | null>(null);
+	const stageHostRef = React.useRef(stageHost);
+	stageHostRef.current = stageHost;
 	// A STAGE IS OPEN, which is not the same as "its host nodes are live". A rewrite (a lens,
 	// a site palette, a mode) drops `stageHost` to null until the new document says `ready`, so
 	// the portals let go of detached nodes; the presenter view, its talk clock and the Stage pill
@@ -895,7 +897,18 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// A real teardown (not a rewrite) ends the Stage. A write that THREW also arrives as a plain null, with
 				// the window still open, so the window itself is asked: only a Stage that is gone stops the build. The
 				// built document stays only while the build effect below keeps it current (its cleanup lets go of it).
-				if (!win && !rewriting && !stageRef.current?.isOpen()) setStageWanted(false);
+				if (!win && !rewriting) {
+					if (!stageRef.current?.isOpen()) setStageWanted(false);
+					// The window is open but a write THREW, so it cannot take the deck. The console lets go on the press now
+					// (`stageOn` counts `stageWanted`), so leaving it up would keep the captions and the rail off both
+					// surfaces with the room on a holding page. Close it: the teardown clears `stageWanted`, and the console
+					// is Present again with its captions. Deferred a microtask, out of the controller's own paint.
+					else
+						queueMicrotask(() => {
+							stageRef.current?.close();
+							notifyRef.current('The Stage could not show this deck, so it closed. Press Stage to try again.');
+						});
+				}
 				setStageHost(() => {
 					if (!win) return null;
 					try {
@@ -1005,7 +1018,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// NOT SILENT. A rejected render left the Stage on "Preparing the stage…"
 				// forever while the console's pill read *not* pressed — the console telling
 				// the presenter no Stage exists while the room reads a loading message.
-				if (!canceled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
+				if (canceled || !stageRef.current?.isOpen()) return;
+				// A Stage that never showed the deck closes: the console let go of its captions and rail on the press, and
+				// they would otherwise be on neither surface while the room reads a holding page. One that is already showing
+				// a deck (this was a rebuild for a palette or a lens) keeps the deck it has.
+				if (!stageHostRef.current) {
+					stageRef.current.close();
+					notifyRef.current('The Stage could not render this deck, so it closed. Press Stage to try again.');
+				} else notifyRef.current('The Stage could not render this change; it is still showing the deck as it was.');
 			});
 		// Built NOW, while Present is opening, never deferred to idle. The render is one long main-thread task (~100 ms
 		// on the owner's deck), and an idle build lands about when the presenter makes their first tap: the counter moved

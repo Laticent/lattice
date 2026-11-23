@@ -2,6 +2,7 @@ import { act as act2, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
 import { PresentOverlay } from './PresentOverlay';
+import { buildStageDocument } from './studio-stage';
 
 // The module under test reads the lint core synchronously; in the app, its loader awaits this first.
 beforeAll(() => loadAuthoring());
@@ -137,6 +138,82 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		});
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
+	});
+
+	// The console lets go on the PRESS now (the presenter view, the captions and the rail move in that frame, before the
+	// Stage says `ready`). So a Stage that can never show the deck must not stay open: the captions and the rail would be
+	// on neither surface while the room reads "Preparing the stage…". It closes, and the console is Present again.
+	it('closes a Stage whose deck fails to render, and puts the captions and the rail back in the console', async () => {
+		vi.mocked(buildStageDocument).mockRejectedValueOnce(new Error('render failed'));
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+		const doc = document.implementation.createHTMLDocument('Stage');
+		// The holding page the press writes ("Preparing the stage…"), which is how the controller knows the window is ours.
+		doc.body.innerHTML = '<p id="latt-holding"></p>';
+		let closed = false;
+		const fake = {
+			document: Object.assign(doc, { open: () => doc, write: () => {}, close: () => {} }),
+			get closed() {
+				return closed;
+			},
+			close: () => {
+				closed = true;
+			},
+			focus: () => {},
+			postMessage: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		} as unknown as Window;
+		const realOpen = window.open;
+		window.open = (() => fake) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		// No `ready` ever comes: the render rejected, so the window never got the deck.
+		await vi.waitFor(() => expect(closed).toBe(true));
+		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	it('closes a Stage whose window cannot take the deck (the write throws), and puts the rail back in the console', async () => {
+		vi.mocked(buildStageDocument).mockResolvedValueOnce({ doc: '<p>deck</p>', total: 2, bg: '#15110d' } as Awaited<ReturnType<typeof buildStageDocument>>);
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		const doc = document.implementation.createHTMLDocument('Stage');
+		doc.body.innerHTML = '<p id="latt-holding"></p>';
+		let closed = false;
+		let writes = 0;
+		const fake = {
+			// The holding page goes in (the first write); the deck does not.
+			document: Object.assign(doc, {
+				open: () => doc,
+				write: () => {
+					if (++writes > 1) throw new Error('write failed');
+				},
+				close: () => {},
+			}),
+			get closed() {
+				return closed;
+			},
+			close: () => {
+				closed = true;
+			},
+			focus: () => {},
+			postMessage: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		} as unknown as Window;
+		const realOpen = window.open;
+		window.open = (() => fake) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		await vi.waitFor(() => expect(closed).toBe(true));
+		expect(writes).toBeGreaterThan(1);
+		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
 	});
 
 	it('takes nav from the Stage — but only the four verbs, not Object.prototype', async () => {

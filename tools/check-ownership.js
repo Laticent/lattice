@@ -9073,8 +9073,8 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // HARD RULE #32 — a test passes or fails on the code alone.
 // ══════════════════════════════════════════════════════════════════════════
 // A flaky test is one whose verdict depends on something the code does not control: the clock, the machine's load, the
-// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the nine shapes,
-// F1 to F9). This census counts the three a parser can find in a committed test file:
+// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the ten shapes,
+// F1 to F10). This census counts the three a parser can find in a committed test file:
 //
 //   fixed-sleep     F2  a hand-made sleep (`new Promise((r) => setTimeout(r, ANY))`), a call to a `sleep` / `delay` /
 //                       `wait` / `pause` helper, and `waitForTimeout(…)` OUTSIDE docs/e2e. Inside docs/e2e every
