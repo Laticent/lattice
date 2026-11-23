@@ -276,7 +276,8 @@ August `## 1.0.0` section archived; weekly releases later, in their own PR.
 ignored, or private. The release runs the same check in strict mode, which also requires all
 thirteen to exist and be public. On `main` today strict mode names four problems, each an open PR's
 job: `markup` and `lastra` are private (#3451), and `@laticent/segno-languages` does not exist yet
-while the engine still depends on `@laticent/segno-markdown` (the Segno desk's rename, B9). So a
+while the engine still depends on `@laticent/segno-markdown` (the Segno desk's rename, B9). (Both have
+since merged: #3451 on 2026-11-23, and the rename as #3488 the same day; strict mode is clean.) So a
 release cut before those merge stops before it opens a PR.
 
 **Config choices.** `privatePackages.version: true`, `tag: false`. With `version: false`,

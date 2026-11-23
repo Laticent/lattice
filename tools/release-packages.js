@@ -13,11 +13,13 @@
  *   private        `"private": true`. npm refuses to publish it, and so does Changesets.
  *
  * Two checks, one function. `publishSetProblems()` (the default, used by `build:check` and the
- * unit test) holds the classification on any commit, and tolerates the one PR the 1.0.0 plan is
- * still waiting on: the Segno desk's rename of `@laticent/segno-markdown` (public since #3451) to
- * `@laticent/segno-languages` (B9). `{ strict: true }` is the release's preflight: every package in
- * PUBLISH_SET must exist and be public, so a release cut before that rename lands stops before it
- * opens a PR, rather than publishing an engine whose dependencies 404.
+ * unit test) holds the classification on any commit. `{ strict: true }` is the release's
+ * preflight: every package in PUBLISH_SET must exist and be public, so a release cut while one is
+ * missing or private stops before it opens a PR, rather than publishing an engine whose
+ * dependencies 404. The two differ only by PENDING and PENDING_RENAMES, which excuse, for the
+ * default check alone, a publish-set package an open PR is about to make public or rename into
+ * place. Both are empty today: #3451 made markup and lastra public, and #3488 renamed
+ * segno-markdown to segno-languages.
  *
  * Decision: engineering/decisions/2026-10-07-first-npm-release.md §11.
  */
@@ -57,14 +59,13 @@ const IGNORED = Object.freeze([
 
 /**
  * Publish-set members the default check lets be private or missing, because an open PR fixes
- * each before 1.0.0. The strict check ignores this list. Delete an entry once its PR merges; a
- * stale entry is harmless but says something untrue. (#3451 made markup and lastra public.)
- *   segno-languages      the Segno desk's rename of @laticent/segno-markdown (B9)
+ * each. The strict check ignores this list. Add an entry with the PR that fixes it; delete it once
+ * that PR merges.
  */
-const PENDING = Object.freeze(['@laticent/segno-languages']);
+const PENDING = Object.freeze([]);
 
-/** A workspace that never publishes, mapped to the publish-set package that replaces it (B9). */
-const PENDING_RENAMES = Object.freeze({ '@laticent/segno-markdown': '@laticent/segno-languages' });
+/** A workspace that never publishes, mapped to the publish-set package an open PR renames it to. */
+const PENDING_RENAMES = Object.freeze({});
 
 /** Every workspace package: name, version, folder, private flag and `@laticent/*` runtime deps. */
 function workspacePackages(root = ROOT) {
@@ -113,8 +114,8 @@ function publishSetProblems({ strict = false, root = ROOT, configPath = path.joi
     const ignored = IGNORED.includes(p.name);
     if (inSet && ignored) problems.push(`${p.name} is in both PUBLISH_SET and IGNORED.`);
     // A public package that is in neither list would publish the first time anyone ran a release.
-    // segno-markdown is public since #3451 but never publishes: B9 renames it to segno-languages. The
-    // default check excuses a pending rename; the strict one (the release) refuses until it lands.
+    // The default check excuses a workspace an open PR is renaming (PENDING_RENAMES); the strict one,
+    // which the release runs, refuses until the rename lands.
     if (!inSet && !ignored && !p.private && (strict || !PENDING_RENAMES[p.name])) {
       problems.push(
         `${p.name} (${p.rel}) is public but in neither PUBLISH_SET nor IGNORED, so the next release would publish it ` +
@@ -125,7 +126,7 @@ function publishSetProblems({ strict = false, root = ROOT, configPath = path.joi
       problems.push(`${p.name} is in PUBLISH_SET but "private": true, so npm would refuse it and the engine's install would 404.`);
     }
     // A published package that depends on an unpublished one installs with an E404. The default
-    // check excuses a dependency that a pending rename replaces (segno-markdown, B9).
+    // check excuses a dependency that a pending rename replaces (PENDING_RENAMES).
     if (inSet && !p.private) {
       for (const d of p.deps) {
         if (!byName.has(d) || PUBLISH_SET.includes(d)) continue;
