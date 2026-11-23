@@ -6,13 +6,13 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-23 — raise the studio lintCoreGz ceiling by 1,000 B (171,974 → 172,974), by hand, at the owner's direction
+### 2026-11-23 — raise the studio lintCoreGz ceiling by 1,026 B (171,974 → 173,000), by hand, at the owner's direction
 
-Owner OK 2026-11-23, relayed by the Segno desk: option (A), "raise studio lintCoreGz by about 1 KB, in its own PR from main", chosen over a second give-back inside PR 3256 (B) or trimming main's new lint code (C). PR 3256 (Segno P4, the inline pass) already gave lint-core bytes back once at the owner's direction ("Give back first": +885 B to about +466 B) and fit with 19 B to spare. Since then main's `@meta` lint work (PRs 3429 and 3426) took main to the ceiling: PR 3488's docs-build on main at afdab9d9e measured studio lintCoreGz at 167.9 KB with 0.0 KB left. PR 3256, rebased onto main at 019b3bf99 with its own share unchanged, measured **172,443 B**, **469 B over** (local `check-route-budget --measure` on a fresh `build:e2e`). The raise is that overage plus about 0.5 KB of room, rounded: PR 3256 lands with 531 B to spare. A hand raise keeps the gate tight where the standard rebaseline would reset it to measured plus its usual slack.
+Owner OK 2026-11-23, relayed by the Segno desk: option (A), "raise studio lintCoreGz by about 1 KB, in its own PR from main", chosen over a second give-back inside PR 3256 (B) or trimming main's new lint code (C). PR 3256 (Segno P4, the inline pass) already gave lint-core bytes back once at the owner's direction ("Give back first": +885 B to about +466 B) and fit with 19 B to spare. Since then main's `@meta` lint work (PRs 3429 and 3426) took main to the ceiling: PR 3488's docs-build on main at afdab9d9e measured studio lintCoreGz at 167.9 KB with 0.0 KB left. PR 3256, rebased onto main at 019b3bf99 with its own share unchanged, measured **172,443 B**, **469 B over** (local `check-route-budget --measure` on a fresh `build:e2e`). The raise is that overage plus about 0.5 KB of room, rounded to 173,000 as the desk relayed: PR 3256 lands with 557 B to spare. A hand raise keeps the gate tight where the standard rebaseline would reset it to measured plus its usual slack.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | lintCoreGz | 152151 | 152151 | +0 | 172974 |
+| studio | lintCoreGz | 152151 | 152151 | +0 | 173000 |
 
 ### 2026-11-22 — raise the studio chartKernelGz ceiling by 1,000 B (90,460 → 91,460), by hand, at the owner's direction
 
