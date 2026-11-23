@@ -114,8 +114,13 @@ test('a .lattice project carries its saved theme and component to another Studio
 				probe.remove();
 				return { accent, outline: getComputedStyle(s).outlineStyle };
 			});
+	// WAIT FOR THE SAVED CSS, not for the section. Saving a component refreshes the Studio's component list from
+	// IndexedDB, and the preview takes the component's CSS from that list, so a deck set right after the save can render
+	// once before the list lands and again, styled, when it does. Reading the first render went red 3 times in 10 at four
+	// workers on main (outline "" in a frame that styled itself about 0.5 s later). The outline is the signal: it can only
+	// read `solid` once the saved CSS is in the frame, and a component that never styles still fails here.
+	await expect.poll(async () => (await rendered(page)).outline, { message: 'the saved component renders at the origin' }).toBe('solid');
 	const origin = await rendered(page);
-	expect(origin.outline, 'the saved component renders at the origin').toBe('solid');
 	const file = await download(page, 'lattice');
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(fs.readFileSync(file));
