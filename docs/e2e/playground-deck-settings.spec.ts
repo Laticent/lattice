@@ -182,8 +182,9 @@ for (const tag of ['@mobile', '@webkit-phone']) {
 		});
 		expect(left).toBeGreaterThanOrEqual(10);
 		expect(right).toBeLessThanOrEqual(vw - 10);
-		// A tap on the row's hint, outside the list, closes it and opens nothing else.
-		await page.getByText('Where the deck is seen — larger rooms get larger type').click({ force: true });
+		// A tap on the row's hint, outside the list, closes it and opens nothing else. The hint is matched by its opening
+		// words: its tail names the venues a deck's shape offers (DeckConfigPanel.tsx), and #2988 rewrote it once.
+		await page.getByText(/^Where the deck is seen —/).click({ force: true });
 		await expect(page.getByRole('listbox')).toHaveCount(0);
 		// …and the next tap on another picker opens exactly one list.
 		await page.locator('.deck-config').getByRole('combobox', { name: 'Choose slide size' }).click();
