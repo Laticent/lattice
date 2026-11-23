@@ -56,7 +56,7 @@ describe('holderOf', () => {
 describe('parseLiving', () => {
   const body = relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 'x', checkpoint: 'y', head: 'abc1234', next: 'z' });
   test('reads baton, holder and head from the header it writes', () => {
-    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'x', head: 'abc1234' });
+    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, holder: 'John Luke Picard', session: ME, since: 'x', head: 'abc1234' });
     assert.equal(relay.parseLiving(relay.setLivingLine(body, 'baton', 'released')).released, true);
   });
 
@@ -318,12 +318,12 @@ describe('npm run baton', () => {
     updated_at: new Date(T0 - 2 * MIN).toISOString(),
     body: relay.livingHeader({ baton: 'held', holder: `John Luke Picard · ${ME}`, since: 's', checkpoint: 'c', head: 'abc1234', next: 'n' }),
   };
-  const fakeApi = ({ comments = [COMMENT], pushedAt = T0 - 5 * MIN } = {}) => {
+  const fakeApi = ({ comments = [COMMENT], pushedAt = T0 - 5 * MIN, draft } = {}) => {
     const calls = [];
     const api = (method, p, opts = {}) => {
       calls.push({ method, p, body: opts.body });
       if (p === 'user') return { login: 'saden1' };
-      if (p.includes('/pulls?')) return [{ number: 3427 }];
+      if (p.includes('/pulls?')) return [{ number: 3427, draft }];
       if (p.includes('/activity?')) return [{ after: TIP, timestamp: new Date(pushedAt).toISOString() }];
       if (p.endsWith('/comments?per_page=100')) return [{ id: 1, user: { login: 'saden1' }, body: 'unrelated' }, ...comments];
       if (method === 'PATCH') return {};
@@ -331,9 +331,9 @@ describe('npm run baton', () => {
     };
     return { api, calls };
   };
-  const go = (argv, { session = THEM, comments, pushedAt, env = { LATTICE_SESSION: ME }, git } = {}) => {
+  const go = (argv, { session = THEM, comments, pushedAt, draft, env = { LATTICE_SESSION: ME }, git } = {}) => {
     const lines = [];
-    const { api, calls } = fakeApi({ comments, pushedAt });
+    const { api, calls } = fakeApi({ comments, pushedAt, draft });
     const code = run(argv, {
       env,
       api,
@@ -385,6 +385,35 @@ describe('npm run baton', () => {
     assert.equal(r.calls.filter((c) => c.method === 'PATCH').length, 0);
   });
 
+  test('take on a free baton of a READY PR: exit 1, says to park it first (rule 7)', () => {
+    const old = { ...COMMENT, updated_at: new Date(T0 - 120 * MIN).toISOString() };
+    const ready = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN, draft: false });
+    assert.equal(ready.code, 1);
+    assert.match(ready.text, /PR #3427 is ready, not a draft: .*npm run pr:park -- 3427/);
+    const draft = go(['take', 'claude/x'], { comments: [old], pushedAt: T0 - 120 * MIN, draft: true });
+    assert.equal(draft.code, 0, draft.text);
+  });
+
+  test('a branch parked at the merge gate is not takeable, even with a free baton; a person can reopen it', () => {
+    const parked = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', `parked at ${TIP.slice(0, 7)}`) };
+    const st = go(['status', 'claude/x'], { comments: [parked] });
+    assert.equal(st.code, 1);
+    assert.match(st.text, /parked at the merge gate at abc1234/);
+    assert.equal(go(['take', 'claude/x'], { comments: [parked] }).code, 1);
+    assert.equal(go(['take', 'claude/x', '--override'], { comments: [parked] }).code, 0);
+    // a gate for an OLDER head does not block: a push after parking re-opened the line
+    const stale = { ...COMMENT, body: relay.setLivingLine(relay.setLivingLine(COMMENT.body, 'baton', 'released'), 'gate', 'parked at fff0000') };
+    assert.doesNotMatch(go(['status', 'claude/x'], { comments: [stale] }).text, /merge gate/);
+  });
+
+  test('release --gate writes released, the tip, and the gate line', () => {
+    const r = go(['release', 'claude/x', '--gate'], { session: ME });
+    assert.equal(r.code, 0, r.text);
+    const parsed = relay.parseLiving(r.calls.find((c) => c.method === 'PATCH').body.body);
+    assert.equal(parsed.released, true);
+    assert.equal(parsed.gate, TIP.slice(0, 7));
+  });
+
   test('release twice: the second is a no-op success', () => {
     const released = { ...COMMENT, body: relay.setLivingLine(COMMENT.body, 'baton', 'released') };
     const r = go(['release', 'claude/x'], { session: ME, comments: [released] });
@@ -433,6 +462,7 @@ describe('npm run baton', () => {
     assert.equal(go(['grab']).code, 64);
     assert.equal(go(['status', '--pr', 'x']).code, 64);
     assert.equal(go(['status', '--override']).code, 64);
+    assert.equal(go(['take', '--gate']).code, 64);
     assert.equal(go(['status', '--now', '2026-11-22T12:00:00']).code, 64);
     assert.equal(go(['status', '--now', '2026-11-22T12:00:00Z']).code, 1);
   });

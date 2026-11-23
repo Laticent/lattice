@@ -350,6 +350,36 @@ or checkpoint; don't start subagents or long work."
 
 These are workflow rules in `engineering/workflow.md` §Relay; no tool, hook or CI step changes.
 
+## The simulated cold pickup (2026-11-23)
+
+The owner approved a simulation: a fresh session on this account played James Tiberius Kirk
+(`LATTICE_ACTOR=kirk`, GitHub only, starting cold), session `session_01DPMMjGBqfQgvcc5CHWpJQ8`.
+Credit for the findings below is that session's.
+
+**What worked.** From the PR body, the living comment and §Relay alone it found the protocol;
+`npm run baton -- status` gave a clear FREE with its reason; `npm run relay -- trailer` and `-- sign`
+printed the Kirk lines.
+
+**Where it stopped, correctly, before taking the branch:**
+
+1. **The rules were not yet in force.** §Relay and the new #31 live only on the unmerged branch; `main`'s
+   #31 still forbade pushing to another session's branch. The relay rules apply once this PR merges, not
+   to the PR that introduces them.
+2. **The handoff contradicted §Relay.** The 🎯 card's STANDING ORDERS still said "push only to your own
+   branch; never push to another session's (#31)". Fixed: "push only while you hold the baton".
+3. **`take` did not mention rule 7** on a ready PR. Fixed: it refuses with the `npm run pr:park` hint.
+4. **No rule for a branch parked at the merge gate**, where any push voids the owner's 🚦 card. Fixed: a
+   parked branch is not takeable unless the owner reopens it (§Relay rule 8, `release --gate`).
+5. **An owner approval recorded in another session cannot be checked from Kirk's side.** By design: under
+   #31 the owner's word arrives in the session that acts.
+6. **No instructions for setting `LATTICE_ACTOR`**, and a stale handoff line that this worker "signs
+   inline as picard on the desk's word". Fixed in §Signatures; the line is gone.
+7. **The PR disagreed with itself on the leftover test refs.** There are three:
+   `claude/relay-race-probe-1795380296`, `relay-rescue/claude/relay-race-probe-1795380296/session_RACEaaaa`
+   and `…/session_RACEcccc`.
+
+The owner chose to fix these, merge, and re-run the simulation on real work under rules that are in force.
+
 ## What this does not fix
 
 - A session that stops loses what it had not pushed (see §As built).

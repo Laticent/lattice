@@ -14,7 +14,8 @@
  * Usage:
  *   npm run baton -- status  [branch] [--pr N]          who holds it, and the lease left
  *   npm run baton -- take    [branch] [--pr N] [--override]   check it is free, then push to take it
- *   npm run baton -- release [branch] [--pr N]          write `baton: released` in the living comment
+ *   npm run baton -- release [branch] [--pr N] [--gate] write `baton: released` in the living comment;
+ *                                                       --gate also marks it parked at the merge gate
  *   npm run baton -- rescue  [branch]                   after a lost race: push your rejected commits to
  *                                                       `relay-rescue/<branch>/<session>` so they outlive the sandbox
  * Options: --no-fetch (trust local origin/<branch>), --now <ISO time> (for a dry run of the lease).
@@ -35,7 +36,7 @@ const relay = require('./relay-core');
 const VERBS = new Set(['status', 'take', 'release', 'rescue']);
 
 function parseArgs(argv) {
-  const o = { verb: null, branch: null, pr: null, fetch: true, now: null, override: false };
+  const o = { verb: null, branch: null, pr: null, fetch: true, now: null, override: false, gate: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--pr') {
@@ -48,6 +49,7 @@ function parseArgs(argv) {
       if (!Number.isFinite(o.now)) throw new relay.RelayError('--now needs an ISO time with a zone, e.g. 2026-11-22T18:00:00Z', 64);
     } else if (a === '--no-fetch') o.fetch = false;
     else if (a === '--override') o.override = true;
+    else if (a === '--gate') o.gate = true;
     else if (a.startsWith('-')) throw new relay.RelayError(`unknown option ${a}`, 64);
     else if (!o.verb) o.verb = a;
     else if (!o.branch) o.branch = a;
@@ -55,6 +57,7 @@ function parseArgs(argv) {
   }
   if (!VERBS.has(o.verb)) throw new relay.RelayError('give a verb: status, take, release or rescue', 64);
   if (o.override && o.verb !== 'take') throw new relay.RelayError('--override goes with take only', 64);
+  if (o.gate && o.verb !== 'release') throw new relay.RelayError('--gate goes with release only', 64);
   return o;
 }
 
@@ -127,7 +130,7 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
     const at = o.now ?? now;
     if (o.verb === 'rescue') return rescue(branch, me, { gitRun, fetch: o.fetch, out });
 
-    const { head, pr, comment, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, now: at, override: o.override, fetch: o.fetch, api, git });
+    const { head, pr, ready, comment, verdict: v } = relay.readBaton({ branch, pr: o.pr, me, now: at, override: o.override, fetch: o.fetch, api, git });
     const where = `${branch}${pr ? ` (PR #${pr})` : ''}`;
     if (o.verb === 'status' || o.verb === 'take') {
       out(`baton for ${where}: ${v.state.toUpperCase()} — ${v.reason}`);
@@ -136,6 +139,11 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
       if (o.verb === 'take') {
         if (v.state === 'held') {
           out('  Not yours to push. Read the living comment, then wait for the lease or a release.');
+          return 1;
+        }
+        if (v.state === 'free' && ready) {
+          out(`  PR #${pr} is ready, not a draft: §Relay rule 7 says park it first (npm run pr:park -- ${pr}), then take.`);
+          out('  A checkpoint push to a ready PR runs full CI, and one in the merge queue ejects it.');
           return 1;
         }
         out(
@@ -151,6 +159,12 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
 
     // release
     if (comment && v.state === 'free' && v.holder === me && v.reason.startsWith('the living comment says baton: released')) {
+      if (o.gate) {
+        const body = relay.setLivingLine(comment.body, 'gate', `parked at ${head.sha.slice(0, 7)}`);
+        api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
+        out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}; now parked at the merge gate.`);
+        return 0;
+      }
       out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}.`);
       return 0;
     }
@@ -166,8 +180,9 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
     let body = relay.setLivingLine(comment.body, 'baton', 'released');
     body = relay.setLivingLine(body, 'head', head.sha.slice(0, 7));
     body = relay.setLivingLine(body, 'checkpoint', new Date(at).toISOString());
+    body = relay.setLivingLine(body, 'gate', o.gate ? `parked at ${head.sha.slice(0, 7)}` : 'open');
     api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
-    out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)} in ${comment.url}`);
+    out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)}${o.gate ? ', parked at the merge gate' : ''} in ${comment.url}`);
     return 0;
   } catch (e) {
     err(`baton: ${e.message}`);

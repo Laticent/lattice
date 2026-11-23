@@ -54,7 +54,7 @@ describe('buildLivingBody', () => {
   });
   test('opens with the marker and a BATON block that parseLiving reads back', () => {
     assert.ok(body.startsWith(relay.MARKER));
-    assert.deepEqual(relay.parseLiving(body), { released: false, holder: 'John Luke Picard', session: ME, since: 'S', head: 'abc1234' });
+    assert.deepEqual(relay.parseLiving(body), { released: false, gate: null, holder: 'John Luke Picard', session: ME, since: 'S', head: 'abc1234' });
     assert.match(body, /^next: P1: wire the board$/m);
   });
   test('lists only non-empty extras, then the signature above the footer', () => {

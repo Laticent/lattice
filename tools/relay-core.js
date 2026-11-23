@@ -118,8 +118,10 @@ function parseLiving(body) {
   const holder = line('holder');
   const sm = holder && /\b(session_[A-Za-z0-9]+)\b/.exec(holder);
   const head = line('head');
+  const gate = /^parked at ([0-9a-f]{7,40})$/.exec(line('gate') || '');
   return {
     released: line('baton') === 'released',
+    gate: gate ? gate[1] : null,
     holder: holder ? holder.replace(/\s*·\s*session_[A-Za-z0-9]+.*$/, '') || null : null,
     session: sm ? sm[1] : null,
     since: line('since'),
@@ -314,11 +316,18 @@ function readHead(branch, { fetch }) {
 function readBaton({ branch, pr = null, me, now, override = false, fetch = true, api = ghApi, git = readHead }) {
   const { exists, head: tip } = git(branch, { fetch });
   const head = tip ? { ...tip, pushedAt: pushTime(api, branch, tip.sha) } : null;
-  const number = pr || (exists ? (prForBranch(api, branch)?.number ?? null) : null);
+  const pull = pr ? api('GET', `repos/${REPO}/pulls/${pr}`) : exists ? prForBranch(api, branch) : null;
+  const number = pull?.number ?? pr ?? null;
   const comment = number ? livingComment(api, number, authLogin(api)) : null;
   const parsed = comment ? parseLiving(comment.body) : null;
   const living = comment ? { released: parsed.released, head: parsed.head, updatedAt: comment.updatedAt } : null;
-  return { exists, head, pr: number, comment, parsed, verdict: batonVerdict({ head, living, me, now, override }) };
+  let verdict = batonVerdict({ head, living, me, now, override });
+  // A branch parked at the merge gate (its 🚦 card is for this exact tip) is not takeable even with a
+  // free baton: any push voids the card the owner is deciding on. Only a person's words reopen it.
+  if (parsed?.gate && head?.sha.startsWith(parsed.gate) && verdict.state !== 'held' && !override) {
+    verdict = { ...verdict, state: 'held', reason: `parked at the merge gate at ${parsed.gate} (its 🚦 card is for this head); only the owner reopens it` };
+  }
+  return { exists, head, pr: number, ready: pull ? pull.draft === false : false, comment, parsed, verdict };
 }
 
 // ── The living handoff comment (Tension 3) ──────────────────────────────────────────────────────
