@@ -1,0 +1,7 @@
+/* Museum (lib/presets/museum/): the wall-label voice, a quiet upright eyebrow in small capitals
+ * (study §6). */
+section.preset-museum {
+  --eyebrow-case: uppercase;
+  --eyebrow-tracking: 0.12em;
+  --eyebrow-style: normal;
+}

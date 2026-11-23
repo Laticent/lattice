@@ -1,0 +1,15 @@
+{
+  "name": "earnings",
+  "label": "Earnings",
+  "desc": "Grayscale and exact: a solid band on the left edge, one-ink charts and a light cover.",
+  "group": "signature",
+  "order": 7,
+  "values": {
+    "theme": "ardesia",
+    "headline": "left",
+    "rule": "short",
+    "spectrum": "solid left band",
+    "marks": "tone ink",
+    "cover": "light masthead"
+  }
+}

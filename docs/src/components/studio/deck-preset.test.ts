@@ -20,14 +20,14 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 			const engine = frontMatterName(fmOf(src), key);
 			if (engine !== null) expect(registerValue(src, key)).toBe(engine);
 		}
-		expect(registerValue(src, 'rule')).toBe('short');
+		expect(registerValue(src, 'rule')).toBe('full');
 		expect(registerValue(deck('preset: editorial', 'rule: none'), 'rule')).toBe('none');
 		expect(registerValue(deck(), 'rule')).toBe('auto');
 	});
 
 	it('writing the preset value clears the override instead of restating it', () => {
 		const src = deck('preset: editorial', 'rule: none');
-		expect(writeRegister(src, 'rule', 'short')).toBe(deck('preset: editorial'));
+		expect(writeRegister(src, 'rule', 'full')).toBe(deck('preset: editorial'));
 		// The engine default is a real override under a preset that changes it…
 		expect(writeRegister(deck('preset: editorial'), 'rule', 'auto')).toBe(deck('preset: editorial', 'rule: auto'));
 		// …and a no-op write with no preset, exactly as before presets existed.
@@ -59,16 +59,16 @@ describe('deck-preset — the Studio agrees with the engine about a preset', () 
 	it('reads a key the way the engine does — comment stripped, empty means the preset', () => {
 		const ed = (...fm: string[]) => deck('preset: editorial', ...fm);
 		for (const [src, rendered] of [
-			[ed('rule: short  # house'), 'short'],
-			[ed('rule:'), 'short'],
-			[ed('rule: # todo'), 'short'],
+			[ed('rule: full  # house'), 'full'],
+			[ed('rule:'), 'full'],
+			[ed('rule: # todo'), 'full'],
 			[ed('rule: none # x'), 'none'],
 		] as const) {
 			expect(frontMatterName(fmOf(src), 'rule')).toBe(rendered);
 			expect(registerValue(src, 'rule')).toBe(rendered);
 		}
 		// A restated value with a comment is not a change; an empty key is not one either.
-		expect(presetChanges(ed('rule: short  # house'))).toEqual([]);
+		expect(presetChanges(ed('rule: full  # house'))).toEqual([]);
 		expect(presetChanges(ed('rule:'))).toEqual([]);
 		expect(presetChanges(ed('rule: none'))).toEqual(['rule']);
 	});

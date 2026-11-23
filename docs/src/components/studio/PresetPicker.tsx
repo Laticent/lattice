@@ -1,13 +1,19 @@
 import { RotateCcw } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSettingsHit } from '@/components/ui/settings-view';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
-import { PRESET_ENTRIES, presetSampleDeck } from './deck-preset';
+import { PRESET_ENTRIES, PRESET_GROUPS, presetSampleDeck } from './deck-preset';
 import { PooledThumbFace } from './preview-pool';
 
-// The deck panel's Preset row — a 2×2 grid of live previews, not a dropdown.
+// The deck panel's Preset row — a 2×2 grid of live previews per GROUP, not a dropdown.
+//
+// GROUPS (decision D10 in engineering/decisions/2026-11-20-deck-preset-study.md: at most five tiles in
+// view). Each preset names its group in lib/presets/<name>/<name>.preset.json; a PillTabs row above the
+// grid picks the group, and it opens on the group of the deck's own preset. Only the visible group's
+// tiles render, so the preview pool holds four frames, not one per preset.
 //
 // A dropdown of four names failed the one job a preset has: the owner could not tell the four
 // apart. Each card is a LIVE render of one sample slide (deck-preset.ts `PRESET_SAMPLE`) under
@@ -52,8 +58,13 @@ export const PresetPicker = React.memo(function PresetPicker({
 	extraCss?: string;
 }) {
 	const current = PRESET_ENTRIES.find((e) => e.name === value) ?? PRESET_ENTRIES[0];
-	const samples = React.useMemo(() => Object.fromEntries(PRESET_ENTRIES.map((e) => [e.name, presetSampleDeck(frontMatter, e.name)])), [frontMatter]);
-	const desc = drift ? `${drift} ${drift === 1 ? 'setting differs' : 'settings differ'} from ${current.label}.` : 'A named look: alignment, backdrop, bar, rules and cards.';
+	// The open group follows the deck's preset when that changes (a pick in another group, an Undo),
+	// and the author's tab choice otherwise.
+	const [group, setGroup] = React.useState(current.group);
+	React.useEffect(() => setGroup(current.group), [current.group]);
+	const shown = React.useMemo(() => PRESET_ENTRIES.filter((e) => e.group === group), [group]);
+	const samples = React.useMemo(() => Object.fromEntries(shown.map((e) => [e.name, presetSampleDeck(frontMatter, e.name)])), [frontMatter, shown]);
+	const desc = drift ? `${drift} ${drift === 1 ? 'setting differs' : 'settings differ'} from ${current.label}.` : current.blurb;
 	const hit = useSettingsHit('Preset', desc, 'look style template starting point');
 	if (!hit) return null;
 	return (
@@ -61,11 +72,19 @@ export const PresetPicker = React.memo(function PresetPicker({
 			<span className="text-[12.5px] text-foreground">
 				Preset
 				<HelpTip label="More about Preset">
-					Sets eleven look settings at once — the backdrop, headline alignment, brand bar, card rails, trim, heading rule, eyebrow, card lift and corners. <strong>Classic</strong> is the house default. Change any of those settings afterwards and it overrides the preset; the theme, header, footer and logo are never touched.
+					Sets the look in one step — the backdrop, headline alignment, spectrum stripes, heading rule, eyebrow, cards, corners, cover and type. A <strong>Signature</strong> look also suggests a palette, which your own theme choice overrides. <strong>Classic</strong> is the house default. Change any setting afterwards and it overrides the preset; the header, footer and logo are never touched.
 				</HelpTip>
 			</span>
+			<PillTabs
+				dense
+				ariaLabel="Preset group"
+				className="mt-1.5"
+				tabs={PRESET_GROUPS.map((g) => ({ value: g.name, label: g.label }))}
+				value={group}
+				onValueChange={setGroup}
+			/>
 			<RadioGroup aria-label="Choose preset" value={current.name} onValueChange={onValueChange} className="mt-1.5 grid grid-cols-2 gap-2">
-				{PRESET_ENTRIES.map((e) => (
+				{shown.map((e) => (
 					<RadioGroupItem
 						key={e.name}
 						value={e.name}

@@ -1,0 +1,16 @@
+{
+  "name": "editorial",
+  "label": "Editorial",
+  "desc": "Left-aligned, a light cover under a heavy masthead rule, a heavy heading rule, ledger type and lifted cards.",
+  "group": "essentials",
+  "order": 2,
+  "values": {
+    "headline": "left",
+    "rule": "full",
+    "eyebrow": "bar",
+    "trim-spectrum": "mono",
+    "lift": "on",
+    "typography": "ledger",
+    "cover": "light masthead"
+  }
+}

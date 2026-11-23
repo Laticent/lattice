@@ -1,0 +1,18 @@
+{
+  "name": "museum",
+  "label": "Museum",
+  "desc": "A gallery frame, a wall-label cover and one accent across the eyebrow, the bars and the big number.",
+  "group": "signature",
+  "order": 8,
+  "values": {
+    "theme": "cuoio",
+    "finish": "gallery",
+    "backdrop": "20",
+    "typography": "festival",
+    "headline": "left",
+    "rule": "none",
+    "spectrum": "off",
+    "marks": "tone accent",
+    "cover": "light label"
+  }
+}

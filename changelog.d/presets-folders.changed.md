@@ -1,0 +1,2 @@
+- Each deck preset is now a folder, `lib/presets/<name>/`: a `<name>.preset.json` naming the registers it sets and an optional `<name>.css` for its `preset-<name>` class. The build generates the preset table from the folders, and no script writes a preset's CSS. Every preset but `classic` now stamps `preset-<name>` on each slide; the four shipped presets render as before.
+- A preset can now set `cover:`. Like the spectrum keys, it fills only the axes the deck leaves empty.

@@ -1,0 +1,1 @@
+- The running header, footer and page number on a dark title, divider or closing slide now stay above 4.5:1 when the deck has a `finish:`. A finish lifts the dark panel under the chrome, which took Brand-forward's chrome to 4.0:1 on indaco; on a finished bookend the chrome ink now moves 30% toward white. A deck with no finish renders as before.

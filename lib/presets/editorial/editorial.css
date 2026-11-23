@@ -1,0 +1,6 @@
+/* Editorial (lib/presets/editorial/): a 4px heading rule in the heading's own ink, the newspaper
+ * masthead the study's round-6 recipe carried (engineering/decisions/2026-11-20-deck-preset-study.md §6). */
+section.preset-editorial {
+  --rule-w: 4px;
+  --rule-mark: var(--text-heading);
+}

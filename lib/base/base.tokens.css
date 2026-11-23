@@ -224,7 +224,7 @@
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */
   --radius-full:999px;
-  /* PRESET HOOKS — `--radius-card`, `--rule-w` / `--rule-style` / `--rule-mark`, `--rail-w`.
+  /* PRESET HOOKS — `--radius-card`, `--rule-w` / `--rule-style` / `--rule-mark`, `--rail-w`, `--heading-weight`.
    * DELIBERATELY NOT DECLARED HERE. Each consumer reads the hook with today's value as its
    * `var()` FALLBACK, so an unset hook renders byte-for-byte as before, and a hook set on a
    * section (a preset's stamped class, or a deck `style:` block) reaches every consumer under it.
@@ -257,6 +257,11 @@
    *                  `calc(var(--_sec-1cqi, 1cqi) * 0.35)`, i.e. 0.35% of the slide width.
    *                  Write a `px` length; a bare `cqi` resolves against the CARD's container
    *                  when the card is one, not the slide.
+   *   --heading-weight  the weight of the base `h1` / `h2` rule (base.elements.css): every slide
+   *                  title, the cover title and the closing heading. Fallback `700`. Owner's G2
+   *                  answer (2026-11-22): weight is the heading knob a preset gets, never size
+   *                  (HARD RULE #4). A component that sets its own heading weight on purpose
+   *                  (split-panel, split-compare, the poster cover) keeps it.
    *
    * Where they do NOT show: `mode: sketch` redraws the `form` MASTHEAD rule in rough ink at its
    * own width and makes its border transparent (base.sketch.css § masthead divider), so there

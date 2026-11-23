@@ -1,0 +1,1 @@
+- **Breaking:** `preset: editorial` is raised in place: a light cover under a heavy masthead rule, a 4px heading rule in the heading's ink, and no ruled backdrop. To keep the old look, write `finish: ledger` and `rule: short` under the preset, or set `cover: inverse plain`.
