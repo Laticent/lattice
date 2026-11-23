@@ -9,7 +9,8 @@
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
 # photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=present-narration plays a 4K deck in Present with Guide on,
 # voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs). PROBE=present-keepalive
-# opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
+# opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=picker-keyboard
+# types into the add-slide gallery with the REAL software keyboard up (the Simulator's hardware keyboard disconnected) and measures what shows (#3484). PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
@@ -151,6 +152,12 @@ families='iPad iPhone'
 [ "$PROBE" = present-narration ] && families='iPhone'
 # The Present keep-alive probe is the owner's case too: Present on an iPhone, where full screen falls back to immersive (#3333).
 [ "$PROBE" = present-keepalive ] && families='iPhone'
+# The add-slide gallery with the real iOS keyboard up (#3484): the owner's iPhone report. The Simulator connects the Mac's
+# keyboard by default and then shows no software keyboard at all, so this probe disconnects it before the boot.
+if [ "$PROBE" = picker-keyboard ]; then
+  families='iPhone'
+  defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+fi
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
