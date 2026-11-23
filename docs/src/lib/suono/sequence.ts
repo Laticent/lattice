@@ -310,11 +310,28 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 							// per skipped slide for clips the skip throws away. The iOS narration probe, whose audio never unlocks,
 							// decoded 41.4 MB that way against main's 13.8 MB for the same 64 sentences (runs 45083164131 and
 							// 45091849943).
-							if (decodeAhead !== null && !sig.aborted && stage.state() === 'running') {
-								for (let j = i + 1; j <= Math.min(items.length - 1, i + decodeAhead); j++) {
+							const lookAhead = () => {
+								for (let j = i + 1; j <= Math.min(items.length - 1, i + decodeAhead!); j++) {
 									const k = safeKey(items[j]);
 									const b = k === null ? undefined : bytesCache.get(k);
 									if (k !== null && b) stage.decode(b, k).catch(() => {});
+								}
+							};
+							if (decodeAhead !== null && !sig.aborted) {
+								if (stage.state() === 'running') lookAhead();
+								else {
+									// A clip that starts while the context is still resuming (the stage resumes without waiting, so
+									// the first clip after an iPhone's audio unlock lands here): decode ahead as soon as it runs, so
+									// the second sentence is not decoded late. Checked every 50 ms for up to 1 s, a signal with a
+									// bound; a context that stays suspended, or a skip, decodes nothing ahead.
+									let checks = 0;
+									const watch = setInterval(() => {
+										if (sig.aborted || ++checks > 20) return clearInterval(watch);
+										if (stage.state() === 'running') {
+											clearInterval(watch);
+											lookAhead();
+										}
+									}, 50);
 								}
 							}
 							onItemStart?.({ index: i, onsetMs, durationMs, clip: clip ?? undefined });

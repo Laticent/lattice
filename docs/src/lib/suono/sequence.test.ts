@@ -767,6 +767,33 @@ describe('makeSequence — decodeAhead (the decoded-audio window)', () => {
 		seq.stop();
 	});
 
+	it('decodes ahead once a resuming context starts running, so the sentence after an unlock is not decoded late', async () => {
+		// The real stage reports the onset before its ctx.resume() settles: the first clip after an unlock sees
+		// 'suspended', then the context runs.
+		const w = windowStage();
+		let state: StageState = 'suspended';
+		w.stage.state = () => state;
+		let produced = 0;
+		let end: (v: { ok: boolean }) => void = () => {};
+		w.stage.play = (clip: Clip, o?: PlayOptions) => {
+			o?.onStart?.({ onsetMs: 0, durationMs: clip.durationMs });
+			const done = new Promise<{ ok: boolean }>((r) => (end = r));
+			o?.signal?.addEventListener('abort', () => end({ ok: false }));
+			return { done, stop: () => end({ ok: false }) };
+		};
+		const seq = makeSequence(w.stage, { items, produce: async () => {
+			produced++;
+			return bytes();
+		}, keyOf: (i) => `k${i}`, concurrency: 4, gapMs: () => 0, decodeAhead: 2 });
+		seq.play();
+		await vi.waitFor(() => expect(w.decoded).toContain('k0'));
+		await vi.waitFor(() => expect(produced).toBeGreaterThanOrEqual(3));
+		expect(w.decoded).toEqual(['k0']);
+		state = 'running'; // the resume settles
+		await vi.waitFor(() => expect(w.decoded).toEqual(['k0', 'k1', 'k2']));
+		seq.stop();
+	});
+
 	it('warm() fetches bytes but decodes nothing when the window is set', async () => {
 		const w = windowStage();
 		let produced = 0;
