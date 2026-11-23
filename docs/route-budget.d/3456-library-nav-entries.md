@@ -1,5 +1,5 @@
-studio: +22
-playground: +16
+studio: +26
+playground: +18
 
 Three new entries in `librariesNav` (LTT, Markup and Lastra, each with a label, package name and one-line
 description) ride in the ⌘K command menu, which the Studio shell and the Playground import eagerly from
