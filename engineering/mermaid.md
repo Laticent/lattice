@@ -939,6 +939,16 @@ sharply — indaco `#E8F0F7`, concrete `#A8A8A8`). This only reaches PLAIN
 clusters: a `.section-N` cluster (mindmap, timeline, kanban) is overridden to
 `--cat-N-fill` by `mermaid.css`'s band cycle.
 
+**A flowchart's nodes are one family, not a category cycle.** Sankey and treemap color
+each node from the categorical palette by its position, because there each node IS a
+category. That cycle used to reach flowchart nodes too, so a five-step process drew
+five category colors, as if every step belonged to a different group; both blind judges
+of the deck-presets Wave 1 round docked every preset for it (#3470). A flowchart node
+(`svg[aria-roledescription="flowchart-v2"]`) now paints a pale `--accent` tint mixed into
+`--bg`, outlined in `--accent` and inked `--text-heading`, so the whole diagram follows
+the theme's accent and the color mode. State, ER, sankey and treemap keep the cycle. To
+mark a category on a flowchart, the author says so with `classDef` / `style`.
+
 Legibility is **gated**, not assumed —
 `test/unit/palette/containment-contrast.test.js` holds every theme in both schemes
 to ink ≥ 4.5:1 on its rung and edge ≥ 3:1 on the fill it outlines. The fill is

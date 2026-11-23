@@ -959,9 +959,9 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
  * legible and the node bars remain the primary read. --cat-1-fill is a
  * light-dark() pair, so the ribbons flip with the canvas.
  *
- * NOT SANKEY-ONLY. The same position cycle is what colors flowchart, state
- * and ER nodes (each is a `g.node > rect` inside `g.nodes`), so it stays on
- * every diagram type except MINDMAP. A mindmap `[square]` or `(rounded)` node
+ * NOT SANKEY-ONLY. The same position cycle is what colors state and ER nodes
+ * (each is a `g.node > rect` inside `g.nodes`), so it stays on every diagram
+ * type except MINDMAP and FLOWCHART (one family: see "FLOWCHART NODES" below). A mindmap `[square]` or `(rounded)` node
  * is a `g.node > rect` too, and at (0,3,4) this cycle beat the per-branch
  * rule and painted those nodes by DOM order. Mindmap colors by branch
  * (`.section-N`, above), never by position. `:where()` adds no specificity, so
@@ -1020,6 +1020,44 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) g.nodes > g.rough-node > g:first-of-type > path:last-child { stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
   fill: var(--cat-on-fill) !important;
+}
+/* ── FLOWCHART NODES ARE ONE FAMILY, NOT A CATEGORY CYCLE ──
+ * The position cycle above was written for sankey and treemap, where each node IS a
+ * category. It reached flowchart nodes too (each is a `g.node > rect` inside `g.nodes`),
+ * so a five-step process drew five category colors: blue, yellow, green, purple, as if
+ * every step belonged to a different group. Both blind judges of the deck-presets Wave 1
+ * round docked every preset for it ("Mermaid nodes ignore the palette"), PR #3470.
+ *
+ * A flowchart's nodes are steps of ONE process, so they share one paint: a pale tint of
+ * the theme's `--accent` with an `--accent` outline, inked `--text-heading`. The tint is
+ * mixed into `--bg`, so it follows the color mode with the canvas; the ink is the
+ * canvas ink, not `--cat-on-fill`, because the fill is now canvas-family (on the texture
+ * palettes `--cat-on-fill` is pinned dark for pale chips, and this tint is not one).
+ * No texture: the nodes encode no category, so there is nothing to make redundant.
+ * An author `classDef` / `style` keeps the meaning it had (Mermaid writes it inline,
+ * and the cycle above overrode it with `!important` exactly as this rule does).
+ *
+ * SCOPE: `aria-roledescription="flowchart-v2"`, which every Mermaid flowchart root
+ * carries; sankey, treemap, state and ER keep the cycle. Specificity (0,4,4) beats the
+ * cycle's (0,3,4) and the coverage rule's (0,3,1). `g.rough-node` is the hand-drawn
+ * look's node (see the rough block above: the palette goes on `stroke`). */
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node :is(rect, polygon, circle, ellipse, path).label-container,
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node > :is(rect, polygon, circle, ellipse, path),
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.node .outer-path {
+  fill: color-mix(in oklab, var(--accent) 14%, var(--bg)) !important;
+  stroke: var(--accent) !important;
+}
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.rough-node > g:first-of-type > path:first-child {
+  stroke: color-mix(in oklab, var(--accent) 30%, var(--bg)) !important;
+}
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes > g.rough-node > g:first-of-type > path:last-child {
+  stroke: var(--accent) !important;
+}
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes :is(text, tspan),
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel,
+:is(section, figure) svg[aria-roledescription="flowchart-v2"] g.nodes .nodeLabel :is(p, span) {
+  fill: var(--text-heading) !important;
+  color: var(--text-heading) !important;
 }
 /* THE DARK SANKEY IS A KNOWN LIMITATION, AND THIS IS THE RECORD OF WHY IT IS NOT
  * FIXED HERE — so the next person does not re-derive the same dead end.
