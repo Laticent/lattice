@@ -134,7 +134,12 @@ test('@crosswidth @gecko @webkit-tablet a second Fix all press in Compose while 
 	await expect(fix).toBeEnabled({ timeout: 60_000 });
 	await fix.click();
 	await fix.click();
-	await expect(page.getByText(/^Fixed 500 issues/)).toBeVisible({ timeout: 60_000 });
+	// The run's own words, read rather than hard-coded: the count is whatever lint-core finds on LONG, and it grows as
+	// rules land (500 when this test was written; 502 fixed and 1 refused once slot-contract and capacity-overflow fired on
+	// the same deck). What this test owns is that ONE run speaks, not how many fixes it makes.
+	const notice = page.getByText(/^Fixed \d+ issues/);
+	await expect(notice).toBeVisible({ timeout: 60_000 });
+	const words = (await notice.textContent()) ?? '';
 	await expect.poll(() => storedCompose(page)).not.toContain('**Bet 0.**');
 	// An absence needs the work it would come from to have had its turn: a second run started with the first shares the
 	// page with it pass by pass and ends a few passes after it, inside 150 painted frames (a whole run paints at least
@@ -149,7 +154,8 @@ test('@crosswidth @gecko @webkit-tablet a second Fix all press in Compose while 
 	);
 	// One run, one notice: the status pill is rewritten in place (lib/notify.ts), so a second run would replace the
 	// first run's words with its own.
-	await expect(page.getByText(/^Fixed 500 issues/)).toHaveCount(1);
+	await expect(notice).toHaveCount(1);
+	await expect(notice).toHaveText(words);
 	await expect(page.getByText(STALE)).toHaveCount(0);
 });
 
