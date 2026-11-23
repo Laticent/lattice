@@ -701,7 +701,11 @@ slide gallery to find this component, without knowing its name.
   test fails if any in-tree manifest lacks them, so a new component cannot
   ship unfindable. The schema leaves them optional so a component an
   author makes in the Studio is not rejected for lacking them.
+- **Plain words only:** lowercase letters, digits, spaces and hyphens
+  (write `qa`, not `q&a`).
 - **Stemmed, so list a word once.** "grade" also finds "grades".
+- **Meaning pass only.** The Workspace "literal only" search turns the
+  meaning pass off, and `searchTerms` with it.
 - **Measured.** `tools/intent-bakeoff` scores them on an everyday-words
   query set and a held-out set, and `docs/src/lib/search-everyday.test.ts`
   holds the floor: everyday one-word queries went from 44% to 89% top-1

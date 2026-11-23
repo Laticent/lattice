@@ -118,18 +118,39 @@ The owner picked **A + B + C** with a **committed benchmark**. Built on branch `
 | Query set | Before (top-1 / top-3) | After |
 |---|---|---|
 | everyday, tuning (75) | 44.0% / 52.0% | 89.3% / 97.3% |
-| everyday, held-out (32) | 21.9% / 31.3% | 65.6% / 71.9% |
+| everyday, held-out (32) | 21.9% / 31.3% | 68.8% / 71.9% ² |
 | authored intent (50) | 82.0% / 92.0% | 88.0% / 98.0% |
 | adversarial (25) | 84.0% / 88.0% | 84.0% / 96.0% |
 | misspelled names (643) | 99.4% / 99.7% | 99.4% / 99.7% |
 | slide headings, test split (416) | 19.7% / 31.0% ¹ | 20.0% / 31.3% |
 | slide prose, test split (436) | 30.5% / 41.5% | 28.7% / 43.6% |
 
+² 65.6% before one label was corrected in review: `proof` accepted only the math-proof sense (`math`, `citation-card`),
+and `split-panel`'s `proof` look is the slide for a claim that must be demonstrated, so it now counts too. No ranker change
+was tuned on the held-out set.
+
 ¹ Measured with `searchTerms` weighted 0, after the pass-order change, which moved no other set; the first baseline
 run's output did not keep this row.
 
 What it cost: top-1 on harvested slide prose fell 1.8 points while top-3 rose 2.1. One authored-intent query of 50
 lost its top-1 spot, and its top-3 still holds it.
+
+**What the independent checker found, and what changed.** One checker reviewed the diff and found four defects, all
+fixed in this PR:
+
+- Meaning-first took first place from the one component that owns a tag or look: `at-top` put `image` third, `lanes`
+  put `obligation-matrix` behind `statute-stack`. Of the 171 tags and looks that one component owns, 140 found it first
+  on `main` and 127 did after the reorder. Now such a token keeps the substring pass, and a whole tag or look outranks
+  one that only contains the query (`share` is `stacked-bar`'s tag; a tag merely containing "share" no longer wins the
+  tie). Result: 158 of 171, and none that found its owner on `main` lost it.
+- `validate()` checked that `searchTerms` existed but not its shape; it now enforces the schema's count, uniqueness and
+  pattern, read from the schema.
+- `q&a` was unsearchable: the tokenizer dropped both letters. A letter-&-letter abbreviation is now one word (`qa`,
+  `rd`), and the schema pattern no longer admits `&` or `'`.
+- Comments in `component-search.ts` still described the deleted routing.
+
+With the "literal only" search setting (`intent: false`), `searchTerms` has no effect: that setting turns the meaning
+pass off, and `searchTerms` feed only the meaning pass.
 
 D (persona phrases from the exemplars) is not built: raw counts were too noisy to lead. E (embeddings) waits until
 the held-out score plateaus; at 66% top-1 it has not. The two tuning-set misses left are "class" and "grant".

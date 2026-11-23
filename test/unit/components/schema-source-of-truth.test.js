@@ -170,6 +170,19 @@ test('every in-tree component carries searchTerms (optional in the schema, requi
   assert.deepEqual(missing, [], 'these manifests ship without searchTerms');
 });
 
+test('validate() enforces the schema shape of searchTerms (it is optional, so only its shape is checked)', () => {
+  const base = {
+    name: 'x', function: 'anchor', form: 'canvas', substance: 'prose',
+    tags: ['summary', 'takeaway', 'pitch'], description: 'd', skeleton: 's',
+  };
+  assert.deepEqual(components.validate(base, 't'), [], 'absent is fine');
+  assert.deepEqual(components.validate({ ...base, searchTerms: ['grades', 'key numbers', 'year-over-year'] }, 't'), []);
+  for (const bad of ['grades', [], ['a|b', 'c', 'd'], ['UPPER', 'c', 'd'], [1, 2, 3], ['q&a', 'b', 'c'], ['a', 'a', 'b']]) {
+    const errors = components.validate({ ...base, searchTerms: bad }, 't');
+    assert.ok(errors.some((e) => e.includes('searchTerms')), `${JSON.stringify(bad)} must be rejected (got ${JSON.stringify(errors)})`);
+  }
+});
+
 test('every lib/components/ bucket directory is a schema bucket (deleting an enum entry must not silently orphan a family)', () => {
   const fs = require('node:fs');
   const path = require('node:path');

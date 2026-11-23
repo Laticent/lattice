@@ -119,7 +119,8 @@ export const americanize = (w: string) =>
 const MAX_TOKEN = 40;
 
 function words(text: string): string[] {
-	return (text.toLowerCase().match(/[a-z][a-z0-9+#]*/g) ?? [])
+	// A letter-&-letter abbreviation is one word: `q&a` → `qa`, `r&d` → `rd` (two one-letter tokens would both be dropped).
+	return (text.toLowerCase().replace(/\b([a-z])&([a-z])\b/g, '$1$2').match(/[a-z][a-z0-9+#]*/g) ?? [])
 		.filter((w) => w.length > 1 && !STOP.has(w))
 		.map((w) => (w.length > MAX_TOKEN ? w.slice(0, MAX_TOKEN) : w))
 		.map(americanize);

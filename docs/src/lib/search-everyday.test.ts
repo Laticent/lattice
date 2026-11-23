@@ -40,9 +40,9 @@ describe('search by meaning: the everyday-words floor', () => {
 		expect(r.top3, r.misses.join('\n')).toBeGreaterThanOrEqual(0.97);
 	});
 
-	it('the held-out set, never tuned on (measured 65.6% top-1, 71.9% top-3; it was 21.9% / 31.3%)', () => {
+	it('the held-out set, never tuned on (measured 68.8% top-1, 71.9% top-3; it was 21.9% / 31.3%)', () => {
 		const r = score(load('queries-everyday-heldout.json'));
-		expect(r.top1, r.misses.join('\n')).toBeGreaterThanOrEqual(0.65);
+		expect(r.top1, r.misses.join('\n')).toBeGreaterThanOrEqual(0.68);
 		expect(r.top3, r.misses.join('\n')).toBeGreaterThanOrEqual(0.71);
 	});
 
@@ -59,5 +59,18 @@ describe('search by meaning: the everyday-words floor', () => {
 		expect(first('tabel')).toBe('table');
 		expect(first('cards gid')).toBe('cards-grid');
 		expect(first('timline')).toBe('timeline-list');
+	});
+	it("a tag or look that one component owns still puts that component first (checker on #3507)", () => {
+		// Meaning-first had pushed these down: `at-top` to image's third place, `lanes` behind statute-stack.
+		const owners = new Map<string, string[]>();
+		for (const c of catalog) for (const t of [...c.tags, ...(c.variants ?? [])]) owners.set(t, [...(owners.get(t) ?? []), c.name]);
+		for (const [q, owner] of [['at-top', 'image'], ['lanes', 'obligation-matrix'], ['register', 'list-tabular'], ['share', 'stacked-bar']] as const) {
+			expect(owners.get(q), `${q} must still be a single-owner token`).toEqual([owner]);
+			expect(rankedHitsFor(catalog, index, q)?.[0]?.item.name, q).toBe(owner);
+		}
+	});
+
+	it('a letter-&-letter abbreviation is searchable: q&a finds q-and-a', () => {
+		expect(rankedHitsFor(catalog, index, 'q&a')?.[0]?.item.name).toBe('q-and-a');
 	});
 });

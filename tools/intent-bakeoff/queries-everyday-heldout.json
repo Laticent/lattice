@@ -27,7 +27,7 @@
   ["cost", ["pricing", "table", "waterfall", "big-number"]],
   ["threats", ["risk-matrix", "heatmap"]],
   ["regions", ["map", "heatmap"]],
-  ["proof", ["math", "citation-card"]],
+  ["proof", ["math", "citation-card", "split-panel"]],
   ["goodbye", ["closing"]],
   ["regulation", ["regulatory-update", "statute-stack", "obligation-matrix", "policy-recommendation"]],
   ["fundraising", ["big-number", "progress", "stats", "logo-wall"]]

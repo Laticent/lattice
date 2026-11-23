@@ -4,9 +4,10 @@
 // Studio's add-slide gallery.
 //
 // THREE PASSES, in falling order of precision:
-//   1. SUBSTRING — a precise match so real terms (a name, a tag, "legal",
-//      "charts") return tight, expected results. Unchanged, and deliberately
-//      still first: when it fires it is almost always exactly right.
+//   1. SUBSTRING — a precise match so real terms (a name, a whole tag or look,
+//      "legal", "charts") return tight, expected results. It wins outright only
+//      for text in a NAME or a tag or look one component owns; anything else ranks
+//      after the meaning pass (2026-11-23-search-by-meaning.md).
 //   2. INTENT — BM25 over the manifest, for a query that describes what the
 //      author wants to SAY rather than the component's name ("who owns what",
 //      "where do users drop off"). See intent-search.ts for why this is a
@@ -52,7 +53,11 @@ function subScore(it: CatalogItem, q: string): number {
 	if (n === q) return 0;
 	if (n.startsWith(q)) return 1;
 	if (n.includes(q)) return 2;
-	if (it.tags.some((t) => t.toLowerCase().includes(q))) return 3;
+	// A whole tag or look outranks one that merely contains the query: `share` is stacked-bar's tag, and a tag that only
+	// contains "share" must not win the tie on name order.
+	if (it.tags.some((t) => t.toLowerCase() === q)) return 3;
+	if ((it.variants ?? []).some((t) => t.toLowerCase() === q)) return 3.25;
+	if (it.tags.some((t) => t.toLowerCase().includes(q))) return 3.5;
 	if ((it.variants ?? []).some((t) => t.toLowerCase().includes(q))) return 4; // a variant look (e.g. "insight")
 	if (`${it.familyLabel} ${it.bucket} ${it.function} ${it.substance}`.toLowerCase().includes(q)) return 5;
 	return 6; // description only
@@ -126,22 +131,16 @@ export type SearchOptions = {
 };
 
 /**
- * Precise substring → then intent and fuzzy, in the order the QUERY SHAPE calls for.
+ * The ladder (2026-11-23-search-by-meaning.md, which replaced routing by query shape):
  *
- * The two follow-up passes are not a fixed ladder, because which one is the specialist
- * depends on what was typed:
- *
- *   ≥2 content words → INTENT first. A described task ("who owns what on the team") is
- *     what BM25 is for, and Fuse just fuzzy-matches a long string against short names.
- *   1 content word   → FUZZY first. A lone token is almost always a half-remembered
- *     name, and Levenshtein over the name list beats BM25 at that by a wide margin:
- *     with intent first, every single-character deletion of every component name scored
- *     82.1% top-1 (n=520, 73 names regressed — `tabel` → `compare-code`); with fuzzy
- *     first it is 96.0%. Intent still runs behind it, so a single word Fuse cannot place
- *     ("choropleth") still reaches the synonym lexicon.
- *
- * Whichever runs second is a genuine fallback — it only sees queries the first pass could
- * not answer at all.
+ *   1. A name one letter short, then SUBSTRING. Substring wins outright for text in a name or a
+ *      tag or look that one component owns; any other substring hit ranks after the meaning pass.
+ *   2. A confident FUZZY hit wins outright only when it is a misspelled component NAME (`tabel`,
+ *      `cards gid`): within one slip for a short query and two for a longer one, the length within
+ *      one letter, a swapped pair counting as one slip.
+ *   3. Otherwise MEANING first (BM25 over the manifest, `searchTerms` included), then fuzzy as the
+ *      fallback, for every query. The old rule sent a lone word to fuzzy first, so a spelling
+ *      neighbor beat meaning: "science" found `scene`.
  */
 /** Whether `q` is `name` with exactly one character left out (`rws` of `rows`). */
 function isOneDeletion(name: string, q: string): boolean {
@@ -199,7 +198,12 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 		// so the meaning pass ranks first and the remaining substring hits follow it. On tools/intent-bakeoff's everyday set
 		// this took the ladder from 66.7% to 73.3% top-1. Narrowing "name" to exact-or-prefix was measured too: no everyday
 		// gain, and misspelled names fell from 99.4% to 98.3%, so a word inside a name ("chart" in `flowchart`) still wins.
-		if (ranked[0].s > 2 && shortHits.length === 0 && opts.intent !== false) {
+		// A query that IS a whole tag or look of one component (`at-top`, `register`, `lanes`) is the catalog's own word for it, not
+		// an everyday word, so its owner keeps first place: meaning-first had taken top-1 from 20 of the 171 tokens that
+		// belong to one component (checker on #3507, e.g. `at-top` put `image` third).
+		// Only a token ONE component owns: a shared tag (`people`, `timeline`) is a category, and meaning ranks inside it better.
+		const exactToken = sub.filter((it) => it.tags.some((t) => t.toLowerCase() === q) || (it.variants ?? []).some((v) => v.toLowerCase() === q)).length === 1;
+		if (ranked[0].s > 2 && !exactToken && shortHits.length === 0 && opts.intent !== false) {
 			const meaning = intentHits(items, index, q);
 			if (meaning.length) {
 				const seen = new Set(meaning.map((h) => h.item.name));
