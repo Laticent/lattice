@@ -39,7 +39,19 @@ async function openLibrary(page: Page, width: number) {
 	}
 }
 
+// Playwright intercepts the file picker only while the page has a `filechooser` listener. `waitForEvent` adds one and
+// removes it the moment the event fires, and removing the last one switches interception off. On Firefox the picker
+// itself is created in the parent process a moment AFTER the event fires, so the "off" can land first: Firefox then
+// opens a real picker that a headless browser never answers, the input stays marked "a picker is open", and every
+// later click on Import opens nothing (the next `filechooser` wait times out). Measured: 3 to 4 runs in 10 on
+// `gecko`, always on the second or third import, and the input's `cancel` (sent when an intercepted picker closes)
+// never arrived for the import before it. One standing listener keeps interception on for the page's whole life.
+const choosersHeld = new WeakSet<Page>();
 async function importFiles(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) {
+	if (!choosersHeld.has(page)) {
+		choosersHeld.add(page);
+		page.on('filechooser', () => {});
+	}
 	const chooser = page.waitForEvent('filechooser');
 	await page.getByRole('button', { name: 'Import files', exact: true }).click();
 	await (await chooser).setFiles(files);
