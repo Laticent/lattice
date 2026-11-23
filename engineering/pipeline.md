@@ -436,7 +436,7 @@ JPEG only: PNG there cost the 4K gallery ~13 s a render.
 
 **The slide's own edge is a vector, not part of the photo.** The section paints its top edge
 itself, as a gradient: a light slide's spectrum bar is a `border-image` on its top border, and
-a dark slide's 1 px hairline is a `background-image` (the `spectrum-edge-*` rails are the same
+a dark slide's 1 px hairline is a `background-image` (the `spectrum-<edge>` rails are the same
 two shapes on other sides). The reader (`readSectionEdges`) draws each as an axial shading over
 the photo and drops it from the photo, so the edge is exact at any size: at 4K, where the
 downsampled photo wrote the dark hairline 86 levels off Chrome's print, it is now within 1.

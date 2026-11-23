@@ -86,7 +86,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: image spectrum-edge-left -->
+<!-- _class: image spectrum-left -->
 
 `Image · full bleed, overlay bar`
 

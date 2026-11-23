@@ -60,7 +60,7 @@ The shorthand clears every background longhand at once — which is how you remo
 - On main
   - `title`, `topic` and `closing` read `rgb(0,29,51)` — the deck ground, not the panel.
 - On this branch
-  - All three read `rgb(0,61,102)`, off a real render, under `spectrum: off` and `spectrum-edge: left` alike.
+  - All three read `rgb(0,61,102)`, off a real render, under `spectrum: off` and `spectrum: left` alike.
 
 ---
 
@@ -74,7 +74,7 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: divider with-spectrum-trim -->
+<!-- _class: divider trim-spectrum-rainbow -->
 
 `Section 02`
 

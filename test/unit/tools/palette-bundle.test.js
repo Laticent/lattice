@@ -8,6 +8,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { palettes, resolvedPalette } = require('../../../tools/build-default-bundle.js');
 const { stripCssComments } = require('../../../lib/core/css-comments.mjs');
@@ -74,12 +75,27 @@ test('THE FAILING ARMS: a cycle and an import of no shipped theme are refused, b
   }
 });
 
-test('the published subpath resolves through the package exports, from Node', () => {
+/**
+ * Resolve a `@laticent/lattice/...` specifier through the published `exports` map, as a repo path.
+ * The map is the engine publish folder's (packages/lattice/package.json); the root is a private
+ * workspace root. A scratch install holds that manifest beside a link to the repo's dist/.
+ */
+function exportsResolver(t) {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'palette-exports-'));
+  t.after(() => fs.rmSync(scratch, { recursive: true, force: true }));
+  const pkg = path.join(scratch, 'node_modules', '@laticent', 'lattice');
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.copyFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), path.join(pkg, 'package.json'));
+  fs.symlinkSync(path.join(ROOT, 'dist'), path.join(pkg, 'dist'), 'junction');
+  return (spec) => path.relative(ROOT, require.resolve(spec, { paths: [scratch] })).split(path.sep).join('/');
+}
+
+test('the published subpath resolves through the package exports, from Node', (t) => {
   // The Vite half lives in the docs suite, which CI runs only when docs-facing paths change; this
   // arm runs on every PR, so a broken `./palette/*.css` entry in package.json fails here first.
+  const resolve = exportsResolver(t);
   for (const name of ['cuoio', 'cuoio-dark', 'a11y-achromatopsia']) {
-    const resolved = require.resolve(`@laticent/lattice/palette/${name}.css`);
-    assert.equal(path.relative(ROOT, resolved).split(path.sep).join('/'), `dist/palettes/${name}.css`);
+    assert.equal(resolve(`@laticent/lattice/palette/${name}.css`), `dist/palettes/${name}.css`);
   }
 });
 
@@ -112,8 +128,8 @@ test('packedSlides: a light palette pins color-scheme on the slide itself, not o
   }
 });
 
-test('the packed slides.css and palettes resolve through the package exports, from Node', () => {
-  assert.equal(path.relative(ROOT, require.resolve('@laticent/lattice/slides.css')).split(path.sep).join('/'), 'dist/slides.css');
-  const resolved = require.resolve('@laticent/lattice/palette/indaco.slides.css');
-  assert.equal(path.relative(ROOT, resolved).split(path.sep).join('/'), 'dist/palettes/indaco.slides.css');
+test('the packed slides.css and palettes resolve through the package exports, from Node', (t) => {
+  const resolve = exportsResolver(t);
+  assert.equal(resolve('@laticent/lattice/slides.css'), 'dist/slides.css');
+  assert.equal(resolve('@laticent/lattice/palette/indaco.slides.css'), 'dist/palettes/indaco.slides.css');
 });

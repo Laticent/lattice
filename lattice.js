@@ -39,7 +39,7 @@ const fs            = require('fs');
 const { themeEntries } = require('./lib/theme/files.js');
 const path          = require('path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
-const { pkgRootFrom } = require('./lib/core/pkg-root');
+const { pkgRootFrom, engineManifestPath } = require('./lib/core/pkg-root');
 const { VALUE_BY_FLAG, SWITCH_BY_FLAG, PAPER_CHOICES, ORIENT_CHOICES, PLAYER_MODES } = require('./lib/cli/options.js');
 
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
@@ -97,8 +97,10 @@ const PKG_ROOT = pkgRootFrom(__dirname);
 // committed bundle byte-stale on any dependency bump — reddening `build:check`
 // on a diff no human wrote and no bot could repair, since Dependabot cannot
 // run `npm run build`. Only `version` is ever wanted; read just that.
+// In the repository the version lives in packages/lattice/package.json (the root is a private
+// workspace root); installed, the package's own package.json. engineManifestPath picks.
 const pkgVersion = () => {
-  try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
+  try { return JSON.parse(fs.readFileSync(engineManifestPath(PKG_ROOT), 'utf8')).version; }
   catch (_e) { return null; }
 };
 
@@ -3872,11 +3874,18 @@ async function renderBody(browser, g, closeBrowser) {
     const deckDir = mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd();
     // The REAL path is resolved once, checked, and is what gets read, so a symlink swapped in after
     // the check cannot change which file is served (the checker's race on the first cut).
-    const deckRelativeFile = (url) => {
+    // The same address taken from the deck folder: the path the author wrote. Null when the output sits in the deck folder.
+    const deckPathOf = (url) => {
       try {
         const local = localPathOfFileUrl(url);
-        if (local === null || deckDir === outDir) return null;
-        const real = fs.realpathSync(path.resolve(deckDir, path.relative(outDir, local)));
+        return local === null || deckDir === outDir ? null : path.resolve(deckDir, path.relative(outDir, local));
+      } catch { return null; }
+    };
+    const deckRelativeFile = (url) => {
+      try {
+        const mapped = deckPathOf(url);
+        if (mapped === null) return null;
+        const real = fs.realpathSync(mapped);
         return confine.allows(real) && fs.statSync(real).isFile() ? real : null;
       } catch { return null; }
     };
@@ -3906,7 +3915,10 @@ async function renderBody(browser, g, closeBrowser) {
       const refusedKey = url.split('#')[0];
       if (!refused.has(refusedKey)) {
         refused.add(refusedKey);
-        console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
+        // With `-o` elsewhere the page asked for the address from the OUTPUT folder, a path the author never wrote, so
+        // the warning also names the deck-folder path it was checked as (refused or missing there too).
+        const asWritten = req.isNavigationRequest() ? null : deckPathOf(url);
+        console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder${asWritten ? ` (from the deck folder: ${asWritten.slice(0, 200)})` : ''}`);
       }
       if (req.resourceType() === 'image') req.respond({ status: 200, contentType: 'image/svg+xml', body: standIn });
       else req.abort('blockedbyclient');

@@ -196,7 +196,7 @@ describe('values', () => {
     assert.match(ok.stdout, /complete -F _lattice_complete lattice/);
     // `lat` is the short bin (package.json). Each shell's script registers it beside `lattice`,
     // or tab-complete silently does nothing for the command people type most.
-    assert.ok(require('../../../package.json').bin.lat, 'package.json ships the `lat` bin');
+    assert.ok(require('../../../packages/lattice/package.json').bin.lat, 'packages/lattice/package.json ships the `lat` bin');
     assert.match(C.script('bash'), /complete -F _lattice_complete lattice lat\n/);
     assert.match(C.script('zsh'), /^#compdef lattice lat\n/);
     assert.match(C.script('zsh'), /compdef _lattice lattice lat\n/);

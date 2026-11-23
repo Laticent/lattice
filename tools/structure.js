@@ -76,8 +76,9 @@ const PARTS = [
   // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
   // The treatment vocabulary (`tint-*`, `mark-*`) as data: pure, require-free, read by the linter.
   { part: 'lib/base', layer: 0, match: 'lib/base/', about: 'The CSS every component inherits: tokens, element defaults, universal modifiers, the finish compositor, and the treatment vocabulary as data.' },
-  // The root manifest, read as data (a build stamps its version into the player core).
-  { part: 'package.json', layer: 0, match: (f) => f === 'package.json', where: 'package.json', about: 'The root manifest: npm scripts, dependencies and the workspaces.' },
+  // The two manifests, read as data: the root's (scripts, devDependencies, workspaces) and the
+  // engine's publish folder (a build stamps its version into the player core).
+  { part: 'package.json', layer: 0, match: (f) => f === 'package.json' || f === 'packages/lattice/package.json', where: 'package.json', about: 'The manifests: the private root (npm scripts, devDependencies, workspaces) and the engine\'s publish folder (name, version, exports, dependencies).' },
   // The skill index (tools/skill-index.js output), read as data by the Studio chat's guide list.
   { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json', where: 'design/skills/index.json', about: 'The generated skill index the Studio chat lists its guides from.' },
   { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'The JSON Schemas for the engine\'s data formats, each kept beside the code that reads it.' },
@@ -260,7 +261,7 @@ const CORE_SINGLE_CONSUMER_CEILING = 34;
 const GRAMMAR_COMPILER = 'tools/build-segno-grammar.js';
 
 /** The repository's own package name: a self-import by name resolves at runtime but not in the graph. */
-const SELF_NAME = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).name;
+const SELF_NAME = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8')).name;
 
 function partOf(file) {
   for (const p of MATCH_ORDER) {

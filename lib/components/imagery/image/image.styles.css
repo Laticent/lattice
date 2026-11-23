@@ -706,16 +706,17 @@ section.image[data-img-composition="statement"]:not([data-orientation="portrait"
 
 /* ── Dividers ── Two hairlines, both drawn by a pseudo-element and neither one takes space,
  * so adding or removing one moves nothing. Both paint `--spectrum-structure`, the token every
- * other structural rule reads: a quiet accent tint by default, the deck's full spectrum under
- * `spectrum-trim: on`. A deck or a slide that sets `spectrum-trim` restyles them with no rule
- * here. `rule: none` drops them.
+ * other structural rule reads: a quiet accent tint by default, the theme's fill under a
+ * `trim-spectrum:` style. The vertical divider reads the same style's -v fill, below. `rule: none` drops them.
  *   · a stacked card (heading above body) gets a line in the heading's own bottom padding;
  *   · a band gets a vertical line down the gap between its two columns. */
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) {
   --_divider-v: var(--spectrum-structure);
 }
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).with-spectrum-trim { --_divider-v: var(--spectrum-bar-vertical); }
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).spectrum-trim-restrained { --_divider-v: var(--sp-fill-mono-v); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).trim-spectrum-rainbow { --_divider-v: var(--sp-fill-rainbow-v); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).trim-spectrum-solid { --_divider-v: var(--sp-fill-solid-v); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).trim-spectrum-duo { --_divider-v: var(--sp-fill-duo-v); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).trim-spectrum-mono { --_divider-v: var(--sp-fill-mono-v); }
 
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text h2 { position: relative; --_line-gap: var(--sp-md); }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text h2:has(+ *)::after {

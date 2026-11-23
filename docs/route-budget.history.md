@@ -6,6 +6,34 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-22 — raise the studio chartKernelGz ceiling by 1,000 B (90,460 → 91,460), by hand, at the owner's direction
+
+Owner OK 2026-11-22, in PR 3431's session: "don't settle and create jank. raise it if that's a better option." PR 3431 deletes the dead tall-canvas code, and with it the chart dispatch's `boxAspect`, the engine's only import of `chart-box.js`. That module now loads with the lazy chart kernels that use it (the callout placement and the phone page). Measured on PR 3431's build against main's: the engine closure falls 642 B on every page load, and `chart-map.js`'s closure, the largest kernel, rises 202 B. Main measures 88.2 KB, 0.1 KB under the old ceiling, so the move needs room. The alternatives were weighed: keeping `chart-box.js` imported in the engine only to satisfy this gate puts the 0.2 KB back on every startup; the standard rebaseline (soft to about 90,324, ceiling to about 99,356) would leave about 9 KB of slack on the largest kernel, which the gate could no longer see. So this row is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 82,236.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelGz | 82236 | 82236 | +0 | 91460 |
+
+### 2026-11-22 — the owner raised one ceiling by hand, for PR 3294: getting-started engineJsGz to 346.0 KB
+
+Owner OK 2026-11-22, relayed by the Segno desk: "raise that page's limit by 4 KB."
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds about 5.2 KB gzipped to getting-started's engine. That route has no Studio, so its engine is the preview runtime, and the runtime now loads the tokenizer for two readers of computed styles (`image-painting.js` `isBlockedHatch`, `logo-marks.js` `logoMaskUrl`). Measured with `docs/scripts/measure-route-base.sh` on `main` at 2ab20f4b: 346,957 B (338.8 KB), about 3.2 KB under the old ceiling of 350,208 B. PR 3294 at 33f24fef measured 343.9 KB (about 352,150 B) in CI's route check, 1.9 KB past it. The alternative, keeping those two readers on their old regexes, was declined: it would undo one tokenizer everywhere (the owner's choice of 2026-11-17) and bring back the escaped-quote misread P5 removes. Splitting the readers the runtime does not call out of the tokenizer was tried on 2026-11-17 and reverted, because it cost the eager routes about 0.9 KB each. The ceiling rises 350208 -> 354304 (346.0 KB), which leaves about 2.1 KB after PR 3294. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 310700 | 310700 | +0 | 354304 |
+
+### 2026-11-22 — raise the studio eagerJsGz ceiling by 2,000 B (636,636 → 638,636), by hand, at the owner's direction
+
+The owner chose a 2,000-byte ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too (571,778 → about 636,517) and put the ceiling 10% above it (about 700,170, +63.5 KB), so this entry is written by hand, as the 2026-11-22 lintCoreGz entry below is. Soft stays 571,778, so every byte above it is still declared in `docs/route-budget.d/`.
+
+Why: main measured 636,517 bytes, leaving 119 bytes under the old ceiling. PR #3385 (an engine that fails to load shows the failure card, not an endless skeleton) adds 564 bytes to DeckPreview, measured at 637,081, 445 over. Gzip already absorbs the card's repeated phrases: a de-duplicated message table measured 17 bytes larger. Giving the bytes back would have meant dropping the recovery real Mobile Safari needs (only a new tab recovers a failed engine sub-file).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 638636 |
+
 ### 2026-11-22 — restore the owner's hand-set studio lintCoreGz ceiling (171,974 B), undoing #3386's lint raise
 
 #3386 merged from the merge queue at a head that still carried a standard 10% lintCoreGz rebaseline (soft 169910, ceiling 186901). That raise was meant to be dropped before merge: #3397 had already set this ceiling by hand to 171974, and the owner chose that over the same +17 KB rebaseline so the gate keeps catching lint-core growth. #3386's row below justifies keeping it with "PR 3349 (+~2 KB)"; that is wrong, as PR 3349 adds 146 B (see #3397's row). The fix was committed but the branch was locked in the queue, so the old head merged. This row puts back #3397's numbers. PR 3362 measures 166.8 KB, 1.2 KB under 171974, so it still fits.

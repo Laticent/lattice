@@ -93,7 +93,7 @@ export function placeWords(view: Record<string, unknown>): string | null {
 	return null;
 }
 
-/** "changed Card rail placement": the row a person changed, by name. */
+/** "changed Card spectrum edge": the row a person changed, by name. */
 export function changedWords(view: Record<string, unknown>): string | null {
 	const c = view.changed as { what?: unknown } | undefined;
 	return c && typeof c.what === 'string' ? `changed ${rowName(c.what)}` : null;
