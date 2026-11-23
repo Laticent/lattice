@@ -133,7 +133,10 @@ function preflight(root, { strict = true } = {}) {
  */
 function prependChangelogSection(file, name, version, body) {
   const prior = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : `# ${name}\n`;
-  if (new RegExp(`^## ${version.replace(/\./g, '\\.')}\\s*$`, 'm').test(prior)) return false;
+  // The whole version escaped, not only its dots: a version is data, and a `+` or `(` in a build
+  // suffix would otherwise change the pattern.
+  const escaped = String(version).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`^## ${escaped}\\s*$`, 'm').test(prior)) return false;
   const block = `## ${version}\n\n${body.trim()}\n`;
   const at = prior.search(/^#{1,6}\s+\d+\.\d+/m);
   const next = at >= 0

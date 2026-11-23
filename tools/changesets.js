@@ -45,17 +45,21 @@ const NOT_CHANGESETS = new Set(['README.md', 'config.json']);
  * lines, then the summary.
  */
 function parseChangeset(text) {
-  const m = /^---\n([\s\S]*?)\n?---\n?([\s\S]*)$/.exec(text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'));
-  if (!m) return { error: 'does not open with a `---` front matter block' };
+  // Split on lines rather than one regex over the whole file: a lazy `[\s\S]*?` before the closing
+  // `---` backtracks quadratically on a long file with no closing fence, and the gate reads
+  // contributor-written files.
+  const lines = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n');
+  const close = lines[0] === '---' ? lines.indexOf('---', 1) : -1;
+  if (close === -1) return { error: 'does not open with a `---` front matter block' };
   const releases = [];
-  for (const raw of m[1].split('\n')) {
+  for (const raw of lines.slice(1, close)) {
     const line = raw.trim();
     if (!line) continue;
     const r = /^(["']?)(@?[a-z0-9][\w./-]*)\1\s*:\s*(\w+)$/.exec(line);
     if (!r) return { error: `front matter line \`${line}\` is not \`"<package>": patch|minor|major\`` };
     releases.push({ name: r[2], type: r[3] });
   }
-  return { releases, summary: m[2].trim() };
+  return { releases, summary: lines.slice(close + 1).join('\n').trim() };
 }
 
 /** Every changeset file in `dir`, sorted by name. */
