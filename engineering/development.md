@@ -277,7 +277,12 @@ of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Mar
 Four more devDependencies are aliases of older marp-core releases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit
 pinned by `overrides`: the pairs Marp for VS Code 3.x bundles, whose own CSS differs (`VSCODE_CORES`; the decision note's
 "Every Marp for VS Code in the range"). Bump them only together with that table; `test/unit/tools/marp-vscode-cores.test.js`
-fails on a mismatch.
+fails on a mismatch. The same `overrides` give the root marp-core and every alias the repo's own katex (`"katex": "$katex"`):
+marp-core 4.x asks for katex 0.16 or 0.17, which `npm audit` flags (GHSA-238p-pmpm-9mq7), and the build only packs CSS with
+it. The test checks that each alias runs the root's katex, and its rule-for-rule snapshot of what each modeled Marp writes
+ahead of a theme proves the swap changes nothing the build packs (the four `dist/lattice-vscode*` files were byte-identical
+across it, 2026-11-23). marp-core stays on 4.4.0, the release Marp for VS Code 3.6.1 and marp-cli 4.5.1 run; 5.x was only a
+pre-release (npm's `next` tag) on that date.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
