@@ -543,6 +543,8 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	// reads captions, as it should. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`), which
 	// device-tier.ts applies only after the first slide shows, so on a loaded machine LITE landed before Play: 3 in 24 runs at
 	// 4 workers read "Captions" instead of "Loading voice… 42%". A `?tier=` pin applies before first paint and outranks it.
+	// The page clock is ours (installed running, so the Studio boots normally), and it is paused before Play below.
+	await page.clock.install();
 	await gotoStudio(page, { query: '?tier=full' });
 	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
 	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
@@ -554,12 +556,40 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
 	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
+	// The page itself ends the "download" the moment the pill shows its progress, and records every label the pill
+	// shows with its time since Play (page time, so a paused clock reads 0: a record, never an assertion).
+	await page.evaluate(() => {
+		const w = window as unknown as { __pill: { label: string; ms: number }[]; __playAt: number };
+		w.__pill = [];
+		w.__playAt = 0;
+		document.addEventListener('click', (e) => {
+			if ((e.target as Element)?.closest?.('[aria-label="Play the presentation"]') && !w.__playAt) w.__playAt = performance.now();
+		}, true);
+		let released = false;
+		const note = () => {
+			const pill = [...document.querySelectorAll('button')].find((b) => /^Voice (on|off)/.test(b.getAttribute('aria-label') ?? ''));
+			const label = pill?.textContent ?? '';
+			if (w.__pill[w.__pill.length - 1]?.label !== label) w.__pill.push({ label, ms: w.__playAt ? Math.round(performance.now() - w.__playAt) : -1 });
+			if (!released && label.includes('Loading voice… 42%')) {
+				released = true;
+				new BroadcastChannel('fake-kokoro').postMessage('go');
+			}
+		};
+		note();
+		new MutationObserver(note).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+	});
+	// Pause the page clock: a read waits at most PREPARE_WAIT_MS (2.5 s, read-aloud.ts) for a voice still loading, and
+	// that timer must not fire on the machine's load. Nothing between Play and the voice being ready waits on a page
+	// timer (the worker's clock is its own), so the load finishes and the wait is never cut short.
+	await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-	// The first read starts the load and waits for it, visibly: no other voice stands in.
-	await expect(voice).toContainText('Loading voice… 42%', { timeout: 30_000 });
-	await shot(page, 'present-loading-voice');
-	await page.evaluate(() => new BroadcastChannel('fake-kokoro').postMessage('go'));
-	await expect(voice).toContainText('Heart · on-device', { timeout: 30_000 });
+	const pill = () => page.evaluate(() => (window as unknown as { __pill: { label: string; ms: number }[] }).__pill);
+	const labels = async () => (await pill()).map((p) => p.label).join(' | ');
+	// The first read starts the load and waits for it, visibly (no other voice stands in), then reads in the chosen voice.
+	await expect.poll(labels, { timeout: 30_000 }).toMatch(/Loading voice… 42%.*Heart · on-device/);
+	expect(await labels()).not.toMatch(/Loading voice… 42%.*Captions/); // nothing read on captions after the load showed
+	// The times are a record for whoever reads a failure, never an assertion (HARD RULE #32).
+	test.info().annotations.push({ type: 'pill-timeline', description: JSON.stringify(await pill()) });
 });
 
 // CLS 0 opening Workspace › AI, at the three widths the Studio ships to. Every card paints its
