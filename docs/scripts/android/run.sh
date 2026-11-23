@@ -90,7 +90,7 @@ export CHROME_PKG="${CHROME_PKG:-com.android.chrome}"
 
 # Chrome's first-run screens would sit over the page: skip them with Chrome's own command-line file (needs root).
 "$ADB" root >/dev/null; timeout 60 "$ADB" wait-for-device
-"$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
+"$ADB" shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run --force-renderer-accessibility" > /data/local/tmp/chrome-command-line; chmod 644 /data/local/tmp/chrome-command-line'
 "$ADB" shell am set-debug-app --persistent "$CHROME_PKG"
 # Chrome's own permissions, granted the way a phone in use has them: no notifications prompt, and no camera prompt in
 # front of the chooser (the eighth dispatch: Import asked "Allow Chrome to take pictures and record video?" first).
