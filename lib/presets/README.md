@@ -11,7 +11,7 @@ lib/presets/<name>/
 
 `tools/build-packages-index.js` reads every `<name>.preset.json` into `presets.generated.js`, the table
 `lib/core/front-matter-key.js` (`PRESETS`) and the Studio read. `tools/build-css.js` bundles every
-`<name>.css` last, in name order. Adding the folder is the whole registration. No script writes a
+`<name>.css` in name order, after the `typography:` sets and just before `base.sketch.css`. Adding the folder is the whole registration. No script writes a
 preset's CSS.
 
 ## What the JSON may say
@@ -37,7 +37,7 @@ them with today's value as the `var()` fallback (`lib/base/base.tokens.css` § P
 | `--rail-w` | the `card-spectrum:` stripe's thickness |
 | `--radius-card` | a card's corner |
 | `--heading-weight` | the weight of slide titles and the cover title (fallback `700`); a preset changes heading weight, never heading size |
-| `--eyebrow-case`, `--eyebrow-tracking`, `--eyebrow-style`, `--eyebrow-weight` | the eyebrow's voice |
+| `--eyebrow-case`, `--eyebrow-tracking`, `--eyebrow-style`, `--eyebrow-weight` | the eyebrow's voice. Not fallback hooks: these are the type-set tokens `lib/base/base.typography.css` declares on `:root, section`, and a preset's value overrides its set's. `mode: sketch` still wins, because the preset sheets are bundled before `base.sketch.css` |
 
 Every rule is a bare `section.preset-<name>` for the folder's own preset. Never a `--fs-*` size (HARD
 RULE #4), a hex literal (#3), a margin (#20), `@layer` (#26) or `!important`.
@@ -45,6 +45,9 @@ RULE #4), a hex literal (#3), a margin (#20), `@layer` (#26) or `!important`.
 
 ## Specificity and order
 
-`section.preset-<name>` is (0,1,1), the same as a register's class, and it is bundled last, so a
-preset's hook wins on source order. A deck's own `style:` block still wins over it, because theme and
+`section.preset-<name>` is (0,1,1), the same as a register's class, and it is bundled after the
+`typography:` sets, so a preset's value wins over its set's on source order. Prefer a register key over a
+hook wherever one exists (Strategy House's thick card stripe is `card-spectrum: solid band`, not
+`--rail-w`): a key the author writes overrides a preset's key, but nothing an author writes in front matter
+overrides a hook. A deck's own `style:` block still wins over it, because theme and
 deck sheets load after the engine bundle.

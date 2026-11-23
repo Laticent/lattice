@@ -14635,9 +14635,9 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
-  // The preset hooks (--rule-w, --rule-style, --rule-mark, --rail-w, --radius-card, --heading-weight)
-  // were listed here until wave 1: the preset stylesheets (lib/presets/<name>/<name>.css) now declare
-  // them, so they are engine-declared, and an entry here would be stale.
+  // The preset hooks a preset stylesheet sets (--rule-w, --rule-style, --rule-mark, --radius-card,
+  // --heading-weight) are engine-declared through lib/presets/<name>/<name>.css, so they are not listed.
+  { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w): a hook no shipped preset sets since wave 1 moved Strategy House to `card-spectrum: solid band`; a deck `style:` block may still set it. Fallback the card-spectrum weight, then 0.35 section cqi.' },
 ]);
 
 /**

@@ -136,6 +136,29 @@ export function deckScalar(source: string, key: string): string {
 const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
 
 /** What `key` resolves to under the preset alone, before any key the deck wrote. */
+/**
+ * `cover:` takes a surface and a composition, one word each in any order, and a preset fills the axis the deck
+ * leaves empty (lib/core/register-factory.js `presetMergedValue`, read by lib/core/resolve-cover.js). The
+ * vocabulary is the engine's (`COVER_REGISTER.AXES`), first word of each axis the default; deck-preset.test.ts
+ * pins this copy to it, because the eager Studio bundle should not load the register module for two lists.
+ */
+export const COVER_AXES: readonly (readonly string[])[] = [
+	['inverse', 'light'],
+	['plain', 'masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'],
+];
+const coverWords = (value: string | null | undefined): (string | undefined)[] => {
+	const words = String(value ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+	return COVER_AXES.map((axis) => words.find((w) => axis.includes(w)));
+};
+/** The deck's cover words with the preset's filling each empty axis, in axis order. */
+export function mergeCover(own: string | undefined, recommended: string | null | undefined): string {
+	const mine = coverWords(own);
+	const theirs = coverWords(recommended);
+	return COVER_AXES.map((_, i) => mine[i] || theirs[i]).filter(Boolean).join(' ');
+}
+/** What a cover value renders, defaults left out: `inverse plain`, `plain` and `` all read ''. */
+export const coverRenders = (value: string): string => coverWords(value).filter((w, i) => w && w !== COVER_AXES[i][0]).join(' ');
+
 export function presetBaseline(source: string, key: string): string {
 	return ENGINE.presetEffective(presetOf(source), key) ?? ENGINE.PRESET_DEFAULTS[key] ?? '';
 }
@@ -185,6 +208,8 @@ export function registerValue(source: string, key: string): string {
 	// A spectrum key merges PER AXIS: the deck's own word on an axis wins, and an axis it leaves empty takes
 	// the preset's (lib/core/resolve-spectrum.js `mergedValue`).
 	if (isSpectrumKey(key)) return mergeSpectrum(key, own, ENGINE.presetValue(presetOf(source), key)) || ENGINE.PRESET_DEFAULTS[key] || '';
+	// `cover:` merges per axis the same way.
+	if (key === 'cover') return mergeCover(own, ENGINE.presetValue(presetOf(source), key)) || ENGINE.PRESET_DEFAULTS[key] || '';
 	if (own === undefined) return presetBaseline(source, key);
 	return own || ENGINE.PRESET_DEFAULTS[key] || '';
 }
@@ -205,9 +230,12 @@ export function writeSpectrumAxis(source: string, key: SpectrumKey, axis: Spectr
  *  restated at the preset's own value is not a change, so it does not count. */
 export function presetChanges(source: string): string[] {
 	// A spectrum key compares what renders, axis by axis: `spectrum: top` restates a default and is no change.
-	const same = (key: string) => (isSpectrumKey(key)
-		? spectrumRenders(key, registerValue(source, key)) === spectrumRenders(key, presetBaseline(source, key))
-		: registerValue(source, key) === presetBaseline(source, key));
+	const same = (key: string) => {
+		if (isSpectrumKey(key)) return spectrumRenders(key, registerValue(source, key)) === spectrumRenders(key, presetBaseline(source, key));
+		// `cover:` too: `cover: inverse` on Classic restates the default and is no change.
+		if (key === 'cover') return coverRenders(registerValue(source, key)) === coverRenders(presetBaseline(source, key));
+		return registerValue(source, key) === presetBaseline(source, key);
+	};
 	return PRESET_KEYS.filter((key) => !AUTHOR_KEYS.includes(key) && ownValue(source, key) !== undefined && !same(key));
 }
 

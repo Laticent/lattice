@@ -23,11 +23,11 @@
  *   9. (the chart frame lived here; it is the chart-family plugin's `styles`
  *      contribution now, bundled in THE PLUGIN SLOT of TAIL_SOURCES)
  *  10. lib/base/base.treatments.css  27 utility classes (12 tints + 11 marks + reset)
+ *  10a. lib/presets/<name>/<name>.css  each deck preset's stylesheet (`section.preset-<name>`), before sketch
  *  10b. lib/base/base.sketch.css  the `sketch` finish modifier (hand-drawn skin)
  *  11. lib/_semi-universal.css   compact, loose, accent
  *  12. lib/_universal.css        dark, with-period, tint-*, mark-*, state, tone, chrome
  *  13. lib/_diagram-overrides.css  Mermaid SVG theme overrides
- *  14. lib/presets/<name>/<name>.css  each deck preset's own stylesheet (`section.preset-<name>`), after the generated slicing rules
  *
  * lib/_legacy.css was retired on this branch — every block was either
  * moved to its proper destination above or deleted as dead documentation
@@ -212,7 +212,7 @@ const BUILD_SOURCE = 'lib/base/base.build.css';
 // selectors compose on top of every component. See lib/base/base.sketch.css.
 const SKETCH_SOURCE = 'lib/base/base.sketch.css';
 // Each deck preset's own stylesheet, lib/presets/<name>/<name>.css (decision S8,
-// engineering/decisions/2026-11-21-spectrum-keys.md), appended last in name order. A preset with no
+// engineering/decisions/2026-11-21-spectrum-keys.md), bundled in name order just before base.sketch.css. A preset with no
 // stylesheet stamps a class nothing reads. Contract: lib/presets/README.md.
 function presetCssSources() {
   const dir = path.join(ROOT, 'lib', 'presets');
@@ -694,6 +694,15 @@ function assemble() {
     parts.push(`/* === ${BUILD_SOURCE} === */`);
     parts.push(build);
   }
+  // Each PRESET's stylesheet (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10, decision S8):
+  // `section.preset-<name> { --token: value }`, one file per preset folder. After the `typography:` sets, so a
+  // preset's eyebrow voice beats its set's at equal specificity, and BEFORE base.sketch.css, so `mode: sketch`
+  // still owns its own type whatever preset a deck names (base.typography.css: "sketch owns its own type").
+  for (const rel of presetCssSources()) {
+    mark(`preset:${rel}`, rel);
+    parts.push(`/* === ${rel} === */`);
+    parts.push(readIfExists(rel));
+  }
   const sketch = readIfExists(SKETCH_SOURCE);
   if (sketch) {
     mark('base:sketch', SKETCH_SOURCE);
@@ -717,14 +726,6 @@ function assemble() {
     mark('generated:slicing', null);
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
-  }
-  // Each PRESET's stylesheet (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10, decision S8):
-  // `section.preset-<name> { --token: value }`, one file per preset folder. Last, so a preset's token beats
-  // a `typography:` set's or a register's value for the same property at equal specificity.
-  for (const rel of presetCssSources()) {
-    mark(`preset:${rel}`, rel);
-    parts.push(`/* === ${rel} === */`);
-    parts.push(readIfExists(rel));
   }
   // Distribute leading `:is()` LAST, over the assembled bundle — so `bundle()`
   // is the single definition of what dist/lattice.css should contain, which is

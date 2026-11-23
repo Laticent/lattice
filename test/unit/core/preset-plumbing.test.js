@@ -3,8 +3,8 @@
  * `backdrop`) and the preset CLASS, wired through every path before any preset sets them.
  * engineering/decisions/2026-11-20-deck-preset-study.md §5 D1 and D10, §8 Phase 0.
  *
- * No shipped preset sets these keys yet (they arrive in the later waves), so every arm runs on a
- * PROBE preset swapped in with `withPresetTable`, and each claim carries its control: the same deck
+ * No shipped preset sets all of these keys (wave 1 sets `theme`, `marks`, `backdrop` and `cover`; none sets
+ * `color-mode` or `mode`), so every arm runs on a PROBE preset swapped in with `withPresetTable`, and each claim carries its control: the same deck
  * without the preset, or with the key written, renders the old way. The runtime arm patches the real
  * dist/lattice-runtime.js the same way, because that bundle evaluates its own copy of the table.
  */
@@ -172,6 +172,8 @@ test('folders: every lib/presets/<name>/ is a table entry, and every entry is a 
   assert.deepEqual(folders, [...PRESET_NAMES].sort());
   for (const name of folders) {
     const json = JSON.parse(fs.readFileSync(path.join(PRESETS_DIR, name, `${name}.preset.json`), 'utf8'));
+    // A key no preset may set would be dropped without a word (a typo like `card-spectrm`), so refuse it here.
+    for (const key of Object.keys(json.values)) assert.ok(fmk.isPresetKey(key), `${name}: "${key}" is not a key a preset may set (PRESET_KEYS)`);
     assert.deepEqual({ label: json.label, desc: json.desc, group: json.group, values: json.values }, { ...PRESETS[name], values: { ...PRESETS[name].values } }, `${name}: the generated table matches its folder (run \`node tools/build-packages-index.js\`)`);
   }
 });
@@ -209,12 +211,14 @@ test('cover: a preset fills each cover axis the deck leaves empty, in both rende
     assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: inverse'), ['cover-column'], 'the deck keeps its surface, the preset its composition');
     assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: plain'), ['cover-light'], 'the deck keeps its composition');
     assert.deepEqual(coverClassesFromFrontMatter('preset: probe\ncover: inverse plain'), [], 'both axes the deck\'s');
+    assert.deepEqual(coverClassesFromFrontMatter('preset: probe\npptx:\n  cover: inverse plain'), ['cover-light', 'cover-column'], 'an indented cover: is someone else\'s key');
     const engine = latticeEngine.createEngine();
     const title = (md) => classesOf(engine.render(md.replace('# Cover', '<!-- _class: title -->\n\n# Cover')).html)[0];
     assert.ok(title(deck(['preset: probe'])).includes('cover-column'), 'the engine stamps the preset cover');
   });
   // Control: outside the stand-in table no preset says anything about the cover.
   assert.deepEqual(coverClassesFromFrontMatter('preset: probe'), []);
+  assert.deepEqual(coverClassesFromFrontMatter('pptx:\n  cover: light'), [], 'top-level only, as on main');
 });
 
 /* ── The engine (lib/engine + lib/integrations/markdown-it/plugins.js) ─────────────────── */

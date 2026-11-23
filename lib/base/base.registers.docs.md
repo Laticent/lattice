@@ -87,8 +87,8 @@ are its overrides.
 | `editorial` | `headline: left` · `rule: full` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` · `cover: light masthead` | Left-aligned newspaper voice: a light cover under a heavy masthead rule, a 4px heading rule in the heading's ink, ledger type, lifted cards, no backdrop. |
 | `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
-| `strategy-house` | `theme: brina` · `typography: ledger` · `headline: left` · `rule: full` · `eyebrow: bar` · `spectrum: solid left band` · `card-spectrum: solid` · `lift: on` · `cover: light column` | A heavy accent band down the left edge, 10px card stripes, square cards, and a light cover with an accent column. |
-| `annual-report` | `theme: burgundy` · `typography: ledger` · `finish: meridian` · `headline: left` · `rule: full` · `cover: light ledger` | Burgundy and serif: a small-caps light cover over a double rule, a double heading rule, headings at weight 500, a soft contour wash. |
+| `strategy-house` | `theme: brina` · `typography: ledger` · `headline: left` · `rule: full` · `eyebrow: bar` · `spectrum: solid left band` · `card-spectrum: solid band` · `lift: on` · `cover: light column` | A heavy accent band down the left edge, 10px card stripes, square cards, and a light cover with an accent column. |
+| `annual-report` | `theme: burgundy` · `typography: ledger` · `finish: meridian` · `headline: left` · `rule: full` · `cover: light ledger` | Burgundy and serif: a small-caps light cover over a double rule, a double heading rule, headings at weight 400, a soft contour wash. |
 | `earnings` | `theme: ardesia` · `headline: left` · `rule: short` · `spectrum: solid left band` · `marks: tone ink` · `cover: light masthead` | Grayscale and exact: a solid band down the left edge, charts in one ink, a light cover. |
 | `museum` | `theme: cuoio` · `finish: gallery` · `backdrop: 20` · `typography: festival` · `headline: left` · `rule: none` · `spectrum: off` · `marks: tone accent` · `cover: light label` | A gallery frame, a wall-label cover, and one warm accent across the eyebrow, the bars and the big number. |
 
@@ -113,7 +113,8 @@ and the Studio agree by construction.
 
 **A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
 hand), `marks:`, `backdrop:` and `cover:`. The four Signature presets (`strategy-house`,
-`annual-report`, `earnings`, `museum`) do; the four Essentials do not
+`annual-report`, `earnings`, `museum`) each recommend a palette; of the Essentials, only `editorial`
+recommends anything (`cover: light masthead`)
 (`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
 anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
 `print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
@@ -131,8 +132,8 @@ dark panel.
 (a rule weight, a rail weight, a card corner) in its own stylesheet. Every preset is a folder,
 `lib/presets/<name>/` (`<name>.preset.json` plus an optional `<name>.css`; contract in
 `lib/presets/README.md`). A deck on any preset but `classic` gets a `preset-<name>` class on every
-slide, and that stylesheet styles it; a preset with no stylesheet stamps a class nothing reads,
-which is true of all four today. No script writes a preset's CSS. The class is the engine's to
+slide, and that stylesheet styles it; a preset with no stylesheet (`classic`, `brand`, `minimal`,
+`earnings`) stamps a class nothing reads. No script writes a preset's CSS. The class is the engine's to
 stamp; don't write it in `_class:`.
 
 A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown

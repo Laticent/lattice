@@ -1,6 +1,8 @@
 /* Annual Report (lib/presets/annual-report/): a double heading rule, the annual-report masthead
  * (study §6). A double border needs 3px to show two lines. Small capitals on the eyebrow, and
- * headings at 500: the report's quieter voice (owner's G2 answer, 2026-11-22). */
+ * headings at 400: the report's quieter voice (owner's G2 answer, 2026-11-22). 400, not 500:
+ * Newsreader, the ledger set's heading face, ships 400 and 700 only, so 500 rendered as 400; the G2 render
+ * the owner chose was this 400. */
 section.preset-annual-report {
   --rule-w: 3px;
   --rule-style: double;
@@ -8,5 +10,5 @@ section.preset-annual-report {
   --eyebrow-case: uppercase;
   --eyebrow-tracking: 0.08em;
   --eyebrow-style: normal;
-  --heading-weight: 500;
+  --heading-weight: 400;
 }

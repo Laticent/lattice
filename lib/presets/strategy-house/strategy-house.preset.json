@@ -11,7 +11,7 @@
     "rule": "full",
     "eyebrow": "bar",
     "spectrum": "solid left band",
-    "card-spectrum": "solid",
+    "card-spectrum": "solid band",
     "lift": "on",
     "cover": "light column"
   }

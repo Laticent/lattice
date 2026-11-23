@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { frontMatterName, PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
-import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
+import { AUTHOR_KEYS, applyPreset, COVER_AXES, clearPresetOverrides, coverRenders, deckScalar, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -199,6 +199,21 @@ describe('deckScalar — the deck panel reads a key the way the engine does', ()
 		expect(deckScalar(bare('class: lead # dark later'), 'class')).toBe('lead');
 		expect(deckScalar(bare('foo:', '  theme: cuoio'), 'theme')).toBe('');
 		expect(deckScalar(bare(), 'theme')).toBe('');
+	});
+
+	it('cover: a preset fills each axis the deck leaves empty, a restated default is no change, and the vocabulary is the engine\'s', async () => {
+		const { COVER_REGISTER } = await import('../../../../lib/core/resolve-cover.js');
+		expect(COVER_AXES.map((a) => [...a])).toEqual(COVER_REGISTER.AXES.map((a: { names: string[] }) => a.names));
+		// The Studio reads what the engine renders: the deck's surface, the preset's composition.
+		expect(registerValue(deck('preset: strategy-house', 'cover: inverse'), 'cover')).toBe('inverse column');
+		expect(coverRenders(registerValue(deck('preset: strategy-house', 'cover: inverse'), 'cover'))).toBe('column');
+		// Restating a default, or the preset's own cover in another word order, is not a change.
+		expect(presetChanges(deck('cover: inverse'))).toEqual([]);
+		expect(presetChanges(deck('cover: plain'))).toEqual([]);
+		expect(presetChanges(deck('preset: editorial', 'cover: masthead light'))).toEqual([]);
+		// A real change still counts.
+		expect(presetChanges(deck('preset: editorial', 'cover: inverse'))).toEqual(['cover']);
+		expect(presetChanges(deck('cover: light'))).toEqual(['cover']);
 	});
 });
 
