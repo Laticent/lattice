@@ -57,7 +57,8 @@
     "decode/README.ijg.txt",
     "decode/LICENSE.libjpeg-turbo.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"

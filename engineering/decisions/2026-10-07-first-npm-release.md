@@ -337,8 +337,13 @@ found three more ways Friday could go wrong:
 - The card grader then found that this last fix broke the publish gate: `--plan` runs before
   `npm ci`, and a top-level require of `@changesets/parse` crashed it, so a release commit would have
   published nothing. The parser now loads on first use, and a test plans from a tree with no
-  `node_modules`. Nine libraries now list `CHANGELOG.md` in `files`; markup, lastra and
-  segno-markdown follow once #3451 and #3256 land (`followups.d/3471-p3`).
+  `node_modules`. All twelve libraries list `CHANGELOG.md` in `files` (npm 10 packs it only when
+  listed, and a published 0.1.0 tarball cannot be changed later).
+- A second checker re-reviewed every post-trio fix. Release (publish) now checks every commit of a
+  push for the `release: ` title, not only the last: the merge queue lands up to three PRs as one
+  push. A registry error during the post-publish check counts as "not yet" rather than aborting
+  before the tags are pushed, and the GitHub Release name check fails unless `gh` says "release not
+  found".
 
 **Changelogs.** Each package keeps its own `CHANGELOG.md`, written by `changeset version`. The
 engine's is `packages/lattice/CHANGELOG.md`, committed; `tools/stage-engine-package.js` treats it as

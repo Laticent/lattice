@@ -231,6 +231,22 @@ describe('constraint 3: the publish phase', () => {
     assert.equal(release.settledOnNpm(() => false, '@laticent/ltt', '0.1.0', 0, 4), false, 'still missing after every try');
   });
 
+  test('a registry error after publishing is retried, never thrown past the tag push', () => {
+    let calls = 0;
+    const flaky = () => { calls++; if (calls === 1) throw new Error('npm view failed (exit 1): ETIMEDOUT'); return true; };
+    assert.equal(release.settledOnNpm(flaky, '@laticent/ltt', '0.1.0', 0), true);
+    assert.equal(release.settledOnNpm(() => { throw new Error('ETIMEDOUT'); }, '@laticent/ltt', '0.1.0', 0, 3), false, 'reported missing, not thrown');
+  });
+
+  test('a version with RegExp characters is matched literally in a changelog', (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'escape-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const file = path.join(dir, 'CHANGELOG.md');
+    fs.writeFileSync(file, '# x\n\n## 1.0.0-rc.1+b(1)\n\n- a\n');
+    assert.equal(release.prependChangelogSection(file, 'x', '1.0.0-rc.1+b(1)', '- dup'), false, 'already there');
+    assert.equal(release.prependChangelogSection(file, 'x', '1.0.0-rc.1+bX1)', '- new'), true, '`(` is not a wildcard');
+  });
+
   test('crossing a major line, including a 0.x library reaching 1.0.0, is flagged for review', () => {
     assert.equal(release.crossesMajor('1.4.2', '2.0.0'), true);
     assert.equal(release.crossesMajor('0.1.0', '1.0.0'), true);
@@ -267,13 +283,19 @@ describe('the publish gate runs before npm ci', () => {
       fs.copyFileSync(path.join(ROOT, 'tools', name), path.join(f.dir, 'tools', name));
     }
     assert.ok(!fs.existsSync(path.join(f.dir, 'node_modules')));
+    // planCommand is what `--plan` runs: the strict publish-set check, the plan, and the workflow outputs.
+    const out = path.join(f.dir, 'gh-out');
     const script = [
       "const r = require('./tools/release.js');",
-      "const plan = r.publishPlan(process.cwd(), { registry: () => false, hasTag: () => false });",
-      'process.stdout.write(String(plan.length));',
+      "const plan = r.planCommand({ root: process.cwd(), registry: () => false, hasTag: () => false });",
+      "process.stderr.write('PLANNED ' + plan.length);",
     ].join(' ');
-    const out = execFileSync(process.execPath, ['-e', script], { cwd: f.dir, encoding: 'utf8', env: { ...process.env, NODE_PATH: '' } });
-    assert.equal(out, String(PUBLISH_SET.length));
+    const res = require('node:child_process').spawnSync(process.execPath, ['-e', script], {
+      cwd: f.dir, encoding: 'utf8', env: { ...process.env, NODE_PATH: '', GITHUB_OUTPUT: out },
+    });
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stderr, new RegExp(`PLANNED ${PUBLISH_SET.length}`));
+    assert.equal(fs.readFileSync(out, 'utf8'), 'release=true\nversion=1.0.0\nengine_due=true\n');
   });
 });
 

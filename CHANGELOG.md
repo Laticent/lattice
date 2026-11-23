@@ -9,8 +9,7 @@ changelog. This file is the index; it gets no entries.
 | `@laticent/<library>` | `docs/src/lib/<library>/CHANGELOG.md`, for example [`ltt`](https://github.com/Laticent/lattice/blob/main/docs/src/lib/ltt/CHANGELOG.md) |
 
 Each changelog is written by the release (`changeset version`), never by hand, and each package's
-npm tarball carries its own, except markup's, lastra's and segno-languages' for now (their manifests
-were mid-edit in other PRs; `followups.d/3471-p3-library-tarballs-ship-their-changelog.md`).
+npm tarball carries its own.
 
 > ## Recording a change
 >

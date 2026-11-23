@@ -340,7 +340,14 @@ function planCommand({ root = ROOT, registry, hasTag } = {}) {
  */
 function settledOnNpm(registry, name, version, retryMs, tries = 4) {
   for (let i = 0; i < tries; i++) {
-    if (registry(name, version)) return true;
+    // A registry error (a timeout, a 5xx) here counts as "not yet", never as a crash: by now npm may already
+    // hold every package, and throwing would skip pushing the tags and writing the workflow outputs. After the
+    // last try the package is reported missing, which a re-run repairs.
+    try {
+      if (registry(name, version)) return true;
+    } catch {
+      // fall through to the retry
+    }
     if (i < tries - 1 && retryMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryMs);
   }
   return false;
@@ -474,6 +481,7 @@ module.exports = {
   versionPrepare,
   prepare,
   publishPlan,
+  planCommand,
   publish,
   main,
 };

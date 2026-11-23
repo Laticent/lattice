@@ -210,7 +210,11 @@ before anything reaches npm.
    `tools/release.js --publish --push`: `build:check`; the engine's notes and zip
    (before anything reaches npm); `changeset publish`; the tags; then
    `gh release create v<version>` when the engine shipped. Re-run it by hand
-   (`workflow_dispatch`) after a partial failure; it publishes only what is left.
+   (`workflow_dispatch`) after a partial failure; it publishes and tags only what is
+   left. One case it cannot repair: the engine is on npm and `v<version>` is pushed,
+   but `gh release create` failed. Create that Release by hand with the local-fallback
+   command below (`npm run release:publish` regenerates the notes and zip on a synced
+   `main`).
 
 **Local fallback** — the same phases, same tools:
 

@@ -38,7 +38,8 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
-    "LICENSE.markdown-it.md"
+    "LICENSE.markdown-it.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"

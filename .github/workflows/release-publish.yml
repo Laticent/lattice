@@ -41,11 +41,16 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    # Only a release commit publishes on push: its squash title is `release: <name> (#N)`. Without this, a
-    # dependency bump or a nightly bless that touches a manifest would publish whatever main holds the
-    # moment nothing else blocks it (on release day, the gap between retiring the August tag and the
-    # release PR merging). A dispatch is a human's recovery run and always proceeds.
-    if: "github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release: ')"
+    # Only a push that carries a release commit publishes: its squash title is `release: <name> (#N)`.
+    # Without this, a dependency bump or a nightly bless that touches a manifest would publish whatever
+    # main holds the moment nothing else blocks it (on release day, the gap between retiring the August
+    # tag and the release PR merging). EVERY commit of the push is checked, not only head_commit: the
+    # merge queue lands up to three PRs as one push, and the release PR need not be last. A looser match
+    # is safe because `tools/release.js --publish` also refuses any package whose CHANGELOG.md lacks its
+    # version's section. A dispatch is a human's recovery run and always proceeds.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(toJSON(github.event.commits.*.message), '"release: ')
     # This phase needs no PAT — it pushes a tag, which the ruleset doesn't cover.
     # It declares the environment for NPM_TOKEN, the most dangerous secret in the
     # repo: stored here rather than repo-wide, it is unreadable from a PR branch,
@@ -85,8 +90,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.gate.outputs.version }}
         run: |
-          if gh release view "v$V" >/dev/null 2>&1; then
+          # Only "release not found" means the name is free. Any other failure (rate limit, API error) stops
+          # the run too: guessing "free" would publish to npm and then fail at `gh release create`.
+          if out="$(gh release view "v$V" 2>&1)"; then
             echo "::error::A GitHub Release named v$V already exists. Relabel it (issue #3449, release-day step 3) before publishing; nothing was published."
+            exit 1
+          elif ! grep -qi 'release not found' <<<"$out"; then
+            echo "::error::Could not check whether a GitHub Release named v$V exists: $out"
             exit 1
           fi
 

@@ -40,7 +40,8 @@
     "*.ts",
     "!*.test.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"
