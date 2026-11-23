@@ -105,13 +105,16 @@ cost the most (one session per branch, forever).
    hooks longer than the window (the pre-commit hook can run the whole unit suite, about 6 to 10 minutes),
    the checkpoint is the comment edit alone: it records the state.
 7. **Release** with `npm run baton -- release` after your last push when you go idle. It writes
-   `baton: released` and pins the tip; a session that cannot release (it stopped) holds the branch until the
+   `baton: released` and pins the tip. If the comment still names an earlier holder (you pushed but never
+   wrote your own handoff), it names you, since a release counts only under the tip holder's name, and says
+   the `next:` line is still theirs. A session that cannot release (it stopped) holds the branch until the
    owner types "take over". **A taker on a ready or queued PR parks it first**
    (`npm run pr:park -- <N>`), so its checkpoint pushes neither run full CI nor eject it from the merge queue;
    `npm run baton -- take` refuses a ready PR (exit 1) and says so. Do not release a PR while it is in the
    queue.
 8. **A branch parked at the merge gate is not takeable**, even with a free baton, unless the owner
-   reopens it (a person's "take over", `--override`). Its 🚦 card is for that exact head, and any push
+   reopens it (a person's "take over", `--override`). Its PR is ready, so the taker still parks it first
+   (rule 7): `--override` passes the gate, never the ready-PR refusal. Its 🚦 card is for that exact head, and any push
    voids the card the owner is deciding on. The session that posts the card releases with
    `npm run baton -- release --gate`, which writes `gate: parked at <sha>`; `npm run baton -- status`
    and `npm run relay` then report it parked. The session that parked it can still release again or refresh

@@ -149,7 +149,7 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
       if (comment) out(`  living comment last edited ${relay.ago(at - comment.updatedAt)} ago`);
       if (exists && !open) out(`  no open PR for ${branch}${pr ? ` (#${pr} is closed)` : ''}: a relay line always has one (rule 6), so it is not on the board`);
       if (!comment && pr) out(`  PR #${pr} has no living handoff comment yet: npm run card -- --living ${pr} <card.yml>`);
-      if (parsed?.pause) out(`  paused: ${parsed.pause} (the next session takes it with take; nothing here is finished)`);
+      if (parsed?.pause && v.reason.startsWith('the living comment says baton: released')) out(`  paused: ${parsed.pause} (the next session takes it with take; nothing here is finished)`);
       const ls = o.fetch ? gitRun(['ls-remote', 'origin', `refs/heads/${relay.rescueRef(branch, '')}*`]) : null;
       for (const r of ls && ls.status === 0 ? relay.parseRescueRefs(ls.stdout, branch) : []) {
         out(`  rescue waiting: ${r.ref} (${r.sha.slice(0, 7)}); the holder merges it in and deletes it`);
@@ -182,10 +182,12 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
 
     // release
     if (comment && v.state === 'free' && v.holder === me && v.reason.startsWith('the living comment says baton: released')) {
-      if (o.gate) {
-        const body = relay.setLivingLine(comment.body, 'gate', `parked at ${head.sha.slice(0, 7)}`);
+      if (o.gate || o.pause) {
+        let body = comment.body;
+        if (o.gate) body = relay.setLivingLine(body, 'gate', `parked at ${head.sha.slice(0, 7)}`);
+        if (o.pause) body = relay.setLivingLine(body, 'pause', `usage stop at ${new Date(at).toISOString()}`);
         api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
-        out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}; now parked at the merge gate.`);
+        out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}; now${o.gate ? ' parked at the merge gate' : ''}${o.gate && o.pause ? ' and' : ''}${o.pause ? ' stopped for usage' : ''}.`);
         return 0;
       }
       out(`baton for ${where}: already released at ${head.sha.slice(0, 7)}.`);
@@ -200,13 +202,24 @@ function run(argv, { env = process.env, git = relay.readHead, gitRun = realGit, 
       return 1;
     }
     // The release names the tip it was written at: any later push re-takes the baton.
-    let body = relay.setLivingLine(comment.body, 'baton', 'released');
+    let body = comment.body;
+    // A release counts only under the tip holder's own holder: line (trustedLiving). If the comment
+    // still names an earlier holder (this session pushed but never ran card --living), name this
+    // session, or the release would read RELEASED here and HELD to everyone else.
+    const restamped = parsed?.session !== me;
+    if (restamped) {
+      const actor = relay.resolveActor(env, relay.loadRoster());
+      body = relay.setLivingLine(body, 'holder', `${actor.status === 'ok' ? actor.name : 'unsigned (LATTICE_ACTOR not set)'} · ${me}`);
+      body = relay.setLivingLine(body, 'since', new Date(at).toISOString());
+    }
+    body = relay.setLivingLine(body, 'baton', 'released');
     body = relay.setLivingLine(body, 'head', head.sha.slice(0, 7));
     body = relay.setLivingLine(body, 'checkpoint', new Date(at).toISOString());
     body = relay.setLivingLine(body, 'gate', o.gate ? `parked at ${head.sha.slice(0, 7)}` : 'open');
     body = relay.setLivingLine(body, 'pause', o.pause ? `usage stop at ${new Date(at).toISOString()}` : 'none');
     api('PATCH', `repos/${relay.REPO}/issues/comments/${comment.id}`, { body: { body } });
     out(`baton for ${where}: RELEASED at ${head.sha.slice(0, 7)}${o.gate ? ', parked at the merge gate' : ''}${o.pause ? ', stopped for usage' : ''} in ${comment.url}`);
+    if (restamped) out(`  The living comment named an earlier holder; it now names you. Its next: line is still theirs: write your handoff with npm run card -- --living ${pr}.`);
     return 0;
   } catch (e) {
     err(`baton: ${e.message}`);
