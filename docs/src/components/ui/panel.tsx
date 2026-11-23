@@ -1087,7 +1087,8 @@ export function PanelDock({ className, children }: { className?: string; childre
 	return (
 		<div
 			className={cn(
-				'shrink-0 border-t border-border bg-[var(--bg)] px-3.5 py-3',
+				// `panel-dock` lifts a phone toast above this field (styles/tailwind.css, "THE TOAST CLEARS THE DOCK").
+				'panel-dock shrink-0 border-t border-border bg-[var(--bg)] px-3.5 py-3',
 				className,
 			)}
 		>

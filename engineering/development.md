@@ -1275,12 +1275,14 @@ The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).
 
-`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
-cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives every page a
+strict, hash-based Content-Security-Policy, except the few it names in each build's output. **An inline script on
 such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
 (`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
-Pages that can build a preview frame carry no policy until stage 2
-(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
+Slide previews are covered: the preview frames load their agents from a same-origin file
+(`lib/core/frame-agents.mjs`), and the two sandboxes load through a same-origin shell
+(`lib/packages/sandbox-shell.mjs`). The pages still without a policy, and how each closes:
+`followups.d/3277-p1-csp-remaining-pages.md`. Why: `engineering/decisions/2026-11-17-site-discovery.md`.
 
 ### The docs site is an installable PWA (offline cache)
 

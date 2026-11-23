@@ -1,4 +1,4 @@
-// The eager-path copy of download.js's isIOSLike, for deck-import-accept.ts. It is a copy,
+// The eager-path copy of download.js's isIOSLike, for StudioShell's undo doorbell. It is a copy,
 // not an import in either direction, because Rolldown places download.js in the same chunk
 // as anything download.js imports: when download.js imported this file, all of download.js
 // moved onto the Studio's first paint (+874 gzip bytes, check:route-budget). ios-like.test.ts

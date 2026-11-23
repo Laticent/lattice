@@ -743,9 +743,22 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
 	const marker = page.locator('.cm-lint-marker').first();
 	await marker.waitFor();
-	await marker.hover();
-	const action = page.locator('.cm-diagnosticAction').first();
-	await action.waitFor();
+	// The marker carries two findings: `unknown-class` (this test's) and `legacy-directive-comment`, whose own action
+	// reads "Quick fix". Under load the marker can appear on a pass that holds only the legacy finding, and a lint popup
+	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
+	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
+	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
+	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
+	// Away means the editor's far corner, not the page's: the gutter popup closes on a mouse move it sees inside the
+	// editor, and a pointer that leaves the editor sends it none.
+	const editor = page.locator('.cm-editor').first();
+	await expect(async () => {
+		const box = await editor.boundingBox();
+		if (box) await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
+		await marker.hover({ timeout: 2_000 });
+		await expect(action).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 30_000 });
 	expect(await action.textContent(), 'the action must name the component it will write').toContain('kpi');
 	await action.click();
 	await expect

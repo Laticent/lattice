@@ -85,8 +85,8 @@ async function latticePresentImport(title, slides) {
 	const parts = window.__latticePresentParts || [];
 	const file = new File(parts, 'present-memory.lattice', { type: 'application/zip' });
 	window.__latticePresentParts = null;
-	// "Import deck…"'s input (StudioShell.tsx): hidden from the reader and the tab order. It names no `accept` on iOS, where
-	// naming types grays out a `.lattice` in Files (deck-import-accept.ts), so it is found by those two marks.
+	// "Import deck…"'s input (StudioShell.tsx): hidden from the reader and the tab order. It names no `accept` on any device
+	// (a list grays out a `.lattice` in iOS Files), so it is found by those two marks, not by its accept list.
 	const input = await h.until(() => document.querySelector('input[type="file"][aria-hidden="true"][tabindex="-1"]'), 150000, 'the Studio\'s import input');
 	const dt = new DataTransfer();
 	dt.items.add(file);

@@ -39,7 +39,19 @@ async function openLibrary(page: Page, width: number) {
 	}
 }
 
+// Playwright intercepts the file picker only while the page has a `filechooser` listener. `waitForEvent` adds one and
+// removes it the moment the event fires, and removing the last one switches interception off. On Firefox the picker
+// itself is created in the parent process a moment AFTER the event fires, so the "off" can land first: Firefox then
+// opens a real picker that a headless browser never answers, the input stays marked "a picker is open", and every
+// later click on Import opens nothing (the next `filechooser` wait times out). Measured: 3 to 4 runs in 10 on
+// `gecko`, always on the second or third import, and the input's `cancel` (sent when an intercepted picker closes)
+// never arrived for the import before it. One standing listener keeps interception on for the page's whole life.
+const choosersHeld = new WeakSet<Page>();
 async function importFiles(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) {
+	if (!choosersHeld.has(page)) {
+		choosersHeld.add(page);
+		page.on('filechooser', () => {});
+	}
 	const chooser = page.waitForEvent('filechooser');
 	await page.getByRole('button', { name: 'Import files', exact: true }).click();
 	await (await chooser).setFiles(files);
@@ -74,12 +86,11 @@ for (const vw of [1440, 820, 390]) {
 				await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeVisible();
 			}
 			await expect(page.getByRole('button', { name: /^Add (image|video|file)/ })).toHaveCount(0);
-			// What iOS and Android build their picker from: `image/*` and `video/*` in `accept` and NO `capture`
-			// (a `capture` skips the choice and opens the camera). With these, a phone offers Take Photo, Photo Library
-			// and Choose Files. The sheet itself is the phone's and is not reachable from here (UNVERIFIED on a device).
+			// No `accept` at all (an `accept` list grays out a `.lattice` in iOS Files; library-deck-import.spec.ts) and NO
+			// `capture` (a `capture` skips the choice and opens the camera). With neither, a phone offers Take Photo, Photo
+			// Library and Choose Files. The sheet itself is the phone's and is not reachable from here (UNVERIFIED on a device).
 			const input = page.getByTestId('library-import-input');
-			const accept = (await input.getAttribute('accept')) ?? '';
-			for (const t of ['image/*', 'video/*', '.zip', '.pdf']) expect(accept.split(','), `accept lists ${t}`).toContain(t);
+			await expect(input).not.toHaveAttribute('accept', /.*/);
 			await expect(input).not.toHaveAttribute('capture', /.*/);
 
 			// A photo, imported from the Files section: it opens Media → Images.

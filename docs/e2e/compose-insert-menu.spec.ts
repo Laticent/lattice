@@ -70,8 +70,13 @@ test.describe('compose insert menu', () => {
 
 	test('the keyboard reaches every item: Enter opens, the arrow keys move, Enter chooses, and focus goes back to the text', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
-		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
-		await insertTrigger(page).focus();
+		const first = page.locator('.cs-slide').first();
+		await first.locator('.cs-slide-content p').first().click();
+		// The click activates the slide on the editor's next update. Focus the trigger only once THIS slide is
+		// active: `.focus()` does not wait the way a click does, so an unscoped trigger could still be the
+		// title slide's, where every block is unavailable and Enter on Diagram writes nothing.
+		await expect(first).toHaveClass(/\bcs-slide-active\b/);
+		await insertTrigger(page, first).focus();
 		await page.keyboard.press('Enter');
 		await insertEntry(page, 'Table').waitFor();
 		// The first item has focus; the arrow keys walk down the list to Diagram. Each press waits for focus to move, as a typist's does.

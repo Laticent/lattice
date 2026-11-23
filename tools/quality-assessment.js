@@ -117,6 +117,8 @@ function parseKnipResult(result) {
 
 // The knip report fields these rows count; any other array-valued field (duplicates, enumMembers,
 // nsExports, a category a later knip adds…) lands in `other`, so no finding is silently dropped.
+// Fields of an issue that are about the file, not findings.
+const KNIP_SCALARS = new Set(['file', 'owners']);
 const KNIP_COUNTED = new Set(['files', 'exports', 'types', 'namespaceMembers', 'dependencies', 'devDependencies', 'unlisted', 'binaries', 'unresolved']);
 
 /** Count knip's report into the ratchet's totals; refuses a run that found something no field counts. */
@@ -130,7 +132,13 @@ function tallyKnip(data, status) {
     totals.binaries += issue.binaries?.length || 0;
     totals.unresolved += issue.unresolved?.length || 0;
     for (const [key, value] of Object.entries(issue)) {
-      if (Array.isArray(value) && !KNIP_COUNTED.has(key)) totals.other += value.length;
+      if (Array.isArray(value)) {
+        if (!KNIP_COUNTED.has(key)) totals.other += value.length;
+      } else if (value && typeof value === 'object' && !KNIP_SCALARS.has(key)) {
+        // A category a later knip reports as an object rather than a list: count its entries, so it
+        // fails the ratchet instead of passing silently.
+        totals.other += Object.keys(value).length;
+      }
     }
   }
   const counted = totals.files + totals.exports + totals.unusedDependencies + totals.unlistedDependencies + totals.binaries + totals.unresolved + totals.other;
@@ -140,14 +148,91 @@ function tallyKnip(data, status) {
   return totals;
 }
 
+/**
+ * Read the engine's publish folder as what it is: the manifest of the code at the repository root.
+ *
+ * `packages/lattice/package.json` declares the engine's dependencies, but the code that imports them
+ * (lattice.js, lib/) stays at the root, which knip reads as a different workspace
+ * (engineering/decisions/2026-10-07-first-npm-release.md §8, option A). Unfolded, knip calls each
+ * root import of an engine dependency "unlisted" and each engine dependency "unused" (400 and 28 on
+ * 2026-11-22). Folded: an import the engine declares is listed, and an engine dependency is used
+ * when the root imports it (knip's unlisted list), when it is a workspace package (knip resolves
+ * those internally and never lists them), or when the root also declares it (puppeteer, for the
+ * `$puppeteer` override), where knip already judges the root's copy. An import NOBODY declares
+ * stays unlisted, and an engine dependency nothing loads stays unused: the two findings the ratchet
+ * exists for.
+ */
+function foldEngineManifest(data, root = ROOT) {
+  const file = 'packages/lattice/package.json';
+  const read = (rel) => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
+  let engine;
+  try { engine = read(file); } catch { return data; }
+  const rootPkg = read('package.json');
+  const declared = new Set([...Object.keys(engine.dependencies || {}), ...Object.keys(engine.optionalDependencies || {})]);
+  const importedAtRoot = new Set();
+  // Only the root workspace's files: a library under one of the other workspaces that imported an
+  // engine-only package would be a real finding, and the engine's manifest does not cover it.
+  const otherWorkspaces = (rootPkg.workspaces || []).filter((w) => w !== 'packages/lattice').map((w) => `${w.replace(/\/+$/, '')}/`);
+  for (const issue of data.issues) {
+    if (!issue.unlisted || otherWorkspaces.some((w) => String(issue.file).startsWith(w))) continue;
+    for (const u of issue.unlisted) if (declared.has(u.name)) importedAtRoot.add(u.name);
+    issue.unlisted = issue.unlisted.filter((u) => !declared.has(u.name));
+  }
+  const rootDeclares = new Set([...Object.keys(rootPkg.dependencies || {}), ...Object.keys(rootPkg.devDependencies || {})]);
+  // knip resolves a workspace package internally and never lists it as unlisted, so its use has to
+  // be read from the code: credited only when lattice.js or lib/ names it in an import specifier.
+  const isWorkspace = (name) => {
+    try { return fs.lstatSync(path.join(root, 'node_modules', name)).isSymbolicLink(); } catch { return false; }
+  };
+  const flagged = data.issues.filter((i) => i.file === file && i.dependencies).flatMap((i) => i.dependencies.map((d) => d.name));
+  const shippedImports = workspaceImports(root, flagged.filter(isWorkspace));
+  for (const issue of data.issues) {
+    if (issue.file !== file || !issue.dependencies) continue;
+    issue.dependencies = issue.dependencies.filter((d) => !importedAtRoot.has(d.name) && !shippedImports.has(d.name) && !rootDeclares.has(d.name));
+  }
+  return data;
+}
+
+/**
+ * Which of `names` (workspace packages) the shipped code imports: an import or require specifier
+ * `'<name>'` or `'<name>/…'` in lattice.js or a .js/.mjs/.cjs file under lib/ (vendored copies
+ * skipped). A text scan, not a parse: a name inside a comment counts, which errs toward "used",
+ * the same direction knip's own unlisted list errs.
+ */
+function workspaceImports(root, names) {
+  const found = new Set();
+  if (!names.length) return found;
+  const escapeRe = (n) => n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+  const pattern = new RegExp(`['"\`](${names.map(escapeRe).join('|')})(?:/[^'"\`]*)?['"\`]`, 'g');
+  const scan = (file) => {
+    for (const m of fs.readFileSync(file, 'utf8').matchAll(pattern)) found.add(m[1]);
+  };
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        if (e.name !== 'vendor' && e.name !== 'node_modules') walk(path.join(dir, e.name));
+      } else if (/\.(c|m)?js$/.test(e.name)) scan(path.join(dir, e.name));
+    }
+  };
+  if (fs.existsSync(path.join(root, 'lattice.js'))) scan(path.join(root, 'lattice.js'));
+  if (fs.existsSync(path.join(root, 'lib'))) walk(path.join(root, 'lib'));
+  return found;
+}
+
 function runDeadCode() {
   // Run knip's own entry through Node, not the extensionless node_modules/.bin shim, which Windows
   // cannot spawn without a shell (engineering/development.md).
   const knipEntry = path.join(ROOT, 'node_modules', 'knip', 'bin', 'knip.js');
   const raw = spawnSync(process.execPath, [knipEntry, '--reporter', 'json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 128 });
   if (raw.error) throw raw.error;
-  const data = parseKnipResult(raw);
-  const totals = tallyKnip(data, raw.status);
+  const reported = parseKnipResult(raw);
+  // The exit-1-but-nothing-counted guard reads knip's own report, since the fold can empty it
+  // legitimately. While the engine's folder is a workspace that report always carries the folded
+  // findings, so the guard cannot fire here; a category of a new shape is caught instead by
+  // tallyKnip counting it into `other` (KNIP_SCALARS).
+  tallyKnip(reported, raw.status);
+  const data = foldEngineManifest(structuredClone(reported));
+  const totals = tallyKnip(data, 0);
   return { raw: data, totals, issueCount: data.issues.length };
 }
 
@@ -317,4 +402,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult, tallyKnip };
+module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult, tallyKnip, foldEngineManifest };

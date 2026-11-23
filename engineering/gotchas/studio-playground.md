@@ -889,6 +889,21 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by:** any `toast(title, { description })` call. See
   `engineering/decisions/2026-08-10-studio-crash-sentinel.md` § 5.
 
+## On a phone, a toast covers a panel's bottom search field
+
+- **Symptom:** at phone width, "Added 1 reference file." (or any toast) sits on the
+  Library's search field for as long as it shows. Measured at 390px: toast y 774-828,
+  field y 801-823.
+- **Cause:** the toaster is bottom-center with Sonner's 16px phone offset, and a phone
+  panel docks its one field at the bottom too (`PanelDock`, `docs/src/components/ui/panel.tsx`).
+- **Fix (shipped, #3356):** `PanelDock` carries the `panel-dock` class, and one rule in
+  `docs/src/styles/tailwind.css` lifts a phone toast 4.5rem while a dock is open
+  (`:root:has(.panel-dock) [data-sonner-toaster][data-y-position="bottom"]`). It is CSS,
+  not a measuring hook, because the hook cost 170 gzip bytes of eager JS on every route and
+  pushed the Studio past its route-budget ceiling. 4.5rem clears a one-field dock (65px
+  measured); a taller dock, or a bottom field outside `PanelDock`, needs its own lift. Pinned by
+  `docs/e2e/library-deck-import.spec.ts` ("the import toast stands above").
+
 ## A status toast shows text from the message BEFORE it, or the wrong shape
 
 - **Symptom:** a one-line confirmation ("Deck saved.") renders as a tall card
@@ -1952,6 +1967,15 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — changing a dialog or sheet's exit duration; a new overlay/content pair.
 - **Removable when** — Radix renders a dialog's overlay and content in one portal.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## A tap on a sheet's scrim does nothing in the sheet's first moment
+
+- **Symptom** — on a phone, open the Library from the ⋯ menu for the first time and tap the deck band at once: the sheet stays open and its back control turns from "‹ Menu" to "‹ Deck". `e2e/back-gesture.spec.ts:172` went red 3 to 6 times in 100 under four workers, on `main` and on unrelated branches alike. On the iOS Simulator, a real finger left the Library open on 4 to 5 deck taps in 10 (`deckTapLeavesLibrary` in `docs/scripts/ios-safari/run.mjs`, part of the `ios-safari-studio-iphone` suite. With `main`'s old `sheet.tsx`, #3278's version of it, which opened the Menu and the Library by touch, left 4 of 10 open in runs 44008585425, 45068698694 and 45076945528; the version on `main`, which opens them by click and touches only the deck band, left 1 and 2 of 10 open in runs 45087368395 and 45087371727).
+- **Cause** — Radix arms its outside-tap dismissal on a `setTimeout(0)` after a dialog mounts (`@radix-ui/react-dismissable-layer` 1.1.12). A lazy panel's real sheet replaces its loading sheet in place with the enter animation off (`PanelLoader`), so it looks open from its first frame while a tap on its scrim is not yet "outside". Under load the browser runs the tap ahead of the queued timer. The `onInteractOutside` side effect still ran (the focus moving out did that), which is why the label changed and the sheet did not close. A closing sheet still mounted beneath is NOT the cause: with a 3 s exit, the spec passed 3 of 3. Mobile Safari adds a second way to lose the tap: the finger goes down on the loading sheet's scrim and lifts on the real sheet's, and with the touched element gone it sends **no `click`** (on lost taps the simulator logged pointerdown, touchstart and pointerup, sometimes touchend, then no click). Radix's touch path dismisses on that click, so it never dismisses either. A fix that waits for the click (this entry's first version) fixed Playwright and not real iOS: 10 of 10, then 5 of 10 left open.
+- **Mitigation** — `ui/sheet.tsx` reads the tap from the pointer, not from a click. A scrim's pointerdown is recorded outside any one sheet (`scrimPointers`), so the pointerup on the scrim that replaced it completes the tap; a finger that moved more than `TAP_SLOP` (10 px) or a pointercancel (a scroll) ends it. The tap goes through the caller's own `onPointerDownOutside` and `onInteractOutside` as an outside event, and the sheet closes through Radix's own Close only if neither prevented it, so a caller that keeps a sheet open on an outside tap needs no change. When Radix reports the tap first (a mouse, once it listens) it decides and the record is dropped; when it reports the same tap after (its touch path, on the click) and the scrim path closed the sheet, the report is prevented and not passed on, so the sheet never closes twice. A tap the caller kept is not claimed: Radix's later report of it reaches the caller a second time, and no later outside press is swallowed. `components/ui/panel-scrim.test.tsx` holds the gap, a finger with and without a click, a scrim swapped mid-tap, a moved and a canceled finger, the normal mouse tap (closes once), the kept-open caller and the press after a kept finger tap; jsdom has no `PointerEvent`, so the test builds its pointer events with the fields pinned.
+- **Triggered by** — a new way to mount a sheet already in place; a Radix upgrade that changes when the dismissable layer starts listening.
+- **Removable when** — Radix arms the outside-tap listener synchronously at mount.
+- **Commits** — #3418 (branch `claude/sheet-scrim-first-frame`), ported from #3278's `39b54851d`.
 
 ## The Playground's Explore tab shows a component gallery, or reloads the preview, instead of the deck being edited
 

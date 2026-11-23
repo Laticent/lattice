@@ -8,7 +8,8 @@
 // The published theme file cannot be imported this way: its first rule is Marp's `@import 'lattice'`,
 // which Vite's CSS pipeline reads as a file path. So the package publishes each palette's tokens with
 // the imports resolved (tools/build-default-bundle.js writes dist/palettes/), and this test builds the
-// recipe through the package's real `exports` map, from a node_modules link to the repo root.
+// recipe through the package's real `exports` map (packages/lattice/package.json), from a scratch
+// node_modules package that links the repo's dist/ and themes/.
 //
 // It lives in the docs suite because this is the one suite with Vite installed, and the CI job that
 // runs it (docs-build) builds the root `dist/` first. The plain theme import is asserted to FAIL as
@@ -26,8 +27,12 @@ let dir = '';
 beforeAll(() => {
 	if (!fs.existsSync(path.join(REPO, 'dist/palettes/cuoio.css'))) throw new Error('dist/palettes/ is missing: run `npm run build` at the repo root first');
 	dir = fs.mkdtempSync(path.join(os.tmpdir(), 'palette-vite-'));
-	fs.mkdirSync(path.join(dir, 'node_modules/@laticent'), { recursive: true });
-	fs.symlinkSync(REPO, path.join(dir, 'node_modules/@laticent/lattice'), 'dir');
+	// The package: the engine's published manifest (packages/lattice/package.json, whose `exports`
+	// map is what a consumer resolves through) beside links to the repo's dist/ and themes/.
+	const pkg = path.join(dir, 'node_modules/@laticent/lattice');
+	fs.mkdirSync(pkg, { recursive: true });
+	fs.copyFileSync(path.join(REPO, 'packages/lattice/package.json'), path.join(pkg, 'package.json'));
+	for (const d of ['dist', 'themes']) fs.symlinkSync(path.join(REPO, d), path.join(pkg, d), 'junction');
 	fs.writeFileSync(path.join(dir, 'package.json'), '{"type":"module"}');
 });
 afterAll(() => {

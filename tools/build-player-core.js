@@ -57,7 +57,7 @@ export { katexFontFiles, inlineKatexFonts, splitKatexSheet } from './katex-inlin
 export { parseFrontMatter } from '../engine/directives.js';
 // The engine's version, which the CLI reads from package.json and the browser cannot: the record's
 // \`build\` field (lattice-doc.js), so a Studio export stamps the same engine version a CLI one does.
-export const ENGINE_BUILD = ${JSON.stringify(require('../package.json').version || '')};
+export const ENGINE_BUILD = ${JSON.stringify(require('../packages/lattice/package.json').version || '')};
 `;
 
 const BUILD_OPTIONS = {

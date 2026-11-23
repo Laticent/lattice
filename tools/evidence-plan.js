@@ -74,7 +74,7 @@ const SURFACES = [
 		surface: 'rendered slides: the PR render slice and golden regress',
 		kind: 'local',
 		match: (f) =>
-			['lattice.js', 'package.json', 'package-lock.json', '.github/workflows/ci.yml'].includes(f) ||
+			['lattice.js', 'package.json', 'packages/lattice/package.json', 'package-lock.json', '.github/workflows/ci.yml'].includes(f) ||
 			(/^(lib|themes|tools|test|assets\/fonts|examples|exemplars|kit)\//.test(f) && !f.endsWith('.docs.md')),
 		// The venue ratchet rode on CI's shard 4 and is blocking there, so it travels with the slice.
 		command:

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, liveToast, setEditorContent, shareExport, test } from './studio-fixture';
 
 // The Library's photo detail dialog, driven on the real Studio: open a card, edit description, credit,
 // date and name, and prove the record, the reopened dialog and the fit of the dialog at 1440 / 820 / 390.
@@ -20,7 +20,7 @@ async function addPhoto(page: Page, name: string) {
 		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
 		const dt = new DataTransfer();
 		dt.items.add(new File([blob], fileName, { type: 'image/png' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);
@@ -193,7 +193,7 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	// (its trap 3), so for a moment the closing copy (`data-removed="true"`, fading out) and the fresh one are both in the
 	// DOM. Leaving out the closing copy keeps the check to the pill the person can read, so it cannot pass on a copy that
 	// is already on its way out, and exactly one live copy means a doubled notice would still fail.
-	const renamedNotice = page.locator('[data-sonner-toast]:not([data-removed="true"])', { hasText: /“probe-old” was taken/ });
+	const renamedNotice = liveToast(page, /“probe-old” was taken/);
 	await expect(renamedNotice).toHaveCount(1);
 	await expect(renamedNotice).toBeVisible();
 });
@@ -287,7 +287,7 @@ async function addExifPhoto(page: Page, name: string) {
 		out.set(jpg.subarray(2), 2 + app1.length);
 		const dt = new DataTransfer();
 		dt.items.add(new File([out], fileName, { type: 'image/jpeg' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);

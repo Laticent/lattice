@@ -18,7 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { formatBytes, MAX_GROUND_DOCS, REF_DOC_ACCEPT, type ReferenceDoc, readReferenceDoc } from './reference-doc';
+import { formatBytes, MAX_GROUND_DOCS, REF_DOC_ACCEPT, type ReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 
 /** A short uppercase type label from the filename (PDF / MD / TXT), for the row badge. */
@@ -63,8 +63,13 @@ export function useReferenceDoc(onManage?: () => void) {
 	const addOne = async (file: File): Promise<string | null> => {
 		if (capReached()) return null;
 		try {
-			const d = await readReferenceDoc(file);
-			const rec = await saveRefDoc(d, Date.now()); // persist to the shared library
+			// The Library's own reader (library-deck-ref.ts), so a file attached here is saved exactly as the Library saves
+			// it: a Lattice PDF keeps its deck copy and a Markdown file its "Open as deck", and re-attaching a same-named
+			// file (which replaces the record) does not silently drop either.
+			const { readLibraryReference } = await import('./library-deck-ref');
+			const r = await readLibraryReference(file);
+			const d = r.doc;
+			const rec = await saveRefDoc(d, Date.now(), { deck: r.deck, sourceExact: r.sourceExact }); // persist to the shared library
 			// Add to the active set (carry the record id so toggle/remove match by identity).
 			// The cap is re-checked INSIDE the updater so concurrent adds can't race past it.
 			setDocs((cur) => (cur.some((x) => x.id === rec.id) || cur.length >= MAX_GROUND_DOCS ? cur : [...cur, { ...d, id: rec.id }]));
