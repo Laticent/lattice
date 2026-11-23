@@ -410,6 +410,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const ceiling = Number.isFinite(maxSlots) ? Math.max(1, Math.min(HARD_MAX_SLOTS, Math.floor(maxSlots))) : HARD_MAX_SLOTS;
 	const ceilingRef = React.useRef(ceiling);
 	ceilingRef.current = ceiling;
+	const lastLooksRef = React.useRef<Set<string>>(new Set());
 	const tileCssRef = React.useRef(tileCss);
 	tileCssRef.current = tileCss;
 	const onSettleRef = React.useRef(onSettle);
@@ -591,14 +592,18 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			// A STALE frame is one built for a LOOK (palette, mode, theme, and a grid's deck-wide CSS) no tile has any more: a palette change leaves every
 			// free frame keyed to the old look, and such a frame is the first to reuse and never a reason to grow (growing past
 			// them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is read from the look and never from which
-			// tiles happen to be registered: a filter or a remounted panel unregisters the Mermaid tile for a while, and
+			// tiles happen to be registered (and with none registered, from the last looks the grid had): a filter or a remounted panel unregisters the Mermaid tile for a while, and
 			// calling its frame stale then handed it to a plain tile, or trimmed it, on every round trip (checker 18).
 			// `deckCss` comes from the HOST, never from the tiles: inferring it ("every registered tile carries the same CSS") turned
 			// true when a filter hid the Add slide gallery's local component, which then made its frame stale and trimmed it on
 			// every round trip, the Mermaid churn again through another shape (card grader, #3441).
 			const all = [...tiles.current.values()];
 			const deckCss = !tileCssRef.current;
-			const looks = new Set(all.map((t) => lookKey(t.props, deckCss)));
+			// NO tile registered (a search that matched nothing renders an empty state, and every tile leaves) is not a look
+			// change: judge staleness by the last looks the grid had. Reading it from the empty set called every frame stale
+			// and trimmed the spare on every empty-search bounce, one document per typo on LITE (card grader, #3441).
+			const looks = all.length > 0 ? new Set(all.map((t) => lookKey(t.props, deckCss))) : lastLooksRef.current;
+			lastLooksRef.current = looks;
 			const stale = (x: { props: PooledPreviewProps | null }) => !x.props || !looks.has(lookKey(x.props, deckCss));
 			// `mixed`: the grid holds more than one shape of the current look, counting the frames a filtered-out tile left
 			// behind. Only then is the spare for anything; a look change retires the rest and the trim gives it back.

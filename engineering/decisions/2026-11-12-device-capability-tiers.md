@@ -310,7 +310,9 @@ as an argument with that read as the default, so its tests pass the tier in and 
   theme, and the host's deck-wide CSS, as the overview's) any more: a look change leaves every free frame stale, and the pool reuses stale frames before it grows
   (growing past them doubled a one-shape grid on FULL, 10 frames to 20). Staleness is never read from which tiles are
   registered, because a filter or a remounted panel unregisters the Mermaid tile for a while, and calling its frame
-  stale then cost a new frame on every round trip (both found by the checker). Whether a tile's CSS is the deck's or its
+  stale then cost a new frame on every round trip (both found by the checker). With NO tile registered (a search that
+  matches nothing renders an empty state), staleness is judged by the last looks the grid had: the empty set called
+  every frame stale and trimmed the spare on every empty-search bounce (found by #3441's card grader). Whether a tile's CSS is the deck's or its
   own is the HOST's word too (`PreviewPool tileCss`, passed only by the Add slide gallery), not inferred from the tiles:
   inferring it turned the gallery's CSS deck-wide whenever a filter hid its local component, and its frame was made and
   destroyed on every round trip (found by #3441's card grader). So a one-shape grid never uses the

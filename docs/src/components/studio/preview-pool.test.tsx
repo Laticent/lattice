@@ -1052,6 +1052,55 @@ describe('PreviewPool — a tile of another shape', () => {
 		expect([mounts - m0, unmounts - u0], 'a filter round trip destroyed or made a frame').toEqual([0, 0]);
 	});
 
+	for (const kind of ['mermaid', 'local'] as const) {
+		it(`keeps every frame through an empty-search bounce (${kind})`, () => {
+			// A search that matches nothing renders an empty state, and every tile unregisters. Reading staleness from the
+			// empty set called every frame stale and trimmed the spare on every bounce: slots 4,5,4,5, three frames made and
+			// destroyed in three bounces, one document per typo on LITE (card grader, #3441).
+			const MER = '```mermaid\ngraph TD\n```';
+			const odd = kind === 'mermaid' ? MER : '# local';
+			const Pool = ({ empty }: { empty: boolean }) => (
+				<PreviewPool maxSlots={4} tileCss>
+					{empty ? (
+						<p>none</p>
+					) : (
+						['# 0', '# 1', '# 2', '# 3', odd].map((sample, i) => (
+							<div key={sample} data-testid={`tile-${i}`}>
+								<PooledThumbFace options={{ themeBase: '', runtimeUrl: '', engineUrl: '' }} sample={sample} extraCss={sample === '# local' ? '.x{color:red}' : undefined} className="aspect-video w-full" />
+							</div>
+						))
+					)}
+				</PreviewPool>
+			);
+			const { container, rerender } = render(<Pool empty={false} />);
+			const show = (on: number[], off: number[]) => {
+				for (const i of off) {
+					offScreen(face(container, i));
+					intersect(face(container, i), false);
+				}
+				for (const i of on) {
+					onScreen(face(container, i));
+					intersect(face(container, i), true);
+				}
+			};
+			show([0, 1, 2, 3], []);
+			settle();
+			show([4], [3]);
+			settle(RELEASE_GRACE + APPLY_MS + 50);
+			const [m0, u0] = [mounts, unmounts];
+			reshapes = 0;
+			for (let round = 0; round < 3; round++) {
+				rerender(<Pool empty />);
+				settle(RELEASE_GRACE + APPLY_MS + 50);
+				rerender(<Pool empty={false} />);
+				show([0, 1, 2, 4], [3]);
+				settle(RELEASE_GRACE + APPLY_MS + 50);
+				expect(showing(container)).toContain(odd);
+			}
+			expect([mounts - m0, unmounts - u0, reshapes], 'an empty-search bounce made, destroyed or rewrote a frame').toEqual([0, 0, 0]);
+		});
+	}
+
 	it('reuses the frames a palette change left stale instead of growing past them', () => {
 		// A one-shape grid, its frames free while the reader is away (the Add slide gallery stays mounted, closed), then a
 		// palette change. Every free frame is keyed to the old palette and matches no tile. Growing past them doubled the
