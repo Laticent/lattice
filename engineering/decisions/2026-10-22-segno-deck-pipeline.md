@@ -1001,7 +1001,7 @@ requiring lib/engine before the import settled threw, on all six; main did not, 
 (`css-ref.generated.js`). A CommonJS module loads synchronously on both paths, so neither can race the other.
 test/unit/core/css-tokens-load-race.test.js holds every importer on that order and pins the file as CommonJS. The same
 race exists on main through lib/core/front-matter-fence.mjs:
-followups.d/3294-p2-node24-require-esm-race.md.
+followups.d/3294-p3-node24-require-esm-race.md.
 
 **One parser, not two (coordinator, 2026-11-17).** Minified and gzipped, the `top` parser alone was 2,585 B, a separate
 `sheet` parser 2,840 B, and one parser with both entries 3,073 B. The Studio already loads the `top` parser through
