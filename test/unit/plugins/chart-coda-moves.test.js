@@ -15,9 +15,13 @@
  *   HOST       `measured: false` (a surface that never splits) draws as `fit: heal` does; `measured: true` (the CLI's
  *              `--fit-pack`) draws a `fit: heal` deck as the default does
  *   NO CODA    a chart with no key insight draws the same in every mode
+ *   MARKUP     the flag rides the section (lib/engine/slides.js), never a render option, so the chart transform handed the
+ *              section alone, as a chart's code package is (lib/core/code-sandbox.js), draws what the engine drew; a 16:9
+ *              deck, which never splits, carries no flag (integration tier, 2026-11-23: a ctx-borne flag broke the code
+ *              packages' byte parity on all 29 charts)
  *
  * FALSIFIABLE: with `codaMoves: true` passed unconditionally (the first version) MEASURED's heal box and REPORT and HOST
- * all equal the measured box.
+ * all equal the measured box. With the flag passed as a render option again, MARKUP's bare transform draws heal's box.
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -72,4 +76,31 @@ test('NO CODA: a chart with no key insight draws the same in every mode', () => 
   const h = drawn(chart('', 'bar', false)).h;
   assert.equal(drawn(chart('heal', 'bar', false)).h, h);
   assert.equal(drawn(chart('', 'bar', false), { measured: false }).h, h);
+});
+
+test('MARKUP: the bare transform reads the flag off the section; a 16:9 deck carries none', () => {
+  const frame = require('../../../lib/transformers/chart-frame');
+  const pack = engine.render(chart(''), 'indaco').html;
+  const at = pack.lastIndexOf('<section', pack.indexOf(' data-form-box="'));
+  const open = pack.slice(at, pack.indexOf('>', at) + 1);
+  assert.ok(open.includes(' data-coda-moves="true"'), 'the measured portrait section carries the flag');
+  const wide = engine.render(chart('').replace('size: portrait\n', ''), 'indaco').html;
+  assert.equal(wide.includes(' data-coda-moves='), false, 'a 16:9 deck carries no flag');
+  const heal = engine.render(chart('heal'), 'indaco').html;
+  assert.equal(heal.includes(' data-coda-moves='), false, 'a heal deck carries no flag');
+  // The transform alone, with no render option, on the section the engine handed it.
+  const bare = (stamped) => {
+    const deck = chart('');
+    let handed = null;
+    const fam = require('../../../lib/transformers/chart-family');
+    const orig = fam.applyToHtml;
+    fam.applyToHtml = function capture(html, ctx) { if (!handed) handed = html; return orig.call(this, html, ctx); };
+    try { engine.render(deck, 'indaco'); } finally { fam.applyToHtml = orig; }
+    const input = stamped ? handed : handed.split(' data-coda-moves="true"').join('');
+    const out = frame.applyToRenderedHtml(input, {});
+    const i = out.indexOf(' data-form-box="');
+    return Number(out.slice(i + 16, out.indexOf('"', i + 16)).split(' ')[1]);
+  };
+  assert.equal(bare(true), drawn(chart('')).h, 'handed the stamped section, the bare transform draws the measured box');
+  assert.equal(bare(false), drawn(chart('heal')).h, 'without the stamp it draws heal\'s box');
 });
