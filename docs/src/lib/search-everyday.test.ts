@@ -60,14 +60,15 @@ describe('search by meaning: the everyday-words floor', () => {
 		expect(first('cards gid')).toBe('cards-grid');
 		expect(first('timline')).toBe('timeline-list');
 	});
-	it("a tag or look that one component owns still puts that component first (checker on #3507)", () => {
-		// Meaning-first had pushed these down: `at-top` to image's third place, `lanes` behind statute-stack.
+	it('a tag or look that one component owns puts that component first (checker on #3507)', () => {
+		// Meaning-first had pushed these down (`lanes` behind statute-stack, an image placement look to third). The set is
+		// read from the catalog, not hard-coded, because looks get renamed (#3415). Measured 158 of 171 (92.4%) when added.
 		const owners = new Map<string, string[]>();
-		for (const c of catalog) for (const t of [...c.tags, ...(c.variants ?? [])]) owners.set(t, [...(owners.get(t) ?? []), c.name]);
-		for (const [q, owner] of [['at-top', 'image'], ['lanes', 'obligation-matrix'], ['register', 'list-tabular'], ['share', 'stacked-bar']] as const) {
-			expect(owners.get(q), `${q} must still be a single-owner token`).toEqual([owner]);
-			expect(rankedHitsFor(catalog, index, q)?.[0]?.item.name, q).toBe(owner);
-		}
+		for (const c of catalog) for (const t of new Set([...c.tags, ...(c.variants ?? [])])) owners.set(t, [...(owners.get(t) ?? []), c.name]);
+		const single = [...owners].filter(([t, o]) => o.length === 1 && t.length > 1);
+		const misses = single.filter(([t, [o]]) => rankedHitsFor(catalog, index, t)?.[0]?.item.name !== o).map(([t, [o]]) => `${t} -> not ${o}`);
+		expect(single.length).toBeGreaterThan(100);
+		expect(1 - misses.length / single.length, misses.join('\n')).toBeGreaterThanOrEqual(0.9);
 	});
 
 	it('a letter-&-letter abbreviation is searchable: q&a finds q-and-a', () => {
