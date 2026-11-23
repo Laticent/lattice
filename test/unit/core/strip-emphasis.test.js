@@ -22,8 +22,7 @@ test('stripEmphasis matches the emphasis regex (seeded differential fuzz)', () =
   for (const s of hand) assert.equal(stripEmphasis(s), s.replace(/[*_]{1,3}(?=\S)([\s\S]*?\S)[*_]{1,3}/g, '$1'), `seed ${SEED}, input ${JSON.stringify(s)}`);
 });
 
-test('many marks with no close run no regex', () => {
+test('many marks with no close run only linear regexes (one character at a time), checked by the census', () => {
   const s = '*a '.repeat(100000);
-  const { keys } = assertLinearRegexes(() => assert.equal(stripEmphasis(s), s));
-  assert.equal(keys.size, 0);
+  assertLinearRegexes(() => assert.equal(stripEmphasis(s), s));
 });

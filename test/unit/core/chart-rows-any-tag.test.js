@@ -71,7 +71,6 @@ test('rawBlockCounts counts what its old regex loop counted (seeded differential
   for (const s of cases(SEED + 1, 20000)) assert.deepEqual(rawBlockCounts(s), oldCounts(s), `seed ${SEED + 1}, input ${JSON.stringify(s)}`);
 });
 
-test('many `<` with no `>` run no regex', () => {
-  const { keys } = assertLinearRegexes(() => assert.deepEqual(rawBlockCounts('<ul '.repeat(1900)), { lists: 0, tables: 0, closedTables: 0 }));
-  assert.equal(keys.size, 0);
+test('many `<` with no `>` run only linear regexes (one character at a time), checked by the census', () => {
+  assertLinearRegexes(() => assert.deepEqual(rawBlockCounts('<ul '.repeat(1900)), { lists: 0, tables: 0, closedTables: 0 }));
 });

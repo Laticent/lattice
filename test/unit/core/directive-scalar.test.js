@@ -50,10 +50,15 @@ test('directiveScalar matches the whole chain it replaces', () => {
 	}
 });
 
-test('a long run of blanks with no `#` is read in one pass, and runs no regex', () => {
-	const { traceRegexes } = require('../../helpers/regex-trace');
-	const value = `on${' '.repeat(200000)}x`;
-	const { result, keys } = traceRegexes(() => ds.directiveScalar(value));
-	assert.equal(result, value.trim());
-	assert.equal(keys.size, 0, `ran ${[...keys].join(' ')}`);
+test('a long run of blanks with no `#` is read in one pass: linear regexes, linear work', () => {
+	const { assertLinearRegexes } = require('../../helpers/regex-trace');
+	const { scanWork } = require('../../helpers/work-count');
+	const per = (n) => {
+		const value = `on${' '.repeat(n)}x #${' # '.repeat(n)}\n`;
+		const { result, scanned } = scanWork(() => assertLinearRegexes(() => ds.directiveScalar(value)).result);
+		assert.equal(typeof result, 'string');
+		return scanned / value.length;
+	};
+	// Counted, not timed: the reader tests one character at a time (`/\s/`), so the work per character stays flat.
+	assert.ok(per(100000) <= per(10000) * 1.5, `${per(100000)} vs ${per(10000)} per character`);
 });

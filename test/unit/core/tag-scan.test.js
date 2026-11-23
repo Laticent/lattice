@@ -96,7 +96,7 @@ describe('scanTags is linear on the markup its regex choked on', () => {
 // literalSpans / firstSpanText replace `/<code>([\s\S]*?)<\/code>/g` and `html.match(/<code>([\s\S]*?)<\/code>/)?.[1].trim()`
 // in heatmap.transform.js and carousel.js (regex PR 3). Same seeded differential fuzz.
 describe('literalSpans and firstSpanText match the lazy span regex', () => {
-  const { literalSpans, firstSpanText } = require('../../../lib/core/tag-scan');
+  const { literalSpans, firstSpanText } = require('../../../lib/core/literal-spans');
   const SEED = Number(process.env.FUZZ_SEED || 3045);
   const PIECES = ['<code>', '</code>', '<code', '</code', 'x', ' ', '\n', '<', '>', '/', 'c', '<cod', 'e>'];
   const draw = (rand) => {
@@ -133,7 +133,7 @@ describe('literalSpans and firstSpanText match the lazy span regex', () => {
 // firstElementMatch replaces `/<h2[^>]*>[\s\S]*?<\/h2>/.exec(html)` in chart-frame.js, split-panels.js, premise.js and
 // the flowchart and state-chart transforms (regex PR 3). Same seeded differential fuzz.
 describe('firstElementMatch matches the first-heading regex', () => {
-  const { firstElementMatch } = require('../../../lib/core/tag-scan');
+  const { firstElementMatch } = require('../../../lib/core/element-scan');
   const SEED = Number(process.env.FUZZ_SEED || 3045);
   const PIECES = ['<h2', '<h2>', '</h2>', '</h2', '>', '<', 'h2', ' ', 'x', '\n', '"', '<h20>', '<h3>', '</h3>'];
   const hand = ['', '<h2>', '<h2></h2>', '<h2 class="a">T</h2>', '<h2<h2>x</h2>', '<h2 x</h2>', '<h2>a</h2><h2>b</h2>', '<h20>x</h2>', '<h2>a'];
@@ -163,7 +163,7 @@ describe('firstElementMatch matches the first-heading regex', () => {
 // firstSectionOpen and sectionClassMatch replace `/<section\b[^>]*>/` (lib/engine/index.js) and
 // `/<section\b[^>]*\sclass="([^"]*)"/` (inline-run.js, label-set-key.js) (regex PR 3). Same seeded differential fuzz.
 describe('the section open-tag readers match their regexes', () => {
-  const { firstSectionOpen, sectionClassMatch } = require('../../../lib/core/tag-scan');
+  const { firstSectionOpen, sectionClassMatch } = require('../../../lib/core/element-scan');
   const SEED = Number(process.env.FUZZ_SEED || 3045);
   const shape = (m) => m && { index: m.index, m: [...m] };
   const PIECES = ['<section', '<section ', '<sections', '<section-', ' class="', 'class="', '"', 'a', ' ', '\n', '>', '<', 'data-class="b"', '\t'];
@@ -195,7 +195,7 @@ describe('the section open-tag readers match their regexes', () => {
 });
 
 describe('sectionClassMatch is linear on many sections without a class', () => {
-  const { sectionClassMatch } = require('../../../lib/core/tag-scan');
+  const { sectionClassMatch } = require('../../../lib/core/element-scan');
   const { scanWork } = require('../../helpers/work-count');
   test('the search for `class="` is not repeated from every tag', () => {
     const per = (n) => {

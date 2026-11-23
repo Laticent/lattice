@@ -15,7 +15,7 @@ test('hasHiddenMark matches the regex (seeded differential fuzz)', () => {
 	const SEED = Number(process.env.FUZZ_SEED || 3045);
 	const rand = mulberry32(SEED);
 	const pieces = [' ', '\t', '\n', ' ', 'data-lattice-hidden', 'DATA-Lattice-HIDDEN', 'data-lattice-hiddenx', '=', '"', "'", 'true', 'TRUE', 'tru', 'x', '<section', '>'];
-	const hand = ['', ' data-lattice-hidden="true"', 'data-lattice-hidden="true"', " data-lattice-hidden = 'True'", ' data-lattice-hidden="true\'', ' data-lattice-hidden=true', ' data-lattice-hidden="false" data-lattice-hidden="true"'];
+	const hand = ['', ' data-lattice-hidden="true"', 'data-lattice-hidden="true"', " data-lattice-hidden = 'True'", ' data-lattice-hidden="true\'', ' data-lattice-hidden=true', ' data-lattice-hidden="false" data-lattice-hidden="true"', 'data-lattice-hidden x data-lattice-hidden="true"'];
 	for (let i = 0; i < 30000; i++) {
 		let s = '';
 		const n = Math.floor(rand() * 9);
