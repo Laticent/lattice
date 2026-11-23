@@ -26,7 +26,7 @@ the owner typed it.
 | H2 Where | the owner picked "On the work branch itself (Recommended)" in that answer | owner's own answer |
 | H3 Lifecycle | the owner picked "Removed before merge; build:check enforces (Recommended)" in that answer | owner's own answer |
 | H4 Size and secrets | the workflow desk's default numbers (5 MB per folder, 1 MB per binary file); H6 made a binary cap and a scrub rule the owner's | numbers open to veto |
-| H5 One source | first a desk proposal (no earlier owner answer contained it); then the owner answered "One store or two?" with "HANDOFF.md is the source (Recommended)" (command center, event `a48dc38f…`, 12:33:14 UTC) | owner's own answer |
+| H5 One source | first a desk proposal (no earlier owner answer contained it); then the owner answered "One store or two?" with "HANDOFF.md is the source (Recommended)" (command center, event `a48dc38f-2e8b-4101-925c-8d390b84a0e5`, 12:33:14 UTC) | owner's own answer |
 | H6 Artifacts and shape | the command center showed the owner a worked example, the artifact rules and the table against `followups.d/` (`session_01DPMMjGth4jH37uLv1XPwcA`, 2026-11-23 12:01 and 12:03 UTC); the owner typed "yes, put that in #3454" (event `107c227e-7c9a-4f05-990d-6d4b66209796`, 12:03:45 UTC) | owner's own answer |
 | H7 Update in place | the owner asked "will handoff be duplicated or updated at 25, 50,75 and 90?" and typed "yes, update in place" (same session, event `63b640e1-1a70-4601-9e8b-b6b2ac34f015`, 12:05:27 UTC) | owner's own answer |
 | H8 Freshness is machine-checked | the owner asked "are we efficient and deterministic in our handoff workflow? … are there edge cases we have not considered?" and typed "do all three" (command center, event `c0034b91-35e9-4fee-8cb0-44b0a389e06d`, 12:12:25 UTC); the command center's 12:12:55 relay names this as item 1 of 3 | owner's own answer, to the command center's proposal |
@@ -205,7 +205,11 @@ handoffs.d/
   what it learned to `handoffs.d/<slug>/since-<session>.md` instead; #3427's `baton rescue` posts
   its marked note on the PR as well, and the file carries the detail the note cannot. A change to the
   `since-` file freshens the handoff (§Freshness), so the rescue push, which runs the pre-push hook,
-  is never blocked. The holder merges the rescue and then, in a separate commit after the merge,
+  is never blocked, provided the `since-` file is written in the rescue's last commit, after its work
+  commits (`npm run baton -- rescue` writes that commit itself in the build, slice 1). A `since-`
+  file is a delta waiting to be folded, not a substitute for HANDOFF.md: while one exists, the layout
+  check warns "fold pending", and `npm run handoff -- close` refuses until it is folded and deleted,
+  so it cannot stand in for the handoff all the way to the merge ask. The holder merges the rescue and then, in a separate commit after the merge,
   folds the file into HANDOFF.md and deletes it.
 
 ### HANDOFF.md (H6, H7)
@@ -323,8 +327,9 @@ handoffs.d/presets-wave-1/
   error in a throwaway script stopped a push. The folder never reaches `main`, so it is the
   `transient` class `biome.jsonc` already admits: slice 2 adds `"!handoffs.d"` there with that class
   (and re-blesses `npm run lint:coverage`), adds `handoffs.d/` to `isSkippable`, and has any
-  ownership arm that walks `*.css` skip it. `lint:deck:all` already walks only `examples/` and
-  `lib/`, so it needs nothing; slice 2 confirms that with a sample folder. This differs from `followups.d/` evidence on purpose: evidence lands on `main` and is
+  ownership arm that walks `*.css` skip it. `lint:deck:all` walks only `examples/`, `exemplars/`,
+  `test/integration/baseline-decks/` and the galleries under `lib/` (`tools/lint-deck.js`), none of
+  which reaches `handoffs.d/`, so it needs nothing; slice 2 confirms that with a sample folder. This differs from `followups.d/` evidence on purpose: evidence lands on `main` and is
   read there; a handoff is gone before merge.
 
 The cost to the repository is bounded: the folder never reaches `main`, and a squash merge keeps only
