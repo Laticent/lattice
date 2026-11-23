@@ -1,1 +1,0 @@
-- **The plugin notes no longer describe the superseded npm contract.** Axis 2 of the plugin-architecture note and §4.10 of the plugin-system note now say what v1 allows an npm plugin to do: render in the locked page only, return a fragment or host-sanitized data, never send code, no `bake`, no Studio or desktop loading. (`engineering/decisions/`)

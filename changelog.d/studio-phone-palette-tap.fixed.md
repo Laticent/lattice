@@ -1,1 +1,0 @@
-- Tapping a result in the Studio's phone search now runs it. Before, only Enter worked: the tap took focus from the search field, the panel shrank by 54px, and the result slid out from under your finger.

@@ -211,7 +211,7 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
   copied folder must ship the same set, and `test/integration/export/installed-package.test.js`
   is the check.
 
-Status stays `proposed` until slice C lands.
+Status stays `proposed` until slice C lands (§11).
 
 ## 10. Option A, built (2026-11-22)
 
@@ -262,3 +262,91 @@ only. A workspace package (`@laticent/*`), which knip never lists as unlisted, c
 import of an engine-only package, and an engine dependency nothing loads all still count; the second
 checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
+
+## 11. Slice C, built: Changesets for thirteen packages (2026-11-23)
+
+Built on `main` at `c0fbbd9`, after §10's publish folder (#3438). The owner's 2026-11-23 rulings
+(issue #3449) set the scope: Changesets before 1.0.0; the engine plus twelve libraries, each on its
+own version line; six libraries held back; curated 1.0.0 notes; the pending fragments and the
+August `## 1.0.0` section archived; weekly releases later, in their own PR.
+
+**The publish set** lives once, in `tools/release-packages.js`: `PUBLISH_SET` (thirteen names) and
+`IGNORED` (filo, fuoco, suono, tavola, vetrina, veduta), which must equal `.changeset/config.json`
+`ignore`. `build:check` (`checkChangesets`) holds every workspace in exactly one place: published,
+ignored, or private. The release runs the same check in strict mode, which also requires all
+thirteen to exist and be public. On `main` today strict mode names four problems, each an open PR's
+job: `markup` and `lastra` are private (#3451), and `@laticent/segno-languages` does not exist yet
+while the engine still depends on `@laticent/segno-markdown` (the Segno desk's rename, B9). So a
+release cut before those merge stops before it opens a PR.
+
+**Config choices.** `privatePackages.version: true`, `tag: false`. With `version: false`,
+Changesets refuses the whole tree while the engine depends on a private package (`Invalid tree:
+"@laticent/lattice" depends on the skipped package "@laticent/lastra"`), which is `main` until #3451
+merges; `version: true` lets it read the tree, and `tag: false` still keeps a private package off
+npm and untagged. The changelog formatter is `tools/changeset-changelog.cjs`, the default shape
+without the commit hash, because the release notes print each entry's first line.
+
+**Fragments keep working (the brief's constraint 1).** 19 open PRs carried `changelog.d/` fragments
+on the cutover day. `checkChangelogFragments` is unchanged, and Release (prepare) converts each
+pending fragment into a changeset for `@laticent/lattice` (`tools/changesets.js`), with the bump its
+category always gave it. Every open PR's change to `changelog.d/` was an addition (measured against
+all 60 open PRs; #3356 also deletes one, which merges cleanly against this PR's deletion), so the
+archive conflicts with none of them. `test/unit/release/changesets-release.test.js` runs the real
+`changeset version` on a fixture workspace to prove the conversion.
+
+**The first release bumps nothing (constraint 2).** The old tool computed 1.0.0 → 2.0.0 from a
+`**Breaking:**` fragment. `tools/release.js` treats the release as the bootstrap when the engine is
+`1.0.0`, `npm view @laticent/lattice@1.0.0` is a 404, and no `@laticent/lattice@1.0.0` tag exists:
+it archives whatever is pending (fragments and changesets that landed after this PR) and writes
+each package's first changelog section, at the versions the packages already carry. Asking npm
+rather than reading tags alone keeps a tagless local checkout from mistaking a later release for
+the first. Any other unpublished engine version is refused: the previous release never finished,
+and the fix is a Release (publish) run.
+
+**Publish (constraint 3).** `changeset publish` (3.0.3) sorts the plan into dependency rounds with
+`@pnpm/deps.graph-sequencer` and publishes each round in parallel: the eleven libraries with no
+`@laticent/*` dependency (`ltt` among them), then `cadenza`, then the engine. A failure stops
+before the next round, so the engine publishes last or not at all. Provenance comes from
+`NPM_CONFIG_PROVENANCE=true`, which Changesets passes through to `npm publish`. Tags are
+Changesets' `<name>@<version>` plus `v<version>` for the engine's GitHub Release. Before anything
+reaches npm, `--publish` refuses while `v1.0.0` already tags a commit (slice D not yet done), and
+writes the notes and builds the zip, so their failure leaves nothing half-published.
+
+**Guards the adversarial trio added.** The Munger inversion reproduced a release-day failure and
+found three more ways Friday could go wrong:
+
+- The engine's `prepublishOnly` ran `npm test` inside `changeset publish`, which fails two ways
+  there (the red team and the inversion each reproduced one): npm passes `--json` to lifecycle
+  scripts, which breaks `package-nodenext-types.test.js`'s `npm pack`, and the zsh completion test
+  fails rather than skips in CI without zsh. Libraries publish before the engine, so every run would
+  have stranded twelve libraries on npm without their engine. `prepublishOnly` is gone (the release
+  commit already passed `ci`; `prepack` builds), and Release (prepare), whose gate runs `npm test`,
+  installs zsh as `ci.yml`'s unit job does.
+- Release (publish) runs on a push only for a commit titled `release: `. Before, any manifest or
+  changelog push could publish whatever `main` held once the August tag was gone.
+- A release that crosses a major version (or takes a `0.x` library to 1.0.0) does not auto-merge;
+  95 of the 1,674 archived fragments were marked breaking, many by mistake. The changeset gate
+  also rejects `major` on a `0.x` library.
+- The post-publish registry check asks up to four times, so a brand-new package's cached 404
+  cannot leave it untagged; the GitHub Release step runs even when that check finally fails
+  (`!cancelled()`), and a recovery run's notes list the packages tagged at the same commit.
+- `--publish` refuses any package whose `CHANGELOG.md` lacks its `## <version>` section, and the
+  workflow refuses when a GitHub Release named `v<version>` already exists. Both run before npm.
+- The changeset gate also runs `@changesets/parse`, the reader `changeset version` uses, so an
+  unquoted `@scope/name` key or a package named twice fails when it lands.
+
+**Changelogs.** Each package keeps its own `CHANGELOG.md`, written by `changeset version`. The
+engine's is `packages/lattice/CHANGELOG.md`, committed; `tools/stage-engine-package.js` treats it as
+native (neither staged from the root nor removed after packing). The root `CHANGELOG.md` becomes an
+index that takes no entries. The archive gained the August section and the 1,674 fragments.
+
+**Not in this PR, each on purpose:**
+
+- **A gate that requires a changeset** on a PR that touches published source (§5 slice C). A
+  diff-aware gate is a new CI step, which is the owner's call (CLAUDE.md, SECOND FILTER row 2).
+- **Weekly releases** (slice F), and npm trusted publishing, which needs npm 11.5.1+ in the publish
+  job (Node 22 ships 10.9). Both come after 1.0.0.
+- **GitHub Releases for libraries.** Only the engine gets one; a library-only release publishes and
+  tags without one. Slice F decides whether weekly library releases need their own.
+
+Status stays `proposed` until slice E, the first publish, lands. Slices D and E happen on release day (#3449).

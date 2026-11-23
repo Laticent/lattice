@@ -173,7 +173,6 @@
     "release:prepare": "node tools/release.js --prepare",
     "release:publish": "node tools/release.js --publish --push",
     "release:zip": "node tools/build-release-zip.js",
-    "changelog:bump": "node tools/changelog.js --bump",
     "backlog": "node tools/backlog.js",
     "card": "node tools/card.js",
     "relay": "node tools/relay.js",
@@ -338,6 +337,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@breezystack/lamejs": "^1.2.7",
+    "@changesets/cli": "3.0.3",
+    "@changesets/parse": "1.0.0",
     "@fortawesome/fontawesome-free": "7.3.1",
     "@marp-team/marp-core": "4.4.0",
     "@mermaid-js/mermaid-cli": "12.2.0",
