@@ -1,0 +1,2 @@
+- Flowchart nodes are one family: every box in a Mermaid flowchart now paints a pale tint of the theme's accent with an accent outline, instead of a different category color per box, in both color modes. State, ER, sankey and treemap diagrams keep their category colors.
+- A `split-panel` slide's masthead (eyebrow, heading and lede) now centers vertically in the panel instead of sitting on the running footer, the way `metric` and `steps` already sit; a longer masthead grows from the top and uses the whole panel. `watermark` and `capstone` keep their own compositions.
