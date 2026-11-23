@@ -97,7 +97,6 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './deck-axes';
 import { useDeckFileDrop } from './deck-drop';
-import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister, writeSpectrumAxis } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
@@ -9192,7 +9191,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={(v) => (v ? setLibraryOpen(true) : collapsePane())}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onOpenDeck={importDeckFile} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader></PanelDrillBack>
 									)}
 								</ResizablePanel>
@@ -9391,6 +9390,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
+							onOpenDeck={importDeckFile}
 							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
@@ -9449,10 +9449,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
-			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
-			    Files grays out anything `accept` does not name, and `.lattice` has no
-			    registered type. What each format means is deck-import.ts's job. */}
-			<input ref={importInputRef} type="file" accept={deckImportAccept()} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
+			{/* Hidden file input for "Import deck…". NO `accept`, on every device: iOS grays out
+			    whatever an `accept` list does not name and has no type for `.lattice`, and the
+			    device sniff that dropped the list only on iOS failed on a real iPhone (2026-11-20).
+			    deck-import.ts sniffs the bytes and names a file that is not a deck. */}
+			<input ref={importInputRef} type="file" data-testid="deck-import-input" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
 			{live.lobby && (
