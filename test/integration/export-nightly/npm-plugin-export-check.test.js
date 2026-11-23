@@ -182,17 +182,10 @@ function engines() {
  *     average of 150 to 181, and 4 of 4 runs red;
  *   - every walled page held open to the end of the run: about 24 pages a run, and the kernel's memory limit killed
  *     WebKit web processes (about 180 MB each), so a page never finished loading.
- * The bound is on pages, not on time: the run's waits share RUN_DEADLINE.
+ * The bound is on pages, not on time: each wait keeps `until`'s 60 s deadline.
  */
 const AT_ONCE = 4;
 
-/**
- * One deadline for a whole run, shared by every wait in it: 120 s, the worst case of the old single wait (the control
- * and the witness each waited up to `until`'s 60 s). Waiting 60 s per vector instead would let an engine that fires
- * nothing take 4 batches × 60 s per run and hit the test TIMEOUT, which reports a bare timeout instead of the
- * "witness never heard" message that names the vectors.
- */
-const RUN_DEADLINE = 120000;
 
 /**
  * How many times each walled pair re-witnesses the control's slowest vector before its walled page closes, one after
@@ -251,8 +244,18 @@ async function reached(eng, file, { witness = null, slowest = null } = {}) {
   main.reset();
   const names = Object.keys(vectors());
   const fireable = (v) => !MAY_MISS[eng.name].includes(v);
-  const end = Date.now() + RUN_DEADLINE;
-  const heard = (log, v) => log.until((h) => vectorsHit(h).includes(v), { timeout: Math.max(1, end - Date.now()) });
+  // Each wait keeps `until`'s 60 s deadline. A walled run stops waiting after its first miss: the run has already
+  // failed, and waiting 60 s for each remaining vector would let an engine that fires nothing reach the test TIMEOUT,
+  // which reports a bare timeout instead of the "witness never heard" message that names the vectors. (A deadline
+  // shared by the whole run was tried and failed: REWITNESS multiplies a run's work, and under load a healthy Firefox
+  // walled run used up 120 s, so its last waits got no time; measured 2026-11-23.)
+  let gaveUp = false;
+  const heard = async (log, v) => {
+    if (gaveUp) return null; // skipped: not a miss of its own
+    const ok = await log.until((h) => vectorsHit(h).includes(v));
+    if (!ok && witness) gaveUp = true;
+    return ok;
+  };
   // The control times each vector, so the walled run knows which witness to repeat.
   const took = new Map();
   // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
@@ -270,13 +273,13 @@ async function reached(eng, file, { witness = null, slowest = null } = {}) {
       if (!fireable(name)) return walled;
       if (w) {
         const own = await attempt(browser, witness, w, name);
-        if (!(await heard(w, name))) missed.push(`${name} (witness ran: ${own.ran}, loaded: ${own.loaded}, url: ${own.page.url().slice(0, 60)})`);
+        if ((await heard(w, name)) === false) missed.push(`${name} (witness ran: ${own.ran}, loaded: ${own.loaded}, url: ${own.page.url().slice(0, 60)})`);
         await own.page.close().catch(() => {});
         for (let round = 0; slowest && round < REWITNESS; round++) {
           const sl = await listener();
           try {
             const again = await attempt(browser, witness, sl, slowest);
-            if (!(await heard(sl, slowest))) missed.push(`${slowest}, witnessed again for ${name} (ran: ${again.ran}, loaded: ${again.loaded})`);
+            if ((await heard(sl, slowest)) === false) missed.push(`${slowest}, witnessed again for ${name} (ran: ${again.ran}, loaded: ${again.loaded})`);
             await again.page.close().catch(() => {});
           } finally {
             await sl.close();
