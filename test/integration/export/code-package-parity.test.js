@@ -273,6 +273,9 @@ describe('code packages: every shipped transform runs in the locked page and mat
     const { scanned } = scanWork(() => assert.throws(() => workerScript(padded), /must end in/));
     assert.ok(scanned <= 4 * 256, `the tail check searched ${scanned} characters of a ${padded.length}-character package`);
     await assert.rejects(openPackageSandbox(browser, 'for(;;);function t(){}export{t as default};', { loadTimeoutMs: 500 }), /did not finish loading within 500 ms/);
+    // The package's budget bounds the package, never our own page's load: at 1 ms the page could never load in time, so a
+    // shared budget reported Puppeteer's navigation timeout here, every run (the cause of a red run under load, 2026-11-23).
+    await assert.rejects(openPackageSandbox(browser, 'for(;;);function t(){}export{t as default};', { loadTimeoutMs: 1 }), /did not finish loading within 1 ms/);
   });
 
   test('a request the bundle makes while it loads reaches nothing: it is made, and refused', async () => {
