@@ -459,7 +459,7 @@ export function makeStudioCompletion(
 			return { from: line.from + spot.from, options: options as Completion[], validFor };
 		}
 
-		// 1a. Inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
+		// 1a. Inside a slide RECORD (`<!-- @meta{layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
 		// `, `, a value after `field=` (a component for `layout`, its variants for `variant`, the class grammar for
 		// `class`, a register's own words for the rest). The same kernel as the Playground's (slide-context.js).
 		const rec = recordCompletion(before);
