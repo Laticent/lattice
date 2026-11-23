@@ -1,0 +1,1 @@
+- In an exported HTML player switched to dark, and in an exported diagram SVG, a flowchart's edge labels ("yes", "no") no longer turn into white boxes on 12 of the 14 light palettes (cuoio, burgundy, brina and more). A label's backing now follows the slide's background token, so it turns dark with the slide.

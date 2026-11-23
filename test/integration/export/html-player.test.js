@@ -726,8 +726,12 @@ describe('html-player export — a baked label halo follows, or its ink freezes 
 			const page = await browser.newPage();
 			// `--bg` and `--text-heading` VARY by scheme, so they enter the derived follow-set;
 			// `--frozen-brand` does not, so a paint equal to it must ship as a literal.
+			// `--decoy-on-mark` is the cuoio trap: declared BEFORE `--bg`, the same light value, a
+			// light dark value. First match alone picks it, and the halo goes white after the toggle;
+			// the halo must name its canvas role (`HALO_SURFACE_TOKENS`) instead.
 			await page.setContent(`<!doctype html><html><head><style>
 				:root { color-scheme: light dark;
+					--decoy-on-mark: light-dark(#FFFFFF, #FAFAFA);
 					--bg: light-dark(#FFFFFF, #101014);
 					--text-heading: light-dark(#101014, #FFFFFF);
 					--frozen-brand: #123456; }
