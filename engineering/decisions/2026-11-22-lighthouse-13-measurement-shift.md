@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: shipped
 summary: >
   Moving the docs perf nightly from Lighthouse CI 0.15 (Lighthouse 12.6) to 0.16 (Lighthouse 13.6) changes the numbers
   it reports for the same build: TBT goes up 30–110% on the script-heavy pages, LCP goes down by up to two thirds where
