@@ -164,6 +164,17 @@ describe('the ep-curve keeps every return period it can, on the canvas', () => {
       assert.ok(labels.some((l) => l.text === label), labels.map((l) => l.text).join(', '));
     });
   }
+  // No layout can rescue `1-in-25,000` here without swapping out a label main prints whole, so it is left out, not cut.
+  for (const [where, rps, orientation, pane, aspect] of [
+    ['a story slide', [50, 200, 250, 25000], 'portrait', undefined, 9 / 16],
+    ['a 140 x 100 pane', [10, 250, 10000], undefined, { w: 140, h: 100 }, undefined],
+  ]) {
+    test(`${where} prints no return period past the canvas (${rps.join(', ')})`, () => {
+      const { width, labels } = draw(pts(rps), orientation, pane, aspect);
+      assert.ok(labels.length >= 2, labels.map((l) => l.text).join(', '));
+      for (const l of labels) assert.ok(l.left >= -0.5 && l.right <= width + 0.5, `${l.text} spans ${l.left.toFixed(1)}..${l.right.toFixed(1)} of ${width}`);
+    });
+  }
   test('a half-width pane keeps all five return periods, on the canvas', () => {
     const { width, labels } = draw(['{10, $120M}', '{25, $190M}', '{50, $300M}', '{100, $410M}', '{250, $560M}'], undefined, { w: 223, h: 180 }, undefined);
     assert.equal(labels.length, 5, labels.map((l) => l.text).join(', '));

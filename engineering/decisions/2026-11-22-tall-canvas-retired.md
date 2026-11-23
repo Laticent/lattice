@@ -95,6 +95,12 @@ the corpus does not hold:
   fewer, and no end label runs off. In landscape and panes, no label the old layout printed whole is lost, except one
   `1-in-200` swapped for the end label `1-in-250`, where the flat and measured widths disagree on whether `1-in-200` fits.
   11 end labels that `main` drew running off the canvas are left out.
+- A third review found one gap in that version: when no layout qualified, it fell back to the old layout with its cut
+  end label still in (`1-in-25,000` 21.8 units past a story canvas). The fallback is now the old layout less its cut
+  labels. Over four seeds (3,840 charts) no return period prints past the canvas, no label the old layout printed
+  whole is lost beyond the one swap above, and 14 to 20 cut end labels per 960 charts are left out. Leaving one out is
+  axis thinning, which `label-drops.js` deliberately does not report: its gridline, the dot's own label and the
+  narration still carry the number.
 - A radar sector name could move off the canvas: in 15 of 480 seeded random cases the first version pushed `RISK` past
   a 4:5, story or mobile edge. Its moves were bounded by nothing. A second try bounded them by the axis names' boxes,
   which failed twice over: those boxes are wrap budgets that reach past the canvas, and the name's own box was billed
@@ -113,9 +119,9 @@ the corpus does not hold:
   them at the title role. Wrapping at the painted size alone broke more names mid-word (`PROCES-S`), so it needs the
   wrap budget changed with it: `followups.d/3431-p2-radar-sector-names-overrun.md`.
 
-**Proof.** `test/unit/components/chart-phone-edges.test.js` (35 tests) checks each defect at 4:5, story and mobile,
+**Proof.** `test/unit/components/chart-phone-edges.test.js` (37 tests) checks each defect at 4:5, story and mobile,
 plus both reviews' cases: a row name too long for any column, ep-curve labels in landscape and a half-width pane, and
 two seeded radars (cases 13 and 82). Putting back `main`'s transform turns 3 (bar), 3 (stacked bar), 6 (heatmap), 5
-(ep-curve) and 3 (radar) red; the first P2 version turns 2, 2, 0, 5 and 7 red; the second turns ep-curve's 3 red;
+(ep-curve) and 3 (radar) red; the first P2 version turns 2, 2, 0, 5 and 7 red; the second turns ep-curve's 3 red; the third turns its 2 red;
 testing a radar move at its billed width, or not bounding it, turns 4 red each. The changed renders are 99 of 1,554, at the four
 phone shapes plus the ep-curve deck's three landscape sizes. Every changed slide was looked at before and after.
