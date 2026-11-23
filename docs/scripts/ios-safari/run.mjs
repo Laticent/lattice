@@ -219,10 +219,14 @@ async function runPickerKeyboardProbe(id) {
 	const door = await centerOf(`[...document.querySelectorAll('button')].filter(${onScreen}).find((b) => b.getAttribute('aria-label') === 'New slide' || b.textContent.trim() === 'New slide')`, 150000);
 	step('the New slide door is on screen', door, door ? `${door.x},${door.y}` : `not found in 150 s; on-screen buttons: ${await seenButtons()}`);
 	if (!door) return { ok: false, error: 'no New slide door', steps, width: await run('return innerWidth'), ua: await run('return navigator.userAgent') };
-	await touchAt(id, door);
-	const after = await centerOf(`[...document.querySelectorAll('button')].filter(${onScreen}).find((b) => b.getAttribute('aria-label') === 'New slide after')`, 15000);
-	step('the door split into Before | After', after, after ? `${after.x},${after.y}` : `on-screen buttons: ${await seenButtons()}`);
-	if (after) await touchAt(id, after);
+	// OPENING the gallery is not what this probe tests, so it uses a script click: a WebDriver touch on the door did not
+	// register in the simulator (harness runs #2 to #4 on #3484). The one gesture that must be real is the tap on the
+	// search field below, because only a user gesture raises the iOS keyboard.
+	const click = (label) => run(`const b = [...document.querySelectorAll('button')].filter(${onScreen}).find((x) => x.getAttribute('aria-label') === ${JSON.stringify(label)} || x.textContent.trim() === ${JSON.stringify(label)}); if (b) b.click(); return !!b;`);
+	await click('New slide');
+	const after = await until(`return [...document.querySelectorAll('button')].some((b) => b.getAttribute('aria-label') === 'New slide after')`, 15000);
+	step('the door split into Before | After', after, after ? '' : `on-screen buttons: ${await seenButtons()}`);
+	if (after) await run(`[...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'New slide after').click(); return true;`);
 	const field = await centerOf(`[...document.querySelectorAll('input')].find((i) => i.offsetParent && /Search/.test(i.placeholder))`, 60000);
 	step('the gallery opened with its search field', field, field ? '' : `dialogs: ${await run('return document.querySelectorAll("[role=dialog]").length')}; on-screen buttons: ${await seenButtons()}`);
 	if (!field) shot('0-no-gallery');
