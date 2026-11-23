@@ -131,8 +131,8 @@ let cdpPort = 0;
 function cdpSocket() {
 	if (cdpPort) return cdpPort;
 	const unix = adb('shell', 'cat', '/proc/net/unix');
-	const name = (unix.match(/@([\w.]*devtools_remote[\w.]*)/) || [])[1];
-	if (!name) throw new Error('no devtools_remote socket on the device');
+	const name = (unix.match(/@(chrome_devtools_remote\w*)/) || [])[1];
+	if (!name) throw new Error(`no chrome_devtools_remote socket yet (${[...unix.matchAll(/@(\S*devtools\S*)/g)].map((m) => m[1]).join(', ') || 'none'})`);
 	cdpPort = 9222;
 	adb('forward', `tcp:${cdpPort}`, `localabstract:${name}`);
 	console.log(`  (DevTools socket @${name} forwarded to tcp:${cdpPort})`);
