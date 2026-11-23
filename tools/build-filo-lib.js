@@ -2,7 +2,7 @@
 /**
  * Build the Filo library's consumable dist/ — the ESM entry + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-27-filo-undo-history.md §8).
- *   docs/src/lib/filo/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
+ *   docs/src/lib/filo/*.ts  →  dist/index.mjs + dist/*.d.ts
  * Veduta's recipe (tools/build-veduta-lib.js) with ONE entrypoint: Filo is a framework-free,
  * dependency-free core that knows only text. The `./react` adapter (`useHistory`) the decision
  * note names is not built yet; add `react.ts` here the day it exists. Publishing waits for

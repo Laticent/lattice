@@ -2,7 +2,7 @@
 /**
  * Build the Fuoco library's consumable dist/ — the ESM entries + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-15-fuoco-focus-sync.md).
- *   docs/src/lib/fuoco/*.ts  →  dist/index.{mjs,cjs} + dist/react.{mjs,cjs} + dist/*.d.ts
+ *   docs/src/lib/fuoco/*.ts  →  dist/index.mjs + dist/react.mjs + dist/*.d.ts
  * Vetrina's recipe (tools/build-vetrina-lib.js): two entrypoints, the framework-free core (`.`)
  * and the React adapter (`./react`), with react a peer dependency kept external. Fuoco has no
  * dependencies of its own; Lattice's deck outliner lives outside the package

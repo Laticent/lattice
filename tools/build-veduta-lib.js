@@ -2,7 +2,7 @@
 /**
  * Build the Veduta library's consumable dist/ — the ESM entry + type declarations that
  * make it a publishable unit (engineering/decisions/2026-10-16-preview-as-library-audit.md).
- *   docs/src/lib/veduta/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
+ *   docs/src/lib/veduta/*.ts  →  dist/index.mjs + dist/*.d.ts
  * Fuoco's recipe (tools/build-fuoco-lib.js) with ONE entrypoint: Veduta is a framework-free,
  * dependency-free core. A host plugs in its own focus source and its own connectors, so there is
  * no React adapter yet; add `react.ts` here the day one exists.

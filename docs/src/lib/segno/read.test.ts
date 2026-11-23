@@ -2,7 +2,7 @@
 // `@laticent/segno/read` is the reader alone: the main entry's functions re-exported from the same
 // source, so a consumer that takes the small entry parses and binds exactly what the main entry
 // does. This runs against the TypeScript sources, where they are one module; each BUILT entry
-// (dist/*.cjs) bundles its own copy, so lib/ never compares values across entries by identity.
+// (dist/*.mjs) bundles its own copy, so lib/ never compares values across entries by identity.
 import { describe, expect, it } from 'vitest';
 import * as main from './index';
 import * as read from './read';

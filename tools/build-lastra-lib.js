@@ -2,8 +2,8 @@
 /**
  * Build the Lastra image library's consumable dist/: the ESM entries and type declarations.
  *
- *   docs/src/lib/lastra/*.ts         →  docs/src/lib/lastra/dist/index.{mjs,cjs,d.ts}
- *   docs/src/lib/lastra/decode/*.ts  →  docs/src/lib/lastra/dist/decode.{mjs,cjs}, dist/decode/index.d.ts
+ *   docs/src/lib/lastra/*.ts         →  docs/src/lib/lastra/dist/index.{mjs,d.ts}
+ *   docs/src/lib/lastra/decode/*.ts  →  docs/src/lib/lastra/dist/decode.mjs, dist/decode/index.d.ts
  *
  * WHY: Lattice reads it from both module systems. lib/core/image-dimensions.js (CommonJS) reads picture headers with
  * `require('@laticent/lastra')`; the export spine's ES modules (lib/core/image-recode.mjs, canvas-encode.mjs,
