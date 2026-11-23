@@ -203,7 +203,7 @@ describe('deckScalar — the deck panel reads a key the way the engine does', ()
 
 	it('cover: a preset fills each axis the deck leaves empty, a restated default is no change, and the vocabulary is the engine\'s', async () => {
 		const { COVER_REGISTER } = await import('../../../../lib/core/resolve-cover.js');
-		expect(COVER_AXES.map((a) => [...a])).toEqual(COVER_REGISTER.AXES.map((a: { names: string[] }) => a.names));
+		expect(COVER_AXES.map((a) => [...a])).toEqual(COVER_REGISTER.AXES.map((a) => [...a.names]));
 		// The Studio reads what the engine renders: the deck's surface, the preset's composition.
 		expect(registerValue(deck('preset: strategy-house', 'cover: inverse'), 'cover')).toBe('inverse column');
 		expect(coverRenders(registerValue(deck('preset: strategy-house', 'cover: inverse'), 'cover'))).toBe('column');
