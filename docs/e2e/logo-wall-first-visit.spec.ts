@@ -96,8 +96,10 @@ test('a first visit holds the wall hidden while it measures, then paints it once
 	// logs it has run (1 run in 10 on webkit-phone). Wait for the recorder to have logged it, then read its history.
 	await expect.poll(async () => (await painted(page)).filter((s) => s !== 'none').at(-1), { message: 'the recorder never logged the packed wall' }).toBe('packed/visible');
 	const log = (await painted(page)).filter((s) => s !== 'none');
-	// Never the unpacked grid on screen: every state before `packed` is hidden.
-	for (const s of log.slice(0, -1)) expect(s).toBe('measuring/hidden');
+	// Never the unpacked grid on screen: every state before `packed` is hidden. Before the runtime stamps the list it is
+	// `unstamped`, and the editing preview holds that back too (single-slide-render.ts `frameStyleContent`), so it may
+	// show up here first, hidden; visible, it was the one-frame flash this spec exists to catch (1 run in 48 at 8 workers).
+	for (const s of log.slice(0, -1)) expect(s).toMatch(/^(unstamped|measuring)\/hidden$/);
 	expect(log).not.toContain('unstamped/visible');
 	expect(log).not.toContain('fallback/visible');
 });

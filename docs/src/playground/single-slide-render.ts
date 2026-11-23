@@ -1276,7 +1276,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`
 			// keeps the figure's box (no reflow / no Fit-math corruption on reveal, unlike display:none). The
 			// class is added ONLY by the live parent host — never by engine output — so it is inert in export.
-			'.anima-prehide{visibility:hidden}'
+			'.anima-prehide{visibility:hidden}' +
+			// PREVIEW-ONLY too: in the editing preview (`data-lattice-live-layout`), a logo wall the runtime has not stamped
+			// yet is held back exactly as a `measuring` one is (logo-wall.styles.css). The stamp comes when the runtime's pass
+			// runs, which can be a frame after the slide's markup lands, so the unpacked grid painted once first
+			// (logo-wall-first-visit.spec.ts: 1 run in 48 at eight workers). Only the lists the stamp takes (the stage's first
+			// child, holding marks: lib/transformers/logo-marks.js), so a wall it never stamps is never hidden.
+			'html[data-lattice-live-layout] section.logo-wall>.cell-stage>ul:first-child:not([data-logo-wall]):has(>li>.logo-mark){visibility:hidden}'
 		);
 	}
 
