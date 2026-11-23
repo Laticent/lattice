@@ -305,6 +305,52 @@ describe('stage-window — createStageController', () => {
 		vi.restoreAllMocks();
 	});
 
+	// THE READY DEADLINE. A deck document that never says `ready` would leave the console's captions and rail on neither
+	// surface (the console let go of them on the press), so the controller reports it once, and only for a deck document
+	// still unanswered in a window still ours. Fake timers: the deadline is twenty seconds of product time.
+	it('reports a deck document that never says ready, and only that one', () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onStuck = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn(), onStuck });
+		ctl.toggle();
+		vi.advanceTimersByTime(19_999);
+		expect(onStuck).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(onStuck).toHaveBeenCalledTimes(1);
+
+		ctl.close();
+	});
+
+	it('cancels the ready deadline when the deck says ready', () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onStuck = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn(), onStuck });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		// The window stays open and ours: only the `ready` stands between it and the report.
+		vi.advanceTimersByTime(30_000);
+		expect(ctl.isOpen()).toBe(true);
+		expect(onStuck).not.toHaveBeenCalled();
+		ctl.close();
+	});
+
+	it('does not start the ready deadline for the holding page alone', () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onStuck = vi.fn();
+		// No deck yet (it is still building): only "Preparing the stage…" goes in, and a slow build is not a dead Stage.
+		const ctl = createStageController({ getDoc: () => '', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn(), onStuck });
+		ctl.toggle();
+		vi.advanceTimersByTime(60_000);
+		expect(onStuck).not.toHaveBeenCalled();
+		ctl.close();
+	});
+
 	it('runs the open → holding → doc → ready → show → close lifecycle', async () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);

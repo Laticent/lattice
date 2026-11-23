@@ -960,6 +960,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// rather than left guessing. Silent when it worked, and silent when there was
 			// no second screen to aim at in the first place (that is a normal single-screen
 			// session, not a failure).
+			// A DECK WENT IN AND NEVER SAID `ready` (its runtime died before the handshake). The console let go of the
+			// captions and the rail on the press, or when the rewrite began, and only `ready` hands them to the Stage, so
+			// they would be on neither surface for as long as this window stays up. Close it: the teardown gives them
+			// back to the console. The same for a live Stage whose rewrite never came back: the room is not on the deck.
+			onStuck: () => {
+				stageRef.current?.close();
+				notifyRef.current('The Stage did not start, so it closed. Press Stage to try again.');
+			},
 			onPlaced: ({ placed, full }: { placed: boolean; full: boolean }) => {
 				if (placed && !full) notifyRef.current('Stage moved to your second screen — its controls have a full-screen button, or press F on it.');
 			},

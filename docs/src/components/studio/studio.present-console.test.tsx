@@ -1,4 +1,5 @@
 import { act as act2, render, screen, within } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
 import { PresentOverlay } from './PresentOverlay';
@@ -293,6 +294,72 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		window.open = realOpen;
 		await vi.waitFor(() => expect(written.some((h) => h.includes('deck'))).toBe(true));
 		expect(state.closed).toBe(false);
+	});
+
+	// A deck that goes in and never says `ready` (its runtime died before the handshake): neither guard above sees it,
+	// because the build resolved and the write did not throw. The controller's ready deadline (`onStuck`) closes it, and
+	// the captions and the rail come back to the console (the round-3 card grader found this path).
+	it('closes a Stage whose deck goes in but never says ready, and puts the rail back in the console', async () => {
+		let resolveBuild: (v: Awaited<ReturnType<typeof buildStageDocument>>) => void = () => {};
+		vi.mocked(buildStageDocument).mockImplementationOnce(() => new Promise((done) => (resolveBuild = done)));
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		const written: string[] = [];
+		const { win, state } = holdingWindow((html) => written.push(html));
+		const realOpen = window.open;
+		window.open = (() => win) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		expect(screen.queryByRole('group', { name: /Deck progress/ })).toBeNull();
+		// Only the deadline's own timers are faked, and only from here: the click above ran on real ones.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		try {
+			await act2(async () => {
+				resolveBuild({ doc: '<div id="latt-stage">deck</div>', total: 2, bg: '#15110d' } as Awaited<ReturnType<typeof buildStageDocument>>);
+			});
+			expect(written.some((h) => h.includes('deck'))).toBe(true);
+			expect(state.closed).toBe(false);
+			// No `ready` comes. Short of the deadline the Stage stays; past it, it closes.
+			await act2(async () => {
+				vi.advanceTimersByTime(19_000);
+			});
+			expect(state.closed).toBe(false);
+			await act2(async () => {
+				vi.advanceTimersByTime(1_000);
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+		expect(state.closed).toBe(true);
+		// The notice goes through the app's notify kernel to sonner; its history is what a presenter is shown.
+		expect(toast.getHistory().map((n) => ('title' in n ? n.title : ''))).toContain('The Stage did not start, so it closed. Press Stage to try again.');
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+	});
+
+	// The keep path. A Stage that HAS gone live keeps its deck when a rebuild fails, even mid-rewrite, when `stageHost` is
+	// null for the length of the new document's boot: `stageEverLiveRef` answers "was it ever live", not `stageHost`.
+	it('keeps a Stage that went live when a rebuild fails during a rewrite', async () => {
+		const built = (doc: string) => ({ doc, total: 2, bg: '#15110d' }) as Awaited<ReturnType<typeof buildStageDocument>>;
+		vi.mocked(buildStageDocument).mockResolvedValueOnce(built('<p>deck A</p>'));
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		const { rerender } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		const fake = (await openStage(user)) as unknown as { closed: boolean };
+		await vi.waitFor(() => expect(screen.getByRole('complementary', { name: 'Notes and next slide' })).toBeInTheDocument());
+		// A change the Stage must show: the new deck goes in (a rewrite: `stageHost` drops to null until `ready`)…
+		vi.mocked(buildStageDocument).mockResolvedValueOnce(built('<p>deck B</p>'));
+		rerender(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} extraCss="b{}" />);
+		await vi.waitFor(() => expect(vi.mocked(buildStageDocument)).toHaveBeenCalledTimes(2));
+		await act2(async () => {});
+		// …and before it says `ready`, the next change fails to build.
+		vi.mocked(buildStageDocument).mockRejectedValueOnce(new Error('render failed'));
+		rerender(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} extraCss="c{}" />);
+		await vi.waitFor(() => expect(vi.mocked(buildStageDocument)).toHaveBeenCalledTimes(3));
+		await act2(async () => {});
+		expect(fake.closed).toBe(false);
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	it('takes nav from the Stage — but only the four verbs, not Object.prototype', async () => {

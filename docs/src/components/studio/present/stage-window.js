@@ -402,16 +402,30 @@ function stageToken() {
  *     disconnected" was as likely to mean "you closed it" as "the room lost the
  *     deck".
  *   • onPlaced({ placed, full }) → the outcome of the auto-placement attempt.
+ *   • onStuck() → a deck document went into the window and did not say `ready`
+ *     within READY_DEADLINE_MS. The console let go of its captions and rail when the
+ *     Stage was pressed (or the rewrite began), and only `ready` hands them to the
+ *     Stage, so a document whose runtime died before `ready` would leave them on
+ *     neither surface for as long as the window stays open. The console closes it.
  *
  * Returns { toggle, write, show, close, isOpen }. `toggle()` MUST run in a user
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onRecovered = /** @type {(() => void) | null} */ (null), onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
+export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onRecovered = /** @type {(() => void) | null} */ (null), onPlaced, onStuck = /** @type {(() => void) | null} */ (null), onNav = /** @type {((action: string) => void) | null} */ (null) }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
 	let ready = false;
+	/** The `ready` deadline for the deck document last written (`onStuck`). A product
+	 *  deadline, not a test wait: the engine boots in about a second, so a document that has
+	 *  said nothing in twenty has died, and the presenter needs the console's captions back. */
+	let readyTimer = 0;
+	const READY_DEADLINE_MS = 20_000;
+	const stopReadyDeadline = () => {
+		if (readyTimer) window.clearTimeout(readyTimer);
+		readyTimer = 0;
+	};
 	/** The doc string currently written into the window — so a `write()` fired by
 	 *  an unrelated re-render doesn't tear down a live Stage and re-run the
 	 *  engine's boot for no change. */
@@ -685,11 +699,16 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		if (!reachable()) return;
 		// A REWRITE MAKES THE CONSOLE LET GO FIRST. `document.open()` detaches the
 		// `#latt-cc` / `#latt-rail` nodes the console is portalling into, and until the
-		// new document announces itself there is no live host — so without this the
-		// caption crawl and the rail render into limbo while the dock still refuses to
-		// show them, and they are on NEITHER surface for the length of an engine boot.
+		// new document announces itself there is no live host, so this null drops the
+		// portals instead of leaving them rendering into detached nodes. The dock does NOT
+		// take the captions and the rail back for the boot (it keys on `stageOn`, which
+		// counts `rewriting`): handing them back and taking them again a second later would
+		// move the console's row twice with no input to answer (flaky shape F10). So for
+		// the length of an engine boot they are on neither surface, and `onStuck` closes a
+		// Stage whose new document never says `ready`.
 		if (written) onChange?.(null, true);
 		ready = false;
+		stopReadyDeadline();
 		try {
 			stageWin.document.open();
 			stageWin.document.write(doc);
@@ -698,9 +717,14 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			// throwing write: `written === doc` made `write(doc)` a no-op forever after,
 			// so the room kept whatever was on screen and nothing could replace it.
 			written = doc;
+			stopReadyDeadline();
 			if (doc !== HOLDING) {
 				settleDeckWaiters(true);
 				watchAgents(stageWin, doc);
+				readyTimer = window.setTimeout(() => {
+					readyTimer = 0;
+					if (!ready && alive()) onStuck?.();
+				}, READY_DEADLINE_MS);
 			}
 		} catch {
 			written = '';
@@ -756,6 +780,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		if (d.stage === 'ready') {
 			if (!ours) return; // a `ready` is only meaningful from the handle we hold
 			ready = true;
+			stopReadyDeadline();
 			show(getIndex?.() ?? 0, getStep?.() ?? null);
 			onChange?.(stageWin);
 			// The player loaded after the deadline reported it lost: say so, so the presenter does not reload.
@@ -796,6 +821,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	}
 	function teardown() {
 		ready = false;
+		stopReadyDeadline();
 		written = '';
 		window.clearTimeout(agentsTimer); // the agents deadline belongs to the document let go of
 		agentsTimer = 0;
