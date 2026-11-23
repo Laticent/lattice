@@ -41,7 +41,7 @@ describe('Present — reader lens gate (fail closed)', () => {
 		// brief is the ONLY non-full lens and it's unapproved → not reader-eligible → the picker has only
 		// "Full deck", so it renders a static label with NO reader-view dropdown (nothing to switch to).
 		expect(screen.getByText('Full deck')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 		// Present opens on the whole deck (3 slides) — the safe default a reader LANDS on, not a scoped lens.
 		expect(screen.getByText('1 / 3')).toBeInTheDocument();
 	});
@@ -50,7 +50,7 @@ describe('Present — reader lens gate (fail closed)', () => {
 		const reg = parseLensRegistry(fmWith(true));
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fmWith(true)} registry={reg} />);
 		// brief is approved → eligible → the picker now has 2 entries (Full deck + Bottom line) → dropdown.
-		expect(screen.getByRole('button', { name: 'Reader view' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /^Reader view: / })).toBeInTheDocument();
 		// The library says brief has exactly one member (the KPI slide) — the seam preserves that.
 		expect(reg.lenses.some((l) => l.id === 'brief')).toBe(true);
 	});

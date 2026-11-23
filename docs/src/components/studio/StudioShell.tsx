@@ -8228,7 +8228,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<DropdownMenuTrigger asChild>
 					{/* The chevron shows at EVERY width — below 1100 it is the whole trigger, and
 					    without it the compact launcher would be an invisible target beside the mark. */}
-					<button type="button" className={cn(BRAND_BOX, 'gap-1.5 sm:gap-2')} aria-label="Workspace launcher">
+					<button type="button" className={cn(BRAND_BOX, 'gap-1.5 sm:gap-2')} aria-label="Lattice — workspace launcher">
 						{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
 						    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
 						    decoration is the first thing to spend when the mark and the chevron

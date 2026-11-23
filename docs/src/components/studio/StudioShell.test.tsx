@@ -253,7 +253,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(home).toHaveAttribute('href', '/');
 		// …and the menu is still one tap away on its own trigger, with its navigation doors.
 		// (Import deck… moved to the deck switcher, beside New deck — see the switcher test.)
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 		for (const door of ['Decks', 'Fabricate']) {
 			expect(screen.getByRole('menuitem', { name: new RegExp(door.replace('…', '')) })).toBeInTheDocument();
 		}
@@ -544,7 +544,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// The old author-blind exec/onepager heuristics are retired. A deck with no `lenses:` registry has
 		// nothing to switch to, so Present shows a static "Full deck" label, not a reader-view dropdown.
 		expect(d.getByText('Full deck')).toBeInTheDocument();
-		expect(d.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(d.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 	});
 
 	it('Present opens the slide sorter and jumps from a thumbnail', async () => {
@@ -789,7 +789,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 		await user.click(await screen.findByText('Fabricate'));
 		// An EXPLICIT budget, not the 1000ms `asyncUtilTimeout` default. This file's `setup()`
 		// awaits no lazy boundary, so THIS is the first wait in the file to cross Fabricate's
@@ -882,7 +882,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		let dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
 		expect(dialog.getByText('Full deck')).toBeInTheDocument();
-		expect(dialog.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(dialog.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: /Bottom line/ })).not.toBeInTheDocument();
 		await user.keyboard('{Escape}'); // close Present
 		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Present' })).not.toBeInTheDocument());
@@ -895,7 +895,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// only on the human's approval.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
-		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		await user.click(dialog.getByRole('button', { name: /^Reader view: / }));
 		expect(await screen.findByRole('menuitem', { name: /Bottom line/ })).toBeInTheDocument();
 	});
 
@@ -1135,7 +1135,10 @@ describe('StudioShell — topbar information architecture', () => {
 		// THE SEARCH PILL IS IN THE ROW AT EVERY WIDTH — it used to be commented here as "a
 		// desktop affordance", and that was the bug: below 1100 it was suppressed outright,
 		// so a tablet (and a resized desktop window) had no visible way to search.
-		expect(screen.getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' })).toBeInTheDocument();
+		// The welcome tour points at the pill through this hook (tours/welcome.ts), not its name: a renamed
+		// label once left the tour's Search step pointing at nothing.
+		expect(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' })).toHaveAttribute('data-demo', 'search');
 		// The overflow menu is PERMANENT from 700 up — the row's right edge, and the home for
 		// whatever the width has pushed out of it. It used to exist only below 1100.
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
@@ -1151,7 +1154,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// where a real browser resolves the classes.
 		//
 		// So: the search pill and the overflow menu are rendered at this width…
-		expect(screen.getByRole('button', { name: 'Search or run a command' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		// …and these left the row ENTIRELY, into that menu. Coach, Chat and Settings used to
 		// be inline here and only here (tablet has no activity bar); the theme picker, Library
@@ -1205,7 +1208,7 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toHaveTextContent('Coach');
 		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toHaveTextContent('Settings');
 		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
-		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Lattice — workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
@@ -1223,7 +1226,7 @@ describe('StudioShell — topbar information architecture', () => {
 
 	it('deck CRUD lives in the switcher: New deck AND Import deck… sit together, and the launcher offers neither', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 		expect(await screen.findByRole('menuitem', { name: 'Fabricate' }).catch(() => screen.findByRole('menuitem', { name: /Fabricate/ }))).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'New deck' })).not.toBeInTheDocument();
 		// Import sat in the launcher until 2026-10, where people looking beside "New deck"
@@ -1243,7 +1246,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// 2026-08-18 width ladder removed: the pill is in the row at EVERY width, so the row
 		// that stood in for it is gone — a menu row that opens the field the menu hangs from
 		// is one home too many.
-		await user.click(screen.getByRole('button', { name: 'Search or run a command' }));
+		await user.click(screen.getByRole('button', { name: 'Search or run ⌘K, command palette' }));
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
 
 		// And the stand-in really is gone, not merely unused.
@@ -1526,7 +1529,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		let dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
 		expect(dialog.getByText('Full deck')).toBeInTheDocument();
-		expect(dialog.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(dialog.queryByRole('button', { name: /^Reader view: / })).not.toBeInTheDocument();
 		await user.keyboard('{Escape}');
 		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Present' })).not.toBeInTheDocument());
 
@@ -1538,7 +1541,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		// NOW Present offers it — the gate opened only on the human's approval.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
-		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		await user.click(dialog.getByRole('button', { name: /^Reader view: / }));
 		expect(await screen.findByRole('menuitem', { name: /The evidence/ })).toBeInTheDocument();
 	});
 
@@ -1587,7 +1590,7 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 		// appear out of nowhere. The owner called that out (2026-08-18) along with the
 		// search vanishing below 1100: the row's persistent set is logo · deck · dial ·
 		// search at every width, so the launcher is one control shared by both headers.
-		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Lattice — workspace launcher' })).toBeInTheDocument();
 	});
 
 	it('is offered ONCE at a width — the menu row and the row button never both apply', async () => {

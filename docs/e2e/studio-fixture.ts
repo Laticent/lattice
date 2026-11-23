@@ -143,7 +143,7 @@ export const CHROME = {
 	brandHome: 'Lattice — home',
 	/** The workspace launcher in the top bar — the wordmark + chevron that opens Decks /
 	 *  Fabricate / Import. It used to be the brand mark too; `brandHome` is the mark now. */
-	workspaceLauncher: 'Workspace launcher',
+	workspaceLauncher: 'Lattice — workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger — DECK checkpoints. Distinct from an ASSET's
