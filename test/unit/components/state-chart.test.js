@@ -373,7 +373,8 @@ describe('state chart — every shipped slide lays out with zero quality faults'
   for (const deck of decks) {
     const parts = fs.readFileSync(path.join(ROOT, deck), 'utf8').split(/\n---\n/);
     parts.forEach((md, i) => {
-      if (!/_class:[^>]*\bstate-chart\b/.test(md) || /_class:[^>]*\binline\b/.test(md)) return;
+      // The slide's class, in a comment (`_class: state-chart`) or a record (`@meta{layout=state-chart}`).
+      if (!/(?:_class:|@meta\{)[^>]*\bstate-chart\b/.test(md) || /(?:_class:|@meta\{)[^>]*\binline\b/.test(md)) return;
       const m = parseStateChart(outlineFromMarkdown(md.replace(/^[\s\S]*?\n## .*\n/, '')));
       if (!m.states.length) return;
       slides++;

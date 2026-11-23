@@ -36,7 +36,7 @@ function firstBoundSlide(m) {
 	const src = fs.readFileSync(file, 'utf8');
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
-		if (!new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(md)) continue;
+		if (!new RegExp(`(?:_class:|@meta\\{)[^>]*\\b${m.name}\\b`).test(md)) continue;
 		const script = narrateChartScript(md);
 		if (script?.refs.some((r) => r.unit)) return script;
 	}
@@ -92,7 +92,7 @@ async function firstProseBoundSlide(m) {
 	if (!src) return null;
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
-		if (!new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(md)) continue;
+		if (!new RegExp(`(?:_class:|@meta\\{)[^>]*\\b${m.name}\\b`).test(md)) continue;
 		const section = parser.parseFromString(engine.render(fm + md, 'indaco', { preview: true }).html, 'text/html').querySelector('section');
 		if (!section) continue;
 		const [script] = projectDeckToScript([section]);

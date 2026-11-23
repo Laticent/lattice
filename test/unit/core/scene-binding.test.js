@@ -199,7 +199,7 @@ test('every component\'s gesture finds its structure on every gallery slide', as
 		}
 		const src = fs.readFileSync(file, 'utf8');
 		const fm = (src.match(/^---\n[\s\S]*?\n---\n/) || ['---\nmarp: true\n---\n'])[0];
-		const slides = src.slice(fm.length).split(/\n---\n/).filter((s) => new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(s));
+		const slides = src.slice(fm.length).split(/\n---\n/).filter((s) => new RegExp(`(?:_class:|@meta\\{)[^>]*\\b${m.name}\\b`).test(s));
 		const found = new Set();
 		slides.forEach((md, i) => {
 			const root = dom(engine.render(fm + md, 'indaco', { preview: true }).html).querySelector('section');

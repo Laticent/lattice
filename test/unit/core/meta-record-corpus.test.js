@@ -44,7 +44,8 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
       try { src = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { return null; }
       const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       if (!fm || !/^\s*(marp|theme|split):/m.test(fm[1])) return null;
-      if (!/<!--\s*_?[A-Za-z]+\s*(:|-->)/.test(src)) return null;
+      // A directive comment, or a record (the corpus is records since the meta sweep, slice D).
+      if (!/<!--\s*(?:_?[A-Za-z]+\s*(:|-->)|@meta\{)/.test(src)) return null;
       return { rel, src };
     })
     .filter(Boolean);
@@ -68,7 +69,7 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
       const scanned = scanMetaSource(src).slides.slice(2); // drop the two front-matter chunks
       // A PANE-SPLIT divergence, a second known kind: a deck that cannot lay panes side by side (square, portrait,
       // story, mobile) gives each pane its own page (lib/core/panes.js), which a `^---$` scan cannot see either.
-      if (sections.length > scanned.length && /<!--\s*_?pane:/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
+      if (sections.length > scanned.length && /<!--\s*(?:_?pane:|@meta\{pane)/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
         paneSplit++;
         continue;
       }

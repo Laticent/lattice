@@ -54,6 +54,16 @@ test('synthesizePrelude carries a running global forward', () => {
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '<!-- class: dense -->');
 });
 
+test('synthesizePrelude carries a `carry` record forward, field by field, and drops a spot one', () => {
+  // The meta sweep (record note §15, slice D) put `<!-- class: diagram -->` decks into `@meta{layout=diagram, carry}`;
+  // a slice after it lost its running class until this read records (examples/deck-class-register.md slide 6).
+  const slides = ['<!-- @meta{layout=diagram, footer="F", carry} -->\n# One', '<!-- @meta{class=dense} -->\n# Two', '# Three'];
+  assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- @meta{class=diagram, carry} -->');
+  // A later comment of the same engine key replaces the record's value, as the engine resolves it.
+  assert.equal(core.synthesizePrelude([...slides.slice(0, 1), '<!-- class: dense -->\n# Two', '# Three'], 2, VOCAB), '<!-- class: dense -->');
+  assert.equal(core.synthesizePrelude(['<!-- @meta{build, carry} -->\n# One', '# Two'], 1, VOCAB), '<!-- @meta{build, carry} -->');
+});
+
 test('synthesizePrelude does not carry a slide-only key, in either spelling', () => {
   // `header` and `footer` set their own slide only (audit §11r), so a later slice inherits neither.
   const slides = ['<!-- header: Q3 -->\n<!-- _footer: F -->\n# One', '# Two'];
