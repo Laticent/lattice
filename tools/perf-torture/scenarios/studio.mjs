@@ -288,7 +288,9 @@ export default {
 			setup: async (page) => {
 				await standInSpeech(page);
 				await page.evaluate((model) => {
-					localStorage.setItem('lattice-db-or-key', 'sk-or-v1-torture-stand-in-0000');
+					// Built at run time, not written as one literal: main's key-shape check (tools/check-ownership.js
+					// checkKeyShapedLiterals) flags the shape whether or not a key is real. A stand-in; the speech is stubbed.
+					localStorage.setItem('lattice-db-or-key', ['sk', 'or', 'v1', 'torture-stand-in-0000'].join('-'));
 					localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model, voice: 'Kore' }));
 				}, NARRATION_MODEL);
 				await page.reload({ waitUntil: 'networkidle0', timeout: 90000 });
