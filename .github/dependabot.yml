@@ -58,6 +58,12 @@ updates:
       interval: weekly
       day: saturday
     open-pull-requests-limit: 5
+    # axe-core is pinned at 4.12.1, the version docs/e2e/axe-site.spec.ts was validated on (#3453). 4.14 reports
+    # label-in-name findings the site has not fixed yet, and no per-PR workflow runs that spec, so an auto-merged
+    # minor bump would turn the nightly sweep red. Lift this with followups.d/3453-p2-axe-4-14-label-in-name.md.
+    ignore:
+      - dependency-name: axe-core
+        versions: ['>=4.13']
     groups:
       routine:
         applies-to: version-updates
