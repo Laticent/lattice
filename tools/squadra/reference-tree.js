@@ -16,6 +16,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { linkOwnWorkspaces } = require('../lib/workspace-links.js');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -60,9 +61,8 @@ function linkModules(tree) {
     if (name === '@laticent') continue;
     fs.symlinkSync(path.join(from, name), path.join(to, name));
   }
-  for (const name of fs.readdirSync(path.join(from, '@laticent'))) {
-    fs.symlinkSync(fs.readlinkSync(path.join(from, '@laticent', name)), path.join(to, '@laticent', name));
-  }
+  // Under the names the reference tree's own workspaces declare, so main from before a package rename still resolves.
+  linkOwnWorkspaces(tree);
 }
 
 /** The reference tree for `sha` (default: the merge-base), built if it is not there yet. Returns its path. */

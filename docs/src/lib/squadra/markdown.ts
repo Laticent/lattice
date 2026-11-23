@@ -3,7 +3,7 @@
 // Squadra writes no Markdown parser. It adapts a DECK MODEL, the document model the Segno deck
 // pipeline builds (S0 and S1: ingest, front matter, the CommonMark block pass, slides), into
 // Squadra's node shape. The model arrives from the host as a function, so Squadra keeps its "no
-// dependencies" promise: Lattice hands in `@laticent/segno-markdown`'s `deckModel` configured as its
+// dependencies" promise: Lattice hands in `@laticent/segno-languages/markdown`'s `deckModel` configured as its
 // engine parses (lib/core/deck-model.mjs), and another host can hand in any parser that answers the
 // same questions (`MarkdownModel` below).
 //
@@ -51,7 +51,7 @@ export interface MarkdownSlide {
 	readonly sepLine: number;
 }
 
-/** What this language asks of a deck model: `@laticent/segno-markdown`'s `DeckModel` answers it. */
+/** What this language asks of a deck model: `@laticent/segno-languages/markdown`'s `DeckModel` answers it. */
 export interface MarkdownModel {
 	/** The S0 text every offset below indexes. */
 	readonly text: string;

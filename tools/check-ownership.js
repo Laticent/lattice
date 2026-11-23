@@ -11032,7 +11032,7 @@ function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
     allowNode: false,
     allowBare: new Set(),
     describe: (rel, spec) =>
-      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-languages/markdown takes the host's ` +
       `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
       `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });

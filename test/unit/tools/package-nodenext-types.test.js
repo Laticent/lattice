@@ -40,7 +40,10 @@ const PACKAGES = {
 	trama: ['.', './radial'],
 	calco: ['.'],
 	tavola: ['.', './trystero'],
+	'segno-languages': ['./markdown'],
 };
+/** A package whose folder keeps an older name than the package. */
+const DIRS = { 'segno-languages': 'segno-markdown' };
 const PEER_TYPES = ['@types/react', 'csstype', 'trystero', '@trystero-p2p'];
 // A consumer's own strict settings. `skipLibCheck` skips only `.d.ts`, so while `types` pointed at
 // the `.ts` source a consumer compiled our source under these and got 904 errors inside our
@@ -60,12 +63,12 @@ test('every library typechecks in a nodenext consumer, from its packed tarball',
 		fs.mkdirSync(path.join(consumer, 'node_modules', '@laticent'), { recursive: true });
 		const imports = [];
 		for (const name of Object.keys(PACKAGES)) {
-			const tgz = pack(path.join(LIB, name), tmp);
+			const tgz = pack(path.join(LIB, DIRS[name] ?? name), tmp);
 			const dest = path.join(consumer, 'node_modules', '@laticent', name);
 			fs.mkdirSync(dest, { recursive: true });
 			execFileSync('tar', ['-xzf', tgz, '-C', dest, '--strip-components=1']);
 			for (const entry of PACKAGES[name]) {
-				const id = `${name}${entry === '.' ? '' : entry.replace(/\W/g, '_')}`;
+				const id = `${name.replace(/\W/g, '_')}${entry === '.' ? '' : entry.replace(/\W/g, '_')}`;
 				const spec = entry === '.' ? `@laticent/${name}` : `@laticent/${name}/${entry.slice(2)}`;
 				imports.push(`import * as ${id} from '${spec}';`, `export const ${id}Keys = Object.keys(${id});`);
 			}

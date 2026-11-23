@@ -192,7 +192,7 @@ function machine() {
 async function model() {
   const dm = await import(path.join(ROOT, 'lib/core/deck-model.mjs'));
   const { boundaryParser: bp, FRONT_MATTER, normalizeSource } = await import(path.join(ROOT, 'lib/core/boundary-parser.mjs'));
-  const { STRIDE } = require('@laticent/segno-markdown');
+  const { STRIDE } = require('@laticent/segno-languages/markdown');
   const { files } = await import(path.join(HERE, 'deck/corpus.mjs'));
   const rows = [];
   for (const [label, file] of DECKS) {

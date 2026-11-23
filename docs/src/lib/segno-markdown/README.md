@@ -1,4 +1,10 @@
-# @laticent/segno-markdown
+# @laticent/segno-languages
+
+Standard languages for Lattice decks, one subpath export each. The folder keeps its old name,
+`segno-markdown`. Markdown is the first language, at `@laticent/segno-languages/markdown`; the
+subpath leaves room for formulas and Djot (owner's ruling, 2026-11-23).
+
+## `./markdown`
 
 **The deck model.** One parse of a Markdown deck that every reader of its structure shares: where the slides
 are, where each slide boundary falls, the front matter, every HTML-comment directive, every fence, every
@@ -24,7 +30,7 @@ npm i @laticent/segno-markdown
 ## Use
 
 ```js
-import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-markdown';
+import { BlockParser, deckModel, updateDeckModel } from '@laticent/segno-languages/markdown';
 
 const parser = new BlockParser(); // commonmark + html + table, as Lattice configures markdown-it
 let model = deckModel('# One\n\n---\n\n# Two\n', { parser });
