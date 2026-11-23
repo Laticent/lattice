@@ -2873,9 +2873,12 @@ number (`computeMeter` in `tools/agent-card.js`).
 | `merged` | 1 | GitHub, with the `merged` date (YYYY-MM-DD) |
 | `closed` | 0, or 1 with `dropped: <reason>` | GitHub: closed without merging |
 
-An item with a PR takes its stage from GitHub, not from the desk's word, and the
-renderer refuses `not-started` or `working` on an item that has a PR. The
-**board fills those stages** from the PRs it already reads (`/fleet`). The ledger
+An item with a PR takes its stage from GitHub, not from the desk's word: the
+**board fills those stages** from the PRs it already reads (`/fleet`), so an open
+PR is `pr-open` until it is green **and** its 🚦 card is posted. The renderer
+cannot read GitHub; it checks only the shape, refusing `not-started` or `working`
+on an item that has a PR and a PR stage on an item without one. That the stage
+matches GitHub is the board's job. The ledger
 also carries `today`, and `previous` (the last report's `date`, `percent` and
 `ids`). From those, the card prints:
 
