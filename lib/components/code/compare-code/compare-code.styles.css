@@ -65,7 +65,7 @@ section.compare-code h2 ~ p:has(> code:only-child):not(:where([data-prose])) > c
 }
 /* Longhands so a missing theme token can't take the panel SURFACE with it — see the note on
  * `section.code pre` (code.styles.css). Reachable on the DEFAULT path (a theme short of
- * `--accent`/`--border` poisons `--spectrum-structure`), not only under `spectrum-trim: on`
+ * `--accent`/`--border` poisons `--spectrum-structure`), not only under a `trim-spectrum:` style
  * (#1528). */
 section.compare-code pre {
   flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden;
@@ -176,7 +176,7 @@ section.compare-code-block .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--accent); border-bottom: 1px solid var(--border);
+  color: var(--accent); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 /* The block page reuses the SAME code frame as the unsplit layout (`section.compare-code

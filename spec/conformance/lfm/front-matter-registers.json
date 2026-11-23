@@ -466,8 +466,8 @@
    }
   },
   {
-   "name": "spectrum: on",
-   "source": "---\nspectrum: on\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: rainbow",
+   "source": "---\nspectrum: rainbow\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
@@ -514,51 +514,59 @@
    }
   },
   {
-   "name": "spectrum-edge: top",
-   "source": "---\nspectrum-edge: top\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: top",
+   "source": "---\nspectrum: top\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "spectrum-edge: left",
-   "source": "---\nspectrum-edge: left\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: left",
+   "source": "---\nspectrum: left\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "spectrum-edge: right",
-   "source": "---\nspectrum-edge: right\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: right",
+   "source": "---\nspectrum: right\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "spectrum-edge: bottom",
-   "source": "---\nspectrum-edge: bottom\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: bottom",
+   "source": "---\nspectrum: bottom\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "spectrum-edge: off",
-   "source": "---\nspectrum-edge: off\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: regular",
+   "source": "---\nspectrum: regular\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "spectrum-edge: (unknown)",
-   "source": "---\nspectrum-edge: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spectrum: hairline",
+   "source": "---\nspectrum: hairline\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
-    "findings": [
-     {
-      "rule": "unknown-spectrum-edge",
-      "severity": "warning",
-      "slide": 0
-     }
-    ]
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: band",
+   "source": "---\nspectrum: band\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "spectrum: solid left band",
+   "source": "---\nspectrum: solid left band\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
    }
   },
   {
@@ -920,6 +928,54 @@
    }
   },
   {
+   "name": "cover: light",
+   "source": "---\ncover: light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: (unknown)",
+   "source": "---\ncover: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-cover",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "cover: inverse",
+   "source": "---\ncover: inverse\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: light column",
+   "source": "---\ncover: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: poster (composition alone)",
+   "source": "---\ncover: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: masthead light (either order)",
+   "source": "---\ncover: masthead light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
    "name": "logo-finish: bottom-center accent-ink lg",
    "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
@@ -1099,6 +1155,26 @@
    "source": "---\nmarks: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
+   }
+  },
+  {
+   "name": "marks: tone ink (tone's source: the heading ink)",
+   "source": "---\nmarks: tone ink\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "marks: etch accent (a source means something only under tone)",
+   "source": "---\nmarks: etch accent\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "marks-source-needs-tone",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
    }
   },
   {

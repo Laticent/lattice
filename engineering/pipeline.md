@@ -293,7 +293,7 @@ is the Lattice host that hands it JSZip, the deck's fonts and the HarfBuzz
 pinner. Two modes:
 
 - **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
-  speaker notes on each page's notes view, the `describe:` text as each picture's
+  speaker notes on each page's notes view, the `@alt` text as each picture's
   alt text. The PPTX twin is the plain `.pptx` (`lib/export/pptx-export.js`), written by
   the same Calco `writePptx` from a deck of pictures with no text frames.
 - **Editable** (`--editable` on `.odp` or `.pptx`; the Studio's Editable text switch runs the same capture, `captureOfficeSlides`): Calco reads every paragraph off
@@ -429,14 +429,14 @@ that keeps text or a raster image in it. That covers:
   difference that sent each other item back to the fill hide
   (`test/integration/export/pdf-list-markers.test.js`, `docs/e2e/studio-pdf-list-markers.spec.ts`).
 
-Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
-deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
+Otherwise the photo is 1x: what the background keeps (boxes, borders, and a finish the writer cannot
+draw) is sharp on screen but soft at deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
 photo stops at 2560 px on the long edge, so a 4K slide's is downsampled. A downsampled photo is
 JPEG only: PNG there cost the 4K gallery ~13 s a render.
 
 **The slide's own edge is a vector, not part of the photo.** The section paints its top edge
 itself, as a gradient: a light slide's spectrum bar is a `border-image` on its top border, and
-a dark slide's 1 px hairline is a `background-image` (the `spectrum-edge-*` rails are the same
+a dark slide's 1 px hairline is a `background-image` (the `spectrum-<edge>` rails are the same
 two shapes on other sides). The reader (`readSectionEdges`) draws each as an axial shading over
 the photo and drops it from the photo, so the edge is exact at any size: at 4K, where the
 downsampled photo wrote the dark hairline 86 levels off Chrome's print, it is now within 1.
@@ -453,7 +453,59 @@ the photo when anything's ink can reach it (a finish's pseudo-element layer, an 
 the hairline, an outer shadow, a list marker, a full-bleed image), when the slide is clipped or rounded (`corners-rounded`), or
 when its geometry is not one the reader models; `LATTICE_PDF_REPORT` names the reason
 (`edge-covered`, `edge-clip-path`, …). Other 1 px rules a finish paints (the frame keyline, an
-inset ring) still ride in the photo, and stay soft at 4K.
+inset ring) are drawn with the finish's backdrop, below; when the backdrop stays in the photo, so do
+they, and they stay soft at 4K.
+
+**A finish's backdrop is drawn, not photographed.** A finish paints its glow and its texture as CSS
+gradient layers on the slide's `.backdrop` (`lib/base/base.finish.css` § COMPOSITOR). Left in the
+1x photo, usually a JPEG, a faint glow came out in 8x8 blocks with color patches, the "dithering"
+the owner reported, and those photos were 81% of a finish deck's bytes
+(`engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md`). The reader (`readBackdrop`,
+`read-slide.mjs`) reads the backdrop's computed layers, and `backdrop.mjs` turns them into drawing:
+
+- every glow under the first texture becomes **one opaque picture**, blended onto the slide's color and
+  computed from the gradients' own math at a quarter of the slide's resolution (no dither, no JPEG,
+  Flate with a row predictor, `/Interpolate`). A glow is low-frequency; poppler, MuPDF, Ghostscript
+  and PDFium all scale it smoothly. It replaced vector shadings, which cost Chrome's PDF engine
+  (PDFium) 0.07 s a full page against 0.012 s for the picture;
+- a texture (a grid, a weave, rings, dots) becomes **filled paths**, never a per-pixel function:
+  Chrome's own print writes a repeating gradient as a PostScript-function shading, which took
+  PDFium 12.8 s and poppler 17.4 s on the 15-slide `finish-backdrops` deck;
+- a fade of one color above a texture (a vignette, a spotlight's scrim, a strength veil, the clear
+  panel) becomes an **opacity map**: a flat color image whose soft mask is the map, both at the same quarter
+  resolution. Neighbors of one color merge. The clear panel is read on its EXPORT face, two ramps
+  multiplied (`mask-composite: intersect`), which is the documented stand-in for the screen's blur;
+- the mark and edge pseudo-elements, the mask layer and its pseudo-elements, the section's own
+  background layers and its sharp inset shadows (a `frame` keyline, a tone rail) join the drawing in
+  paint order. The first thing that cannot be drawn (a ghost numeral is text) stays in the photo with
+  everything above it, so the order holds.
+
+The writer then paints the slide's color, the drawing, the slide's own edge, and the photo, taken with
+all of that hidden: a transparent PNG cut to the boxes that hold ink (`cropToInk`, `compose.mjs`), so a
+slide whose page number and title are drawn as text often has no photo at all. A drawn backdrop reads
+the finish's SCREEN face, the look the Studio shows, unless something of the finish stays in the photo,
+which keeps the export face throughout. `--chrome-pdf` still prints the export face.
+
+A group opacity (`backdrop: 40` without a mask, `--backdrop-opacity`, a Fabricate finish's baked
+strength) is applied piece by piece: exact for the glow picture, within a level for a texture or fade
+over it. The section's own rings keep full strength, as on screen.
+
+What keeps the backdrop in the photo, named in `LATTICE_PDF_REPORT` as `backdrop-*`: an effect on it or
+an ancestor (`backdrop-effect`, `backdrop-transform`, a rounded slide `backdrop-radius`), a blurred
+inset shadow under it (`backdrop-under-shadow`), anything painted under its plane, a flex or grid item
+with a lower `z-index` included (`backdrop-under`, `backdrop-plane`), a see-through slide, a gradient
+form `backdrop.mjs` does not read (`backdrop-color`, `backdrop-tile`, `backdrop-texture-ramp`,
+`backdrop-too-many-bands`, …), and, behind a group opacity, anything of it that would stay in the photo
+or a section layer the glow picture would dim (`backdrop-group`). Two more are decided once the photo
+is taken: a camera that returned no transparent PNG (`backdrop-camera`: a JPEG-only camera, a host's
+opaque fallback), and a BUSY photo (`backdrop-busy-photo`: past 64 KB of pieces, the old opaque photo is
+taken too and the smaller kept, so a filtered picture left in the photo is never stored as a transparent
+PNG eight times its JPEG). A gradient with a hard stop, or one covering only a strip, is not blurred into
+the quarter-resolution picture: it draws as its own shading. A wide-gamut color is clipped as the
+screen clips it. `LATTICE_PDF_REPORT` also carries `backdrops: { vector, screenFace }`.
+Measured on three of the owner's decks: 455 to 193 KB, 4.4 MB and 5.4 MB unchanged (photographs);
+PDFium draws them in 0.48, 0.51 and 3.43 s against 0.39, 0.42 and 1.88 s before.
+`test/integration/export/pdf-backdrop-vector.test.js`, `test/unit/core/pdf-compose-backdrop.test.js`.
 
 **A check is drawn, not photographed.** A check (`.lat-state`, a matrix or state-cells `.state`, a
 checklist row's `li.state`) is a circle painted by box-shadow rings with a `--mark-*` mask over it, so
@@ -675,7 +727,7 @@ deck's world (`installPictureWriter`, editable office exports only): they encode
   its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
   in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
   picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Apple's encoder is the cause: in an iOS 26.5
-  Simulator (the `ios-safari-jpeg` platform suite) Safari's `toBlob('image/jpeg', 0.9)` wrote 1.5 to 2.2 times our bytes on
+  Simulator (the `ios-safari-jpeg-ipad` and `-iphone` platform suites) Safari's `toBlob('image/jpeg', 0.9)` wrote 1.5 to 2.2 times our bytes on
   the same pictures, 4:2:0 like ours but with finer tables (3 to 5 dB more luma PSNR), and an Office export keeps a
   continuous-tone slide's JPEG at that size without trying the PNG. No Linux engine uses Apple's encoder. Ours writes the same file from the same
   pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden

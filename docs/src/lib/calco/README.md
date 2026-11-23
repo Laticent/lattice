@@ -56,8 +56,10 @@ Hiding the text does not touch anything else: colors that come from `currentColo
 ## Layouts, shared backgrounds and roles
 
 `readSlide` tags each frame with a `role` it reads off the page: `title` (the first `h1`/`h2`),
-`eyebrow` and `subtitle` (a lone inline-code paragraph above or below a heading), `header`,
-`footer` and `number`. `splitSlide(section, 'background' | 'foreground')` hides a slide's
+`eyebrow` and `subtitle` (a lone inline-code paragraph above or below a heading), `meta` (a lone
+inline-code paragraph that is a slide's last paragraph: a source, a basis), `header`, `footer` and
+`number`, and the slide's `look` (Lattice's `data-frame`: title, content, divider, topic, closing).
+`splitSlide(section, 'background' | 'foreground')` hides a slide's
 content (so a photograph shows only the slide's own paint and its decorative layer) or hides
 that paint (so a photograph with a transparent background shows only content);
 `splitKey(section)` says when two slides paint the same background, so one photograph serves
@@ -65,12 +67,43 @@ both. Put the backgrounds in `deck.backgrounds` (`{ color }` for a flat fill, `{
 picture) and point each slide at one with `slide.background`; its `image` is then the
 transparent foreground.
 
-With backgrounds or roles, the writers use one master page (`.odp`) or layout (`.pptx`) per
-distinct background plus the chrome its slides share: a title is a title placeholder, a page
-number a slide-number field (when it equals the slide's position), and a header, footer or page number that two or more slides
-share on a background is drawn once on the layout (`planMasters`). A slide with no shared
-background keeps its own opaque picture and its own chrome, because a layout paints under the
-slide's picture. The slide's foreground picture, when there is one, is locked against moving and
+With backgrounds or roles, every layout (`.pptx`) or master page (`.odp`) carries the WHOLE look of its slides
+(`planMasters`). Slides share one when they sit on the same background, are the same look, and draw their running
+chrome in the same place and style, whatever its text says:
+
+- chrome whose text is the same on every slide of a layout is drawn once on it, a layout of one slide included (a
+  dark divider's light footer); chrome whose text varies (a header naming each section) stays on each slide, and the
+  `.pptx` layout offers a placeholder in its look instead of becoming a layout per slide;
+- a page number is a slide-number field when it equals the slide's position;
+- in the `.pptx`, the chrome most slides show is drawn once on the slide master; a layout whose header and footer are
+  the master's shows them, and any other hides them and draws its own;
+- each `.pptx` layout has a placeholder, in that layout's own type and ink, for every role its slides show: title, a
+  body (or, on a look with a heading and at most one line under it, a subtitle), eyebrow, meta, and a varying header
+  or footer. A role with no frame on the layout falls back to its title's ink, never the master's, so a slide added
+  on a dark look in a light deck is light on dark;
+- layouts are named after the look ("Title", "Content", "Divider", "Topic", "Closing", "Divider 2"); a divider is
+  PowerPoint's section header.
+
+Chrome whose ink hardly shows on its layout's flat ground (under 1.5:1) sits on something the slide's own picture
+paints, such as a split slide's dark half, so it stays on the slide. A slide with no background in `deck.backgrounds`
+keeps its own opaque picture and its own chrome, because a layout paints under the slide's picture.
+
+## Theme
+
+The `.pptx` carries the deck's theme, not Office's (`readTheme`, theme.ts): the theme fonts are the faces the deck's titles and
+body are drawn in; the twelve theme colors are the body ink and ground, the heading ink and a second ground, and six accents,
+the saturated colors the deck paints with most. They are written the Office way: `dk1`/`dk2` the dark pair and `lt1`/`lt2` the
+light one, so a dark deck's text is `lt1`, and its master's color map reads text from the light pair (`bg1="dk1" tx1="lt1"`),
+as Office's own dark themes do; a layout whose ground is the other way from the deck's (a navy divider in a light deck)
+overrides the map. The master's text styles take the theme's text colors (`tx1`, `tx2`), so a text box, table or chart
+added on any layout reads on it. Each layout's placeholders are in its own type and ink, checked to read on its ground
+(3:1 or more, else recolored), so a slide added in PowerPoint looks like the deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures. Every run also
+states its weight, slant, caps and letter-spacing when they are off, so it never inherits a bold or all-caps master style.
+
+A host that knows its palette passes it: `captureOfficeSlides(host, n, { palette: { dk1: 'var(--text-body)', accent1:
+'var(--accent)', … } })` resolves each CSS color on every slide under its color scheme (`resolvePalette`) and returns the
+colors most slides give as `theme`; put it in `deck.theme`, and it wins over what Calco reads, slot by slot. Lattice's palette is
+`OFFICE_PALETTE` in `lib/core/office-export-policy.js`. The slide's foreground picture, when there is one, is locked against moving and
 resizing; pictures of single objects are not, so a photo can be replaced or moved.
 
 ## Fonts

@@ -107,6 +107,21 @@ test('@crosswidth opening Deck settings focuses the panel, never a control insid
 	expect(inSheet, 'focus parked on the sheet itself').toBe(true);
 });
 
+/**
+ * Choose an option in an open Radix Select by pointer, scrolling it into view FIRST. The list is item-aligned: it opens
+ * scrolled to the value it holds, and Radix's viewport GROWS the list on each scroll event. `click()` checks that the
+ * option holds still, THEN scrolls it into view, then presses at the point it measured, so the growth that scroll sets off
+ * lands between the measurement and the press. A trace of the red run (mobile, 1 in 30 at four workers) has the press at
+ * y 55 and Auto at y 31 once the list had grown: the press fell between two rows, the list stayed open and the deck kept
+ * `theme: crepuscolo`. Scrolled first, the growth happens before `click()` runs its own stability check, which compares
+ * the option's box across animation frames in the page, so it waits for the list to stop moving.
+ */
+async function chooseOption(page: import('@playwright/test').Page, name: string | RegExp): Promise<void> {
+	const option = page.getByRole('option', { name });
+	await option.scrollIntoViewIfNeeded();
+	await option.click();
+}
+
 test('@crosswidth the Theme row pins the deck’s own palette, and Auto clears it', async ({ page }) => {
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	// The editor hydrates LAZILY (2026-07-19 defer-editor-hydration), so `.cm-content`
@@ -137,12 +152,12 @@ test('@crosswidth the Theme row pins the deck’s own palette, and Auto clears i
 	const frontMatter = async () => /^---\n([\s\S]*?)\n---/.exec(await deckSource())?.[1] ?? '';
 
 	await theme.click();
-	await page.getByRole('option', { name: 'Crepuscolo' }).click();
+	await chooseOption(page, 'Crepuscolo');
 	await expect.poll(frontMatter).toContain('theme: crepuscolo');
 
 	// Back to Auto drops the key — the deck follows the site palette again.
 	await theme.click();
-	await page.getByRole('option', { name: /^Auto/ }).click();
+	await chooseOption(page, /^Auto/);
 	await expect.poll(frontMatter).not.toContain('theme:');
 });
 

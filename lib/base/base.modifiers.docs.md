@@ -101,6 +101,14 @@ Acts on: chart-marks. Pick one.
 
 - `marks-muted` · `marks-vivid`
 
+### Marks source — `marks-source`
+
+The one hue `marks: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `marks:`.
+
+Acts on: chart-marks. Not offered. Pick one.
+
+- `marks-ink` · `marks-accent`
+
 ### Headline — `headline`
 
 The heading's treatment.
@@ -334,24 +342,33 @@ Acts on: the slide. Not offered.
 - one of `agenda-ledger` · `agenda-circles` · `agenda-checks`
 - one of `agenda-pages` · `agenda-no-pages`
 
-### Card rail — `card-rail`
+### Card spectrum — `card-spectrum`
 
-The spectrum accent on cards.
+The stripe on each card: style, edge, weight.
 
 Acts on: card-rail.
 
-- one of `with-spectrum-card` · `spectrum-card-solid` · `spectrum-card-duo` · `spectrum-card-mono` · `spectrum-card-rainbow` · `no-spectrum-card`
-- one of `spectrum-card-edge-left` · `spectrum-card-edge-top` · `spectrum-card-edge-right` · `spectrum-card-edge-bottom`
+- one of `no-card-spectrum` · `with-card-spectrum` · `card-spectrum-solid` · `card-spectrum-duo` · `card-spectrum-mono`
+- one of `card-spectrum-left` · `card-spectrum-top` · `card-spectrum-right` · `card-spectrum-bottom`
+- one of `card-spectrum-regular` · `card-spectrum-hairline` · `card-spectrum-band`
 
-### Brand bar — `spectrum`
+### Spectrum — `spectrum`
 
-The spectrum bar, its edge and its trim.
+The stripe on the slide edge: style, edge, weight.
 
 Acts on: the slide.
 
 - one of `with-spectrum` · `spectrum-solid` · `spectrum-duo` · `spectrum-mono` · `no-spectrum`
-- one of `with-spectrum-edge` · `spectrum-edge-top` · `spectrum-edge-left` · `spectrum-edge-right` · `spectrum-edge-bottom` · `no-spectrum-edge`
-- one of `with-spectrum-trim` · `spectrum-trim-restrained` · `no-spectrum-trim`
+- one of `spectrum-top` · `spectrum-left` · `spectrum-right` · `spectrum-bottom`
+- one of `spectrum-regular` · `spectrum-hairline` · `spectrum-band`
+
+### Trim spectrum — `trim-spectrum`
+
+The accent on tables, timelines and rules.
+
+Acts on: the slide.
+
+- one of `trim-spectrum-quiet` · `trim-spectrum-rainbow` · `trim-spectrum-solid` · `trim-spectrum-duo` · `trim-spectrum-mono`
 
 ### Decoration — `decoration`
 
@@ -457,10 +474,8 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `claim:` | `claim` |  |
 | `fit:` | `fit` |  |
 | `spectrum:` | `spectrum` |  |
-| `spectrum-edge:` | `spectrum` |  |
-| `spectrum-trim:` | `spectrum` |  |
-| `spectrum-card:` | `card-rail` |  |
-| `spectrum-card-edge:` | `card-rail` |  |
+| `card-spectrum:` | `card-spectrum` |  |
+| `trim-spectrum:` | `trim-spectrum` |  |
 | `rule:` | `rule` |  |
 | `eyebrow:` | `eyebrow` |  |
 | `headline:` | `headline` |  |
@@ -472,7 +487,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `backdrop:` | `backdrop` |  |
 | `tag:` | `card-tag` |  |
 | `agenda:` | `agenda` |  |
-| `marks:` | `marks`, `marks-intensity` |  |
+| `marks:` | `marks`, `marks-intensity`, `marks-source` |  |
 | `logo-finish:` | `logo` |  |
 | `progress-rail:` | `progress-rail` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |
@@ -483,6 +498,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `color-mode:` | — | Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood). |
 | `finish:` | — | Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name. |
 | `image-card:` | — | Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js). |
+| `cover:` | — | Stamps `cover-*` on title and closing slides only, which the cover register owns (lib/core/resolve-cover.js). |
 | `player-motion:` | — | Read by the player, not stamped on a slide. |
 | `pace:` | — | Read by the narrated guide, not stamped on a slide. |
 | `delivery:` | — | Read by the narrated guide, not stamped on a slide. |

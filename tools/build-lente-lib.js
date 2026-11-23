@@ -14,9 +14,12 @@
  * `require('@laticent/lente')` (and any npm publish) resolves a missing file.
  * This completes the library-shape recipe the Lente ADR always called for
  * (2026-07-13-lente-reader-lenses.md, following 2026-07-08-library-shape-cadenza-vetrina.md):
- * the `exports` map sends `require` → dist/index.cjs and `import` → dist/index.mjs, while
- * docs + Vitest import the TS SOURCE through the `@/lib/*` path ALIAS (not the package
- * name) — so the docs runtime is unaffected. Lente is the fourth spin-off sibling; this
+ * the `exports` map sends `require` → dist/index.cjs and `import` → dist/index.mjs. Vitest
+ * imports the TS SOURCE. The docs SITE does not: `@/lib/lente` is a directory import, and Vite
+ * resolves it through this package's `module` field, so the Studio bundles dist/index.mjs, and a
+ * source edit reaches the built site only after this build runs (`npm run build` runs it, and `npm install` through `prepare`; a
+ * mid-session edit needs `npm run lente-lib:build`; engineering/gotchas/studio-playground.md
+ * "A product change does not reach the e2e build"). Lente is the fourth spin-off sibling; this
  * makes it node-consumable and publishable like Cadenza and Vetrina.
  *
  * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house

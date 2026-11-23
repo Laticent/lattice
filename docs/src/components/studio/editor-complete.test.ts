@@ -393,7 +393,7 @@ describe('front-matter registers — keys and values', () => {
 
 	it('offers the keys that had no route but knowing they exist', () => {
 		const keys = done('---\n', 4);
-		for (const k of ['fit', 'cards', 'player-motion', 'say', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+		for (const k of ['fit', 'cards', 'player-motion', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
 			expect(keys, `${k} missing from key completion`).toContain(k);
 		}
 	});
@@ -402,7 +402,25 @@ describe('front-matter registers — keys and values', () => {
 		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
 		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
 		expect(done('---\nclaim: ')).toContain('bleed');
-		expect(done('---\nspectrum-trim: ')).toContain('restrained');
+		expect(done('---\ntrim-spectrum: ')).toContain('mono');
+	});
+
+	it('the spectrum keys complete one word per axis, and only the new words', () => {
+		const first = done('---\nspectrum: ');
+		for (const w of ['rainbow', 'solid', 'left', 'band', 'hairline']) expect(first).toContain(w);
+		expect(first).not.toContain('on');
+		const next = done('---\nspectrum: solid ');
+		expect(next).not.toContain('duo'); // the style axis is filled
+		expect(next).toContain('left');
+		expect(next).toContain('band');
+		expect(done('---\ncard-spectrum: ')).toContain('rainbow');
+		expect(done('---\ncard-spectrum: ')).not.toContain('auto');
+		expect(done('---\ncard-spectrum: ')).not.toContain('match');
+		expect(done('---\ntrim-spectrum: ')).toEqual(expect.arrayContaining(['quiet', 'rainbow', 'solid', 'duo', 'mono']));
+		// The retired keys are not offered as keys.
+		const keys = done('---\nspec');
+		expect(keys).not.toContain('spectrum-edge');
+		expect(keys).not.toContain('spectrum-trim');
 	});
 
 	it('image-card: completes its first word, then keeps going on the same line, one word per axis', () => {
@@ -749,6 +767,12 @@ describe('altFromAssetName / inCollageSlide', () => {
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
 	});
+	it('reads a slide record the same way (`@meta{layout=collage}`)', () => {
+		const lines = ['---', 'theme: x', '---', '<!-- @meta{layout=collage} -->', '', '- a', '---', '- b'];
+		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
+		expect(at(6)).toBe(true);
+		expect(at(8)).toBe(false);
+	});
 });
 
 describe('frontMatterKeyAt — the hover over a front-matter key', () => {
@@ -818,11 +842,16 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
 		// Slice 3.
 		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
-		['a note channel after <!--', `${FM}<!-- sa`, 'say', null],
+		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
+		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
+		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
+		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
+		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
 		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
-		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- _class: -->', null],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- @meta{layout=} -->', '<!-- _class: -->'],
+		['the record insert, never the bare one', `${FM}# Title\n\n`, '<!-- @meta{} -->', '<!-- { } -->'],
 		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
 		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
 		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
@@ -864,21 +893,28 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		expect(await ask(studio, `${FM}An escaped \\$ sign \\fr`)).not.toContain('\\frac');
 	});
 
+	it('the retired bare record `<!-- {` completes no field in either editor (only `@meta{` is taught)', async () => {
+		for (const ed of [studio, playground]) {
+			expect(await ask(ed, `${FM}<!-- {lay`)).not.toContain('layout');
+			expect(await ask(ed, `${FM}<!-- {headline=`)).not.toContain('left');
+		}
+	});
+
 	it('a word that is not a slide directive gets no directive values (it is a speaker note)', async () => {
 		expect(await ask(studio, `${FM}<!-- cards: `)).toEqual([]);
 	});
 
 	it('the insert list stays out of the front matter, fences and lines with text', async () => {
-		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the insert list opens only on Ctrl-Space, never while typing', async () => {
 		const doc = `${FM}# Title\n\n`;
 		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
 		const got = await Promise.all(studio.map((s) => s(typed)));
-		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- _class: -->');
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the map completer loads only on a map slide', async () => {

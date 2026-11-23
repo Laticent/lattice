@@ -187,13 +187,13 @@ const VARIANT_DECL_IGNORE = new Map([
   // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
   // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
   ['checklist', new Set(['heat'])],
-  // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
-  // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
+  // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
+  // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
   // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'with-spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -4903,6 +4903,18 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
+  ...[['ramp-hue', 'chart-cat-1-hue'], ['ramp-ink', 'chart-cat-1-ink']].map(([token, fallback]) => ({
+    token,
+    fallback,
+    why:
+      'a sequential ramp\'s hue and ink (heatmap, map choropleth), OPTIONAL by design: a palette names one only when it ' +
+      'wants its ramps on a hue other than its first category. Without one the read lands on the first category\'s ' +
+      'own hue or ink, which is exactly what every ramp painted before the hook existed, so a palette that does not ' +
+      'name one (and a Studio-generated theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the heatmap ' +
+      'step inks against the same pole. Carbone names its green (#3360 D2: its chart cycle leads with blue so "no ' +
+      'status" does not read as on track; its ramps keep the 6.53:1 light top step they were tuned for). Held by ' +
+      'chart-finish-reach --check.',
+  })),
   {
     token: 'risk-critical-step-ink',
     fallback: 'fail-on-mark',
@@ -7134,6 +7146,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'and a BOM would hide the front matter, so the harness would score the wrong box.',
   },
   {
+    file: 'tools/preset-gate.js',
+    why: 'readText — writes a preset recipe into the corpus deck\'s front matter before every '
+       + 'render of the deck-preset judging gate. A BOM or CRLF in a recipe or the corpus would '
+       + 'hide the front matter, so every row would render the default look and the gate would '
+       + 'pass or fail a preset nobody chose.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
@@ -7154,10 +7173,11 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
-    file: 'lib/cli/migrate-meta.mjs',
-    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
-       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
-       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
+    file: 'lib/authoring/meta-migrate.mjs',
+    why: 'migrateMetaDeck — the one whole-deck meta migration (`lattice migrate meta`, `lint:deck --fix`, the Studio\'s '
+       + '`legacy-directive-comment` quick fix) reads an author\'s deck, folds CRLF to LF and strips the BOM so the '
+       + 'kernel reads it as the engine does (it refuses anything else), then puts both back on write: a codemod must not '
+       + 'rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',
@@ -7250,10 +7270,16 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/platform-harness.js',
+    why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
+       + 'Windows arrives CRLF, and a CR left in the script makes bash read `ls\\r`. It reads no markdown source and '
+       + 'writes nothing back; the folded text only becomes a shell script.',
+  },
+  {
     file: 'lib/core/meta-edit.mjs',
-    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
-       + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '
-       + 'value and drop every field in it. It reads no markdown source and writes only that value.',
+    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (typed in a text box), '
+       + 'so the field is written on a single line: a raw CR would end the record\'s value and drop every field in it. '
+       + 'It reads no markdown source and writes only that value.',
   },
   {
     file: 'tools/skill-index.js',
@@ -7318,13 +7344,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
   },
   {
     file: 'docs/src/components/playground/PlaygroundApp.tsx',
-    why: 'a COMPARISON fold, not an ingest — the same shape as notes-core.js below. The '
+    why: 'a COMPARISON fold, not an ingest. The '
        + 'Playground asks ONE question with it: has the author edited the deck since Explore '
        + 'handed it to the editor? CodeMirror stores a document with its own line separator, '
        + 'so a source that arrived CRLF comes back LF and raw equality reports an edit nobody '
        + 'made, silently dropping a plan walk and stripping the ?c=/?s= params. Neither string '
        + 'is written back and nothing downstream of the answer decides a palette or a slide '
-       + 'count. It strips no BOM for the reason notes-core does not: there is no document '
+       + 'count. It strips no BOM because there is no document '
        + 'here whose front matter a BOM could defeat — the deck that IS ingested goes through '
        + 'the editor and the engine, both already boundaries.',
   },
@@ -7344,12 +7370,17 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'wrong read fails its own checks loudly rather than shipping anywhere.',
   },
   {
-    file: 'lib/authoring/notes-core.js',
-    why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
-       + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '
-       + 'source text; the fold canonicalizes the CANDIDATE for that one comparison and the '
-       + 'source itself flows on untouched. It strips no BOM for the same reason — there is no '
-       + 'document here whose front matter could be defeated.',
+    file: 'lib/core/note-grammar.mjs',
+    why: 'folds inside ONE NOTE BODY (`dedent`), to find the indentation its lines share, so a note written indented '
+       + 'inside its comment reads flush. The body is a comment\'s text, already cut out of a document; the fold '
+       + 'shapes the note a person reads and writes nothing back. It strips no BOM because there is no document '
+       + 'here whose front matter a BOM could defeat (engineering/decisions/2026-11-20-four-notes.md).',
+  },
+  {
+    file: 'lib/cli/migrate-notes.mjs',
+    why: 'a ROUND TRIP, not an ingest: `lattice migrate notes` reads a deck, folds it to LF and drops its BOM so the '
+       + 'codemod scans one shape, then writes the rewritten deck back with the file\'s OWN line endings and BOM. '
+       + 'Nothing it folds reaches the engine or another reader; a deck it does not change is left byte for byte.',
   },
 ];
 
@@ -9809,7 +9840,10 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
-const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025'];
+// `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
+// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
+// checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
+const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
 // A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening
@@ -10043,6 +10077,9 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
       errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
     }
+    if (Array.isArray(s.os) && s.os.includes('ubuntu-24.04') && !/(^|\s)(bash\s+)?docs\/scripts\/android\//.test(String(s.run || ''))) {
+      errors.push(`${at}: \`ubuntu-24.04\` is for the Android emulator suite only (a \`run\` under docs/scripts/android/); a Linux check that needs no emulator belongs in ci.yml.`);
+    }
     if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
       errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
     }
@@ -10054,8 +10091,12 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if ('docs_site' in s && typeof s.docs_site !== 'boolean') {
       errors.push(`${at}: \`docs_site\` must be true or false (true: the workflow's docs-site job builds the site this suite serves).`);
     }
-    if (s.docs_site === true && !(typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run))) {
-      errors.push(`${at}: only an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) serves the docs site, so only one can set \`"docs_site": true\`.`);
+    // Two kinds of suite serve the prebuilt docs site: an iOS Simulator suite (docs/scripts/ios-safari/run.sh), and a
+    // Playwright suite that serves it with E2E_PREBUILT=1 (docs/playwright.config.ts then skips its own build). The second
+    // exists because the docs site does not build on Windows (`bake-newcomer-frame`: `module is not defined` in
+    // lib/core/content-policy.js, platform-suites run 44853144110), so a Windows suite must take the Linux build (#3345).
+    if (s.docs_site === true && !(typeof s.run === 'string' && (/docs\/scripts\/ios-safari\/run\.sh/.test(s.run) || /\bE2E_PREBUILT=1\b/.test(s.run)))) {
+      errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
@@ -10092,7 +10133,10 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
 //   2. NO ABUSE — our key must never be spent by the automated suite: no `test/**` file reads
 //      it or hits the live API, no CI workflow injects it, no `test`-family npm script invokes
 //      a spender. The one sanctioned spender is on-demand + opt-in (OPENROUTER_ALLOW_SPEND).
-const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/destructure reads too
+// The bare name catches bracket/destructure reads too. It also matches the spellings OpenRouter's own docs and SDK
+// examples use (OPENROUTER_KEY, OPENROUTER_API_KEY, OPEN_ROUTER_API_KEY), so the same key under another name is caught.
+// The word boundaries keep endpoint constants like OPENROUTER_KEY_URL out (release audit, 2026-11-06).
+const OPENROUTER_KEY_NAME = /\bOPEN_?ROUTER_(?:API_)?KEY\b/;
 // The gate's own test fixtures legitimately CONTAIN the key name as data (they build probe
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
@@ -14595,6 +14639,15 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
+  // The preset hooks (deck-preset study §8 WP-tokens, decision D10). Nothing in the engine writes
+  // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
+  // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
+  // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
+  { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
+  { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
 /**

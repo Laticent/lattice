@@ -15,7 +15,7 @@
  *    - A framing question?
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
- * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
+ * in Lattice uses (LEDGER_LAYOUTS, lib/authoring/lint-core.js). The ordinal
  * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
  * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
  * is exactly what lets a split run continue 05/06 instead of restarting. Each row's
@@ -59,7 +59,7 @@ section.premise {
   align-items: center;
   gap: var(--sp-2xl);
   /* Zero block inset of its own, so one bar width is reserved top and bottom and each gives it up to
-   * the bar it carries. The box is the same under every `spectrum-edge:` (check:edge-shift). The cost
+   * the bar it carries. The box is the same under every `spectrum:` edge (check:edge-shift). The cost
    * is 4px of bottom room on a default light slide, which centers 2px higher. */
   --_inline-inset: var(--sp-2xl); /* the sides, through the base padding that gives up the bar border */
   padding-block:

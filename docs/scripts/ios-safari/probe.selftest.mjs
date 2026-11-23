@@ -9,6 +9,7 @@
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
+ *   PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs   # Present stays awake, immersive tap, captions, Next keeps playing
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
@@ -62,10 +63,14 @@ if (process.env.PROBE === 'font-cache') {
 		const context = await webkit.launchPersistentContext(dir, options);
 		for (const arm of ['control', 'warm']) {
 			const page = await context.newPage();
-			await page.addInitScript(SEED);
+			// The same pages in the same order as run.mjs: the server's blank page first, where the settings are seeded, and
+			// `since` stamped before it, so the probe's check that nothing fetched a face before the Studio runs here too.
+			const since = Date.now();
+			await page.goto(`${origins[arm]}/__probe/blank`, { waitUntil: 'load' });
+			await page.addScriptTag({ content: SEED });
 			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
 			await page.addScriptTag({ content: FONT });
-			report(label, `font-cache-probe.js ${arm}`, await page.evaluate((a) => globalThis.latticeFontCacheProbe(a), arm));
+			report(label, `font-cache-probe.js ${arm}`, await page.evaluate(([a, s]) => globalThis.latticeFontCacheProbe(a, s), [arm, since]));
 			await page.close();
 		}
 		await context.close();
@@ -138,6 +143,95 @@ if (process.env.PROBE === 'player-charts') {
 		await context.close();
 	}
 	fs.rmSync(dir, { recursive: true, force: true });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
+if (process.env.PROBE === 'present-narration') {
+	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
+	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
+	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S, when set, adds a reported voice-off arm.
+	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
+	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const deck = await buildNarrationDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const arm = async (voice, seconds, untilSlide = 0) => {
+		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
+		const context = await browser.newContext(shapes.at(-1).options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${NARRATION}\n${expr}`);
+		try {
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`);
+			Object.assign(out, await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`));
+			await call(`latticeNarrationVoice(${JSON.stringify(process.env.NARRATION_VOICE || 'openrouter-gemini')})`);
+			const played = await call(`latticeNarrationReady(${voice})`);
+			out.total = played.total;
+			// The tap a presenter makes, as run.mjs makes it with a WebDriver touch.
+			await page.touchscreen.tap(played.x, played.y);
+			await call('latticeNarrationStarted()');
+			const t0 = Date.now();
+			while (Date.now() - t0 < seconds * 1000) {
+				// A sampling interval, as run.mjs reads every 30 s: what is read is work done (slide, clips, bytes), never time.
+				await new Promise((r) => setTimeout(r, 10_000)); // flaky-ok: a sampling interval, the samples are judged on work done
+				// Walk the deck as run.mjs does on the simulator (Next every 10 s), so both read the same work.
+				await call('latticeNarrationNext()');
+				const s = await call('latticeNarrationSample()');
+				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
+				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, audio ${s.audio}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
+				// As run.mjs: the judged arm ends on WORK, once Present stands on the target slide (HARD RULE #32).
+				if (untilSlide > 0 && (s.slide ?? 0) >= untilSlide) break;
+			}
+			out.playedS = Math.round((Date.now() - t0) / 1000);
+			out.alive = out.samples.at(-1)?.mark === played.mark;
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		await context.close();
+		return out;
+	};
+	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 0);
+	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 300), TARGET_SLIDE), ...(SILENT_S > 0 ? [await arm(false, SILENT_S)] : [])];
+	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false, targetSlide: TARGET_SLIDE });
+	report('iPhone-sized', 'present-narration-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: arms[0].width, steps });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
+if (process.env.PROBE === 'present-keepalive') {
+	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
+	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.
+	const KEEP = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const context = await browser.newContext(shapes.at(-1).options);
+	const page = await context.newPage();
+	await page.addInitScript(SEED);
+	const call = (expr) => page.evaluate(`${KEEP}\n${expr}`);
+	const r = {};
+	let error = '';
+	try {
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await call('latticeKeepaliveArmErrors()');
+		const at = await call('latticeKeepalivePresentAt()');
+		await page.touchscreen.tap(at.x, at.y);
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		await page.touchscreen.tap(r.immersive.x, r.immersive.y);
+		r.shown = await call('latticeKeepaliveShown()');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+		r.voiceOn = await call('latticeKeepaliveVoiceOn()');
+	} catch (e) {
+		error = String(e.message || e).split('\n')[0].slice(0, 300);
+	}
+	// Playwright's WebKit has no Screen Wake Lock, so that one check is reported and not judged here (the Mac judges it).
+	const steps = (await page.evaluate(`${KEEP}\nlatticeKeepaliveChecks(${JSON.stringify(r)}, { realSafari: false })`)).map((s) => (s.name.startsWith('Present holds') && !r.open?.hasApi ? { ...s, pass: true, detail: `${s.detail} (no Wake Lock API in Playwright WebKit: not judged here)` } : s));
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	report('iPhone-sized', 'present-keepalive-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: r.open?.width, steps });
+	await context.close();
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

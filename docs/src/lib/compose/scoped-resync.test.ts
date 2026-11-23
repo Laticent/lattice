@@ -168,50 +168,38 @@ describe('scoped resync over every deck', () => {
 	}, 600_000);
 });
 
-describe('scoped resync cost on the 134 KB deck (Node)', () => {
-	it('measures scoped apply against a full rebuild', () => {
+// The cost is held as WORK (HARD RULE #32): the patch-driven path reads the slides the patch overlaps, the whole-source
+// path the whole deck. The same input gives the same counts on every run, so one run is the whole check. The speed is
+// `npm run bench`'s Compose undo rows (test/benchmark/engine-bench.mjs `composeUndoRows`, which drive the same
+// scoped apply through `historyTransaction`). This test used to repeat the apply 15 times to log a median: 26 s under
+// load, past the 20 s hang guard (followups.d/3367-p1-unit-tests-time-out-under-load.md).
+describe('scoped resync work on the 134 KB deck (Node)', () => {
+	it('reads a small part of the deck on the patch path and the whole deck on the whole-source path', () => {
 		const src = readFileSync(join(ROOT, 'examples/system-design-foundations.md'), 'utf8');
-		const median = (xs: number[]) => xs.sort((a, b) => a - b)[Math.floor(xs.length / 2)];
-		const scoped: number[] = [];
-		const full: number[] = [];
-		const patched: number[] = [];
-		for (let run = 0; run < 15; run++) {
-			const d0 = deckToDoc(src);
-			const b = initBaseline(d0);
-			const S0 = emitDeck(d0, b);
-			const state = EditorState.create({ doc: d0, schema: deckSchema });
-			const k = Math.floor(b.raws.length / 2);
-			const raws = b.raws.slice();
-			raws[k] += '\n\nAn added paragraph.';
-			// Spelled as the editor writes it (its own separators and tail), so the patch spans one slide, as it does in use.
-			const S1 = baselineSource((d0.attrs.frontMatter as string) || '', raws, d0);
-			let t = performance.now();
-			const r = scopedResync(state, b, S1);
-			if (!r) throw new Error('fallback');
-			const s1 = state.apply(r.tr);
-			r.commit(s1.doc);
-			scoped.push(performance.now() - t);
-			t = performance.now();
-			EditorState.create({ doc: deckToDoc(S1), schema: deckSchema });
-			full.push(performance.now() - t);
-			const d2 = deckToDoc(src);
-			const b2 = initBaseline(d2);
-			emitDeck(d2, b2);
-			const st2 = EditorState.create({ doc: d2, schema: deckSchema });
-			const pt = emitPatch(S0, S1);
-			if (!pt) throw new Error('no patch');
-			t = performance.now();
-			const rp = scopedResyncPatch(st2, b2, pt);
-			if (!rp) throw new Error('patch fallback');
-			rp.commit(st2.apply(rp.tr).doc);
-			patched.push(performance.now() - t);
-			expect(S0.length).toBeGreaterThan(100_000);
-			// The cost is held as WORK (HARD RULE #32): the patch-driven path reads the slides the patch
-			// overlaps, the whole-source path the whole deck. The times above are reported, not asserted.
-			expect(rp.scanned, 'the patch-driven path reads a small part of the deck').toBeLessThan(S0.length / 16);
-			expect(r.scanned, 'the whole-source path reads the whole deck').toBeGreaterThanOrEqual(S1.length);
-		}
-		console.log(`[scoped-resync] 134 KB deck, one-slide change: scoped median ${median(scoped).toFixed(2)} ms, patch-driven median ${median(patched).toFixed(2)} ms, full rebuild median ${median(full).toFixed(2)} ms`);
+		const d0 = deckToDoc(src);
+		const b = initBaseline(d0);
+		const S0 = emitDeck(d0, b);
+		const state = EditorState.create({ doc: d0, schema: deckSchema });
+		const k = Math.floor(b.raws.length / 2);
+		const raws = b.raws.slice();
+		raws[k] += '\n\nAn added paragraph.';
+		// Spelled as the editor writes it (its own separators and tail), so the patch spans one slide, as it does in use.
+		const S1 = baselineSource((d0.attrs.frontMatter as string) || '', raws, d0);
+		const r = scopedResync(state, b, S1);
+		if (!r) throw new Error('fallback');
+		r.commit(state.apply(r.tr).doc);
+		const d2 = deckToDoc(src);
+		const b2 = initBaseline(d2);
+		emitDeck(d2, b2);
+		const st2 = EditorState.create({ doc: d2, schema: deckSchema });
+		const pt = emitPatch(S0, S1);
+		if (!pt) throw new Error('no patch');
+		const rp = scopedResyncPatch(st2, b2, pt);
+		if (!rp) throw new Error('patch fallback');
+		rp.commit(st2.apply(rp.tr).doc);
+		expect(S0.length).toBeGreaterThan(100_000);
+		expect(rp.scanned, 'the patch-driven path reads a small part of the deck').toBeLessThan(S0.length / 16);
+		expect(r.scanned, 'the whole-source path reads the whole deck').toBeGreaterThanOrEqual(S1.length);
 	});
 });
 

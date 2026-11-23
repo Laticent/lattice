@@ -67,15 +67,16 @@ export function classDirectiveCompletion(before) {
 	return { kind: 'modifier', from, typed: partial, name: prior[0], present: prior.slice(1) };
 }
 
-// What to complete inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3), given the line's
+// What to complete inside a slide RECORD (`<!-- @meta{layout=cards, footer=Q3} -->`, record note step 3), given the line's
 // text before the cursor. Returns one of:
 //   { kind: 'field', from, typed, fields }                — a field name, after `{` or `, ` (`fields`: those already set)
 //   { kind: 'value', from, typed, name, prior, record }   — a value word after `name=` (`prior`: the value's earlier
 //                                                           words; `record`: the fields set so far, name → value)
 //   null                                                  — not inside a record's braces
-// A comma or brace inside a quoted value is the value's own; the braces must still be open at the cursor.
+// A comma or brace inside a quoted value is the value's own; the braces must still be open at the cursor. Only the
+// `@meta{` spelling completes: the bare `<!-- {` is retired (owner, 2026-11-22), so the editor does not teach it.
 export function recordCompletion(before) {
-	const m = before.match(/<!--\s*(?:@meta)?\{([^>]*)$/);
+	const m = before.match(/<!--\s*@meta\{([^>]*)$/);
 	if (!m) return null;
 	// Inside an inline code span (an odd number of backticks before the comment) it is code, not a record.
 	if ((before.slice(0, m.index).match(/`/g) || []).length % 2 === 1) return null;
@@ -530,11 +531,11 @@ export function backdropAxisPosition(before) {
 
 // The cursor's position on a directive NAME being typed inside an HTML comment,
 // before any colon — `<!-- _pag|`. Returns `{ from, typed }` (typed keeps the
-// leading `_`) or null. Once the colon is typed this stops matching, so the
-// per-directive value/grammar sources take over (e.g. `_class:` → component
-// names).
+// leading `_`) or null. A note's name (`<!-- @sa|`) is matched the same way, `@`
+// kept. Once the colon is typed this stops matching, so the per-directive
+// value/grammar sources take over (e.g. `_class:` → component names).
 export function directiveNameAt(before) {
-	const m = before.match(/^(\s*<!--\s*)(_?[\w-]*)$/);
+	const m = before.match(/^(\s*<!--\s*)(_?[\w-]*|@[\w-]*)$/);
 	if (!m) return null;
 	return { from: m[1].length, typed: m[2] };
 }
@@ -637,7 +638,7 @@ export function typeaheadContext(getLine, lineNo, before) {
 	return null;
 }
 
-// Completes inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`): a field name after `{` or `, `, and a value
+// Completes inside a slide RECORD (`<!-- @meta{layout=cards, footer=Q3} -->`): a field name after `{` or `, `, and a value
 // after `name=`: a component for `layout`, that component's variants for `variant`, the class grammar for `class`,
 // and a register's or enum field's own words for the rest. The record-side twin of the `_class:` source above, so a
 // record slide completes as a directive slide does (record note step 3).
@@ -645,7 +646,7 @@ export function recordOptions(spot, catalog, vocab, extra = {}) {
 	if (!spot) return [];
 	if (spot.kind === 'field') {
 		const set = new Set(spot.fields);
-		return RECORD_FIELDS.filter((f) => !set.has(f.name) || f.name === 'note').map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
+		return RECORD_FIELDS.filter((f) => !set.has(f.name)).map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
 	}
 	const layout = spot.record.layout || '';
 	if (spot.name === 'layout') return spot.prior.length ? [] : classOptions(catalog);

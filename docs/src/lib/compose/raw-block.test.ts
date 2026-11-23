@@ -2,8 +2,8 @@
 // Raw blocks and math (raw-block.ts): a top-level HTML block, a `$$` block and inline `$x$` are atoms that write their bytes back,
 // so their slides no longer lock. The same constructs inside a list or a quote stay locked.
 import fs from 'node:fs';
-import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
+import { deckName, shippedDecks } from '@/test/corpus';
 import { deckToDoc } from './deck-doc';
 import { latticeMarkdownParser, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
@@ -119,54 +119,46 @@ describe('the paste gates', () => {
 });
 
 // The corpus: every shipped slide the lock used to hold for one of these now round-trips each construct byte for byte.
+// One test per deck, so a failure names its deck and no test does the whole corpus's round trips: as one test this took
+// 3.6 s alone and 43 s under load, past the 20 s hang guard (followups.d/3367-p1-unit-tests-time-out-under-load.md).
 describe('across the shipped decks', () => {
-	const ROOT = path.resolve(__dirname, '../../../..');
-	function mdIn(dir: string, out: string[] = []): string[] {
-		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-			if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
-			const full = path.join(dir, e.name);
-			if (e.isDirectory()) mdIn(full, out);
-			else if (e.name.endsWith('.md')) out.push(full);
+	const files = shippedDecks();
+	/** The slides of a deck that carry a modeled construct, with the constructs; tokenizing only, no round trip. */
+	function modeledSlides(file: string) {
+		let slides: ReturnType<typeof parseDeck>['slides'];
+		try {
+			slides = parseDeck(fs.readFileSync(file, 'utf8')).slides;
+		} catch {
+			return [];
 		}
-		return out;
+		return slides.flatMap((s) => {
+			if (hasLossyConstruct(s.prose)) return [];
+			const tokens = createTokenizer().parse(s.prose, {});
+			const mine = tokens.filter((t) => t.type === 'lattice_html' || t.type === 'lattice_math_block');
+			const inline = tokens.flatMap((t) => t.children ?? []).filter((c) => c.type === 'lattice_math_inline');
+			return mine.length || inline.length ? [{ prose: s.prose, mine, inline }] : [];
+		});
 	}
-	const files = [
-		...mdIn(path.join(ROOT, 'examples')),
-		...mdIn(path.join(ROOT, 'lib')).filter((f) => f.endsWith('.gallery.md')),
-		...mdIn(path.join(ROOT, 'test/integration/baseline-decks')),
-	];
 
-	it('writes every modeled block and every inline span back verbatim', () => {
-		let blocks = 0;
-		let spans = 0;
-		let unlocked = 0;
-		for (const file of files) {
-			let slides: ReturnType<typeof parseDeck>['slides'];
-			try {
-				slides = parseDeck(fs.readFileSync(file, 'utf8')).slides;
-			} catch {
-				continue;
-			}
-			for (const s of slides) {
-				if (hasLossyConstruct(s.prose)) continue;
-				const tokens = createTokenizer().parse(s.prose, {});
-				const mine = tokens.filter((t) => t.type === 'lattice_html' || t.type === 'lattice_math_block');
-				const inline = tokens.flatMap((t) => t.children ?? []).filter((c) => c.type === 'lattice_math_inline');
-				if (!mine.length && !inline.length) continue;
-				unlocked++;
-				const out = roundTripSlideProse(s.prose);
-				for (const t of mine) {
-					blocks++;
-					expect(out, path.relative(ROOT, file)).toContain(t.content);
-				}
-				for (const c of inline) {
-					spans++;
-					expect(out, path.relative(ROOT, file)).toContain(`$${c.content}$`);
-				}
-			}
+	// Anti-vacuity over the whole corpus, from what the per-deck tests found, so no deck is parsed twice. It is checked
+	// only when every deck's test ran: a run filtered to one deck checks that deck alone.
+	const seen = { decks: 0, slides: 0, constructs: 0 };
+	afterAll(() => {
+		if (seen.decks < files.length) return;
+		expect(seen.slides, 'anti-vacuity: the corpus has slides with these constructs').toBeGreaterThan(20);
+		expect(seen.constructs).toBeGreaterThan(40);
+	});
+
+	it.each(files.map((f) => [deckName(f), f]))('writes every modeled block and every inline span back verbatim: %s', (name, file) => {
+		const slides = modeledSlides(file);
+		seen.decks++;
+		seen.slides += slides.length;
+		for (const s of slides) {
+			seen.constructs += s.mine.length + s.inline.length;
+			const out = roundTripSlideProse(s.prose);
+			for (const t of s.mine) expect(out, name).toContain(t.content);
+			for (const c of s.inline) expect(out, name).toContain('$' + c.content + '$');
 		}
-		expect(unlocked, 'anti-vacuity: the corpus has slides with these constructs').toBeGreaterThan(20);
-		expect(blocks + spans).toBeGreaterThan(40);
 	});
 
 	it('opens every deck with the same slides locked as before, minus the modeled constructs', () => {

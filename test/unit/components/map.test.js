@@ -240,6 +240,27 @@ describe('map kernel', () => {
       // …but reprojected path data (and viewBox) differ.
       assert.notEqual(WORLD_ROBINSON_BASEMAP.regions.US.d, WORLD_BASEMAP.regions.US.d);
     });
+
+    test('robinson file is geometry only; the join gives every region the Equal Earth record', () => {
+      // The file on disk holds one path per region and nothing the Equal Earth file
+      // already carries: a full second copy cost ~9.9KB gz in the map chart kernel,
+      // which the studio route budget watches (chartKernelGz, chartKernelsGz).
+      const geo = require('../../../lib/plugins/chart-family/kinds/map/map.basemap.world-robinson.json');
+      assert.equal(geo.aliases, undefined);
+      assert.equal(geo.groups, undefined);
+      assert.ok(Object.values(geo.regions).every((d) => typeof d === 'string' && d.startsWith('M')));
+      // The joined basemap is WORLD_BASEMAP with Robinson's header and paths.
+      assert.equal(WORLD_ROBINSON_BASEMAP.aliases, WORLD_BASEMAP.aliases);
+      assert.equal(WORLD_ROBINSON_BASEMAP.groups, WORLD_BASEMAP.groups);
+      assert.equal(WORLD_ROBINSON_BASEMAP.viewBox, geo.viewBox);
+      assert.deepEqual(Object.keys(WORLD_ROBINSON_BASEMAP.regions), Object.keys(WORLD_BASEMAP.regions));
+      for (const [id, r] of Object.entries(WORLD_ROBINSON_BASEMAP.regions)) {
+        const { d, ...meta } = r;
+        const { d: _ee, ...eeMeta } = WORLD_BASEMAP.regions[id];
+        assert.deepEqual(meta, eeMeta, id);
+        assert.equal(d, geo.regions[id], id);
+      }
+    });
   });
 
   // ── world basemap + grouping ──────────────────────────────────────────────
@@ -388,9 +409,9 @@ describe('map kernel', () => {
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
     });
 
-    test('the same detail folds into a Marp-faithful speaker-note comment', () => {
+    test('the same detail folds into a speaker note (`@note{…}`)', () => {
       const html = buildMap(parseMap(withDetail, BASEMAP), 'choropleth', ['us']);
-      assert.match(html, /<!-- California \(4\.2\): West coast · Tech hub hi -->/);
+      assert.match(html, /<!-- @note\{California \(4\.2\): West coast · Tech hub hi\} -->/);
     });
   });
 });

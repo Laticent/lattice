@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Info, Sparkles, Volume2 } from 'lucide-react';
+import { BookOpen, Check, Cloud, Info, Presentation, Sparkles, Volume2 } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
@@ -48,17 +48,16 @@ import { SlideComments } from './SlideComments';
 
 const { NO_PAGINATION } = chromeGenerated as { NO_PAGINATION: readonly string[] };
 
-import { getDescription, setDescription } from './slide-descriptions';
-import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
-import { getSayLine, setSayLine } from './slide-say';
-import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
-import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
+import { activeCardSpectrum, CARD_SPECTRA } from './card-spectrum-catalog';
+import { activeCardSpectrumEdge, CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
+import { getSlideNote, type NoteName, setSlideNote } from './slide-notes';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrumAxis, setStampStyle, setToneStyle, spectrumAxisProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
-import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
+import { activeSpectrumWeight, SPECTRUM_WEIGHTS } from './spectrum-weight-catalog';
 import { deckOutputLang } from './studio-language';
 import { CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState, withSwitchState } from './switch-controls';
+import { activeTrimSpectrum, TRIM_SPECTRA } from './trim-spectrum-catalog';
 
 type CatalogEntry = { name: string; bucket?: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -284,32 +283,33 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
 
-	// Note — a local draft so typing doesn't rewrite the source per keystroke; commit
-	// on blur against the freshest chunk.
-	const curNote = React.useMemo(() => getNote(chunk), [chunk]);
+	// The four notes (engineering/decisions/2026-11-20-four-notes.md), each a local draft so typing doesn't rewrite
+	// the source per keystroke, committed on blur against the freshest chunk. Each writes its own `<!-- @name{…} -->`
+	// (slide-notes.ts) and never touches the slide's other comments.
+	//   @note     speaker notes: Present, the PDF/PPTX notes field
+	//   @say      the voice and the captions; it replaces the narration generated from the slide
+	//   @alt      alt text, for someone who cannot see the slide
+	//   @handout  the handout PDF and the player's read view
+	const curNote = React.useMemo(() => getSlideNote(chunk, 'note'), [chunk]);
 	const [noteDraft, setNoteDraft] = React.useState(curNote);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
-	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
+	const commit = (name: NoteName, draft: string, cur: string) => { if (draft !== cur) onMutate((c) => setSlideNote(c, name, draft)); };
+	const commitNote = () => commit('note', noteDraft, curNote);
 
-	// Say line — the slide's read-as OVERRIDE, the highest-precedence narration source
-	// (say line → front-matter say: map → projection). A SEPARATE channel from the speaker
-	// note, and the note is not in the chain at all: the note is what you SAY off-slide; the
-	// say line is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
-	// the export `.vtt`, a11y).
-	// Same draft-then-commit shape; writes a `<!-- say: … -->` the engine routes to
-	// narration only, never to the presenter-note field.
-	const curSay = React.useMemo(() => getSayLine(chunk), [chunk]);
+	const curSay = React.useMemo(() => getSlideNote(chunk, 'say'), [chunk]);
 	const [sayDraft, setSayDraft] = React.useState(curSay);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => setSayDraft(curSay), [curSay, slideNumber]);
-	const commitSay = () => { if (sayDraft !== curSay) onMutate((c) => setSayLine(c, sayDraft)); };
+	const commitSay = () => commit('say', sayDraft, curSay);
 
-	// Accessibility description — a SEPARATE channel from the note (objective
-	// equivalent of the slide, for screen readers). Same draft-then-commit shape;
-	// commits to a `<!-- describe: … -->` comment the engine routes to image alt /
-	// aria, never to the spoken note.
-	const curDescription = React.useMemo(() => getDescription(chunk), [chunk]);
+	const curHandout = React.useMemo(() => getSlideNote(chunk, 'handout'), [chunk]);
+	const [handoutDraft, setHandoutDraft] = React.useState(curHandout);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
+	React.useEffect(() => setHandoutDraft(curHandout), [curHandout, slideNumber]);
+	const commitHandout = () => commit('handout', handoutDraft, curHandout);
+
+	const curDescription = React.useMemo(() => getSlideNote(chunk, 'alt'), [chunk]);
 	const [descDraft, setDescDraft] = React.useState(curDescription);
 	// An AI-drafted description is UNCONFIRMED until the author acts on it: a wrong
 	// alt is worse than none, so a bare "Generate" then blur must NOT write it to the
@@ -320,8 +320,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const [descMsg, setDescMsg] = React.useState('');
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => { setDescDraft(curDescription); setDescAiDraft(false); setDescMsg(''); }, [curDescription, slideNumber]);
-	const commitDescription = () => { if (!descAiDraft && descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
-	const confirmDescription = () => { setDescAiDraft(false); if (descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
+	const commitDescription = () => { if (!descAiDraft) commit('alt', descDraft, curDescription); };
+	const confirmDescription = () => { setDescAiDraft(false); commit('alt', descDraft, curDescription); };
 	const generateDesc = async () => {
 		setDescBusy(true); setDescMsg('');
 		try {
@@ -379,7 +379,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		onResetChange?.({ dirty, reset: () => resetRef.current() });
 	}, [dirty, onResetChange]);
 	React.useEffect(() => () => onResetChange?.(null), [onResetChange]);
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(original)); setSayDraft(getSayLine(original)); setDescDraft(getDescription(original)); onMutate(() => original); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getSlideNote(original, 'note')); setSayDraft(getSlideNote(original, 'say')); setDescDraft(getSlideNote(original, 'alt')); setHandoutDraft(getSlideNote(original, 'handout')); onMutate(() => original); } };
 
 	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
@@ -566,22 +566,22 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		})();
 	};
 
-	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
+	// Spectrum style (the deck `spectrum:` style word's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
 	// deck sets off/solid the head reads "Auto — <deck>"; otherwise it's the rainbow.
-	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
-	const spectrumInherits = activeSpectrum((spectrum.inheritable && spectrum.deckValue) || 'on').name;
+	const spectrum = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'spectrum', 'style'), [chunk, source]);
+	const spectrumInherits = activeSpectrum((spectrum.inheritable && spectrum.deckValue) || 'rainbow').name;
 	const spectrumValue = inheritValue(spectrum.state === 'on' ? spectrum.value : null, spectrumInherits);
 	// The rainbow is a per-slide choice too (`with-spectrum`, the restore token), so a slide in a
 	// `spectrum: solid` deck can go back to it.
 	const spectrumGroups = inheritGroups([{ options: catalogOptions(SPECTRA) }], { value: spectrumInherits });
-	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
+	const onSpectrum = (v: string) => onMutate((c) => setSpectrumAxis(c, 'spectrum', 'style', v === '__inherit__' ? null : v));
 
 	// The accent sub-family (bar placement / heading rule / eyebrow) — each an "override"
 	// axis: a per-slide token wins over the deck; the DEFAULT value is the inherit/absence,
 	// so it maps to the "__inherit__" head. Built from the same catalogs the deck picker uses.
 	const overrideAxis = (
-		prov: ReturnType<typeof spectrumEdgeProvenance>,
+		prov: ReturnType<typeof ruleProvenance>,
 		entries: { name: string; label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> }[],
 		defaultName: string,
 		active: (v: string | null | undefined) => { name: string },
@@ -590,14 +590,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	): { value: string; groups: CatalogGroup[] } => {
 		const inherits = active(prov.inheritable ? prov.deckValue : defaultName).name;
 		// Every value is a per-slide token, the default included: its restore token
-		// (`spectrum-edge-top`, `rule-auto`, …) is how one slide returns to the default inside a
+		// (`spectrum-top`, `rule-auto`, …) is how one slide returns to the default inside a
 		// deck that set another value. Only the value Auto already gives leaves the list.
 		const options = catalogOptions(entries, glyph);
 		return { value: inheritValue(prov.state === 'on' ? prov.value : null, inherits), groups: inheritGroups([{ options }], { value: inherits }) };
 	};
-	const edgeProv = React.useMemo(() => spectrumEdgeProvenance(chunk, source), [chunk, source]);
+	const edgeProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'spectrum', 'edge'), [chunk, source]);
 	const edge = overrideAxis(edgeProv, SPECTRUM_EDGES, 'top', activeSpectrumEdge, glyphs('edge'));
-	const onEdge = (v: string) => onMutate((c) => setSpectrumEdge(c, v === '__inherit__' ? null : v));
+	const onEdge = (v: string) => onMutate((c) => setSpectrumAxis(c, 'spectrum', 'edge', v === '__inherit__' ? null : v));
+	const weightProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'spectrum', 'weight'), [chunk, source]);
+	const weight = overrideAxis(weightProv, SPECTRUM_WEIGHTS, 'regular', activeSpectrumWeight);
+	const onWeight = (v: string) => onMutate((c) => setSpectrumAxis(c, 'spectrum', 'weight', v === '__inherit__' ? null : v));
 	const ruleProv = React.useMemo(() => ruleProvenance(chunk, source), [chunk, source]);
 	const ruleOpt = overrideAxis(ruleProv, RULES, 'auto', activeRule);
 	const onRule = (v: string) => onMutate((c) => setRule(c, v === '__inherit__' ? null : v));
@@ -621,28 +624,30 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
-	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
-	// Auto follows the deck; every catalog value is an explicit per-slide choice (auto/off
-	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
+	// Card spectrum STYLE — an off/rainbow/solid/duo/mono axis of its own, never copied from the slide
+	// edge. Auto follows the deck; every catalog value is an explicit per-slide choice (off included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
 	// previews each fill.
-	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
-	const cardInherits = activeSpectrumCard(cardProv.inheritable ? cardProv.deckValue : 'off').name;
-	const cardValue = inheritValue(cardProv.state === 'on' ? cardProv.value : has('no-spectrum-card') ? 'off' : null, cardInherits);
-	const cardGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_CARDS) }], { value: cardInherits });
-	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : v));
-	// Card rail PLACEMENT — a clean override axis (left default). Only meaningful when the rail
-	// is on (own non-off OR inherited), so the Row is shown only then.
-	const cardEdgeProv = React.useMemo(() => spectrumCardEdgeProvenance(chunk, source), [chunk, source]);
-	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge, glyphs('edge'));
-	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
+	const cardProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'card-spectrum', 'style'), [chunk, source]);
+	const cardInherits = activeCardSpectrum(cardProv.inheritable ? cardProv.deckValue : 'off').name;
+	const cardValue = inheritValue(cardProv.state === 'on' ? cardProv.value : has('no-card-spectrum') ? 'off' : null, cardInherits);
+	const cardGroups = inheritGroups([{ options: catalogOptions(CARD_SPECTRA) }], { value: cardInherits });
+	const onCard = (v: string) => onMutate((c) => setSpectrumAxis(c, 'card-spectrum', 'style', v === '__inherit__' ? null : v));
+	// Card spectrum EDGE and WEIGHT — clean override axes (left / regular default). Only meaningful when
+	// the stripe is on (own non-off OR inherited), so their Rows are shown only then.
+	const cardEdgeProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'card-spectrum', 'edge'), [chunk, source]);
+	const cardEdge = overrideAxis(cardEdgeProv, CARD_SPECTRUM_EDGES, 'left', activeCardSpectrumEdge, glyphs('edge'));
+	const onCardEdge = (v: string) => onMutate((c) => setSpectrumAxis(c, 'card-spectrum', 'edge', v === '__inherit__' ? null : v));
+	const cardWeightProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'card-spectrum', 'weight'), [chunk, source]);
+	const cardWeight = overrideAxis(cardWeightProv, SPECTRUM_WEIGHTS, 'regular', activeSpectrumWeight);
+	const onCardWeight = (v: string) => onMutate((c) => setSpectrumAxis(c, 'card-spectrum', 'weight', v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
-	// Structural trim — a three-tier axis (Quiet / Restrained / Spectrum) with an explicit
-	// opt-out. Auto follows the deck; every catalog value is an explicit per-slide choice.
-	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
-	const trimInherits = activeSpectrumTrim(trimProv.inheritable ? trimProv.deckValue : 'off').name;
-	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('no-spectrum-trim') ? 'off' : null, trimInherits);
-	const trimGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_TRIMS) }], { value: trimInherits });
-	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
+	// Trim spectrum — a style axis of its own (Quiet / Rainbow / Solid / Duo / Mono), never the slide edge's.
+	// Auto follows the deck; every catalog value is an explicit per-slide choice.
+	const trimProv = React.useMemo(() => spectrumAxisProvenance(chunk, source, 'trim-spectrum', 'style'), [chunk, source]);
+	const trimInherits = activeTrimSpectrum(trimProv.inheritable ? trimProv.deckValue : 'quiet').name;
+	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('trim-spectrum-quiet') ? 'quiet' : null, trimInherits);
+	const trimGroups = inheritGroups([{ options: catalogOptions(TRIM_SPECTRA) }], { value: trimInherits });
+	const onTrim = (v: string) => onMutate((c) => setSpectrumAxis(c, 'trim-spectrum', 'style', v === '__inherit__' ? null : v));
 
 	// Motion — three axes for a chart on THIS slide, each overriding the matching deck default.
 	// PLAY (Auto / On / Off), STYLE (Auto / Build / Together / Rise), SPEED (Auto / Slow / …).
@@ -773,23 +778,32 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cleanRow = (
 		<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer, page number and rail." help={<>All four at once — for a full-bleed slide that should carry no furniture. Any one comes back with its own switch below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
 	);
+	// Each note is a labeled textarea named for where its words show up. A `SettingsBlock`, not a `Row`, so a search
+	// still finds it by name and the Notes section still collapses when a query matches none of them.
+	const noteHead = (icon: React.ReactNode, title: string, where: string) => (
+		// The title never breaks; the destination wraps under it when a control shares the row (the alt text's Generate).
+		<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12.5px] font-semibold text-foreground">
+			{icon}
+			<span className="whitespace-nowrap">{title}</span>
+			<span className="font-normal text-muted-foreground">{where}</span>
+		</span>
+	);
+	const noteHint = (text: React.ReactNode) => <p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">{text}</p>;
+	const noteArea = 'w-full resize-none rounded-lg border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]';
 	const noteBlock = (
-		<SettingsBlock terms="speaker note presenter say off-slide">
-		<textarea
-			value={noteDraft}
-			onChange={(e) => setNoteDraft(e.target.value)}
-			onBlur={commitNote}
-			aria-label="Speaker note for this slide"
-			placeholder="What you'll say on this slide — shown on your Present console, exported to PDF/PPTX notes."
-			className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
-		/>
-		<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-			{/* Yours, and only yours — the note is not a narration source. It used to be
-			    (it outranked the slide's own content), which is how a private remark
-			    reached a recipient's caption track; see narration-resolve.ts. */}
-			Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
-			speaker-notes field. Never read aloud, and never in the caption track.
-		</p>
+		<SettingsBlock terms="speaker notes note presenter present off-slide">
+			{noteHead(<Presentation className="size-3.5 text-[var(--accent)]" />, 'Speaker notes', 'for you, while you present')}
+			{/* Yours alone: the note is not a narration source. It used to be (it outranked the slide's own content),
+			    which is how a private remark reached a recipient's caption track; see narration-resolve.ts. */}
+			{noteHint(<>Shown beside the slide in Present and exported to the PDF and PPTX notes field. Never read aloud, never in the captions. Written as <code className="font-mono">@note{'{…}'}</code>.</>)}
+			<textarea
+				value={noteDraft}
+				onChange={(e) => setNoteDraft(e.target.value)}
+				onBlur={commitNote}
+				aria-label="Speaker notes for this slide"
+				placeholder="What you'll say on this slide."
+				className={cn(noteArea, 'min-h-[120px] border-border')}
+			/>
 		</SettingsBlock>
 	);
 	const sectionDefs: { value: string; label: string; keywords: string; body: () => React.ReactNode }[] = [
@@ -904,42 +918,34 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		{
 			value: 'notes',
 			label: 'Notes',
-			keywords: 'annotation commentary what you say',
+			keywords: 'annotation commentary',
 			body: () => (
 						<div className="py-2">
-							<TabIntro>The speaker note for this slide — what you'll say when it's on screen. It never appears on the slide itself.</TabIntro>
-							{/* The three channels below are `SettingsBlock`s, not `Row`s — each is a
-							    labeled textarea, not a label/control pair — so that a search can
-							    still find them by name and this section can still collapse when a
-							    query matches none of them. */}
+							<TabIntro>Four notes, each named for where its words show up. None of them appears on the slide itself.</TabIntro>
 							{noteBlock}
 
-							{/* SAY — the read-as OVERRIDE, and it REPLACES the generated narration
-							    rather than merging with it. A separate channel from the note, which is
-							    not a narration source at all: say → front-matter say → projection, for a
-							    clean caption track / Read-Article / export `.vtt`.
-							    Writes `<!-- say: … -->`; never lands in the presenter-note field.
-							    `caption` stays in the search terms: an author who knew the old key
-							    should still find the field that replaced it. */}
-							<SettingsBlock terms="say read aloud narration spoken vtt read-article caption" separated>
-								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Volume2 className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
-								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">The exact words this slide speaks — in read-aloud, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide. Leave empty to use the generated narration.</p>
+							{/* SAY — the voice and the captions. It REPLACES the generated narration rather than merging
+							    with it: say line → chart → projection, for read-aloud, read-along and the export `.vtt`.
+							    `caption` stays in the search terms: an author who knew the old key should still find it. */}
+							<SettingsBlock terms="say voice captions read aloud narration spoken vtt read-along caption" separated>
+								{noteHead(<Volume2 className="size-3.5 text-[var(--accent)]" />, 'Say', 'voice and captions')}
+								{noteHint(<>The exact words this slide speaks: read-aloud, read-along and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide; leave it empty to use that. Written as <code className="font-mono">@say{'{…}'}</code>.</>)}
 								<textarea
 									value={sayDraft}
 									onChange={(e) => setSayDraft(e.target.value)}
 									onBlur={commitSay}
-									aria-label="What this slide says aloud"
-									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
-									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
+									aria-label="Say (voice and captions) for this slide"
+									placeholder="e.g. “Revenue grew forty percent across three quarters.”"
+									className={cn(noteArea, 'min-h-[84px] border-border')}
 								/>
 							</SettingsBlock>
 
-							{/* DESCRIPTION — a separate channel from the note (opposite register:
-							    what's ON the slide, for screen readers), exported as the image's
-							    alt text (PPTX) / an aria description (HTML). */}
-							<SettingsBlock terms="description accessibility alt text screen reader wcag" separated>
+							{/* ALT TEXT — what is ON the slide, for someone who cannot see it: the PPTX image alt text and
+							    the HTML aria description. `description` stays in the search terms: an author who knew the
+							    old `describe:` key should still find the field that replaced it. */}
+							<SettingsBlock terms="alt text accessibility description screen reader wcag" separated>
 								<div className="flex items-center justify-between gap-2">
-									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
+									{noteHead(<SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />, 'Alt text', 'for someone who cannot see the slide')}
 									{cloudReady ? (
 										<Tip label="Draft a text alternative from this slide (you review & confirm before it's used)"><button
 											type="button"
@@ -962,14 +968,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										</button></Tip>
 									)}
 								</div>
-								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">An objective equivalent of what's on the slide — the accessibility text alternative (WCAG A). Exported as the slide image's alt text; never spoken or shown on the slide.</p>
+								{noteHint(<>An objective equivalent of what is on the slide (WCAG 1.1.1). Read by screen readers and exported as the PPTX alt text. Never spoken or shown on the slide. Written as <code className="font-mono">@alt{'{…}'}</code>.</>)}
 								<textarea
 									value={descDraft}
 									onChange={(e) => { setDescDraft(e.target.value); setDescAiDraft(false); }}
 									onBlur={commitDescription}
-									aria-label="Accessibility description for this slide"
+									aria-label="Alt text for this slide"
 									placeholder="What's on this slide, objectively — e.g. “A bar chart: revenue rising 40% across three quarters.”"
-									className={cn('min-h-[84px] w-full resize-none rounded-lg border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]', descAiDraft ? 'border-[var(--accent)]' : 'border-border')}
+									className={cn(noteArea, 'min-h-[84px]', descAiDraft ? 'border-[var(--accent)]' : 'border-border')}
 								/>
 								{descAiDraft && (
 									<div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] text-[var(--text-heading)]">
@@ -979,6 +985,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								)}
 								{descMsg && <p aria-hidden="true" className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
 								<Announce message={descMsg} />
+							</SettingsBlock>
+
+							{/* HANDOUT — for someone reading the deck alone, later: the handout PDF and the player's read
+							    view. `reader` stays in the search terms for an author who knew the old key. */}
+							<SettingsBlock terms="handout read view reader leave-behind" separated>
+								{noteHead(<BookOpen className="size-3.5 text-[var(--accent)]" />, 'Handout', 'for someone reading alone, later')}
+								{noteHint(<>Printed under the slide in the handout PDF and shown in the read view. Use it for what the slide leaves to you in the room. Written as <code className="font-mono">@handout{'{…}'}</code>.</>)}
+								<textarea
+									value={handoutDraft}
+									onChange={(e) => setHandoutDraft(e.target.value)}
+									onBlur={commitHandout}
+									aria-label="Handout for this slide"
+									placeholder="e.g. “Measured over 30 days; the cohort is in the appendix.”"
+									className={cn(noteArea, 'min-h-[84px] border-border')}
+								/>
 							</SettingsBlock>
 
 							{!editable && (
@@ -1113,30 +1134,38 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			),
 		}] : []),
 		// BRAND — where the accent/spectrum shows on this slide (mirrors the deck
-		// Inspector's Brand tab: bar, card rails, structural trim, heading marks).
+		// Inspector's Accent tab: spectrum, card spectrum, trim spectrum, heading marks).
 		...(editable ? [{
 			value: 'brand',
 			label: 'Accent',
 			keywords: 'white label client color',
 			body: () => (
 						<div className="py-1">
-							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. The deck decides anything you don't set.</TabIntro>
-							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The strip on the slide's edge." help={<>A divider slide shows it as a left rail instead. <strong>None</strong> removes it; <strong>Solid</strong> / <strong>Duo</strong> / <strong>Mono</strong> repaint it in the theme accent.</>}>
-								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} groups={spectrumGroups} />
+							<TabIntro>Where the accent shows on this slide — the spectrum on the slide edge, on the cards, on the trim, and the heading marks. The deck decides anything you don't set.</TabIntro>
+							<Row label="Spectrum" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The stripe on the slide's edge." help={<>A divider slide shows it as a left rail instead. <strong>None</strong> removes it; <strong>Solid</strong> / <strong>Duo</strong> / <strong>Mono</strong> repaint it in the theme accent.</>}>
+								<Picker ariaLabel="Spectrum style" value={spectrumValue} onChange={onSpectrum} groups={spectrumGroups} />
 							</Row>
-							<Row label="Bar placement" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the bar sits on." help={<>Top, left, right, bottom, or off — for this slide only.</>}>
-								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} groups={edge.groups} />
+							<Row label="Spectrum edge" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the stripe sits on." help={<>Top, left, right or bottom — for this slide only.</>}>
+								<Picker ariaLabel="Spectrum edge" value={edge.value} onChange={onEdge} groups={edge.groups} />
 							</Row>
-							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A rail on this slide's card surfaces." help={<>Tunable independently of the brand bar. The head option follows the deck; <strong>Auto</strong> in the list follows the bar, or pin a variant outright.</>}>
-								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} groups={cardGroups} />
+							<Row label="Spectrum weight" hint={weightProv.state === 'inherited' ? 'from deck' : undefined} desc="How thick the stripe is." help={<>Regular, a one-pixel hairline, or a heavy band. The slide's content stays where it is.</>}>
+								<Picker ariaLabel="Spectrum weight" value={weight.value} onChange={onWeight} groups={weight.groups} />
+							</Row>
+							<Row label="Card spectrum" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A stripe on this slide's cards." help={<>Its own style, never copied from the slide edge. The head option follows the deck, or pick a style for this slide.</>}>
+								<Picker ariaLabel="Card spectrum" value={cardValue} onChange={onCard} groups={cardGroups} />
 							</Row>
 							{cardRailOn && (
-								<Row label="Card rail placement" hint={cardEdgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge of each card." help={<>Left, top, right, or bottom.</>}>
-									<Picker ariaLabel="Card rail placement" value={cardEdge.value} onChange={onCardEdge} groups={cardEdge.groups} />
-								</Row>
+								<>
+									<Row label="Card spectrum edge" hint={cardEdgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge of each card." help={<>Left, top, right or bottom.</>}>
+										<Picker ariaLabel="Card spectrum edge" value={cardEdge.value} onChange={onCardEdge} groups={cardEdge.groups} />
+									</Row>
+									<Row label="Card spectrum weight" hint={cardWeightProv.state === 'inherited' ? 'from deck' : undefined} desc="How thick each card's stripe is." help={<>Regular, a hairline, or a heavy band.</>}>
+										<Picker ariaLabel="Card spectrum weight" value={cardWeight.value} onChange={onCardWeight} groups={cardWeight.groups} />
+									</Row>
+								</>
 							)}
-							<Row label="Structural trim" hint={trimProv.state === 'inherited' ? 'from deck' : undefined} desc="Accent on this slide's in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code className="font-mono">hr</code>. <strong>Quiet</strong> keeps them a neutral hairline.</>}>
-								<Picker ariaLabel="Structural trim" value={trimValue} onChange={onTrim} groups={trimGroups} />
+							<Row label="Trim spectrum" hint={trimProv.state === 'inherited' ? 'from deck' : undefined} desc="Accent on this slide's in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code className="font-mono">hr</code>. <strong>Quiet</strong> keeps them a neutral hairline.</>}>
+								<Picker ariaLabel="Trim spectrum" value={trimValue} onChange={onTrim} groups={trimGroups} />
 							</Row>
 							<Row label="Heading rule" hint={ruleProv.state === 'inherited' ? 'from deck' : undefined} desc="The underline under this heading." help={<>A full hairline, a short rule, an accent segment, or none.</>}>
 								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} groups={ruleOpt.groups} />

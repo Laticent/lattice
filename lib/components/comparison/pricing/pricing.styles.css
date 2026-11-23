@@ -62,7 +62,7 @@ section.pricing > .cell-stage > ul > li {
   min-width: 0;
   background: var(--bg-alt);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card, var(--radius-md));
   padding: var(--sp-md);
   display: flex; flex-direction: column; align-items: flex-start;
   font-size: var(--fs-message);
@@ -95,7 +95,7 @@ section.pricing > .cell-stage > ul > li > em {
   text-transform: uppercase;
   color: var(--on-accent); background: var(--accent);
   padding: 0.3em var(--sp-sm);
-  border-end-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-card, var(--radius-md));
 }
 
 /* ── Elevated tier ── any card carrying a marker (standalone :has). */

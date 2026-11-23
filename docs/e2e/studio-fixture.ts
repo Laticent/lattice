@@ -143,7 +143,7 @@ export const CHROME = {
 	brandHome: 'Lattice — home',
 	/** The workspace launcher in the top bar — the wordmark + chevron that opens Decks /
 	 *  Fabricate / Import. It used to be the brand mark too; `brandHome` is the mark now. */
-	workspaceLauncher: 'Workspace launcher',
+	workspaceLauncher: 'Lattice — workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger — DECK checkpoints. Distinct from an ASSET's
@@ -530,6 +530,21 @@ export async function openStripMenu(page: Page): Promise<void> {
 /** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */
 export function stripNote(page: Page): Locator {
 	return page.locator('[data-strip-note]').filter({ visible: true }).first();
+}
+
+/**
+ * A toast pill that is still LIVE, never one on its way out, filtered by its text. Use it to wait
+ * for a confirmation ("Saved …") instead of a bare `getByText`.
+ *
+ * lib/notify.ts re-raises a message that lands on the previous pill's dying edge on a fresh id
+ * (trap 3 in `raiseSlot`). For Sonner's 200 ms exit the dying pill, marked `data-removed="true"`
+ * with the new text merged in, sits beside the fresh one, so a strict `getByText` finds two and
+ * fails. Two Saves about 2.6 s apart (the status dwell) are enough: studio-smoke hit it on #3451
+ * and the gecko nightly on run 44105740693. Exactly one live copy still means a doubled notice
+ * fails strict mode, so this cannot hide a product bug.
+ */
+export function liveToast(page: Pick<Page, 'locator'>, text: RegExp | string): Locator {
+	return page.locator('[data-sonner-toast]:not([data-removed="true"])').filter({ hasText: text });
 }
 
 /** The app toast pill — the canonical name for the centralized toast accessor.

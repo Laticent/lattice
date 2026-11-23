@@ -159,21 +159,21 @@ describe('SlideContextBody controls', () => {
 		expect(toks).not.toContain('tone-warn');
 	});
 
-	it('sets a per-slide brand bar (spectrum) from the Accent tab', async () => {
+	it('sets a per-slide spectrum style from the Accent tab', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Accent');
-		await pickOption(/brand bar/i, 'None');
+		await pickOption(/^spectrum style$/i, 'None');
 		expect(applied()).toContain('no-spectrum');
 	});
 
 	// The head option is worded "Auto", never "Inherit" — `inherit` is a CSS keyword,
 	// not a word an author should have to know (#1293). It names what Auto RESOLVES to,
 	// so the deck's value is readable without opening the deck Inspector.
-	it('reads the brand bar as Auto, naming the deck `spectrum:` value it resolves to', async () => {
+	it('reads the spectrum style as Auto, naming the deck `spectrum:` value it resolves to', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
 		await goTab('Accent');
-		const label = await selectedOptionText(/brand bar/i);
+		const label = await selectedOptionText(/^spectrum style$/i);
 		expect(label).toMatch(/^Auto — Solid accent$/);
 		expect(label).not.toMatch(/inherit/i);
 	});
@@ -195,7 +195,7 @@ describe('SlideContextBody controls', () => {
 	it('every Accent head carries what it resolves to', async () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Accent');
-		for (const axis of [/brand bar/i, /bar placement/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
+		for (const axis of [/^spectrum style$/i, /^spectrum edge$/i, /^spectrum weight$/i, /^trim spectrum$/i, /heading rule/i, /eyebrow/i, /headline alignment/i]) {
 			const label = await selectedOptionText(axis);
 			expect(label, `${axis} head`).toMatch(/^Auto — .+/);
 		}
@@ -409,7 +409,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		// Look controls are visible immediately (default tab); the note is NOT (its own tab).
 		expect(screen.getByRole('radio', { name: 'Auto' })).toBeTruthy();
-		expect(screen.queryByRole('textbox', { name: 'Speaker note for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Speaker notes for this slide' })).toBeNull();
 		// The tab bar offers the applicable sections.
 		expect(screen.getByRole('tab', { name: 'Look' })).toBeTruthy();
 		expect(screen.getByRole('tab', { name: 'Notes' })).toBeTruthy();
@@ -420,7 +420,7 @@ describe('SlideContextBody controls', () => {
 		// No tab bar (single Notes panel); the note + reason show directly.
 		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
 		expect(screen.queryByRole('tab', { name: 'Chrome' })).toBeNull();
-		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
+		expect(screen.getByRole('textbox', { name: 'Speaker notes for this slide' })).toBeTruthy();
 	});
 
 	it('each tab explains itself — a tab intro plus per-control help text', async () => {
@@ -437,26 +437,26 @@ describe('SlideContextBody controls', () => {
 		expect(screen.getByRole('button', { name: 'More about Hide rail' })).toBeTruthy();
 	});
 
-	it('authors an accessibility description as a describe: comment under the Notes tab', async () => {
+	it('authors alt text as an @alt note under the Notes tab', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
-		const box = screen.getByRole('textbox', { name: 'Accessibility description for this slide' });
+		const box = screen.getByRole('textbox', { name: 'Alt text for this slide' });
 		fireEvent.change(box, { target: { value: 'A bar chart, revenue up 40%.' } });
 		fireEvent.blur(box);
 		const out = sourceOut();
-		expect(out).toContain('<!-- describe: A bar chart, revenue up 40%. -->');
+		expect(out).toContain('<!-- @alt{A bar chart, revenue up 40%.} -->');
 		// It must NOT become the speaker note.
-		expect(out).not.toMatch(/<!-- note:.*bar chart/);
+		expect(out).not.toMatch(/@note\{.*bar chart/);
 	});
 
-	it('authors a read-as line as a say: comment under the Notes tab', async () => {
+	it('authors a read-as line as an @say note under the Notes tab', async () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
-		const box = screen.getByRole('textbox', { name: 'What this slide says aloud' });
+		const box = screen.getByRole('textbox', { name: 'Say (voice and captions) for this slide' });
 		fireEvent.change(box, { target: { value: 'Revenue grew forty percent across three quarters.' } });
 		fireEvent.blur(box);
 		const out = sourceOut();
-		expect(out).toContain('<!-- say: Revenue grew forty percent across three quarters. -->');
+		expect(out).toContain('<!-- @say{Revenue grew forty percent across three quarters.} -->');
 	});
 
 	it('the note field says the note is PRIVATE — never read aloud, never in the caption track', async () => {
@@ -469,41 +469,53 @@ describe('SlideContextBody controls', () => {
 		// say so on the one surface where an author decides what to put in that box.
 		setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
-		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
-		expect(screen.getByText(/Never read aloud/i)).toBeTruthy();
+		expect(screen.getByText(/Never read aloud, never in the captions/i)).toBeTruthy();
 		expect(screen.queryByText(/Read aloud in Present/i)).toBeNull();
 	});
 
 	it('says the same thing WITH a caption set — the two channels are independent', async () => {
 		// The copy no longer varies on the caption, because the relationship it described is
 		// gone: a caption replaces the GENERATED narration, and the note was never part of it.
-		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- say: The board-facing line. -->');
+		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @say{The board-facing line.} -->');
 		await goTab('Notes');
-		expect(screen.getByText(/Yours alone/i)).toBeTruthy();
+		expect(screen.getByText(/Never read aloud, never in the captions/i)).toBeTruthy();
 		expect(screen.queryByText(/overrides the note/i)).toBeNull();
 	});
 
-	it('the say field is separate from the speaker note (both channels coexist)', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- Say this warmly. -->');
+	it('the say field is separate from the speaker note (both notes coexist)', async () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @note{Say this warmly.} -->');
 		await goTab('Notes');
-		const cap = screen.getByRole('textbox', { name: 'What this slide says aloud' });
+		const cap = screen.getByRole('textbox', { name: 'Say (voice and captions) for this slide' });
 		fireEvent.change(cap, { target: { value: 'The board-facing line.' } });
 		fireEvent.blur(cap);
 		const out = sourceOut();
-		expect(out).toContain('<!-- say: The board-facing line. -->');
-		expect(out).toContain('<!-- Say this warmly. -->'); // the note survives untouched
+		expect(out).toContain('<!-- @say{The board-facing line.} -->');
+		expect(out).toContain('<!-- @note{Say this warmly.} -->'); // the note survives untouched
 	});
 
-	it('the description field is separate from the speaker note (both coexist)', async () => {
-		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+	it('the speaker notes field writes an @note and leaves the author’s plain comment alone', async () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- TODO: check the Q3 number -->');
 		await goTab('Notes');
-		const note = screen.getByRole('textbox', { name: 'Speaker note for this slide' });
+		const note = screen.getByRole('textbox', { name: 'Speaker notes for this slide' });
 		fireEvent.change(note, { target: { value: 'Pause here.' } });
 		fireEvent.blur(note);
 		// The note is committed; re-render happens via onMutate in the app, but within
 		// this unit the last transform holds the note. Now the description on a fresh setup.
 		const withNote = sourceOut();
-		expect(withNote).toContain('<!-- note: Pause here. -->');
+		expect(withNote).toContain('<!-- @note{Pause here.} -->');
+		// A plain comment is not a note: setting the note used to delete every one on the slide.
+		expect(withNote).toContain('<!-- TODO: check the Q3 number -->');
+	});
+
+	it('authors a handout note as an @handout note under the Notes tab', async () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- @note{Pause here.} -->');
+		await goTab('Notes');
+		const box = screen.getByRole('textbox', { name: 'Handout for this slide' });
+		fireEvent.change(box, { target: { value: 'Measured over 30 days.' } });
+		fireEvent.blur(box);
+		const out = sourceOut();
+		expect(out).toContain('<!-- @handout{Measured over 30 days.} -->');
+		expect(out).toContain('<!-- @note{Pause here.} -->');
 	});
 
 	it('an UNCONFIRMED AI draft does NOT commit on blur (a wrong alt is worse than none)', async () => {
@@ -513,20 +525,20 @@ describe('SlideContextBody controls', () => {
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		// The draft lands in the field and the confirm affordance appears…
 		await screen.findByRole('button', { name: /use it/i });
-		expect((screen.getByRole('textbox', { name: 'Accessibility description for this slide' }) as HTMLTextAreaElement).value).toBe('AI-suggested description.');
+		expect((screen.getByRole('textbox', { name: 'Alt text for this slide' }) as HTMLTextAreaElement).value).toBe('AI-suggested description.');
 		// …but blurring the box must NOT write the unread AI text to the slide.
-		fireEvent.blur(screen.getByRole('textbox', { name: 'Accessibility description for this slide' }));
+		fireEvent.blur(screen.getByRole('textbox', { name: 'Alt text for this slide' }));
 		expect(onMutate).not.toHaveBeenCalled();
 	});
 
-	it('clicking "Use it" commits the AI draft as a describe: comment', async () => {
+	it('clicking "Use it" commits the AI draft as an @alt note', async () => {
 		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
 		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
 		fireEvent.click(await screen.findByRole('button', { name: /use it/i }));
 		expect(onMutate).toHaveBeenCalled();
-		expect(sourceOut()).toContain('<!-- describe: AI-suggested description. -->');
+		expect(sourceOut()).toContain('<!-- @alt{AI-suggested description.} -->');
 	});
 
 	it('editing the AI draft by hand takes ownership — a subsequent blur DOES commit', async () => {
@@ -534,13 +546,13 @@ describe('SlideContextBody controls', () => {
 		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		await goTab('Notes');
 		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
-		const box = await screen.findByRole('textbox', { name: 'Accessibility description for this slide' });
+		const box = await screen.findByRole('textbox', { name: 'Alt text for this slide' });
 		// Typing clears the AI-draft flag (the author now owns the text).
 		fireEvent.change(box, { target: { value: 'Edited by hand.' } });
 		await waitFor(() => expect(screen.queryByRole('button', { name: /use it/i })).toBeNull());
 		fireEvent.blur(box);
 		expect(onMutate).toHaveBeenCalled();
-		expect(sourceOut()).toContain('<!-- describe: Edited by hand. -->');
+		expect(sourceOut()).toContain('<!-- @alt{Edited by hand.} -->');
 	});
 
 	it('with no cloud model, the Description offers a Connect button instead of Generate', async () => {
@@ -589,10 +601,11 @@ describe('SlideContextBody controls', () => {
 		// carry "speaker", which would (correctly) show the section entire and prove
 		// nothing about the block-level filter.
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'presenter');
-		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
+		expect(screen.getByRole('textbox', { name: 'Speaker notes for this slide' })).toBeTruthy();
 		// Its two neighbors in the same section stay out: a block filters like a row.
-		expect(screen.queryByRole('textbox', { name: 'What this slide says aloud' })).toBeNull();
-		expect(screen.queryByRole('textbox', { name: 'Accessibility description for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Say (voice and captions) for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Alt text for this slide' })).toBeNull();
+		expect(screen.queryByRole('textbox', { name: 'Handout for this slide' })).toBeNull();
 	});
 
 	it('search results do not move when a value is overridden (hint is not an index)', () => {
@@ -602,7 +615,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi', undefined, [], 'deck');
 		// The inherit hint is not a search term, so nothing is surfaced by the word alone.
 		expect(screen.queryByLabelText('Slide canvas')).toBeNull();
-		expect(screen.queryByLabelText('Brand bar')).toBeNull();
+		expect(screen.queryByLabelText('Spectrum style')).toBeNull();
 	});
 
 	it('a group label names the GROUP, so one row\'s name does not return its siblings', () => {
@@ -635,7 +648,7 @@ describe('SlideContextBody controls', () => {
 		expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy(); // Canvas
 		expect(screen.getByRole('radio', { name: 'XL' })).toBeTruthy(); // Type scale
 		expect(screen.getByRole('switch', { name: /^Silent/ })).toBeTruthy();
-		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
+		expect(screen.getByRole('textbox', { name: 'Speaker notes for this slide' })).toBeTruthy();
 		// An Advanced-only row stays out of Basic.
 		expect(screen.queryByRole('switch', { name: 'Hide pagination' })).toBeNull();
 		await userEvent.setup().click(screen.getByRole('button', { name: /Advanced has every setting/ }));

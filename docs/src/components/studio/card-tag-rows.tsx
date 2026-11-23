@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import type { CardTagAxis } from './slide-provenance';
+import type { CardTagAxis } from './deck-axes';
 
 // The Tag rows the deck settings and the slide drawer share — one row per axis of the `tag:`
 // register (lib/core/resolve-card-tag.js, lib/base/base.registers.docs.md § tag:). Both surfaces

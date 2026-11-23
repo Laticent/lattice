@@ -95,6 +95,7 @@ const FOLDERS = {
   'test/': 'Unit and integration tests, fixtures and committed baselines. Every folder is listed below.',
   'themes/': 'The palettes: one folder per theme, each supplying the color tokens.',
   'kit/': 'The Marp kit: a sample deck and its VS Code extension.',
+  'packages/': 'The engine\'s publish folder `packages/lattice/`: its package.json (name, version, exports, dependencies). `npm pack` there stages the shipped files in first.',
   // lib/ folders that hold no code the import graph sees (CSS, images, a README)
   'lib/helpers/': 'Authoring-time diagnostics: the `.overflow` warning-ring contract.',
   'lib/samples/': 'Every demonstration picture Lattice ships, in one flat folder.',
@@ -126,12 +127,14 @@ const FOLDERS = {
   'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
   'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
   'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
+  'tools/pdfkit-check/': 'Draws the finish demo PDF through Apple PDFKit on a macOS runner and compares it with the screen (the `pdf-pdfkit` platform suite).',
   'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
   'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
   'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
   'tools/segno-legacy/': 'Frozen copies of the inline-code kernels from before Segno phase 2, kept as the bake-off baseline.',
   'tools/spike-card-slack/': 'A spike, not production tooling: the measurement behind the card-stack vertical alignment decision.',
   'tools/squadra/': 'Corpora and reference data the Squadra lint diffs run on, so every run reads the same cases.',
+  'tools/vscode-harness/': 'The decks, probes and launcher extension `tools/vscode-preview-probe.mjs` runs in a real VS Code Markdown preview.',
   // test/
   'test/benchmark/': 'The render benchmark and its committed baseline (`npm run bench`, HARD RULE #19).',
   'test/conformance/': 'Fixtures, corpora and the debt list for the conformance contracts.',

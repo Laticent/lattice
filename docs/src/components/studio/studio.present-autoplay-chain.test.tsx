@@ -24,9 +24,9 @@ vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc:
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
-/** A slide whose spoken text is exactly `spoken`, pinned with a `<!-- say: -->` override.
+/** A slide whose spoken text is exactly `spoken`, pinned with a `<!-- @say{…} -->` override.
  *
- *  This used to author a `<!-- note: -->`, back when a speaker note outranked the slide's own
+ *  This used to author a speaker note, back when a speaker note outranked the slide's own
  *  content in the narration ladder. That rung was removed on 2026-08-24 — a note is never
  *  spoken now — which silently GUTTED these cells: two slides built with the same `note` began
  *  narrating their own headings ("One." and "Two."), so the very condition the first test names
@@ -35,7 +35,7 @@ const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
  *
  *  A say override is the channel that sets a slide's spoken line now, so it restores the
  *  fixture's meaning rather than just its green. */
-const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- say: ${spoken} -->`;
+const slide = (heading: string, spoken: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- @say{${spoken}} -->`;
 
 beforeEach(() => {
 	// Brisk with an explicit 0 beat: the chain plays straight through, so a 3-slide run
@@ -84,7 +84,7 @@ describe('Present — the auto-advance chain (#1394)', () => {
 		const user = userEvent.setup();
 		// Narration is per slide and never walks steps. A build entered by autoplay must show its points while they are
 		// spoken, as the exported player's `go(i, true)` does; a jump would start it hidden (step 0) for its whole read.
-		const build = '<!-- _build -->\n\n## Built\n\n- First\n- Second\n\n<!-- say: Two points. -->';
+		const build = '<!-- _build -->\n\n## Built\n\n- First\n- Second\n\n<!-- @say{Two points.} -->';
 		const slides = [slide('One', 'First words.'), build, slide('Three', 'Last words.')];
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));

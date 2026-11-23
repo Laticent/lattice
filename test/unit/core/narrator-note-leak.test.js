@@ -25,7 +25,7 @@ const { slideToSpeech } = require('../../../lib/core/slide-speech.js');
 // (2026-08-24-stage-console-split.md §10.)
 
 const TOKEN = 'PRIVATELEAKTOKEN';
-const NOTE = `<!-- note:\n${TOKEN} churn is forty percent and legal has not cleared it\n-->`;
+const NOTE = `<!-- @note{\n${TOKEN} churn is forty percent and legal has not cleared it\n} -->`;
 const F = String.fromCharCode(96, 96, 96); // backticks, kept out of the literal (the fence trap)
 
 /** A slide body per narrator, minimal but real enough that the narrator engages — paired

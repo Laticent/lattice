@@ -56,7 +56,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 ## Four gloss rows.
 

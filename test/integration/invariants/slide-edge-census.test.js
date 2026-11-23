@@ -56,7 +56,7 @@ const REGISTER_SLIDES = [
 	'<!-- _class: content tone-warn tone-glow -->\n\n## A tone glow\n\n- one',
 	'<!-- _class: content corners-rounded -->\n\n## A rounded slide\n\n- one',
 ];
-const REGISTERS = ['', 'spectrum: off', 'spectrum-edge: left', 'spectrum-edge: right', 'spectrum-edge: bottom', 'spectrum-edge: off', 'spectrum: solid'];
+const REGISTERS = ['', 'spectrum: off', 'spectrum: left', 'spectrum: right', 'spectrum: bottom', 'spectrum: left band', 'spectrum: solid'];
 
 /** In-page: every mismatch between "a bar is this side's edge" and "the keyline is off". */
 function census() {

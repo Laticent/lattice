@@ -225,6 +225,21 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     assert.equal(r.status, 1);
   });
 
+  test('a deck finish is the page behind the slide, not ink that swallows every step', () => {
+    // A `finish:` injects a full-bleed `div.backdrop` into every section. Read as ink, it
+    // pinned the ink box to the whole slide on every step, so a heading growing from one
+    // line to five moved nothing and every verdict was vacuous: the preset judging gate
+    // (tools/preset-gate.js) could not sweep any preset that sets a finish.
+    const bare = anchorsJson('title', ['--max', '12']);
+    const finished = anchorsJson('title', ['--max', '12', '--front-matter', 'finish: ledger']);
+    assert.ok(bare.summary.inkHeightSpread > 0, 'the control moved nothing: the title sweep is not growing the heading');
+    assert.ok(!finished.rows.some((row) => (row.crowdBand || []).some((sel) => /backdrop/.test(sel))),
+      'the finish layer was named as crowding the frame: it is being measured as ink');
+    assert.equal(finished.summary.vacuous, false, 'under a finish every step laid out identically: the backdrop is being read as ink');
+    assert.ok(Math.abs(finished.summary.inkHeightSpread - bare.summary.inkHeightSpread) <= 2,
+      `the finish changed the measured ink (spread ${finished.summary.inkHeightSpread} against ${bare.summary.inkHeightSpread} bare)`);
+  });
+
   // THE CONTENT RULE, both directions, on REAL shipped CSS and on an injected defect.
   test('the verdict keys on readable content, not on any two boxes touching', () => {
     // `cycle` draws its hub dot centered ON the ring it straddles — real geometry, entirely

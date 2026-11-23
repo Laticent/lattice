@@ -1,0 +1,2 @@
+studio: +40
+The Coach's Contract score (lib/authoring/scorecard.js, which the Studio loads at startup) skips the two old-spelling lint rules until the sweep converts the committed decks. It reads them from one shared list (lib/authoring/legacy-meta-rules.js), so `lint:deck --strict`, the Coach and the tests cannot disagree. The 40 bytes are that small module and its require. The owner approved the declaration on 2026-11-22. The sweep (record note §15, slice D) deletes the exemption and gives the bytes back.

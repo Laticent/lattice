@@ -131,3 +131,11 @@ test('a whole run cancelled by a newer push passes and posts no beacon', () => {
 test('in the merge queue a cancelled path filter fails', () => {
   assert.equal(gate({ results: { changes: 'cancelled' }, event: 'merge_group', head: NEWER }).code, 1);
 });
+
+test('in the merge queue a skipped integration fails: the queue is the only place it runs (D2)', () => {
+  assert.equal(gate({ event: 'merge_group', results: { integration: 'skipped' } }).code, 1);
+  assert.match(gate({ event: 'merge_group', results: { integration: 'skipped' } }).text, /only place the render tier runs/);
+  assert.equal(gate({ event: 'merge_group' }).code, 0, 'a green queue run still passes');
+  assert.equal(gate({ event: 'merge_group', results: { 'docs-build': 'skipped' } }).code, 0, 'other tiers may still skip');
+  assert.equal(gate({ results: { integration: 'skipped' } }).code, 0, 'on a pull request it is skipped by design');
+});

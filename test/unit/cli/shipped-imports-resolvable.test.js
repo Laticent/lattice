@@ -22,7 +22,8 @@ const path   = require('node:path');
 const { builtinModules } = require('node:module');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
-const PKG  = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+// The engine's published manifest (the root is a private workspace root).
+const PKG  = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'lattice', 'package.json'), 'utf8'));
 
 // Loaded by shipped code, deliberately NOT installed with the package. Each loader
 // must survive the absence; the reason says how.

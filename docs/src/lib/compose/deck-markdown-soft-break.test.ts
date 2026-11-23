@@ -3,10 +3,10 @@
 // so editing the paragraph must keep it a line break (followups.d/2846-p6).
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { EditorState } from 'prosemirror-state';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { deckName, shippedDecks } from '@/test/corpus';
 import { deckToDoc, docToDeck } from './deck-doc';
 import { latticeMarkdownParser, latticeMarkdownSerializer, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
@@ -201,10 +201,10 @@ describe('what the fourth checker found', () => {
 	const brCount = (md: string) => (rendered(md).match(/<br/g) ?? []).length;
 
 	it('a comment under a list item stays editable and comes back hidden, as it was written', () => {
-		for (const prose of ['- Revenue up\n  <!-- say: 12% -->\n- Costs', '1. step\n   <!-- speaker note -->', '> a\n> <!-- x -->']) {
+		for (const prose of ['- Revenue up\n  <!-- @say{12%} -->\n- Costs', '1. step\n   <!-- speaker note -->', '> a\n> <!-- x -->']) {
 			expect(hasLossyConstruct(prose)).toBe(false);
 		}
-		expect(rt('- Revenue up\n  <!-- say: 12% -->\n- Costs')).toBe('- Revenue up\n  <!-- say: 12% -->\n- Costs');
+		expect(rt('- Revenue up\n  <!-- @say{12%} -->\n- Costs')).toBe('- Revenue up\n  <!-- @say{12%} -->\n- Costs');
 		// The comment atom writes itself as a block of its own: the same bytes as main, and the same quote.
 		expect(rt('> a\n> <!-- x -->\n> b')).toBe('> a\n>\n> <!-- x -->\n>\n> b');
 	});
@@ -257,7 +257,7 @@ describe('what the fifth checker found: HTML Compose does not model is written a
 
 	it('a list item that opens with HTML, a comment or `$$` comes back byte for byte', () => {
 		for (const prose of ['- <!-- c -->', '- <img src="a.png">', '- <div>x</div>', '1. <p>hi</p>', '- a\n- <!-- c -->\n- b', '> - <!-- c -->',
-			'1. <!-- note: speaker -->', '- $$x$$', '- <!-- c -->\n  b', '> - a\n>   <!-- c -->', '- Revenue up\n  <!-- say: 12% -->\n- Costs']) {
+			'1. <!-- @note{speaker} -->', '- $$x$$', '- <!-- c -->\n  b', '> - a\n>   <!-- c -->', '- Revenue up\n  <!-- @say{12%} -->\n- Costs']) {
 			expect(studio(prose)).toBe(deck(prose).trim());
 			expect(rendered(rt(prose)), prose).toBe(rendered(prose));
 		}
@@ -276,58 +276,36 @@ describe('what the fifth checker found: HTML Compose does not model is written a
 	});
 });
 
+// One test per deck, so a failure names its deck and no test does the whole corpus: as two corpus-wide tests these took
+// 2-3 s each alone and 28 s under load, past the 20 s hang guard (followups.d/3367-p1-unit-tests-time-out-under-load.md).
 describe('soft breaks across the shipped decks', () => {
-	const ROOT = path.resolve(__dirname, '../../../..');
-	function mdIn(dir: string, out: string[] = []): string[] {
-		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-			if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
-			const full = path.join(dir, e.name);
-			if (e.isDirectory()) mdIn(full, out);
-			else if (e.name.endsWith('.md')) out.push(full);
+	const files = shippedDecks();
+	const slidesOf = (file: string): ReturnType<typeof parseDeck>['slides'] => {
+		try {
+			return parseDeck(fs.readFileSync(file, 'utf8')).slides;
+		} catch {
+			return [];
 		}
-		return out;
-	}
-	const files = [
-		...mdIn(path.join(ROOT, 'examples')),
-		...mdIn(path.join(ROOT, 'lib')).filter((f) => f.endsWith('.gallery.md')),
-		...mdIn(path.join(ROOT, 'test/integration/baseline-decks')),
-	];
-
-	it('an unlocked slide renders as many <br> after a round trip as before', () => {
-		let checked = 0;
-		for (const file of files) {
-			let slides: ReturnType<typeof parseDeck>['slides'];
-			try {
-				slides = parseDeck(fs.readFileSync(file, 'utf8')).slides;
-			} catch {
-				continue;
-			}
-			for (const s of slides) {
-				if (hasLossyConstruct(s.prose) || MODELED_BLOCK.test(s.prose) || brs(s.prose) === 0) continue;
-				checked++;
-				expect(brs(roundTripSlideProse(s.prose)), path.relative(ROOT, file)).toBe(brs(s.prose));
-			}
-		}
-		expect(checked).toBeGreaterThan(0); // anti-vacuity
+	};
+	// Anti-vacuity over the whole corpus, from what the per-deck tests checked; asserted only when every deck's test ran.
+	const seen = { decks: 0, brSlides: 0, unlocked: 0 };
+	afterAll(() => {
+		if (seen.decks < files.length) return;
+		expect(seen.brSlides, 'anti-vacuity: unlocked slides with a <br>').toBeGreaterThan(0);
+		expect(seen.unlocked, 'anti-vacuity: unlocked slides').toBeGreaterThan(500);
 	});
 
-	it('every unlocked slide parses back to the same document', () => {
-		let checked = 0;
-		for (const file of files) {
-			let slides: ReturnType<typeof parseDeck>['slides'];
-			try {
-				slides = parseDeck(fs.readFileSync(file, 'utf8')).slides;
-			} catch {
-				continue;
-			}
-			for (const s of slides) {
-				if (hasLossyConstruct(s.prose)) continue;
-				checked++;
-				const doc = latticeMarkdownParser.parse(s.prose);
-				expect(latticeMarkdownParser.parse(latticeMarkdownSerializer.serialize(doc)).eq(doc), path.relative(ROOT, file)).toBe(true);
-			}
+	it.each(files.map((f) => [deckName(f), f]))('%s: an unlocked slide keeps its <br> count, and parses back to the same document', (name, file) => {
+		seen.decks++;
+		for (const s of slidesOf(file)) {
+			if (hasLossyConstruct(s.prose)) continue;
+			seen.unlocked++;
+			const doc = latticeMarkdownParser.parse(s.prose);
+			expect(latticeMarkdownParser.parse(latticeMarkdownSerializer.serialize(doc)).eq(doc), name).toBe(true);
+			if (MODELED_BLOCK.test(s.prose) || brs(s.prose) === 0) continue;
+			seen.brSlides++;
+			expect(brs(roundTripSlideProse(s.prose)), name).toBe(brs(s.prose));
 		}
-		expect(checked).toBeGreaterThan(500); // anti-vacuity
 	});
 });
 

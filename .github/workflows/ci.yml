@@ -162,7 +162,7 @@ permissions:
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
   # Splits a change into two independent tiers:
-  #   code  — affects rendering or the test suite → integration (+ golden-diff)
+  #   code  — affects rendering or the test suite → golden-diff on a PR, integration in the merge queue
   #   docs  — affects the docs site (Astro) → docs-build
   # `lint` and `unit` are always on (see the note above `unit` for why unit
   # left this filter). An allowlist of roots, NOT "everything that isn't
@@ -203,7 +203,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE"
           # Fail loudly if the base is still missing: a diff error inside the `if` below would read as "no player files".
           git cat-file -e "$BASE^{commit}"
-          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$)'; then
+          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
             echo "player=true" >> "$GITHUB_OUTPUT"
           else
             echo "player=false" >> "$GITHUB_OUTPUT"
@@ -238,8 +238,12 @@ jobs:
               - 'kit/**'
               - 'lattice.js'
               - 'package.json'
+              - 'packages/lattice/package.json'
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
+              # The composite actions these jobs run (puppeteer-chrome, apt-cached): an action-only
+              # change runs integration and golden-diff on its PR, not first in the queue.
+              - '.github/actions/**'
             docs:
               - 'docs/**'
               - 'assets/fonts/**' # same reason as `code` above — dist/** no longer matches
@@ -255,6 +259,9 @@ jobs:
               - 'lib/export/**'
               - 'test/integration/export/player-no-js.test.js'
               - '.github/workflows/ci.yml'
+              # player-webkit runs puppeteer-chrome and playwright-browsers, and the queue does not
+              # force this job on, so an action-only change would otherwise never run it before merge.
+              - '.github/actions/**'
 
   # ── Lint — ALWAYS runs (incl. docs-only) ───────────────────────────────
   # Node-agnostic and browser-free: source lint + author-facing deck lint.
@@ -437,11 +444,17 @@ jobs:
       # dist/lattice.css against bundle() on whatever the developer last built —
       # vacuous in CI, and spuriously red locally after a rebase (#1783).
       #
-      # COST: ~12s, of which ~7s re-runs the ownership guard and preflight gates
-      # that `npm run build` above already ran (build.js runs them unconditionally
-      # under --check; there is no flag to skip). ~5s is new verification. Doubled
-      # in the merge queue, where the node 24 leg runs too.
+      # COST: 77 s p50 over 1,495 runs (2026-11-16..21), not the ~12 s this note used
+      # to say; part of it re-runs the ownership guard and preflight gates that
+      # `npm run build` above already ran (build.js runs them unconditionally under
+      # --check; there is no flag to skip).
+      #
+      # SHARD 1 ONLY. Both node 22 shards build the same tree from the same commit, so
+      # the check gives the same answer on each; running it twice cost ~197 job-minutes
+      # a day (C6, engineering/decisions/2026-11-21-ci-load-plan.md). The node 24 queue
+      # leg is matrix shard 1 too, so it still runs there.
       - name: Generated artifacts match their generators (post-build, end-to-end)
+        if: matrix.shard == 1
         run: npm run build:check:all
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
       # bundle stale?" — a question with no meaning now that the bundle is built
@@ -509,9 +522,15 @@ jobs:
   # single job produced, so the Verify gate below needed no change.
   # `fail-fast: false` so a red leg does not cancel the other three: one run then
   # names every failing file, instead of one fix-and-rerun round per leg.
+  # MERGE QUEUE ONLY since 2026-11-21 (the owner's D2 on PR #3388,
+  # engineering/decisions/2026-11-21-ci-load-plan.md §2 C2 and §6). The queue already ran this
+  # tier in full on every entry, so the PR run repeated it: 311 jobs and about 4,043 job-minutes
+  # a day. A PR that touches the `code` paths owes the same slice locally before its merge ask
+  # (`npm run evidence` plans it; engineering/workflow.md §The raise loop), and a render break the
+  # session misses now shows as a queue ejection, not a red PR. `code` is always true in the queue.
   integration:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: github.event_name == 'merge_group' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     # PER LEG. Raised 25 -> 45 on 2026-10-05 when the unsharded suite outgrew 25 (the
     # INTEGRATION RE-SAMPLE note at the top of this file has the numbers); cut to
@@ -579,6 +598,9 @@ jobs:
           packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
       # checkout does not have them and everything below that loads the engine
       # needs them on disk. ~16s, no browser.
@@ -588,33 +610,17 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
-      - name: Integration tests (PR slice, one shard)
+      - name: Integration tests (render slice, one shard; merge queue only)
         env:
           # `strategy.job-total` rather than a literal 4, so resizing the matrix
           # cannot leave a file in no leg or in two.
           SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: npm run test:integration:shard
-      # COMPONENT CONFORMANCE, RENDER TIER, PER PR (report-only; owner ruling 2026-10-16).
-      # Only the components this PR's diff touches, every cheap probe, and the contrast sweep on
-      # three palettes (light, dark, concrete); the nightly runs all 33
-      # (engineering/decisions/2026-10-15-conformance-harness.md section 13.2-13.3). Measured:
-      # 8 s measured for `list-steps` (about 25 s extrapolated for `map`), and a PR that touches no component
-      # exits at once. It runs on shard 1 only, and `continue-on-error` keeps a finding, or the
-      # step itself failing, off the PR's result: this prints into the job summary and blocks nothing.
-      - name: Component conformance, changed components (render tier, report-only)
-        if: github.event_name == 'pull_request' && matrix.shard == 1
-        continue-on-error: true
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          {
-            echo '### Component conformance (render tier, changed components, report-only)'
-            echo '```'
-            node tools/conformance-render.js --changed="origin/$BASE_REF" 2>&1
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
-      # VENUE CONFORMANCE RATCHET, per PR and in the queue (owner brief 2026-10-22, #2862 follow-up P1).
+      # The per-PR "Component conformance, changed components" report (report-only, owner ruling
+      # 2026-10-16) lived here and ran on pull_request only. It left with the tier on 2026-11-21: in a
+      # queue-only job it could never run. The nightly still runs all components; locally,
+      # `node tools/conformance-render.js --changed=origin/main` gives the same report.
+      # VENUE CONFORMANCE RATCHET, in the queue (per PR too until 2026-11-21; owner brief 2026-10-22, #2862 follow-up P1).
       # Renders every component at laptop / huddle / conference / hall on all four canvas families and
       # fails on any failing row that tools/check-venue-conformance.js `KNOWN` does not name, and on a
       # `KNOWN` entry that no longer fails, so the list can only shrink. Measured 4m41s (4 jobs) to 5m56s (2 jobs)
@@ -723,6 +729,9 @@ jobs:
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
       # checkout does not have them and everything below that loads the engine
       # needs them on disk. ~16s, no browser.
@@ -1149,6 +1158,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       - name: Build the generated bundles
         run: npm run build
       - name: Install docs deps
@@ -1259,6 +1271,13 @@ jobs:
           fi
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
+            exit 1
+          fi
+          # The render tier runs in the merge queue only (D2, 2026-11-21), so the queue is the one
+          # place it can run at all. There, `code` is forced true and nothing may skip it: a skipped
+          # integration in merge_group would mean the tier silently dropped out, so it fails here.
+          if [ "${{ github.event_name }}" = "merge_group" ] && [ "${{ needs.integration.result }}" = "skipped" ]; then
+            echo "::error::integration was skipped in the merge queue, the only place the render tier runs"
             exit 1
           fi
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
@@ -1402,7 +1421,11 @@ jobs:
             ];
             const named = (want) => TIERS.filter(([, r]) => r === want).map(([n]) => n);
             const ran = named('success');
-            const skipped = named('skipped');
+            // On a pull request `integration` is skipped by design, not by the path filter: it
+            // runs in the merge queue only (D2, 2026-11-21). Name it apart so the line stays true.
+            const queueOnly = process.env.GITHUB_EVENT_NAME === 'pull_request' ? ['integration'] : [];
+            const skipped = named('skipped').filter((n) => !queueOnly.includes(n));
+            const deferred = named('skipped').filter((n) => queueOnly.includes(n));
             // `cancelled` is NOT labelled "superseded", though supersession via
             // `concurrency: cancel-in-progress` is how it usually arises. A MANUAL cancel
             // from the Actions UI produces the same value with no supersession at all, so
@@ -1425,6 +1448,7 @@ jobs:
             const parts = [];
             if (ran.length) parts.push(`ran: ${ran.join(' · ')}`);
             if (skipped.length) parts.push(`skipped by the path filter: ${skipped.join(' · ')}`);
+            if (deferred.length) parts.push(`runs in the merge queue only: ${deferred.join(' · ')}`);
             if (cancelled.length) parts.push(`cancelled: ${cancelled.join(' · ')}`);
             if (other.length) parts.push(`UNEXPECTED: ${other.join(' · ')}`);
             // Parenthesised, with `;` between groups, so the four tier groups sit BELOW the

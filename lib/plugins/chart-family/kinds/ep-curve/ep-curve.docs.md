@@ -21,7 +21,7 @@ Use when the question is how big a loss to plan for: a reinsurance program's 1-i
 | `title` | a `## ` heading | yes | Slide heading — name the loss the audience should remember ('A 1-in-100 year costs $410M'), not 'EP curve'. |
 | `axes` | a line of `inline code` | no | Optional axis line, as ONE bracketed list in its own paragraph ABOVE the heading: the return-period axis, then the loss axis — `[{Return period, 10..250}, {Loss}]`. A return-period domain of at least 1 widens the axis past the points (a minimum below 1 is ignored); a loss domain raises the ceiling, while the floor stays zero or the lowest loss. The return-period axis is always log, so `log` changes nothing. Without the line the x axis is captioned 'Return period'. Same idiom as `scatter` and `histogram`. |
 | `curves` | a list | yes | A flat list of point records draws one curve: `` `{100, $410M}` `` is a 1-in-100 year loss of $410M, return period first. For several curves, write each curve's name and nest its points under it: `- OEP` then `  - `{100, $410M}``. Up to four curves; a return period below 1 is not a point. |
-| `points` | a `-` list nested 1 level under an item | no | The curve's points, one `{return period, loss}` pill per nested `-` item. |
+| `points` | a list nested 1 level under an item | no | The curve's points, one `{return period, loss}` pill per nested `-` item. |
 
 ### Common mistakes
 

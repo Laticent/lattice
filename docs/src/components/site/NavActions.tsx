@@ -93,11 +93,11 @@ export default function NavActions({
 				type="button"
 				variant="outline"
 				onClick={() => setOpen(true)}
-				aria-label="Search (⌘K)"
+				aria-label="Search the docs, ⌘K"
 				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground xl:inline-flex"
 			>
 				<Search className="size-4" />
-				<span className="text-sm">Search the docs…</span>
+				<span className="text-sm">Search the docs…</span>{' '}
 				<Kbd className="ml-auto text-[10px]">⌘K</Kbd>
 			</Button>
 			<Button
@@ -105,7 +105,7 @@ export default function NavActions({
 				variant="ghost"
 				size="icon-sm"
 				onClick={() => setOpen(true)}
-				aria-label="Search (⌘K)"
+				aria-label="Search the docs, ⌘K"
 				className="xl:hidden"
 			>
 				<Search className="size-4" />

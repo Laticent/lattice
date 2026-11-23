@@ -5,7 +5,7 @@
 // questions and pins that they answer alike.
 // (engineering/decisions/2026-11-13-studio-autocomplete-audit.md, slice 1.)
 //
-//   • directive names    — `<!-- _hea…` → `_header`, `_focus`, …, and the note channels and pane keys (`say:`, `panes:`)
+//   • directive names    — `<!-- _hea…` → `_header`, `_focus`, …, the pane keys (`panes:`) and the four notes (`@say{`)
 //   • directive values   — `<!-- _paginate: ` → its register's words (the deck's register lists, passed in)
 //   • fence language     — after ``` : the plugin fences (from the registry, loaded on first use), then code languages
 //   • `_focusStyle:`     — its enum values
@@ -27,7 +27,7 @@
 
 import { insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { COMMENT_KEYS, DIRECTIVE_NAMES, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, loadFenceLanguages, MERMAID_KEYWORDS } from './grammar-vocab.js';
+import { COMMENT_KEYS, DIRECTIVE_NAMES, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, loadFenceLanguages, MERMAID_KEYWORDS, NOTE_KEYS } from './grammar-vocab.js';
 import {
 	backdropAxisPosition,
 	blankBodyPartial,
@@ -44,11 +44,35 @@ import {
 } from './slide-context.js';
 
 const TOKEN = /^[\w-]*$/;
-const DIRECTIVE_TOKEN = /^_?[\w-]*$/;
+const DIRECTIVE_TOKEN = /^(?:_?[\w-]*|@[\w-]*)$/;
 const DIRECTIVE_OPTIONS = [
 	...DIRECTIVE_NAMES.map((d) => ({ label: d, type: 'keyword', detail: 'directive' })),
-	// `<!-- s` → `say: `: the channel writes its colon and space, so the author types the line straight away.
-	...COMMENT_KEYS.map((k) => ({ label: k.name, type: 'keyword', detail: k.kind, info: k.info, apply: `${k.name}: ` })),
+	// `<!-- p` → `panes: `: the key writes its colon and space, so the author types the value straight away.
+	...COMMENT_KEYS.map((k) => ({ label: k.name, type: 'keyword', detail: k.kind, apply: `${k.name}: ` })),
+	// `<!-- @m` → `@meta{|}`: the slide record, both braces written and the caret between them, and its fields open at
+	// once (recordCompletion answers inside the braces).
+	{
+		label: '@meta{',
+		type: 'keyword',
+		detail: 'slide settings',
+		boost: 1,
+		apply: (view, completion, from, to) => {
+			const text = '@meta{}';
+			view.dispatch({ ...insertCompletionText(view.state, text, from, to), selection: { anchor: from + text.length - 1 }, annotations: pickedCompletion.of(completion) });
+			startCompletion(view);
+		},
+	},
+	// `<!-- @s` → `@say{|}`: the note writes both braces and leaves the caret between them, so the author types the words
+	// straight away and the braces balance.
+	...NOTE_KEYS.map((k) => ({
+		label: `@${k.name}{`,
+		type: 'keyword',
+		detail: k.detail,
+		apply: (view, completion, from, to) => {
+			const text = `@${k.name}{}`;
+			view.dispatch({ ...insertCompletionText(view.state, text, from, to), selection: { anchor: from + text.length - 1 }, annotations: pickedCompletion.of(completion) });
+		},
+	})),
 ];
 const FOCUS_STYLE_OPTIONS = FOCUS_STYLE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'focus style' }));
 
@@ -202,10 +226,12 @@ function directiveValueSource(registers) {
 // with the caret where the author types next (`at`, an offset into `text`; the end when absent), and the ones whose
 // next word completes (`opensMenu`) open that menu at once: a layout's names, a record's fields, a fence's languages.
 const INSERTS = [
-	{ label: '<!-- _class: -->', detail: 'layout for this slide', text: '<!-- _class:  -->', at: 13, opensMenu: true },
-	{ label: '<!-- { } -->', detail: 'slide record', text: '<!-- {} -->', at: 6, opensMenu: true },
-	{ label: '<!-- say: -->', detail: 'what the slide says aloud', text: '<!-- say:  -->', at: 10 },
-	{ label: '<!-- -->', detail: 'speaker note', text: '<!--  -->', at: 5 },
+	// A slide's settings are a `@meta` record (the one spelling, owner 2026-11-22): `layout=` opens the component names,
+	// and the empty record opens its fields. The old `<!-- _class: -->` and the bare `<!-- {} -->` are not offered.
+	{ label: '<!-- @meta{layout=} -->', detail: 'layout for this slide', text: '<!-- @meta{layout=} -->', at: 18, opensMenu: true },
+	{ label: '<!-- @meta{} -->', detail: 'slide settings', text: '<!-- @meta{} -->', at: 11, opensMenu: true },
+	{ label: '<!-- @note{} -->', detail: 'speaker notes', text: '<!-- @note{} -->', at: 11 },
+	{ label: '<!-- @say{} -->', detail: 'voice and captions', text: '<!-- @say{} -->', at: 10 },
 	{ label: '#', detail: 'heading', text: '# ' },
 	{ label: '-', detail: 'list item', text: '- ' },
 	{ label: '```', detail: 'fenced block', text: '```\n\n```', at: 3, opensMenu: true },

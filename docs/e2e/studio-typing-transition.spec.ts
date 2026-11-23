@@ -105,7 +105,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`typing in flight 
 				return r;
 			};
 		});
-		await page.locator('input[type="file"][accept*=".lattice"]').first().setInputFiles({ name: 'imported.md', mimeType: 'text/markdown', buffer: Buffer.from('# Imported deck\n\nIMPORTED-7f2c\n') });
+		await page.locator('[data-testid="deck-import-input"]').first().setInputFiles({ name: 'imported.md', mimeType: 'text/markdown', buffer: Buffer.from('# Imported deck\n\nIMPORTED-7f2c\n') });
 		await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-active') || '{}').deckId as string)).not.toBe(oldId);
 		expect(await stored(oldId), 'the deck being left was overwritten with the imported text').toBe(DECK);
 	});

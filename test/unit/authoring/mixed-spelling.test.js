@@ -32,8 +32,10 @@ describe('mixed-spelling', () => {
     assert.match(fixed, /`\^\{database, lg\}` for the archive/);
     assert.match(fixed, /- Q3 margin `12\.9` `total`/);
     assert.equal(fixed.split('\n').length, FIXTURE.split('\n').length);
+    // Fix all also rewrites the old `<!-- _class: … -->` comments as `@meta` records (`legacy-directive-comment`);
+    // beside those, the two minority spans are the only lines that change.
     const changed = FIXTURE.split('\n').filter((l, i) => l !== fixed.split('\n')[i]);
-    assert.equal(changed.length, 2);
+    assert.equal(changed.filter((l) => !/^<!-- _class:/.test(l)).length, 2);
   });
 
   test('a tie goes to the spelling written first', () => {

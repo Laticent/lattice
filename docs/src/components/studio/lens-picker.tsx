@@ -104,7 +104,7 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<button type="button" aria-label="Reader view" className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', dense && DENSE_PILL, className)}>
+				<button type="button" aria-label={`Reader view: ${active.label}${value !== 'full' && count != null && total != null ? ` · ${count}/${total}` : ''}`} className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', dense && DENSE_PILL, className)}>
 					<span className="shrink-0">{active.icon}</span>
 					<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
 					{value !== 'full' && count != null && total != null && <span className={cn('shrink-0 text-muted-foreground', dense && 'hidden @[24rem]:inline')}>· {count}/{total}</span>}

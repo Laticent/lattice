@@ -59,6 +59,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/warn-needless-catchup.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__github__merge_pull_request|mcp__github__enable_pr_auto_merge",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/owner-merge-gate.mjs\""
+          }
+        ]
       }
     ],
     "SessionStart": [

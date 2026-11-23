@@ -105,16 +105,23 @@ function stringArm(md, size) {
 }
 // Strip what each mark's string arm drew, then let its DOM arm draw it again. A proof slide keeps a `cat-N` the
 // author pinned; the one the engine sequenced comes off.
-// ONE document for the whole corpus, its content replaced per deck. A JSDOM per deck kept about 3.5 MB each past
-// garbage collection (1 MB even with `window.close()`), so the 573-deck walk ended near Node's 2 GB default heap
-// and one more committed deck ran it out of memory. Reused, the walk stays near 115 MB. The whole document element
-// is replaced, not just the deck's div, so nothing a transformer adds to <head> or <body> reaches the next deck.
-let DOM_ARM_DOC = null;
-function domArm(html, src) {
-  DOM_ARM_DOC ??= new JSDOM('<!doctype html><html><head></head><body></body></html>').window.document;
-  const doc = DOM_ARM_DOC;
+// ONE document per role for the whole file, its content replaced per deck. This is the file's only memory mechanism:
+// every arm that needs a DOM (the DOM arm, and the `--steps` arm's expanded deck and its string twin) takes its
+// document from `deckDoc`, never from `new JSDOM`. A JSDOM per deck kept about 3.5 MB each past garbage collection
+// (1 MB even with `window.close()`), so the 573-deck walk ended near Node's 2 GB default heap and one more committed
+// deck ran it out of memory. Per deck, <html> loses every attribute and everything inside it is replaced, not
+// just the deck's div, so nothing a transformer or a step expansion adds to <html>, <head> or <body> reaches the
+// next deck (F7, shared state).
+const DECK_DOCS = new Map();
+function deckDoc(role, html) {
+  if (!DECK_DOCS.has(role)) DECK_DOCS.set(role, new JSDOM('<!doctype html><html><head></head><body></body></html>').window.document);
+  const doc = DECK_DOCS.get(role);
   for (const name of doc.documentElement.getAttributeNames()) doc.documentElement.removeAttribute(name);
   doc.documentElement.innerHTML = `<head></head><body><div class="lattice">${html}</div></body>`;
+  return doc;
+}
+function domArm(html, src) {
+  const doc = deckDoc('dom-arm', html);
   for (const sel of ['.tile-progress', '.divider-marker', '.agenda-rail', '[data-agenda-page]', 'p[data-derived="section"]']) {
     for (const n of doc.querySelectorAll(sel)) n.remove();
   }
@@ -300,14 +307,10 @@ describe('mark agreement', () => {
     assert.ok(fs.readdirSync(FIXTURES).length >= 14);
   });
 
-  test('every committed deck: every mark agrees with the source, on both arms', async () => {
+  test('every committed deck: every mark agrees with the source, on both arms', () => {
     const findings = [];
     for (const file of CORPUS) {
       for (const f of measure(file)) findings.push(fmt(file, f));
-      // YIELD TO THE EVENT LOOP after each deck. jsdom frees a window only once the loop turns, so a synchronous walk
-      // of the ~570-deck corpus held every deck's DOM-arm window at once: a 2.2 GB peak, which ran out of heap when the
-      // integration tier ran this file beside others (HARD RULE #33). One turn per deck holds the live heap flat.
-      await new Promise((resolve) => setImmediate(resolve));
     }
     assert.deepEqual(findings, []);
   });
@@ -343,14 +346,13 @@ describe('mark agreement', () => {
     const { applyStepAt } = await import(path.join(ROOT, 'lib/core/step-state.mjs'));
     const md = fs.readFileSync(file, 'utf8');
     const html = stringArm(md, sourceDeck(md).size);
-    const dom = new JSDOM(`<!doctype html><body><div class="lattice">${html}</div></body>`);
-    const root = dom.window.document.querySelector('.lattice');
+    const root = deckDoc('steps', html).querySelector('.lattice');
     const counts = expandStepPages(root, applyStepAt);
     // The string twin (step-rescope.js `expandStepPagesHtml`, the CLI's bookkeeping for the PDF's notes) must expand
     // the same slides by the same amount: the same (slide, step page) sequence, page for page.
     const { expandStepPagesHtml } = require(path.join(ROOT, 'lib/core/step-rescope'));
     const seq = (r) => [...r.querySelectorAll('section')].filter((n) => !n.parentElement?.closest('section')).map((n) => `${n.getAttribute('data-lattice-slide')}#${n.getAttribute('data-step-page') || ''}`).join(' ');
-    const twin = new JSDOM(`<!doctype html><body><div class="lattice">${expandStepPagesHtml(html)}</div></body>`).window.document.querySelector('.lattice');
+    const twin = deckDoc('steps-twin', expandStepPagesHtml(html)).querySelector('.lattice');
     const twinOut = seq(twin) === seq(root) ? [] : [`${path.relative(ROOT, file)} · the string expander disagrees: ${seq(twin)} vs ${seq(root)}`];
     if (mutate) mutate(root);
     const unpaint = (sec) => {

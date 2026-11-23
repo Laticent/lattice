@@ -30,13 +30,13 @@ const CENSUS = [
   ['docs/src/components/studio/Editor.tsx', S, 'the unknown-component underline needs a document offset and matches inside fences; needs an offset-returning helper'],
   ['docs/src/components/studio/PresentOverlay.tsx', M, 'the pane gate is the editor\'s pane-probe, pinned to meta-door parsePaneMarker; its `<!-- pane:` regex is gone (design §5.4.1)'],
   ['docs/src/components/studio/StudioShell.tsx', M, 'the pane skeleton class read goes through getClassTokens'],
-  ['docs/src/components/studio/coach/coach-core.ts', S, 'deck-wide heuristic probes that deliberately match fenced and quoted examples'],
-  ['docs/src/components/studio/editor-complete.ts', S, 'inCollageSlide walks its own boundary rule; the shared resolution would change its answer'],
+  ['docs/src/components/studio/coach/coach-core.ts', M, 'the content gate, the ask and the structure check read classes through class-entries classEntries (§15, slice A)'],
+  ['docs/src/components/studio/editor-complete.ts', M, 'inCollageSlide reads the class through slideClassAt (class-directive-scan classDirectiveAt), records included (§15, slice A)'],
   ['docs/src/lib/deck-lint.ts', M, 'class read through the shared slideClassDirectives; pane markers through meta-door parsePaneMarker (design §5.4.2)'],
   ['docs/src/components/studio/pane-pages.ts', M, 'paneMarkerComponents reads every marker spelling through meta-door parsePaneMarker; PANE_MARKER is gone (design §5.4.1)'],
   ['docs/src/components/studio/pane-probe.ts', M, 'stays a cheap over-matching regex by design, with the record arms added; pane-probe.test.ts pins it to meta-door parsePaneMarker (design §5.4.1)'],
   ['docs/src/components/studio/present-sections.ts', S, 'reads a lone chunk with no deck context; the shared read would change section boundaries'],
-  ['docs/src/components/studio/present/rehearsal.js', S, 'classOf takes the first spot class; the shared reader takes the last plus the running global'],
+  ['docs/src/components/studio/present/rehearsal.js', M, 'classOf reads the chunk\'s class through meta-edit readMetaField, records included (§15, slice A)'],
   ['docs/src/lib/slide-directives.ts', M, 'key list, fences, comment finder, class read and write all come from the shared modules; isPaneMarkerBody reads through meta-door parsePaneMarker'],
   ['docs/src/components/studio/split-slide.ts', M, 'the local-directive list comes from LOCAL_KEYS'],
   ['docs/src/lib/code-packages/door.ts', M, 'reads class through commentBodies and readDirectiveComment, pane markers through meta-door parsePaneMarker'],
@@ -46,7 +46,7 @@ const CENSUS = [
   ['docs/src/lib/compose/pane-model.ts', M, 'reads markers through pane-spec parseMarker (meta-door parsePaneMarker); its writers keep `_pane:` until the cut switches the written form (design §5.4.1)'],
   ['docs/src/lib/compose/registers.ts', M, 'class reads go through classPayloadOf and classNameOf'],
   ['docs/src/lib/lente/tags.ts', S, 'a published zero-dependency package; importing lib/core breaks its contract'],
-  ['docs/src/playground/single-slide-render.ts', S, 'a gate that over-triggers on purpose (quoted and fenced matches included)'],
+  ['docs/src/playground/single-slide-render.ts', S, 'a gate that over-triggers on purpose (quoted and fenced matches included); each probe has a record arm (§15, slice A)'],
   ['docs/src/playground/slide-context.js', M, 'class read is classDirectiveAt; key completion is COMPLETE_KEYS; the rest reads an unclosed comment before the cursor'],
   // ── Authoring ───────────────────────────────────────────────────────────
   ['lib/authoring/lint-core.js', M, 'directive, marker and focus reads go through scanMetaSource, hasMarker and directiveKey; pure strips stay'],
@@ -70,13 +70,13 @@ const CENSUS = [
   ['lib/integrations/markdown-it/plugins.js', S, 'reads no directive comment since the _focusSteps parse-time copy was retired (2026-11-09-steps-as-a-behavior.md)'],
   ['lib/layout/bridge.js', M, 'class reads go through commentBodies and readDirectiveComment'],
   ['lib/layout/gate.js', S, 'a gate on model-written skeletons that matches a _class prefix on purpose'],
-  ['lib/packages/rename.js', S, 'rewrites class tokens in place inside the comment bytes; the shared reader unquotes'],
+  ['lib/packages/rename.js', S, 'rewrites class tokens in place inside the comment bytes, and in a record\'s class-shaped fields; the shared reader unquotes'],
   ['lib/playground/index.js', M, 'chartsNeeded reads comment text through commentBodies'],
   // ── Strip, skip, tokenize or escape only (17) ───────────────────────────
-  ['docs/src/components/studio/architect-agent.ts', S, 'only strips, skips or tokenizes comments'],
+  ['docs/src/components/studio/architect-agent.ts', M, 'the outline reads each slide\'s class through meta-edit readMetaField (§15, slice A); the rest strips comments'],
   ['docs/src/lib/caret-probe.ts', S, 'only strips, skips or tokenizes comments'],
   ['docs/src/lib/deck-outline/deck-outline.ts', S, 'only strips, skips or tokenizes comments'],
-  ['docs/src/lib/playground-controller.ts', S, 'only strips, skips or tokenizes comments'],
+  ['docs/src/lib/playground-controller.ts', M, 'classTokenLine and detectComponent read the first spot class through class-entries classEntries (§15, slice A)'],
   ['lib/plugins/chart-family/shared/mark-detail.js', S, 'only strips, skips or tokenizes comments'],
   ['lib/core/closed-comments.js', S, 'the linear comment tokenizer'],
   ['lib/core/flowchart-html.js', S, 'only strips, skips or tokenizes comments'],
@@ -92,7 +92,7 @@ const CENSUS = [
   ['lib/plugins/chart-family/chart-family.dispatch.js', S, 'only strips, skips or tokenizes comments'],
 ];
 
-const SHARED = /meta-record|meta-edit|meta-keys|meta-door|pane-spec|pane-probe|comment-directive|class-directive-scan|slide-directives|lib\/engine\/directives|\.\/directives|deck-source|classNameOf|classPayloadOf|slide-class-spans/;
+const SHARED = /meta-record|meta-edit|meta-keys|meta-door|pane-spec|pane-probe|comment-directive|class-directive-scan|class-entries|slide-directives|lib\/engine\/directives|\.\/directives|deck-source|classNameOf|classPayloadOf|slideClassAt|slide-class-spans/;
 
 // A reader that stays a regex on purpose (it must stay cheap), held to the shared reader by a test instead of an import.
 const PINNED = { 'docs/src/components/studio/pane-probe.ts': 'docs/src/components/studio/pane-probe.test.ts' };

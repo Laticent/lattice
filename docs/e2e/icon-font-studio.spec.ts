@@ -17,10 +17,16 @@ test.describe.configure({ timeout: 300_000 });
 
 const BODY = '## Icons\n\nStorage `^{database, c3}` and `{S3, icon=bucket, c4}` done.\n';
 
-/** True when the glyph's `::before` asks for Lattice Icons and a face of that family has LOADED in its document. */
-async function drawnInOurFace(el: Element): Promise<boolean> {
+/**
+ * True when the glyph's `::before` asks for Lattice Icons and a face of that family has LOADED in its document. Read at
+ * once and polled by the caller: it does NOT await `document.fonts.ready`, which settles only when EVERY face in the
+ * document has finished. One other face still loading held it, and so this read, past the poll's 15 s on gecko under
+ * four workers (a trace on #2988's runner: the one evaluate never returned, so the poll never asked twice). It asks
+ * for our face's load, without waiting on it, so a glyph Firefox has not yet laid out still starts it.
+ */
+function drawnInOurFace(el: Element): boolean {
 	const doc = el.ownerDocument;
-	await doc.fonts.ready;
+	void doc.fonts.load('1em "Lattice Icons"').catch(() => {});
 	const asks = getComputedStyle(el, '::before').fontFamily.includes('Lattice Icons');
 	return asks && [...doc.fonts].some((f) => f.family.replace(/["']/g, '') === 'Lattice Icons' && f.status === 'loaded');
 }

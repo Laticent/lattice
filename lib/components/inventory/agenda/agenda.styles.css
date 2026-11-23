@@ -38,14 +38,14 @@ section.agenda > .cell-stage {
   --ag-dots: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 4'%3E%3Ccircle cx='2' cy='2' r='1'/%3E%3C/svg%3E");
 }
 section.agenda h2 { font-size: var(--fs-emphasis); }
-section.agenda ol {
+section.agenda ol:where(.cell-stage > *) {
   list-style: none; padding: 0; margin: 0;
 /* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
    without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
   counter-reset: agenda-counter var(--lat-split-offset, 0);
   display: flex; flex-direction: column;
 }
-section.agenda ol > li {
+section.agenda ol:where(.cell-stage > *) > li {
   counter-increment: agenda-counter;
   color: var(--text-heading);
   /* The marker ink every variant's ::before reads. Declared here so the read is a plain
@@ -81,7 +81,7 @@ section.agenda ol > li {
  *
  * Emphasis on the current row never rested on alpha anyway: it is bold, indented, and
  * carries an accent arrow / filled ring / arrow box. */
-section.agenda[class*="progress-"] ol > li {
+section.agenda:is(.progress-1, .progress-2, .progress-3, .progress-4, .progress-5, .progress-6) ol:where(.cell-stage > *) > li {
   color: var(--text-secondary);
   --ag-marker-ink: var(--text-secondary);
 }
@@ -92,12 +92,12 @@ section.agenda[class*="progress-"] ol > li {
  * solid rule. Scoped with :not() so a style class (circles/checks)
  * fully replaces it rather than inheriting the leader/arrow. Plain
  * :not() (no :has) is Marp-Chromium-safe — see engineering/gotchas.md. */
-section.agenda:not(.circles):not(.checks) ol { gap: var(--sp-sm); }
-section.agenda:not(.circles):not(.checks) ol > li {
+section.agenda:not(.circles):not(.checks) ol:where(.cell-stage > *) { gap: var(--sp-sm); }
+section.agenda:not(.circles):not(.checks) ol:where(.cell-stage > *) > li {
   display: flex; align-items: baseline; gap: var(--sp-md);
   position: relative; padding-bottom: var(--sp-sm); padding-right: var(--sp-xs);
 }
-section.agenda:not(.circles):not(.checks) ol > li::before {
+section.agenda:not(.circles):not(.checks) ol:where(.cell-stage > *) > li::before {
   content: counter(agenda-counter, decimal-leading-zero);
   font-family: var(--font-label); font-weight: 700; letter-spacing: 0.06em;
   color: var(--ag-marker-ink); font-size: var(--fs-body);
@@ -106,11 +106,12 @@ section.agenda:not(.circles):not(.checks) ol > li::before {
    style: it GROWS to fill the row and right-aligns its text, so it sits flush right in the label face. The render
    pass (progress.transform.js, both arms) wraps the title in `.agenda-title` and marks the right column
    `.agenda-page`, so inline code INSIDE a title stays an ordinary inline pill beside its words. */
-/* WITHOUT THE RENDER PASS (an Export-to-Marp bundle in a preview that runs no script, or a loose list whose line
-   is a <p>) there is no `.agenda-title`/`.agenda-page` row, so the original CSS-only rule still holds: every code
-   in that line takes the right-column face. A row the pass built uses only its `code.agenda-page`. */
-section.agenda ol > li:not(:has(> .agenda-title)) code,
-section.agenda ol > li code.agenda-page {
+/* A ROW THE PASS DID NOT SPLIT (a loose list, whose line is a <p>) has no `.agenda-title`/`.agenda-page`, so every
+   code in that line takes the right-column face. A row the pass built uses only its `code.agenda-page`. Every rule
+   here sits under the stage wrapper, which the engine and the runtime both build. The VS Code preview runs the
+   runtime at its Disable security level, the level structural layouts need there (engineering/gotchas/vscode.md). */
+section.agenda ol:where(.cell-stage > *) > li:not(:has(> .agenda-title)) code,
+section.agenda ol:where(.cell-stage > *) > li code.agenda-page {
   /* page ref right-anchors by GROWING to fill the row and right-aligning its text, rather
      than an auto inline-start margin (which sat outside the flex box). The text's right edge
      still lands on the li's right-padding edge — pixel-identical, fully measurable. */
@@ -120,26 +121,26 @@ section.agenda ol > li code.agenda-page {
   font-family: var(--font-label); font-weight: 600; letter-spacing: 0.03em;
   color: var(--text-secondary); font-size: var(--fs-body-compact);
 }
-section.agenda:not(.circles):not(.checks) ol > li::after {
+section.agenda:not(.circles):not(.checks) ol:where(.cell-stage > *) > li::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
   background-color: var(--ag-outline);
   -webkit-mask: var(--ag-dots) repeat-x left center / 12px 4px;
   mask: var(--ag-dots) repeat-x left center / 12px 4px;
 }
-section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1),
-section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2),
-section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3),
-section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4),
-section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5),
-section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6) {
+section.agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
+section.agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
+section.agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
+section.agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
+section.agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
+section.agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6) {
   color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: var(--sp-xl);
 }
-section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1)::before,
-section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2)::before,
-section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3)::before,
-section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4)::before,
-section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5)::before,
-section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::before {
+section.agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1)::before,
+section.agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2)::before,
+section.agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3)::before,
+section.agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4)::before,
+section.agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5)::before,
+section.agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6)::before {
   /* sp-2xs trailing inset folded INTO the box (width + left-anchored mask) instead of an
      outside gap. The 1.4em arrow stays put at the left, the extra width is the gap to the
      title — fully measurable, nothing sits outside the box. */
@@ -148,56 +149,56 @@ section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::befor
   -webkit-mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
   mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
 }
-section.agenda.progress-1 ol > li:nth-child(1):not(:has(> .agenda-title)) code,
-section.agenda.progress-1 ol > li:nth-child(1) code.agenda-page,
-section.agenda.progress-2 ol > li:nth-child(2):not(:has(> .agenda-title)) code,
-section.agenda.progress-2 ol > li:nth-child(2) code.agenda-page,
-section.agenda.progress-3 ol > li:nth-child(3):not(:has(> .agenda-title)) code,
-section.agenda.progress-3 ol > li:nth-child(3) code.agenda-page,
-section.agenda.progress-4 ol > li:nth-child(4):not(:has(> .agenda-title)) code,
-section.agenda.progress-4 ol > li:nth-child(4) code.agenda-page,
-section.agenda.progress-5 ol > li:nth-child(5):not(:has(> .agenda-title)) code,
-section.agenda.progress-5 ol > li:nth-child(5) code.agenda-page,
-section.agenda.progress-6 ol > li:nth-child(6):not(:has(> .agenda-title)) code,
-section.agenda.progress-6 ol > li:nth-child(6) code.agenda-page { color: var(--accent); }
-section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1)::after,
-section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2)::after,
-section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3)::after,
-section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4)::after,
-section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5)::after,
-section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::after {
+section.agenda.progress-1 ol:where(.cell-stage > *) > li:nth-child(1):not(:has(> .agenda-title)) code,
+section.agenda.progress-1 ol:where(.cell-stage > *) > li:nth-child(1) code.agenda-page,
+section.agenda.progress-2 ol:where(.cell-stage > *) > li:nth-child(2):not(:has(> .agenda-title)) code,
+section.agenda.progress-2 ol:where(.cell-stage > *) > li:nth-child(2) code.agenda-page,
+section.agenda.progress-3 ol:where(.cell-stage > *) > li:nth-child(3):not(:has(> .agenda-title)) code,
+section.agenda.progress-3 ol:where(.cell-stage > *) > li:nth-child(3) code.agenda-page,
+section.agenda.progress-4 ol:where(.cell-stage > *) > li:nth-child(4):not(:has(> .agenda-title)) code,
+section.agenda.progress-4 ol:where(.cell-stage > *) > li:nth-child(4) code.agenda-page,
+section.agenda.progress-5 ol:where(.cell-stage > *) > li:nth-child(5):not(:has(> .agenda-title)) code,
+section.agenda.progress-5 ol:where(.cell-stage > *) > li:nth-child(5) code.agenda-page,
+section.agenda.progress-6 ol:where(.cell-stage > *) > li:nth-child(6):not(:has(> .agenda-title)) code,
+section.agenda.progress-6 ol:where(.cell-stage > *) > li:nth-child(6) code.agenda-page { color: var(--accent); }
+section.agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1)::after,
+section.agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2)::after,
+section.agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3)::after,
+section.agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4)::after,
+section.agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5)::after,
+section.agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6)::after {
   background-color: var(--accent); -webkit-mask: none; mask: none; height: 2px;
 }
 
 /* ── circles ─────────────────────────────────────────────────────────────
  * Each section number in a drawn ring; active ring fills with the accent. */
-section.agenda.circles ol { gap: var(--sp-sm); }
-section.agenda.circles ol > li {
+section.agenda.circles ol:where(.cell-stage > *) { gap: var(--sp-sm); }
+section.agenda.circles ol:where(.cell-stage > *) > li {
   /* flex mirror of `grid-template-columns:auto 1fr` — the ring marker (::before) then the
    * title fills the rest; a trailing page-ref `code` right-anchors (the shared page-reference rule above). */
   display: flex; column-gap: var(--sp-md); align-items: center;
   padding: 0; position: static;
 }
-section.agenda.circles ol > li::before {
+section.agenda.circles ol:where(.cell-stage > *) > li::before {
   content: counter(agenda-counter); display: flex; align-items: center; justify-content: center;
   width: 2.4em; height: 2.4em; border-radius: 50%;
   border: 2px solid var(--ag-outline); background: none; margin: 0; letter-spacing: normal;
   font-family: var(--font-label); font-weight: 700; font-size: var(--fs-body); line-height: 1;
   color: var(--ag-marker-ink); -webkit-mask: none; mask: none;
 }
-section.agenda.circles ol > li::after { content: none; }
-section.agenda.circles.progress-1 ol > li:nth-child(1),
-section.agenda.circles.progress-2 ol > li:nth-child(2),
-section.agenda.circles.progress-3 ol > li:nth-child(3),
-section.agenda.circles.progress-4 ol > li:nth-child(4),
-section.agenda.circles.progress-5 ol > li:nth-child(5),
-section.agenda.circles.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: 0; }
-section.agenda.circles.progress-1 ol > li:nth-child(1)::before,
-section.agenda.circles.progress-2 ol > li:nth-child(2)::before,
-section.agenda.circles.progress-3 ol > li:nth-child(3)::before,
-section.agenda.circles.progress-4 ol > li:nth-child(4)::before,
-section.agenda.circles.progress-5 ol > li:nth-child(5)::before,
-section.agenda.circles.progress-6 ol > li:nth-child(6)::before {
+section.agenda.circles ol:where(.cell-stage > *) > li::after { content: none; }
+section.agenda.circles.progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
+section.agenda.circles.progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
+section.agenda.circles.progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
+section.agenda.circles.progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
+section.agenda.circles.progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
+section.agenda.circles.progress-6 ol:where(.cell-stage > *) > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: 0; }
+section.agenda.circles.progress-1 ol:where(.cell-stage > *) > li:nth-child(1)::before,
+section.agenda.circles.progress-2 ol:where(.cell-stage > *) > li:nth-child(2)::before,
+section.agenda.circles.progress-3 ol:where(.cell-stage > *) > li:nth-child(3)::before,
+section.agenda.circles.progress-4 ol:where(.cell-stage > *) > li:nth-child(4)::before,
+section.agenda.circles.progress-5 ol:where(.cell-stage > *) > li:nth-child(5)::before,
+section.agenda.circles.progress-6 ol:where(.cell-stage > *) > li:nth-child(6)::before {
   content: counter(agenda-counter); width: 2.4em; height: 2.4em; margin: 0;
   background: var(--accent); color: var(--on-accent); border-color: var(--accent);
 }
@@ -205,8 +206,8 @@ section.agenda.circles.progress-6 ol > li:nth-child(6)::before {
 /* ── checks ──────────────────────────────────────────────────────────────
  * Checkbox rows. With progress-N: past = tick, current = arrow box,
  * future = empty box. Without progress, a plain row of empty boxes. */
-section.agenda.checks ol { gap: var(--sp-sm); }
-section.agenda.checks ol > li {
+section.agenda.checks ol:where(.cell-stage > *) { gap: var(--sp-sm); }
+section.agenda.checks ol:where(.cell-stage > *) > li {
   /* flex mirror of `grid-template-columns:auto 1fr` (checkbox marker | title). */
   display: flex; column-gap: var(--sp-md); align-items: center;
   padding: 0; position: relative;
@@ -214,51 +215,51 @@ section.agenda.checks ol > li {
    * own 1.5em box the list sat a third shorter than the same agenda drawn as circles. */
   min-height: 2.4em;
 }
-section.agenda.checks ol > li::before {
+section.agenda.checks ol:where(.cell-stage > *) > li::before {
   content: ""; width: 1.5em; height: 1.5em; margin: 0;
   border: 2px solid var(--ag-outline); border-radius: 4px;
   background: none; -webkit-mask: none; mask: none;
 }
-section.agenda.checks ol > li::after { content: none; }
+section.agenda.checks ol:where(.cell-stage > *) > li::after { content: none; }
 /* past — ticked */
-section.agenda.checks.progress-2 ol > li:nth-child(-n+1)::after,
-section.agenda.checks.progress-3 ol > li:nth-child(-n+2)::after,
-section.agenda.checks.progress-4 ol > li:nth-child(-n+3)::after,
-section.agenda.checks.progress-5 ol > li:nth-child(-n+4)::after,
-section.agenda.checks.progress-6 ol > li:nth-child(-n+5)::after {
+section.agenda.checks.progress-2 ol:where(.cell-stage > *) > li:nth-child(-n+1)::after,
+section.agenda.checks.progress-3 ol:where(.cell-stage > *) > li:nth-child(-n+2)::after,
+section.agenda.checks.progress-4 ol:where(.cell-stage > *) > li:nth-child(-n+3)::after,
+section.agenda.checks.progress-5 ol:where(.cell-stage > *) > li:nth-child(-n+4)::after,
+section.agenda.checks.progress-6 ol:where(.cell-stage > *) > li:nth-child(-n+5)::after {
   content: ""; position: absolute; left: 0; width: 1.5em; height: 1.5em; top: 50%; transform: translateY(-50%);
   background-color: var(--accent);
   -webkit-mask: var(--ag-check) no-repeat center / 80%; mask: var(--ag-check) no-repeat center / 80%;
 }
 /* current — arrow box */
-section.agenda.checks.progress-1 ol > li:nth-child(1),
-section.agenda.checks.progress-2 ol > li:nth-child(2),
-section.agenda.checks.progress-3 ol > li:nth-child(3),
-section.agenda.checks.progress-4 ol > li:nth-child(4),
-section.agenda.checks.progress-5 ol > li:nth-child(5),
-section.agenda.checks.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; }
-section.agenda.checks.progress-1 ol > li:nth-child(1)::before,
-section.agenda.checks.progress-2 ol > li:nth-child(2)::before,
-section.agenda.checks.progress-3 ol > li:nth-child(3)::before,
-section.agenda.checks.progress-4 ol > li:nth-child(4)::before,
-section.agenda.checks.progress-5 ol > li:nth-child(5)::before,
-section.agenda.checks.progress-6 ol > li:nth-child(6)::before {
+section.agenda.checks.progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
+section.agenda.checks.progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
+section.agenda.checks.progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
+section.agenda.checks.progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
+section.agenda.checks.progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
+section.agenda.checks.progress-6 ol:where(.cell-stage > *) > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; }
+section.agenda.checks.progress-1 ol:where(.cell-stage > *) > li:nth-child(1)::before,
+section.agenda.checks.progress-2 ol:where(.cell-stage > *) > li:nth-child(2)::before,
+section.agenda.checks.progress-3 ol:where(.cell-stage > *) > li:nth-child(3)::before,
+section.agenda.checks.progress-4 ol:where(.cell-stage > *) > li:nth-child(4)::before,
+section.agenda.checks.progress-5 ol:where(.cell-stage > *) > li:nth-child(5)::before,
+section.agenda.checks.progress-6 ol:where(.cell-stage > *) > li:nth-child(6)::before {
   background: var(--accent); border-color: var(--accent);
 }
-section.agenda.checks.progress-1 ol > li:nth-child(1)::after,
-section.agenda.checks.progress-2 ol > li:nth-child(2)::after,
-section.agenda.checks.progress-3 ol > li:nth-child(3)::after,
-section.agenda.checks.progress-4 ol > li:nth-child(4)::after,
-section.agenda.checks.progress-5 ol > li:nth-child(5)::after,
-section.agenda.checks.progress-6 ol > li:nth-child(6)::after {
+section.agenda.checks.progress-1 ol:where(.cell-stage > *) > li:nth-child(1)::after,
+section.agenda.checks.progress-2 ol:where(.cell-stage > *) > li:nth-child(2)::after,
+section.agenda.checks.progress-3 ol:where(.cell-stage > *) > li:nth-child(3)::after,
+section.agenda.checks.progress-4 ol:where(.cell-stage > *) > li:nth-child(4)::after,
+section.agenda.checks.progress-5 ol:where(.cell-stage > *) > li:nth-child(5)::after,
+section.agenda.checks.progress-6 ol:where(.cell-stage > *) > li:nth-child(6)::after {
   content: ""; position: absolute; left: 0; width: 1.5em; height: 1.5em; top: 50%; transform: translateY(-50%);
   background-color: var(--on-accent);
   -webkit-mask: var(--ag-arrow) no-repeat center / contain; mask: var(--ag-arrow) no-repeat center / contain;
 }
 
 /* circles + checks: the same right inset the ledger row carries, so a page reference ends at the same edge. */
-section.agenda.circles ol > li,
-section.agenda.checks ol > li { padding-inline-end: var(--sp-xs); }
+section.agenda.circles ol:where(.cell-stage > *) > li,
+section.agenda.checks ol:where(.cell-stage > *) > li { padding-inline-end: var(--sp-xs); }
 
 /* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────
    One structural element per page makes the row page-tall, and the shared lone-member

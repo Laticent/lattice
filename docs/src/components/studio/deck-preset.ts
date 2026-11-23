@@ -21,6 +21,7 @@
 
 import frontMatterKey from '../../../../lib/core/front-matter-key.js';
 import { frontMatterKeySpan, getFrontMatterName, writeFrontMatterLine } from '../../lib/front-matter';
+import { isSpectrumKey, mergeSpectrum, type SpectrumAxis, type SpectrumKey, spectrumRenders, writeSpectrumWord } from './spectrum-keys';
 
 type PresetTable = Record<string, { label: string; desc: string; values: Record<string, string> }>;
 const ENGINE = frontMatterKey as unknown as {
@@ -30,9 +31,26 @@ const ENGINE = frontMatterKey as unknown as {
 	PRESET_DEFAULTS: Record<string, string>;
 	presetEffective: (name: string, key: string) => string | null;
 	isKnownPreset: (value: unknown) => boolean;
+	frontMatterScalar: (raw: string) => string;
+	presetValue: (name: string, key: string) => string | null;
 };
 
 export const PRESET_KEYS: readonly string[] = ENGINE.PRESET_KEYS;
+
+/**
+ * The preset keys that are the AUTHOR'S to keep: a preset RECOMMENDS a palette and a color mode
+ * (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1), but a deck that names its own has made a
+ * choice the look picker must not undo. So these never count as drift from the preset, Reset never
+ * clears them, and a picker tile keeps them — the tile shows the preset in the deck's own palette.
+ */
+export const AUTHOR_KEYS: readonly string[] = ['theme', 'color-mode'];
+
+/** Keys the engine reads at COLUMN 0 only (`topLevelRegisterValue`): an indented line is someone else's key. */
+const TOP_LEVEL_KEYS = new Set(['theme', 'color-mode', 'backdrop']);
+/** Keys whose value is more than one word (`marks: etch vivid`, `backdrop: 40 clear`): read whole, not as a bare name. */
+const MULTI_WORD_KEYS = new Set(['marks', 'backdrop', 'spectrum', 'card-spectrum', 'trim-spectrum']);
+/** Keys read case-sensitively: a saved palette is matched by its name as written. */
+const CASE_KEPT_KEYS = new Set(['theme']);
 export const PRESET_NAMES: readonly string[] = ENGINE.PRESET_NAMES;
 /** The preset a deck with no `preset:` key is on — the house default, named. */
 export const DEFAULT_PRESET = 'classic';
@@ -56,6 +74,62 @@ export function presetOf(source: string): string {
 	return ENGINE.isKnownPreset(raw) ? raw : DEFAULT_PRESET;
 }
 
+/**
+ * What the deck's preset RECOMMENDS for an author key (`theme`, `color-mode`) that the deck leaves to it,
+ * or null: the deck writes its own, the preset recommends nothing, or (color mode) the deck pins a scheme in
+ * `class:` or with a `-dark` theme, which a recommendation never overrides (lib/core/resolve-color-mode.js
+ * `deckColorModeValue`). A control's Auto choice FOLLOWS the preset (the coordinator's ruling on P0), so its
+ * label names this value: `Auto — preset: Brina`, never a bare Auto that hides what renders.
+ */
+export function presetRecommendation(source: string, key: string): string | null {
+	if (ownValue(source, key) !== undefined) return null;
+	if (key === 'color-mode') {
+		const span = frontMatterKeySpan(source, 'class');
+		const classLine = span && !span.indent ? source.slice(span.start, span.end) : '';
+		const tokens = ENGINE.frontMatterScalar(classLine.slice(classLine.indexOf(':') + 1)).split(/\s+/);
+		if (classLine && tokens.some((t) => COLOR_AXIS.has(t))) return null;
+		if (/-dark$/.test(ownValue(source, 'theme') ?? '')) return null;
+	}
+	const span = frontMatterKeySpan(source, 'preset');
+	if (!span || span.indent) return null;
+	const name = (getFrontMatterName(source, 'preset') ?? '').toLowerCase();
+	return name ? ENGINE.presetValue(name, key) : null;
+}
+
+/** The text an Auto head names for `key`: `<label> (preset)` — the value first, so a narrow control that
+ *  truncates keeps it — while the preset's recommendation applies, else
+ *  `fallback` (what Auto resolves to without one). `labelOf` turns a value into its display label; `isKnown` says
+ *  whether this host can render the value (a palette it has). */
+export function presetAutoLabel(
+	source: string,
+	key: string,
+	fallback: string,
+	labelOf: (value: string) => string = (v) => v,
+	isKnown: (value: string) => boolean = () => true,
+): string {
+	const rec = presetRecommendation(source, key);
+	// A palette this host cannot load falls back to the site's in the preview (deck-theme.ts `isKnownTheme`), so
+	// the label must not name it either.
+	return rec && isKnown(rec) ? `${labelOf(rec)} (preset)` : fallback;
+}
+
+/**
+ * A TOP-LEVEL key's value as the ENGINE reads it (lib/core/front-matter-key.js `topLevelFrontMatterValue` +
+ * `frontMatterScalar`): quotes and a trailing comment cut, a comment-only value '', an indented line ignored.
+ * The deck panel's Theme, Color mode and class reads go through this, so `theme: # todo` or
+ * `class: lead # dark later` shows what renders rather than the comment.
+ */
+export function deckScalar(source: string, key: string): string {
+	const span = frontMatterKeySpan(source, key);
+	if (!span || span.indent) return '';
+	const line = source.slice(span.start, span.end);
+	const raw = line.slice(line.indexOf(':') + 1).trim();
+	return raw.startsWith('#') ? '' : ENGINE.frontMatterScalar(raw).trim();
+}
+
+/** The engine's color-axis class tokens (lib/core/color-mode.js `COLOR_MODE_TOKENS`). */
+const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
+
 /** What `key` resolves to under the preset alone, before any key the deck wrote. */
 export function presetBaseline(source: string, key: string): string {
 	return ENGINE.presetEffective(presetOf(source), key) ?? ENGINE.PRESET_DEFAULTS[key] ?? '';
@@ -73,16 +147,39 @@ export function presetBaseline(source: string, key: string): string {
  */
 function ownValue(source: string, key: string): string | undefined {
 	const span = frontMatterKeySpan(source, key);
+	if (!span || (span.indent && TOP_LEVEL_KEYS.has(key))) return undefined;
+	const line = source.slice(span.start, span.end);
+	const raw = line.slice(line.indexOf(':') + 1).trim();
+	// Empty as the ENGINE reads it: no value, a comment only, or a quoted empty string (`theme: ""`), which
+	// `frontMatterScalar` also reads as '' — so the preset applies, in the render and here alike.
+	if (raw === '' || raw.startsWith('#') || ENGINE.frontMatterScalar(raw).trim() === '') return undefined;
+	// A multi-word value through the engine's own scalar rule (quotes, a trailing comment), its words
+	// single-spaced: a bare-name read drops `etch vivid` to '' and the row would show the default.
+	if (MULTI_WORD_KEYS.has(key)) return ENGINE.frontMatterScalar(raw).trim().split(/\s+/).join(' ').toLowerCase();
+	const name = getFrontMatterName(source, key) ?? '';
+	return CASE_KEPT_KEYS.has(key) ? name : name.toLowerCase();
+}
+
+/** The old `chart-finish:` key's value, read like `marks:`, or undefined. */
+function legacyMarks(source: string): string | undefined {
+	const span = frontMatterKeySpan(source, 'chart-finish');
 	if (!span) return undefined;
 	const line = source.slice(span.start, span.end);
 	const raw = line.slice(line.indexOf(':') + 1).trim();
-	if (raw === '' || raw.startsWith('#')) return undefined;
-	return (getFrontMatterName(source, key) ?? '').toLowerCase();
+	// Empty as the ENGINE reads it: no value, a comment only, or a quoted empty string (`theme: ""`), which
+	// `frontMatterScalar` also reads as '' — so the preset applies, in the render and here alike.
+	if (raw === '' || raw.startsWith('#') || ENGINE.frontMatterScalar(raw).trim() === '') return undefined;
+	return ENGINE.frontMatterScalar(raw).trim().split(/\s+/).join(' ').toLowerCase();
 }
 
 /** What a deck-panel row shows for `key`: the deck's own value, else the preset's. */
 export function registerValue(source: string, key: string): string {
-	const own = ownValue(source, key);
+	// The legacy `chart-finish:` still speaks for `marks:` when `marks:` is absent, and beats the preset
+	// (lib/core/front-matter-key.js PRESET_KEY_ALIASES; lib/core/resolve-marks.js `marksFromFrontMatter`).
+	const own = key === 'marks' ? (ownValue(source, 'marks') ?? legacyMarks(source)) : ownValue(source, key);
+	// A spectrum key merges PER AXIS: the deck's own word on an axis wins, and an axis it leaves empty takes
+	// the preset's (lib/core/resolve-spectrum.js `mergedValue`).
+	if (isSpectrumKey(key)) return mergeSpectrum(key, own, ENGINE.presetValue(presetOf(source), key)) || ENGINE.PRESET_DEFAULTS[key] || '';
 	if (own === undefined) return presetBaseline(source, key);
 	return own || ENGINE.PRESET_DEFAULTS[key] || '';
 }
@@ -92,15 +189,27 @@ export function writeRegister(source: string, key: string, value: string): strin
 	return writeFrontMatterLine(source, key, value === presetBaseline(source, key) ? null : value);
 }
 
+/** Set one axis of a spectrum key (null clears it), keeping the deck's other words and leaving out any word the
+ *  preset or the default already gives; the key goes once nothing is left. */
+export function writeSpectrumAxis(source: string, key: SpectrumKey, axis: SpectrumAxis, word: string | null): string {
+	const value = writeSpectrumWord(key, ownValue(source, key), ENGINE.presetValue(presetOf(source), key), axis, word);
+	return writeFrontMatterLine(source, key, value || null);
+}
+
 /** The preset keys whose rendered value differs from what the preset alone would give. A key
  *  restated at the preset's own value is not a change, so it does not count. */
 export function presetChanges(source: string): string[] {
-	return PRESET_KEYS.filter((key) => ownValue(source, key) !== undefined && registerValue(source, key) !== presetBaseline(source, key));
+	// A spectrum key compares what renders, axis by axis: `spectrum: top` restates a default and is no change.
+	const same = (key: string) => (isSpectrumKey(key)
+		? spectrumRenders(key, registerValue(source, key)) === spectrumRenders(key, presetBaseline(source, key))
+		: registerValue(source, key) === presetBaseline(source, key));
+	return PRESET_KEYS.filter((key) => !AUTHOR_KEYS.includes(key) && ownValue(source, key) !== undefined && !same(key));
 }
 
-/** Remove every preset key the deck writes, so the preset renders exactly as named. */
+/** Remove every preset key the deck writes, so the preset renders exactly as named — except the
+ *  author's own palette and color mode (`AUTHOR_KEYS`), which a Reset never strips. */
 export function clearPresetOverrides(source: string): string {
-	return PRESET_KEYS.reduce((s, key) => writeFrontMatterLine(s, key, null), source);
+	return PRESET_KEYS.filter((key) => !AUTHOR_KEYS.includes(key)).reduce((s, key) => writeFrontMatterLine(s, key, null), source);
 }
 
 /**
@@ -142,6 +251,8 @@ export const PRESET_SAMPLE = `
  * The sample deck for preset `name`'s tile: the deck's OWN front matter — so the tile renders in
  * the deck's theme and color mode — with `preset:` set to `name` and every preset-family key the
  * author wrote removed, so each tile shows the preset rather than the author's overrides of it.
+ * The author's `theme:` and `color-mode:` stay (`AUTHOR_KEYS`, through `clearPresetOverrides`): they
+ * beat a preset's recommendation on the real deck too, so the tile shows what a pick would render.
  * `size:` is dropped too: every tile box is 16:9 and the frame scales by width, so a portrait or
  * square deck would show only the top of the sample, cutting off the cards it was chosen for.
  * `fm` is the deck's front-matter block (`---…---`), or '' for a deck with none.

@@ -138,6 +138,8 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+const { readRecord, recordParts } = require('../lib/core/meta-door.mjs');
 const {
   SIZE_ALIAS, FAMILIES, BUILDERS, words, cap, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
@@ -432,7 +434,8 @@ if (!(MAX > 1)) die('--max must be at least 2 — a sweep of one step measures n
 function headingSweep() {
   const skeleton = manifest.skeleton || manifest.sample;
   if (!skeleton) die(`'${COMP}' has no skeleton or sample in its manifest to sweep.`);
-  const lines = skeleton.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l));
+  // The class comes off (the sweep sets its own); a record keeps its other fields (`@meta{layout=topic, track=…}`).
+  const lines = skeleton.split('\n').map(withoutClass).filter((l) => l !== null);
   const at = lines.findIndex((l) => /^#{1,6}\s+\S/.test(l));
   if (at < 0) {
     die(`'${COMP}'s skeleton has no heading line, so there is nothing to grow on the heading `
@@ -477,13 +480,31 @@ function headingSweep() {
  * the same way without an edit here.
  */
 const DIRECTIVE = /^\s*<!--\s*_(?!class\b)[\w-]+\s*:.*-->\s*$/;
+
+/** A line with the slide's class taken off: a class comment goes (null), a record keeps every field that is not a class
+ *  word, and any other line is itself. A field is a class word when the door's own reader turns it into `class` and
+ *  nothing else (`layout`, `variant`, `class`, a register such as `finish=ledger`), so registers count without a list. */
+function withoutClass(line) {
+  if (!classEntries(line).length) return line;
+  const t = line.trim();
+  const parts = t.startsWith('<!--') && t.endsWith('-->') ? recordParts(t.slice(4, -3).trim()) : null;
+  if (!parts) return null;
+  const kept = parts.items.filter((it) => {
+    const d = readRecord(`{${it.text}}`)?.d || {};
+    return !(Object.keys(d).length === 1 && d.class !== undefined);
+  });
+  return kept.length ? `<!-- ${parts.lead}{${kept.map((it) => it.text).join(', ')}} -->` : null;
+}
+
+/** A sample line that sets a slide setting other than the class: a `_key:` comment, or a record with such a field. */
+const carriesSetting = (line) => DIRECTIVE.test(line) || (/^\s*<!--\s*(?:@meta)?\{/.test(line) && withoutClass(line) !== null);
 function sampleDirectives(skeletonLines) {
   const sample = (manifest.sample || '').split('\n');
   const h = sample.find((l) => /^#{1,6}\s+\S/.test(l));
   const sampleHeading = h ? h.replace(/^#+\s+/, '').trim() : null;
   if (!manifest.sample || !manifest.skeleton) return { carried: [], sampleHeading };
-  const have = new Set(skeletonLines.filter((l) => DIRECTIVE.test(l)).map((l) => l.trim()));
-  const carried = sample.filter((l) => DIRECTIVE.test(l) && !have.has(l.trim())).map((l) => l.trim());
+  const have = new Set(skeletonLines.filter(carriesSetting).map((l) => withoutClass(l).trim()));
+  const carried = sample.filter(carriesSetting).map((l) => withoutClass(l).trim()).filter((l) => !have.has(l));
   return { carried, sampleHeading };
 }
 
@@ -792,6 +813,15 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       return;
     }
     if (el.hasAttribute('data-lattice-berth')) return;
+    // A FINISH IS THE PAGE, NOT THE INK. A deck `finish:` injects `<div class="backdrop"
+    // aria-hidden="true">` (lib/core/backdrop.js) as a full-bleed child of the section: the
+    // slide's atmosphere, painted behind everything. It paints its own surface, so the walk
+    // took it for content — and a 1280x720 box of "ink" swallows every step. Under any preset
+    // with a finish (`editorial`'s ledger, `brand`'s strata) the ink sat at 0..720 on every
+    // step, CROWDING fired at -88px on step 1, and the vacuity warning ended the run with
+    // every verdict meaningless. Only the section's own backdrop is skipped, never a
+    // component's element that merely shares the class name.
+    if (el.classList.contains('backdrop') && el.parentElement && el.parentElement.tagName === 'SECTION') return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || num(cs.opacity) === 0) return;
 

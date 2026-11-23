@@ -43,7 +43,7 @@ export function WalkBar(props: {
 	return (
 		<nav id="pg-walk" className="pg-walk" aria-label="Component walkthrough" data-map={mapSlot?.on ? '' : undefined}>
 			<div className="pg-walk-row">
-				<button type="button" className="pg-walk-step" onClick={onPrev} disabled={prevDisabled} aria-label="Previous slide">
+				<button type="button" className="pg-walk-step" onClick={onPrev} disabled={prevDisabled} aria-label="Prev, previous slide">
 					‹ Prev
 				</button>
 				{/* Nothing rather than "1 / 0" while the plan is still in flight — a position the

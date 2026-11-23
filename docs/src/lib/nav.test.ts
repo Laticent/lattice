@@ -107,7 +107,11 @@ describe('nav model', () => {
 		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 		const workspaces: string[] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).workspaces;
 		// A `private` package is not published, so it has no page yet (@laticent/markup, until its publish is approved).
-		const published = workspaces.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8'))).filter((p) => !p.private).map((p) => p.name);
+		// The engine is a workspace too (packages/lattice, its publish folder), but it is the product, not a library page.
+		const published = workspaces
+			.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')))
+			.filter((p) => !p.private && p.name !== '@laticent/lattice')
+			.map((p) => p.name);
 		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
 		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
 		expect([...listed].sort()).toEqual(published.sort());

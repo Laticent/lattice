@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { CHROME, isPhone, openInspector, openSection, waitForStudioPaint } from './studio-fixture';
+import { CHROME, isPhone, openInspector, openSection, persistedSource, waitForStudioPaint } from './studio-fixture';
 
 // COMPOSE FIRST (engineering/decisions/2026-11-10-compose-first.md). The rest of the suite stores Source
 // before it opens the Studio (`gotoStudio` in studio-fixture.ts), because its editor helpers type Markdown.
@@ -78,6 +78,85 @@ test('@crosswidth @gecko @webkit-tablet Fix all works in Compose', async ({ page
 	await expect(fix).toBeDisabled({ timeout: 20_000 });
 	await page.getByRole('button', { name: SOURCE, exact: true }).click();
 	await expect(page.getByLabel('Deck source')).not.toContainText('**Speed.**');
+});
+
+// Compose runs Fix all's passes between keystrokes too (deck-lint.ts `fixAllCompose`), with the Source editor's two
+// guards: a result computed from a text that has since changed is not written, and says so; a second press while a run
+// is going starts nothing. 501 inline-title cards on one slide need 500 passes, so the run is long enough to act inside.
+const LONG = [
+	'<!-- _class: cards-grid -->', '', '# Bets', '',
+	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
+	'',
+].join('\n');
+const STALE = 'The deck changed while Fix all was running, so nothing was changed. Press Fix all again.';
+
+/** The deck the Studio last saved. */
+const storedCompose = (page: Page) => persistedSource(page).then((v) => (v.startsWith('"') ? (JSON.parse(v) as string) : v));
+
+test('@crosswidth @gecko @webkit-tablet typing in Compose while Fix all runs keeps the typing, writes no fixes, and says so', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has no editor toolbar; Fix all lives in it');
+	test.setTimeout(240_000);
+	await openFresh(page, { 'lattice-studio-src-welcome': JSON.stringify(LONG) });
+	const fix = page.getByRole('button', { name: 'Fix all issues', exact: true });
+	await expect(fix).toBeEnabled({ timeout: 60_000 });
+	await fix.click();
+	// Type only once the run has read the deck: before that, the typing is part of what it fixes (the driver's chunk
+	// loads first; 50 ms of margin in Chromium, measured). Editor.tsx, deck-lint.ts and editor.js mark the run.
+	await expect(page.locator('html[data-fix-all-running]')).toBeAttached({ timeout: 30_000 });
+	// The run is going: type at the end of the last card.
+	const last = page.locator('#studio-pane-editor .ProseMirror li', { hasText: 'body 500' }).last();
+	await last.click();
+	await last.evaluate((node) => {
+		const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+		let end: Text | null = null;
+		for (let t = walker.nextNode(); t; t = walker.nextNode()) if ((t as Text).data.length) end = t as Text;
+		if (!end) return;
+		const r = document.createRange();
+		r.setStart(end, end.data.length);
+		r.collapse(true);
+		getSelection()?.removeAllRanges();
+		getSelection()?.addRange(r);
+	});
+	await page.keyboard.type(' TYPED');
+	await expect(page.getByText(STALE)).toBeVisible({ timeout: 60_000 });
+	await expect.poll(() => storedCompose(page)).toContain('TYPED');
+	const src = await storedCompose(page);
+	expect(src).toContain('**Bet 0.**');
+	expect(src).toContain('**Bet 499.**');
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(0);
+});
+
+test('@crosswidth @gecko @webkit-tablet a second Fix all press in Compose while one runs starts nothing', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has no editor toolbar; Fix all lives in it');
+	test.setTimeout(240_000);
+	await openFresh(page, { 'lattice-studio-src-welcome': JSON.stringify(LONG) });
+	const fix = page.getByRole('button', { name: 'Fix all issues', exact: true });
+	await expect(fix).toBeEnabled({ timeout: 60_000 });
+	await fix.click();
+	await fix.click();
+	// The run's own words, read rather than hard-coded: the count is whatever lint-core finds on LONG, and it grows as
+	// rules land (500 when this test was written; 502 fixed and 1 refused once #3429's legacy-directive-comment began
+	// flagging LONG's `<!-- _class: -->` line). What this test owns is that ONE run speaks, not how many fixes it makes.
+	const notice = page.getByText(/^Fixed \d+ issues/);
+	await expect(notice).toBeVisible({ timeout: 60_000 });
+	const words = (await notice.textContent()) ?? '';
+	await expect.poll(() => storedCompose(page)).not.toContain('**Bet 0.**');
+	// An absence needs the work it would come from to have had its turn: a second run started with the first shares the
+	// page with it pass by pass and ends a few passes after it, inside 150 painted frames (a whole run paints at least
+	// 128). Counted in frames, not milliseconds (HARD RULE #32).
+	await page.evaluate(
+		() =>
+			new Promise<void>((done) => {
+				let left = 150;
+				const tick = () => (--left <= 0 ? done() : requestAnimationFrame(tick));
+				requestAnimationFrame(tick);
+			}),
+	);
+	// One run, one notice: the status pill is rewritten in place (lib/notify.ts), so a second run would replace the
+	// first run's words with its own.
+	await expect(notice).toHaveCount(1);
+	await expect(notice).toHaveText(words);
+	await expect(page.getByText(STALE)).toHaveCount(0);
 });
 
 // The Compose pass skips text it has already linted. Whatever set the count meanwhile (the Markdown editor's pass and its

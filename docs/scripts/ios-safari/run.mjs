@@ -7,7 +7,8 @@
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
- * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), or chart detail cards in an
+ * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
+ * narration (PROBE=present-narration, present-narration.mjs and present-narration-probe.js), or chart detail cards in an
  * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
@@ -25,9 +26,10 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
-import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
+import { inEditorOf, LONG_PRESS_MS, pressMovedOut, pressSelected, pressSelectedWord, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -159,7 +161,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -232,20 +234,131 @@ async function runStudioProbe(id) {
 	const empty = compose.ok ? await shotIfFailed('empty-deck', await emptyDeckTap(id)) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	// The icon grid's phone path (icon-grid-probe.js, #2578): the iPhone only, where Menu → Search / commands is the way in.
 	const icons = LABEL === 'iPhone' ? await shotIfFailed('icon-grid', await iconGridProbe(id)) : { ok: true, steps: [] };
+	// A finger on the deck band leaves a Library just launched from the menu, on a fresh page each time (ui/sheet.tsx).
+	const leave = await deckTapLeavesLibrary(id);
+	if (!leave.ok) await shotIfFailed('deck-tap', leave);
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
 	};
+}
+
+// Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
+
+/**
+ * A finger on the deck band leaves a panel the ⋯ menu launched, on real Mobile Safari (e2e/back-gesture.spec.ts:172; the
+ * cause and the fix are engineering/gotchas/studio-playground.md "A tap on a sheet's scrim does nothing in the sheet's
+ * first moment"). On a fresh page each time so the Library loads cold: the Menu, then its Library row (opened with a
+ * page-side click, a precondition), then a real WebDriver touch on the deck band above the sheet as soon as the Library
+ * sheet is on screen, which is when its loading sheet swaps for the real one. A pass is the back stack at 0 and no sheet open. A phone layout only: on an iPad the
+ * Library docks and has no deck band to tap.
+ */
+async function deckTapLeavesLibrary(id) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	const touch = async (x, y) => {
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+	};
+	// Polls a page-side expression (a script body that returns a value) until it is truthy.
+	const until = async (script, ms, what) => {
+		const t0 = Date.now();
+		for (;;) {
+			const v = await run(script);
+			if (v) return v;
+			if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+			await new Promise((r) => setTimeout(r, 50));
+		}
+	};
+	const live = `(el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0`;
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		const width = await until('return innerWidth', 10000, 'the page');
+		if (width >= 500) {
+			step('a phone layout to tap on', true, `not applicable at ${width}px: the Library docks here`);
+			return { ok: true, steps };
+		}
+		// THE SETUP IS NOT THE STIMULUS. The Menu and its Library row are opened with a page-side click(), not a touch: they are
+		// preconditions, and a simulator that stalls a touch on a button (held 1683 ms, no click, run 45082917575) failed the
+		// repetition before the step under test began. Only the deck-band tap is a real WebDriver touch.
+		// THE TAP TIMING IS THE TEST. The touch goes out straight after the Library sheet is seen, with no page-script call
+		// between (the tap log is installed before the Menu opens; `touch()`'s own DELETE /actions is the only request ahead of
+		// it, as in #3278's probe). One more page-script call there let Radix's setTimeout(0) pass, and then main's sheet.tsx
+		// closed 10 of 10 (run 45082908088) where it leaves taps open with the tap in time.
+		// A LONG PRESS IS NOT A TAP (tap-guard.mjs, the flaky-test coordinator's approval of 2026-11-16, applied here): when the
+		// deck-band touch fails and the page saw it held LONG_PRESS_MS or more AND answered as a long press, the stimulus was not
+		// a tap, so the repetition is done again ONCE from a fresh page, logged RE-DELIVERED, and its second outcome counts. A
+		// re-delivered tap a second later would land after the gap and prove nothing either way. Anything else fails at once.
+		const library = `return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`;
+		const closed = `return (document.documentElement.dataset.overlayBack ?? '') + ' open=' + document.querySelectorAll('[role=dialog][data-state=open]').length`;
+		const rowFind = `() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`;
+		const once = async (i) => {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			await until(`return !!document.querySelector('[aria-label="Live deck preview"] iframe.live')`, 30000, 'the live preview');
+			await run(tapLogInstall());
+			const menu = await until(`const b = [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live}); if (!b) return false; b.click(); return true;`, 15000, 'the Menu button');
+			if (!menu) throw new Error(`rep ${i}: no Menu button`);
+			await until(`const b = (${rowFind})(); if (!b) return false; b.click(); return true;`, 15000, 'the Library row');
+			await until(library, 15000, 'the Library sheet');
+			// The deck band above the sheet, where a thumb reaches for "get out".
+			await touch(Math.round(width / 2), 25);
+			let last = '';
+			const t0 = Date.now();
+			while (Date.now() - t0 < 5000) {
+				last = await run(closed);
+				if (last === '0/0/0 open=0') return { ok: true };
+				await new Promise((r) => setTimeout(r, 100));
+			}
+			const log = await run('return window.__tapLog');
+			return { ok: false, last, log, hold: tapHold(log), selected: pressSelected(log), lag: tapLag(log) };
+		};
+		const REPS = 10;
+		let passed = 0;
+		for (let i = 1; i <= REPS; i++) {
+			const first = await once(i);
+			let r = first;
+			let note = '';
+			if (!first.ok && tapVerdict({ caret: false, hold: first.hold, selected: first.selected, delivery: 1, lag: first.lag }) === 'redeliver') {
+				note = ` (the first touch was a long press, so the repetition was done again: held ${first.hold} ms, ${redeliverWhy(first.log)})`;
+				console.log(`${LABEL}: deck tap ${i} RE-DELIVERED${note}`);
+				r = await once(i);
+			}
+			const verdict = r.ok ? 'pass' : tapVerdict({ caret: false, hold: r.hold, selected: r.selected, delivery: r === first ? 1 : 2, lag: r.lag });
+			const why = r.ok ? '' : verdict === 'fail-long-press' ? `; a long press both times (holds ${first.hold}, ${r.hold} ms)` : verdict === 'fail-sim-stall' ? `; ${simStall(r.log)}` : '';
+			if (r.ok) passed++;
+			step(`tap ${i}: the deck band closes the Library`, r.ok, `${note}${r.ok ? '' : `still ${r.last} after 5 s${why}; ${summarizeTapLog(r.log)}`}`);
+		}
+		const ok = passed === REPS;
+		return { ok, steps, ...(ok ? {} : { error: `${REPS - passed} of ${REPS} deck taps left the Library open` }) };
+	} catch (e) {
+		// The page as it stood when a step gave up, so a setup miss can be told from the fix failing.
+		let state = '';
+		try {
+			state = await run(
+				`return JSON.stringify({ url: location.href, history: history.length, back: document.documentElement.dataset.overlayBack ?? null, dialogs: [...document.querySelectorAll('[role=dialog]')].map((d) => (d.dataset.state ?? '?') + ':' + (d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? '').trim()), menu: [...document.querySelectorAll('button[aria-label="Menu"]')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), b.closest('[inert]') ? 'inert' : 'live']; }), active: document.activeElement?.tagName + '.' + (document.activeElement?.getAttribute('aria-label') ?? '') })`,
+			);
+			state += `; ${summarizeTapLog(await run('return window.__tapLog'))}`;
+		} catch (d) {
+			state = `state unreadable: ${d.message}`;
+		}
+		step('deck tap', false, `${e.message}; state ${state}`);
+		return { ok: false, steps, error: `${e.message}; state ${state}` };
+	}
 }
 
 // Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
 function tapLogInstall() {
 	return `
 	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const inEditorOf = ${inEditorOf.toString()};
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
 		window.__tapLogOn = true;
@@ -261,12 +374,22 @@ function tapLogInstall() {
 				L.events.push({ type, t: Math.round(at - L.t0), lag: Math.round(now - at), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
 			}, { capture: true, passive: true });
 		}
+		// Focus moves too: a selection that leaves the editor names whoever took the focus (the undo doorbell, #3241's legend).
+		for (const type of ['focusin', 'focusout']) {
+			window.addEventListener(type, (e) => {
+				const L = window.__tapLog;
+				const el = e.target && e.target.nodeType === 1 ? e.target : null;
+				const doorbell = !!(el && el.closest('[data-undo-doorbell]'));
+				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: inEditorOf(el), doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
+			}, { capture: true, passive: true });
+		}
 		document.addEventListener('selectionchange', () => {
 			const L = window.__tapLog;
 			if (!L) return;
 			const sel = getSelection();
 			const node = sel && sel.anchorNode;
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
+			const host = node && (node.nodeType === 3 ? node.parentElement : node);
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: inEditorOf(host), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
 		}, { capture: true, passive: true });
 	}`;
 }
@@ -281,7 +404,7 @@ function summarizeTapLog(log) {
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
+	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}`;
 }
 
 /**
@@ -336,17 +459,35 @@ async function probeTap(id, at) {
 		});
 		const hold = tapHold(seen.log);
 		const selected = pressSelected(seen.log);
-		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n });
+		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n, lag: tapLag(seen.log) });
 		tries.push({ n, tapMs, hold, seen, decision });
 		console.log(`${LABEL}: compose probe tap ${n} at ${at.x},${at.y} (${at.what}): gesture ${tapMs} ms; hold ${hold ?? 'none'} ms; ${decision}; page saw ${summarizeTapLog(seen.log)}`);
 		if (decision !== 'redeliver') break;
+		console.log(`${LABEL}: compose probe tap ${n} RE-DELIVERED: held ${hold} ms, ${redeliverWhy(seen.log)}`);
 	}
 	const last = tries.at(-1);
 	const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
-	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}`;
+	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}`;
 	if (last.decision === 'pass') return { ok: true, detail };
-	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}`;
+	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : last.decision === 'fail-sim-stall' ? simStall(last.seen.log) : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}${overBudget(last.hold)}`;
 	return { ok: false, detail: `${detail}; ${why}` };
+}
+
+/** Why a tap is delivered again (tap-guard.mjs `pressSelected`): where Safari put the selection, so the job log shows it. */
+function redeliverWhy(log) {
+	const ends = (log?.events || []).filter((e) => e.type === 'selectionchange' && (e.collapsed === false || e.inEditor === false));
+	const last = ends.at(-1);
+	return last ? `Safari acted on a long press: ${last.collapsed ? 'a caret' : `"${String(last.text).trim()}"`} in ${last.target}${last.inEditor === false ? ', outside every editor' : ''}` : 'Safari acted on a long press';
+}
+
+/** A failed tap the guard reads as a stall (tap-guard.mjs `fail-sim-stall`): the hold, the lag, the click. It names no culprit. */
+function simStall(log) {
+	return `a STALLED tap (still a failure): held ${tapHold(log)} ms with the page's touch listeners ${tapLag(log)} ms late, and ${tapClicked(log) ? 'a' : 'NO'} click after the lift; the simulator or a long task on the page held it up`;
+}
+
+/** Said beside a failed tap held past the tap budget, so the report names a long press instead of passing for a tap's result. */
+function overBudget(hold) {
+	return hold !== null && hold >= LONG_PRESS_MS ? `; held ${hold} ms, over the ${LONG_PRESS_MS} ms tap budget, so Safari may have read a long press` : '';
 }
 
 /**
@@ -356,7 +497,11 @@ async function probeTap(id, at) {
  */
 async function composeProbePage(id) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: "try { localStorage.removeItem('lattice-studio-settings'); } catch {}", args: [] });
+	// A FIRST VISIT, as the probe says: no settings AND no stored deck. It used to clear only the settings and open whatever deck
+	// the probe before it had saved, so a panes probe that timed out left it studio-probe.js's one-slide deck and a different
+	// probe (iPad run 44850293408, F7 in flaky-tests.md). probe.selftest.mjs gives each probe a fresh context, so it already
+	// ran this probe on the first-visit deck.
+	await wd('POST', `/session/${id}/execute/sync`, { script: "try { for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-')) localStorage.removeItem(k); } catch {}", args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'compose-probe.js'), 'utf8'));
 	await wd('POST', `/session/${id}/execute/sync`, {
@@ -510,7 +655,7 @@ async function composeTouchTap(id) {
 			const hold = tapHold(seen.log);
 			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
-			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? ', with a long-press selection' : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
+			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
 			return { seen, tapMs, hold, selected, landed };
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
@@ -518,19 +663,22 @@ async function composeTouchTap(id) {
 		// multi-tap window (a second tap inside it is a double tap, which selects a word: a duration by its nature). A short tap
 		// that misses the caret fails at once.
 		const tries = [await deliver(1)];
-		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
+		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1, lag: tapLag(tries[0].seen.log) });
 		if (decision === 'redeliver') {
+			console.log(`${LABEL}: compose tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 			await new Promise((r) => setTimeout(r, 1000));
 			tries.push(await deliver(2));
-			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
+			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 		}
 		const { seen, tapMs } = tries.at(-1);
 		const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
 		const why =
 			decision === 'fail-long-press'
 				? `, but the simulator delivered a long press, not a tap, on both deliveries (holds ${holds}; iOS reads ${LONG_PRESS_MS} ms or more as a long press)`
-				: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`;
-		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}${decision === 'pass' ? '' : why}`);
+				: decision === 'fail-sim-stall'
+					? `; ${simStall(tries.at(-1).seen.log)}`
+					: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}${overBudget(tries.at(-1).hold)}`;
+		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}${decision === 'pass' ? '' : why}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
@@ -548,7 +696,12 @@ async function composeTouchTap(id) {
 				await new Promise((r) => setTimeout(r, 1000));
 				recovered = await deliver('control-2');
 			}
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
+			// when the word clause catches the press first, plus where the selection sat after the lift (the checker on #3368).
+			const flog = forced.seen.log;
+			const lifted = (flog?.events || []).filter((e) => e.type === 'selectionchange').at(-1);
+			const clauses = `word clause ${pressSelectedWord(flog) ? 'yes' : 'no'}, release-jump clause ${pressMovedOut(flog) ? 'yes' : 'no'}, last selection inEditor ${lifted ? String(lifted.inEditor) : 'none'}`;
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
@@ -625,15 +778,16 @@ async function emptyDeckTap(id) {
 				return { seen, hold, selected: pressSelected(seen.log) };
 			};
 			const tries = [await deliver(1)];
-			let decision = tapVerdict({ caret: tries[0].seen.focused && tries[0].seen.inLine && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
+			let decision = tapVerdict({ caret: tries[0].seen.focused && tries[0].seen.inLine && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1, lag: tapLag(tries[0].seen.log) });
 			if (decision === 'redeliver') {
+				console.log(`${LABEL}: empty deck tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 				await new Promise((r) => setTimeout(r, 1000));
 				tries.push(await deliver(2));
-				decision = tapVerdict({ caret: tries[1].seen.focused && tries[1].seen.inLine && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
+				decision = tapVerdict({ caret: tries[1].seen.focused && tries[1].seen.inLine && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 			}
 			const { seen } = tries.at(-1);
 			const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
-			step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}; hold ${holds}${decision === 'fail-long-press' ? ` (a long press on both deliveries; iOS reads ${LONG_PRESS_MS} ms or more as one)` : ''}`);
+			step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}; hold ${holds}${decision === 'fail-long-press' ? ` (a long press on both deliveries; iOS reads ${LONG_PRESS_MS} ms or more as one)` : decision === 'fail-sim-stall' ? `; ${simStall(seen.log)}` : ''}`);
 			step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
 			step('the start grid stays until something is typed', seen.shown);
 			step('the software keyboard (detail only)', true, seen.vv < prep.vv - 100 ? `up: viewport ${prep.vv} to ${seen.vv}` : `not shown: viewport ${prep.vv} to ${seen.vv}`);
@@ -819,6 +973,249 @@ async function runPresentMemoryProbe(id) {
 }
 
 /**
+ * The Present narration probe (PROBE=present-narration): the owner's iPhone reloaded the tab when Present played a 4K deck
+ * with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a deck of that shape;
+ * present-narration-probe.js imports it, installs a stand-in cloud voice that answers in the page (no key spent, HARD
+ * RULE #24): NARRATION_VOICE=openrouter-gemini (the default, the owner's: Gemini 3.1 Flash TTS through OpenRouter,
+ * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens
+ * Present on slide 1 with Guide on and presses Play: on the simulator only a script click reaches the page, so audio stays
+ * suspended and the probe walks the deck with Next (see the loop below). Two arms on one fresh Studio each: voice ON for
+ * slide NARRATION_TARGET_SLIDE (15, judged on that work; NARRATION_PLAY_S is only a ceiling). A voice OFF arm runs
+ * only when NARRATION_SILENT_S is set (reported, never judged).
+ * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
+ * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
+ * (HARD RULE #32). A simulator has no memory limit, so it shows the cost an iPhone weighs, not the reload itself.
+ */
+async function runPresentNarrationProbe(id) {
+	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.NARRATION_MEMORY_CAP_MB || 300);
+	const AUDIO_CAP_MB = Number(process.env.NARRATION_AUDIO_CAP_MB || 40);
+	// The voice arm walks to TARGET_SLIDE and is judged on that work (HARD RULE #32): the simulator's pace per Next moved
+	// from about 18 s to 27 s between runs (44024954648, 45044335860), and a fixed 6-minute arm then read as a failure. PLAY_S
+	// is only the ceiling a hung arm stops at.
+	const TARGET_SLIDE = Number(process.env.NARRATION_TARGET_SLIDE || 15);
+	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 600);
+	// The voice-off arm is reported and never judged, and it cost about 4 of the job's 30 minutes (run 45048900320 ended
+	// 19 s inside the limit). Opt in with NARRATION_SILENT_S for a comparison run.
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 0);
+	const SAMPLE_S = 30;
+	const STEP_S = Number(process.env.NARRATION_STEP_S || 10);
+	// The owner's voice by default: Gemini 3.1 Flash TTS through OpenRouter, where the reload happens; not with Kokoro.
+	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
+	const deck = await buildNarrationDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const source = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	const mac = UDID === 'mac';
+	const readMB = async () => (mac ? new Map() : simulatorWebContentMB());
+	const failIf = (r, what) => {
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const arm = async (voice, seconds, untilSlide = 0) => {
+		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			failIf(await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`), 'sending the deck');
+			const imported = failIf(await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`), 'importing the deck');
+			Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
+			failIf(await call(`latticeNarrationVoice(${JSON.stringify(VOICE)})`), 'installing the stand-in voice');
+			// A settle time, as runPresentMemoryProbe reads: memory has no "settled" event.
+			await sleep(8000);
+			const m0 = await readMB();
+			const played = failIf(await call(`latticeNarrationReady(${voice})`), 'opening Present');
+			out.total = played.total;
+			// A real touch on Play, as a presenter's: iOS unlocks audio only for one (the first run's scripted click left
+			// the voice arm on slide 1 for its whole eight minutes). composeTouchTap delivers its taps the same way.
+			// PRESS PLAY THE WAY A PERSON DOES. Play's handler resumes Present's AudioContext (Suono `unlock()`), and iOS only
+			// allows that inside a real user gesture: a scripted click() started Present with audio suspended, so narration
+			// never began (run 43993979079); a WebDriver touch action never reached Play's click handler at all (44000481706,
+			// 44007265415). A WebDriver ELEMENT click is a native click Safari counts as a gesture. The ladder is the one the
+			// focus-sync probe uses (element click, touch tap, mouse click), and the way that worked is logged.
+			const release = () => wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const pointer = (type, extra = []) => async () =>
+				wd('POST', `/session/${id}/actions`, {
+					actions: [{ type: 'pointer', id: type === 'touch' ? 'finger' : 'mouse', parameters: { pointerType: type }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, ...extra, { type: 'pointerUp', button: 0 }] }],
+				});
+			const ways = [
+				[
+					'element click',
+					async () => {
+						const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn latticeNarrationPlayButton();`, args: [] });
+						const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(el || {})[0];
+						if (!ref) throw new Error('no Play button to click');
+						await wd('POST', `/session/${id}/element/${ref}/click`, {});
+					},
+				],
+				['touch tap', pointer('touch', [{ type: 'pause', duration: 80 }])],
+				['mouse click', pointer('mouse', [{ type: 'pause', duration: 50 }])],
+				// Last: a scripted click, which run 43993979079 showed DOES start Present. iOS does not count it as a gesture,
+				// so audio stays suspended (each sample logs `audio suspended`); the probe then walks the deck with Next, and judges
+				// the narration fetched per slide, not what was played.
+				['script click', async () => failIf(await call('latticeNarrationScriptClick()'), 'the scripted click')],
+			];
+			let started = null;
+			const tried = [];
+			await call('latticeNarrationEvents()');
+			for (const [name, press] of ways) {
+				await release();
+				await call('latticeNarrationEvents()');
+				try {
+					await press();
+				} catch (e) {
+					tried.push(`${name} threw ${String(e.message || e).slice(0, 120)}`);
+					continue;
+				}
+				await release();
+				started = await call('latticeNarrationStarted(5000)');
+				// What the page saw of this press, and what the dock reads after it: a failure names its own cause.
+				const seen = await call('latticeNarrationEvents()');
+				const dock = await call('latticeNarrationDock()');
+				tried.push(`${name}: ${started?.error ? 'not playing' : 'playing'} (events ${JSON.stringify(seen)}, dock ${JSON.stringify(dock)})`);
+				if (!started?.error) {
+					out.pressedWith = name;
+					break;
+				}
+			}
+			console.log(`${LABEL}: narration ${out.arm}: pressing Play: ${tried.join('; ')}`);
+			if (!out.pressedWith) throw new Error(`Present never started: ${tried.join('; ')}`);
+			const t0 = Date.now();
+			let peak = 0;
+			// WALK THE DECK. On the iOS Simulator no WebDriver press reaches the page (run 44017516008 logged no events for an
+			// element click, a touch tap or a mouse click), so only a script click starts Present, and iOS keeps audio suspended
+			// after one: narration stays on its first sentence. The memory under test is the narration the page fetches and
+			// keeps, and that is fetched per slide on navigation whether or not audio runs. So the probe presses Next every
+			// STEP_S, as a presenter would, and reads the page and the footprint every SAMPLE_S.
+			let nextSample = SAMPLE_S;
+			while (Date.now() - t0 < seconds * 1000) {
+				await sleep(STEP_S * 1000);
+				await call('latticeNarrationNext()');
+				// The judged arm stops on WORK: once Present stands on the target slide, take a last sample and end the arm.
+				const reached = untilSlide > 0 && ((await call('latticeNarrationSample()'))?.slide ?? 0) >= untilSlide;
+				if (!reached && (Date.now() - t0) / 1000 < nextSample) continue;
+				nextSample += SAMPLE_S;
+				const s = await call('latticeNarrationSample()');
+				const g = growthMB(m0, await readMB());
+				peak = Math.max(peak, g.grew);
+				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), grewMB: g.grew, ...s });
+				out.baseMB = g.baseMB;
+				console.log(`${LABEL}: narration ${out.arm} +${out.samples.at(-1).t}s: slide ${s?.slide}, audio ${s?.audio}, ${s?.speech} spoken (${s?.pcm} as PCM), ${s?.liveMB} MB audio held of ${s?.decodedMB} MB decoded, WebKit +${g.grew} MB above ${g.baseMB} MB${s?.mark === played.mark ? '' : ', THE PAGE RELOADED'}`);
+				if (s?.mark !== played.mark || reached) break;
+			}
+			out.playedS = Math.round((Date.now() - t0) / 1000);
+			out.peakGrewMB = peak;
+			out.alive = out.samples.at(-1)?.mark === played.mark;
+		} catch (e) {
+			out.error = String(e.message || e).slice(0, 300);
+			console.log(`${LABEL}: narration ${out.arm}: ERROR ${out.error}`);
+		}
+		return out;
+	};
+	const arms = [await arm(true, PLAY_S, TARGET_SLIDE), ...(SILENT_S > 0 ? [await arm(false, SILENT_S)] : [])];
+	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac, targetSlide: TARGET_SLIDE });
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, voice: VOICE, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * The Present keep-alive probe (PROBE=present-keepalive, PR #3333): what keeps a playing deck playing on an iPhone, in
+ * real Mobile Safari. Present opens on the Studio's own deck and must hold a screen wake lock; Fullscreen, which iPhone
+ * Safari cannot grant, turns on the immersive layout and its chrome fades; a REAL WebDriver touch tap on the slide brings
+ * the chrome back; Play puts the captions on the slide with a moving highlight; Next while playing plays the next slide
+ * on its own with the lock still held; closing stops the narration. The verdict is present-keepalive-probe.js
+ * `latticeKeepaliveChecks`: states reached, never durations (HARD RULE #32).
+ */
+async function runPresentKeepaliveProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const call = async (expr) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${expr}: ${r.error}`);
+		return r;
+	};
+	const touchTap = (x, y) => wd('POST', `/session/${id}/actions`, { actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] }).then(() => wd('DELETE', `/session/${id}/actions`).catch(() => {}));
+	// WebDriver's ELEMENT click: a real user gesture to Safari (it grants activation, so the wake lock), with no finger hold
+	// for a slow simulator to stretch into a long press. Scripted touches did exactly that on three of four macOS runs
+	// (holds of 406 to 25318 ms). The element comes back from a sync script as a WebDriver reference, as focus-sync does.
+	const elementClick = async (expr) => {
+		const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn ${expr};`, args: [] });
+		const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? (el ? Object.values(el)[0] : null);
+		if (!ref) throw new Error(`no element for ${expr}`);
+		await wd('POST', `/session/${id}/element/${ref}/click`, {});
+	};
+	const r = {};
+	let error = '';
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		await call('latticeKeepaliveArmErrors()');
+		// Present opens from a REAL touch: WebKit grants the wake lock only inside a user gesture.
+		// A slow simulator can stretch a WebDriver tap into a long press, which iOS never turns into a click (tap-guard.mjs,
+		// followups.d/3223-p1). Read the hold the page saw; a long press is delivered again ONCE, the shape tap-guard uses.
+		await call('latticeKeepalivePresentAt()');
+		const holds = [];
+		let opened = false;
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().presentButton()');
+		// A slow simulator can take well past 8 s to open Present from a click (run 44774104460: Safari took 175 s to launch).
+		// Wait for the state with a wide bound, and never touch the button's spot once Present is up: the dialog covers it.
+		const clicked = await call('latticeKeepaliveOpened(30000)');
+		opened = clicked.open;
+		holds.push(opened ? 'an element click' : `an element click that opened nothing (the page saw: ${(clicked.log?.events || []).map((e) => e.type).join(' ') || 'no event'})`);
+		for (let attempt = 0; attempt < 2 && !opened; attempt++) {
+			// Measured again each time: the element click scrolls the button into view, so an earlier position is stale.
+			const at = await call('latticeKeepalivePresentAt()');
+			await call('latticeKeepaliveArmTap()');
+			await touchTap(at.x, at.y);
+			const o = await call('latticeKeepaliveOpened(8000)');
+			const hold = tapHold(o.log);
+			holds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
+			opened = o.open;
+			if (hold !== null && hold < LONG_PRESS_MS) break;
+		}
+		r.taps = holds.join(', then ');
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		// A real finger: a WebDriver touch at the slide, as the owner taps it, re-delivered ONCE if iOS read it as a long press
+		// (no click follows a long press, so the tap rule never sees it): the same guard as the Present tap above.
+		const slideHolds = [];
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().backdrop()');
+		r.shown = await call('latticeKeepaliveShown()');
+		slideHolds.push(r.shown.shown ? 'an element click' : 'an element click that showed nothing');
+		for (let attempt = 0; attempt < 2 && !r.shown.shown; attempt++) {
+			await call('latticeKeepaliveArmTap()');
+			await touchTap(r.immersive.x, r.immersive.y);
+			r.shown = await call('latticeKeepaliveShown()');
+			const hold = tapHold(await call('({ events: (window.__kaTap || { events: [] }).events })'));
+			slideHolds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
+			if (hold !== null && hold < LONG_PRESS_MS) break;
+		}
+		r.slideTaps = slideHolds.join(', then ');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+		r.voiceOn = await call('latticeKeepaliveVoiceOn()');
+	} catch (e) {
+		error = String(e.message || e).slice(0, 300);
+	}
+	// The verdict runs in Node from the same source the page ran (its functions touch no DOM at definition).
+	const sandbox = {};
+	vm.createContext(sandbox);
+	vm.runInContext(source, sandbox);
+	const steps = sandbox.latticeKeepaliveChecks(r, { realSafari: true });
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	console.log(`${LABEL}: present keep-alive: ${steps.map((s) => `${s.pass ? 'ok' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`).join(' | ')}`);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: r.open?.ua, width: r.open?.width, steps };
+}
+
+/**
  * The font cache probe (font-cache-probe.js, PROBE=font-cache): the control arm on STUDIO_URL, where font-cache-server.mjs
  * refuses the warm-up, then the warm arm on WARM_URL, each a fresh Studio on its own origin so each starts with a cold
  * cache. Both arms must pass: the control proves the probe can see a miss, the warm arm is the finding.
@@ -831,11 +1228,16 @@ async function runFontCacheProbe(id) {
 		['control', BASE],
 		['warm', process.env.WARM_URL || 'http://localhost:4322'],
 	]) {
-		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
+		// Seeded on the server's blank page, not the landing page: the landing page's slide previews fetch faces (8 at the
+		// iPad's width), and on the warm port the Studio then read those from the cache, so the server never saw them and the
+		// warm arm could not prove the Studio warmed all 31 itself (#3095). `since` is stamped before the first page of this
+		// origin, so the probe can check that nothing before the Studio fetched a face.
+		const since = Date.now();
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/__probe/blank` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
 		last = await wd('POST', `/session/${id}/execute/async`, {
-			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}, ${since}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 			args: [],
 		});
 		steps.push(...(last.steps || []).map((s) => ({ ...s, name: `${arm} · ${s.name}` })));

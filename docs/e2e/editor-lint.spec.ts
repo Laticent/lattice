@@ -81,7 +81,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
 const FIX_ALL_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
 	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
@@ -90,7 +90,8 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi -->');
+	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
@@ -100,12 +101,62 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// An LFM 1.x deck wrote its speaker notes as plain comments; under the four notes they reach nothing
+// (engineering/decisions/2026-11-20-four-notes.md §5). Lint says so once (`plain-comment-notes`), and its fix
+// runs the whole-deck migration, so "Fix all" turns the old notes into `@note{…}` in one click.
+const OLD_NOTES_DECK = [
+	'---', 'theme: indaco', '---', '', '# Title', '', '<!-- Open on the drop. -->', '', '---', '', '## Two', '',
+	'<!-- Pause before the number. -->', '', '<!-- say: The pipeline holds. -->', '',
+].join('\n');
+
+test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plain comments', async ({ page }) => {
+	await setEditorContent(page, OLD_NOTES_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @note{Open on the drop.} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @note{Pause before the number.} -->');
+	expect(src).toContain('<!-- @say{The pipeline holds.} -->');
+	expect(src).not.toContain('<!-- Open on the drop. -->');
+	await expect(fixAll(page)).toBeDisabled();
+});
+
+// The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
+// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
+// `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
+// `lattice migrate meta` writes, and the slides render as before.
+const LEGACY_DECK = [
+	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
+	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+].join('\n');
+
+test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {
+	await setEditorContent(page, LEGACY_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	// The evidence shot: the deck before, with its warnings underlined.
+	await page.screenshot({ path: info.outputPath('meta-fix-before.png') });
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=cards-grid, footer=\\"Board, Q3\\"} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @meta{layout=title} -->');
+	expect(src).toContain('<!-- @meta{layout=kpi} -->');
+	expect(src).not.toMatch(/<!-- _(class|footer):/);
+	expect(src).not.toContain('<!-- {');
+	// Every line keeps its place: the merged record leaves a blank line where the footer comment was.
+	expect(src.split('\n')).toHaveLength(LEGACY_DECK.split('\n').length);
+	await expect(fixAll(page)).toBeDisabled();
+	await page.screenshot({ path: info.outputPath('meta-fix-after.png') });
+});
+
 // A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
 // a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
 // Run from the command palette, which every width offers (the phone layout has no "Fix all" button).
 const REFUSED_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');
@@ -118,23 +169,57 @@ async function runFixAllFromPalette(page: import('@playwright/test').Page): Prom
 	await page.keyboard.press('ControlOrMeta+k');
 	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
 	await expect(row).toBeVisible({ timeout: 90_000 });
-	await row.click();
+	// The click IS the work: choosing the row runs Fix all inside the click handler, and Playwright 1.65.1's click returns
+	// only once that handler has. Over REFUSED_DECK's 500 issues that took 6.6 s alone on WebKit and 16 to 22 s at four
+	// workers, past the default 15 s action timeout. So the click gets the same budget as the result it produces.
+	await row.click({ timeout: 60_000 });
+}
+
+/** The deck as stored, decoded. */
+async function storedDeck(page: import('@playwright/test').Page): Promise<string> {
+	const raw = await persistedSource(page);
+	return raw.startsWith('"') ? JSON.parse(raw) : raw;
 }
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it refused, and why, then a second run finishes it', async ({ page }) => {
 	test.setTimeout(240_000);
 	await setEditorContent(page, REFUSED_DECK);
+	// Frames the page paints, counted from here on. This deck needs the fix driver's 500 passes, which once ran inside
+	// the click and froze the page until the last (8.4 s measured in WebKit; past Playwright's 15 s click deadline under
+	// load). Now each pass is a task of its own (lint-core `fixAllDetailed` with a pause), so the click returns and the page
+	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): at least one frame per ten passes. Measured
+	// 2026-11-21: the run painted 128 to 525 frames (gecko the fewest, WebKit under 4 workers 479 to 503); with the passes
+	// put back inside the click it painted 3 to 8, the frames before the freeze while the fix driver's chunk loaded.
+	await page.evaluate(() => {
+		const w = window as unknown as { __frames: number };
+		w.__frames = 0;
+		const tick = () => {
+			w.__frames++;
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	const frames = () => page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 	await runFixAllFromPalette(page);
+	const atClick = await frames();
 	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
+	expect(await frames(), 'the page kept painting while Fix all ran').toBeGreaterThan(atClick + 50);
 	await expect(page.getByText('Slide 2, card-style-inline-title: Fix all stopped before reaching it; press Fix all again.')).toBeVisible();
+	await expect.poll(() => storedDeck(page)).toContain('- Bet 0\n  - body 0');
+	const afterFirst = await storedDeck(page);
+	expect(afterFirst).toContain('- **Bet 500.** body 500');
 	// The refused fix is still there to run; the second run applies it and refuses nothing.
 	await runFixAllFromPalette(page);
 	await expect(page.getByText('Fixed 1 issue.')).toBeVisible({ timeout: 30_000 });
 	await expect.poll(() => persistedSource(page)).toContain('Bet 500\\n  - body 500');
-	const raw = await persistedSource(page);
-	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	const src = await storedDeck(page);
 	expect(src).toContain('- Bet 500\n  - body 500');
 	expect(src).not.toContain('**Bet');
+	// Each Fix all is ONE undo step, waiting or not: one undo takes back the second run whole, and the first run's
+	// 500 fixes stay. Filo takes the chord from any focus (filo-undo.spec.ts), the phone's shared pane included.
+	const mac = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent));
+	await page.keyboard.press(mac ? 'Meta+z' : 'Control+z');
+	await expect.poll(() => storedDeck(page)).toBe(afterFirst);
 });
 
 test('the Coach surfaces the inline-issue count', async ({ page }) => {
@@ -142,6 +227,70 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	// The count lives in the Architect Coach, which is collapsed by default.
 	await page.getByRole('button', { name: 'Toggle Coach' }).click();
 	await expect(page.getByText(/\d+ inline issue/)).toBeVisible();
+});
+
+// Fix all's passes run between keystrokes (lint-core `fixAllDetailed` with a pause), so the author can act while it works.
+// Two guards decide whether it writes (Editor.tsx `fixAll`): a result computed from a text that has since changed is
+// not written, and says so; and a second press while a run is going starts nothing. The 501-card deck makes the run
+// long enough (hundreds of frames, measured above) for the test to act inside it.
+const STALE = 'The deck changed while Fix all was running, so nothing was changed. Press Fix all again.';
+
+test('@webkit-tablet @gecko typing while Fix all runs keeps the typing, writes no fixes, and says so', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// Type only once the run has read the deck: before that, the typing is part of what it fixes (the driver's chunk
+	// loads first; 50 ms of margin in Chromium, measured). Editor.tsx, deck-lint.ts and editor.js mark the run.
+	await expect(page.locator('html[data-fix-all-running]')).toBeAttached({ timeout: 30_000 });
+	// The run is going: type at the end of the deck. The palette closed on the click.
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('TYPED');
+	await expect(page.getByText(STALE)).toBeVisible({ timeout: 60_000 });
+	await expect.poll(() => storedDeck(page)).toContain('TYPED');
+	const src = await storedDeck(page);
+	// Nothing from the run was written: every card still has its inline title.
+	expect(src).toContain('- **Bet 0.** body 0');
+	expect(src).toContain('- **Bet 499.** body 499');
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(0);
+});
+
+test('@webkit-tablet @gecko a second press while Fix all runs starts nothing', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// Press again while the first run is going (the palette still offers the row: lint has not run since).
+	await runFixAllFromPalette(page);
+	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
+	await expect.poll(() => storedDeck(page)).toContain('- Bet 0\n  - body 0');
+	// An absence needs the work it would come from to have had its turn. A second run started with the first shares the
+	// page with it pass by pass and so ends a few passes after it; 150 frames is more than a whole run paints at the
+	// least measured (128, gecko). Counted in frames the page paints, not in milliseconds (HARD RULE #32).
+	await page.evaluate(
+		() =>
+			new Promise<void>((done) => {
+				let left = 150;
+				const tick = () => (--left <= 0 ? done() : requestAnimationFrame(tick));
+				requestAnimationFrame(tick);
+			}),
+	);
+	// One run, one notice. The status pill is rewritten in place (lib/notify.ts), so a second run racing the first would
+	// replace the first run's notice with its own (a stale one, or "Fixed 1 issue." if it began after the first ended):
+	// the first run's exact words must still be the one notice showing.
+	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toHaveCount(1);
+	await expect(page.getByText(STALE)).toHaveCount(0);
+});
+
+test('@webkit-tablet @gecko switching to Compose while Fix all runs writes nothing and says so', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// Compose unmounts the Source editor (Editor.tsx's teardown destroys its view). A destroyed view keeps its old text
+	// and takes a dispatch without a word, so the run must count as stale rather than announce fixes it never wrote.
+	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+	await expect(page.getByText(STALE)).toBeVisible({ timeout: 60_000 });
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(0);
+	expect(await storedDeck(page)).toContain('- **Bet 0.** body 0');
 });
 
 // ── The render-target squiggle lands on the OFFENDING line ─────────────────

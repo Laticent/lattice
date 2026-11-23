@@ -105,7 +105,7 @@ test('"Check my deck" opens Coach when the user waits', async ({ page }) => {
 test('"Speaker notes" opens the notes field of the slide when the user waits', async ({ page }) => {
 	await search(page, 'notes');
 	await page.getByRole('option', { name: 'How do I add speaker notes?', exact: true }).click();
-	await expect(page.getByLabel('Speaker note for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
+	await expect(page.getByLabel('Speaker notes for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 
@@ -137,7 +137,7 @@ test('a site search for "pdf" opens the Studio running the PDF lesson @crosswidt
 	// The header is an island: a click before it hydrates does nothing, so click until the dialog opens.
 	const field = page.getByPlaceholder('Search docs, jump to a page, switch theme…');
 	await expect(async () => {
-		await page.getByRole('button', { name: 'Search (⌘K)' }).filter({ visible: true }).first().click();
+		await page.getByRole('button', { name: 'Search the docs, ⌘K' }).filter({ visible: true }).first().click();
 		await expect(field).toBeVisible({ timeout: 1000 });
 	}).toPass({ timeout: 20_000 });
 	await field.fill('pdf');

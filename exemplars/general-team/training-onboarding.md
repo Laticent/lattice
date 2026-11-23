@@ -127,7 +127,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- tier: full -->
 
 ## What good looks like on every ticket you close.

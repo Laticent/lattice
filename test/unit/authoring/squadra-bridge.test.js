@@ -13,7 +13,8 @@ const { fencedLines } = require('../../../lib/core/shape-glyphs');
 
 const vocab = buildVocab();
 const FM = '---\ntheme: indaco\n---\n\n';
-const CARDS = '<!-- _class: cards-grid -->\n\n## H\n\n';
+// The `@meta` spelling, so these passes count the fix under test and not the meta migration (record note §15).
+const CARDS = '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n';
 const slides = (t) => splitTopLevel(t).length - core.fmChunks(t);
 const deps = { vocab, lintTextWith: core.lintTextWith, applyFix: core.applyFix, fixLineIndex: core.fixLineIndex, fmChunks: core.fmChunks, separatorLines, splitTopLevel, fencedLines };
 
@@ -41,6 +42,64 @@ describe('Fix all through the Squadra driver', () => {
     assert.equal(res.applied.length, 3);
     assert.ok(res.passes <= 2, `passes: ${res.passes}`);
     assert.deepEqual([...new Set(res.applied.map((a) => a.slide))].sort(), [1, 2]);
+  });
+
+  test('fixAllDetailed with a pause runs the same passes to the same result, one task per pass', async () => {
+    // The Studio's Fix all awaits this so a click does not freeze the page (editor-lint.spec.ts, the
+    // 501-card deck). The deck needs one pass per card: the card rule reports one card per slide per lint.
+    const deck = ['---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '', ...Array.from({ length: 12 }, (_, i) => `- **Bet ${i}.** body ${i}`), ''].join('\n');
+    const sync = core.fixAllDetailed(deck, vocab);
+    let pauses = 0;
+    const res = await core.fixAllDetailed(deck, vocab, async () => { pauses++; });
+    assert.deepEqual(res, sync);
+    assert.equal(sync.applied.length, 12);
+    // One pause before each pass the driver ran, the one that found nothing to fix included.
+    assert.equal(pauses, sync.passes + 1);
+  });
+
+  test('the meta migration runs after every line fix, so a fix meant for an old comment lands first', () => {
+    // A retired `paginate` comment is deleted by its own line fix; migrated first, it would become a record field
+    // that no fix removes. And a typo'd class is fixed before the migration types it as `layout`.
+    const src = `${FM}<!-- _class: kpu -->\n<!-- _paginate: true -->\n\n# 42%\n\n---\n\n<!-- _class: cards-grid -->\n\n## H\n\n- **A.** one\n`;
+    const res = core.fixAllDetailed(src, vocab);
+    assert.equal(res.applied.at(-1).rule, 'legacy-directive-comment', 'the migration is the last fix applied');
+    assert.equal(res.applied.filter((a) => a.rule === 'legacy-directive-comment').length, 1, 'one migration converts the deck');
+    assert.match(res.text, /<!-- @meta\{layout=kpi\} -->/);
+    assert.doesNotMatch(res.text, /paginate/);
+    assert.match(res.text, /<!-- @meta\{layout=cards-grid\} -->\n\n## H\n\n- A\n {2}- one/);
+  });
+
+  // The checker on the meta slice: one span from the first changed comment to the last crossed the fence between them,
+  // and the driver refused it (69 of 384 shipped decks kept their old comments); and a refused line fix held the
+  // migration forever.
+  test('the meta migration reaches across a code fence, and a refused fix cannot hold it back', async () => {
+    const { migrateDeckText } = await import('../../../lib/cli/migrate-meta.mjs');
+    const fenced = `${FM}<!-- _class: title -->\n\n# A\n\n---\n\n## B\n\n\`\`\`js\nconst x = 1;\n\`\`\`\n\n---\n\n<!-- _class: content -->\n\n## C\n`;
+    const res = core.fixAllDetailed(fenced, vocab);
+    assert.equal(res.text, migrateDeckText(fenced, vocab.names).text);
+    assert.deepEqual(res.skipped, []);
+    // A deck whose notes migration the driver refuses (its rewrite spans the fence): the meta migration still runs.
+    const held = `${FM}<!-- _class: title -->\n<!-- a note -->\n\n# A\n\n---\n\n## B\n\n\`\`\`js\nx\n\`\`\`\n\n<!-- another -->\n`;
+    const out = core.fixAllDetailed(held, vocab);
+    assert.match(out.text, /<!-- @meta\{layout=title\} -->/);
+    assert.ok(out.applied.some((a) => a.rule === 'legacy-directive-comment'));
+    assert.equal((await core.fixAllDetailed(held, vocab, true)).text, out.text, 'the paused run reaches the same text');
+  });
+
+  test('a line fix the driver keeps refusing holds the migration only for one run: a second run offers it', async () => {
+    // A fake rule whose machine fix never applies (applyFix answers null: the driver skips it as stale every pass).
+    const src = `${FM}<!-- _class: title -->\n\n# Stuck\n`;
+    const stuck = { slide: 1, rule: 'fake-stuck', severity: 'warning', line: '# Stuck', message: 'stuck', autofixable: true };
+    const d = {
+      ...deps,
+      lintTextWith: (t, v) => [...core.lintTextWith(t, v), ...(t.includes('# Stuck') ? [stuck] : [])],
+      applyFix: (t, f) => (f.rule === 'fake-stuck' ? null : core.applyFix(t, f)),
+    };
+    for (const pause of [undefined, true]) {
+      const res = await fixDeck(src, d, pause);
+      assert.match(res.text, /<!-- @meta\{layout=title\} -->/, `the migration ran (pause: ${pause})`);
+      assert.equal(res.skipped.filter((x) => x.rule === 'fake-stuck').length, 1, 'the stuck fix is named once, not once per run');
+    }
   });
 
   test('applyAllFixes is fixAllDetailed().text', () => {
@@ -108,10 +167,10 @@ describe('after the bridge checker (2026-10-29)', () => {
   });
 
   test('the one-click fix and Fix all both edit the live line, never its fenced copy above (any rule)', () => {
-    const src = `${FM}## H\n\n\`\`\`md\n<!-- _class: kpu -->\n\`\`\`\n\n<!-- _class: kpu -->\n\nText.\n`;
+    const src = `${FM}## H\n\n\`\`\`md\n<!-- @meta{layout=kpu} -->\n\`\`\`\n\n<!-- @meta{layout=kpu} -->\n\nText.\n`;
     const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'unknown-class' && x.autofixable);
     assert.ok(f, 'the typo is fixable');
-    const want = src.replace(/\n\n<!-- _class: kpu -->\n\nText/, '\n\n<!-- _class: kpi -->\n\nText');
+    const want = src.replace(/\n\n<!-- @meta\{layout=kpu\} -->\n\nText/, '\n\n<!-- @meta{layout=kpi} -->\n\nText');
     assert.equal(core.applyFix(src, f), want);
     assert.equal(core.applyAllFixes(src, vocab), want);
     // A finding whose only match is fenced has no fix.
@@ -123,7 +182,7 @@ describe('after the bridge checker (2026-10-29)', () => {
     // The gantt rule used to read past fences (followups.d/2966-p1), and its finding on the fenced
     // copy had to lose `autofixable` or the Studio's Fix all stayed enabled and did nothing. The rule
     // now reads the slide with fences blanked (test/unit/authoring/lint-fenced-lines.test.js).
-    const src = `${FM}<!-- _class: gantt -->\n\n## Plan\n\n\`\`\`md\n- Phase\n  - BX \`Q1->Q2\`\n\`\`\`\n\n- Phase\n  - BX \`Q1..Q2\`\n`;
+    const src = `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n\`\`\`md\n- Phase\n  - BX \`Q1->Q2\`\n\`\`\`\n\n- Phase\n  - BX \`Q1..Q2\`\n`;
     assert.deepEqual(core.lintTextWith(src, vocab).filter((x) => x.rule === 'gantt-retired-delimiter'), []);
     assert.equal(core.fixAllDetailed(src, vocab).text, src);
     const live = src.replace('```md\n- Phase\n  - BX `Q1->Q2`\n```\n\n', '').replace('`Q1..Q2`', '`Q1->Q2`');

@@ -224,6 +224,50 @@
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */
   --radius-full:999px;
+  /* PRESET HOOKS — `--radius-card`, `--rule-w` / `--rule-style` / `--rule-mark`, `--rail-w`.
+   * DELIBERATELY NOT DECLARED HERE. Each consumer reads the hook with today's value as its
+   * `var()` FALLBACK, so an unset hook renders byte-for-byte as before, and a hook set on a
+   * section (a preset's stamped class, or a deck `style:` block) reaches every consumer under it.
+   * Declaring a default here would freeze `var(--border)` / `var(--radius-md)` at `<html>`, where
+   * a section-scoped remap (`section.print`, `section.dark`) cannot reach it — the same trap the
+   * runhead block below documents.
+   *
+   *   --radius-card  the corner of a CARD: a bordered or filled tile that can carry a card tag —
+   *                  cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list
+   *                  (ordered), actors, decision, compare-prose (both paths), split-compare
+   *                  options and verdict, split-panel proof / watermark tiles, citation-card
+   *                  triptych tiles, statute-stack — plus what sits in a card's corner (the
+   *                  card tag's flush corner and band, pricing's badge), so a tag and its host
+   *                  always share a corner. Fallback `var(--radius-md)`. NOT diagram-like tiles
+   *                  (matrix-2x2 quadrants, cycle, authority-chain, regulatory-update), NOT quote
+   *                  or callout panels (citation-card's blockquote), NOT `corners:` (the
+   *                  slide's own surface), NOT `--radius-full` (pills stay round), NOT the
+   *                  Mermaid subgraph (`--mermaid-subgraph-radius`, SVG user space). `0`
+   *                  squares the cards.
+   *   --rule-w       the heading rule's weight. Fallback `1px` on the border-drawn rules (the
+   *                  form masthead hairline, `rule-full`, the split-panel kicker, the five split-page
+   *                  runheads); `0.22cqi` on the `rule-short` / `rule-accent` segment's height.
+   *                  ONE token drives both defaults, so a hairline thinner than 1px also thins
+   *                  the short segment.
+   *   --rule-style   the border style (`solid`, `double`, `dashed`, …) of the border-drawn rules.
+   *                  Fallback `solid`. The short / accent segment is a filled bar and ignores it.
+   *   --rule-mark   the rule's ink. Fallback `var(--border)`. `rule-accent` keeps `--accent` (it
+   *                  IS the accent rule), and a `split-panel metric` kicker keeps its on-dark ink.
+   *   --rail-w       the `spectrum-card:` rail's thickness. Fallback
+   *                  `calc(var(--_sec-1cqi, 1cqi) * 0.35)`, i.e. 0.35% of the slide width.
+   *                  Write a `px` length; a bare `cqi` resolves against the CARD's container
+   *                  when the card is one, not the slide.
+   *
+   * Where they do NOT show: `mode: sketch` redraws the `form` MASTHEAD rule in rough ink at its
+   * own width and makes its border transparent (base.sketch.css § masthead divider), so there
+   * the rule hooks reserve space but draw nothing visible; the split-panel kicker and the
+   * runheads still draw them. The CLI PDF writer leaves any non-solid border (`double`,
+   * `dashed`) in the page photo rather than drawing it as a vector
+   * (lib/core/pdf-compose/read-slide.mjs, the border-style bail-out) — it still prints, as a
+   * raster.
+   *
+   * Public settings they are NOT: presets set them internally (deck-preset study D10,
+   * engineering/decisions/2026-11-20-deck-preset-study.md §5, §8 WP-tokens). */
   /* The Mermaid subgraph box's corner — the containment tier's radius, and the
    * one radius on this scale that is NOT container-relative. It cannot be:
    * `rx`/`ry` are SVG GEOMETRY properties, so their value is read in the
@@ -1409,7 +1453,7 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
   /* The same insets as ABSOLUTE OFFSETS from the padding box, which sits inside the bar border:
    * each side gives up the border it carries, so header, footer, page number and stamps hold the
-   * same distance from the slide edge under every `spectrum-edge:` (check:edge-shift). Top also
+   * same distance from the slide edge under every `spectrum:` edge (check:edge-shift). Top also
    * adds back the room the default bar always took, so no default deck moves. */
   --_pag-gap:           calc(3.25 * var(--_sec-1cqi, 1cqi)); /* the page number's own width + a hair: what the progress rail clears (stage.css) */
   /* THE PAGE-NUMBER COLUMN of the footer band: six characters of the chrome face (`104.12`, a split
@@ -1427,7 +1471,7 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
    * line. The chrome face is the same size on every slide of a deck. */
   --footer-gap:         calc(var(--chrome-fs) * 1.6);
   /* What to add to an absolute offset measured from the padding box so it lands the same distance from
-   * the SLIDE edge under every `spectrum-edge:` (check:edge-shift). Top clears the room the default bar
+   * the SLIDE edge under every `spectrum:` edge (check:edge-shift). Top clears the room the default bar
    * always took; the other three reach the slide edge, so a stamp or a mark may sit over a side bar. */
   --_hold-w:            calc(var(--_bar-l, 0px) + var(--_bar-r, 0px)); /* the width a percentage of the padding box is short by */
   --_hold-h:            calc(var(--_bar-t, 0px) + var(--_bar-b, 0px));

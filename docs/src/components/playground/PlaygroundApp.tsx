@@ -33,6 +33,7 @@ import {
 	INSERTED_HASH_KEY,
 	isPristine,
 	LENS_KEY,
+	loadClassReader,
 	MAP_KEY,
 	type Plan,
 	parsePlaygroundUrl,
@@ -70,6 +71,10 @@ import { type EditorAdapter, EditorHost, type EditSpan } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { PlaygroundTourCard } from './PlaygroundTourCard';
 import { WalkBar } from './WalkBar';
+
+// Lazy: the control is needed only once a long pane scrolls, so it stays out of the Playground's startup
+// JS (it measured +2,830 gzip bytes eager; docs/route-budget.json).
+const QuickScroll = React.lazy(() => import('@/components/ui/quick-scroll').then((m) => ({ default: m.QuickScroll })));
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
 // rail are a separate chunk the Playground never fetches otherwise.
@@ -483,7 +488,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  to about:blank and then silently declines to rebind for the rest of the session. */
 	const boundFrameDocRef = React.useRef<Document | null>(null);
 	const bindDeckInputRef = React.useRef<() => void>(() => {});
-	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean }) => Promise<boolean>>(async () => false);
+	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean; keepEditedDraft?: boolean }) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	// The variant-sync discriminator: the last seen `_class` token line. The
@@ -1426,6 +1431,25 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			lastClassLineRef.current = line;
 		}
 	}, [catalog, getSource]);
+	// The class reader loads on demand (playground-controller.ts `loadClassReader`): sync once more when it is here. Until it
+	// is, the picker stays `pending` (it shows nothing) rather than "<name> (draft differs)", a claim made on no information
+	// (#1563's rule). A failed load (offline, a chunk gone after a deploy) is logged and leaves the picker pending; the next
+	// mount or Reset tries again, because a rejected load is not cached.
+	const [classReaderReady, setClassReaderReady] = React.useState(false);
+	React.useEffect(() => {
+		let live = true;
+		loadClassReader().then(
+			() => {
+				if (!live) return;
+				setClassReaderReady(true);
+				syncPickers();
+			},
+			(err) => console.warn('playground: the class reader did not load; the component picker stays empty', err),
+		);
+		return () => {
+			live = false;
+		};
+	}, [syncPickers]);
 
 	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
 	const showToast = React.useCallback((msg: string, undo: boolean) => {
@@ -1744,7 +1768,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// (exactly the state the honest clear case creates) it falls back to the
 	// persisted pointer — named in the confirm, never a dead button (decision §4).
 	const resetTarget = draftComponent || readerComponent;
-	const onResetExample = React.useCallback(() => {
+	const onResetExample = React.useCallback(async () => {
+		// The draft's own component needs the class reader; without it the reset would fall back to the stored pointer.
+		await loadClassReader().catch(() => {});
 		const name = detectComponent(catalog, getSource())?.name || readerComponent;
 		if (!(name && catalog[name])) {
 			setStatusLine('Pick a component first.', true);
@@ -3171,7 +3197,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							components={components}
 							lenses={lenses}
 							current={currentName}
-							pending={!hydrated}
+							pending={!hydrated || !classReaderReady}
 							detached={!draftComponent}
 							query={pickerQuery}
 							onQueryChange={onPickerQuery}
@@ -3437,6 +3463,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
+							{/* Jump to the first or last slide: binds to the frame's own document and rebinds on each load. */}
+							<React.Suspense fallback={null}>
+								<QuickScroll root={frameRef} label="slides" />
+							</React.Suspense>
 						</div>
 						{mapEver && mapRendered && hub && (!mapStacked || walkMapEl) && (
 							<div className="pg-map" hidden={!mapOn}>

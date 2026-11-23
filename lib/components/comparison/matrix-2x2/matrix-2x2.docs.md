@@ -22,6 +22,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the framework. |
 | `axes` | a list | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 ### Common mistakes
 

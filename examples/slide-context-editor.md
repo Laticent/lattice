@@ -14,7 +14,7 @@ header: "Lattice · This slide"
 Every treatment on the slides that follow is a single click in the Studio's
 **This slide** drawer — no hand-writing directive comments.
 
-<!-- note: The drawer edits the active slide's _class token list span-surgically. -->
+<!-- @note{The drawer edits the active slide's _class token list span-surgically.} -->
 
 ---
 

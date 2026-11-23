@@ -33,7 +33,7 @@ async function addPhoto(page: Page, name: string) {
 		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
 		const dt = new DataTransfer();
 		dt.items.add(new File([blob], fileName, { type: 'image/png' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);
@@ -189,11 +189,16 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 // On every engine, WebKit included: WebKit decodes a slide's pictures only after the first draw, and the
 // PowerPoint capture used to ship that first draw, with no picture and no warning. settled-canvas.js waits.
 onEveryEngine('@smoke the PowerPoint export carries the photo, and does not report a missing image', async ({ page }) => {
+	// The capture's own account of every image it counted as lost: which address, and which path counted it.
+	const exportLog: string[] = [];
+	page.on('console', (m) => {
+		if (m.text().startsWith('[deck-export]')) exportLog.push(m.text());
+	});
 	await setUp(page);
 	const path = await download(page, 'pptx');
-	// The message carries the toast text, so a failure names which image the capture could not load.
+	// The message carries the toast text and the capture's log, so a failure names which image was lost and why.
 	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
-	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
+	expect(toasts, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`).not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
 	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.
@@ -285,7 +290,7 @@ onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile 
 		const p2 = await other.newPage();
 		await gotoStudio(p2);
 		await p2.setViewportSize({ width: 1440, height: 900 });
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: readFileSync(path) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: readFileSync(path) });
 		await expect(p2.getByText(/Added 1 photo from the file to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		const img = p2.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first();
 		await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 40_000 });
@@ -326,7 +331,7 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 		const p2 = await other.newPage();
 		await gotoStudio(p2);
 		await p2.setViewportSize({ width: 1440, height: 900 });
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.pdf', mimeType: 'application/pdf', buffer: readFileSync(path) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.pdf', mimeType: 'application/pdf', buffer: readFileSync(path) });
 		await expect(p2.getByText(/Added 1 photo from the file to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		const img = p2.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first();
 		await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 40_000 });

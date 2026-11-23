@@ -36,16 +36,17 @@ model, see `design/concepts.md`.
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
 | [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
 | [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
-| [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
+| [`spectrum:` / `card-spectrum:` / `trim-spectrum:`](#the-spectrum-keys-spectrum-card-spectrum-and-trim-spectrum) | The stripe on the slide edge and on each card (style, edge, weight), and the accent on the structure | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
+| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid; and, under tone, the hue it draws in: ink or accent | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
+| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -74,7 +75,7 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to twelve registers**: the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**, and may recommend five more (below): the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
 the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
@@ -83,8 +84,8 @@ are its overrides.
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
 | `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
@@ -99,16 +100,34 @@ rule: none          # everything from Editorial except the heading rule
 ---
 ```
 
-A preset has **no class token and no CSS of its own**. It resolves in the front-matter reader
-every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
-the family is absent — or written empty — the reader answers with the preset's value, and
-`preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its seven keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
-slide clean), and the CLI, the export and the Studio agree by construction. A preset
-deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
-`tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
-resolves to no preset. The Studio previews the four live on one sample slide, in the deck's theme and color mode, at the top of
-the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
+A preset resolves in the front-matter reader every render path shares (`frontMatterValue` in
+`lib/core/front-matter-key.js`): when a key in the family is absent — or written empty — the
+reader answers with the preset's value, and `preset:` itself is read top-level only. So
+`preset: editorial` renders exactly as if the deck had written its seven keys, per-slide
+`_class:` overrides work unchanged (`no-finish` keeps a slide clean), and the CLI, the export
+and the Studio agree by construction.
+
+**A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
+hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+use them arrive with the deck-preset work
+(`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
+anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
+`print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
+`color-mode:` when you pick a preset or press Reset. In the Studio and the Playground, **Auto**
+follows the preset's recommendation and says so (`Auto — Cuoio (preset)`); pick another value to
+override it. Export to Marp writes a recommended
+palette into the bundle as its `theme:` line, because Marp picks the theme.
+
+**A preset may carry internal tokens.** A preset can set design tokens no author key exposes
+(a rule weight, a rail weight) through a `tokens` map in its table entry. A deck on such a
+preset gets a `preset-<name>` class on every slide, and the build generates the matching
+`section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
+of all four today. The class is the engine's to stamp; don't write it in `_class:`.
+
+A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown
+name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
+the four live on one sample slide, in the deck's theme and color mode, at the top of the deck
+panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 
 ## The `mode:` front-matter register (rendering mode)
@@ -427,63 +446,91 @@ signature); pick a different shape deck-wide with the register, or per-slide wit
 the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
 one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
-## The `spectrum:` / `spectrum-edge:` registers (the spectrum accent finish)
+## The spectrum keys: `spectrum:`, `card-spectrum:` and `trim-spectrum:`
 
-The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
-edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
-(table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
-split-card underlines) render a **quiet accent-tinted hairline** by default, so a no-config deck stays
-elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
-are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
-and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
-`unknown-spectrum-trim`.
+The SPECTRUM is the accent gradient. Three keys set where it shows, each named for the thing first
+(`lib/core/resolve-spectrum.js`; `engineering/decisions/2026-11-21-spectrum-keys.md`):
 
-**`spectrum:` — the STYLE (the gradient identity).** Sets `--spectrum-style` at the section
-level, and the bar reads `--spectrum-bar` (the STYLE when one is set, else the theme's ribbon). It
-always drives the brand bar; with `spectrum-trim: on` it drives the structural accents too.
-`--spectrum` itself stays the theme's own ribbon on every element, which is what lets
-`spectrum-card: rainbow` pin that ribbon on a `solid` deck in every host. Custom CSS that wants
-the slide's bar should read `var(--spectrum-bar)`; `var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and set the
-theme's `--accent` to their brand.
+```yaml
+spectrum: solid left band        # the stripe on the slide edge
+card-spectrum: solid top         # the stripe on each card
+trim-spectrum: mono              # the accent on tables, timelines and --- rules
+```
 
-| `spectrum:` value | Token | Effect |
+The first two take **one word per axis, in any order**: a style, an edge and a weight. Leave an axis
+out and it keeps its default. **No key follows another.** Each has its own default (the slide edge
+rainbow, the cards off, the trim quiet), and each style word names its own fill: a `solid` slide edge
+leaves the cards and the trim as they were until they say `solid` too. Every key reaches every slide and is overridable per slide, one axis at a
+time: `_class: spectrum-left` moves one slide's stripe and keeps the deck's style and weight. A typo, or
+two words on one axis, is caught as `unknown-spectrum` / `unknown-card-spectrum` / `unknown-trim-spectrum`.
+Deck settings label them **Spectrum**, **Card spectrum** and **Trim spectrum**.
+
+By default the spectrum paints the **slide edge only** — the section edge, the `section.dark` top line
+and the divider's left rail. The in-content structural accents (table-header rails, the `list-steps`
+timeline spine, code-panel strips, an author's `---` rule, split-card underlines) render a **quiet
+accent-tinted hairline**, so a no-config deck stays elegant and low-noise. A `trim-spectrum:` style
+(`rainbow`, `solid`, `duo`, `mono`) colors that structure too.
+
+**The old names are gone.** `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:`,
+`spectrum: on` and the old classes (`spectrum-edge-left`, `with-spectrum-card`, `with-spectrum-trim`, …)
+no longer render. `lint:deck` reports each as an error (`retired-spectrum-key`, or `unknown-class` for a
+class) and `lint:deck --fix` rewrites it: `spectrum: duo` plus `spectrum-edge: left` becomes
+`spectrum: duo left`. The old card `auto` and trim `on` copied the slide edge; the fix writes the style the
+deck was showing (`spectrum: duo` plus `spectrum-card: auto` becomes `card-spectrum: duo`).
+
+### `spectrum:` — the stripe on the slide edge
+
+**Style** — the gradient identity. Sets `--spectrum-style` at the section level, and the stripe reads
+`--spectrum-bar` (the style when one is set, else the theme's ribbon). It drives the slide edge and
+nothing else: the cards and the trim read the theme's fills for their own style words. `--spectrum` itself
+stays the theme's own ribbon on every element, which is what lets `card-spectrum: rainbow` show that
+ribbon on a `solid` deck in every host. Custom CSS that wants the slide's stripe should read `var(--spectrum-bar)`;
+`var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and
+set the theme's `--accent` to their brand.
+
+| Style word | Class on a slide | Effect |
 |---|---|---|
-| `on` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `rainbow` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default**. |
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
-| `off` | `no-spectrum` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+| `off` | `no-spectrum` | Drops the slide-edge / divider stripe only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it does not take a frame's CANVAS with the stripe (#2291). |
 
-**Back to the default on one slide — the restore tokens.** A deck value writes no token when it
-is the default, so the default needs a token of its own for one slide to ask for it inside a deck
-that set something else. Each of these registers has one, named for its default value:
-`with-spectrum`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
-`head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
-that slide (as any per-slide token does), and the slide renders as the default. So in a
-`spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
-the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
-from its own axis (`with-spectrum spectrum-solid`) a restore token always loses, so `lint:deck`
-warns `conflicting-variants`.
+**Edge** — where the stripe sits. It moves ONLY the stripe, via a per-side `border-image`; it never
+touches the structural accents, so a stripe-off deck keeps its table rails and `---` rules.
 
-**`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
-ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
-bar-off deck keeps its table rails and `---` rules.
-
-| `spectrum-edge:` value | Token | Effect |
+| Edge word | Class on a slide | Effect |
 |---|---|---|
-| `top` | *(none)*; per slide `spectrum-edge-top` | The top border. **The default** (omit the key). |
-| `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
-| `right` | `spectrum-edge-right` | A right rail. |
-| `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
-| `off` | `no-spectrum-edge` | No section-edge bar (structural accents survive). |
+| `top` | *(none)*; per slide `spectrum-top` | The top border. **The default**. |
+| `left` | `spectrum-left` | A left rail (the divider look, generalized). |
+| `right` | `spectrum-right` | A right rail. |
+| `bottom` | `spectrum-bottom` | A bottom rail — reads as a baseline. |
 
-**Placement never moves the slide's content or chrome.** The bar takes its room out of the slide's
-margin, not out of the content: the content box, the header, the footer, the page number, the state
-stamps, the `mark-*` decorations, a centered logo, a background photo and the overflow marker sit in
-the same place under every `spectrum-edge:` value, light and dark. The same goes for adding or removing
-the bar with `accent`, `tone-edge` or the `spectrum:` register. `npm run check:edge-shift` measures it
-across every component, its variants and the layout modifiers, and `--bars` lists any component that
-draws no bar under a placement.
+**Weight** — how thick the stripe is.
+
+| Weight word | Class on a slide | Effect |
+|---|---|---|
+| `regular` | *(none)*; per slide `spectrum-regular` | `0.3125cqi` of the slide, 4px at 1280px. **The default**. |
+| `hairline` | `spectrum-hairline` | One pixel. |
+| `band` | `spectrum-band` | `1.5cqi`, 19px at 1280px: the heavy edge a preset can carry. |
+
+**Back to the default on one slide — the restore classes.** A deck value writes no class when it is the
+default, so the default needs a class of its own for one slide to ask for it inside a deck that set
+something else: `with-spectrum`, `spectrum-top`, `spectrum-regular`, `card-spectrum-left`,
+`card-spectrum-regular` and `trim-spectrum-quiet`, beside `rule-auto`, `eyebrow-plain` and `head-auto`.
+A restore class draws nothing; the engine drops the deck's class on its axis for that slide. So in a
+`spectrum: left` deck, `_class: spectrum-top` puts one slide's stripe back on top. Write one class per
+axis: beside a rival from its own axis (`with-spectrum spectrum-solid`) a restore class always loses, so
+`lint:deck` warns `conflicting-variants`.
+
+**The edge and the weight never move the slide's content or chrome.** The bar takes its room out of the slide's
+margin, not out of the content: the content box, the header, the footer, the page number, the `mark-*`
+decorations, a centered logo and a background photo sit in the same place under every edge and every
+weight, light and dark. The state stamps and the overflow marker hang one bar width in from the slide
+edge, so they hold still across the edges and step in with a heavier weight, never sitting under the
+bar. The same goes for adding or removing the bar with `accent`, `tone-edge` or the `spectrum:` key.
+`npm run check:edge-shift` measures it across every component, its variants and the layout modifiers, at
+each weight (`--weight band`), and `--bars` lists any component that draws no bar under a placement.
 
 **Full-bleed layouts draw the bar as an overlay.** `image`, `scene`, `split-panel`, `split-compare`, a
 `claim-bleed` media slide and `collage bleed` claim the whole slide and have no margin to give a border,
@@ -503,60 +550,46 @@ the bar would paint over it. The export-to-Marp bundle ships the runtime, which 
 full-bleed slide has its bar there too. And a browser that scales the slide with CSS `zoom` (the print sheet)
 can shift content by half a pixel on a canvas whose bar is not a whole number of device pixels.
 
-**`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
-Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
-`pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
-axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
-deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
-`_class: spectrum-card-duo` pins one slide, `_class: no-spectrum-card` opts one out. A typo is
-caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
+### `card-spectrum:` — the stripe on each card
 
-| `spectrum-card:` value | Token | Effect |
+A stripe on card surfaces (the `cards-grid` / `cards-stack` `.card`, and the `stats` / `pricing` /
+`verdict-grid` tiles), off by default. It has the same three axes as `spectrum:` and its own style: it
+never copies the slide edge. A line that names an edge or a weight but no style turns the stripe on in
+rainbow (`card-spectrum: top band`), since a placed stripe that stayed off would draw nothing.
+
+| Axis | Words (default first) | Class on a slide |
 |---|---|---|
-| `off` | *(none)* | No card rail. **The default** (omit the key). |
-| `auto` | `with-spectrum-card` | A rail that follows the deck's spectrum STYLE. |
-| `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
-| `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
-| `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
-| `rainbow` | `spectrum-card-rainbow` | Pin the rail to the full theme ribbon. |
+| Style | `off`, `rainbow`, `solid`, `duo`, `mono` | `no-card-spectrum`, `with-card-spectrum` (rainbow), `card-spectrum-solid`, `card-spectrum-duo`, `card-spectrum-mono` |
+| Edge | `left`, `top`, `right`, `bottom` | `card-spectrum-left` (restore), `card-spectrum-top`, `card-spectrum-right`, `card-spectrum-bottom` |
+| Weight | `regular`, `hairline`, `band` | `card-spectrum-regular` (restore), `card-spectrum-hairline`, `card-spectrum-band` |
 
-**`spectrum-card-edge:` — WHERE the card rail sits.** `left` (default) / `top` / `right` /
-`bottom`. Independent of the STYLE axis; overridable per slide (`_class: spectrum-card-edge-top`).
+`regular` is `0.35cqi` of the slide, `hairline` `0.12cqi`, `band` `0.78cqi` (10px at 1280px). A preset's
+internal `--rail-w` hook still wins over all three. Kept opt-in on purpose: a stripe on *every* card by
+default would be the ransom-note look — turn it on where it earns its place.
 
-| `spectrum-card-edge:` value | Token | Effect |
+### `trim-spectrum:` — the accent on the structure
+
+The style of the in-content structural accents (table-header rails, the `list-steps` timeline spine,
+code-panel strips, the `hr` rule, split-card underlines). Like the cards, it never copies the slide edge.
+
+| Word | Class on a slide | Effect |
 |---|---|---|
-| `left` | *(none)*; per slide `spectrum-card-edge-left` | A rail on the card's left edge. **The default** (omit the key). |
-| `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
-| `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
-| `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
+| `quiet` | *(none)*; per slide `trim-spectrum-quiet` | A quiet accent-tint hairline (`--spectrum-quiet`). **The default**. |
+| `rainbow` | `trim-spectrum-rainbow` | The theme's full ribbon (`--sp-fill-rainbow-h`). |
+| `solid` | `trim-spectrum-solid` | The theme's solid accent. |
+| `duo` | `trim-spectrum-duo` | Two-tone: accent → the theme's duotone partner. |
+| `mono` | `trim-spectrum-mono` | A single-hue accent ramp: present but quiet, and it never clashes with the slide edge. |
 
-Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
-it on where it earns its place.
-
-**`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
-increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
-spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
-stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
-low-noise). Per-slide `_class: with-spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
-tier, `no-spectrum-trim` out.
-
-| `spectrum-trim:` value | Token | Effect |
-|---|---|---|
-| `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
-| `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
-| `on` | `with-spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
-
-The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
-`spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
-to extend it into a rail on each card — or `spectrum-card: rainbow` to override the cards to the
-full ribbon while the bar stays duo. `spectrum:` also composes with `accent` /
-`tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
-a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
-`spectrum: off` there. *(History: `spectrum:` started as a narrow bar-only white-label toggle,
-then `solid`/`duo`/`mono` were consolidated to drive every accent
-(`2026-07-15-accent-finish-consolidation.md`); the default was then pulled back to the brand bar
-alone, with `spectrum-trim:` as the structure opt-in
-(`2026-07-16-spectrum-structure-default.md`).)*
+The keys compose by naming each style: `spectrum: duo left` is a two-tone rail on the left; add
+`trim-spectrum: duo` to put that duo on the table rails and rules too, and `card-spectrum: duo` for a
+stripe on each card, or `card-spectrum: rainbow` for the full ribbon on the cards while the slide edge
+stays duo. `spectrum:` also composes with `accent` / `tone: edge` (per-slide stripe recolors), which win
+over the deck key where they apply. On a dark bookend a dark client accent reads faint — pick a theme
+accent that reads on dark, or `spectrum: off` there. *(History: `spectrum:` started as a narrow
+bar-only white-label toggle (`2026-07-03-spectrum-register-white-label.md`), then `solid`/`duo`/`mono`
+were consolidated to drive every accent (`2026-07-15-accent-finish-consolidation.md`); the default was
+pulled back to the slide edge alone, with a structure opt-in (`2026-07-16-spectrum-structure-default.md`);
+the five keys became three, with a weight axis, and no key follows another (`2026-11-21-spectrum-keys.md`).)*
 
 ## The `rule:` front-matter register (heading underline)
 
@@ -585,6 +618,11 @@ positioned pseudo that had to be hand-placed; the element makes alignment a plai
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
 masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+
+`rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
+`--rule-w`, `--rule-style`, `--rule-mark` — that a preset sets and no register exposes. Unset,
+they are today's `1px solid var(--border)`. See "Preset hooks" in
+[`base.docs.md`](base.docs.md).
 
 ## The `inline-code:` front-matter register (pills and marks)
 
@@ -930,7 +968,7 @@ and so does one that names a word that is not a finish (`unknown-marks` catches 
 | `marks:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
 | `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
-| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge | a modern look |
+| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge (on a dark slide the body is stronger, so it clears 3:1 against the slide) | a modern look |
 | `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
@@ -956,6 +994,29 @@ marks: pigment vivid
 ---
 ```
 
+**Under `tone`, a source: `ink` or `accent`.** Tone draws one hue in eight steps, and that hue is
+chart color one unless the deck names a third word. `ink` draws every chart in the deck's heading
+ink, so a chart reads as one ink in stepped shades, dark on a light slide and light on a dark one.
+`accent` draws it in the theme's accent. Either way the names and edges are drawn in the same
+color, which every built-in palette holds at 4.5:1 or better against the slide, in both modes, and
+the strongest step clears 3:1. Status colors keep their own hues, as under every finish.
+
+| Third word | Token | Tone draws in |
+|---|---|---|
+| *(none)* | *(none)* | chart color one. **The default** (omit the word). |
+| `ink` | `marks-ink` | the heading ink (`--text-heading`) |
+| `accent` | `marks-accent` | the theme's accent (`--accent`) |
+
+```markdown
+---
+marks: tone ink
+---
+```
+
+A source means something only under `tone`: pigment and etch draw every category in its own
+hue, so `marks: etch ink` draws nothing differently, and `lint:deck` says so (`marks-source-needs-tone`).
+The three words go in any order, one per axis.
+
 Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …). On a light slide every
 fill clears 4.5:1 against everything it sits on (the slide, a card, its own row tint), and its text
 is the slide's paper; on a dark slide text on every fill clears 4.6:1. For a reader who is colorblind,
@@ -965,7 +1026,8 @@ in both intensities.
 **Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
 `<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
 token replaces the deck's; it never stacks with it. The two axes are separate:
-`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish.
+`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish, and
+`<!-- _class: bar marks-accent -->` changes only tone's source.
 Every slide is stamped, including a chart
 in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
@@ -1253,6 +1315,74 @@ In the Studio: Deck settings → **Image**, one control per axis (backing is a s
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 
+## The `cover:` front-matter register (the front and back cover)
+
+The `title` and `closing` slides are the deck's covers, and by default both paint the dark
+inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
+either order: a **surface** and a **composition**.
+
+```yaml
+cover: light column
+```
+
+### Surface
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `inverse` | `cover-inverse` | The dark inverse panel with on-dark inks. **Default**: a deck value of `inverse` stamps nothing, the same as leaving the key out |
+| `light` | `cover-light` | The deck's own light canvas (`--bg`), with the inks a content slide uses for the same roles: the heading takes `--text-heading`, the subtitle, eyebrow and closing list take `--text-secondary`, and the header, footer and page number take the light canvas's muted ink. The deck logo drops its inverse treatment, and a `finish:` mixes toward the light canvas |
+
+**Title and closing only.** The deck's word rides only a slide whose class list names `title` or
+`closing`. Dividers and `topic` keep their own surfaces: a bright divider is `divider light`,
+a separate layout variant.
+
+**The same in both color modes.** A light cover is the light canvas in a dark deck too, the way
+`divider light` is, because the scheme travels with the surface. A dark deck that wants dark
+covers leaves the key out.
+
+**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `_class: closing cover-inverse`
+keeps the dark panel on the back cover. A per-slide `_class: title cover-light` makes one light
+cover in a deck without the key.
+
+**Not the same as `title light`.** The `light` mood token sets a color *scheme* and paints
+nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
+the word that repaints. Under `color-mode: print` a cover is paper either way.
+
+### Composition
+
+How the heading block sits on the surface. Each one is a variant of the `title` and `closing`
+components, so a slide can also name it in `_class:` (`_class: title cover-poster`).
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `plain` | `cover-plain` | Today's centered block. **Default**: a deck value of `plain` stamps nothing. On one slide it keeps the centered block inside a deck that sets a composition |
+| `masthead` | `cover-masthead` | A heavy rule over the heading, set left. The rule spans the heading's measure, so it does not change length with the words |
+| `ledger` | `cover-ledger` | Small capitals over a double rule, centered |
+| `column` | `cover-column` | An accent column at the right edge, the heading set left. The column runs between the header and footer bands, so it never sits under the footer or a top-right logo, and a long heading wraps short of it |
+| `label` | `cover-label` | A gallery wall label: the heading at the slide-title size (`--fs-h2`), low on the left under a hairline, with the subtitle at the reading size |
+| `stage` | `cover-stage` | The heading at the display size (`--fs-hero`), centered |
+| `frame` | `cover-frame` | The heading boxed in a keyline. The keyline follows the `--rule-w` and `--rule-style` preset hooks |
+| `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
+
+**Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
+heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
+ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+
+**A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
+`label`, `poster`) only change the default alignment, so `headline: center` centers them.
+
+**Keep a `stage` or `poster` heading to a few words: about 60 characters at the laptop venue, and
+fewer as `venue:` scales the display size up.** At laptop that is three lines of about twenty
+characters, with the eyebrow and a subtitle. A longer heading never meets a band silently. It holds
+the top of the content box and grows down, never into the top band or under a logo. The footer
+band is a keep-out: a heading long enough to reach it is reported as overflow (the export's
+overflow line, the Studio ring), never drawn into the footer. Shorten it, or add `cover-plain` to
+that slide.
+
+The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
+(deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the
+ingredients presets use.
+
 ## The `spark:` front-matter register (inline sparks)
 
 A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
@@ -1329,6 +1459,10 @@ slide.
 | `square` | *(none)* | Hard corners. **The default** (omit the key). |
 | `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
 
+`corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
+token (unset: `--radius-md`), which a preset sets; see "Preset hooks" in
+[`base.docs.md`](base.docs.md).
+
 Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
 `<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
 layout too, e.g. `_class: cards-grid corners-square`).
@@ -1352,7 +1486,7 @@ Two implementation notes worth knowing before you touch either:
   `border-top` painted with `border-image-source: var(--spectrum)`, and a border image
   does **not** honor `border-radius` — the bar keeps square corners and pokes past the
   rounded surface. `clip-path: inset(0 round R)` clips the whole element, border image
-  included, so one property covers the top bar and all four `spectrum-edge` rails.
+  included, so one property covers the top bar and all four `spectrum:` edge rails.
 - **The rounded value is anchored to `--_sec-1cqi`.** It is consumed by the section's own
   clip, and a section cannot query its own container — a bare `cqi` there escapes to the
   host viewport, so the corner would scale with the browser window instead of the slide.

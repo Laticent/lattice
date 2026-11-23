@@ -7,9 +7,10 @@ import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './deck-axes';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
+import { SPECTRUM_KEY_AXES } from './spectrum-keys';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -68,7 +69,7 @@ export { registerValueLists, VOCAB_VALUE_FIELDS } from '../../lib/front-matter-v
 // The keys that take one word per axis on ONE line (`tag:`, `backdrop:`, `image-card:`, the plugin
 // registers), so completion offers a second word after the first.
 const AXIS_KEYS = new Set(OFFERED_SETTINGS.filter((r) => r.kind === 'axis').map((r) => r.key));
-// The axes of the registers the Studio mirrors (slide-provenance.ts, each pinned to its kernel
+// The axes of the registers the Studio mirrors (deck-axes.ts and spectrum-keys.ts, each pinned to its kernel
 // by a test). A key not listed still completes, without the filled-axis filter.
 const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	backdrop: [BACKDROP_STRENGTHS, BACKDROP_MASKS],
@@ -78,6 +79,8 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
 	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
 	'marks': MARKS_AXES,
+	// The three spectrum keys (spectrum-keys.ts, pinned to lib/core/resolve-spectrum.js).
+	...Object.fromEntries(Object.entries(SPECTRUM_KEY_AXES).map(([key, axes]) => [key, axes.map((a) => a.names)])),
 };
 
 /** The words still worth offering after `written` on an axis-register line. Exported for a test. */
@@ -243,15 +246,11 @@ export type AssetChoice = { name: string; scope: string; width: number; height: 
 
 export { altFromAssetName };
 
-/** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
- *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */
+/** Is the slide the cursor line sits on a `collage`? Asks the shared reader for the class in force on the cursor's
+ *  slide (`slideClassAt`, a `_class` comment or a record's `layout`), the one the class completion reads. A collage's
+ *  body is a list of photos, so a bare list item there is a photo. */
 export function inCollageSlide(lineText: (n: number) => string, lineNumber: number): boolean {
-	for (let n = lineNumber - 1; n >= 1; n--) {
-		const t = lineText(n);
-		if (/^---\s*$/.test(t)) return false;
-		if (/<!--\s*_class:[^>]*\bcollage\b/.test(t)) return true;
-	}
-	return false;
+	return /\bcollage\b/.test(slideClassAt(lineText, lineNumber)?.tokens.join(' ') ?? '');
 }
 
 /** What may come next in a spark, a pill or a check — lint-core's `inlineCodeCompletions()` shape. */
@@ -456,7 +455,7 @@ export function makeStudioCompletion(
 			return { from: line.from + spot.from, options: options as Completion[], validFor };
 		}
 
-		// 1a. Inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
+		// 1a. Inside a slide RECORD (`<!-- @meta{layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
 		// `, `, a value after `field=` (a component for `layout`, its variants for `variant`, the class grammar for
 		// `class`, a register's own words for the rest). The same kernel as the Playground's (slide-context.js).
 		const rec = recordCompletion(before);

@@ -145,7 +145,7 @@ A parallel set of related items of similar weight — one content shape, four in
 - More than five items
   - Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
 - Ordered steps
-  - If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
+  - If sequence carries meaning, use list-steps or `list takeaway` over a `1.` list. inventory entries are parallel, of similar weight.
 
 ---
 

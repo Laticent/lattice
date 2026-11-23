@@ -199,7 +199,8 @@ test('agent kit structure', { skip }, async (t) => {
 		const os = require('node:os');
 		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-slot-'));
 		const deck = path.join(tmp, 'd.md');
-		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '## What we cover', '', '- Pipeline', '- Hiring', ''].join('\n'));
+		// `#` where agenda reads `##`: a slot-contract error. (A `-` list was the fixture until W2 made either marker valid.)
+		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '# What we cover', '', '1. Pipeline', '2. Hiring', ''].join('\n'));
 		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], { encoding: 'utf8' });
 		fs.rmSync(tmp, { recursive: true, force: true });
 		const rules = JSON.parse(out).files[0].findings.map((f) => f.rule);
@@ -985,7 +986,10 @@ test('agent kit structure', { skip }, async (t) => {
 		// header and page number and keeps the footer on purpose (the deck's standing note).
 		assert.match(skel, /^<!-- _class: title -->$/m, 'title skeleton defers to its manifest chrome');
 		assert.match(skel, /^<!-- _class: closing -->$/m, 'closing skeleton defers to its manifest chrome');
-		assert.match(start, /Speaker notes: a plain HTML comment/);
+		// The four notes, named (engineering/decisions/2026-11-20-four-notes.md); a plain comment reaches nothing.
+		assert.match(start, /`<!-- @note\{Pause here for questions\.\} -->` is the speaker note/);
+		for (const name of ['say', 'alt', 'handout']) assert.ok(start.includes(`\`<!-- @${name}{…} -->\``), `start.md teaches @${name}`);
+		assert.doesNotMatch(start, /<!-- (?:say|describe|reader): /, 'start.md teaches no retired note key');
 		assert.match(start, /`kpi` row.s first pill takes its color from the row.s POSITION/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);

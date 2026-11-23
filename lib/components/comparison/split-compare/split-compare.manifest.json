@@ -89,6 +89,7 @@
   ],
   "description": "Two options + verdict — dark frame on the left, 2-column option grid + a recommendation card on the right.",
   "purpose": "Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.",
+  "lists": "neutral",
   "slots": {
     "frame": {
       "selector": "p:first-of-type > code",
@@ -119,6 +120,12 @@
       "match": { "kind": "blockquote" },
       "required": false,
       "description": "The recommendation — one short sentence in a blockquote: the first top-level one, so a quote inside a raw `<div>`, a table or an option stays where it is, and a quote nested in the verdict stays in the verdict. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow."
+    },
+    "points": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Each option's points, one line per row. Rows stay parallel across the options."
     }
   },
   "skeleton": "<!-- _class: split-compare -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",

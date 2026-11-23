@@ -16,7 +16,7 @@ async function addPhoto(page: Page, name: string) {
 		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
 		const dt = new DataTransfer();
 		dt.items.add(new File([blob], fileName, { type: 'image/png' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);

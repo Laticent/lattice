@@ -198,11 +198,11 @@ describe('the pane picker and the title field write what an author would', () =>
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});
 	it('rewrites a record marker in place, keeping its other fields', () => {
-		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- {pane=bar, note="Lead with the trend."} -->\n\n- A `4`\n\n<!-- {pane=list} -->\n\n### Notes\n\n- x';
+		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- {pane=bar, footer="Lead with the trend."} -->\n\n- A `4`\n\n<!-- {pane=list} -->\n\n### Notes\n\n- x';
 		const state = stateOf(src);
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'kpi', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- {pane=kpi, note="Lead with the trend."} -->');
+		expect(out).toContain('<!-- {pane=kpi, footer="Lead with the trend."} -->');
 	});
 	it('writes a marker right above the `###` of a pane that has none, leaving a pill above it where the engine renders it', () => {
 		const state = stateOf(OUTLINE);

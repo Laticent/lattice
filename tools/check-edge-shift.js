@@ -2,7 +2,7 @@
 /**
  * check-edge-shift — does choosing a different spectrum-bar placement MOVE anything on the slide?
  *
- * The spectrum bar is a real `border` on the `section` (`spectrum-edge: top|left|right|bottom`),
+ * The spectrum bar is a real `border` on the `section` (`spectrum: top|left|right|bottom`),
  * and a border takes layout room, so the content box, and every absolutely positioned element
  * that measures from the padding box (header, footer, page number, the draft/confidential stamp),
  * lands somewhere slightly different for each placement. The same deck, one front-matter key
@@ -18,7 +18,9 @@
  * distance from each of the four slide edges. The same element in the same slide must sit at the
  * same distances under every placement; the spread is the shift.
  *
- *   --placements a,b   which `spectrum-edge:` values to compare (default top,left,right,bottom,off)
+ *   --placements a,b   which `spectrum:` edge words to compare, `off` included (default top,left,right,bottom,off)
+ *   --weight W         the `spectrum:` weight every placement draws at (regular, hairline, band; default regular)
+ *   --style S          the `spectrum:` style every placement draws in (rainbow, solid, duo, mono; default rainbow)
  *   --components a,b   only these components (default: every manifest with a skeleton/sample)
  *   --limit N          the first N components only (a quick pass)
  *   --no-dark          skip the dark twin of each slide
@@ -27,7 +29,8 @@
  *   --each-class a,b|all  one plain `content` slide per class instead of the components (`all` is every
  *                      class the engine reserves), to find the modifier that moves the box
  *   --classes 'a b'    add these classes to every slide (`footer-inset`, `claim-bleed`, `safe`, ...)
- *   --front-matter 'k: v'  add a deck directive (`spectrum: off`, `finish: atrium`); repeatable
+ *   --front-matter 'k: v'  add a deck directive (`finish: atrium`); repeatable. Not `spectrum:`: the sweep
+ *                      writes it, from --placements, --weight and --style
  *   --no-chrome        render without header / footer / page number
  *   --family NAME      canvas family (wide|square|tall|strip, default wide)
  *   --tolerance PX     movement below this is rounding (default 0.5)
@@ -52,20 +55,23 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+/** An own-line class setting, a `_class` comment or a record (`@meta{layout=…}`), read through the shared reader. */
+const setsClass = (line) => classEntries(line).length > 0;
 const path = require('node:path');
 const {
   SIZE_ALIAS, FAMILIES, findManifest, renderProbe,
 } = require('./lib/calibrate-core.js');
 const { resolveChrome } = require('./lib/resolve-chrome.js');
 
-const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
+const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] [--weight regular|hairline|band] [--style rainbow|solid|duo|mono] '
   + '[--components a,b] [--limit N] [--no-dark] [--variants] [--each-class a,b|all] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
   + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--bars] [--positions FILE]';
 
 function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
 
 // ── argv — parsed, and unknown flags are refusals (the check-jank lesson) ──────────────────
-const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions', 'classes', 'front-matter', 'each-class']);
+const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions', 'classes', 'front-matter', 'each-class', 'weight', 'style']);
 const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help', 'variants', 'bars']);
 const opts = new Map();
 for (let i = 2; i < process.argv.length; i++) {
@@ -99,8 +105,15 @@ const EXTRA_CLASSES = (opts.get('classes') || '').trim();
 const EXTRA_FRONT_MATTER = opts.get('front-matter') || [];
 for (const entry of EXTRA_FRONT_MATTER) {
   if (!/^[A-Za-z_][\w-]*:\s*\S/.test(entry) || /[\r\n]/.test(entry)) die(`--front-matter '${entry}' is not a one-line \`key: value\` entry.`);
-  if (/^(size|spectrum-edge):/.test(entry)) die(`--front-matter cannot set '${entry.split(':')[0]}': the sweep owns it.`);
+  if (/^(size|spectrum):/.test(entry)) die(`--front-matter cannot set '${entry.split(':')[0]}': the sweep owns it (use --weight / --style).`);
 }
+const WEIGHT = opts.get('weight') || 'regular';
+if (!['regular', 'hairline', 'band'].includes(WEIGHT)) die(`unknown weight '${WEIGHT}'. Known: regular, hairline, band.`);
+const STYLE = opts.get('style') || 'rainbow';
+if (!['rainbow', 'solid', 'duo', 'mono'].includes(STYLE)) die(`unknown style '${STYLE}'. Known: rainbow, solid, duo, mono.`);
+/** The `spectrum:` line for one placement: `off` is a style, every other placement an edge. The weight rides
+ *  every line, `off` included, so the sweep compares one deck's slides, as a `no-spectrum` slide in it would be. */
+const spectrumLine = (placement) => `spectrum: ${placement === 'off' ? `off ${WEIGHT}` : `${STYLE} ${placement} ${WEIGHT}`}`;
 
 // ── the deck ───────────────────────────────────────────────────────────────────────────────
 
@@ -119,7 +132,7 @@ function componentNames() {
 function bodyOf(name) {
   const m = findManifest(name);
   const text = m.skeleton || m.sample;
-  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+  return text.split('\n').filter((l) => !setsClass(l)).join('\n').trim();
 }
 
 /** The variant's own sample when the manifest has one, else the component skeleton. */
@@ -127,7 +140,7 @@ function variantBody(name, variant) {
   const m = findManifest(name);
   const doc = m.variantDocs?.[variant];
   const text = doc?.sample ? doc.sample : (m.skeleton || m.sample);
-  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+  return text.split('\n').filter((l) => !setsClass(l)).join('\n').trim();
 }
 
 // Ordinary slides carrying each state stamp and each canvas, so the corner marks that anchor
@@ -190,7 +203,7 @@ function deckFor(slides, placement) {
   const fm = [
     '---',
     `size: ${SIZE_ALIAS[FAMILY]}`,
-    `spectrum-edge: ${placement}`,
+    spectrumLine(placement),
     ...(CHROME ? ['header: HEADER', 'footer: FOOTER', 'paginate: true'] : []),
     ...EXTRA_FRONT_MATTER,
     '---',
@@ -496,7 +509,7 @@ async function main() {
   {
     // Twins are paired by class set (minus `dark`, the placement and the engine's own marks) and by order within a
     // set, so a component that splits into extra sections (a tall or strip canvas) still pairs page for page.
-    const key = (cls) => cls.split(/\s+/).filter((c) => c && c !== 'dark' && !/^(spectrum-edge-|marks-)/.test(c) && c !== 'form').sort().join(' ');
+    const key = (cls) => cls.split(/\s+/).filter((c) => c && c !== 'dark' && !/^(spectrum-(top|left|right|bottom|regular|hairline|band)$|no-spectrum$|marks-)/.test(c) && c !== 'form').sort().join(' ');
     const secs = byPlacement[REFERENCE];
     const light = new Map();
     secs.forEach((sec, i) => { if (!/(^|\s)dark(\s|$)/.test(sec.cls)) { const k = key(sec.cls); (light.get(k) || light.set(k, []).get(k)).push(i); } });

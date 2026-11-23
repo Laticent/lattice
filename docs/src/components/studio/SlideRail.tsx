@@ -21,6 +21,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
+import { wheelSideways } from '@/lib/wheel-sideways';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { slideClass, slideClasses, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
@@ -128,10 +129,14 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	// yet, the first time it gets one. Never again on a resize, which would fight a reader who
 	// has scrolled the rail by hand.
 	const observerRef = React.useRef<ResizeObserver | null>(null);
+	const wheelOffRef = React.useRef<(() => void) | null>(null);
 	const navCallback = React.useCallback(
 		(nav: HTMLElement | null) => {
 			observerRef.current?.disconnect();
 			observerRef.current = null;
+			// A mouse wheel over the pills scrolls them sideways (lib/wheel-sideways.ts).
+			wheelOffRef.current?.();
+			wheelOffRef.current = nav ? wheelSideways(nav) : null;
 			navRef.current = nav;
 			center(nav, false);
 			if (nav && !nav.clientWidth && typeof ResizeObserver !== 'undefined') {
@@ -221,7 +226,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 						tabIndex={p.flat === tabStop ? 0 : -1}
 						className="flex shrink-0 select-none items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-left [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]"
 					>
-						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.hidden ? <EyeOff aria-hidden className="size-3" data-strip-hidden="" /> : p.n}</span>
+						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.hidden ? <EyeOff aria-hidden className="size-3" data-strip-hidden="" /> : p.n}</span>{' '}
 						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground', p.hidden && 'line-through decoration-1 opacity-70')}>{p.label}</span>
 						{/* Live presence: who else is on this slide (§5.3). Decorative — the Live panel lists it in words. */}
 						{people && people.length > 0 && (

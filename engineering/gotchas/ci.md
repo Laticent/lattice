@@ -754,7 +754,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 - **Symptom:** `player no-JS (WebKit)` is cancelled at 25 minutes inside its install step, the log a stream of `Get:` and `Ign:` lines from `azure.archive.ubuntu.com`. Or an `ios-safari-undo` job is cancelled at 30 minutes after one or two devices passed. Either way no test failed, and a re-run often goes green, which is what makes it look harmless.
 - **Cause:** two deadlines that depended on something the test did not control (`engineering/decisions/2026-11-06-flaky-tests.md`). The WebKit job ran `playwright install --with-deps webkit`, which apt-installed about 180 packages from Ubuntu's mirror on every run (F6): over 17 runs on 2026-11-10 the step took 36 s at the median, but 5 took over 2 min, 2 over 10, and one never finished. The undo suite ran an iPad, an iPhone and the Mac's Safari one after another in one 30-minute job (F4): a passing run took 25.4 min, about 3 min of probe per device and the rest simulator boots.
-- **Fix:** WebKit and its packages come from GitHub's cache through `.github/actions/playwright-browsers` (`browsers: webkit`; it was `playwright-webkit` until 2026-11-11, when every browser and apt install moved onto the cache, see the next entry), which `apt-cache-warm.yml` and the WebKit nightly (`webkit-baselines-nightly.yml`) warm on `main`; Ubuntu's mirror is read only on a cache miss. The key carries the runner image's version and falls back to the previous image's entry; when those packages no longer fit the newer image (several pin each other's exact versions), `.github/actions/apt-cached/apt-cached.sh` repairs from the mirror with a `::warning::` and the cache saved under the new image's key fits. A warning on every run means the repair is not reaching the cache: delete the caches whose key starts `playwright-<ImageOS>-<arch>-<version>-webkit-` and let the nightly rebuild them. The undo suite is three suites, `ios-safari-undo-ipad`, `-iphone` and `-mac` (`DEVICES` in `docs/scripts/ios-safari/run.sh`), each with the whole job limit.
+- **Fix:** WebKit and its packages come from GitHub's cache through `.github/actions/playwright-browsers` (`browsers: webkit`; it was `playwright-webkit` until 2026-11-11, when every browser and apt install moved onto the cache, see the next entry), which `apt-cache-warm.yml` and the WebKit nightly (`webkit-baselines-nightly.yml`) warm on `main`; Ubuntu's mirror is read only on a cache miss. The key carries the runner image's version and falls back to the previous image's entry; when those packages no longer fit the newer image (several pin each other's exact versions), `.github/actions/apt-cached/apt-cached.sh` repairs from the mirror with a `::warning::` and the cache saved under the new image's key fits. A warning on every run means the repair is not reaching the cache: delete the caches whose key starts `playwright-<ImageOS>-<arch>-<version>-webkit-` and let the nightly rebuild them. The undo suite is three suites, `ios-safari-undo-ipad`, `-iphone` and `-mac` (`DEVICES` in `docs/scripts/ios-safari/run.sh`), each with the whole job limit. The photo, jpeg, photo-memory and chat-storage suites were split the same way on 2026-11-20 (`ios-safari-photo-ipad`, `-iphone`, and so on): in 14 nightlies they had 6 jobs cancelled at the limit, 5 of them with no test failed (the sixth, photo on 2026-11-13, had failed on the iPad first); a photo dispatch (44651836892) ran out the same way when its iPhone took 7 minutes to boot after the iPad passed.
 - **How to tell it from a real failure:** the log stops before any test output. Do not re-run it until green (HARD RULE #32): find which external fetch or which device ran long.
 - **Triggered by:** a slow mirror, or a slow simulator boot on a hosted Mac.
 - **Removable when:** the install no longer touches the network at all (a runner image with the packages baked in).
@@ -963,3 +963,42 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   has to stay synchronous, so it does not call puppeteer's resolver at all.
 - **How to check:** `grep -rn "executablePath()" .github/ tools/ lib/` and confirm that every call is awaited or wrapped
   in `Promise.resolve`.
+
+## A rendering job fails every test with `Could not find Chrome (ver. …)` after a green `npm ci`
+
+- **Symptom:** an integration shard (or a nightly, or golden-diff) fails dozens of browser tests with `Could not find
+  Chrome (ver. 157.0.8103.50) … your cache path is incorrectly configured (which is: /home/runner/.cache/puppeteer)`,
+  and their children read "test did not finish before its parent and was cancelled". The "Cache Puppeteer browser"
+  step logged `Cache not found`, `npm ci` was green, and a re-run passes. First seen in run 43974960155, shard 4/4:
+  41 failed, 186 canceled, while shards 1-3 on the same cache miss passed.
+- **Cause:** on a cache miss, Chrome comes from puppeteer's postinstall, which catches a failed download, prints
+  `ERROR: Failed to set up chrome v… !` and exits 0. npm hides the output of a script that passes, so the log shows
+  nothing. Measured with the network cut (`unshare -n`): postinstall exits 0 and leaves empty `chrome/` folders, and
+  `npx puppeteer browsers install chrome` exits 1.
+- **Fix:** every job that restores `~/.cache/puppeteer` runs `.github/actions/puppeteer-chrome` right after the root
+  `npm ci`. That runs `puppeteer browsers install chrome` up to three times and fails the step by name when the
+  download never lands. It takes about 0.5 s when Chrome is already there, and it repairs the folders a failed
+  postinstall leaves. `test/unit/tools/puppeteer-chrome-step.test.js` fails when a job restores the cache without it.
+  Each call has `timeout-minutes: 5`, so a stalled download fails at this step too, not at the job's limit.
+- **How to check:** a red "Install Chrome for puppeteer (three tries)" step with `::error::puppeteer could not download
+  its Chrome in three tries` means the download host was unreachable from the runner, not that the code is wrong. That
+  job failed before any test ran, so re-running it is allowed (HARD RULE #33). Tests that went red with "Could not find
+  Chrome" in a job where this step passed are a different defect: find it, do not re-run them.
+- **Proof the step fails:** `.github/workflows/puppeteer-chrome-selftest.yml` runs the action on Linux, Windows and
+  macOS with `PUPPETEER_CACHE_DIR` below a regular file, and passes only when the action fails. It runs on any PR that
+  changes the action or `package-lock.json` (a puppeteer upgrade could change the exit code it relies on), and on demand.
+
+## A queued PR reads `auto_merge: null`, and its session concludes nothing is queued
+
+- **Symptom:** after the owner's `merge #N` and a successful `enable_pr_auto_merge`, `GET /pulls/<N>` returns
+  `"auto_merge": null` and `merged: false`. A session reading that decides the PR is not queued, or that the arm
+  "didn't take". Seen on #3410, #3414 and #3412 on 2026-11-22: all three were armed, and #3410 and #3414 were already
+  building in the queue.
+- **Cause:** `main` is governed by a merge queue. The REST `auto_merge` field does not reliably reflect a PR's queue
+  entry. A PR can also be armed but not yet building, because the queue builds at most `max_entries_to_build` (3)
+  entries at once (`workflow.md` §Merge queue — the facts).
+- **How to check:** `git ls-remote origin 'refs/heads/gh-readonly-queue/*'` lists one
+  `gh-readonly-queue/main/pr-<N>-<base-sha>` branch per entry the queue has started (building, or built and waiting to
+  merge). An armed PR with a green `ci` and no such branch has not started yet. Its merge shows up as a squash commit on `main` naming `(#N)`.
+- **Do not:** disable and re-arm auto-merge over a `null`, merge directly to "make sure" (that skips the queue's
+  re-test), or ask the owner to re-confirm a merge they already typed.

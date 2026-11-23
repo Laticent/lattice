@@ -142,7 +142,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
   // connection it made has been read: a signal (test/helpers/request-log.js), not a sleep.
   let log;
   const settle = () => log.drained();
-  const deck = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n<!-- the speaker note -->\n';
+  const deck = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n<!-- @note{the speaker note} -->\n';
 
   test.before(async () => {
     hits = [];

@@ -267,6 +267,24 @@ Every frame, including one born later, then sits at the same time (#3250).
 
 **Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
 
+## Playwright's fake clock: a frame-by-frame walk outruns the test's limit, and a chunk can commit late
+
+**Trap.** Stepping the fake clock one 16 ms frame at a time costs two round trips a frame
+(`frame-clock.ts` `stepFrame`). Under four workers that is about 110 ms a frame, so a walk of a
+few hundred frames crosses a 60 s test limit with every assertion passing (F4). A bigger step
+(`runFor(250)`) is cheap, and usually exact, because the clock awaits a real task after each
+timer and React commits there. But not always: React can commit a timer's state a frame or two
+after the timer fired, so a hold that starts inside a chunk can read up to 32 ms short.
+
+**Example.** `present-beat.spec.ts`, "every handoff holds the finished slide", stepped about 390
+frames and ran at a median of 55 s against 60 s at `--workers=4` (1 timeout in 8). Moved wholly
+to 250 ms chunks, its 400 ms leave beat read 368 ms in 2 of 10 runs alone.
+
+**Do instead.** Chunk where nothing is measured, and step frame by frame only across the window
+the assertion reads, with a page-side frame sampler doing the timing. The test there chunks
+until a slide's read passes 60% on the rail, then steps frames to the flip, and fails loudly if
+a hold began too soon after the switch for the chunks to be ruled out (2026-11-21).
+
 ## The device tier drops to Lite under load
 
 **Trap.** The Studio's device-tier probe drops from Full to Lite when the main thread stalls at
@@ -302,6 +320,24 @@ failures, where a 739 ms gesture selected text and a 939 ms gesture did not.
 touch-event log (the touchstart-to-touchend interval) rather than on WebDriver's gesture time. The
 fix is tracked in `followups.d/3223-p1-ipad-compose-tap-lands-off-point.md`, written before this
 measurement, whose coordinate theory these logs rule out.
+
+## A simulated long press moves its selection on release
+
+**Trap.** On the iOS Simulator, a WebDriver long press (`pointerDown`, a hold, `pointerUp`) selects the word under the
+finger, as a real one does. When the finger lifts, the selection then moves to text above and left of the finger. A test
+that reads the selection after the lift sees text the finger never touched, and the jump looks like a product defect.
+
+**Example.** In the Studio that text is the screen-reader-only legend "Workspace stop" on the iPad and the hidden
+"Lattice Studio" heading on the iPhone (nightly 44744978068, followups.d/3241-p1). It is not the Studio: on a bare page with
+no Studio code, the same long press on an editable paragraph ended on the whole plain paragraph above it (dispatch
+44856765533). A `pointerMove` back onto the point before the lift does not stop it (44850293408). Every logged `pointerup`
+reaches the page at 0,0, which may be why. Because the simulator also stretches a tap into a long press (the gotcha above),
+a slow tap can end with a caret in the legend.
+
+**Do instead.** Do not assert on a selection after a simulated long press. A tap's precondition is `tap-guard.mjs`: a
+gesture held 500 ms or more that left no caret in its target is re-delivered once when Safari acted on it, and a selection
+that moved out of every editor after the lift counts as acting on it. Whether a real finger does the same is unverified,
+and that check is tracked in `followups.d/3241-p1-compose-long-press-selects-sr-legend.md`.
 
 ## Testing Library's hidden 3 s clock and lazy panels
 

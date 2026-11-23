@@ -7,6 +7,8 @@ the Lattice Timing Track (LTT):
 - `LFM-1.1.md` — a **draft** for the owner's sign-off: the front-matter registers, the `_lens` tag
   and the inline notation, each with shared test cases. Not projected into the docs site until it
   is ratified, like `LPM.md`.
+- `LFM-2.0.md` — a **draft**, written as changes against 1.1: the four notes (§3.5), with a shared
+  test case. Not projected into the docs site until it is ratified.
 - `diagnostics.md`
 - `LTT-1.0.md` — the Lattice Timing Track, ratified. It moved here from `engineering/ltt.md` on
   2026-10-08; its conformance fixtures stay beside its reference implementation, in

@@ -18,9 +18,9 @@ import { expect, gotoStudio, openInspectorTab, persistedSource, setEditorContent
 const step = (n: number) => `${n}. Step ${n}\n   - Reads the ticket, plans the change, and writes down why before anyone asks.\n`;
 const deck = (steps: number, venue = 'venue: conference\n') =>
 	`---\nmarp: true\ntheme: indaco\npaginate: true\n${venue}header: "Live preview · venue"\n---\n\n` +
-	'<!-- _class: list takeaway -->\n\n`First slide`\n\n## A short slide that fits at any size.\n\n- One point.\n- Two points.\n\n---\n\n' +
-	`<!-- _class: list-steps -->\n\n\`Binding slide\`\n\n## Agents can now take a ticket all the way to review.\n\n${Array.from({ length: steps }, (_, i) => step(i + 1)).join('')}\n---\n\n` +
-	'<!-- _class: list takeaway -->\n\n`Third slide`\n\n## Another short slide.\n\n- Three points.\n';
+	'<!-- @meta{layout=list, class=takeaway} -->\n\n`First slide`\n\n## A short slide that fits at any size.\n\n- One point.\n- Two points.\n\n---\n\n' +
+	`<!-- @meta{layout=list-steps} -->\n\n\`Binding slide\`\n\n## Agents can now take a ticket all the way to review.\n\n${Array.from({ length: steps }, (_, i) => step(i + 1)).join('')}\n---\n\n` +
+	'<!-- @meta{layout=list, class=takeaway} -->\n\n`Third slide`\n\n## Another short slide.\n\n- Three points.\n';
 
 type Shown = { scale: string; header: string | null; overflow: boolean };
 async function shown(frame: ReturnType<import('@playwright/test').Page['frameLocator']>): Promise<Shown> {

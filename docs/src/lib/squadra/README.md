@@ -145,10 +145,18 @@ change.
 The result is `{ text, applied, skipped, passes, remaining }`; every skip names its reason. The
 driver never writes: it returns text.
 
+`fix` runs every pass in one call, so a page that calls it from a click is frozen until the last
+pass ends. `fixAsync(rules, source, opts, pause?)` is the same run with the page given back between
+passes: it awaits `pause` (default `nextTask`, one macrotask) before each pass, the first included,
+and resolves to the same result. Both drive one generator, `fixSteps`, which yields at the start of
+each pass, so the passes and their result cannot drift apart. The Studio's Fix all uses `fixAsync`;
+the CLI keeps `fix`.
+
 `@laticent/squadra/driver` is the fix path alone, for a browser bundle that fixes findings from a
 producer and never compiles a rule: `fix`, `rulesetOf` (a ruleset with languages and engines and
 no rules), the edit kernel and the `edits` engine. It is 7.7 KB minified and gzipped, against 14.3 KB
-for the whole library (the built dist bundled by esbuild, minified, gzip -6; 2026-10-29).
+for the whole library (the built dist bundled by esbuild, minified, gzip -6; 2026-10-29); `fixAsync` added about
+0.2 KB (7,791 to 7,988 bytes at gzip -9, 2026-11-21).
 
 ### The `edits` engine
 

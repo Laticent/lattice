@@ -41,8 +41,9 @@ Derive these dynamically every run; never trust a number you remember.
   `base.treatments.css`, documented contract in `lib/base/base.docs.md`.
   The typography token set (`--fs-*`) is in the token CSS.
 - **CLI** — flags/args parsed in `lattice.js` (the repo-root source).
-- **Package surface** — `package.json` `exports` subpaths, `bin`, `main`,
-  `files` allowlist, and `scripts` (every `npm run …` users are told exists).
+- **Package surface** — `packages/lattice/package.json` (the engine's publish
+  folder) `exports` subpaths, `bin`, `main` and `files` allowlist; and the root
+  `package.json` `scripts` (every `npm run …` users are told exists).
 - **Render paths** — the two that must agree (`lattice.js` via
   `lib/engine` + `lib/core` + chart-family + integrations, and
   `dist/lattice-runtime.js` — the vscode Marp preview + published-HTML
@@ -93,7 +94,7 @@ node -e "console.log(Object.keys(require('./package.json').scripts).join('\n'))"
 grep -rhoE "npm run [a-z:]+" README.md CLAUDE.md AGENTS.md design/ engineering/ docs/src | sort -u
 
 # Package surface
-node -e "const p=require('./package.json');console.log('exports',Object.keys(p.exports));console.log('files',p.files);console.log('bin',p.bin)"
+node -e "const p=require('./packages/lattice/package.json');console.log('exports',Object.keys(p.exports));console.log('files',p.files);console.log('bin',p.bin)"
 
 # Test / baseline figures the docs hardcode (verify each against reality)
 grep -rnoE "[0-9]+ ?(tests?|pp|PDFs?|decks?)" CLAUDE.md README.md design/ engineering/

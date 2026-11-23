@@ -1,51 +1,7 @@
 {
-  "name": "@laticent/lattice",
-  "version": "1.0.0",
-  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 80 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the Laticent deck system; decks can also export to Marp for recipients who prefer that tool.",
-  "keywords": [
-    "slides",
-    "presentation",
-    "markdown",
-    "pdf",
-    "mermaid",
-    "deck",
-    "theme",
-    "design-system",
-    "laticent"
-  ],
-  "homepage": "https://github.com/Laticent/lattice",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Laticent/lattice.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Laticent/lattice/issues"
-  },
-  "license": "AGPL-3.0-only",
-  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
-  "main": "lib/engine/index.js",
-  "bin": {
-    "lattice": "dist/lattice.js",
-    "lat": "dist/lattice.js"
-  },
-  "exports": {
-    ".": "./lib/engine/index.js",
-    "./runtime": "./dist/lattice-runtime.js",
-    "./runtime/min": "./dist/lattice-runtime-min.js",
-    "./css": "./dist/lattice.css",
-    "./slides.css": "./dist/slides.css",
-    "./css/min": "./dist/lattice-min.css",
-    "./default": "./dist/lattice-default.css",
-    "./default/min": "./dist/lattice-default-min.css",
-    "./engine": "./lib/engine/index.js",
-    "./palette/*.css": "./dist/palettes/*.css",
-    "./themes/*.css": "./themes/*/*.css",
-    "./themes/*.manifest.json": "./themes/*/*.manifest.json",
-    "./themes/*": "./themes/*",
-    "./dist/lattice-emoji.css": "./dist/lattice-emoji.css",
-    "./dist/docs/components.json": "./dist/docs/components.json",
-    "./package.json": "./package.json"
-  },
+  "name": "lattice-workspace",
+  "private": true,
+  "description": "The Lattice repository root: scripts, devDependencies and workspaces. The engine publishes from packages/lattice/ as @laticent/lattice.",
   "workspaces": [
     "docs/src/lib/cadenza",
     "docs/src/lib/calco",
@@ -65,26 +21,8 @@
     "docs/src/lib/tavola",
     "docs/src/lib/trama",
     "docs/src/lib/veduta",
-    "docs/src/lib/vetrina"
-  ],
-  "files": [
-    "lattice.js",
-    "dist/",
-    "lib/",
-    "themes/",
-    "design/skill.md",
-    "design/design-system.md",
-    "design/skills/",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-    "LICENSE-EXCEPTIONS",
-    "TRADEMARKS.md",
-    "!**/*.pdf",
-    "!**/*.gallery.md",
-    "!dist/marp-kit/",
-    "!dist/agent-kit/",
-    "!dist/engineering/"
+    "docs/src/lib/vetrina",
+    "packages/lattice"
   ],
   "scripts": {
     "build:gallery-jargon": "node lattice.js examples/gallery-jargon.md examples/gallery-jargon.pdf",
@@ -237,6 +175,7 @@
     "changelog:bump": "node tools/changelog.js --bump",
     "backlog": "node tools/backlog.js",
     "card": "node tools/card.js",
+    "merge:order": "node tools/merge-order.mjs",
     "evidence": "node tools/evidence-plan.js",
     "followups": "node tools/followups.js",
     "docs:components": "node tools/build-component-docs.js",
@@ -392,44 +331,7 @@
     "sync:labels": "node tools/sync-labels.js",
     "clean:scratch": "find .scratch -mindepth 1 -mtime +14 -print -delete",
     "prepare": "node tools/prepare.js",
-    "prepack": "npm run build",
-    "prepublishOnly": "npm run build && npm test",
     "tavola-lib:build": "node tools/build-tavola-lib.js"
-  },
-  "dependencies": {
-    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
-    "@laticent/cadenza": "^0.1.0",
-    "@laticent/calco": "^0.1.0",
-    "@laticent/fluido": "^0.1.0",
-    "@laticent/lastra": "^0.1.0",
-    "@laticent/ltt": "^0.1.0",
-    "@laticent/markup": "^0.1.0",
-    "@laticent/mosaico": "^0.1.0",
-    "@laticent/segno": "^0.1.0",
-    "@laticent/segno-markdown": "^0.1.0",
-    "@laticent/squadra": "^0.1.0",
-    "@laticent/trama": "^0.1.0",
-    "@mediabunny/aac-encoder": "1.60.0",
-    "@pdf-lib/fontkit": "^1.1.1",
-    "acorn": "^8.17.0",
-    "dagre-d3-es": "^7.0.14",
-    "dompurify": "^3.4.17",
-    "harfbuzzjs": "^0.10.3",
-    "highlight.js": "^11.11.1",
-    "jsdom": "^29.1.1",
-    "jszip": "^3.10.1",
-    "markdown-it": "^14.3.3",
-    "mediabunny": "1.60.0",
-    "parse5": "^8.0.1",
-    "pdf-lib": "^1.17.1",
-    "puppeteer": "^25.17.0",
-    "qrcode": "^1.5.4",
-    "quickjs-emscripten-core": "0.31.0",
-    "roughjs": "^4.6.6",
-    "woff2-encoder": "^2.0.0"
-  },
-  "engines": {
-    "node": ">=22.13.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
@@ -467,6 +369,7 @@
     "mermaid": "12.3.0",
     "pngjs": "^5.0.0",
     "postcss": "^8.5.12",
+    "puppeteer": "^25.17.0",
     "puppeteer-core": "^25.17.0",
     "tinybench": "^6.0.2",
     "trystero": "0.26.0",
@@ -477,17 +380,6 @@
     "yaml": "^2.9.0",
     "yjs": "13.6.33",
     "zdog": "^1.1.3"
-  },
-  "optionalDependencies": {
-    "@prettier/plugin-php": "0.25.0",
-    "@prettier/plugin-xml": "3.4.2",
-    "@wasm-fmt/ruff_fmt": "0.15.20",
-    "css-tree": "^3.2.1",
-    "fontverter": "^2.0.0",
-    "prettier": "3.9.10",
-    "prettier-plugin-java": "2.11.0",
-    "sql-formatter": "15.9.0",
-    "subset-font": "^2.5.0"
   },
   "overrides": {
     "@mermaid-js/mermaid-cli": {

@@ -69,16 +69,17 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
+const { LEGACY_META_RULES } = require('../lib/authoring/legacy-meta-rules');
 const { reviewText, isLabelHeading } = require('../lib/authoring/review-core');
 const { splitTopLevel } = require('../lib/authoring/slide-split');
 const { scoreDeck, CRAFT_WEIGHTS, STYLE_WEIGHTS } = require('../lib/authoring/scorecard');
 const { loadAll } = require('../lib/components');
 
-const CLASS_DIRECTIVE = /<!--\s*_?class:/;
 
 // The prefix depths each draft model cuts at. `--depths` overrides them, and it
 // exists because this parameter turned out to CHOOSE the answer rather than refine
@@ -130,7 +131,7 @@ function loadCorpus() {
   const decks = [];
   for (const file of files) {
     const source = readDeck(file);
-    if (!CLASS_DIRECTIVE.test(source)) continue;
+    if (!classEntries(source).length) continue; // a deck that sets a class, in a comment or a record
     decks.push({ file: relFromRoot(file), source });
   }
   return { decks, seen: files.length };
@@ -157,7 +158,9 @@ function makeScorer() {
     const lintFindings = lintText(source, { vocab }).filter(
       (f) => (f.severity === 'error' || f.severity === 'warning')
         && !(f.rule === 'typed-shape-glyph' && exempt)
-        && !isSubjectFinding(rel, f.rule),
+        && !isSubjectFinding(rel, f.rule)
+        // The old comment spellings, which `--strict` does not count until the sweep (lib/authoring/legacy-meta-rules.js).
+        && !LEGACY_META_RULES.includes(f.rule),
     );
     const reviewFindings = [...reviewText(source, { bucketOf, densityOf })];
     return { deck: scoreDeck({ source, lintFindings, reviewFindings }), lintFindings, reviewFindings };

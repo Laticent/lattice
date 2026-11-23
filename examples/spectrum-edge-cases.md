@@ -6,9 +6,9 @@ header: "Lattice · spectrum edge cases"
 footer: "Edge-case deck"
 ---
 
-<!-- Open this deck in the Studio. Open Deck settings, change the spectrum edge (top, left, right, bottom, off) and
+<!-- @note{Open this deck in the Studio. Open Deck settings, change the spectrum edge (top, left, right, bottom, off) and
      page through every slide. The bar changes sides; no word, mark, stamp or photo may move, and nothing may sit
-     on top of the bar. Each slide below is an edge case; its eyebrow names what it checks. -->
+     on top of the bar. Each slide below is an edge case; its eyebrow names what it checks.} -->
 
 <!-- _class: title -->
 
@@ -86,7 +86,7 @@ Change the edge and watch the slides below.
 
 ---
 
-<!-- _class: image spectrum-edge-left -->
+<!-- _class: image spectrum-left -->
 
 `Image · full bleed, overlay bar`
 

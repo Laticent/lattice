@@ -13,7 +13,7 @@ header: "Lattice · Print handouts"
 
 The Print drawer and the `lattice` CLI now fit a deck onto real sheets, pack several slides per page, and print a speaker-notes handout — the boardroom leave-behinds.
 
-<!-- Speaker: this is the demo deck for the paper-fit CLI, N-up, and the notes handout; print it from the drawer or render it with the CLI --paper flag. -->
+<!-- @note{Speaker: this is the demo deck for the paper-fit CLI, N-up, and the notes handout; print it from the drawer or render it with the CLI --paper flag.} -->
 
 ---
 

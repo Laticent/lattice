@@ -32,6 +32,7 @@
   "excludes": [
     "accent"
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",

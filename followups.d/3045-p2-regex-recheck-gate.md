@@ -85,6 +85,24 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             run-time COMMENT_SOURCE (`CommentScan`, a seeded fuzz in notes-comment-reader.test.js), `/[\r\n]+$/` x3
             (`withoutEol`), the heading/rule back-reference (three alternatives, `safe`); and slice-equivalence-core's
             quote-aware tag strip (`stripTags`). Each with a mutation arm.
+            2026-11-21 (owner chose B, via the flake desk): drain only what reads hostile input, freeze the rest with
+            a class-level reason, and close this note. Three PRs: (1) the census's one exponential pattern, (2) the
+            lint-core drain, which retires the last four hang guards (chart-row-record x3, lint-core.test.js:2151),
+            (3) every pattern an `assertLinearRegexes` trace finds on an author-input path. PR 1 is done.
+            marp-bundle-scope.js's LEAD is `commentLeadEnd`, a one-pass walker, and `unquote`'s back-reference is
+            written out. Both are held to their old patterns by a seeded fuzz (test/unit/core/marp-bundle-scope-lead.test.js,
+            seed 3045). The checker's exhaustive sweep found 0 disagreements in 287M prefix cases and 5.2M unquote
+            cases. Mutation arms: four leading spaces fail the fuzz, and the old regex fails the trace. The old
+            pattern froze Export to Marp: 11 s at 16 `-    ` markers, still running at 20 after 100 s. Backlog
+            for that file: 4 -> 2. The census now holds 0 exponential verdicts.
+            PR 2 sized (same day, the four hang guards' hostile inputs at 2,000 characters under `traceRegexes`):
+            lintText on a record chart runs 223 regexes, the heatmap render 163, the pipe case 211, the note-pipe lint
+            122. Across the four: 57 distinct patterns the census calls polynomial or unknown, and 81 it does not hold
+            (built at run time, such as the `^<key>[ \t]*:` front-matter probes, or markdown-it's own), each of which
+            needs `allow` with its reason. The biggest families: about 20 copies of
+            `^\s*<key>:\s*["']?([A-Za-z0-9_-]+)["']?\s*$`/m (one register reader would replace them), the engine's HTML
+            walkers (`<td|th>…<\/\1>`, `<tr>`, `<thead>`, `<p><code>`, the shared tag tokenizer), and the table
+            delimiter tests. The tracer script is the census's normalKey plus a verdict lookup over those four inputs.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

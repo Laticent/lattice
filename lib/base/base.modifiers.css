@@ -374,7 +374,10 @@ section video[data-lattice-web-src] {
  * is loading and stops for reduced motion; the one-off sweep is a clip. */
 section [data-lattice-painting] {
   /* Nacre's three tones: the accent, and two hue-shifted relatives (+34° and −28°, Nacre's own
-     offsets). A browser without relative colors keeps plain token mixes. */
+     offsets). A browser without relative colors keeps plain token mixes. The guard is the rule's
+     own shape: a light-dark() origin, as `--accent` is, and a calc() in the hue channel. WebKit 17.4
+     (Safari 17.5-17.6) passed a bare `oklch(from red l c h)` but rejects both, so --lp-b and --lp-c
+     went invalid and the canvas lost its whole background-image; it now keeps the plain mixes. */
   --lp-a: var(--accent);
   --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
   --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
@@ -382,7 +385,7 @@ section [data-lattice-painting] {
   isolation: isolate;
   background-color: var(--bg-alt, var(--bg));
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section [data-lattice-painting] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -547,7 +550,7 @@ section :is(div, span)[data-lattice-plugin-off] {
     radial-gradient(50% 140% at 100% 10%, color-mix(in oklab, var(--lp-c) 36%, transparent), transparent 72%),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section :is(div, span)[data-lattice-plugin-off] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -970,7 +973,7 @@ section.dark {
  *
  * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
  * and they are fixed now (#2291) -- this paragraph used to say they were not.
- * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-<edge>) (0,3,1) and
  * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
  * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
  * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.
@@ -1081,6 +1084,10 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* A palette's ramp hue and ink (--ramp-hue / --ramp-ink, carbone) resolve on :root, so they would carry the screen
+   * color past the remap above; reset them so a printed ramp falls back to the first category's print gray, as before. */
+  --ramp-hue: initial;
+  --ramp-ink: initial;
   /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
    * block above does. It used to ride along for free, being derived from
    * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be
@@ -1279,8 +1286,11 @@ section.color-inherited {
  * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
  * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
  * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
- * the light scheme it declares beside that background. */
-section:is(.title, .closing):not(.print),
+ * the light scheme it declares beside that background. `cover-light` (the `cover: light`
+ * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+ * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
+ * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
+section:is(.title, .closing):not(.print, .cover-light),
 section.divider:not(.light):not(.print) {
   color-scheme: dark;
   /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
@@ -1315,10 +1325,53 @@ section.divider:not(.light):not(.print) {
  * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
  * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
  * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
-section:where(.title, .closing, .divider:not(.light)):not(.print) {
+section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {
   --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
+}
+
+/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+ * The front and back cover on the deck's own light canvas instead of the inverse panel. The
+ * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+ * the `light` mood token.
+ *
+ * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
+ * named through a token rather than a color: the heading reads `--text-display` (a constant
+ * light ink in every theme), and the subtitle, eyebrow, closing list, inline-code chip and the
+ * eyebrow rebinds above all read the `--on-dark-*` tier. Repointing those tokens on the section
+ * reaches every one of them at once, the way `section.print` remaps the same tokens to the print
+ * band, so no element rule is copied and none can be missed. Each points at the light-canvas
+ * ink a content slide uses for the same role: display → heading, primary → heading, secondary →
+ * secondary, ghost → muted.
+ *
+ * `background: var(--bg)` with `color-scheme: light`, the pair `section.divider.light` paints, so
+ * the light cover and the bright divider are the same surface. THE SAME IN BOTH COLOR MODES: in a
+ * dark deck a light cover is still the light canvas, because the scheme travels with the surface
+ * (2026-08-17-dark-surface-ink.md) and `--bg` is a `light-dark()` pair that resolves to its light
+ * side under `color-scheme: light`. A dark deck that wants dark covers leaves the key out.
+ *
+ * The CHROME and the LOGO go back to the light canvas's own: the two blocks above carve
+ * `cover-light` out of their panel predicate, so the bands keep the `--text-muted` mapping from
+ * base.tokens.css, and the logo filter is reset here because a `-dark` theme or a `.dark` deck
+ * sets the inverse mark on every section at (0,1,1). `--fin-canvas` is repointed in
+ * base.finish.css, beside the rule that points it at the panel.
+ *
+ * `:not(.print)`: a printed cover is paper already, and print's own remap of these tokens must
+ * keep winning, so a `cover-light` slide under print renders exactly as a printed title does.
+ *
+ * (0,3,1) beats the component sheets' `section.title` / `section.closing` (0,1,1) canvas, the
+ * `.dark` / `.color-*` scheme registers (0,1,1), and the inverse-logo rules (0,1,1). No font
+ * size, no margin, no hex: HARD RULES #4, #20 and #3. */
+section:is(.title, .closing).cover-light:not(.print) {
+  background: var(--bg);
+  color-scheme: light;
+  --text-display: var(--text-heading);
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+  --on-dark-ghost: var(--text-muted);
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
@@ -2464,9 +2517,11 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
 section > .marker-rail {
   position: absolute !important;
   /* The rail sits one bar width above the SLIDE's bottom edge in every placement and centers on the slide,
-     not on the padding box a bar border shrinks: it holds still under every `spectrum-edge:` and never
+     not on the padding box a bar border shrinks: it holds still under every `spectrum:` edge and never
      sits inside a bottom bar (check:edge-shift). Its height gives up the same bar width below, so it
-     still ends where the footer's strip ends. */
+     still ends where the footer's strip ends. Its HEIGHT is the inset less the bar's ROOM (`--_bar-room`),
+     not its drawn weight: under a `band` (`spectrum:` weight) the strip keeps its full height and type and
+     rises with the band, rather than shrinking to the few pixels a heavy bar leaves of the inset. */
   bottom: calc(var(--_bar-w) - var(--_bar-b, 0px));
   left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
@@ -2524,9 +2579,9 @@ section > .marker-rail {
      overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
      1.17%. The marker reads the same size relative to the slide on every preset, which is
      what it always should have done. */
-  height: calc(var(--frame-inset-y) - var(--_bar-w));
+  height: calc(var(--frame-inset-y) - var(--_bar-room));
   align-items: center;
-  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-w)) * 0.65));
+  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-room)) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);
@@ -3123,7 +3178,7 @@ section.logo-plate img.deck-logo {
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
 section.safe[data-orientation='square'] {
-  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum-edge:`. */
+  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum:` edge. */
   padding-top: calc(max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
   padding-bottom: calc(max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) - var(--_bar-b, 0px));
 }
@@ -4165,7 +4220,7 @@ section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p
    spec: a `border-radius` box draws a hard rectangular bar over a rounded body,
    while `clip-path: inset(0 round R)` clips the WHOLE element — border image
    included — so the bar hugs the corner exactly. That holds for the four
-   `spectrum-edge-*` rails too, which are the same border-image on another side, so
+   `spectrum-<edge>` rails too, which are the same border-image on another side, so
    one property covers every placement with no per-edge repaint to keep in step.
 
    Everything else on the slide is already inside the clip for free: `section` is
@@ -4267,7 +4322,7 @@ section.corners-square {
  * THE SPECTRUM STAYS THE EDGE on whichever side it sits. The keyline is a border whose
  * per-side width is a flag, and a side carrying the brand bar sets its flag to 0, so the bar is that side's
  * edge and nothing doubles it. The side flags are set IN THE RULES THAT PLACE THE BAR — the
- * default top bar here, `spectrum-edge-*` and `spectrum: off` in base.variants.css, the
+ * default top bar here, `spectrum-<edge>` and `spectrum: off` in base.variants.css, the
  * frames that drop the bar (title, closing, divider, topic, split-panel, split-compare) in
  * their own styles — so the two can never disagree about where the bar is.
  * (test/unit/tools/slide-frame-hosts.test.js pins the co-location.)

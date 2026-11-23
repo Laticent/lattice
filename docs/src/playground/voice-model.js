@@ -290,6 +290,12 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // session's real working set (a few dozen sentences × one voice/model/speed
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
+// AND a byte budget, because the count alone was sized for MP3. A Gemini voice answers uncompressed 24 kHz PCM, ten
+// times the bytes a second: 200 such clips are about 95 MB. A safety limit, NOT the fix for the iPhone reload during
+// narrated Present: the iOS Simulator grew about the same with and without it (PROBE=present-narration, runs
+// 44025172449 and 44024954648). 24 MB still holds minutes of PCM, far past the slide being read and the ones warmed
+// ahead of it; an evicted clip is synthesized again only if it is played again.
+export const AUDIO_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
 // warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
 // spike into dozens of simultaneous OpenRouter requests (rate limit / cost /
@@ -361,14 +367,12 @@ export function isPcmOnlyModel(model) {
 // "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
 // quirk, not a universal constant. Browser twin of generate-voice-samples.mjs's
 // pcmToWav()/parsePcmContentType() (that one writes a Node Buffer to disk; this
-// one hands back a blob-LIKE object — {size, type, arrayBuffer()} — the consumer
-// (Suono) can decode directly, same header layout). Deliberately NOT a real `Blob`:
-// this codebase's own rung mocks (voice-model.test.ts) always use this exact duck-
-// typed shape rather than a real Blob, because jsdom's Blob has no `.arrayBuffer()`
-// method — matching that shape here keeps production and tests on one shape, and it
-// avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
-// already an ArrayBuffer). A real Blob works fine in every real browser target too,
-// if a future caller needs one — this just isn't that caller.
+// one hands back the clip the consumer (Suono) decodes directly, same header layout).
+// It is a real `Blob` in every browser (`wavLike`, 2026-11-17): a browser may keep a
+// Blob's bytes outside the page's memory, where an ArrayBuffer held in a cache always
+// counts, and these uncompressed clips are the large ones. jsdom's Blob has no
+// `.arrayBuffer()`, so under the unit tests `wavLike` falls back to the duck-typed
+// {size, type, arrayBuffer()} shape the rung mocks use.
 // The WAV wrap itself (and the one PCM-geometry parser every consumer shares) lives in voice-decode.js, so the
 // Gemini decode worker produces the same bytes as this main-thread path.
 function pcmBlobFromResponse(pcmBytes, contentType) {
@@ -386,6 +390,11 @@ function wavLike(buf) {
   // in a real browser. A real Blob's own `.arrayBuffer()` already re-reads fresh
   // bytes per call for exactly this reason; `.slice(0)` gives this duck-typed
   // stand-in the same replay safety.
+  // A REAL Blob wherever the engine has one that reads back (every browser): the browser may keep a Blob's bytes
+  // outside the page's memory, where an ArrayBuffer held in a cache always counts against it, and a Gemini voice's
+  // uncompressed clips are the large ones (2026-11-17; not shown to be the iPhone reload). jsdom's Blob cannot read back
+  // (no `.arrayBuffer()`), so the tests keep the duck-typed shape with the same replay safety.
+  if (typeof Blob === 'function' && typeof Blob.prototype.arrayBuffer === 'function') return new Blob([buf], { type: 'audio/wav' });
   return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
 }
 
@@ -441,7 +450,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
           'Content-Type': 'application/json',
           Authorization: 'Bearer ' + key,
           'HTTP-Referer': referer(),
-          'X-Title': 'Lattice Drawing Board',
+          'X-Title': 'Lattice Studio',
         },
         body: JSON.stringify({
           model,
@@ -561,8 +570,8 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
       // model-gone and billing latches stay here: they cost nothing measurable.
       const out = await decodeGeminiSpeechOffThread(await res.arrayBuffer());
       if ('error' in out) throw new Error(out.error);
-      // Gemini's own WAV stays a real Blob; a wrapped headerless L16 clip is the same duck-typed shape the
-      // OpenRouter PCM path returns.
+      // Gemini's own WAV stays a real Blob; a wrapped headerless L16 clip goes through `wavLike`, as the OpenRouter PCM
+      // path does: a real Blob in a browser, the duck-typed shape under jsdom.
       return out.wrapped ? wavLike(out.wav) : new Blob([out.wav], { type: 'audio/wav' });
     },
   };
@@ -1034,12 +1043,19 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // (2026-07-09-studio-cloud-ondevice-config-split.md) rather than sharing one
   // cache across surfaces.
   const audioCache = new Map(); // cacheKeyFor(...) → Blob
+  let audioCacheBytes = 0;
   function cacheSet(key, blob) {
-    if (!audioCache.has(key) && audioCache.size >= AUDIO_CACHE_LIMIT) {
-      const oldest = audioCache.keys().next().value;
-      if (oldest !== undefined) audioCache.delete(oldest);
-    }
+    const had = audioCache.get(key);
+    if (had) audioCacheBytes -= had.size || 0;
     audioCache.set(key, blob);
+    audioCacheBytes += blob?.size || 0;
+    // Oldest first, until under BOTH the count and the byte budget, never the clip just stored.
+    while (audioCache.size > 1 && (audioCache.size > AUDIO_CACHE_LIMIT || audioCacheBytes > AUDIO_CACHE_MAX_BYTES)) {
+      const oldest = audioCache.keys().next().value;
+      if (oldest === undefined || oldest === key) break;
+      audioCacheBytes -= audioCache.get(oldest)?.size || 0;
+      audioCache.delete(oldest);
+    }
   }
   // In-flight synth de-dup: two IDENTICAL sentences scheduled in the same
   // concurrency batch (a slide repeating a phrase across two bullets) used to
@@ -1997,6 +2013,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     async prepareSelectedVoice() {
       if (injected || !selection) return true;
       const s = selection.read();
+      // Nothing chosen yet, which is how every phone starts (a touch device cannot run Kokoro, so nothing migrates it
+      // in): nothing to make ready, and the key store throws on a provider it does not know (`''` is one). The read
+      // waits on this before it starts the read-along with the Voice on, so a throw here left Present on its first cue
+      // (read-aloud.ts; with the Voice off the read starts first, and the throw escaped uncaught).
+      if (!s.provider) return false;
       if (s.provider === 'kokoro') {
         if (!kokoroSupported()) return false;
         if (kokoro.ready()) return true;

@@ -35,7 +35,7 @@ The RFP asks for a new system. The real requirement is faster, more predictable 
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- tier: short -->
 
 ## How our approach meets each evaluation criterion.

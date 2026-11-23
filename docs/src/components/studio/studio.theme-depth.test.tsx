@@ -69,7 +69,7 @@ afterEach(() => {
 
 function openFabricate(user: ReturnType<typeof userEvent.setup>) {
 	return (async () => {
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		await user.click(screen.getByRole('button', { name: 'Lattice — workspace launcher' }));
 		await user.click(await screen.findByText('Fabricate'));
 		// Fabricate is code-split (React.lazy) out of the initial Studio island, so
 		// its subtree arrives a tick after the click via Suspense — wait for the

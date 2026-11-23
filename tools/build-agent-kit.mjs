@@ -68,6 +68,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { classEntries } from '../lib/core/class-entries.mjs';
 
 const require = createRequire(import.meta.url);
 const { readSkills: readSkillIndex } = require('./skill-index.js');
@@ -451,7 +452,8 @@ function pluginSummary(body) {
   const line = ex?.[1].split('\n').find((l) => notation.test(l));
   // Where the example works: the layout its own example block sets, when it sets one. A callout
   // copied onto a `content` slide renders as code (found by rendering every example, 2026-11-17).
-  const cls = ex?.[1].match(/<!--\s*_class:\s*([a-z0-9-]+)/)?.[1] ?? '';
+  // Read through the shared reader, so an example written as a record (`@meta{layout=…}`) counts too.
+  const cls = ex ? (classEntries(ex[1]).find((e) => e.spot)?.value.trim().split(/\s+/)[0] ?? '') : '';
   // A plugin whose own "Where it draws today" says its authored form is not drawn yet gets no
   // example: an agent copies examples. When the doc stops saying so, the example comes back.
   const today = text.split(/^## Where it draws today\s*$/m)[1]?.split(/^## /m)[0] ?? '';
@@ -1481,7 +1483,7 @@ const SOLO_INTENT = {
   closing: 'the last slide',
   divider: 'a section break',
   content: 'a claim plus a short paragraph',
-  list: '3-5 short bullets (`takeaway numbered` for numbered requirements, each with a reason)',
+  list: '3-5 short bullets (`takeaway` over a `1.` list for numbered requirements, each with a reason)',
   'cards-grid': '2-4 named items with one line each',
   stats: '2-4 numbers side by side',
   kpi: '3 metrics with targets and status',
@@ -1545,7 +1547,7 @@ const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
  * BE PRECISE ABOUT PROVENANCE — an earlier draft of this comment claimed all nine
  * are rated `error` by the linter, which was checkable and wrong. Four map to
  * `error` rules in `lib/authoring/lint-core.js` (`card-style-inline-title`,
- * `ledger-inline-title` / `split-bodyless-item`, `statement-ol-bold`,
+ * `split-bodyless-item`, `statement-ol-bold`,
  * `unterminated-comment`). One maps to a `warning` (`unknown-class`). The other
  * four — separator spacing, the three-space nested indent under `1.`, bookend slot
  * ORDER, and never writing a hex code — are load-bearing at RENDER time and the
@@ -1574,7 +1576,7 @@ function listShapes(only) {
   const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
   const solo = { has: (n) => !only || only.includes(n) };
   const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
-  const ledger = [...ls.LEDGER_OL_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  const ledger = [...ls.LEDGER_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
   // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
   return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
@@ -2196,7 +2198,7 @@ function exampleDecks() {
     out.push({
       name: `lattice-example-${slug}.md`,
       blurb,
-      slides: (body.match(/^<!--\s*_class:/gm) || []).length,
+      slides: classEntries(body).filter((e) => e.spot && !e.nested).length, // one class per slide, a comment or a record
       body: Buffer.from(body, 'utf8'),
     });
   }
@@ -3201,8 +3203,10 @@ function startDoc(files, cat) {
     // Gaps a model writing from this file alone hit on 2026-11-19 (the no-spend stand-in eval,
     // engineering/decisions/2026-11-17-agent-pack.md §4.5): it was told to use speaker notes
     // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
-    '- Speaker notes: a plain HTML comment on the slide, `<!-- Pause here for questions. -->`.',
-    '  `<!-- say: … -->` holds the exact words to speak. Notes never show on the slide.',
+    // The four notes (engineering/decisions/2026-11-20-four-notes.md): a plain comment reaches nothing.
+    '- Notes: `<!-- @note{Pause here for questions.} -->` is the speaker note, `<!-- @say{…} -->` the exact',
+    '  words to speak, `<!-- @alt{…} -->` the alt text, `<!-- @handout{…} -->` the handout. Notes never',
+    '  show on the slide, and a plain `<!-- comment -->` reaches no channel.',
     // The first real-model run (2026-11-19) then put `{Breaching}` on a row `kpi attention` draws
     // green with a check: the rule named no rows. These rows are kpi.styles.css's nth-child hooks,
     // pinned by test/unit/tools/agent-kit-structure.test.js.

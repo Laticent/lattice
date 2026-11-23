@@ -25,8 +25,8 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
@@ -56,7 +56,7 @@ import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
+import { hashString, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { PAGE_SCRIPT_NONCE } from '../playground/page-script-nonce.js';
@@ -527,6 +527,13 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
+/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
+ *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
+ *  and a miss would preview a wrong slide. */
+function recordHasWord(text: string, word: string): boolean {
+	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
+}
+
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
 // The deck-context render exists to get three things right, and EVERY ONE of them requires the
 // deck to actually carry deck-scoped state:
@@ -605,7 +612,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
 	},
 
 	{
@@ -622,7 +630,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'ambiguous divider count',
 		why: 'a `_class: divider` inside code makes the raw and code-stripped counts disagree, so a supplied section could paint the wrong rail',
 		probes: [],
-		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
+		test: (deck) => (recordHasWord(deck, 'divider') || /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck)) && deckSectionFor(deck, 0) === undefined,
 	},
 	{
 		// An agenda with a heading and no list fills itself from EVERY divider in the deck, and a
@@ -636,7 +644,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		// code sample does not read as the agenda's list (it did, and the preview showed an empty agenda).
 		test: (deck) =>
 			deck.split(/^\s*---\s*$/m).some((chunk) => {
-				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
+				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk) && !recordHasWord(chunk, 'agenda')) return false;
 				const prose = withoutComments(chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, ''));
 				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
 			}),
@@ -662,6 +670,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
+			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
 	},
@@ -1359,7 +1368,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// agent at the end of <body> the poll read `undefined`, concluded "no gate",
 			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
 			// no-op. See lib/core/preview-font-gate.mjs.
-			'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
+			agentTag(frameAgentsUrl(runtimeUrl), 'fontgate', {}, n) +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
 			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
 			// The preload carries the nonce too: under 'strict-dynamic' a script preload without it is refused.
@@ -1382,7 +1391,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also
 		// carries the video-playback bridge (window.__videoPlay) for the Studio.
-		s += '<scr' + 'ipt' + n + '>' + linkGuardAgent() + '</scr' + 'ipt>';
+		s += agentTag(frameAgentsUrl(runtimeUrl), 'link', {}, n);
 		s += '</body></html>';
 		return s;
 	}

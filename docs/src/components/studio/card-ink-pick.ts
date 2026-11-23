@@ -7,7 +7,7 @@ import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { type SlidePlacing, slidePlacingAt, slidePlacingOf } from '../../lib/slide-carried';
 import { getClassTokens } from '../../lib/slide-directives';
 import { type Rgb, sampleBehindCard } from './card-ink-sampler';
-import { deckImageCardClasses, setImageCard } from './slide-provenance';
+import { deckImageCardClasses, setImageCard } from './deck-axes';
 
 // The Card backing slider's "pick an ink" step, in one module the Studio loads when an image slide
 // opens: the kernel (lib/core/card-ink.mjs) and the photo sampler weigh about a kilobyte gzipped

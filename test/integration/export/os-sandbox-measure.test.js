@@ -77,12 +77,13 @@ test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platfor
     assert.equal(fs.existsSync(dir), false);
     return;
   }
-  const script = `$f = [System.IO.File]::Open($env:HELD, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); Start-Sleep -Milliseconds 1500; $f.Close()`;
+  const script = `$f = [System.IO.File]::Open($env:HELD, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); $r = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); Start-Sleep -Milliseconds 1500; $f.Close(); [Console]::Out.WriteLine("read=$r closed=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"); [Console]::Out.Flush()`;
   const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { env: { ...process.env, HELD: file }, stdio: ['pipe', 'pipe', 'inherit'] });
   const exited = new Promise((resolve) => holder.once('exit', resolve));
   // The signal, not a duration: go on once the child says it holds the file.
+  // Everything the holder says, kept: after it lets go it reports when it read `go` and when it closed the file.
+  let out = '';
   await new Promise((resolve, reject) => {
-    let out = '';
     holder.stdout.on('data', (d) => {
       out += d;
       if (out.includes('locked')) resolve();
@@ -93,8 +94,25 @@ test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platfor
     assert.throws(() => fs.rmSync(dir, { recursive: true, force: true }), (e) => ['EBUSY', 'EPERM'].includes(e.code), 'a bare rmSync removed a folder whose file is held: the lock is not real, so this test proves nothing');
     // `go` must reach the holder before removeProfile blocks the event loop, so wait for the write to flush.
     await new Promise((resolve) => holder.stdin.write('go\n', resolve));
-    removeProfile(dir);
-    assert.equal(fs.existsSync(dir), false, 'removeProfile left the folder behind');
+    const sentGo = Date.now();
+    let failure = null;
+    try {
+      removeProfile(dir);
+    } catch (e) {
+      failure = e;
+    }
+    const removed = Date.now() - sentGo;
+    if (failure || fs.existsSync(dir)) {
+      // A failure names its own cause (2026-11-23: one red run in 36 s, 7 times the usual, that no later run
+      // reproduced in 40 tries). The holder letting go AFTER removeProfile gave up means the machine stalled the
+      // holder past the budget; letting go INSIDE the budget means Windows held the file after it was closed, so
+      // the budget is too short for real Chromium helpers.
+      holder.stdin.end();
+      await exited;
+      const m = /read=(\d+) closed=(\d+)/.exec(out);
+      const when = m ? `the holder read go ${m[1] - sentGo} ms and closed the file ${m[2] - sentGo} ms after it was sent` : `the holder reported no times (${JSON.stringify(out)})`;
+      assert.fail(`removeProfile ${failure ? `threw ${failure.code}` : 'left the folder behind'} after ${removed} ms; ${when}`); // flaky-ok: the times only describe a failure already decided by EBUSY or a folder left behind
+    }
   } finally {
     holder.stdin.end();
     await exited;
@@ -273,5 +291,168 @@ test(`REAPED, STALE PID: reap kills no process by a stale pid on ${process.platf
     await exited;
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+// REAPED, SPAWNING: a browser can start a helper WHILE `reap()` sweeps (windows-2025 run 44789928753, on #3333's head:
+// LIVE BROWSER read 8 processes before the sweep and 1 left after 20 reads). A sweep that lists once and stops once
+// leaves that helper running. code-door-spawner.js makes the race certain: it starts children naming the profile until
+// it is killed. Off Windows the spawner leads its own process group, as the browser does.
+
+/** Start code-door-spawner.js on a fresh profile folder; resolves once its children are running. */
+const startSpawner = async () => {
+  const { fs, os, path, processesUsing } = reapHarness();
+  const { spawn } = require('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  const name = path.basename(dir);
+  const spawner = spawn(process.execPath, [path.join(__dirname, '../../fixtures/code-door-spawner.js'), dir], { stdio: ['ignore', 'pipe', 'inherit'], detached: process.platform !== 'win32' });
+  const exited = new Promise((resolve) => spawner.once('exit', resolve));
+  const cleanup = async () => {
+    // A red run leaves children behind: end them here so they do not outlive the test.
+    for (const pid of processesUsing(name)) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        /* already gone */
+      }
+    }
+    if (spawner.exitCode === null && spawner.signalCode === null) spawner.kill('SIGKILL');
+    await exited;
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  };
+  try {
+    // The signal, not a duration: go on once the spawner has its children running.
+    await new Promise((resolve, reject) => {
+      let out = '';
+      spawner.stdout.on('data', (d) => {
+        out += d;
+        if (out.includes('ready')) resolve();
+      });
+      spawner.once('exit', (code) => reject(new Error(`the spawner exited (${code}) before it was ready: ${out.trim()}`)));
+    });
+  } catch (e) {
+    await cleanup();
+    throw e;
+  }
+  const before = processesUsing(name).length;
+  return { spawner, dir, name, before, cleanup };
+};
+
+// The CONTROL comes first and proves the arm can fail, on every run: the weak kill (ONE sweep pass on Windows, the
+// parent's pid alone elsewhere) must leave children behind. If it ever leaves none, the fixture stopped racing and the
+// arm below would pass for nothing.
+test(`CONTROL, SPAWNING: a weak kill leaves the spawner's children behind, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { processesLeft } = reapHarness();
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const s = await startSpawner();
+  try {
+    assert.ok(s.before >= 2, `the spawner and its children should name the profile on 2 or more command lines, and ${s.before} did`);
+    if (process.platform === 'win32') assert.equal(killBrowserTree(s.spawner.pid, s.dir, { passes: 1 }), 'sweep');
+    else process.kill(s.spawner.pid, 'SIGKILL');
+    // Read until the dying ones are gone (processesLeft's own bound); what remains was never killed.
+    const left = processesLeft(s.name);
+    t.diagnostic(`a weak kill left ${left.length} of ${s.before} processes naming the profile`);
+    assert.ok(left.length >= 1, 'a weak kill left nothing behind, so the spawner no longer races and REAPED, SPAWNING proves nothing');
+  } finally {
+    await s.cleanup();
+  }
+});
+
+test(`REAPED, SPAWNING: reap ends a browser that starts helpers while it is swept, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { fs, os, path } = reapHarness();
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-door-'));
+  const s = await startSpawner();
+  try {
+    assert.ok(s.before >= 2, `the spawner and its children should name the profile on 2 or more command lines, and ${s.before} did`);
+    fs.writeFileSync(path.join(scratch, 'state.json'), JSON.stringify([{ pid: s.spawner.pid, dir: s.dir }]));
+    reapAndCheck(t, scratch, s.dir, s.before);
+  } finally {
+    await s.cleanup();
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+// SWEEP ERRORS, on real PowerShell: the decision between 'sweep' and the pid fallback rests on the script's own
+// `swept` line, because its exit code cannot tell a failed query (#3358's maker-checker, finding 1). The unit tests
+// pin it with faked output; this arm runs the real script with a fault injected through `run`. (1) The FIRST query
+// fails (a WMI class that does not exist): exit 3, no `swept`, so the pid fallback runs. (2) A LATER query fails: pass 1
+// stops a live process naming the profile and prints `swept`, pass 2 throws, the loop ends, and the answer stays
+// 'sweep' with the pid untouched. Off Windows there is no PowerShell, so the arm checks only the first case's outcome.
+test(`SWEEP ERRORS: a failed query decides sweep or pid by what ran, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { fs, os, path, processesLeft } = reapHarness();
+  const { spawn, spawnSync } = require('node:child_process');
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const STALE = 4242;
+  /** Run killBrowserTree with `rewrite` applied to the script, and the kill recorded instead of sent. */
+  const attempt = (dir, rewrite) => {
+    const killed = [];
+    let result = null;
+    const how = killBrowserTree(STALE, dir, {
+      platform: 'win32',
+      run: (cmd, args, opts) => {
+        result = spawnSync(cmd, [...args.slice(0, -1), rewrite(args.at(-1))], opts);
+        return result;
+      },
+      kill: (p, s) => killed.push([p, s]),
+    });
+    return { how, killed, status: result?.status ?? null, stdout: String(result?.stdout || '').trim() };
+  };
+
+  const first = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  try {
+    const r = attempt(first, (script) => script.replace('Get-CimInstance Win32_Process', 'Get-CimInstance Win32_NoSuchClass'));
+    t.diagnostic(`first query fails: status ${r.status}, stdout ${JSON.stringify(r.stdout)}, answer ${r.how}`);
+    assert.equal(r.how, 'pid', 'no pass ran, so the pid fallback must');
+    assert.deepEqual(r.killed, [[STALE, 'SIGKILL']]);
+    if (process.platform === 'win32') {
+      assert.equal(r.status, 3, 'the script exits 3 when its first query throws');
+      assert.equal(r.stdout, '');
+    }
+  } finally {
+    fs.rmSync(first, { recursive: true, force: true });
+  }
+
+  if (process.platform !== 'win32') return;
+  const later = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  const name = path.basename(later);
+  // A live process naming the profile, for pass 1 to find and stop. It only waits; a red run's leak is bounded.
+  const helper = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 240000)', later], { stdio: 'ignore' });
+  const exited = new Promise((resolve) => helper.once('exit', resolve));
+  try {
+    await new Promise((resolve, reject) => {
+      helper.once('spawn', resolve);
+      helper.once('error', reject);
+    });
+    // Pass 2 says it ran (`pass2`, straight to the console, so the two lines may come in either order) before its query
+    // throws, so this case cannot pass with no fault injected.
+    const laterFault = (script) => script.replace('Get-CimInstance Win32_Process', "Get-CimInstance $(if ($n -eq 1) { 'Win32_Process' } else { [Console]::Out.WriteLine('pass2'); 'Win32_NoSuchClass' })");
+    const r = attempt(later, laterFault);
+    t.diagnostic(`later query fails: status ${r.status}, stdout ${JSON.stringify(r.stdout)}, answer ${r.how}`);
+    assert.equal(r.how, 'sweep', 'a pass ran, so the answer is sweep');
+    assert.deepEqual(r.killed, [], 'after a pass ran, the pid must never be killed');
+    assert.equal(r.status, 0, 'a later failed query ends the loop, not the script');
+    assert.deepEqual(r.stdout.split(/\s+/).sort(), ['pass2', 'swept'], 'pass 1 printed swept, then pass 2 ran into the fault');
+    assert.deepEqual(processesLeft(name), [], 'pass 1 did not stop the live process naming the profile');
+    // The CONTROL: the same fault with a catch that exits on EVERY pass, the bug this arm guards against. Its answer
+    // must differ (exit 3), or the assertions above could not tell a right catch from a wrong one.
+    const again = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 240000)', later], { stdio: 'ignore' });
+    const againExited = new Promise((resolve) => again.once('exit', resolve));
+    try {
+      await new Promise((resolve, reject) => {
+        again.once('spawn', resolve);
+        again.once('error', reject);
+      });
+      const c = attempt(later, (script) => laterFault(script).replace('if ($n -eq 1) { exit 3 } else { break }', 'exit 3'));
+      t.diagnostic(`control, a catch that always exits: status ${c.status}, stdout ${JSON.stringify(c.stdout)}, answer ${c.how}`);
+      assert.equal(c.status, 3, 'the broken catch must exit 3 on pass 2, or the control did not inject what it says');
+      assert.deepEqual(c.stdout.split(/\s+/).sort(), ['pass2', 'swept']);
+    } finally {
+      if (again.exitCode === null && again.signalCode === null) again.kill('SIGKILL');
+      await againExited;
+    }
+  } finally {
+    if (helper.exitCode === null && helper.signalCode === null) helper.kill('SIGKILL');
+    await exited;
+    fs.rmSync(later, { recursive: true, force: true });
   }
 });

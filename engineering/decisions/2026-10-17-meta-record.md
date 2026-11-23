@@ -88,9 +88,9 @@ stays "no slower than comments, within the variance band" (HARD RULE #19) until 
 | D2 | Long text (multi-paragraph notes) | **Inside the same comment**, on `key: |` lines after the record. (An earlier draft used a ```` ```meta ```` fence; the carrier change makes it unnecessary.) |
 | D3 | Existing `<!-- _class: … -->` comments | **Hard cut with a codemod, confirmed after the second adversarial pass (owner, 2026-10-17).** Authored directive comments stop being read. The old form gets a lint **warning with a fix**: `lint:deck --fix` and the Studio quick fix rewrite the comment into a record, and `lattice migrate meta` converts whole files. Only the Marp importer reads the old form. |
 | D4 | `_pane` markers | **In scope.** Pane markers become `pane=` records (§5.4). |
-| D5 | Spelling | **A comment carries the record.** `<!-- {…} -->` is canonical, `<!-- @meta{…} -->` is accepted. Chosen by the owner after the bake-off (below). |
+| D5 | Spelling | **A comment carries the record.** `<!-- {…} -->` is canonical, `<!-- @meta{…} -->` is accepted. Chosen by the owner after the bake-off (below). *Amended 2026-11-22 (§15): `<!-- @meta{…} -->` is the one spelling and the bare `<!-- {…} -->` is retired.* |
 | D6 | Field names | **The front-matter register names**, with no new semantics. Dark and light stay universal variants (`universal=dark`). Per-slide `finish`, `headline`, `rule`, `eyebrow`, `lift`, `spectrum-trim` override the deck's. |
-| D7 | Notes | **`note` is the speaker note; `reader` is a reader note**, labeled in the notes channel on export. Plain comments with no record **stay speaker notes** (Marp-faithful). Private working notes stay in the comments layer. |
+| D7 | Notes | **`note` is the speaker note; `reader` is a reader note**, labeled in the notes channel on export. Plain comments with no record **stay speaker notes** (Marp-faithful). Private working notes stay in the comments layer. *Amended 2026-11-20 by `2026-11-20-four-notes.md`: a record holds no notes; each note is its own `<!-- @name{…} -->` comment, and a plain comment is not a note.* |
 | D8 | Reader-note export | **Labeled in the notes channel**: PPTX and PDF carry the speaker note, then a `Reader:` paragraph; the HTML player keeps them separate (speaker view shows speaker only, read view shows the reader note under the slide). |
 | D9 | What is it? | **An embedded, always-on, first-party data-provider plugin**, `meta`. Not an inline kind, and not "a directive": it renders nothing, writes `data-*` attributes on the slide, and anything may read its content (CSS, the runtime, other plugins). Its fields are the registers every plugin contributes (§5.0). |
 | D10 | Who writes the deck? | **Deck-level data lives in front matter only. A plugin never writes or changes front matter** ("there is no case for it", owner, 2026-10-17). A slide record writes slide scope, or range scope with `carry`; it never writes deck data. A plugin declares vocabulary (registers) and reads resolved values. |
@@ -947,3 +947,91 @@ Only strip, skip, tokenize or escape (17; `lib/authoring/fact-check-core.js` was
 - `lib/forms/cell/masthead/masthead.transform.js`
 - `lib/core/code-door-core.mjs`
 - `lib/plugins/chart-family/chart-family.dispatch.js`
+
+## 15. Amendment, 2026-11-22: the clean break
+
+**The owner's request, 2026-11-22** (relayed by the command center to the meta desk): "we switch from class to @meta.
+the goal is to have a clean break … we only support @meta. linter we suggest fixes for existing decks and have a fix
+button. existing decks in our repo should get a sweep … export paths like marp bridge, calco, pdf, html player, etc must
+work."
+
+**What it settles.** D3's open question, hard or soft cut (§9 Status, the cut paragraph), is answered: **hard**. Authored
+directive comments (`<!-- _class: … -->`, `_footer`, `_pane`, `_paginate`, `_backgroundImage`, `_hide`, `_focusSteps`
+and the rest) stop being read by the engine.
+
+**The owner's answers, 2026-11-22** (relayed by the command center to the meta desk):
+
+- **D5 is amended.** "let's just keep @meta only". `<!-- @meta{…} -->` is the one spelling of a record, matching `@note`,
+  `@say`, `@alt` and `@handout` (`2026-11-20-four-notes.md`), and the bare `<!-- {…} -->` is retired with the directive
+  comments: the cut stops reading both. Until the cut, every reader reads all three forms and none depends on the bare one.
+- **How the repo and the tools move**, verbatim: "convert old forms in one sweep. we should also have linting and auto
+  complete enabled for these. and compose needs to incorporate support for changing meta in the layout editor."
+
+**Decks from outside the repo** (Studio storage, an import, a `.lattice` file, a Marp deck) are converted by the lint fix
+and the Studio's fix button, or `lattice migrate meta`, and never when they are opened or imported. The owner settled it
+(2026-11-22, relayed by the meta desk), verbatim: "we are not ga. the only decks that exist are mine that i used for
+testing". So there is no conversion on open. A deck is never rewritten behind the author's back; the fix is one click,
+and the lint error names it.
+
+### 15.1 Where `main` stands (census, 2026-11-22, `7789cce`)
+
+- **No deck uses a record yet, apart from three files.** Legacy directive comments: `examples/` 395 of 400 files (4,619
+  comments), `exemplars/` 46 (663), the 66 generated `*.gallery.md` (1,408), component docs 52 (256), chart-kind docs
+  41 (109), `design/` 20 (147, skills included), the baseline gallery (257), other test decks 60 (379). The bare form
+  appears in `examples/meta.md` (8), one skill and one chart-kind doc (3). `@meta{` appears in no deck.
+- **Readers outside the engine still read `_class:` with their own regex.** Seven of the eight the step 5 follow-up
+  named (`present-sections.ts` moved to `readMetaField`), plus about 40 the follow-up did not name: Studio (`Editor.tsx`,
+  `coach-core.ts`, `editor-complete.ts`, `PresentOverlay.tsx`, `StudioMap.tsx`, the Compose files), the Playground
+  (`single-slide-render.ts`, `slide-context.js`, `context-sources.js`), `lib/` (`agenda-autofill.js`,
+  `style-markdown-scan.mjs`, `pane-spec.js`, `slice-equivalence-core.mjs`) and about 20 tools (`lint-deck.js`,
+  `check-jank.js`, `build-agent-kit.mjs`, `conformance-render.js`, …). Some may read only the engine's internal
+  expansion; slice A decides each.
+- **Writers still write the old form.** The root is `writeOne` and `setCommentField` in `lib/core/meta-edit.mjs` ("the
+  form follows the slide", #3136). Then all **80** component manifest `skeleton` strings (the follow-up counted 52),
+  `lib/layout/gate.js` `skeletonInvokes` (and the Studio's Fabricate, through the generated bundle), the gallery
+  generators, the Studio templates and presets, motion skeletons, tour kits, `lib/layout/starters.js`, the AI prompts
+  (`architect-knowledge.js`, `lib/layout/ai.js`, `architect-agent.ts`), six lint-core fix strings, and about 150 other
+  files holding a `<!-- _` string, not yet classified.
+- **Lint.** `legacy-directive-comment` exists in `lint-core.js` but fires only with `vocab.metaCut`, which nothing
+  passes (the `--meta-cut` flag its comment names was never wired). Its `fix` is a hint, not an autofix. Squadra's
+  deck rules are on `main` but no consumer reads them yet, so `lint-core.js` is still the live linter and a new autofix
+  lands there (`2026-11-13-squadra-replaces-lint-core.md` §12).
+- **There is no Marp importer.** D3 said "only the Marp importer reads the old form"; no such importer exists
+  (`2026-11-20-four-notes.md` §5: "a Marp deck opens as LFM"). `migrateMetaSource` has one caller, the CLI.
+
+### 15.2 The model after the break
+
+| Written | Read by the engine | What the author sees |
+|---|---|---|
+| `<!-- @meta{layout=cards, footer="Q3"} -->` | yes | the slide's settings |
+| `<!-- {layout=cards} -->` | no (D5 amended) | lint error with a fix (`meta-opener-bare`), one click |
+| `<!-- _class: cards -->` and the other directive comments | no | lint error with a fix (`legacy-directive-comment`); the Studio's fix button and `lint:deck --fix` run `migrateMetaSource` over the deck |
+| a deck that arrives from outside (Studio storage, an import, a `.lattice` file, a Marp deck) | not converted on open | the lint errors above, and the Studio's fix button converts the whole deck |
+| `<!-- a plain comment -->` | no (four-notes N3) | nothing |
+
+Inside the engine, nothing changes: the door still expands each record into the internal directive tokens
+(`lattice_meta_expand`), and export to Marp still writes Marp's own comments (`recordsToComments`). The cut lives at the
+door (§9 Status: it cannot be a change to the shared grammar).
+
+### 15.3 Slices, in order, each with its proof
+
+Each slice is its own branch and PR from `main` (HARD RULE #17). A, B and C run at once; D follows A and C; E follows A
+to D; F runs on E's branch before its merge ask.
+
+| # | Slice | Proof | Review tier |
+|---|---|---|---|
+| A | **Readers.** Every reader outside the engine that finds slide settings with its own regex reads through `scanMetaSource` / `readMetaField` (or the views over them: `slideClassDirectives`, `classDirectiveAt`, `classEntries`, and `slideClassValue` for one slide's class as the engine resolves it), or is listed with the reason it may keep its regex (a guard, a completion trigger, a writer, or code that runs after the door). Readers read the comment, the bare and the `@meta{` forms until E, and depend on none but `@meta{`. A tree test fails on a new raw directive-regex reader outside its allowlist | the tree test and its failing arm; `npm run preview` scope, completion ranking, Present's rail, the lint and jank tools report the same on the comment corpus and on a copy migrated to `@meta` | maker-checker |
+| B | **Lint and autocomplete, on by default, with the fix button.** `legacy-directive-comment` and `meta-opener-bare` turn on (warning until E, then error) with `autofixable` and `rewrite: 'migrate-meta'`, lazy-loaded like `migrate-notes` to stay inside `lintCoreGz`; `lattice migrate meta` writes `@meta{`; completion offers `@meta{` fields and values in both editors; the six lint-core fix strings name the record | `lint:deck --fix` on a legacy deck renders the same HTML; the Studio fix button converts a deck on the real Studio (screenshot); completion on the real Studio; route budget green | maker-checker |
+| C | **Writers, and Compose's layout editor writing `@meta`.** `writeMeta` and `setCommentField` write `@meta{`; the 80 manifest skeletons, `skeletonInvokes`, the generators, Studio templates and presets, motion and tour kits, starters, the AI prompts; Compose's layout editor reads and changes a slide's `@meta` record | every skeleton passes the gate in record form; generated galleries render byte-identical HTML (the galleries regenerate in their own commit, HARD RULE #8); the layout editor changes a record on the real Studio | maker-checker |
+| D | **One sweep of the repo to `@meta`.** `lattice migrate meta` over `examples/`, `exemplars/`, `design/`, component and chart docs, skills and test fixtures; galleries in their own commit (#8); a `.git-blame-ignore-revs` entry. `kit/Sample-Deck.md` stays (it is Marp's sample). D also migrates Lente's `_lens` writer and the reader paired with it (`followups.d/3426-p2-lente-lens-writer-to-meta.md`) | `meta-record-identity.test.js`; same HTML and CSS per deck; lint findings unchanged; `tools/pixel-check.js` on the gallery PDFs; page counts | self-review + gates |
+| E | **The cut.** The door stops reading authored directive comments and the bare form; `design/skill.md`, `README.md` and the skills stop promising that Lattice source opens in Marp unchanged and teach the record; `examples/meta.md` extended as the demo deck (#9); a `**Breaking:**` fragment (#10); the LFM 2.0 draft records it | a legacy deck renders the default layout with the lint error and its fix; `build:check`; a tree test that no shipped deck holds a legacy comment | adversarial trio (#25) |
+| F | **Every export, on its real surface, with dark and light sign-off.** Export to Marp then marp-cli (PDF with notes, PPTX); Calco/PPTX; PDF and `--embed-source`; the HTML player's speaker and read views; `.lattice`; the Studio Markdown share; the VS Code preview (UNVERIFIED unless VS Code can run here) | the demo deck rendered dark and light, sent to the owner for sign-off before E merges (Quality Bar, export exception) | part of E's trio |
+
+**Field names.** D6 makes record fields the front-matter register names, and `META_HOST_REGISTERS` is generated from
+the registers, so the renames of `2026-11-21-plain-english-key-renames.md` (#3408: `lift` → `card-lift`, `rule` →
+`heading-rule`, …) reach record fields with no work here. Each rename PR's `--fix` must rewrite a record field as well
+as a front-matter key; the meta desk checks that on each one.
+
+**Collisions.** The sweep (slice D) and the rename sweeps both rewrite `examples/`. Whichever lands second rebases on
+the conflict (HARD RULE #16). The image-card rename (#3415) and the spectrum keys (#3410) touch registers the record
+reads; slice D runs after whichever of them is in the queue.

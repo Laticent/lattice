@@ -5,10 +5,10 @@
       "name": "accessibility-review",
       "file": "design/skills/accessibility-review.md",
       "title": "Review a deck for accessibility",
-      "description": "Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion.",
+      "description": "Use when reviewing a deck for accessibility: contrast, alt text and @alt notes, reading order, color as the only signal, type size, captions and motion.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3466
+      "tokens": 3519
     },
     {
       "name": "chart-component",
@@ -35,7 +35,7 @@
       "description": "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3360
+      "tokens": 3370
     },
     {
       "name": "component-showcase",
@@ -80,7 +80,7 @@
       "description": "Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3319
+      "tokens": 3338
     },
     {
       "name": "finish",
@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3123
+      "tokens": 3507
     },
     {
       "name": "lens",
@@ -134,16 +134,16 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3188
+      "tokens": 3186
     },
     {
       "name": "speaker-notes",
       "file": "design/skills/speaker-notes.md",
-      "title": "Create speaker notes, reviews, and `say:` lines",
-      "description": "Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric.",
+      "title": "Write a slide's four notes, and review comments",
+      "description": "Use when writing a slide's notes (@note, @say, @alt, @handout) or review comments, or when reviewing a deck against the notes rubric.",
       "kind": "make",
       "studio": true,
-      "tokens": 5571
+      "tokens": 4609
     },
     {
       "name": "studio",
@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 4681
+      "tokens": 4716
     },
     {
       "name": "theme",

@@ -22,15 +22,16 @@ import { deckPluginsOff } from '@/lib/plugin-admission';
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
+import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
-import { frontMatterLang, frontMatterSayMap, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
+import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { dispatch } from '../../../../lib/use-cases/dispatch.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, CREATE_DECK_TITLE_MAX, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
 import { buildChartSlide, CHART_KINDS } from './chat-chart';
 import { type ChatToolVars, chatToolCatalog, DECK_EDIT_TOOLS, USE_CASES } from './chat-tools.generated';
-import { getSayLine } from './slide-say';
+import { getSlideNote } from './slide-notes';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
 type Knowledge = typeof import('@/lib/architect-knowledge.js');
@@ -143,9 +144,9 @@ export function slideWords(slide: string): number {
 	return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'’.,%$€£-]*/gu) || []).length;
 }
 
+/** The class the engine applies to this slide, from a `_class` comment or a record (`@meta{layout=cards}`). */
 function slideClass(slide: string): string {
-	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(slide);
-	return m ? m[1].trim() : '';
+	return slideClassValue(slide).trim();
 }
 
 function slideTitle(slide: string): string {
@@ -271,7 +272,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 	const rules = (AUTHORING_RULES as string[]).map((r) => `- ${r}`).join('\n');
 	return [
 		PURPOSE,
-		`AUTHORING CONTRACT\n${rules.trim()}\n- Speaker notes are an HTML comment on the slide, \`<!-- note: what the presenter says -->\`, after the slide's content. Detail cut from a slide goes there. Read the speaker-notes guide only for \`say:\`, review comments or the notes rubric.`,
+		`AUTHORING CONTRACT\n${rules.trim()}\n- A slide has four notes, each a comment after the slide's content whose whole body is \`@name{…}\`: \`<!-- @note{…} -->\` (speaker notes, for the presenter; detail cut from a slide goes here), \`<!-- @say{…} -->\` (the exact words the voice and the captions read), \`<!-- @alt{…} -->\` (alt text, for someone who cannot see the slide) and \`<!-- @handout{…} -->\` (for someone reading the deck alone, later). Braces in a note must balance. A plain comment reaches nothing; never write one as a note. Read the speaker-notes guide only for \`@say\`, review comments or the notes rubric.`,
 		opts.canon.trim(),
 		`COMPONENTS — the value of \`<!-- _class: NAME -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
 		`FRONT MATTER — deck-level keys in the leading \`---\` block. read_front_matter gives a key's values and behavior.\n${fm}`,
@@ -422,7 +423,8 @@ export function createToolbox(opts: {
 	};
 
 	async function readComponent(nameRaw: unknown, section?: unknown): Promise<string> {
-		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*_class:\s*/, '').split(/\s+/)[0].toLowerCase();
+		// The model may paste a whole directive (`<!-- _class: cards -->`, `<!-- @meta{layout=cards} -->`): take its first word.
+		const name = String(nameRaw ?? '').trim().replace(/^<!--\s*(?:_?class:|@meta\{\s*layout\s*=\s*"?)\s*/, '').split(/[\s,"}]+/)[0].toLowerCase();
 		const entry = byName.get(name);
 		if (!entry) {
 			const near = [...byName.keys()].filter((k) => k.includes(name) || name.includes(k)).slice(0, 6);
@@ -658,8 +660,8 @@ export function createToolbox(opts: {
 
 	/**
 	 * `preview_speech`: what the voice says for some slides of the draft, or for given text. A slide is
-	 * resolved through the SAME ladder Present and the export bake use (`resolveNarration`): the inline
-	 * `say:` line, the front-matter `say:` entry, chart narration, then the slide's text. It used to
+	 * resolved through the SAME ladder Present and the export bake use (`resolveNarration`): the slide's
+	 * `@say` line, chart narration, then the slide's text. It used to
 	 * strip every comment and read the on-screen text, so on a slide with a spoken line it previewed
 	 * words the voice never says (#3208 item 3). Each slide names the rung that won; the slide-text rung
 	 * is labeled approximate, because the export reads the RENDERED slide (a projection this tool has no
@@ -696,7 +698,6 @@ export function createToolbox(opts: {
 		const slides = deckSlides(draft);
 		if (from > slides.length) return `The draft has ${slides.length} slide${slides.length === 1 ? '' : 's'}.`;
 		const to = Math.min(slides.length, Math.max(from, Number(toRaw) || from), from + PREVIEW_SPEECH_MAX_SLIDES - 1);
-		const fmSay = frontMatterSayMap(draft);
 		const chartDeck = narrationDeck(draft, deckPluginsOff(draft));
 		const out: string[] = [];
 		for (let n = from; n <= to; n++) {
@@ -711,12 +712,11 @@ export function createToolbox(opts: {
 			} catch {
 				chart = null; // the bake's rule: a chart that fails to narrate falls through to the slide text
 			}
-			const say = getSayLine(md);
-			const fm = fmSay.get(n);
+			const say = getSlideNote(md, 'say');
 			const fallback = slideToSpeech(md);
-			const text = resolveNarration({ say, fmSay: fm, chart, projected: null, fallback });
+			const text = resolveNarration({ say, chart, projected: null, fallback });
 			// The rung that won, tested the way resolveNarration tests it (trimmed, non-empty).
-			const from_ = say?.trim() ? 'its spoken line (say:)' : fm?.trim() ? 'the front-matter say: entry' : chart?.trim() ? 'chart narration' : 'the slide text (approximate: the export reads the rendered slide)';
+			const from_ = say.trim() ? 'its spoken line (@say)' : chart?.trim() ? 'chart narration' : 'the slide text (approximate: the export reads the rendered slide)';
 			if (!text.trim()) {
 				out.push(`[slide ${n}] Silent: nothing on it is read aloud.`);
 				continue;

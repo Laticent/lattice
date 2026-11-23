@@ -50,6 +50,10 @@ const WORLD_ROBINSON_OUT = path.join(__dirname, '..', 'lib', 'plugins', 'chart-f
 // TWO projections: Equal Earth (the default `map.basemap.world.json`) and
 // Robinson (the `robinson`-variant `map.basemap.world-robinson.json`).
 // `node tools/build-basemap.js` writes ALL THREE assets (US + the two worlds).
+// The Robinson file carries GEOMETRY ONLY (`robinsonGeometry` below): its names,
+// aliases and groups are the Equal Earth file's, and map.transform.js joins the
+// two. A full second copy cost about 9.6KB gz in the map chart kernel, because
+// gzip cannot see a repeat 76KB away.
 const { buildWorld } = require('./build-basemap.world');
 
 // FIPS state code → { postal, name }. The atlas keys geometries by FIPS id
@@ -262,15 +266,36 @@ function isStale(outPath, data) {
   } catch { return true; }
 }
 
+// The Robinson asset as geometry over the Equal Earth one: header fields that differ,
+// plus each region's path. Everything else must match, or the join in map.transform.js
+// would give Robinson the wrong names, so a mismatch stops the build.
+function robinsonGeometry(world, robinson) {
+  const meta = ({ d, ...rest }) => rest;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const k of ['id', 'label', 'sourceUrl', 'generator', 'aliases', 'groups']) {
+    if (!same(world[k], robinson[k])) throw new Error(`build-basemap: Robinson's ${k} differs from Equal Earth's; map.transform.js shares it.`);
+  }
+  if (!same(Object.keys(world.regions).sort(), Object.keys(robinson.regions).sort())) {
+    throw new Error('build-basemap: Robinson and Equal Earth name different regions.');
+  }
+  const regions = {};
+  for (const [id, r] of Object.entries(robinson.regions)) {
+    if (!same(meta(r), meta(world.regions[id]))) throw new Error(`build-basemap: Robinson's region ${id} differs from Equal Earth's beyond its path.`);
+    regions[id] = r.d;
+  }
+  return { projection: robinson.projection, source: robinson.source, viewBox: robinson.viewBox, geometryOf: 'map.basemap.world.json', regions };
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const check = argv.includes('--check');
   const rel = (p) => path.relative(path.join(__dirname, '..'), p);
 
+  const world = await buildWorld('equal-earth');
   const assets = [
     { out: OUT, data: await build() },
-    { out: WORLD_OUT, data: await buildWorld('equal-earth') },
-    { out: WORLD_ROBINSON_OUT, data: await buildWorld('robinson') },
+    { out: WORLD_OUT, data: world },
+    { out: WORLD_ROBINSON_OUT, data: robinsonGeometry(world, await buildWorld('robinson')) },
   ];
 
   let stale = false;
