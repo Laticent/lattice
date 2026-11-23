@@ -748,9 +748,11 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
 	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
 	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
+	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
 	await expect(async () => {
 		await page.mouse.move(0, 0);
-		await marker.hover();
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
+		await marker.hover({ timeout: 2_000 });
 		await expect(action).toBeVisible({ timeout: 2_000 });
 	}).toPass({ timeout: 30_000 });
 	expect(await action.textContent(), 'the action must name the component it will write').toContain('kpi');
