@@ -2,7 +2,7 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart labels inside the canvas"
 terms:
   AMER: { expansion: the Americas }
