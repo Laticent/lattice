@@ -288,9 +288,10 @@ async function deckTapLeavesLibrary(id) {
 		// THE SETUP IS NOT THE STIMULUS. The Menu and its Library row are opened with a page-side click(), not a touch: they are
 		// preconditions, and a simulator that stalls a touch on a button (held 1683 ms, no click, run 45082917575) failed the
 		// repetition before the step under test began. Only the deck-band tap is a real WebDriver touch.
-		// THE TAP TIMING IS THE TEST. The touch goes out straight after the Library sheet is seen, with no WebDriver round trip
-		// between (the tap log is installed before the Menu opens): a round trip there lets Radix's setTimeout(0) pass, and then
-		// main's sheet.tsx closed 10 of 10 (run 45082908088) where it leaves 4 of 10 open with the tap in time.
+		// THE TAP TIMING IS THE TEST. The touch goes out straight after the Library sheet is seen, with no page-script call
+		// between (the tap log is installed before the Menu opens; `touch()`'s own DELETE /actions is the only request ahead of
+		// it, as in #3278's probe). One more page-script call there let Radix's setTimeout(0) pass, and then main's sheet.tsx
+		// closed 10 of 10 (run 45082908088) where it leaves taps open with the tap in time.
 		// A LONG PRESS IS NOT A TAP (tap-guard.mjs, the flaky-test coordinator's approval of 2026-11-16, applied here): when the
 		// deck-band touch fails and the page saw it held LONG_PRESS_MS or more AND answered as a long press, the stimulus was not
 		// a tap, so the repetition is done again ONCE from a fresh page, logged RE-DELIVERED, and its second outcome counts. A
