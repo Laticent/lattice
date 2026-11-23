@@ -4,17 +4,33 @@ summary: >
   Design for a durable handoff folder. Each line of work keeps handoffs.d/<slug>/HANDOFF.md plus
   artifacts/ on its own work branch. The baton holder updates it, it travels with every handover,
   and the session removes it in the last commit before the merge ask; a new rule inside the existing
-  build:check fails when it would reach main. The PR's living handoff comment becomes a summary npm run card generates from HANDOFF.md. The
-  owner decided the shape, place, lifecycle and single source on 2026-11-23. The size and secret
-  limits are desk defaults the owner can veto. Nothing is built yet.
+  build:check fails when it would reach main. The PR's living handoff comment becomes a summary
+  npm run card generates from HANDOFF.md. The owner picked the place and the lifecycle on 2026-11-23,
+  in a question that also stated the shape; the single source came from the workflow desk's brief and
+  the size and secret limits are desk defaults, all open to the owner's veto. Nothing is built yet.
 ---
 
 # Handoff folder: `handoffs.d/<slug>/` on the work branch, removed before merge
 
-**Status:** proposed; the build has not started. The owner made decisions H1, H2, H3 and H5
-in the workflow desk's session (`session_01DPMMjHSgQqpuNVxFhptqgf`). H4 is the desk's default, open
-to the owner's veto. This note is docs only: no tool, gate or workflow rule changes until the
-follow-up PR in §Implementation slices.
+**Status:** proposed; the build has not started. This note is docs only: no tool, gate or workflow
+rule changes until the follow-up PR in §Implementation slices.
+
+**Where each decision comes from.** The owner answered one `AskUserQuestion` round in the workflow
+desk's session (`session_01DPMMjHSgQqpuNVxFhptqgf`, transcript event
+`38af7cc9-92b2-4c8a-96c0-7064aa34a1ad`, 2026-11-23 00:25:52 UTC), and this session read that answer
+there:
+
+| Decision | Source | Strength |
+|---|---|---|
+| H1 Shape | the question's wording, "handoffs.d/<line-of-work>/: HANDOFF.md + artifacts/"; the contents list came from the owner's request in the presets desk's session, relayed by the command center | stated in the question the owner answered; not picked as an option |
+| H2 Where | the owner picked "On the work branch itself (Recommended)" | owner's own answer |
+| H3 Lifecycle | the owner picked "Removed before merge; build:check enforces (Recommended)" | owner's own answer |
+| H4 Size and secrets | the workflow desk's default | open to veto |
+| H5 One source | the workflow desk's brief to this session | **not** in the owner's answer; open to veto |
+
+The W1 to W5 incident facts below reached the desk in a command-center message (the same transcript,
+2026-11-22 22:36 UTC), relayed from the presets desk. This session could not read the presets desk's
+own sessions.
 
 **Builds on** the two-person relay, PR #3427
 (`engineering/decisions/2026-11-22-two-person-relay.md`, `engineering/workflow.md` §Relay). That PR
@@ -22,7 +38,7 @@ makes a branch belong to its line of work, adds the baton (who may push) and the
 comment. This note adds the place a line of work keeps what a comment cannot hold. If #3427 changes
 before it merges, the slices below change with it.
 
-## Decisions (owner, 2026-11-23)
+## Decisions (2026-11-23; sources above)
 
 - **H1 Shape.** `handoffs.d/<line-of-work-slug>/HANDOFF.md` plus `artifacts/`. HANDOFF.md holds the
   owner session(s), the status, the 🎯 brief, the open questions with their full context and the
@@ -37,7 +53,7 @@ before it merges, the slices below change with it.
 - **H4 Size and secrets** *(desk defaults, not asked separately; the owner can veto either)*. 5 MB cap
   per folder; any single file over 1 MB needs a reason line in HANDOFF.md. Never an environment value
   or a key. GitHub secret scanning is the backstop.
-- **H5 One source.** The PR's living handoff comment becomes a short summary that `npm run card`
+- **H5 One source** *(desk proposal; the owner can veto it)*. The PR's living handoff comment becomes a short summary that `npm run card`
   generates from HANDOFF.md, so a session updates one thing.
 
 ## Why
