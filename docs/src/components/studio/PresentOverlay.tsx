@@ -837,6 +837,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// on: a click aimed at it could start on one layout and end on the other, and the browser fired none (the gecko flake
 	// in present-steps.spec.ts, #3439). A layout change answers the input that caused it, or it does not happen.
 	const stageOn = !!stageHost || stageRewriting || stageWanted;
+	// A STALLED STAGE GIVES THE CAPTIONS AND THE RAIL BACK. The dock lets go of them on the press and the Stage takes them
+	// on `ready`; a Stage whose deck has not said `ready` in time (`onStuck`), or loaded without its player (`onLost`
+	// 'unloaded'), may still come up, so its window stays open (the room keeps whatever it shows), and the console shows
+	// the captions and the rail meanwhile instead of leaving them on neither surface. Cleared on `ready` (they move to the
+	// Stage then) and when the Stage closes.
+	const [stageStalled, setStageStalled] = React.useState(false);
+	const dockLetsGo = stageOn && !stageStalled;
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────
 	//
 	// Present opens as Present: the slide, the transport, the lens, the grid. It becomes a
@@ -899,6 +906,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// nodes in a document nobody is looking at any more.
 			onChange: (win: Window | null, rewriting?: boolean) => {
 				setStageRewriting(!win && !!rewriting);
+				if (win) setStageStalled(false);
 				// A real teardown (not a rewrite) ends the Stage. A write that THREW also arrives as a plain null, with
 				// the window still open, so the window itself is asked: only a Stage that is gone stops the build. The
 				// built document stays only while the build effect below keeps it current (its cleanup lets go of it).
@@ -906,6 +914,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				if (!win && !rewriting) {
 					if (!stageRef.current?.isOpen()) {
 						setStageWanted(false);
+						setStageStalled(false);
 						stageEverLiveRef.current = false;
 					}
 					// The window is open but a write THREW, so it cannot take the deck. The console lets go on the press now
@@ -942,14 +951,16 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// someone else's page is sitting on the projector showing the room the wrong
 			// thing, and the presenter should know to look at it; a window that vanished has
 			// left the projector blank. Both are re-opened with `S`.
-			onLost: (reason: 'navigated' | 'gone' | 'unloaded') =>
+			onLost: (reason: 'navigated' | 'gone' | 'unloaded') => {
+				if (reason === 'unloaded') setStageStalled(true);
 				notifyRef.current(
 					reason === 'navigated'
 						? 'The Stage left the deck — that window is showing the room something else. Press S to put the deck back on it.'
 						: reason === 'unloaded'
 							? 'The Stage could not load its player, so it shows the first slide and cannot follow you. Reload the Studio, then press S.'
 							: 'Stage disconnected — press S to put the deck back on your second screen.',
-				),
+				);
+			},
 			// The deadline can call a slow load lost (the agents file waits on a stylesheet before it). When
 			// that deck says `ready` after all, the advice to reload no longer holds, so take it back.
 			onRecovered: () => notifyRef.current('The Stage loaded its player after all — it follows you again. No need to reload.'),
@@ -960,13 +971,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// rather than left guessing. Silent when it worked, and silent when there was
 			// no second screen to aim at in the first place (that is a normal single-screen
 			// session, not a failure).
-			// A DECK WENT IN AND NEVER SAID `ready` (its runtime died before the handshake). The console let go of the
-			// captions and the rail on the press, or when the rewrite began, and only `ready` hands them to the Stage, so
-			// they would be on neither surface for as long as this window stays up. Close it: the teardown gives them
-			// back to the console. The same for a live Stage whose rewrite never came back: the room is not on the deck.
+			// A DECK WENT IN AND HAS NOT SAID `ready` (its runtime died, or it is still loading on slow Wi-Fi). The window
+			// stays: a slow load can still arrive, and the room keeps what it shows. The console takes the captions and the
+			// rail back meanwhile (`stageStalled`), and they move to the Stage if it says `ready` after all.
 			onStuck: () => {
-				stageRef.current?.close();
-				notifyRef.current('The Stage did not start, so it closed. Press Stage to try again.');
+				setStageStalled(true);
+				notifyRef.current('The Stage has not started this deck, so its captions and progress rail are back here. Press S twice to try again.');
 			},
 			onPlaced: ({ placed, full }: { placed: boolean; full: boolean }) => {
 				if (placed && !full) notifyRef.current('Stage moved to your second screen — its controls have a full-screen button, or press F on it.');
@@ -3022,7 +3032,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							{/* IMMERSIVE CAPTIONS ride ON the slide, as subtitles, sized by the slide (`.latt-cc-over`); docked
 							    below it they would float mid-slide once the dock floats. Lifted clear of the controls while
 							    they show. */}
-							{immersive && !stageOn && (
+							{immersive && !dockLetsGo && (
 								<div className="latt-cc-over" data-present-cc-over style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
 									{captionBand}
 								</div>
@@ -3142,10 +3152,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				}}
 				onBlurCapture={() => { pinnedRef.current = false; wake(); }}
 			>
-				{/* `stageOn`, not `stageHost`: the dock lets go of the band and the rail on the Stage press, in that frame, and the
-				    Stage takes them when its document is live. Keyed on `stageHost` they left a few frames later and the row
-				    shifted 12 px after the press. */}
-				{stageOn || immersive ? null : captionBand}
+				{/* `dockLetsGo` (the Stage was pressed and has not stalled), not `stageHost`: the dock lets go of the band and the
+				    rail on the Stage press, in that frame, and the Stage takes them when its document is live. Keyed on
+				    `stageHost` they left a few frames later and the row shifted 12 px after the press. */}
+				{dockLetsGo || immersive ? null : captionBand}
 
 				{/* Controls row (middle). The transport pill is always-on and hugs its content
 				    (Play + position); the CC / Voice cluster BLOOMS beside it — collapsing to zero
@@ -3221,7 +3231,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					)}
 				</div>
 
-				{stageOn || !railOn ? null : immersive ? <div className={cn('w-full', fadeCls)}>{railBar}</div> : railBar}
+				{dockLetsGo || !railOn ? null : immersive ? <div className={cn('w-full', fadeCls)}>{railBar}</div> : railBar}
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}

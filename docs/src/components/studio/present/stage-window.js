@@ -405,8 +405,9 @@ function stageToken() {
  *   • onStuck() → a deck document went into the window and did not say `ready`
  *     within READY_DEADLINE_MS. The console let go of its captions and rail when the
  *     Stage was pressed (or the rewrite began), and only `ready` hands them to the
- *     Stage, so a document whose runtime died before `ready` would leave them on
- *     neither surface for as long as the window stays open. The console closes it.
+ *     Stage, so a document whose runtime died (or is still loading) would leave them
+ *     on neither surface. The console takes them back and keeps the window: a late
+ *     `ready` still hands them to the Stage, as with #3307's player watch.
  *
  * Returns { toggle, write, show, close, isOpen }. `toggle()` MUST run in a user
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
@@ -419,7 +420,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	let ready = false;
 	/** The `ready` deadline for the deck document last written (`onStuck`). A product
 	 *  deadline, not a test wait: the engine boots in about a second, so a document that has
-	 *  said nothing in twenty has died, and the presenter needs the console's captions back. */
+	 *  said nothing in twenty is dead or very slow, and the presenter needs the console's
+	 *  captions back meanwhile. Nothing is closed: a late `ready` still lands. */
 	let readyTimer = 0;
 	const READY_DEADLINE_MS = 20_000;
 	const stopReadyDeadline = () => {
@@ -704,8 +706,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		// take the captions and the rail back for the boot (it keys on `stageOn`, which
 		// counts `rewriting`): handing them back and taking them again a second later would
 		// move the console's row twice with no input to answer (flaky shape F10). So for
-		// the length of an engine boot they are on neither surface, and `onStuck` closes a
-		// Stage whose new document never says `ready`.
+		// the length of an engine boot they are on neither surface, and `onStuck` gives them
+		// back to the console if the new document has not said `ready` in time.
 		if (written) onChange?.(null, true);
 		ready = false;
 		stopReadyDeadline();

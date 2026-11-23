@@ -296,10 +296,11 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		expect(state.closed).toBe(false);
 	});
 
-	// A deck that goes in and never says `ready` (its runtime died before the handshake): neither guard above sees it,
-	// because the build resolved and the write did not throw. The controller's ready deadline (`onStuck`) closes it, and
-	// the captions and the rail come back to the console (the round-3 card grader found this path).
-	it('closes a Stage whose deck goes in but never says ready, and puts the rail back in the console', async () => {
+	// A deck that goes in and has not said `ready` (its runtime died, or it is still loading on slow Wi-Fi): neither guard
+	// above sees it, because the build resolved and the write did not throw. The controller's ready deadline (`onStuck`)
+	// gives the captions and the rail back to the console and keeps the window, and a late `ready` hands them to the Stage
+	// (the round-3 card grader found the path; #3307's player watch keeps a slow Stage open the same way).
+	it('gives the rail back to the console when a Stage deck has not said ready, and hands it over on a late ready', async () => {
 		let resolveBuild: (v: Awaited<ReturnType<typeof buildStageDocument>>) => void = () => {};
 		vi.mocked(buildStageDocument).mockImplementationOnce(() => new Promise((done) => (resolveBuild = done)));
 		const { default: userEvent } = await import('@testing-library/user-event');
@@ -307,6 +308,7 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
 		const written: string[] = [];
 		const { win, state } = holdingWindow((html) => written.push(html));
+		const stageDoc = win.document;
 		const realOpen = window.open;
 		window.open = (() => win) as typeof window.open;
 		await user.click(screen.getByRole('button', { name: 'Stage' }));
@@ -319,23 +321,56 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 				resolveBuild({ doc: '<div id="latt-stage">deck</div>', total: 2, bg: '#15110d' } as Awaited<ReturnType<typeof buildStageDocument>>);
 			});
 			expect(written.some((h) => h.includes('deck'))).toBe(true);
-			expect(state.closed).toBe(false);
-			// No `ready` comes. Short of the deadline the Stage stays; past it, it closes.
+			// No `ready` comes. Short of the deadline the console still holds back; past it, it takes the rail back.
 			await act2(async () => {
 				vi.advanceTimersByTime(19_000);
 			});
-			expect(state.closed).toBe(false);
+			expect(screen.queryByRole('group', { name: /Deck progress/ })).toBeNull();
 			await act2(async () => {
 				vi.advanceTimersByTime(1_000);
 			});
 		} finally {
 			vi.useRealTimers();
 		}
-		expect(state.closed).toBe(true);
-		// The notice goes through the app's notify kernel to sonner; its history is what a presenter is shown.
-		expect(toast.getHistory().map((n) => ('title' in n ? n.title : ''))).toContain('The Stage did not start, so it closed. Press Stage to try again.');
-		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'false');
+		expect(state.closed).toBe(false);
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'true');
 		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+		// The notice goes through the app's notify kernel to sonner; its history is what a presenter is shown.
+		expect(toast.getHistory().map((n) => ('title' in n ? n.title : ''))).toContain('The Stage has not started this deck, so its captions and progress rail are back here. Press S twice to try again.');
+
+		// The deck says `ready` after all: the rail moves to the Stage, and the console lets go of it again.
+		stageDoc.body.innerHTML = '<div id="latt-chrome"><div id="latt-cc"></div><div id="latt-rail"></div></div><div id="latt-stage"></div>';
+		await act2(async () => {
+			window.dispatchEvent(new MessageEvent('message', { data: { stage: 'ready' }, source: win as unknown as MessageEventSource, origin: location.origin }));
+		});
+		expect(screen.queryByRole('group', { name: /Deck progress/ })).toBeNull();
+		expect(stageDoc.querySelector('#latt-rail [role="group"]')).not.toBeNull();
+	});
+
+	// #3307's player watch: a deck that loaded WITHOUT its agents file cannot fit or follow, so the Stage reports it
+	// (`onLost` 'unloaded') and keeps its window. The console takes the captions and the rail back for that, too.
+	it('gives the rail back to the console when the Stage loads without its player', async () => {
+		vi.mocked(buildStageDocument).mockResolvedValueOnce({ doc: '<div id="latt-stage">deck</div>', total: 2, bg: '#15110d' } as Awaited<ReturnType<typeof buildStageDocument>>);
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} />);
+		let stageDoc: Document | null = null;
+		// The deck goes in (no agents mark on <html>): the document is complete, so the watch looks at once.
+		const { win, state } = holdingWindow((html) => {
+			if (stageDoc && html.includes('deck')) stageDoc.body.innerHTML = '<div id="latt-stage"></div>';
+		});
+		stageDoc = win.document;
+		// jsdom's document stays `loading`, so the watch waits for the window's `load`: the fake fires it on the next turn.
+		(win as unknown as { addEventListener: (type: string, fn: () => void) => void }).addEventListener = (type, fn) => {
+			if (type === 'load') queueMicrotask(fn);
+		};
+		const realOpen = window.open;
+		window.open = (() => win) as typeof window.open;
+		await user.click(screen.getByRole('button', { name: 'Stage' }));
+		window.open = realOpen;
+		await vi.waitFor(() => expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument());
+		expect(state.closed).toBe(false);
+		expect(screen.getByRole('button', { name: 'Stage' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
 	// The keep path. A Stage that HAS gone live keeps its deck when a rebuild fails, even mid-rewrite, when `stageHost` is
