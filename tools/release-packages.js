@@ -13,11 +13,11 @@
  *   private        `"private": true`. npm refuses to publish it, and so does Changesets.
  *
  * Two checks, one function. `publishSetProblems()` (the default, used by `build:check` and the
- * unit test) holds the classification on any commit, and tolerates the two PRs the 1.0.0 plan is
- * still waiting on: #3451 makes `markup` and `lastra` public, and the Segno desk's rename turns
- * `@laticent/segno-markdown` into `@laticent/segno-languages`. `{ strict: true }` is the release's
- * preflight: every package in PUBLISH_SET must exist and be public, so a release cut before those
- * PRs land stops before it opens a PR, rather than publishing an engine whose dependencies 404.
+ * unit test) holds the classification on any commit, and tolerates the one PR the 1.0.0 plan is
+ * still waiting on: the Segno desk's rename of `@laticent/segno-markdown` (public since #3451) to
+ * `@laticent/segno-languages` (B9). `{ strict: true }` is the release's preflight: every package in
+ * PUBLISH_SET must exist and be public, so a release cut before that rename lands stops before it
+ * opens a PR, rather than publishing an engine whose dependencies 404.
  *
  * Decision: engineering/decisions/2026-10-07-first-npm-release.md §11.
  */
@@ -58,11 +58,10 @@ const IGNORED = Object.freeze([
 /**
  * Publish-set members the default check lets be private or missing, because an open PR fixes
  * each before 1.0.0. The strict check ignores this list. Delete an entry once its PR merges; a
- * stale entry is harmless but says something untrue.
- *   markup, lastra       #3451 drops `private`
+ * stale entry is harmless but says something untrue. (#3451 made markup and lastra public.)
  *   segno-languages      the Segno desk's rename of @laticent/segno-markdown (B9)
  */
-const PENDING = Object.freeze(['@laticent/markup', '@laticent/lastra', '@laticent/segno-languages']);
+const PENDING = Object.freeze(['@laticent/segno-languages']);
 
 /** A workspace that never publishes, mapped to the publish-set package that replaces it (B9). */
 const PENDING_RENAMES = Object.freeze({ '@laticent/segno-markdown': '@laticent/segno-languages' });
@@ -114,7 +113,9 @@ function publishSetProblems({ strict = false, root = ROOT, configPath = path.joi
     const ignored = IGNORED.includes(p.name);
     if (inSet && ignored) problems.push(`${p.name} is in both PUBLISH_SET and IGNORED.`);
     // A public package that is in neither list would publish the first time anyone ran a release.
-    if (!inSet && !ignored && !p.private) {
+    // segno-markdown is public since #3451 but never publishes: B9 renames it to segno-languages. The
+    // default check excuses a pending rename; the strict one (the release) refuses until it lands.
+    if (!inSet && !ignored && !p.private && (strict || !PENDING_RENAMES[p.name])) {
       problems.push(
         `${p.name} (${p.rel}) is public but in neither PUBLISH_SET nor IGNORED, so the next release would publish it ` +
         'without anyone deciding to. Add it to one list, or mark it "private": true.',

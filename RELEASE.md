@@ -169,8 +169,8 @@ before anything reaches npm.
 
 1. Every blocker on #3449 is checked off and `main` is green. `npm run release:dry`
    on a synced `main` prints `BOOTSTRAP` and the thirteen packages, with no
-   warning. (A warning naming `markup`, `lastra` or `segno-languages` means #3451
-   or the Segno rename has not merged.)
+   warning. (A warning naming `segno-markdown` or `segno-languages` means the Segno
+   rename has not merged.)
 2. `NPM_TOKEN` is listed under Settings → Environments → `automation`. Never read
    or print it.
 3. Owner: retire the August tag. Tag its commit `v0.9.0`, mark that GitHub

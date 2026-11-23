@@ -341,6 +341,18 @@ describe('the publish set', () => {
     assert.match(publishSetProblems({ root: f.dir }).join('\n'), /@laticent\/stray .* is public but in neither PUBLISH_SET nor IGNORED/);
   });
 
+  test('segno-markdown, public until the Segno rename, passes build:check but blocks a release', (t) => {
+    const f = fixture(t);
+    const rootPkg = JSON.parse(f.read('package.json'));
+    rootPkg.workspaces = rootPkg.workspaces.filter((w) => w !== 'libs/segno-languages').concat('libs/segno-markdown');
+    f.write('package.json', JSON.stringify(rootPkg));
+    f.write('libs/segno-markdown/package.json', JSON.stringify({ name: '@laticent/segno-markdown', version: '0.1.0' }));
+    assert.deepEqual(publishSetProblems({ root: f.dir }), [], 'the default check excuses the pending rename');
+    const strict = publishSetProblems({ root: f.dir, strict: true }).join('\n');
+    assert.match(strict, /@laticent\/segno-markdown .* is public but in neither PUBLISH_SET nor IGNORED/);
+    assert.match(strict, /@laticent\/segno-languages is in PUBLISH_SET but no workspace declares it/);
+  });
+
   test('the ignore list in .changeset/config.json and IGNORED move together', (t) => {
     const f = fixture(t);
     const config = JSON.parse(f.read('.changeset/config.json'));
