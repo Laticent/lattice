@@ -53,7 +53,15 @@ section.split-panel { padding:0; flex-direction:row; --frame-inset-x: calc(2.343
  * 128 raster px. Both readers resolve `%` against the same 1280px (the section has no padding and
  * no side border), so the chrome budget and the seam cannot drift apart. */
 section.split-panel { --_panel-w:38%; --_panel-outer: calc(var(--_panel-w) + 2 * var(--sp-lg)); }
-section.split-panel .panel-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+/* THE MASTHEAD IS CENTERED, AND GROWS. The panel's copy (eyebrow, heading, lede) used to sit on the
+ * panel's floor (`safe flex-end`), so its last line landed on the running footer band with a hairline
+ * of slack; both blind judges of the deck-presets Wave 1 round docked every preset for it (#3470).
+ * Centered between the chrome bands instead (the owner's call, 2026-11-23), it clears the header and
+ * the footer by the same room, the way `metric` and `steps` already sit. `safe` keeps the growth
+ * honest: a masthead longer than the panel starts at the top band and fills downward, so it uses the
+ * whole field rather than shearing its first line (the note above). `.watermark` keeps its floor: its
+ * letterform composition is built on it. */
+section.split-panel .panel-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe center; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * A sovereign split frame owns its own top edge. `base.elements.css` paints the
  * spectrum as a `border-top` on the SECTION, which a sovereign frame cannot
