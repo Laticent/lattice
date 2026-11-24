@@ -7,3 +7,4 @@
 #
 # The meta sweep (engineering/decisions/2026-10-17-meta-record.md §15, slice D): every deck's directive
 # comments rewritten as `<!-- @meta{…} -->` records, same HTML and CSS.
+77bcad9c04040cf1a34552951f1d4dc8c1e084e9
