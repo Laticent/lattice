@@ -142,7 +142,7 @@ test('@parity a touch swipe turns the deck', async ({ page }) => {
 // run's other pages unreachable without the editor. `prev` enters a split slide on its LAST
 // page, the way paging back through the PDF does.
 // `fit: heal`: this deck needs the COUNT-based split (one row a page); measuring is the default
-// (lib/core/resolve-guards.js fitPacks) and keeps a short list whole.
+// (lib/core/resolve-fit.js fitPacks) and keeps a short list whole.
 const SPLIT_DECK = `---
 theme: indaco
 size: portrait

@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-23 — raise the studio eagerJsGz ceiling by 2,048 B (638,636 → 640,684), by hand, for PR 3294, at the owner's direction
+
+Owner OK 2026-11-23, option (A) relayed by the command center and the Segno desk: "+2 KB raise, own PR".
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds 2,606 B to studio's eager JS against main: the tokenizer on the eager path, which the owner chose on 2026-11-17 (option A, one tokenizer everywhere). It last fit with 1.5 KB to spare; since then main's own studio eager JS grew to 636,270 B (measured with `check-route-budget.mjs --measure` on a build of main at 110d4500), so PR 3294 at cac73b6f measured 0.1 KB past the old ceiling. The alternatives were put to the owner: taking the tokenizer off studio's eager path would reverse the 2026-11-17 choice and miss the 1.0 freeze; holding PR 3294 for after 1.0 was the other. The ceiling rises 638636 -> 640684 (625.7 KB), which leaves about 1.8 KB after PR 3294. The soft target is unchanged, so every byte above it is still declared in `docs/route-budget.d/`. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 640684 |
+
 ### 2026-11-23 — raise the playground htmlRaw ceiling by 2,048 B (520,570 → 522,618), by hand, at the owner's direction
 
 The owner chose a 2 KB raise and nothing more, written by hand for the same reason as the lintCoreGz entry below; soft stays 471,849.

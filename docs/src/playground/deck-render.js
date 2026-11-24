@@ -219,6 +219,10 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi, joined = false, pi
 	if (cur.length !== sections.length || !mountedRange(cur, lattice)) return false;
 	let changed = false;
 	let unfitted = false;
+	// Where the frame is scrolled BEFORE the swaps. A placeholder is sized exactly like its slide, so a swap
+	// should never move the scroll, and the check after the loop puts it back if one did.
+	const win = frame.contentWindow;
+	const y0 = win ? win.scrollY : 0;
 	const swap = (i, html) => {
 		const holder = doc.createElement('div');
 		holder.innerHTML = html;
@@ -256,6 +260,25 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi, joined = false, pi
 		if (ph && i >= lo && i <= hi) swap(i, withIndex(sections[i], i));
 		else if (!ph && (i < from || i > to) && !(pin && i >= pin.lo && i <= pin.hi)) swap(i, placeholderCached(sections[i]));
 	}
+	// A SWAP MUST NOT MOVE THE READER. Under load Chromium can drop a wheel scroll at the first layout after
+	// the swap. The frame lands back on the offset the last programmatic `scrollTo` wrote: that is what the
+	// numbers show, and the mechanism is inferred, not traced inside Chromium. Hooks on every scroll writer in
+	// the frame logged no script asking for the move, and `overflow-anchor: none` does not stop it. Measured on the built Playground at
+	// `?c=kpi` with the map open, under `--workers=4` load: a wheel took the frame from 15 to 2094, Veduta
+	// mounted slides 6 to 8 on the next frame, and the first `replaceChild` put the frame back at 15. The bar
+	// then read "1 / 14" with the reader's slide gone, in 21 runs of 40 (`playground-map.spec.ts`, "scrolling
+	// the preview moves the rail"). Putting `y0` back here held 48 of 48 in a diagnostic run. Reading `scrollY`
+	// lays the frame out once per window move, and the next paint would have done that layout anyway.
+	// Not when a swap went in UNFITTED: that slide is full size until the fit below runs, so it really is taller
+	// than its placeholder, and the browser's scroll anchoring is right to move the frame for it. That skips the
+	// whole move, fitted swaps included, which is a known gap: a move goes in unfitted only before the frame's
+	// first fit, because every element carries its fit after that.
+	// ONLY A JUMP OF HALF A PANE OR MORE. A finger scroll still in progress also moves `scrollY` across the swap:
+	// iOS Safari scrolls on its own thread, and the layout this read forces can hand the page the newer offset. A
+	// 1 px threshold took that for a drop and wrote the old offset back, which also kills the flick's momentum.
+	// On the owner's iPhone, the preview then did not move at all, with the map open (#3428). The drop it guards
+	// against moved the frame three panes. No reader's own scroll moves it half a pane inside one task.
+	if (changed && !unfitted && win && Math.abs(win.scrollY - y0) >= win.innerHeight / 2) win.scrollTo({ top: y0, behavior: 'instant' });
 	// Whatever was cached about this window is stale now — the next scroll re-reads it.
 	if (changed && frame.contentWindow) frame.contentWindow.__lvGeom = null;
 	if (unfitted) frame.contentWindow?.__latticeFit?.();

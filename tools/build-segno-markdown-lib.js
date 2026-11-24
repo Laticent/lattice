@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Build the Segno-markdown library's consumable dist/: the ESM + CJS entry + type declarations.
- *   docs/src/lib/segno-markdown/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
+ * Build the Segno-markdown library's consumable dist/: the ESM entry + type declarations.
+ *   docs/src/lib/segno-markdown/*.ts  →  dist/index.mjs + dist/*.d.ts
  * Segno-markdown is the deck model, S0 and S1 of the Segno deck pipeline
  * (engineering/decisions/2026-10-22-segno-deck-pipeline.md §Plan, P2): zero dependencies, no DOM, no Node.
  * Flags:

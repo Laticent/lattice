@@ -4,9 +4,9 @@ import { type CardBox, cachedFix, keepFix, photoUrl, placementOf } from './photo
 
 describe('placementOf', () => {
 	it('takes the slide class, then the deck word, then bottom-left', () => {
-		expect(placementOf(['image', 'spotlight', 'at-tr'], ['at-bl'])).toBe('at-tr');
-		expect(placementOf(['image', 'spotlight'], ['at-top'])).toBe('at-top');
-		expect(placementOf(['image', 'spotlight'], [])).toBe('at-bl');
+		expect(placementOf(['image', 'spotlight', 'image-card-top-right'], ['image-card-bottom-left'])).toBe('image-card-top-right');
+		expect(placementOf(['image', 'spotlight'], ['image-card-top'])).toBe('image-card-top');
+		expect(placementOf(['image', 'spotlight'], [])).toBe('image-card-bottom-left');
 	});
 });
 
@@ -15,18 +15,18 @@ describe('the estimate, from the kernel (photo-contrast.mjs judge + inkScenes)',
 	const est = (photo: number[], backing: number, body = false) =>
 		judge({ photo, ink: null, pins: inkScenes('spotlight', backing, body) }, { inkFirst: true, solidReads: true }).fix;
 	it('names the ink that reads on a dark or a light photo', () => {
-		expect(est([20, 24, 32], 0)).toBe('ink-light');
-		expect(est([240, 238, 230], 0)).toBe('ink-dark');
+		expect(est([20, 24, 32], 0)).toBe('image-card-light');
+		expect(est([240, 238, 230], 0)).toBe('image-card-dark');
 	});
 	it('falls back to a solid card on a mid-gray photo under a clear card, where no ink reaches 4.5:1', () => {
 		expect(est([121, 121, 121], 0)).toBe('solid');
 	});
 	it('a solid card carries its own contrast, so some ink always reads', () => {
-		expect(['ink-light', 'ink-dark']).toContain(est([121, 121, 121], 100));
+		expect(['image-card-light', 'image-card-dark']).toContain(est([121, 121, 121], 100));
 	});
 	it('judges the lighter body ink too when the slide has a paragraph', () => {
 		// On this gray the white heading reads at 4.95:1 and the body ink (0.88 alpha) at 4.26:1, so with a paragraph neither ink clears.
-		expect(est([112, 112, 112], 0, false)).toBe('ink-light');
+		expect(est([112, 112, 112], 0, false)).toBe('image-card-light');
 		expect(est([112, 112, 112], 0, true)).toBe('solid');
 	});
 });
@@ -34,13 +34,13 @@ describe('the estimate, from the kernel (photo-contrast.mjs judge + inkScenes)',
 describe('the kept fix', () => {
 	beforeEach(() => localStorage.clear());
 	const KEY = 'lattice-photo-ink:v3';
-	const card = (over: Partial<CardBox> = {}): CardBox => ({ ref: 'sample:photo-wide.svg', placement: 'at-bl', backing: 0, shape: '', ...over });
+	const card = (over: Partial<CardBox> = {}): CardBox => ({ ref: 'sample:photo-wide.svg', placement: 'image-card-bottom-left', backing: 0, shape: '', ...over });
 	it('survives (it is in localStorage) and is keyed by photo, placement, backing and card shape', () => {
-		keepFix(card(), 'ink-light', 9.4, 'live');
-		expect(cachedFix(card())).toEqual({ fix: 'ink-light', ratio: 9.4, src: 'live' });
-		expect(cachedFix(card({ placement: 'at-tr' }))).toBeUndefined();
+		keepFix(card(), 'image-card-light', 9.4, 'live');
+		expect(cachedFix(card())).toEqual({ fix: 'image-card-light', ratio: 9.4, src: 'live' });
+		expect(cachedFix(card({ placement: 'image-card-top-right' }))).toBeUndefined();
 		expect(cachedFix(card({ backing: 55 }))).toBeUndefined();
-		expect(cachedFix(card({ shape: 'card-lg' }))).toBeUndefined();
+		expect(cachedFix(card({ shape: 'image-card-lg' }))).toBeUndefined();
 	});
 	it('keeps a solid card and "no fix", never a pin', () => {
 		keepFix(card({ ref: 'a' }), 'solid', null, 'estimate');
@@ -52,16 +52,16 @@ describe('the kept fix', () => {
 	});
 	it('keys an embedded photo by a short hash, never by its payload', () => {
 		const ref = `data:image/png;base64,${'A'.repeat(50_000)}`;
-		keepFix(card({ ref }), 'ink-dark', 7, 'estimate');
+		keepFix(card({ ref }), 'image-card-dark', 7, 'estimate');
 		expect(localStorage.getItem(KEY)?.length ?? 0).toBeLessThan(200);
-		expect(cachedFix(card({ ref }))?.fix).toBe('ink-dark');
+		expect(cachedFix(card({ ref }))?.fix).toBe('image-card-dark');
 	});
 	it('does not keep a blob: photo, whose URL changes on every load', () => {
 		keepFix(card({ ref: 'blob:https://site.test/1' }), 'solid', null, 'live');
 		expect(localStorage.getItem(KEY)).toBeNull();
 	});
 	it('forgets an answer after a week, and ignores a tampered one', () => {
-		keepFix(card(), 'ink-light', 9, 'live');
+		keepFix(card(), 'image-card-light', 9, 'live');
 		const all = JSON.parse(localStorage.getItem(KEY) ?? '{}');
 		const k = Object.keys(all)[0];
 		all[k].at -= 8 * 24 * 60 * 60 * 1000;

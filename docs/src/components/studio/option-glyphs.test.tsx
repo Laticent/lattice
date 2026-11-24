@@ -11,7 +11,7 @@ import { MOTION_SPEED_ENTRIES } from '../../lib/motion-catalog';
 import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { CORNERS } from './corners-catalog';
-import { GUARDS } from './guards-catalog';
+import { FIT } from './fit-catalog';
 import { HEADLINES } from './headline-catalog';
 import { logoFinishOptions } from './logo-finish';
 import { DEFAULT_STAMP, DEFAULT_TONE, type GlyphAxis, optionGlyph } from './option-glyphs';
@@ -29,7 +29,7 @@ const covered: [GlyphAxis, readonly string[]][] = [
 	['alignV', ALIGN_VERTICAL.map((e) => e.name)],
 	['alignH', ALIGN_HORIZONTAL.map((e) => e.name)],
 	['corners', CORNERS.map((e) => e.name)],
-	['fit', GUARDS.map((e) => e.name)],
+	['fit', FIT.map((e) => e.name)],
 	['speed', MOTION_SPEED_ENTRIES.map((e) => e.name)],
 	['pace', PACE_NAMES],
 	['split', ['headings', 'rule']],

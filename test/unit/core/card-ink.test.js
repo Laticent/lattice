@@ -20,13 +20,13 @@ const hex = ([r, g, b]) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, '
 test('class readers: the last word wins, and a level is a percent', async () => {
   const k = await load();
   assert.equal(k.backingPercent(['image', 'spotlight']), null);
-  assert.equal(k.backingPercent(['card-soft']), 80);
-  assert.equal(k.backingPercent(['card-sheer']), 55);
-  assert.equal(k.backingPercent(['card-clear']), 0);
-  assert.equal(k.backingPercent(['card-o35']), 35);
-  assert.equal(k.backingPercent(['card-soft', 'card-o35']), 35);
-  assert.equal(k.backingPercent(['card-o30', 'card-soft']), 30, 'a level sits after the names in the CSS, so it wins whatever the class order');
-  assert.equal(k.inkOf(['ink-dark']), 'dark');
+  assert.equal(k.backingPercent(['image-card-soft']), 80);
+  assert.equal(k.backingPercent(['image-card-sheer']), 55);
+  assert.equal(k.backingPercent(['image-card-clear']), 0);
+  assert.equal(k.backingPercent(['image-card-35']), 35);
+  assert.equal(k.backingPercent(['image-card-soft', 'image-card-35']), 35);
+  assert.equal(k.backingPercent(['image-card-30', 'image-card-soft']), 30, 'a level sits after the names in the CSS, so it wins whatever the class order');
+  assert.equal(k.inkOf(['image-card-dark']), 'dark');
   assert.equal(k.inkOf(['image']), null);
 });
 
@@ -35,31 +35,32 @@ test('painted levels: pinned to the register, and a level with no CSS rule sets 
   const { BACKING_LEVELS } = require(path.join(ROOT, 'lib/core/resolve-image-card.js'));
   assert.deepEqual([...k.PAINTED_LEVELS], BACKING_LEVELS, 'the policy and the register list the same levels');
   const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
-  for (const n of k.PAINTED_LEVELS) assert.ok(css.includes(`.card-o${n} {`), `card-o${n} is painted`);
-  assert.equal(k.backingPercent(['card-o05']), null, 'a zero-padded level matches no rule');
-  assert.equal(k.backingPercent(['card-o080']), null);
-  assert.equal(k.backingPercent(['card-o5']), 5);
+  for (const n of k.PAINTED_LEVELS) assert.ok(css.includes(`.image-card-${n} {`), `image-card-${n} is painted`);
+  assert.equal(k.backingPercent(['image-card-05']), null, 'a zero-padded level matches no rule');
+  assert.equal(k.backingPercent(['image-card-080']), null);
+  assert.equal(k.backingPercent(['image-card-5']), 5);
   for (const n of [0, 55, 80, 100]) {
-    assert.ok(!css.includes(`.card-o${n} {`), `card-o${n} has no rule`);
-    assert.equal(k.backingPercent([`card-o${n}`]), null, `card-o${n} sets no backing`);
+    assert.ok(!css.includes(`.image-card-${n} {`), `image-card-${n} has no rule`);
+    assert.equal(k.backingPercent([`image-card-${n}`]), null, `image-card-${n} sets no backing`);
+    assert.equal(k.backingPercent([`card-o${n}`]), null, `the old card-o${n} sets no backing`);
   }
 });
 
 test('needsInk: only a thin spotlight card with no ink, from the slide or the deck', async () => {
   const k = await load();
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-o35']), true);
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-clear']), true);
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-sheer']), true, '55% is thin');
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-o60']), false, '60% is not');
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-soft']), false);
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-35']), true);
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-clear']), true);
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-sheer']), true, '55% is thin');
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-60']), false, '60% is not');
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-soft']), false);
   assert.equal(k.needsInk(['image', 'spotlight']), false, 'a default card is solid');
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-o35', 'ink-light']), false, 'an ink on the slide answers it');
-  assert.equal(k.needsInk(['image', 'spotlight'], ['card-o35']), true, 'a thin deck backing counts');
-  assert.equal(k.needsInk(['image', 'spotlight'], ['card-o35', 'ink-dark']), false, 'a deck ink answers it');
-  assert.equal(k.needsInk(['image', 'spotlight', 'card-solid'], ['card-o35']), false, 'the slide overrides the deck backing');
-  assert.equal(k.needsInk(['image', 'statement', 'card-o35']), false, 'a statement ink is fixed');
-  assert.equal(k.needsInk(['image', 'card-o35']), false, 'a composition the slide does not name is not guessed');
-  assert.equal(k.needsInk(['image', 'card-o35'], [], 'spotlight'), true, '...unless the caller knows it');
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-35', 'image-card-light']), false, 'an ink on the slide answers it');
+  assert.equal(k.needsInk(['image', 'spotlight'], ['image-card-35']), true, 'a thin deck backing counts');
+  assert.equal(k.needsInk(['image', 'spotlight'], ['image-card-35', 'image-card-dark']), false, 'a deck ink answers it');
+  assert.equal(k.needsInk(['image', 'spotlight', 'image-card-solid'], ['image-card-35']), false, 'the slide overrides the deck backing');
+  assert.equal(k.needsInk(['image', 'statement', 'image-card-35']), false, 'a statement ink is fixed');
+  assert.equal(k.needsInk(['image', 'image-card-35']), false, 'a composition the slide does not name is not guessed');
+  assert.equal(k.needsInk(['image', 'image-card-35'], [], 'spotlight'), true, '...unless the caller knows it');
 });
 
 test('contrast agrees with lib/core/color.js', async () => {
@@ -104,13 +105,13 @@ test('the fills and inks restated here are the ones image.styles.css paints', as
   const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
   const rgb = ([r, g, b]) => `rgb(${r} ${g} ${b})`;
   for (const ink of ['light', 'dark']) {
-    const block = css.slice(css.indexOf(`.${`ink-${ink}`} {`));
+    const block = css.slice(css.indexOf(`.image-card-${ink} {`));
     const end = block.indexOf('}');
     const rule = block.slice(0, end);
-    assert.ok(rule.includes(`--_card-fill: ${rgb(k.INK_FILL[ink])}`), `ink-${ink} fill`);
-    assert.ok(rule.includes(`--_card-heading-ink: ${rgb(k.INK_TEXT[ink])}`) || rule.includes(`--_card-heading-ink: rgb(${k.INK_TEXT[ink].join(' ')} / `), `ink-${ink} heading ink`);
+    assert.ok(rule.includes(`--_card-fill: ${rgb(k.INK_FILL[ink])}`), `image-card-${ink} fill`);
+    assert.ok(rule.includes(`--_card-heading-ink: ${rgb(k.INK_TEXT[ink])}`) || rule.includes(`--_card-heading-ink: rgb(${k.INK_TEXT[ink].join(' ')} / `), `image-card-${ink} heading ink`);
     const [r, g, b, a] = k.INK_BODY[ink];
-    assert.ok(rule.includes(`--_card-body-ink: rgb(${r} ${g} ${b} / ${a})`), `ink-${ink} body ink`);
+    assert.ok(rule.includes(`--_card-body-ink: rgb(${r} ${g} ${b} / ${a})`), `image-card-${ink} body ink`);
   }
   assert.equal(k.THIN_BACKING, 60);
 });
@@ -119,24 +120,24 @@ test('lint: thin-card-no-ink warns on a thin spotlight card with no ink, and onl
   const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
   const deck = (fm, cls) => `---\ntheme: indaco\n${fm}---\n\n<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)\n`;
   const hits = (src) => lintText(src).filter((f) => f.rule === 'thin-card-no-ink');
-  const one = hits(deck('', 'image spotlight card-o35'));
+  const one = hits(deck('', 'image spotlight image-card-35'));
   assert.equal(one.length, 1, JSON.stringify(one));
-  assert.equal(one[0].classToken, 'card-o35');
+  assert.equal(one[0].classToken, 'image-card-35');
   assert.match(one[0].message, /35%/);
-  assert.equal(hits(deck('', 'image spotlight card-o35 ink-light')).length, 0, 'an ink answers it');
-  assert.equal(hits(deck('', 'image spotlight card-o65')).length, 0, '65% is not thin');
+  assert.equal(hits(deck('', 'image spotlight image-card-35 image-card-light')).length, 0, 'an ink answers it');
+  assert.equal(hits(deck('', 'image spotlight image-card-65')).length, 0, '65% is not thin');
   assert.equal(hits(deck('', 'image spotlight')).length, 0, 'a default card is solid');
-  assert.equal(hits(deck('', 'image statement card-o35')).length, 0, 'a statement ink is fixed');
+  assert.equal(hits(deck('', 'image statement image-card-35')).length, 0, 'a statement ink is fixed');
   assert.equal(hits(deck('image-card: 35%\n', 'image spotlight')).length, 1, 'a thin deck backing counts');
   assert.equal(hits(deck('image-card: 35% light\n', 'image spotlight')).length, 0, 'a deck ink answers it');
-  assert.equal(hits(deck('image-card: 35%\n', 'image spotlight card-solid')).length, 0, 'the slide overrides the deck');
-  assert.equal(hits(deck('', 'image statement spotlight card-o30')).length, 0, 'the first composition word wins, as in the engine: this renders a statement');
-  assert.equal(hits(deck('', 'image spotlight statement card-o30')).length, 1, '...and here it renders a spotlight');
+  assert.equal(hits(deck('image-card: 35%\n', 'image spotlight image-card-solid')).length, 0, 'the slide overrides the deck');
+  assert.equal(hits(deck('', 'image statement spotlight image-card-30')).length, 0, 'the first composition word wins, as in the engine: this renders a statement');
+  assert.equal(hits(deck('', 'image spotlight statement image-card-30')).length, 1, '...and here it renders a spotlight');
 });
 
 test('compositionOf reads a class list the way the engine does', () => {
   const { compositionOf } = require('../../../lib/core/card-ink-policy.mjs');
   const { compositionFromClass } = require('../../../lib/core/image-aspect');
-  const lists = [[], ['at-top'], ['spotlight'], ['full'], ['museum', 'split'], ['contain'], ['gallery', 'full'], ['full', 'statement']];
+  const lists = [[], ['image-card-top'], ['spotlight'], ['full'], ['museum', 'split'], ['contain'], ['gallery', 'full'], ['full', 'statement']];
   for (const l of lists) assert.equal(compositionOf(l), compositionFromClass(l.join(' ')), l.join(' '));
 });

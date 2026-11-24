@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 const items = (n: number) => Array.from({ length: n }, (_, i) => `- Item ${i + 1} on the agenda`).join('\n');
-// The count-based control writes `fit: heal`: measuring is the default (lib/core/resolve-guards.js fitPacks).
+// The count-based control writes `fit: heal`: measuring is the default (lib/core/resolve-fit.js fitPacks).
 const deck = (fit: string, size: string, n: number) => `---\nmarp: true\ntheme: indaco\nsize: ${size}\n${fit ? `fit: ${fit}\n` : ''}---\n\n<!-- _class: agenda -->\n\n## The agenda\n\n${items(n)}\n`;
 
 type Measured = { plan: Record<string, unknown>; remembered: string[]; facts: { slide: string; over: boolean }[]; rounds: number; fellBack: number; reused?: boolean } | null;

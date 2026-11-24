@@ -207,7 +207,7 @@ try {
 		// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
 		slotContract: v.slotContract,
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
-		// EVERY register value list (`guardsNames`, `alignNames`, `claimNames`, the spectrum
+		// EVERY register value list (`fitNames`, `alignNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
 		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`), and the inline lint and the Coach
 		// check them (`buildVocabSets` in lib/editor-diagnostics.js forwards every

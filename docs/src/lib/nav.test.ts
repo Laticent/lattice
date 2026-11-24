@@ -60,8 +60,8 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library, Trama, Segno, Calco, Tavola, Fuoco, Mosaico, Veduta, Fluido, Filo and Squadra included, and LTT under Specs', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco', 'Mosaico', 'Veduta', 'Fluido', 'Filo', 'Squadra']);
+	it('lists every workspace library, LTT, Markup, Lastra and Segno Languages included, and LTT under Specs as well', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco', 'Mosaico', 'Veduta', 'Fluido', 'Filo', 'Squadra', 'LTT', 'Markup', 'Lastra', 'Segno Languages']);
 		expect(labels(specsNav(url))).toEqual(['LFM 1.0', 'Diagnostic Protocol', 'LTT 1.0']);
 		for (const s of specsNav(url)) expect(s.href).toMatch(/\/spec\/[a-z]+\/$/);
 	});
@@ -117,7 +117,7 @@ describe('nav model', () => {
 		// published library is official and gets a page (ruling 2026-11-23), so this list only shrinks:
 		// a library leaves it in the PR that adds its page. Each entry must be a published engine
 		// dependency, so it cannot outlive its package.
-		const unlisted = ['@laticent/markup', '@laticent/lastra', '@laticent/segno-languages'];
+		const unlisted: string[] = [];
 		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
 		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'packages', 'lattice', 'package.json'), 'utf8')).dependencies ?? {});
 		for (const name of unlisted) expect(engineDeps, `${name} is in \`unlisted\` but @laticent/lattice does not depend on it`).toContain(name);
@@ -128,7 +128,8 @@ describe('nav model', () => {
 
 	it('points every library at its own demo page, which marks it current', () => {
 		for (const l of librariesNav(url)) {
-			const slug = l.label.toLowerCase();
+			// The label in lower case, words joined by a hyphen: "Segno Languages" lives at segno-languages/.
+			const slug = l.label.toLowerCase().replaceAll(' ', '-');
 			expect(l.href).toBe(url(`libraries/${slug}/`));
 			expect(isCurrent(l, `/lattice/libraries/${slug}/`)).toBe(true);
 			expect(isCurrent(l, `/lattice/libraries/${slug}/learn/`)).toBe(true);

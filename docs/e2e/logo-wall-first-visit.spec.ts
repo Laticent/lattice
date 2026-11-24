@@ -96,8 +96,10 @@ test('a first visit holds the wall hidden while it measures, then paints it once
 	// logs it has run (1 run in 10 on webkit-phone). Wait for the recorder to have logged it, then read its history.
 	await expect.poll(async () => (await painted(page)).filter((s) => s !== 'none').at(-1), { message: 'the recorder never logged the packed wall' }).toBe('packed/visible');
 	const log = (await painted(page)).filter((s) => s !== 'none');
-	// Never the unpacked grid on screen: every state before `packed` is hidden.
-	for (const s of log.slice(0, -1)) expect(s).toBe('measuring/hidden');
+	// Never the unpacked grid on screen: every state before `packed` is hidden. Before the runtime stamps the list it is
+	// `unstamped`, and the editing preview holds that back too (single-slide-render.ts `frameStyleContent`), so it may
+	// show up here first, hidden; visible, it was the one-frame flash this spec exists to catch (1 run in 48 at 8 workers).
+	for (const s of log.slice(0, -1)) expect(s).toMatch(/^(unstamped|measuring)\/hidden$/);
 	expect(log).not.toContain('unstamped/visible');
 	expect(log).not.toContain('fallback/visible');
 });
@@ -119,4 +121,19 @@ test('a mark that never arrives does not leave the wall hidden: the cap shows th
 	// The cap fired while the read was still in flight, not because it had failed or come back.
 	await acme.held();
 	acme.releaseAll();
+});
+
+test('a wall the runtime never reaches is not stranded hidden: past the cap the preview shows it as the grid', async ({ page }) => {
+	test.setTimeout(60_000);
+	// The preview's frame stylesheet holds an unstamped wall back until the runtime stamps it. If the runtime never gets
+	// there (here its script never loads), that hold must end on its own: past the measure kit's cap the wall shows, as
+	// the unpacked grid, rather than a blank stage with no signal.
+	await page.route('**/lattice-runtime*.js', (route) => route.abort());
+	const next = await openDeck(page);
+	await next.click();
+	await expect.poll(async () => (await painted(page)).filter((s) => s !== 'none'), { timeout: 20_000 }).toContain('unstamped/visible');
+	const log = (await painted(page)).filter((s) => s !== 'none');
+	// Hidden first, then shown: never a list the runtime stamped.
+	expect(log[0]).toBe('unstamped/hidden');
+	expect(log.every((s) => s.startsWith('unstamped/'))).toBe(true);
 });

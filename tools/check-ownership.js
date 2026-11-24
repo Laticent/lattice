@@ -190,10 +190,10 @@ const VARIANT_DECL_IGNORE = new Map([
   // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
-  // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
-  // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
+  // `image-card-5` … `image-card-95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
+  // one axis, documented once under `image-card-solid`/`-soft`/`-sheer`/`-clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `image-card-${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -13724,6 +13724,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // Compressed audio containers: the narration codec bake-off's fixtures (docs/scripts/ios-safari/codec-fixtures/),
+  // one 2 s sentence in every codec and container the iOS probe decodes.
+  '.aac', '.caf', '.flac', '.m4a', '.ogg', '.webm',
 ];
 
 // Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of

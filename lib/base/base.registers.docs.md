@@ -161,12 +161,16 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 | `pack` | *(no class)* | **The default** (owner, 2026-11-06: "we want the best results out of the box"; a deck with no `fit:` line splits this way). Everything `heal` does, with a MEASURED split. A slide that fits its box and venue stays one page even past its component's item count, and one that overflows packs as many items a page as fit by measured height, instead of one a page. Every surface splits it the same way: the CLI, the Studio and Playground preview, and the webpage export. In the live preview a slide keeps its pages while you type, and goes back to one page only when it fits with 30% of its room spare. See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §16. |
 
-**The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
-`trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
-wins, and a deck that carries only `guards:` splits by count, as it always did. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
+**The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
+(`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
+says `guards:` gets the default, `pack`, and `lint:deck` reports the line as an error
+(`guards-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
+any other `guards:` line, since the engine already renders that deck at the default. A typo
+(`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
 
-**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
-`guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
+**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim`. The old
+`guards-strict` / `guards-loose` classes do nothing now; `lint:deck --fix` rewrites them to
+`fit-trim` / `fit-heal`. The per-slide token **evicts** the deck token rather
 than stacking on it, so a slide's own choice always wins. One exception: whether a deck MEASURES its split is deck-wide, so a slide's `fit-heal` inside a measuring deck does not switch that slide back to the count-based split.
 
 **Two invariants, not settings.** No level changes the type size, and no level changes
@@ -211,9 +215,9 @@ cause overflow are largely the ones it refuses to touch. See
 **The overflow signals stay on.** `strict` does not silence the ring, the "Content
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
-but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
-key), including one carrying a trailing `#` comment.
+but not a removal. A typo (`fit: trimm`) resolves to the baseline and is
+caught by `npm run lint:deck` as `unknown-fit`, including one carrying a trailing `#`
+comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
@@ -272,7 +276,7 @@ layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
 swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
-`spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
+`spectrum*` register, `corners:`, `fit:`, `rule:`, `eyebrow:`, `inline-code:`,
 `headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `align:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in
@@ -1317,30 +1321,41 @@ image-card: top-right soft sm compact
 
 | Axis | Deck value | Per-slide class | Effect |
 |---|---|---|---|
-| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `at-tl` `at-top` `at-tr` `at-center` `at-bl` `at-bottom` `at-br` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
-| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `card-solid` … · `card-o5` … `card-o95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
-| Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
-| Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
-| Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
-| Shape | `float` `band` | `card-float` `band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
+| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `image-card-top-left` `image-card-top` `image-card-top-right` `image-card-center` `image-card-bottom-left` `image-card-bottom` `image-card-bottom-right` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
+| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `image-card-solid` … · `image-card-5` … `image-card-95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
+| Ink | `light` `dark` | `image-card-light` `image-card-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
+| Size | `sm` `md` `lg` | `image-card-sm` `image-card-md` `image-card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
+| Density | `regular` `compact` | `image-card-regular` `image-card-compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
+| Shape | `float` `band` | `image-card-float` `image-card-band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
 
-**Image slides only.** Two of these classes mean something on other layouts too: `at-*` places
-the corner and edge tints, and `compact` tightens any slide. So the deck's words ride only a
-slide whose own class list names `image`; a chart or prose slide in the same deck is untouched.
-On an image slide whose composition sets its text beside the photo (`clean`, `split`, `gallery`)
-the card classes paint nothing, with two exceptions that follow from the shared words: `compact`
-still tightens that slide's spacing, as it does on any slide, and an `at-*` word also moves a
-tint the slide carries (`tint-corner`, `tint-edge`).
+**Every class is `image-card-<word>`**, the word the deck line takes, with a level's `%` dropped
+(`image-card: 65%` stamps `image-card-65`). The classes are the card's own, so they mean nothing
+anywhere else: the tint placements (`at-tl`, `at-top`, …) and the universal `compact` keep their
+own meanings, and neither moves nor tightens the card. A slide can carry `tint-corner at-tr` and
+`image-card-top-right` side by side, and each does its own job. The deck's words ride only a slide
+whose own class list names `image`, and on an image slide whose composition sets its text beside
+the photo (`clean`, `split`, `gallery`) they paint nothing.
+
+**Renamed 2026-11-22.** Until then the card borrowed shared words (`at-tr`, `card-soft`,
+`card-o65`, `ink-light`, `card-sm`, `card-regular`, `compact`, `band`, `card-float`), so a deck
+line `image-card: compact` also tightened the whole slide's spacing. It no longer does. The old
+classes paint nothing on the card: `lint:deck` reports each as `image-card-renamed`, an error
+that names the new class, and `lint:deck --fix` rewrites it. A `compact` on a `spotlight` or
+`statement` slide is a warning instead, because it still tightens the slide (info on an image slide
+that names no composition, since lint cannot see whether the photo gets a card); the fix adds
+`image-card-compact` beside it so the slide renders as before
+(`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2).
 
 **A slide overrides one axis at a time.** A slide's own class on an axis replaces the deck's word
 on that axis and keeps the rest: in a deck with `image-card: top-right soft`, a slide with
-`_class: image spotlight at-bl` gets a soft card in the bottom-left corner. `card-regular` is the
-slide-side way out of a deck-wide `compact`, and `card-float` the way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
+`_class: image spotlight image-card-bottom-left` gets a soft card in the bottom-left corner.
+`image-card-regular` is the slide-side way out of a deck-wide `compact`, and `image-card-float` the
+way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
 leaving the axis out already means it.
 
 Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
 
-**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `ink-light` (white words on a near-black card) and `ink-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
+**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `image-card-light` (white words on a near-black card) and `image-card-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
 
 **Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
 

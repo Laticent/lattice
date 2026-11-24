@@ -47,7 +47,7 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    it); then one line per PR that starts `#N — head <sha>`, then `— one line — check
    state — card level`, in merge order, with the link to its card at the END of the
    row. Any other shape makes the owner's "all" deny. Send it to the
-   command center, which shows it to the owner as its own message, so the owner can
+   command center (your `meter:` ledger goes in a separate message, so the digest keeps its shape), which shows it to the owner as its own message, so the owner can
    answer exactly "all" or "all but #N" there (§Merging, batch the ask).
 5. **Who merges.** The owner's own typed answer in the command center is the owner's
    word, so the command center carries it out: for each PR named, it re-reads the head

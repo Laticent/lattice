@@ -81,8 +81,8 @@ test('the editor completes fit: values from the engine vocabulary', async ({ pag
 // `getFrontMatterName`. Without that, both rows below showed the OPPOSITE of what the
 // engine renders.
 test('a commented value reads the way the engine reads it', async ({ page }) => {
-	await setEditorContent(page, '---\ntitle: Gap\nmotion: on\nguards: strict  # board pack\nplayer-motion: off # x\n---\n\n# Gap\n');
-	// The OLD spelling, still honored: `guards: strict` reads as the Fit field's trim level.
+	await setEditorContent(page, '---\ntitle: Gap\nmotion: on\nfit: trim  # board pack\nplayer-motion: off # x\n---\n\n# Gap\n');
+	// `fit: trim  # board pack` reads as the Fit field's trim level, comment and all.
 	await expect(page.getByRole('combobox', { name: 'Choose how slides fit' })).toContainText('Split by count and trim');
 	await openSection(page, 'Motion');
 	await expect(page.getByRole('switch', { name: 'Motion in the exported player' })).toHaveAttribute('aria-checked', 'false');

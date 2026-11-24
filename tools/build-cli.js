@@ -34,6 +34,7 @@
  */
 
 const esbuild = require('esbuild');
+const { lastraClosure } = require('./lib/lastra-closure.js');
 const path    = require('path');
 const fs      = require('fs');
 const { execSync } = require('child_process');
@@ -83,14 +84,10 @@ const BUILD_OPTIONS = {
   // `dependencies`, so leaving them external made an install without the
   // symlink throw inside the flowchart script builder, which the CLI swallows:
   // every flowchart exported as its fallback tiles, silently.
-  plugins: [inlineWorkspaceLibs()],
-  // One copy of the image library, and inside its own closure. lib/core/image-dimensions.js `require`s it and the
-  // export spine's ES modules `import` it, and the package's `exports` map sends those to two files, so the bundle
-  // carried it twice. Both kinds read the CommonJS build here, which esbuild keeps wrapped in a function: an ES build
-  // is scope-hoisted, and its top-level names (`info`, `view`, `tag`, `A`, …) made esbuild rename same-named locals
-  // across the whole bundle, including functions an export sends into a page as `toString()` source. That changed the
-  // bytes of every `--player` file (`info` became `info2`) while changing nothing they do.
-  alias: { '@laticent/lastra': path.join(ROOT, 'docs', 'src', 'lib', 'lastra', 'dist', 'index.cjs') },
+  // lastraClosure first: one copy of the image library, inside its own closure, for `require` and `import` alike.
+  // An ES build is scope-hoisted and its top-level names (`info`, `view`, …) made esbuild rename same-named locals
+  // across the bundle, including functions an export ships as `toString()` source (tools/lib/lastra-closure.js).
+  plugins: [lastraClosure(), inlineWorkspaceLibs()],
   // Inlined source map so a single committed file carries debugging info
   // without a sidecar .map artifact. esbuild is deterministic, so identical
   // sources rebuild byte-for-byte — the --check diff relies on that.

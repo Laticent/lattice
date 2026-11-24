@@ -38,7 +38,7 @@ function render(name, md, ...flags) {
   return fs.readFileSync(out, 'utf8');
 }
 
-// The count-based control: measuring is the DEFAULT (lib/core/resolve-guards.js `fitPacks`), so the
+// The count-based control: measuring is the DEFAULT (lib/core/resolve-fit.js `fitPacks`), so the
 // structural split is the one a deck asks for by name, `fit: heal`.
 const counted = (md) => md.replace('\nsize:', '\nfit: heal\nsize:');
 

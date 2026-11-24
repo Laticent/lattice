@@ -15,10 +15,10 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
-import resolveGuards from '../../../lib/core/resolve-guards.js';
+import resolveFit from '../../../lib/core/resolve-fit.js';
 import { FIT_PROBES_GLOBAL, fitProbesUrl } from './fit-probes.mjs';
 
-const { fitPacks } = resolveGuards;
+const { fitPacks } = resolveFit;
 
 /**
  * Does a deck split by measurement? The DEFAULT: the CLI's own `fitPacks` decides, so a deck with no

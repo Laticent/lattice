@@ -92,7 +92,7 @@ const WIDE = deck('', `
 - Three.
 `);
 // `fit: heal` (the COUNT-based split, one member a page): measuring is the default
-// (lib/core/resolve-guards.js fitPacks) and keeps this short list whole; this case needs a lone member.
+// (lib/core/resolve-fit.js fitPacks) and keeps this short list whole; this case needs a lone member.
 const PORTRAIT = deck('size: portrait\nfit: heal\n', `
 <!-- _class: list -->
 

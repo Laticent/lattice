@@ -263,7 +263,8 @@ distinct, stable ID.
 | `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
-| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `image-card-light` or `image-card-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `image-card-renamed` | error / warning / info | ✓ | An image card's old per-slide class. `card-*` (`card-soft`, `card-o65`, `card-sm`, `card-regular`, `card-float`) and `ink-light` / `ink-dark` are an error on any slide; `band` is an error on any `image` slide, and `at-*` is one on an `image` slide with no `tint-corner` or `tint-edge` (the slide's own or the deck's `class:`). Each names its `image-card-<word>` class, and the fix rewrites it. Beside a tint, `at-*` still places the tint but no longer moves the card: a warning on a `spotlight` or `statement` slide, info on one that names no composition, whose fix adds the card's word next to it (`at-tr image-card-top-right`); with two `at-*` words the finding carries no fix, because the stylesheet, not the author, picked the card's corner. `compact` on an `image` slide without `image-card-compact` still tightens the slide's spacing but no longer the card: a warning on a slide that names `spotlight` or `statement`, info on one that names no composition (the engine picks it from the photo, which lint cannot see), and nothing on `clean`, `split` or `gallery`, which have no card. The fix adds `image-card-compact` so the slide renders as before. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
@@ -272,7 +273,7 @@ distinct, stable ID.
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
 | `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
-| `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
+| `guards-renamed` | error | ✓ | `guards:`, the old name of `fit:`, which the engine no longer reads. The fix keeps what the deck rendered: `guards: strict` becomes `fit: trim`; `guards: loose`, an unknown value, or any `guards:` line in a deck that also sets `fit:` is deleted. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
@@ -524,7 +525,10 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
-- **Unreleased.** §3.1 adds `agenda-empty` and `agenda-retired-style`
+- **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
+  (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2). `guards-renamed`
+  becomes an error with a fix, because the engine no longer reads `guards:`.
+  §3.1 adds `agenda-empty` and `agenda-retired-style`
   (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and

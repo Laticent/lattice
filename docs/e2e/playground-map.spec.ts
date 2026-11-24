@@ -163,7 +163,7 @@ test('in Edit the rail follows the preview and a tile scrolls it', async ({ page
 });
 
 // `fit: heal`: this deck needs the COUNT-based split (one row a page); measuring is the default
-// (lib/core/resolve-guards.js fitPacks) and keeps a short list whole.
+// (lib/core/resolve-fit.js fitPacks) and keeps a short list whole.
 const PORTRAIT = `---
 theme: indaco
 size: portrait

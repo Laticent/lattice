@@ -159,7 +159,7 @@ const GLYPHS = {
 		square: { icon: Square },
 		rounded: { icon: SquareRoundCorner },
 	},
-	/** `guards:` — what the engine may do to make a slide fit. */
+	/** `fit:` — what the engine may do to make a slide fit. */
 	fit: {
 		report: { icon: Flag },
 		heal: { icon: Wrench },

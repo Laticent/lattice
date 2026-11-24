@@ -2,7 +2,8 @@
 /**
  * Agent card generator — validate a card's YAML and print the finished card.
  * The author-facing way to build the 🚦 pre-merge, 📋 standup, 🎯 continuation
- * and ❓ decision cards: you write the facts, this wraps them to 38 columns,
+ * and ❓ decision cards, the 🛰️ fleet board and a desk's 📶 completion meter:
+ * you write the facts, this wraps them to 38 columns,
  * puts the layout and the CAPS in place, and fences the result. Contract:
  * engineering/workflow.md §One layout for all four cards.
  *
