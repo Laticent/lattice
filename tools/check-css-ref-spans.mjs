@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-css-ref-spans — does the grammar-driven `cssRefSpans` (lib/core/remote-ref.js, reading CSS
- * through the CSS parser in lib/core/css-tokens.js) leave the sanitizer's answers byte-identical?
+ * through lib/core/css-ref.generated.js) leave the sanitizer's answers byte-identical?
  *
  * The R2 gate of engineering/decisions/2026-10-27-segno-reports-facts-callers-decide.md: "rewrite and
  * `blocked` lists byte-identical on the decks". It loads `lib/core/remote-ref.js` as it was at `--ref`

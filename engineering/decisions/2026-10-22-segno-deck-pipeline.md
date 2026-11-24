@@ -1136,16 +1136,30 @@ followups.d/3294-p3-node24-require-esm-race.md.
 **One parser, not two (coordinator, 2026-11-17).** Minified and gzipped, the `top` parser alone was 2,585 B, a separate
 `sheet` parser 2,840 B, and one parser with both entries 3,073 B. The Studio already loads the `top` parser through
 remote-ref.js, so two parsers would have cost it about 2.8 KB and one costs about 0.5 KB. So lib/core/css-ref.generated.js
-is deleted, the one parser is generated into lib/core/css-tokens.js and exported as `cssParser`, and every reader that
-handed `css-ref.generated.js` to `makeCssRefSpans` hands it `cssParser` instead. No reading logic changed. The evidence:
+holds the one parser with both entries, lib/core/css-tokens.js re-exports it as `cssParser`, and remote-ref.js keeps
+handing `css-ref.generated.js` to `makeCssRefSpans`. No reading logic changed. The evidence:
 - every function `top` runs (`r_wsUnit`, `r_hexEscape`, `r_escape`, `r_stringDq`, `r_stringSq`, `r_top`, `r_token`,
-  `r_urlBody`), `parse` and every other top-level name of the deleted file are byte-identical in the new region but
+  `r_urlBody`), `parse` and every other top-level name of the old file are byte-identical in the new one but
   two: `KINDS` (seven kinds appended, the old ones keep their numbers) and `RULES` (a superset);
 - `makeCssRefSpans` over the deleted parser and over `cssParser`, with no options and with `imageSet`, `urlArg` and
   `decls`, on the 209 stylesheets in the repo and 100,000 seeded inputs: 200,418 comparisons, 0 differ;
 - test/unit/core/css-ref-spans-differential.test.js (the frozen legacy tokenizer) passes on the new source. test/unit/core/css-tokens.test.js holds it to css-tree's spec tokenizer
 on 4,000 seeded inputs, token for token; the file's header lists the three places css-tree itself departs from the
 spec and from Chromium, and the three places this tokenizer departs from it on purpose.
+
+**The parser is a leaf of its own, not a region of the tokenizer (2026-11-24).** For a week the parser was generated
+into a region of css-tokens.js, and remote-ref.js took it from there. That cost nothing while the tokenizer was an ES
+module, because Rollup dropped the exports remote-ref.js did not read. Once the tokenizer became CommonJS (above),
+Rollup could no longer drop any of `module.exports`, so every docs page that loads remote-ref.js eagerly carried the
+whole tokenizer. The merge queue's docs build ejected #3294 a second time on it: home eagerJsGz at 320.9 KB against a
+320.5 KB ceiling. Measured minified and gzipped, the parser alone (main's leaf) is 2,924 B, the parser taken from the ES
+module tokenizer 3,193 B, and from the CommonJS one 5,417 B. So the generator writes the parser to
+lib/core/css-ref.generated.js again, remote-ref.js requires that leaf as it did on main, and css-tokens.js requires it
+too. The docs dev shim (docs/src/plugins/vite-cjs-lib-dev.mjs) inlines one level of sibling leaves, so both requires
+load in the dev server; a third level would not. The same queue run caught
+test/integration/export/read-slide-svg-text.test.js loading read-slide.mjs as a raw browser module, which cannot import
+a CommonJS file; it now injects an esbuild bundle of the reader, the way the CLI ships the writer. The render tier runs
+only in the merge queue, so PR CI could not see either.
 
 **The naive comment strip is a measured bypass.** `/\/\*[\s\S]*?\*\//g` treats comments and strings as separate
 layers, so a `/*` inside a string pairs with the next real `*/` and deletes everything between. Two measurements:
