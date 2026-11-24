@@ -72,14 +72,30 @@ function frontValue(front, key) {
  * Every setting of `key` on these lines, in source order, as `{ at, value }`: a directive comment (`<!-- _hide -->`,
  * `<!-- _paginate: false -->`) or a field of a `<!-- @meta{…} -->` record (`hide`, `hide=false`, `paginate=skip`), the
  * corpus's spelling since the meta sweep. Read here with its own small pattern, not the shared record reader, so the
- * oracle stays independent of the code it checks. A record's items split on commas outside quotes; `value` is '' for a
- * bare flag.
+ * oracle stays independent of the code it checks. `value` is '' for a bare flag.
  */
+/** A record body's items, split on the commas outside double quotes: one linear pass (a lookahead regex for this is
+ *  the polynomial shape CodeQL flags). */
+function recordItems(body) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (const ch of body) {
+    if (ch === '"') quoted = !quoted;
+    if (ch === ',' && !quoted) {
+      out.push(cur.trim());
+      cur = '';
+    } else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 function settings(outside, key) {
   const out = [];
   for (const m of outside.matchAll(new RegExp(`^<!--\\s*_?${key}(?::\\s*([^>]*?))?\\s*-->`, 'gm'))) out.push({ at: m.index, value: (m[1] || '').trim() });
   for (const m of outside.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)) {
-    for (const item of m[1].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((t) => t.trim())) {
+    for (const item of recordItems(m[1])) {
       if (item === key) out.push({ at: m.index, value: '' });
       else if (item.startsWith(`${key}=`)) out.push({ at: m.index, value: item.slice(key.length + 1).replace(/^"|"$/g, '').trim() });
     }
@@ -110,7 +126,7 @@ function sourceDeck(md) {
     size: frontValue(front, 'size') || 'hd',
     // A panes slide the engine splits becomes one slide per pane, a question about measured fits this reader does
     // not answer, so a deck with pane markers is not held to the authored-slide count (every mark still is).
-    panes: /<!--\s*(?:_?panes?\s*:|@meta\{(?:[^}]*?,\s*)?panes?=)/.test(text),
+    panes: /<!--\s*_?panes?\s*:/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)].some((m) => recordItems(m[1]).some((it) => /^panes?=/.test(it))),
   };
 }
 
@@ -358,7 +374,10 @@ describe('mark agreement', () => {
   // step, so every mark on it must be its first page's: the page stamp, the slide stamp, the divider marker, the rail,
   // the eyebrow. Only the step paint may differ. Checked by stripping the paint and comparing each copy whole.
   const STEP_DECKS = [...CORPUS, ...fs.readdirSync(FIXTURES).filter((n) => n.endsWith('.md')).map((n) => path.join(FIXTURES, n))]
-    .filter((f) => /<!--\s*(?:_?(?:build|focusSteps)\b|@meta\{(?:[^}]*?,\s*)?(?:build|focus-steps)\b)/.test(fs.readFileSync(f, 'utf8')));
+    .filter((f) => {
+      const text = fs.readFileSync(f, 'utf8');
+      return /<!--\s*_?(?:build|focusSteps)\b/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)].some((m) => recordItems(m[1]).some((it) => /^(?:build|focus-steps)\b/.test(it)));
+    });
   async function stepPages(file, mutate) {
     const { expandStepPages } = await import(path.join(ROOT, 'lib/core/step-pages.mjs'));
     const { applyStepAt } = await import(path.join(ROOT, 'lib/core/step-state.mjs'));
