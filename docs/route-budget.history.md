@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-24 — raise the studio lintCoreGz ceiling by 1,024 B (172,998 → 174,022), by hand, for PR 2988, at the owner's direction
+
+Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-22 lintCoreGz entry below is: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it. Soft stays 152,151.
+
+Why: merged with today's main, PR #2988 (fit everywhere, tier 1) measures the lint core at 169.4 KB, 0.5 KB over the old ceiling, which main alone sits about 0.2 KB under. #2988's lint rules add about 0.66 KB gzipped: the handheld-chrome-hidden rule (0.19 KB), the passage and lede split checks the measured split needs, the venue-capacity hints for the phone and tablet venues, and the four `cards-*` to `align-*` rename hints (0.04 KB). Cutting rules to fit would have taken most of them; the owner chose the raise. About 0.5 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 174022 |
+
 ### 2026-11-23 — raise the studio eagerJsGz ceiling by 2,048 B (638,636 → 640,684), by hand, for PR 3294, at the owner's direction
 
 Owner OK 2026-11-23, option (A) relayed by the command center and the Segno desk: "+2 KB raise, own PR".
