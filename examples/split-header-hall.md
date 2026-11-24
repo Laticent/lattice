@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: story
 venue: hall
 header: "Lattice · split headers at hall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Split pages · story box · hall venue`
 
@@ -17,8 +17,8 @@ A story box at a hall venue splits these slides one member a page. Each header n
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "roadmap · cover" -->
+<!-- @meta{layout=roadmap, footer=roadmap · cover} -->
+
 
 `H2 2026 · Rollout plan`
 
@@ -31,8 +31,8 @@ A story box at a hall venue splits these slides one member a page. Each header n
 
 ---
 
-<!-- _class: statute-stack hierarchy -->
-<!-- _footer: "hierarchy" -->
+<!-- @meta{layout=statute-stack, class=hierarchy, footer=hierarchy} -->
+
 
 ## hierarchy orders the stack by supremacy.
 
@@ -45,8 +45,8 @@ A story box at a hall venue splits these slides one member a page. Each header n
 
 ---
 
-<!-- _class: statute-stack -->
-<!-- _footer: "Default" -->
+<!-- @meta{layout=statute-stack, footer=Default} -->
+
 
 ## Three jurisdictions, one obligation each.
 
@@ -62,8 +62,8 @@ A story box at a hall venue splits these slides one member a page. Each header n
 
 ---
 
-<!-- _class: statute-stack preemption -->
-<!-- _footer: "preemption" -->
+<!-- @meta{layout=statute-stack, class=preemption, footer=preemption} -->
+
 
 ## preemption shows what overrides what.
 
@@ -76,8 +76,8 @@ A story box at a hall venue splits these slides one member a page. Each header n
 
 ---
 
-<!-- _class: statute-stack bands -->
-<!-- _footer: "bands" -->
+<!-- @meta{layout=statute-stack, class=bands, footer=bands} -->
+
 
 ## bands strips each jurisdiction full-width.
 
