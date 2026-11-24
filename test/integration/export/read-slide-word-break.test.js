@@ -26,12 +26,22 @@ const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 
-const READER = `file://${path.join(__dirname, '..', '..', '..', 'lib', 'core', 'pdf-compose', 'read-slide.mjs')}`;
+const READER = path.join(__dirname, '..', '..', '..', 'lib', 'core', 'pdf-compose', 'read-slide.mjs');
+
+/** The reader as one classic script that sets `globalThis.LatticeReadSlide`, bundled as the CLI bundles the writer
+ *  (tools/build-pdf-compose.js). Not the raw module: it imports the CommonJS CSS tokenizer (lib/core/css-tokens.js),
+ *  which a browser cannot load as a module, so an `import` from a `file://` URL never ran and every wait timed out. */
+function readerBundle() {
+  const out = require('esbuild').buildSync({ entryPoints: [READER], bundle: true, format: 'iife', globalName: 'LatticeReadSlide', platform: 'browser', write: false, logLevel: 'silent' });
+  return out.outputFiles[0].text;
+}
 
 let browser;
 let page;
+let bundle;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-read-break-'));
 before(async () => {
+  bundle = readerBundle();
   browser = await puppeteer.launch({ executablePath: resolveChrome?.() || process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
   page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
@@ -47,9 +57,11 @@ async function read(text, style) {
   fs.writeFileSync(file, `<!doctype html><html lang="en"><meta charset="utf-8"><style>body{margin:0}section{width:1280px;height:720px;position:relative;background:#fff}h1{margin:0;width:300px;font:700 60px sans-serif;${style}}</style>
     <section><h1>${text}</h1></section></html>`);
   await page.goto(`file://${file}`);
-  await page.addScriptTag({ type: 'module', content: `import { readSlide } from '${READER}'; const r = readSlide(document.querySelector('section')); window.__out = r.words.map((w) => ({ t: w.t, x: Math.round(w.x), top: Math.round(w.top), join: !!w.joinNext }));` });
-  await page.waitForFunction('window.__out', { timeout: 20000 });
-  return page.evaluate(() => window.__out);
+  await page.addScriptTag({ content: bundle });
+  return page.evaluate(() => {
+    const r = globalThis.LatticeReadSlide.readSlide(document.querySelector('section'));
+    return r.words.map((w) => ({ t: w.t, x: Math.round(w.x), top: Math.round(w.top), join: !!w.joinNext }));
+  });
 }
 
 test('HYPHENATED: the first piece ends with the dash, and the second starts the next line', async () => {
