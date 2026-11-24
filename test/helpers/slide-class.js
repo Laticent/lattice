@@ -18,7 +18,9 @@ function ownClassOf(md) {
   const [own] = slideClassDirectives(String(md ?? ''));
   if (!own?.text || /^<!--\s*class\s*:/.test(own.text)) return null;
   // A `carry` record is a running global; read the record's own flag, not the word (a footer may say "carry on").
-  const body = own.text.replace(/^<!--/, '').replace(/-->$/, '');
+  // The scanner's comment text, its `<!--` and `-->` taken off by index (no HTML-ish regex: CodeQL's bad-tag-filter).
+  const t = own.text.trim();
+  const body = t.startsWith('<!--') && t.endsWith('-->') ? t.slice(4, -3) : t;
   if (isRecordOpener(body) && readRecord(body)?.carry) return null;
   return { text: own.text, payload: String(own.payload).trim() };
 }

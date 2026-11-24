@@ -94,7 +94,7 @@ function recordItems(body) {
 function settings(outside, key) {
   const out = [];
   for (const m of outside.matchAll(new RegExp(`^<!--\\s*_?${key}(?::\\s*([^>]*?))?\\s*-->`, 'gm'))) out.push({ at: m.index, value: (m[1] || '').trim() });
-  for (const m of outside.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)) {
+  for (const m of outside.matchAll(/^<!--\s*@meta\{(.*)\}/gm)) {
     for (const item of recordItems(m[1])) {
       if (item === key) out.push({ at: m.index, value: '' });
       else if (item.startsWith(`${key}=`)) out.push({ at: m.index, value: item.slice(key.length + 1).replace(/^"|"$/g, '').trim() });
@@ -126,7 +126,7 @@ function sourceDeck(md) {
     size: frontValue(front, 'size') || 'hd',
     // A panes slide the engine splits becomes one slide per pane, a question about measured fits this reader does
     // not answer, so a deck with pane markers is not held to the authored-slide count (every mark still is).
-    panes: /<!--\s*_?panes?\s*:/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)].some((m) => recordItems(m[1]).some((it) => /^panes?=/.test(it))),
+    panes: /<!--\s*_?panes?\s*:/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}/gm)].some((m) => recordItems(m[1]).some((it) => /^panes?=/.test(it))),
   };
 }
 
@@ -376,7 +376,7 @@ describe('mark agreement', () => {
   const STEP_DECKS = [...CORPUS, ...fs.readdirSync(FIXTURES).filter((n) => n.endsWith('.md')).map((n) => path.join(FIXTURES, n))]
     .filter((f) => {
       const text = fs.readFileSync(f, 'utf8');
-      return /<!--\s*_?(?:build|focusSteps)\b/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)].some((m) => recordItems(m[1]).some((it) => /^(?:build|focus-steps)\b/.test(it)));
+      return /<!--\s*_?(?:build|focusSteps)\b/.test(text) || [...text.matchAll(/^<!--\s*@meta\{(.*)\}/gm)].some((m) => recordItems(m[1]).some((it) => /^(?:build|focus-steps)\b/.test(it)));
     });
   async function stepPages(file, mutate) {
     const { expandStepPages } = await import(path.join(ROOT, 'lib/core/step-pages.mjs'));
