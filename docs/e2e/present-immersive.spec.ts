@@ -44,8 +44,22 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	// …and it PLAYS: the highlight walks the words with the voice off. It used to sit on word one forever,
 	// waiting on a voice that was still being prepared (read-aloud.ts, PREPARE_WAIT_MS).
 	await expect.poll(() => cc.evaluate((el) => el.querySelectorAll('.latt-cc-line[data-state="now"] [data-spoken="1"]').length + el.querySelectorAll('.latt-cc-line[data-state="read"]').length), { timeout: 10000 }).toBeGreaterThan(1);
-	// The band blooms open (a max-height transition); wait for it to finish, not a duration.
-	await expect.poll(async () => (await cc.boundingBox())?.height ?? 0).toBeGreaterThan(40);
+	// The band fades in (#3304 gave the docked band a fixed height and dropped its max-height bloom); wait for it to have
+	// its height, not a duration.
+	await expect.poll(async () => (await cc.boundingBox())?.height ?? 0).toBeGreaterThan(20);
+	// Over the slide the band sizes to its sentence (stage-chrome.js `.latt-cc-over .latt-cc-band`, height:auto): the
+	// docked band's fixed 80px, with its overflow hidden, would clip a closed caption that wraps to a second line. The
+	// band's content box is the caption's own height (its track, which sizes to the sentence; `.latt-cc` itself stretches
+	// to the band, so it cannot tell), within a pixel of rounding.
+	await expect
+		.poll(() =>
+			cc.evaluate((el) => {
+				const cs = getComputedStyle(el);
+				const inner = el.clientHeight - Number.parseFloat(cs.paddingTop) - Number.parseFloat(cs.paddingBottom);
+				return Math.abs(inner - (el.querySelector('.latt-cc-track') as HTMLElement).offsetHeight);
+			}),
+		)
+		.toBeLessThanOrEqual(2);
 	// Lifted clear of the floating controls while they show.
 	const dockTop = (await dialog.locator('[data-present-chrome="dock"]').boundingBox())?.y ?? 0;
 	await expect.poll(async () => { const b = await cc.boundingBox(); return (b?.y ?? 0) + (b?.height ?? 0); }).toBeLessThanOrEqual(dockTop + 1);

@@ -182,6 +182,16 @@ Slices D and E wait on C, so the first publish waits on this choice.
 
 ## 9. Owner rulings (2026-11-22)
 
+**2026-11-23, the current state, given in the release desk session (tracker #3449).** These
+rulings extend the 2026-11-22 table below; they do not reverse it.
+
+| Item | Ruling |
+|---|---|
+| Which packages 1.0.0 publishes | **The engine plus 12 libraries:** `segno`, `segno-languages`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra` and `lente`. The first eleven are the engine's `dependencies` that the 2026-11-22 row publishes. `segno-languages` is `segno-markdown` under its new name, with a `/markdown` subpath. `lente` is the one library on the list the engine does not depend on. |
+| Their standing | **Every published library is official** and joins the family on the docs site, with a page under `/libraries/`. None is plumbing-only. The owner plans to extend them. #3456 adds the LTT, Markup and Lastra pages; `segno-languages` gets its page after the rename, and until then `nav.test.ts` lists it as `unlisted`. |
+| Lastra's scope | **All image work belongs in `@laticent/lastra`**: in the owner's words, "all image work we do for example belongs lastra". Moving the image code that lives elsewhere today is post-1.0 work: `followups.d/3456-p1-consolidate-image-work-into-lastra.md`. |
+| Lente's scope | **Lente grows past reader lenses**: in the owner's words, "lente will become more than it is today including being able to host outline and slice and dice a deck into views logically and physically (we have had trouble with this and the export)". Post-1.0, and a design note comes before code: `followups.d/3456-p2-lente-outline-and-views.md`. |
+
 A release-audit session put the open items in §4, §5 and §8 to the owner, who answered:
 
 | Item | Ruling |
@@ -191,6 +201,9 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 | §5 slice 0, a second owner | **Later, and not a blocker** for the first publish. |
 | §4, archive the pending fragments | **Confirmed.** |
 | §4, the libraries keep `AGPL-3.0-only` | **Confirmed.** |
+| §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`, since renamed `@laticent/segno-languages`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
+| The 1.0.0 date | **1.0.0 ships Friday 2026-11-27**, with a merge freeze from **Wednesday 2026-11-25 23:59 UTC**. |
+| §5 slice C, Changesets | **Lands before 1.0.0.** The owner does not want to ship known tech debt in public, so 1.0.0 is not cut on the fragment flow with Changesets promised for later. |
 
 **What option A costs, measured on `main` at `ff2d32e` (2026-11-22).**
 
@@ -259,3 +272,10 @@ only. A workspace package (`@laticent/*`), which knip never lists as unlisted, c
 import of an engine-only package, and an engine dependency nothing loads all still count; the second
 checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
+
+**Trial publish (2026-11-23).** The owner approved the local-registry trial for #3438 and then a CI job
+for it ("targeted + nightly + release"): `tools/trial-publish.js` and `.github/workflows/trial-publish.yml`.
+Before #3451 it stopped on three private engine dependencies (markup, lastra, segno-markdown); with #3451
+on `main` the whole trial passes in about 49 s. The clean install pins its third-party packages to the
+repository lockfile's versions (513 names; 36 held at several versions stay on their ranges), after a
+#3471 trial went red on a release npmjs had listed but not yet served.

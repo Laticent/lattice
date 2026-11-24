@@ -24,7 +24,7 @@ import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from 
 // and an empty answer is `null`. Silence means "could not measure", not "passes", and neither view claims otherwise.
 
 /** A fix both views can offer: a slide pin, a card ink, or a solid card. */
-export type Fix = 'dark' | 'light' | 'ink-light' | 'ink-dark' | 'solid';
+export type Fix = 'dark' | 'light' | 'image-card-light' | 'image-card-dark' | 'solid';
 export type PhotoVerdict = {
 	/** The text falls under the floor. Null ratio (an estimate) means the current ink is not known. */
 	low: boolean;
@@ -65,7 +65,7 @@ export function cardPolicy(chunk: string, source: string, composition?: string |
 type Pin = Exclude<Fix, 'solid'>;
 
 /** Each fix's class and the classes it replaces: a slide carries one pin and one ink at most. */
-const GROUP: Record<Pin, readonly Pin[]> = { dark: ['dark', 'light'], light: ['dark', 'light'], 'ink-light': ['ink-light', 'ink-dark'], 'ink-dark': ['ink-light', 'ink-dark'] };
+const GROUP: Record<Pin, readonly Pin[]> = { dark: ['dark', 'light'], light: ['dark', 'light'], 'image-card-light': ['image-card-light', 'image-card-dark'], 'image-card-dark': ['image-card-light', 'image-card-dark'] };
 
 type Rgb = number[];
 type Scene = { card: number[] | null; ink: number[][] };
@@ -146,7 +146,7 @@ function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin, statement
  * The verdict for the slide on screen, measured on the painted page, or null when it cannot be measured or is not a slide
  * whose text sits on the photo: a spotlight card, or a statement's words on its scrim (`clean`, `split` and `gallery` set
  * text beside the picture). A statement is judged against its scrim at its strongest (see `strongestScrim`), so it is
- * flagged only when its words fail even there, which `card-clear` (no scrim at all) makes exact.
+ * flagged only when its words fail even there, which `image-card-clear` (no scrim at all) makes exact.
  */
 async function readLive(chunk: string, source: string, slideNumber: number, at?: number): Promise<PhotoVerdict | null> {
 	try {
@@ -173,7 +173,7 @@ async function readLive(chunk: string, source: string, slideNumber: number, at?:
 		const now = readScene(card, scrim);
 		if (!box || !now) return null;
 		const pins: Record<string, Scene | undefined> = {};
-		for (const pin of ['dark', 'light', 'ink-light', 'ink-dark'] as const) {
+		for (const pin of ['dark', 'light', 'image-card-light', 'image-card-dark'] as const) {
 			if (section.classList.contains(pin)) continue;
 			pins[pin] = readPinned(section, card, pin, statement) ?? undefined;
 		}
@@ -248,7 +248,7 @@ export function applyFix(chunk: string, fix: Fix, inherited: readonly string[] =
 	// A slide (or heading part) with no class of its own takes a running `class:` from an earlier slide. Writing only the fix
 	// would replace that class for it, dropping its layout and its photo, so the inherited words are written first.
 	if (inherited.length && !getClassTokens(chunk).length) chunk = setClassTokens(chunk, [...inherited]);
-	if (fix === 'ink-light' || fix === 'ink-dark') return setImageCard(chunk, 'ink', fix.slice(4));
+	if (fix === 'image-card-light' || fix === 'image-card-dark') return setImageCard(chunk, 'ink', fix.slice('image-card-'.length));
 	if (fix === SOLID) return setImageCard(chunk, 'backing', 'solid');
 	return setClassTokens(chunk, [...getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light'), fix]);
 }

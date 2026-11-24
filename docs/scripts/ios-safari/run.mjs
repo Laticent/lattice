@@ -4,7 +4,8 @@
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
- * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
+ * (PROBE=focus-sync), playground-scroll-probe.js, a finger drag over the Playground's preview across a window move
+ * (PROBE=playground-scroll), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
@@ -161,7 +162,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -198,6 +199,7 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
 
 /**
  * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
+ * the logo wall first-paint probe (logo-wall-probe.js, #3492),
  * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
  * the Compose page a touch tap on a paragraph and one on an empty deck's start grid (empty-deck-probe.js). One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
@@ -221,6 +223,8 @@ async function runStudioProbe(id) {
 	};
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
+	// A logo wall's first paint in the editing preview (logo-wall-probe.js, #3492): never the unpacked grid, then packed.
+	const wall = await shotIfFailed('logo-wall', await studioPage(id, 'logo-wall-probe.js', 'latticeLogoWallProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
@@ -239,11 +243,11 @@ async function runStudioProbe(id) {
 	if (!leave.ok) await shotIfFailed('deck-tap', leave);
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
 	};
 }
 
@@ -601,7 +605,7 @@ async function composeTouchTap(id) {
 		// still scrolling or settling the page when the point was read, so the tap landed beside the paragraph: nothing was
 		// selected, the editor never took the focus, and the caret stayed where it was. The point is read after the box has
 		// stayed put for five frames (a signal, not a sleep), and only when the paragraph is the element under it.
-		const at = await wd('POST', `/session/${id}/execute/async`, {
+		const aimAt = () => wd('POST', `/session/${id}/execute/async`, {
 			args: [],
 			script: `const done = arguments[arguments.length - 1];
 				const t0 = performance.now();
@@ -622,6 +626,7 @@ async function composeTouchTap(id) {
 				};
 				look();`,
 		});
+		let at = await aimAt();
 		if (!at.hit) return { ok: false, steps, error: `the paragraph never held still under its tap point: at ${at.x},${at.y} the page shows ${at.under} (still for ${at.still} frames)` };
 		// ONE DELIVERY: the touch, then what the page saw of it. WHAT THE PAGE SEES is a capture-phase log of every touch, pointer
 		// and mouse event (time, clientX/clientY, target) and of each selectionchange and contextmenu, read back beside the point
@@ -656,7 +661,17 @@ async function composeTouchTap(id) {
 			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
 			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
-			return { seen, tapMs, hold, selected, landed };
+			return { seen, tapMs, hold, selected, landed, at: { x: at.x, y: at.y } };
+		};
+		// AIM AGAIN, THEN RE-SEND: what a re-delivery does, shared by the guarded tap and the forced control below. A long press
+		// selects, and iOS can scroll the editor to show that selection, so the first point can sit on another block by now:
+		// on job 137066156788 the re-sent tap at the same point landed in H2 "Probe slide two", above the paragraph. Read the
+		// paragraph's point again, held still five frames as before; keep the old point when no still point is found.
+		const reaimAndDeliver = async (n) => {
+			const again = await aimAt();
+			if (again.hit) at = again;
+			else console.log(`${LABEL}: compose tap re-aim found no still point (${again.under} at ${again.x},${again.y}); re-sending at ${at.x},${at.y}`);
+			return deliver(n);
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
 		// held for LONG_PRESS_MS or more was a long press, not the tap this step tests, and is delivered once more after the
@@ -667,7 +682,7 @@ async function composeTouchTap(id) {
 		if (decision === 'redeliver') {
 			console.log(`${LABEL}: compose tap RE-DELIVERED: held ${tries[0].hold} ms, ${redeliverWhy(tries[0].seen.log)}`);
 			await new Promise((r) => setTimeout(r, 1000));
-			tries.push(await deliver(2));
+			tries.push(await reaimAndDeliver(2));
 			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2, lag: tapLag(tries[1].seen.log) });
 		}
 		const { seen, tapMs } = tries.at(-1);
@@ -682,7 +697,7 @@ async function composeTouchTap(id) {
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
-		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${at.x},${at.y}; ${t.landed}`).join(' || '));
+		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${t.at.x},${t.at.y}; ${t.landed}`).join(' || '));
 		// A POSITIVE CONTROL for the guard, after the verdict and deciding nothing: one long press made on purpose (a 500 ms hold,
 		// which the simulator stretches further), then the re-delivery the guard asks for. It shows, on the real simulator, that
 		// the page's log reads a long press as one and that the tap delivered after it puts the caret back. It costs 9 to 14 s
@@ -692,16 +707,32 @@ async function composeTouchTap(id) {
 			const forced = await deliver('control-1', 500);
 			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, selected: forced.selected, delivery: 1 });
 			let recovered = null;
+			let stale = null;
+			let moved = 0;
 			if (forcedCall === 'redeliver') {
 				await new Promise((r) => setTimeout(r, 1000));
-				recovered = await deliver('control-2');
+				// THE RE-AIM'S FAILING ARM, made on purpose (the checker on #3444). A long press's selection can scroll the editor
+				// so the first point sits on another block (job 137066156788), but no run produces that on demand. So scroll the
+				// editor's scroller by 100 px, tap once at the OLD point (it should miss the paragraph), then aim again and tap
+				// (it should put the caret). Detail only: both outcomes are recorded, neither decides the job.
+				moved = await run(`const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					let el = p && p.parentElement;
+					while (el && !(el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+					if (!el) return 0;
+					const before = el.scrollTop;
+					el.scrollTop = before + 100;
+					if (el.scrollTop === before) el.scrollTop = before - 100;
+					return el.scrollTop - before;`);
+				if (moved) stale = await deliver('control-stale');
+				// The same re-aim and re-send the guarded tap above ships, so this run covers its lines.
+				recovered = await reaimAndDeliver('control-2');
 			}
 			// Each of `pressSelected`'s two clauses on its own, so the release-jump clause (#3241) has a real-simulator artifact even
 			// when the word clause catches the press first, plus where the selection sat after the lift (the checker on #3368).
 			const flog = forced.seen.log;
 			const lifted = (flog?.events || []).filter((e) => e.type === 'selectionchange').at(-1);
 			const clauses = `word clause ${pressSelectedWord(flog) ? 'yes' : 'no'}, release-jump clause ${pressMovedOut(flog) ? 'yes' : 'no'}, last selection inEditor ${lifted ? String(lifted.inEditor) : 'none'}`;
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall} (${clauses})${stale ? `; editor scrolled ${moved} px, then a tap at the old point ${stale.at.x},${stale.at.y} -> ${stale.seen.inP && stale.seen.caret ? 'caret in the paragraph (the scroll did not move it off the point)' : `missed the paragraph: the touch landed on ${(stale.seen.log?.events || []).find((e) => e.type === 'pointerdown' || e.type === 'touchstart')?.target ?? 'nothing the page saw'} and left ${stale.seen.caret ? 'a caret' : `a selection ("${stale.seen.picked}")`} in ${stale.seen.where}`}` : forcedCall === 'redeliver' ? '; the editor would not scroll, so no stale-point arm' : ''}${recovered ? `; re-aimed to ${recovered.at.x},${recovered.at.y}, re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
@@ -718,7 +749,7 @@ async function composeTouchTap(id) {
  */
 async function runPlayerChartsProbe(id) {
 	return runPlayerCharts({
-		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html` },
+		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html`, k4: `${BASE}/deck-4k.html` },
 		go: (url) => wd('POST', `/session/${id}/url`, { url }),
 		call: (expr) =>
 			wd('POST', `/session/${id}/execute/async`, {
@@ -766,6 +797,28 @@ async function emptyDeckTap(id) {
 		if (prep.hit) {
 			const deliver = async (n) => {
 				await wd('POST', `/session/${id}/execute/sync`, { script: tapLogInstall(), args: [] });
+				// THE START GRID'S FALLBACK, made visible. When Safari withholds the tap's click, the grid's touch release arms a
+				// START_GRID_CLICK_WAIT_MS (500 ms) timer that puts the caret (StudioShell `armStartGridFallback`). A failure with
+				// no click and no focus (iPad, job 137920664351) could be the timer never armed, armed and cancelled by a later
+				// press, or fired without the focus taking. The log shows presses and focus already; this adds the timer's set and
+				// its firing, so the next such failure names which. Probe-only: the page's own timer still runs as written.
+				await wd('POST', `/session/${id}/execute/sync`, {
+					args: [],
+					script: `if (!window.__startGridTimerLog) {
+						window.__startGridTimerLog = true;
+						const set0 = window.setTimeout;
+						window.setTimeout = function (fn, ms, ...rest) {
+							if (ms !== 500 || typeof fn !== 'function') return set0.call(this, fn, ms, ...rest);
+							const L = window.__tapLog;
+							if (L) L.events.push({ type: 'timer500-set', t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, target: '' });
+							return set0.call(this, function () {
+								const M = window.__tapLog;
+								if (M) M.events.push({ type: 'timer500-fire', t: Math.round(performance.now() - M.t0), lag: 0, x: 0, y: 0, target: String(document.activeElement && document.activeElement.tagName) });
+								return fn.apply(this, arguments);
+							}, ms, ...rest);
+						};
+					}`,
+				});
 				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 				// NO HOLD between down and up, for composeTouchTap's reason: a simulator can stretch a hold into a long press.
 				await wd('POST', `/session/${id}/actions`, {
@@ -791,6 +844,32 @@ async function emptyDeckTap(id) {
 			step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
 			step('the start grid stays until something is typed', seen.shown);
 			step('the software keyboard (detail only)', true, seen.vv < prep.vv - 100 ? `up: viewport ${prep.vv} to ${seen.vv}` : `not shown: viewport ${prep.vv} to ${seen.vv}`);
+			// THE WITHHELD CLICK, made on purpose (the checker on #3436). Safari sometimes sends a tap's touch events and then no
+			// mousedown and no click (jobs 137060162549, 137066156788, 137285553830); the grid's touch release then arms a
+			// fallback that puts the caret. A run does not produce that on demand, so cancel this one tap's touchstart and
+			// touchend, which should stop Safari synthesizing its mouse events, and read that no click came and the caret still
+			// sits in the line. Cancelling touchend alone did not withhold the click on the iPhone simulator (job 137390775014):
+			// when the click comes anyway, the fallback was not exercised, and the step says so instead of failing.
+			await wd('POST', `/session/${id}/execute/sync`, {
+				args: [],
+				script: `document.activeElement?.blur?.(); getSelection()?.removeAllRanges();
+					window.__withheldClicks = 0;
+					window.__withheldCancel = (e) => e.preventDefault();
+					window.__withheldCount = () => window.__withheldClicks++;
+					document.addEventListener('touchstart', window.__withheldCancel, { capture: true, passive: false });
+					document.addEventListener('touchend', window.__withheldCancel, { capture: true, passive: false });
+					document.addEventListener('click', window.__withheldCount, true);`,
+			});
+			const held = await deliver('withheld');
+			const clicks = await wd('POST', `/session/${id}/execute/sync`, {
+				args: [],
+				script: `document.removeEventListener('touchstart', window.__withheldCancel, { capture: true });
+					document.removeEventListener('touchend', window.__withheldCancel, { capture: true });
+					document.removeEventListener('click', window.__withheldCount, true);
+					return window.__withheldClicks;`,
+			});
+			const w = held.seen;
+			step('a tap whose click Safari withholds still puts the caret in the empty line (the release fallback)', clicks > 0 || (w.focused && w.inLine && w.caret), clicks === 0 ? `no click came; active: ${w.active}; in ${w.where}; hold ${held.hold ?? 'no touch'} ms` : `UNVERIFIED: Safari sent the click anyway (${clicks}) despite the canceled touchstart and touchend, so the fallback did not run; the click put the caret (${w.focused && w.inLine && w.caret ? 'in the line' : `not in the line: ${w.where}`})`);
 		}
 	} catch (e) {
 		step('the empty deck tap ran', false, String(e.message || e).slice(0, 300));
@@ -902,13 +981,17 @@ async function runPhotoProbe(id) {
  * the cost an iPhone would weigh, not the reload itself.
  */
 async function runPresentMemoryProbe(id) {
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const pieces = Math.ceil(b64.length / PIECE);
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		const b64 = Buffer.from(deck.bytes).toString('base64');
+		return { deck, b64, pieces: Math.ceil(b64.length / PIECE), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const deck = hd.deck;
 	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
 	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -918,20 +1001,20 @@ async function runPresentMemoryProbe(id) {
 		if (r?.error) throw new Error(`${what}: ${r.error}`);
 		return r;
 	};
-	const arm = async (name, base) => {
-		const out = { arm: name, base };
+	const arm = async (name, base, { b64, pieces, title, deck: armDeck } = hd) => {
+		const out = { arm: name, base, wantHeading: `${title}.` };
 		try {
 			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
 			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
 			for (let i = 0; i < pieces; i++) failIf(await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`), 'sending the deck');
-			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`), 'importing the deck');
+			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(title)}, ${armDeck.slides})`), 'importing the deck');
 			out.importMs = imported.importMs;
 			out.ua = imported.ua;
 			out.width = imported.width;
 			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
-			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			failIf(await call(`latticePresentReady(${JSON.stringify(title)})`), 'the deck after the reload');
 			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
 			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
 			await sleep(8000);
@@ -939,6 +1022,8 @@ async function runPresentMemoryProbe(id) {
 			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
 			out.openMs = opened.openMs;
 			out.slides = opened.total;
+			out.heading = opened.heading;
+			out.box = opened.box;
 			await sleep(3000);
 			const m1 = await readMB();
 			const stepped = failIf(await call('latticePresentStep(6)'), 'stepping through Present');
@@ -957,19 +1042,153 @@ async function runPresentMemoryProbe(id) {
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 		}
-		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
+		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `slide laid out ${out.box} wide, opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
 		return out;
 	};
-	const arms = [await arm('this build', BASE)];
+	// The 4K arm (#3304): the same photos on a `size: 4k` deck, judged like the first arm and on one more check, that the
+	// presented slide is laid out at HD's 1280 px. A 4K frame is the one WebKit paid for at 3840x2160 times the density
+	// squared, and an iPhone reloaded the tab presenting one (owner, 2026-11-20).
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arms = [await arm('this build', BASE), await arm('this build, 4K deck', BASE, k4)];
 	const baseline = process.env.PRESENT_BASELINE_URL;
 	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
 	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
 	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
 	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
 	const a = arms[0];
-	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
+	const steps = [
+		...presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac }),
+		...presentChecks(arms[1], { slides: k4.deck.slides, capMB: CAP_MB, memory: !mac, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * Turn the booted simulator sideways. simctl has no rotate verb, so this drives Simulator.app, the way a person at the
+ * Mac does: show the device in it, then Device > Rotate Left from its menu bar; if the page is still upright, the same
+ * command's shortcut (Command-Left). Each try waits for the PAGE to report a landscape viewport (a signal, bounded:
+ * HARD RULE #32). Returns which try turned it, or '' with what each try said; the verdict then fails "the simulator is
+ * turned to landscape" by name rather than judging an upright screen as a sideways one.
+ */
+async function turnSimulatorSideways(id) {
+	const sideways = async () => {
+		const [w, h] = (await wd('POST', `/session/${id}/execute/sync`, { script: 'return [innerWidth, innerHeight];', args: [] })) || [0, 0];
+		return w > h;
+	};
+	const settled = async () => {
+		for (let i = 0; i < 30; i++) {
+			if (await sideways()) return true;
+			await sleep(500);
+		}
+		return false;
+	};
+	if (await sideways()) return { by: 'already sideways', notes: [] };
+	const notes = [];
+	const osa = (lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+	try {
+		execFileSync('open', ['-a', 'Simulator', '--args', '-CurrentDeviceUDID', UDID], { timeout: 30000 });
+		await sleep(8000); // Simulator.app has no "window shown" signal to wait on from here; the page check below is the judge.
+	} catch (e) {
+		notes.push(`open Simulator: ${String(e.message || e).slice(0, 120)}`);
+	}
+	const tries = [
+		['the Device menu', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to tell process "Simulator" to click menu item "Rotate Left" of menu 1 of menu bar item "Device" of menu bar 1']],
+		['Command-Left', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to key code 123 using command down']],
+	];
+	for (const [by, lines] of tries) {
+		try {
+			osa(lines);
+		} catch (e) {
+			notes.push(`${by}: ${String(e.stderr || e.message || e).trim().slice(0, 160)}`);
+			continue;
+		}
+		if (await settled()) return { by, notes };
+		notes.push(`${by}: ran, the page stayed upright`);
+	}
+	return { by: '', notes };
+}
+
+/**
+ * The Present LANDSCAPE probe (PROBE=present-landscape, #3304): the 4K photo deck presented on a simulator turned
+ * sideways, the case the 🚦 card named as unrun. The iPad Pro 13-inch (run.sh picks it) is the iPad with the widest
+ * landscape screen, about 2,752 device px, over FOUR_K_FROM; Present's own chrome leaves its slide host about 1,100 CSS
+ * px, so the rule lays the deck out on HD (the Linux self-test read 1,099 px). An iPhone turned sideways plays the deck
+ * with its spoken notes, so the captions ride over the slide (#3333) in the band #3304 sized to its sentence.
+ *
+ * Present opens upright and the simulator is turned after (turnSimulatorSideways): a phone held sideways shows the Studio
+ * no Present button, and turning mid-Present is what a presenter does. Then the canvas is read (latticePresentGeometry),
+ * the captions played on the phone (latticePresentCaptions), and six slides stepped. The footprint is read before
+ * Present, after the turn and after the steps, judged against PRESENT_MEMORY_CAP_MB like the upright probe. The verdict
+ * is present-memory.mjs `presentChecks` plus `landscapeChecks`: states and sizes, never time (HARD RULE #32).
+ */
+async function runPresentLandscapeProbe(id) {
+	const { buildPresentDeck, PRESENT_TITLE_LANDSCAPE, presentChecks, landscapeChecks } = await import('./present-memory.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
+	const PIECE = 4_000_000;
+	const phone = /iphone/i.test(LABEL);
+	const deck = await buildPresentDeck(undefined, undefined, '4k', PRESENT_TITLE_LANDSCAPE, true);
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const pieces = Math.ceil(b64.length / PIECE);
+	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const call = async (expr, what) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const shot = (name) => {
+		try {
+			execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', path.join(OUT, `${PROBE}-${LABEL}-${name}.png`)], { timeout: 30000, stdio: 'ignore' });
+		} catch (e) {
+			console.log(`${LABEL}: no ${name} screenshot (${e.message})`);
+		}
+	};
+	const out = { wantHeading: `${PRESENT_TITLE_LANDSCAPE}.` };
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		for (let i = 0; i < pieces; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`, 'sending the deck');
+		const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)}, ${deck.slides})`, 'importing the deck');
+		Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		await call(`latticePresentReady(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)})`, 'the deck after the reload');
+		await sleep(8000); // memory has no "settled" event: the upright probe reads the same way
+		const m0 = await simulatorWebContentMB();
+		const opened = await call('latticePresentOpen()', 'opening Present');
+		Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading });
+		await call('latticePresentWatchTurn()', 'watching the turn');
+		const turned = await turnSimulatorSideways(id);
+		out.rotatedBy = turned.by || `nothing (${turned.notes.join('; ')})`;
+		console.log(`${LABEL}: turned by ${out.rotatedBy}${turned.notes.length && turned.by ? ` after ${turned.notes.join('; ')}` : ''}`);
+		out.geo = await call('latticePresentGeometry()', 'reading the canvas');
+		out.box = out.geo.box;
+		shot('sideways');
+		await sleep(3000);
+		const m1 = await simulatorWebContentMB();
+		if (phone) {
+			out.captions = await call('latticePresentCaptions()', 'playing the captions');
+			shot('captions');
+		}
+		const stepped = await call('latticePresentStep(6)', 'stepping through Present');
+		Object.assign(out, { stepsMs: stepped.steps.map((x) => x.ms), photos: stepped.steps.every((x) => x.photo) });
+		await sleep(3000);
+		const m2 = await simulatorWebContentMB();
+		out.alive = (await call('latticePresentAlive()', 'the page mark'))?.mark === opened.mark;
+		const open = growthMB(m0, m1);
+		const all = growthMB(m0, m2);
+		Object.assign(out, { baseMB: all.baseMB, openGrewMB: open.grew, grewMB: all.grew, freedMB: all.freed });
+	} catch (e) {
+		out.error = String(e.message || e).slice(0, 300);
+	}
+	const g = out.geo || {};
+	console.log(`${LABEL}: sideways ${g.innerW}x${g.innerH} at ${g.dpr}x, slide host ${g.hostW} px (${Math.round((g.hostW || 0) * (g.dpr || 0))} device px), laid out ${g.box}; ${out.grewMB ?? '?'} MB above ${out.baseMB ?? '?'} MB`);
+	// Reported, not judged: what Present showed between the turn and the rotation hold (see latticePresentWatchTurn).
+	console.log(`${LABEL}: through the turn (hold ${g.sawHold ? 'seen' : 'not seen'}): ${g.turn || 'no rows'}`);
+	const steps = [...presentChecks(out, { slides: deck.slides, capMB: CAP_MB, memory: true }), ...landscapeChecks(out, { expect: 'hd', captions: phone })];
+	const failed = steps.filter((x) => !x.pass);
+	return { ok: failed.length === 0, error: failed.map((x) => x.name).join('; ') || undefined, ua: out.ua, width: g.innerW ?? out.width, deckBytes: deck.bytes.length, arm: out, steps };
 }
 
 /**
@@ -1109,6 +1328,11 @@ async function runPresentNarrationProbe(id) {
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.peakGrewMB = peak;
 			out.alive = out.samples.at(-1)?.mark === played.mark;
+			// Reported, never judged: the audio still uncollected after the page is pushed to collect. It tells collection
+			// lag (falls to a few clips) from audio something still holds (stays high); see latticeNarrationPressure.
+			const p = await call('latticeNarrationPressure()').catch((e) => ({ error: String(e.message || e).slice(0, 120) }));
+			out.pressure = p;
+			console.log(`${LABEL}: narration ${out.arm} after collection pressure: ${p?.error ? `ERROR ${p.error}` : `${p.beforeMB} -> ${p.afterMB} MB of decoded audio uncollected (${p.clips} clips, ${p.decodedMB} MB decoded in all)`}`);
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 			console.log(`${LABEL}: narration ${out.arm}: ERROR ${out.error}`);
@@ -1310,6 +1534,87 @@ async function runChatStorageProbe(id) {
 }
 
 /**
+ * THE PLAYGROUND SCROLL PROBE (PROBE=playground-scroll, playground-scroll-probe.js): a real finger drags the Playground's
+ * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
+ * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
+ * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 6,
+ * odd ones quiet and even ones with the burner), each with one finger drag and a script scroll after it (safaridriver stops answering after a second drag over
+ * the frame), so the walk crosses at least one window move.
+ * A trial fails the suite.
+ */
+async function runPlaygroundScrollProbe(id) {
+	const probe = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
+	const burn = Number(process.env.PLAYGROUND_SCROLL_BURN_MS ?? 150);
+	const trials = Number(process.env.PLAYGROUND_SCROLL_TRIALS ?? 6);
+	// EVERY CALL HAS A DEADLINE. The first harness run (#3428, run 45065714489) hung after psPrepare on both devices for
+	// 16 minutes until the connection failed, and named nothing. Now a stuck step fails as itself, and the log says which.
+	const t0 = Date.now();
+	const step = (what) => console.log(`${LABEL}: +${Math.round((Date.now() - t0) / 1000)}s ${what}`);
+	const call = (expr, timeoutMs) =>
+		wd(
+			'POST',
+			`/session/${id}/execute/async`,
+			{
+				script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`,
+				args: [],
+			},
+			{ timeoutMs },
+		);
+	const drag = async (x, y1, y2) => {
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
+		await wd(
+			'POST',
+			`/session/${id}/actions`,
+			{ actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x, y: y2 }, { type: 'pointerUp', button: 0 }] }] },
+			{ timeoutMs: 60000 },
+		);
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
+	};
+	const result = { ua: '', width: 0, burn, steps: [], trials: [], ok: false };
+	let doing = 'reading the user agent';
+	try {
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] }, { timeoutMs: 30000 });
+		for (let i = 1; i <= trials; i++) {
+			// Odd trials on a quiet page, even ones with the burner: a step that only sticks under load names itself.
+			const ms = i % 2 === 0 ? burn : 0;
+			doing = `trial ${i} (burn ${ms} ms): loading the Playground`;
+			step(doing);
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?c=kpi&view=read&t=${i}` }, { timeoutMs: 120000 });
+			doing = `trial ${i} (burn ${ms} ms): psPrepare`;
+			step(doing);
+			const ready = await call(`psPrepare(${ms})`, 240000);
+			if (ready?.error) throw new Error(`${doing}: ${ready.error}`);
+			result.width = ready.width;
+			// ONE real finger drag, then a script scroll the rest of the way. On the hosted simulator safaridriver stopped
+			// answering after the first touch drag over the preview frame (harness run 45073632825: drag 1 took 32 s, and the
+			// next call got no answer at all, burner off), so a second drag ends the session. The script scroll waits for the
+			// walk's land, as a scroll with no reader input must (probe.selftest.mjs says why), and crosses a window move.
+			doing = `trial ${i} (burn ${ms} ms): the finger drag`;
+			step(doing);
+			await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
+			doing = `trial ${i} (burn ${ms} ms): the script scroll`;
+			step(doing);
+			const scrolled = await call('psScrollRest()', 60000);
+			if (scrolled?.error) throw new Error(`${doing}: ${scrolled.error}`);
+			doing = `trial ${i} (burn ${ms} ms): psAfter`;
+			step(doing);
+			const after = await call('psAfter()', 90000);
+			if (after?.error) throw new Error(`${doing}: ${after.error}`);
+			result.trials.push({ trial: i, burn: ms, start: ready.start, y: after.y, pane: after.pane, rail: after.rail, bar: after.bar, inView: after.inView, drops: after.drops, ok: after.ok });
+			console.log(`${LABEL}: trial ${i} (burn ${ms} ms): ${after.ok ? 'ok' : 'FAIL'} scrollY ${after.y} (pane ${after.pane}), rail ${after.rail + 1}, bar ${after.bar}, in view ${after.inView}, swaps that dropped the scroll: ${after.drops.length ? after.drops.join(' ') : 'none'}`);
+			for (const s of after.steps) result.steps.push({ ...s, name: `trial ${i}: ${s.name}` });
+		}
+		result.ok = result.trials.length === trials && result.trials.every((t) => t.ok);
+	} catch (e) {
+		result.error = `stuck or failed while ${doing}: ${e.name === 'TimeoutError' ? 'no answer before its deadline' : String(e)}`;
+		step(result.error);
+		// Stop a burner left running, so the screenshot and the next session see a page that answers.
+		await wd('POST', `/session/${id}/execute/sync`, { script: 'clearInterval(window.__psBurner)', args: [] }, { timeoutMs: 15000 }).catch(() => {});
+	}
+	return result;
+}
+
+/**
  * The Playground's click-a-line check (docs/e2e/playground-focus-sync.spec.ts) on real Mobile Safari. Each tap is a real
  * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
  * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
@@ -1445,6 +1750,40 @@ async function runFocusSyncProbe(id) {
 		result.error = String(e?.message ?? e);
 	}
 	return result;
+}
+
+/**
+ * The narration codec probe (PROBE=codec-support, codec-probe.js): the iOS arm of the narration codec bake-off. On a blank
+ * page it decodes every file in codec-fixtures/ with decodeAudioData, reads what WebCodecs' AudioEncoder and AudioDecoder
+ * support, and round-trips the 2 s source speech through AudioEncoder and AudioDecoder (Opus, AAC). Linux WebKit uses
+ * GStreamer, so only this run can say what an iPhone decodes and encodes. The checks are the streaming design's needs
+ * (codecs.mjs `codecChecks`); everything else is reported for the bake-off.
+ */
+async function runCodecProbe(id) {
+	const { codecChecks } = await import('./codecs.mjs');
+	// The page gets Suono's Ogg writer (docs/src/lib/suono/ogg-opus.ts), the one the Studio uses, as plain script: esbuild
+	// strips the types, and its `export`s are removed.
+	// Suono's Opus encoder and Ogg writer (docs/src/lib/suono/opus.ts), the code the Studio ships, bundled by esbuild into
+	// one plain script that puts them on `SuonoOpus`.
+	const { buildSync } = await import('esbuild');
+	const muxer = buildSync({ entryPoints: [path.join(ROOT, 'docs/src/lib/suono/opus.ts')], bundle: true, format: 'iife', globalName: 'SuonoOpus', write: false }).outputFiles[0].text;
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	const r = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticeCodecProbe(arguments[0]).then(done, (e) => done({ error: String(e) }));`,
+		args: [files],
+	});
+	if (r?.error) return { ok: false, error: r.error, steps: [] };
+	for (const [f, d] of Object.entries(r.decode)) console.log(`${LABEL}: decode ${f}: ${d.ok ? `ok, +${d.extraMs} ms` : `NO (${d.error})`}`);
+	console.log(`${LABEL}: WebCodecs encoder ${JSON.stringify(r.encoder)}`);
+	console.log(`${LABEL}: WebCodecs decoder ${JSON.stringify(r.decoder)}`);
+	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}${v.ogg ? `; as our Ogg: ${v.ogg.ok ? `${v.ogg.bytes} B, ${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
+	console.log(`${LABEL}: Opus in a worker: ${r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : `NO (${r.worker?.error})`}`);
+	const steps = codecChecks(r);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ...r, width: r.width, steps };
 }
 
 async function runJpegProbe(id) {

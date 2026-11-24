@@ -36,6 +36,7 @@ describe('sequence() builder — a thin pass-through to stage.sequence(opts)', (
 			.gap(gapMs)
 			.concurrency(2)
 			.cacheLimit(50)
+			.decodeAhead(2)
 			.produceTimeout(9000)
 			.onItemStart(onItemStart)
 			.onState(onState)
@@ -50,6 +51,7 @@ describe('sequence() builder — a thin pass-through to stage.sequence(opts)', (
 			gapMs,
 			concurrency: 2,
 			cacheLimit: 50,
+			decodeAhead: 2,
 			produceTimeoutMs: 9000,
 			onItemStart,
 			onState,

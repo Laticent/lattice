@@ -24,6 +24,9 @@ const SITES = [
 	// The deck LTT producer: the breath after a slide's LAST cue (`tailMs`), which the track cannot
 	// carry because it ends at that cue's end (spec/LTT-1.0.md §Segments).
 	'lib/core/ltt-deck.mjs',
+	// The LTT library page's demo (docs/src/pages/libraries/ltt/), which builds the same tail as
+	// ltt-deck.mjs so the file it shows is the file Lattice's export would write.
+	'docs/src/lib/ltt-demo.ts',
 ];
 
 /** Top-level argument count of the first `interCueGapMs(...)` call in `src` after `from`. */

@@ -36,6 +36,18 @@ way). On every
 (`TZ=America/New_York date +%F`), so the owner can tell today's command center from
 yesterday's at a glance. Skip the call when the title already reads that.
 
+**Usage watch (the owner's standing rule, 2026-11-23).** On the first `/fleet` of a new command
+center, check `list_triggers` for a recurring scheduled task whose name starts "Usage watch" (today
+"Usage watch: checkpoint at 75% and 90%", a name older than its 25 and 50% levels; every 2 hours,
+`7 */2 * * *`, bound to a command center session). If it is missing, or bound to an archived
+command center, create it here with `create_trigger`. Its prompt: read this session's newest
+`rate_limit_event` (`list_events`, `kinds: ["rate_limit_event"]`) for
+`…unifiedWindows.seven_day.utilization` and `resetsAt`. When a level (25, 50, 75 or 90%) has been crossed
+and not yet announced this week, send every live session on this account one line, `usage N: …` with
+the checkpoint rules from `engineering/workflow.md` §Relay. Then tell the owner the number in one line.
+If the field is missing, tell the owner once and stop. It is the backstop for idle sessions; it never
+stops one by itself. Contract: `engineering/workflow.md` §Relay, the usage watch.
+
 **Links, always.** Outside the board too, every PR this session names to the owner
 (a relay, a digest, an answer, a question) is `[#N](https://github.com/Laticent/lattice/pull/N)`
 followed by `([<session name, a few words>](https://claude.ai/code/<session id>))`, one
@@ -83,6 +95,10 @@ summary.
    every PR again. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
+   Copy each desk's latest `meter:` ledger onto its item, and set the `stage` of
+   every ledger item that has a PR from that PR's state (open, green with a 🚦
+   card, queued, merged with its date, closed); the card then draws the meter
+   (`workflow.md` §Desks, "Completion meter").
 3. **Grade** each line of work with the five levels. Nest child sessions under their
    parent. Open a transcript (`list_events`, `kinds: [assistant, result]`) only for 🔴
    and 🟠 rows, to fill `needs` and `why`. A ✅ or idle session goes into the board's

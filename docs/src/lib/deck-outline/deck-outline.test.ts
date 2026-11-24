@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { deckModelStats } from '@laticent/segno-markdown';
+import { deckModelStats } from '@laticent/segno-languages/markdown';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { scanMetaSource } from '../../../../lib/core/meta-scan.mjs';

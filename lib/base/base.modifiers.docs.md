@@ -229,7 +229,7 @@ The `fit:` level for one slide (report, heal, trim).
 
 Acts on: the slide. Pick one.
 
-- `fit-report` · `fit-heal` · `fit-trim` · `guards-strict` · `guards-loose`
+- `fit-report` · `fit-heal` · `fit-trim`
 
 ### Backdrop — `backdrop`
 

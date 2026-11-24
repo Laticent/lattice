@@ -44,7 +44,7 @@ Lattice is pre-GA, so nothing outside the repo depends on lint-core's record. Th
 ## 3. The target architecture
 
 ```
-@laticent/segno-markdown    the deck model: S0 ingest, S1 blocks, slides, the directive island, the front-matter island
+@laticent/segno-languages/markdown    the deck model: S0 ingest, S1 blocks, slides, the directive island, the front-matter island
         │  (a function the host hands in; Squadra depends on nothing)
 @laticent/squadra           core: lint, fix driver, edits engine; ./markdown the reference language; ./runtime the
         │                   browser entry (no compiler); the compiler and fixtures runner stay build-side
