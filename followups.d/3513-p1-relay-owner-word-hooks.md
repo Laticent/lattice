@@ -2,7 +2,7 @@
 origin: 3513
 priority: P1
 recorded: 2026-11-24
-area: tooling
+area: infra
 severity: medium
 swimlane: engineering/workflow.md §Relay
 deferred: blocked — the owner chose rules text now and the hook work after the 2026-11-29 usage reset
