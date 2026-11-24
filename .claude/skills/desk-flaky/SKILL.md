@@ -51,7 +51,8 @@ Yours: messaging sessions about their flaky tests, and starting fix sessions. Al
 (owner, 2026-11-24): every **fleet-wide blocker** the command center routes here, test or
 not: a red on `main`, a tool or dependency missing from the sandbox image, a broken runner or
 hook that two or more sessions hit (`engineering/workflow.md` §Desks, "Blockers go to the
-command center"). Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
+command center"), except a nightly, golden-bless or platform-suite red and a break a
+dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
 tell the command center the owner and tag so it can tell every affected session. A fix that
 changes a CI job or step, a hook or the environment's settings goes to the owner first
 (CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a bug that
