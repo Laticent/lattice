@@ -1238,7 +1238,8 @@ async function runPresentNarrationProbe(id) {
 	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
-	const source = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	// With the shared helper ahead of it, for `latticeWatch` / `latticeStallReport` (show-editor.js, #2988).
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8'));
 	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const mac = UDID === 'mac';

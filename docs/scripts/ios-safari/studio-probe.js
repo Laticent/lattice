@@ -16,6 +16,7 @@
  */
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
 async function latticeStudioProbe() {
+	latticeWatch();
 	const DECK = [
 		'---',
 		'marp: true',
@@ -136,7 +137,7 @@ async function latticeStudioProbe() {
 				finished = `${done.length} resources; ${['/_astro/', 'esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : absent}`).join(', ')}`;
 			} catch {}
 			const sw = navigator.serviceWorker?.controller;
-			throw new Error(`${e.message} (page ${document.readyState}; ${previewState()}; engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}; finished: ${finished}; controlled ${sw ? sw.state : 'no'})`);
+			throw new Error(`${e.message} (page ${document.readyState}; ${previewState()}; engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}; finished: ${finished}; controlled ${sw ? sw.state : 'no'}; ${latticeStallReport()})`);
 		});
 		// THE NEWCOMER BAKE on Safari (single-slide-render.ts `adoptBake`, PR #3102). This page is a first visit (only the
 		// settings key is seeded), so the head fetched the bake and the editing preview answered it: `adopted`, or

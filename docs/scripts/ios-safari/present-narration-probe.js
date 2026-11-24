@@ -70,6 +70,7 @@ function latticeNarrationReceive(b64, i, n) {
 
 async function latticeNarrationImport(title) {
 	const h = latticeNarrationHelpers();
+	latticeWatch();
 	const file = new File(window.__latticeNarrationParts || [], 'present-narration.lattice', { type: 'application/zip' });
 	window.__latticeNarrationParts = null;
 	// "Import deck…"'s input (StudioShell.tsx), found as present-memory-probe.js finds it.
@@ -79,7 +80,9 @@ async function latticeNarrationImport(title) {
 	input.files = dt.files;
 	input.dispatchEvent(new Event('change', { bubbles: true }));
 	const t0 = Date.now();
-	await h.until(() => h.heading(h.preview()) === `${title}.`, 150000, `the preview to show "${title}"`);
+	await h.until(() => h.heading(h.preview()) === `${title}.`, 150000, `the preview to show "${title}"`).catch((e) => {
+		throw new Error(`${e.message} (${latticeStallReport()})`);
+	});
 	return { importMs: Date.now() - t0, bytes: file.size, ua: navigator.userAgent, width: innerWidth };
 }
 
