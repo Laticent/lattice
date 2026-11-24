@@ -2,7 +2,7 @@
  * Integration: what moves with a split run's coda, and what stays (red team, 2026-11-22, on the owner rulings of the
  * same day: "we automatically move coda to their own split page"; "footer can be on a coda page"). On the real CLI
  * export at portrait:
- *   NOPAG    with `paginate: false` a split run's pages carry no footer cell, so the footer line cannot arrive on the
+ *   NOPAG    with `pagination: false` a split run's pages carry no footer cell, so the footer line cannot arrive on the
  *            coda page; the cover keeps it (it used to be hidden on the cover and shown nowhere)
  *   CHART    a chart whose key insight takes its own closing page (no composed cover: the slide itself is page 1)
  *            moves its footer line there too, where a chart keeps its footer on a phone (`with-footer`), and the
@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 
 const NOPAG = `---
 theme: indaco
-paginate: false
+pagination: false
 size: portrait
 ---
 
@@ -57,7 +57,7 @@ section .cell-coda
 
 const CHART = `---
 theme: indaco
-paginate: true
+pagination: true
 size: portrait
 ---
 

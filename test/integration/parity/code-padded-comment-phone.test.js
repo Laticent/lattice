@@ -29,7 +29,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: portrait
 ---
 

@@ -30,7 +30,7 @@ const LONG = 'The drop starts the month the onboarding call moved from week thre
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 ---
 
