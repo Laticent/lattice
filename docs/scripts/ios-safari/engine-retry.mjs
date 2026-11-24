@@ -57,7 +57,10 @@ export function startFaultProxy(target, mode = 'drop') {
 		// Every engine-side request and what the proxy did with it, so a card that did not come from the fault can be traced
 		// to the gate that failed (followups.d/3368-p1: which request never came, or came back bad).
 		const note = (status) => {
-			if (/\/playground\/v\/|\/sw\.js/.test(String(req.url)) && state.seen.length < 60) state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
+			// The LAST 60, not the first: a stall after Reload or in a new tab comes after the first load's requests.
+			if (!/\/playground\/v\/|\/sw\.js/.test(String(req.url))) return;
+			state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
+			if (state.seen.length > 60) state.seen.shift();
 		};
 		if (isEngineSubFile(req.url)) {
 			state.subFiles++;
@@ -159,6 +162,13 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 	};
 	/** A mark on this document, so a wait can tell the reloaded page from the one the press left. */
 	const markDocument = () => wd('POST', `/session/${id}/execute/sync`, { script: 'window.__engineRetryOldDoc = true;', args: [] });
+	/** What reached the proxy, what Safari fetched for the engine, and how far the page got: the trace that names the gate of
+	 *  a stalled page (followups.d/3368-p1). `where` names the step; `what` says what was seen there. */
+	const trace = async (where, what) => {
+		const page = await wd('POST', `/session/${id}/execute/sync`, { script: `return 'readyState ' + document.readyState + '; engine ' + (window.LatticePlayground ? 'loaded' : 'absent') + '; preview ' + (document.querySelector('${PREVIEW}') ? 'present' : 'absent') + '; frames ' + document.querySelectorAll('${PREVIEW} iframe').length + '; modulepreload ' + [...document.querySelectorAll('link[rel=modulepreload]')].filter((l) => /\\/playground\\/v\\//.test(l.href)).length;`, args: [] }).catch((e) => `page unreadable: ${String(e).slice(0, 80)}`);
+		const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `return performance.getEntriesByType('resource').filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
+		console.log(`engine retry ${mode}, ${where}: ${what}. Page: ${page}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
+	};
 	const r = { card: false, cut: 0, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
 		proxy.state.fail = true;
@@ -173,12 +183,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		// said nothing about why. What reached the proxy, what Safari's own resource timing says it fetched for the engine (a
 		// request served by the service worker or a cache never reaches the proxy), and how far the page got name the gate.
 		const stalled = first !== 'loaded' && !r.card;
-		if ((r.card && !r.cut) || stalled) {
-			const page = await wd('POST', `/session/${id}/execute/sync`, { script: `return 'readyState ' + document.readyState + '; engine ' + (window.LatticePlayground ? 'loaded' : 'absent') + '; preview ' + (document.querySelector('${PREVIEW}') ? 'present' : 'absent') + '; frames ' + document.querySelectorAll('${PREVIEW} iframe').length + '; modulepreload ' + [...document.querySelectorAll('link[rel=modulepreload]')].filter((l) => /\\/playground\\/v\\//.test(l.href)).length;`, args: [] }).catch((e) => `page unreadable: ${String(e).slice(0, 80)}`);
-			const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `return performance.getEntriesByType('resource').filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
-			const what = stalled ? 'neither the card nor the engine came' : 'the card came without a cut';
-			console.log(`engine retry ${mode}: ${what}. Page: ${page}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
-		}
+		if ((r.card && !r.cut) || stalled) await trace('first load', stalled ? 'neither the card nor the engine came' : 'the card came without a cut');
 		step('sub-files cut: the failure card appears', r.card && r.cut > 0, `${first}; ${r.cut} sub-file requests cut${r.card ? `; the card: "${said}"` : ''}${r.card && !r.cut ? ' (NOTHING was cut, so this card did not come from the fault)' : ''}`);
 		if (!r.card || !r.cut) return finish();
 
@@ -200,6 +205,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		if (reloaded !== 'none' && (await wd('POST', `/session/${id}/execute/sync`, { script: 'return !!window.__engineRetryOldDoc;', args: [] }))) {
 			step('Reload: the button reloaded the page', false, 'the page the press left is still loaded');
 		}
+		if (reloaded === 'none') await trace('after Reload', 'neither the card nor the engine came on the reloaded page');
 		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'closetab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
 		if (r.afterReload === 'loaded') return finish();
@@ -218,6 +224,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 			await wd('POST', `/session/${id}/window`, { handle: win.handle });
 			await wd('POST', `/session/${id}/url`, { url: `${proxy.origin}/studio/` });
 			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'closetab'`, 150000);
+			if (tab === 'none') await trace('new tab', 'neither the card nor the engine came in the new tab');
 			r.newTab = tab === 'loaded' ? 'loaded' : tab === 'none' ? 'none' : 'failed';
 			step('a tab the person opens: the engine loads there', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
 		} catch (e) {
