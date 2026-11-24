@@ -25,6 +25,7 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { readRecord } from '../../../lib/core/meta-door.mjs';
@@ -71,6 +72,8 @@ const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
@@ -1105,19 +1108,27 @@ const SHEET_CACHE_MAX = 6;
  *
  * `data:` and `blob:` values are already absolute and left alone.
  */
-function absolutizeUrls(css: string): string {
-	const base = typeof document !== 'undefined' ? document.baseURI : '';
+function absolutizeUrls(css: string, base: string = typeof document !== 'undefined' ? document.baseURI : ''): string {
 	if (!base) return css;
-	return css.replace(/url\((\s*)(['"]?)([^'")]+)\2(\s*)\)/g, (whole, pre, quote, raw) => {
-		const value = String(raw).trim();
-		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return whole; // data:, blob:, https:, #frag
+	// Each real `url(…)`, read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten, and an escaped
+	// address is resolved as the browser decodes it. The resolved address goes back where the written one was, so it is
+	// escaped for that place: inside quotes, its quote, a backslash and a newline; unquoted, also the characters an unquoted
+	// url() cannot hold (quotes, parentheses, whitespace). `new URL()` leaves `'` and `(` as they are.
+	return rewriteCssUrls(css, (_raw, { value, quoted, rawFrom }) => {
+		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return undefined; // data:, blob:, https:, #frag
+		let href: string;
 		try {
-			return `url(${pre}${quote}${new URL(value, base).href}${quote}${''})`;
+			href = new URL(value, base).href;
 		} catch {
-			return whole;
+			return undefined;
 		}
+		const quote = quoted ? css[rawFrom - 1] : '';
+		return href.replace(quoted ? /[\\\n]|["']/g : /[\\\s"'()]/g, (c) => (quoted && (c === '"' || c === "'") && c !== quote ? c : c === '\n' ? '\\a ' : `\\${c}`));
 	});
 }
+
+/** For tests only: `absolutizeUrls` against an explicit base. */
+export const __absolutizeUrlsForTest = absolutizeUrls;
 
 /**
  * A URL serving `css`, shared with every other frame that wants the same bytes — or `null`
