@@ -48,7 +48,7 @@ function proseSlides(n: number): string {
 }
 /** Pagination ON — the case that needs a deck-context render. */
 function proseDeck(n: number): string {
-	return `---\npaginate: true\n---\n\n${proseSlides(n)}\n`;
+	return `---\npagination: true\n---\n\n${proseSlides(n)}\n`;
 }
 /**
  * THE PRODUCT'S DEFAULT SHAPE: no `paginate`, no running-global directive comment, no divider — so
@@ -76,7 +76,7 @@ function galleryDeck(n: number): string {
 		chunks[chunks.length - 1].push(line);
 	}
 	const slides = chunks.map((c) => c.join('\n').trim()).filter(Boolean).slice(0, n);
-	return `${fm.replace(/\n---[ \t]*\n$/, '\npaginate: true\n---\n')}${slides.join('\n\n---\n\n')}\n`;
+	return `${fm.replace(/\n---[ \t]*\n$/, '\npagination: true\n---\n')}${slides.join('\n\n---\n\n')}\n`;
 }
 
 type Sample = { engineMs: number; sanitizeMs: number; frameMs: number; totalMs: number; writePath?: string };

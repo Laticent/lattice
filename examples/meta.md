@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · slide records"
 footer: "One record per slide"
 ---

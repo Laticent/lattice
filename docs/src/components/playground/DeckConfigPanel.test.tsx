@@ -128,12 +128,12 @@ describe('DeckConfigPanel — every select row is the Studio picker', () => {
 });
 
 describe('DeckConfigPanel — switches and text fields', () => {
-	it('Page numbers start on; turning them off writes paginate: false', async () => {
+	it('Page numbers start on; turning them off writes pagination: false', async () => {
 		const { user, get } = mount(CLEAN);
 		const sw = screen.getByRole('checkbox', { name: 'Page numbers' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
-		expect(get()).toContain('paginate: false');
+		expect(get()).toContain('pagination: false');
 		expect(get().startsWith('---\nmarp: true')).toBe(true);
 	});
 
@@ -181,7 +181,7 @@ describe('DeckConfigPanel — switches and text fields', () => {
 
 describe('DeckConfigPanel — the fields allow-list', () => {
 	it('an explicit list draws only the rows it names', () => {
-		mount(CLEAN, { fields: ['finish', 'size', 'paginate', 'glossary'] });
+		mount(CLEAN, { fields: ['finish', 'size', 'pagination', 'glossary'] });
 		expect(screen.getAllByRole('combobox').map((c) => c.getAttribute('aria-label'))).toEqual(['Choose finish', 'Choose slide size']);
 		expect(screen.getByRole('checkbox', { name: 'Auto-glossary' })).toBeInTheDocument();
 		expect(screen.queryByRole('textbox', { name: 'Header' })).toBeNull();

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Agenda"
 footer: "Acme · Q3 board review"
 ---

@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: burgundy
-paginate: true
+pagination: true
 footer: "Burgundy · secondary + label tiers, light & dark"
 ---
 

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · list-steps converge contrast"
 lexicon:
   "4.5:1": four and a half to one

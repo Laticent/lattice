@@ -47,7 +47,7 @@ describe('description alignment (front-matter phantom regression)', () => {
     const src = [
       '---',
       'theme: indaco',
-      'paginate: true',
+      'pagination: true',
       '---',
       '',
       '# Slide one',

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · State chart polish"
 lexicon:
   "4.5:1": 4.5 to 1

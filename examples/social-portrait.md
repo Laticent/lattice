@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: portrait
-paginate: false
+pagination: false
 ---
 
 <!-- _class: title -->

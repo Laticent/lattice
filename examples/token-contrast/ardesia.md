@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: ardesia
-paginate: true
+pagination: true
 footer: "Ardesia · secondary + label tiers, light & dark"
 ---
 

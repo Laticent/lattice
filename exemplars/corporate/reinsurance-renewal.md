@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Halcyon Re · Northwind Mutual 2027 renewal"
 lexicon:
   1/1: January first

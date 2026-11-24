@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: ardesia
-paginate: true
+pagination: true
 acronyms:
   PDSA: plan, do, study, act
 header: "The Invisible Half · Craft, quality, kaizen"

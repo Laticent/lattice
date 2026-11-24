@@ -5,7 +5,7 @@ theme: indaco
 color-mode: dark
 spectrum: off
 finish: atrium
-paginate: true
+pagination: true
 header: "Spectrum canvas ownership"
 ---
 

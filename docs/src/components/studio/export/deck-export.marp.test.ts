@@ -358,7 +358,7 @@ describe('Markdown and Marp exports carry the photos the deck names', () => {
 	// 2026-11-16-markdown-export-is-the-source.md: the `.md` is the deck, byte for byte. It used to carry a 10 KB
 	// `<style>` theme dump even for a built-in theme.
 	it('Markdown is the deck source byte for byte: no style, no CSS, no comment added', async () => {
-		const deck = '---\ntheme: indaco\npaginate: true\n---\n\n<!-- _class: title -->\n\n# Kickoff\n\n---\n\n## Plan\n\n- One\n';
+		const deck = '---\ntheme: indaco\npagination: true\n---\n\n<!-- _class: title -->\n\n# Kickoff\n\n---\n\n## Plan\n\n- One\n';
 		await exportMarkdown(deck, 'deck');
 		expect(new TextDecoder().decode(await arrayBuffer(blobs[0]))).toBe(deck);
 	});

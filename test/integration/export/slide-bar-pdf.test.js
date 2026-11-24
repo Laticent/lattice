@@ -103,7 +103,7 @@ describe('export: the full-bleed bar reaches the PDF', { skip }, () => {
 		// bar is drawn after every vector, as the browser paints it, so no gray row shows inside the bar.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-bar-pdf-hair-'));
 		fs.writeFileSync(path.join(dir, 'deck.md'), [
-			'---\ntheme: indaco\nspectrum: left\nheader: HEADER\npaginate: true\n---',
+			'---\ntheme: indaco\nspectrum: left\nheader: HEADER\npagination: true\n---',
 			'<!-- _class: bar claim-bleed -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `80`\n- Third `40`\n',
 		].join('\n\n---\n\n'));
 		const g = ppm(dir, 'deck');

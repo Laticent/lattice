@@ -1,7 +1,7 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "Auto-split — a decision, one option at a time"
 ---
 

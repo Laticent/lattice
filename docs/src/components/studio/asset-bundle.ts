@@ -86,7 +86,7 @@ export function showcaseDeck(label: string): string {
 	const L = label || 'Your theme';
 	return `---
 size: hd
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

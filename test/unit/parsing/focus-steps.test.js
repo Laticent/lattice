@@ -17,7 +17,7 @@ const engine = latticeEngine.createEngine();
 const html = (md) => engine.render(md).html;
 const sections = (h) => h.split(/(?=<section[\s>])/).filter((s) => /^<section[\s>]/.test(s));
 
-const DECK = `---\ntheme: indaco\npaginate: true\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 | item 3 -->\n<!-- _footer: "Walk" -->\n\n## Four components.\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n`;
+const DECK = `---\ntheme: indaco\npagination: true\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 | item 3 -->\n<!-- _footer: "Walk" -->\n\n## Four components.\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n`;
 
 describe('_focusSteps is one slide', () => {
   test('one authored slide renders as one slide, whatever its step count', () => {
@@ -52,7 +52,7 @@ describe('_focusSteps is one slide', () => {
   });
 
   test('page numbers do not jump: a stepping slide is one page', () => {
-    const deck = `---\ntheme: indaco\npaginate: true\n---\n\n# One\n\n---\n\n<!-- _class: table -->\n<!-- _focusSteps: row 1 | row 2 | row 3 -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\n---\n\n# Three\n`;
+    const deck = `---\ntheme: indaco\npagination: true\n---\n\n# One\n\n---\n\n<!-- _class: table -->\n<!-- _focusSteps: row 1 | row 2 | row 3 -->\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\n---\n\n# Three\n`;
     const pages = sections(html(deck)).map((s) => (s.match(/data-lattice-pagination="(\d+)"/) || [])[1]);
     assert.deepEqual(pages, ['1', '2', '3']);
   });

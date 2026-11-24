@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: onyx-dark
-paginate: true
+pagination: true
 header: "Lattice · topic shelf floor"
 ---
 

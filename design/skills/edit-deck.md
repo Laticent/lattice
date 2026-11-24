@@ -182,7 +182,7 @@ the result, end on the decision":
 ---
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind Clinics · Ops review"
 ---
 

@@ -2,7 +2,7 @@
 /**
  * census-pagination-marks — which NODE actually paints the page number, over the WHOLE shipped deck population.
  *
- * Exports every deck under `examples/` that sets `paginate: true` through
+ * Exports every deck under `examples/` that sets `pagination: true` through
  * `dist/lattice.js`, opens each in Chromium, and counts — per paginated
  * slide — whether the mark that paints is the real `<span class="lat-pagination">`
  * element, the `section::after` PSEUDO, or neither.
@@ -90,11 +90,11 @@ function resolveChrome() {
   return undefined;
 }
 
-/** The decks in scope: every `.md` whose front matter sets `paginate: true`. */
+/** The decks in scope: every `.md` whose front matter sets `pagination: true`. */
 function population() {
   return fs.readdirSync(DIR)
     .filter((f) => f.endsWith('.md'))
-    .filter((f) => /^paginate:\s*true\s*$/m.test(fs.readFileSync(path.join(DIR, f), 'utf8')))
+    .filter((f) => /^pagination:\s*true\s*$/m.test(fs.readFileSync(path.join(DIR, f), 'utf8')))
     .sort()
     .slice(0, LIMIT);
 }

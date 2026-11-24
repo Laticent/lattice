@@ -2,7 +2,7 @@
 marp: true
 size: 4K
 theme: atelier-dark
-paginate: true
+pagination: true
 header: "Lattice · Accent foreground contrast"
 ---
 

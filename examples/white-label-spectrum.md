@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 spectrum: solid
-paginate: true
+pagination: true
 header: "Lattice · white-label"
 ---
 

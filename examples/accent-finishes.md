@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Accent finishes"
 meta: "Accent finishes · spectrum / rule / eyebrow"
 spectrum: duo

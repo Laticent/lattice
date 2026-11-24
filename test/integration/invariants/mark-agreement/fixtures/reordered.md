@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 progress-rail: on
 ---
 

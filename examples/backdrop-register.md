@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Backdrop register"
 finish: atrium
 backdrop: 60 clear

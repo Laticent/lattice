@@ -11,7 +11,7 @@ import { BlockParser, type DeckModel, deckModel, deckModelStats, updateDeckModel
 // under a line of text, where CommonMark reads it as a heading underline.
 export const SAMPLE = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 # Quarterly review

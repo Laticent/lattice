@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart keys"
 footer: "A key's value column fits its values"
 ---

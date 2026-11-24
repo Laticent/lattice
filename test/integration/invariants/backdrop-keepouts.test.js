@@ -54,7 +54,7 @@ const TONE = 11;
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Q3 operating review"
 finish: strata
 ---

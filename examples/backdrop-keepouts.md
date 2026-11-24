@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Backdrop keep-outs"
 footer: "Q3 operating review · Board pack"
 finish: strata
