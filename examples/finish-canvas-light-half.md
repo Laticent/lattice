@@ -2,7 +2,7 @@
 size: portrait
 theme: indaco
 finish: atrium
-paginate: true
+pagination: true
 header: "Finish canvas — the light half"
 ---
 

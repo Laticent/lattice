@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · panes"
 footer: "Mermaid in a pane — it lays out for the pane's box"
 ---

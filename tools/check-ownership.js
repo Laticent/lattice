@@ -136,6 +136,9 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// changesets + the publish set: the formats live in their release modules; these gates only report them
+const { changesetProblems } = require('./changesets');
+const { publishSetProblems } = require('./release-packages');
 const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
@@ -190,10 +193,10 @@ const VARIANT_DECL_IGNORE = new Map([
   // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
-  // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
-  // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
+  // `image-card-5` … `image-card-95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
+  // one axis, documented once under `image-card-solid`/`-soft`/`-sheer`/`-clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `image-card-${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -7270,6 +7273,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/changesets.js',
+    why: 'reads `.changeset/*.md`, which are committed text (LF by .gitattributes), and is itself the gate for them: '
+       + '`changesetProblems` REJECTS a CR or a BOM by name before it parses, so normalizing at the read would hide the '
+       + 'very bytes it reports. `parseChangeset` also strips both before anchoring on `^---`, for its other callers.',
+  },
+  {
     file: 'tools/platform-harness.js',
     why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
        + 'Windows arrives CRLF, and a CR left in the script makes bash read `ls\\r`. It reads no markdown source and '
@@ -13686,6 +13695,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // Compressed audio containers: the narration codec bake-off's fixtures (docs/scripts/ios-safari/codec-fixtures/),
+  // one 2 s sentence in every codec and container the iOS probe decodes.
+  '.aac', '.caf', '.flac', '.m4a', '.ogg', '.webm',
 ];
 
 // Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
@@ -14850,8 +14862,8 @@ function checkPhantomTokenReads(errors) {
 }
 
 /**
- * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
- * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * HARD RULE #10's legacy landing spot is `changelog.d/` (a changeset in `.changeset/` is the
+ * other; see checkChangesets), never a CHANGELOG.md — one file per PR, so two PRs never edit the same region and
  * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
  * seven ejections in one evening before this).
  *
@@ -14865,6 +14877,23 @@ function checkPhantomTokenReads(errors) {
  */
 function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
+/**
+ * HARD RULE #10's other landing spot: a changeset in `.changeset/`. Changesets reads every one of
+ * them at release time, and a changeset it cannot read (a package that does not publish, a bump
+ * that is not patch/minor/major, a first line the notes cannot print) would fail `changeset
+ * version` on release day, after the queue had already landed the PR that wrote it. So the gate
+ * reads each one when it lands. The format is defined once, in tools/changesets.js.
+ *
+ * It also holds the publish set (tools/release-packages.js): every workspace package publishes,
+ * is held back by `.changeset/config.json` `ignore`, or is private, and the two lists agree. A
+ * public package in neither list would publish the first time anyone cut a release. This is the
+ * default check; the release runs the strict one, which also requires all thirteen to be public.
+ */
+function checkChangesets(errors) {
+  for (const problem of changesetProblems()) errors.push(problem);
+  for (const problem of publishSetProblems()) errors.push(`publish set: ${problem}`);
 }
 
 /**
@@ -15995,6 +16024,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkChangesets(errors);
   checkFollowups(errors);
   checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
@@ -16109,6 +16139,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkChangesets,
   checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,

@@ -2,7 +2,7 @@
 marp: true
 theme: a11y-achromatopsia
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · status on a monochromacy palette"
 footer: "Light face: severity darkens in order"
 ---

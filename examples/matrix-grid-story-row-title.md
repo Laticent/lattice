@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: story
 header: "Lattice · matrix-grid on a 9:16 box"
 ---

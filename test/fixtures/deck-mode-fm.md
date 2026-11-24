@@ -3,7 +3,7 @@ marp: true
 theme: carta
 mode: sketch
 finish: atrium
-paginate: true
+pagination: true
 ---
 
 # Slide One

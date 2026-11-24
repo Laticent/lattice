@@ -1,1 +1,0 @@
-- The Studio's slide map now keeps a still picture of each slide it has shown live, and shows it on tiles past the live budget and under a tile whose live picture is still loading, so a fast scroll through a long deck shows slides rather than sketches.

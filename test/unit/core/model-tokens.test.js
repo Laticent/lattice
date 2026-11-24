@@ -111,10 +111,15 @@ test('references a caller filled in `env.references` win, and resolve labels the
 	for (const src of ['[x]', '[x]: /doc\n\n[x] [y]\n\n[y]: /why', '- ![x]']) assert.equal(compare(md, src, env), null, src);
 });
 
-test('an update through one copy of the package with a parser from the other stays exact (each copy has its own scratch)', async () => {
+// The package once shipped a CommonJS copy beside its ES build, so `require` and `import` loaded two
+// instances, each with its own scratch, and this test drove an update through one copy with a parser
+// from the other. The libraries are ES modules only since 2026-11-23 (first-npm-release §9): both
+// paths now load the one instance, so that split cannot arise. The test holds the new invariant and
+// keeps the update through the shared instance.
+test('require and import load one copy of the package, and an update through it stays exact', async () => {
 	const esm = await import('@laticent/segno-languages/markdown');
 	const { block } = parsersFor(md);
-	assert.notEqual(esm.deckModel, deckModel, 'the test needs the two copies');
+	assert.equal(esm.deckModel, deckModel, 'require and import must share one instance (ES modules only)');
 	const cjsModel = deckModel('\n\n\n', { parser: block, frontMatter: null, raw: true });
 	const next = '$$\n\n\n';
 	const updated = updateDeckModel(cjsModel, next);

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · xychart narration"
 footer: "read-aloud narrates the bar/line chart"
 ---

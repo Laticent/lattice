@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Laticent · speech symbols"
 footer: "Speech Symbol Commons · read-aloud stress test"
 lexicon:

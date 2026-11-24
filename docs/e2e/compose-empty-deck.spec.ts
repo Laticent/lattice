@@ -145,7 +145,7 @@ test('@crosswidth a whole deck pasted into an empty one arrives as its own slide
 	await openEmptyDeck(page);
 	await caretOnEmptyLine(page);
 	// A whole deck, settings included: its front matter becomes the deck's, its breaks become slides.
-	const deck = '---\ntheme: cuoio\npaginate: true\n---\n\n# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
+	const deck = '---\ntheme: cuoio\npagination: true\n---\n\n# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
 	const lineTop = await topOf(page, '.cs-host .cs-slide-content > *');
 	if (browserName === 'firefox') {
 		await page.evaluate((t) => navigator.clipboard.writeText(t), deck);
@@ -161,7 +161,7 @@ test('@crosswidth a whole deck pasted into an empty one arrives as its own slide
 	// The save is debounced: wait for the pasted deck to be the deck, then check nothing blank sits before it.
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: big-number -->');
 	const src = await deckSource(page);
-	expect(src.startsWith('---\ntheme: cuoio\npaginate: true\n---\n'), `the pasted settings did not become the deck's: ${JSON.stringify(src)}`).toBe(true);
+	expect(src.startsWith('---\ntheme: cuoio\npagination: true\n---\n'), `the pasted settings did not become the deck's: ${JSON.stringify(src)}`).toBe(true);
 	expect(src.replace(/^---\n[\s\S]*?\n---\n/, '').trimStart().startsWith('# One'), `a blank slide was left before the pasted deck: ${JSON.stringify(src)}`).toBe(true);
 	await expect(start(page)).toBeHidden();
 	// The first pasted line lands where the empty line was: the reserved bar means nothing above it moves.

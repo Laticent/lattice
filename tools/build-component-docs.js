@@ -756,7 +756,7 @@ function renderGallery(m) {
   const frontMatter = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · ${m.name}"
 ---`;
 

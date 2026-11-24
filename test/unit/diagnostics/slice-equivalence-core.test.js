@@ -809,7 +809,7 @@ test('a page-number difference is an attribute row, not a "the words differ" row
 // core does not load. Without a map from the caller it refuses, so no slide after a split is handed
 // a number one short of the PDF's; with the Studio's map it offsets through the split.
 test('supplyablePosition refuses a panes deck without a map, and offsets through one with it', () => {
-  const deck = '---\npaginate: true\n---\n\nOpening\n\n---\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| x |\n|---|\n| 1 |\n\n---\n\nAfter';
+  const deck = '---\npagination: true\n---\n\nOpening\n\n---\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| x |\n|---|\n| 1 |\n\n---\n\nAfter';
   assert.equal(core.positionIsTrustworthy(deck, 3), false);
   assert.equal(core.supplyablePosition(deck, 2, 3), undefined);
   assert.deepEqual(core.supplyablePosition(deck, 2, 3, [1, 2, 1]), { offset: 3, total: 4, deckSection: undefined });

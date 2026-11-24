@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 present: true
 header: "Lattice · presentation mode"
 ---

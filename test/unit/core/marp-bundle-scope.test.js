@@ -23,7 +23,7 @@ test('Marp numbers the deck as Lattice does: on by default, a manifest or a clas
 });
 
 test('a deck that turns numbering off keeps it off in Marp, and with-pagination still numbers its slide', () => {
-  const out = withMarpScope('---\npaginate: false\n---\n\n<!-- _class: closing with-pagination -->\n\n# C\n');
+  const out = withMarpScope('---\npagination: false\n---\n\n<!-- _class: closing with-pagination -->\n\n# C\n');
   assert.match(out, /^---\npaginate: false\n---/);
   assert.match(out, /---\n<!-- _paginate: true -->\n\n<!-- _class: closing with-pagination -->/);
 });
@@ -44,7 +44,7 @@ test('a class line right after the closing fence is read (no blank line)', () =>
 });
 
 test('a BOM is kept and stepped over: the front matter stays front matter', () => {
-  const out = withMarpScope('\uFEFF---\npaginate: false\ntheme: indaco\n---\n\n# a\n');
+  const out = withMarpScope('\uFEFF---\npagination: false\ntheme: indaco\n---\n\n# a\n');
   assert.ok(out.startsWith('\uFEFF---\npaginate: false\ntheme: indaco\n---'));
 });
 
@@ -58,9 +58,11 @@ test('front-matter class, a running plain class, two _class lines and a quoted c
 
 test('every paginate: spelling Lattice reads is written the one way Marp reads', () => {
   for (const v of ['False', 'no', 'off', '0', 'false # quiet', "'false'"]) {
-    assert.match(withMarpScope(`---\npaginate: ${v}\n---\n\n# A\n`), /^---\npaginate: false\n---/, v);
+    assert.match(withMarpScope(`---\npagination: ${v}\n---\n\n# A\n`), /^---\npaginate: false\n---/, v);
   }
-  assert.match(withMarpScope('---\npaginate: yes\n---\n\n# A\n'), /^---\npaginate: true\n---/);
+  // The retired key is dropped, not obeyed: Lattice ignores it, so the deck numbers by default.
+  assert.match(withMarpScope('---\npaginate: no\n---\n\n# A\n'), /^---\npaginate: true\n---/);
+  assert.match(withMarpScope('---\npaginate: no\npagination: false\n---\n\n# A\n'), /^---\npaginate: false\n---/);
 });
 
 test('a paginate comment in a quote or before other text is dropped too; a CRLF deck stays CRLF', () => {

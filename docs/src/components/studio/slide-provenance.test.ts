@@ -373,15 +373,15 @@ describe('image-card provenance (the `image-card:` register)', () => {
 		const { imageCardProvenance, setImageCard, deckImageCard, imageCardDeckValue } = await import('./slide-provenance');
 		const src = deck('image-card: top-right soft compact  # quiet', '## A');
 		expect(deckImageCard(src)).toEqual({ placement: 'top-right', backing: 'soft', density: 'compact' });
-		const chunk = '<!-- _class: image spotlight at-bl card-regular -->\n\n## A';
+		const chunk = '<!-- _class: image spotlight image-card-bottom-left image-card-regular -->\n\n## A';
 		expect(imageCardProvenance(chunk, src, 'placement')).toMatchObject({ state: 'on', value: 'bottom-left', deckValue: 'top-right' });
 		expect(imageCardProvenance(chunk, src, 'density')).toMatchObject({ state: 'on', value: 'regular', deckValue: 'compact' });
 		expect(imageCardProvenance(chunk, src, 'backing')).toMatchObject({ state: 'inherited', value: 'soft' });
 		expect(imageCardProvenance(chunk, src, 'ink')).toMatchObject({ state: 'off' });
 		const set = setImageCard(chunk, 'placement', 'center');
-		expect(getClassTokens(set)).toEqual(['image', 'spotlight', 'card-regular', 'at-center']);
-		expect(getClassTokens(setImageCard(set, 'placement', null))).toEqual(['image', 'spotlight', 'card-regular']);
-		expect(getClassTokens(setImageCard(set, 'density', 'compact'))).toEqual(['image', 'spotlight', 'at-center', 'compact']);
+		expect(getClassTokens(set)).toEqual(['image', 'spotlight', 'image-card-regular', 'image-card-center']);
+		expect(getClassTokens(setImageCard(set, 'placement', null))).toEqual(['image', 'spotlight', 'image-card-regular']);
+		expect(getClassTokens(setImageCard(set, 'density', 'compact'))).toEqual(['image', 'spotlight', 'image-card-center', 'image-card-compact']);
 		expect(imageCardDeckValue({})).toBeNull();
 		expect(imageCardDeckValue({ size: 'sm', placement: 'top', ink: undefined })).toBe('top sm');
 	});
@@ -392,7 +392,7 @@ describe('the deck image-card line, as classes', () => {
 
 	it('maps the deck line to the classes it stamps', async () => {
 		const { deckImageCardClasses } = await import('./slide-provenance');
-		expect(deckImageCardClasses(deck('image-card: bottom 35% light\n'))).toEqual(['at-bottom', 'card-o35', 'ink-light']);
+		expect(deckImageCardClasses(deck('image-card: bottom 35% light\n'))).toEqual(['image-card-bottom', 'image-card-35', 'image-card-light']);
 		expect(deckImageCardClasses(deck(''))).toEqual([]);
 	});
 });

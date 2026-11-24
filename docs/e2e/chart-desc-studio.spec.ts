@@ -11,7 +11,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test, waitForStudio
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 # Title

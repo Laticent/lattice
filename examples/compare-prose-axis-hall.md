@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: portrait
 venue: hall
 header: "Lattice · compare-prose at hall"

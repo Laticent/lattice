@@ -74,7 +74,7 @@ const { definedPlaneTokens } = require('../../../tools/check-ownership.js');
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Running Header"
 footer: "Footer Text"
 logo: sample:logo-acme-mark.svg
@@ -115,7 +115,7 @@ Body copy that gives the stage real height to distribute.
 const IMAGE_DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Footer Text"
 ---
 

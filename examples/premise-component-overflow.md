@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · premise rows that grow"
 meta: "premise · term column, split and row rhythm"
 ---

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · typed-diagram narration"
 footer: "read-aloud narrates the whole first-wave Mermaid family"
 ---

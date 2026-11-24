@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Lakeside Community Health · Capital campaign"
 ---
 

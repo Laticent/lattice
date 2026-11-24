@@ -15,7 +15,7 @@ const DECK = [
 	'---',
 	'theme: indaco',
 	'size: 9:16',
-	'paginate: true',
+	'pagination: true',
 	'---',
 	'',
 	'# Opening',

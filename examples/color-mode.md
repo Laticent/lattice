@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 color-mode: dark
 footer: "Laticent · color mode"
 ---

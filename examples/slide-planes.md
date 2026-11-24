@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · the slide's depth axis"
 footer: "Every layer on this deck names its plane"
 ---

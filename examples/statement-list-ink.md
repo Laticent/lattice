@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · statement list rows"
 ---
 
@@ -30,7 +30,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement at-tr -->
+<!-- _class: image statement image-card-top-right -->
 
 ## The rows follow the card.
 
@@ -42,7 +42,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement ink-dark at-tr -->
+<!-- _class: image statement image-card-dark image-card-top-right -->
 
 ## Dark ink on a light scrim.
 
@@ -53,7 +53,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement card-sheer ink-light -->
+<!-- _class: image statement image-card-sheer image-card-light -->
 
 ## A sheer scrim keeps the light ink.
 
@@ -64,7 +64,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement at-bottom band -->
+<!-- _class: image statement image-card-bottom image-card-band -->
 
 ## A band carries the rows too.
 

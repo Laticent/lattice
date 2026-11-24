@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · prose-density budget"
 footer: "Budget the words, not just the elements"
 ---

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- Fixture for test/integration/export/pdf-backdrop-vector.test.js: one slide per backdrop shape the PDF writer

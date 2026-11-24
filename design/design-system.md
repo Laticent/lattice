@@ -480,7 +480,7 @@ and opt individual slides out:
 |---|---|---|---|
 | Running header | `no-header` · `with-header` | `header: "…"` (text present), or `class: no-header` | off |
 | Running footer | `no-footer` · `with-footer` | `footer: "…"` (text present), or `class: no-footer` | off |
-| Page number | `no-pagination` · `with-pagination` | `paginate: false`, or `class: no-pagination` | on (Form) |
+| Page number | `no-pagination` · `with-pagination` | `pagination: false`, or `class: no-pagination` | on (Form) |
 | Section rail | `no-progress` · `with-progress` | `class: no-progress` | on (Form) |
 | Deck logo | `no-logo` · `with-logo` | `logo:` (present), or `class: no-logo` | on when `logo:` is set |
 

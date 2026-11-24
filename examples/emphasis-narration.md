@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · emphasis narration"
 footer: "read-aloud holds a beat after what matters"
 ---

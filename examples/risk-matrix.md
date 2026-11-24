@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Risk matrix"
 meta: "Risk matrix"
 ---

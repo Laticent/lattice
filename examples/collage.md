@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · collage"
 footer: "Sample photographs from lib/samples"
 ---

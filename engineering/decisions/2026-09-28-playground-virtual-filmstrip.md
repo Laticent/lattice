@@ -40,6 +40,17 @@ sketch-ink seeds, debug labels) reads the same answer mounted or not.
   takes the transform the placeholder it replaces already had.
 - **Scroll seek** (react-virtuoso's name). A fling that crosses the viewport in under 150ms mounts
   nothing until it slows or rests for 90ms; the placeholders ride through.
+- **A mount never moves the reader** (2026-11-22). Under load Chromium can drop a wheel scroll at
+  the first layout after a swap and put the frame back on the offset the last programmatic
+  `scrollTo` wrote: a wheel to 2094 went back to 15 on the first `replaceChild`, with no script
+  asking for it and `overflow-anchor: none` making no difference. `applyWindow` reads `scrollY`
+  before the swaps and writes it back if a swap moved it by half a pane or more. A smaller move
+  is the reader's own scroll still in progress: iOS Safari hands the page that newer offset at the
+  layout the swap forces, and a 1 px threshold pinned the preview on a real iPhone. It skips the
+  restore when a swap went in unfitted, because that slide really is taller than its placeholder
+  until the fit runs.
+  `deck-render.swap-scroll.test.ts` pins both cases, and `playground-map.spec.ts`'s scroll test
+  went from 21 failures in 40 loaded runs to 0 in 40.
 - **Mounts are stamped `reflow`**, never `in-place` — a mount is a different slide arriving
   (`lib/core/swap-kind.mjs`).
 - **Whole-deck facts come from the whole deck.** Asset flags (KaTeX, Mermaid, dagre) and the

@@ -97,7 +97,7 @@ test('parser memo: a size directive rebuilds the parser (orientation/family stam
 
 test('parser memo: interleaving two themes does not leak one into the other', () => {
 	const e = themedEngine();
-	const src = '---\npaginate: true\n---\n\n# One\n\n---\n\n## Two\n';
+	const src = '---\npagination: true\n---\n\n# One\n\n---\n\n## Two\n';
 	const first = e.render(src, 'indaco');
 	e.render(src, 'lattice');
 	const again = e.render(src, 'indaco');

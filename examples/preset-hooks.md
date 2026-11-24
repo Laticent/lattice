@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Preset hooks"
 meta: "Preset hooks · rule weight, rail weight, card corner"
 card-spectrum: rainbow

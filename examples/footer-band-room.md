@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Footer band"
 footer: "Acme · Q3 board review"
 progress-rail: on

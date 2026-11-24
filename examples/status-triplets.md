@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · status triplets"
 footer: "Each theme curates its status fill, ink and edge"
 ---

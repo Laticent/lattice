@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: laguna-dark
-paginate: true
+pagination: true
 header: "Dark diagram fills"
 ---
 

@@ -115,7 +115,7 @@ function buildMatrixDeck(files) {
   // `size: 4k` is the canvas the shared contrast exemptions are calibrated to (a watermark counts as
   // decoration at fs >= 200, which a 1280 px hd canvas never reaches) and the one palette-sweep's
   // gallery deck uses; the galleries ship at hd, and cqi units keep layout the same across sizes.
-  const md = `---\nmarp: true\nsize: 4k\ntheme: indaco\nform: on\npaginate: true\n---\n\n${parts.join('\n\n---\n\n')}\n`;
+  const md = `---\nmarp: true\nsize: 4k\ntheme: indaco\nform: on\npagination: true\n---\n\n${parts.join('\n\n---\n\n')}\n`;
   return { md, headers };
 }
 

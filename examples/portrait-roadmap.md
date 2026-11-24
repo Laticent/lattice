@@ -2,7 +2,7 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · roadmap portrait"
 ---
 

@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: magnolia
-paginate: true
+pagination: true
 footer: "Magnolia · secondary + label tiers, light & dark"
 ---
 

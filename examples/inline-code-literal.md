@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 inline-code: literal
 header: "Lattice · `{DEMO}` and `[x]` stay text up here too"
 ---

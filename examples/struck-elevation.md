@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 lift: on
 header: "Lattice · Struck elevation"
 ---

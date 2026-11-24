@@ -304,13 +304,22 @@ describe('changelog fragments — the live directory', () => {
     assert.deepEqual(fragmentProblems(path.join(ROOT, FRAGMENT_DIRNAME)), []);
   });
 
-  test('every live fragment assembles into the real changelog and survives into the notes', () => {
-    const live = readFragments(path.join(ROOT, FRAGMENT_DIRNAME));
-    const md = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
-    const body = unreleasedWithFragments(md, live);
-    for (const f of live) {
-      const firstBullet = f.body.split('\n').find((l) => /^[-*]\s+\S/.test(l)).trim();
-      assert.ok(body.includes(firstBullet), `${f.name}: its first bullet is missing from the assembled notes`);
+  // The real changelog has no `## Unreleased` since the Changesets cutover: the release converts
+  // each fragment into a changeset instead (tools/changesets.js). So the live check is that every
+  // pending fragment converts into one the changeset gate accepts.
+  test('every live fragment converts into a changeset the gate accepts', () => {
+    const { fragmentToChangeset, changesetProblems } = require('../../../tools/changesets.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fragments-'));
+    try {
+      fs.copyFileSync(path.join(ROOT, '.changeset', 'config.json'), path.join(dir, 'config.json'));
+      fs.writeFileSync(path.join(dir, 'README.md'), '# fixture\n');
+      for (const f of readFragments(path.join(ROOT, FRAGMENT_DIRNAME))) {
+        const c = fragmentToChangeset(f);
+        fs.writeFileSync(path.join(dir, c.name), c.text);
+      }
+      assert.deepEqual(changesetProblems(dir), []);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

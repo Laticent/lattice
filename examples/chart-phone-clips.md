@@ -1,7 +1,7 @@
 ---
 size: mobile
 theme: indaco
-paginate: true
+pagination: true
 footer: "Charts on a phone page — nothing cut"
 ---
 

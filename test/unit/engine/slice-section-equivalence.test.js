@@ -22,7 +22,7 @@ const glyph = (html) => (html.match(/class="tile-watermark[^"]*"[^>]*>([^<]*)</)
 const sectionsOf = (html) => html.match(/<section[\s\S]*?<\/section>/g) || [];
 
 function deckOf(slides) {
-  return `---\ntheme: indaco\npaginate: true\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+  return `---\ntheme: indaco\npagination: true\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 const DIVIDER = (n) => `<!-- _class: divider -->\n\n# Part ${n}`;
 const BODY = (n) => `<!-- _class: form -->\n\n## Body ${n}.`;

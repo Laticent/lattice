@@ -18,19 +18,19 @@ const CACHE_MAX = 200;
 /** A kept answer is trusted for a week: an `asset:` name or a web URL can come to hold a different photo. */
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** The card classes that move the card's box over the photo, so they are part of the kept answer's key. */
-const BOX_CLASSES = /^(card-sm|card-lg|band|compact)$/;
+const BOX_CLASSES = /^image-card-(sm|lg|band|compact)$/;
 
 /** Where the card sits in the frame for each placement, as fractions of the slide: [left, top, right, bottom]. */
 const PLACEMENT_BOX: Record<string, [number, number, number, number]> = {
-	'at-tl': [0.04, 0.06, 0.52, 0.46],
-	'at-top': [0.26, 0.06, 0.74, 0.46],
-	'at-tr': [0.48, 0.06, 0.96, 0.46],
-	'at-center': [0.26, 0.3, 0.74, 0.7],
-	'at-bl': [0.04, 0.54, 0.52, 0.94],
-	'at-bottom': [0.26, 0.54, 0.74, 0.94],
-	'at-br': [0.48, 0.54, 0.96, 0.94],
+	'image-card-top-left': [0.04, 0.06, 0.52, 0.46],
+	'image-card-top': [0.26, 0.06, 0.74, 0.46],
+	'image-card-top-right': [0.48, 0.06, 0.96, 0.46],
+	'image-card-center': [0.26, 0.3, 0.74, 0.7],
+	'image-card-bottom-left': [0.04, 0.54, 0.52, 0.94],
+	'image-card-bottom': [0.26, 0.54, 0.74, 0.94],
+	'image-card-bottom-right': [0.48, 0.54, 0.96, 0.94],
 };
-const DEFAULT_PLACEMENT = 'at-bl';
+const DEFAULT_PLACEMENT = 'image-card-bottom-left';
 
 /** The card's placement class for a slide: its own, else the deck's `image-card:` word, else bottom-left. */
 export function placementOf(classes: string[], deckClasses: string[]): string {
@@ -41,7 +41,7 @@ export function placementOf(classes: string[], deckClasses: string[]): string {
 /** Where an answer came from: the live preview's measured slide, or an estimate from the photo file. */
 export type ReadSource = 'live' | 'estimate';
 /** A kept fix: an ink, or a solid card when no ink reads. A slide lint flags never gets a pin (photo-contrast.mjs `fixOrder`). */
-export type KeptFix = 'ink-light' | 'ink-dark' | 'solid' | null;
+export type KeptFix = 'image-card-light' | 'image-card-dark' | 'solid' | null;
 type Cached = { fix: KeptFix; ratio: number | null; at: number; src: ReadSource };
 export type CardBox = { ref: string; placement: string; backing: number; shape: string };
 
@@ -54,7 +54,7 @@ function hashRef(ref: string): string {
 const cacheKey = (c: CardBox) => `${hashRef(c.ref)}|${c.placement}|${c.backing}|${c.shape}`;
 /** A `blob:` URL names one page's object and changes on every load, so an answer for it is never seen again. */
 const keepable = (ref: string) => !/^blob:/i.test(ref.trim());
-const FIXES = new Set(['ink-light', 'ink-dark', 'solid']);
+const FIXES = new Set(['image-card-light', 'image-card-dark', 'solid']);
 
 function cacheRead(): Record<string, Cached> {
 	try {
