@@ -25,7 +25,9 @@
 //      Studio there, and the engine must load.
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
 
+import dns from 'node:dns/promises';
 import http from 'node:http';
+import net from 'node:net';
 
 /** True for a request the proxy treats as an engine sub-file (the entry, `engine.js`, is never failed). */
 export function isEngineSubFile(url) {
@@ -49,9 +51,32 @@ export function engineRetryVerdict(r) {
 	return { ok: false, path: 'none', error: `the engine loaded neither after Reload (${r.afterReload ?? 'not run'}) nor in a new tab (${r.newTab ?? 'not run'})` };
 }
 
+/**
+ * The address `hostname` answers on, found once. A fresh socket per request (below) means a fresh lookup per request, and
+ * for `localhost` Node 22 races ::1 against 127.0.0.1 with 250 ms per attempt: on the starved iPad runner that budget ran
+ * out and the proxy's own connects failed ETIMEDOUT on /_astro/react.js and jsx-runtime.js, so the Studio never hydrated
+ * (run 45475994893). Resolving once, to the address that accepts a connection, takes the race out of every request.
+ */
+export async function reachableAddress(hostname, port) {
+	if (net.isIP(hostname)) return hostname;
+	const all = await dns.lookup(hostname, { all: true });
+	for (const { address } of all) {
+		const ok = await new Promise((resolve) => {
+			const s = net.connect({ host: address, port }, () => {
+				s.destroy();
+				resolve(true);
+			});
+			s.on('error', () => resolve(false));
+		});
+		if (ok) return address;
+	}
+	return hostname;
+}
+
 /** A proxy to `target` that cuts engine sub-file requests while `state.fail` is on. Resolves once it listens. */
-export function startFaultProxy(target, mode = 'drop') {
+export async function startFaultProxy(target, mode = 'drop') {
 	const up = new URL(target);
+	const address = await reachableAddress(up.hostname, Number(up.port) || 80);
 	const state = { fail: false, cut: 0, subFiles: 0, seen: [] };
 	const server = http.createServer((req, res) => {
 		// Every engine-side request and what the proxy did with it, so a card that did not come from the fault can be traced
@@ -80,7 +105,7 @@ export function startFaultProxy(target, mode = 'drop') {
 		// `agent: false`: a fresh upstream socket per request. Node 22's global agent pools keep-alive sockets, and on a starved
 		// runner it reused one the docs server had already closed; the server reset engine.js and chunks.json together, before
 		// anything was cut (iPad, run 45453722865). Pooling buys nothing on loopback, and a reset it causes is not the fault.
-		const fwd = http.request({ hostname: up.hostname, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host }, agent: false }, (r) => {
+		const fwd = http.request({ hostname: address, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host }, agent: false }, (r) => {
 			note(r.statusCode || 502);
 			res.writeHead(r.statusCode || 502, r.headers);
 			r.pipe(res);

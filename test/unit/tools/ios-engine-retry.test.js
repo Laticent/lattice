@@ -122,3 +122,16 @@ test('the proxy records an island chunk only when it did not come back 200', asy
 		upstream.close();
 	}
 });
+
+test('the proxy resolves its upstream once, to the address that accepts a connection', async () => {
+	// Run 45475994893: per-request lookups of `localhost` raced ::1 against 127.0.0.1 and timed out on a starved runner.
+	const { reachableAddress } = await load();
+	const upstream = http.createServer((_req, res) => res.end('x'));
+	await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+	try {
+		assert.equal(await reachableAddress('localhost', upstream.address().port), '127.0.0.1', 'only the IPv4 loopback listens');
+		assert.equal(await reachableAddress('127.0.0.1', 1), '127.0.0.1', 'a literal address is kept');
+	} finally {
+		upstream.close();
+	}
+});
