@@ -19,6 +19,7 @@ import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
 import { createStyleLoader, type FetchMode, type StyleLoader } from './style-loader';
 import { createThemeFetcher } from './theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from './within-ms';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
 
@@ -197,8 +198,9 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
 			// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
+			// Bounded: a load that never settles renders this pass unsplit (splitForPreview warns), never a preview held on its placeholder.
 			const splitLoad = PGref.splitReady?.(geom.w, geom.h);
-			if (splitLoad) await splitLoad;
+			if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
 			const cut = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h) : null;
 			let html = cut ? cut.html : out.html;
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
@@ -233,7 +235,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// each keystroke and tab switch (a phone's Edit tab waited out the 9 s reveal backstop, docs e2e 2026-11-23).
 			const mayMeasure = !!cut && (cut.changed > 0 || (cut.applies === true && PGref.codaMayMove?.(cut.html) === true));
 			if (PGref.splitForPreview && mayMeasure && mayWantMeasuredSplit(source)) {
-				const [ms, sz] = await Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]).catch(() => [null, null]);
+				const [ms, sz] = (await withinMs(Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]), LAZY_LOAD_MS).catch(() => null)) ?? [null, null];
 				const measureDoc = DPref.measureDoc;
 				// Did this render get its measured split? A deck that wants one and does not get it (the module did not
 				// load, no frame builder, or the measure failed) keeps the structural split, with its insight on the slide.

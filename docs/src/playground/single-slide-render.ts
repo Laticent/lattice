@@ -55,6 +55,7 @@ import { samplesBaseFor } from '../lib/samples-base';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from '../lib/within-ms';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, previewDiagramsAttr } from '../playground/deck-preview.js';
@@ -2264,8 +2265,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const splitOpts = { firstSlide: renderedBase + 1 };
 					const slideSource = opts.slideMarkdown;
 					// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
+					// Bounded: a load that never settles shows this slide unsplit, never a preview held on its placeholder.
 					const splitLoad = PG.splitReady?.(out.width, out.height);
-					if (splitLoad) await splitLoad;
+					if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
 					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
 					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
 					// measure, plan and verify the CLI runs, in a hidden frame built as this one is, with the
@@ -2280,7 +2282,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// 2026-11-22: the preview kept the insight on the slide while the export moved it).
 					const mayMeasure = r.changed > 0 || (r.applies === true && PG.codaMayMove?.(r.html) === true);
 					const ms = mayMeasure
-						? await import('../lib/measured-split').catch((e) => (console.warn('lattice: the measured split did not load; keeping the structural split', e), null))
+						? ((await withinMs(import('../lib/measured-split'), LAZY_LOAD_MS).catch((e) => {
+								console.warn('lattice: the measured split did not load; keeping the structural split', e);
+								return null;
+							})) ?? null)
 						: measuredSplitModule;
 					if (ms) {
 						measuredSplitModule = ms;

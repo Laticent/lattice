@@ -62,6 +62,8 @@ export interface MeasuredSplitInput {
 	memory?: FitMemory | null;
 	/** How long one frame may take to load and settle; past it the split is not measured. */
 	settleMs?: number;
+	/** How long the WHOLE measurement may take, every round included; past it the host keeps the structural split. */
+	deadlineMs?: number;
 	/** True once the host no longer wants the answer (the preview was torn down). */
 	cancelled?: () => boolean;
 }
@@ -200,7 +202,31 @@ function inFrame<T>(run: () => T): T | null {
  * the host keeps today's split and its memory as they were: never worse than the structural split,
  * and never a memory learned from the wrong document.
  */
-export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<MeasuredSplitOutput> {
+export function measuredSplitInFrame(input: MeasuredSplitInput): Promise<MeasuredSplitOutput> {
+	// ONE DEADLINE FOR THE WHOLE MEASUREMENT. Each frame write is bounded (`settle`), but a measurement is several
+	// writes, and a preview that awaits it must never wait for good: an iPhone's Studio stayed on the bake's blur
+	// (#2988, iOS run 45272022608). Past the deadline the measurement is called off (its next step sees `cancelled`)
+	// and the caller gets `UnmeasuredError`, which every host answers with the structural split.
+	const deadlineMs = input.deadlineMs ?? MEASURE_DEADLINE_MS;
+	let late = false;
+	const cancelled = input.cancelled ?? (() => false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => {
+			late = true;
+			reject(new UnmeasuredError(`the measured split did not finish within ${deadlineMs} ms`));
+		}, deadlineMs);
+	});
+	const run = measureInFrame({ ...input, cancelled: () => late || cancelled() });
+	// The run's own late rejection (it sees `late` and stops) must not surface as an unhandled one.
+	run.catch(() => undefined);
+	return Promise.race([run, deadline]).finally(() => clearTimeout(timer));
+}
+
+/** The measurement's default deadline: generous for a large deck on a slow phone, short enough that a stuck one is seen. */
+export const MEASURE_DEADLINE_MS = 12000;
+
+async function measureInFrame(input: MeasuredSplitInput): Promise<MeasuredSplitOutput> {
 	const t0 = performance.now();
 	// How many measurements this page has run: the e2e specs read it to pin that typing does not measure (§17).
 	if (typeof window !== 'undefined') {

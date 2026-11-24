@@ -4,7 +4,7 @@
 // face, and let a newer render or another slide call a pending measurement off.
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cachedPlan, cancelPendingMeasure, isCanceledMeasure, layoutKey, studioPlan, UnmeasuredError } from './measured-split';
+import { cachedPlan, cancelPendingMeasure, isCanceledMeasure, layoutKey, measuredSplitInFrame, studioPlan, UnmeasuredError } from './measured-split';
 
 type Shown = { html: string };
 const plan = (sizes: number[]) => ({ 2: sizes });
@@ -112,5 +112,43 @@ describe('isCanceledMeasure', () => {
 		expect(isCanceledMeasure(new UnmeasuredError('the preview was torn down'))).toBe(true);
 		expect(isCanceledMeasure(new UnmeasuredError('the measuring frame held no slides'))).toBe(false);
 		expect(isCanceledMeasure(new Error('the preview was torn down'))).toBe(false);
+	});
+});
+
+describe('measuredSplitInFrame deadline', () => {
+	// A measuring frame that never loads (the iPhone Studio's stuck preview, #2988): each write is bounded by
+	// `settleMs`, but the whole measurement must also end by `deadlineMs`, so the host falls back to the
+	// structural split instead of holding its placeholder.
+	it('rejects with UnmeasuredError at the deadline when the frame never loads', async () => {
+		const srcdoc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'srcdoc');
+		Object.defineProperty(HTMLIFrameElement.prototype, 'srcdoc', { configurable: true, set() {}, get: () => '' });
+		try {
+			const run = measuredSplitInFrame({
+				html: '<section data-lattice-slide="1"></section>',
+				split: () => ({ html: '', changed: 0 }),
+				buildDoc: () => '<html><head></head><body></body></html>',
+				runtimeUrl: '/v/x/esm/engine.js',
+				verdictConfig: {},
+				width: 1080,
+				height: 1080,
+				settleMs: 60000,
+				deadlineMs: 100,
+			});
+			const outcome = run.then(
+				() => 'resolved',
+				(e) => e,
+			);
+			await vi.advanceTimersByTimeAsync(100);
+			const e = await outcome;
+			expect(e).toBeInstanceOf(UnmeasuredError);
+			expect(String(e.message)).toMatch(/did not finish within 100 ms/);
+			// The measurement is called off, not mistaken for a newer render's cancel: the host warns about it.
+			expect(isCanceledMeasure(e)).toBe(false);
+			// The hidden frame is gone once its own bounded wait ends.
+			await vi.advanceTimersByTimeAsync(60000);
+			expect(document.querySelectorAll('iframe').length).toBe(0);
+		} finally {
+			if (srcdoc) Object.defineProperty(HTMLIFrameElement.prototype, 'srcdoc', srcdoc);
+		}
 	});
 });
