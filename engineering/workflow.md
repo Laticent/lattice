@@ -573,20 +573,26 @@ graduates from "new" to "documented". Treat them like
 - If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, and nothing else: the symptom index is generated into `dist/engineering/gotchas.md` on install, and `engineering/gotchas.md` is the hand-written guide, where an entry would never be listed (`gotchas:index:check` refuses one). **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes `npm run gotchas:index:check`, and so `build:check`, refuse and name the entry (the plain write only warns). Put the detail in the entry body, where nobody pays for it until they open the topic file.
 - Gallery edits and feature decks: look at the render locally (`npm run preview -- <deck>`), and commit only the markdown. CI shows the before/after on the PR, and the nightly bless commits the PDFs to `main`.
 
-## Changelog entries — one file per PR (`changelog.d/`)
+## Changelog entries — one file per PR (`.changeset/`)
 
-**Write the entry in `changelog.d/<slug>.<category>.md`. Do not append to
-`CHANGELOG.md` `## Unreleased`.** This is HARD RULE #10; the full contract —
-naming, the six categories, what the body may contain — is in
-`changelog.d/README.md`, and the reasoning is
-`decisions/2026-08-11-changelog-fragments.md`.
+**Record the change in a changeset: `npx changeset`, or a file in `.changeset/` by
+hand. Never edit a `CHANGELOG.md`.** This is HARD RULE #10; the full contract
+(front matter, bumps, the first-line rule, which packages may be named) is in
+`.changeset/README.md`, and the reasoning is
+`decisions/2026-10-07-first-npm-release.md` §11 (Changesets) and
+`decisions/2026-08-11-changelog-fragments.md` (one file per PR).
 
-**Why, in one measurement.** `## Unreleased` is one shared region every PR
-appends to at the top, so two PRs in flight always edit the same lines. Under a
-merge queue that is not a conflict you resolve once — it is an **ejection**, and
-an ejection **silently clears auto-merge**, so the PR goes green again and
-merges nothing. Shipping five PRs in one evening produced **seven ejections,
-every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
+**A `changelog.d/` fragment still works.** The contract is unchanged
+(`changelog.d/README.md`), and the release converts each pending fragment into a
+changeset for `@laticent/lattice` with the bump its category always picked. A
+fragment cannot name a library, so a library change needs a changeset.
+
+**Why one file per PR, in one measurement.** The old `CHANGELOG.md` `## Unreleased`
+was one shared region every PR appended to at the top, so two PRs in flight always
+edited the same lines. Under a merge queue that is not a conflict you resolve once
+— it is an **ejection**, and an ejection **silently clears auto-merge**, so the PR
+goes green again and merges nothing. Shipping five PRs in one evening produced
+**seven ejections, every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
 
 | PR | ejections | what landed in the gap |
 |---|---|---|
@@ -595,17 +601,18 @@ every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
 
 Every resolution was the same mechanical "keep both entries"; #1566 needed six
 cycles across about four hours for a change whose content stopped moving after
-the second. Two PRs never write the same fragment file, so the conflict cannot
+the second. Two PRs never write the same changeset file, so the conflict cannot
 occur.
 
-**The release consumes them.** `tools/release.js` folds every pending fragment
-into `## Unreleased` under its `### Category` heading, rolls that into the dated
-version section, and deletes the fragment files — one commit, serialized behind
-the `release` concurrency group. Until then `node tools/changelog.js --bump`,
-`--notes` and `--check` read `## Unreleased` **plus** the fragments as one body,
-so the bump is correct while the entries are still loose files.
+**The release consumes them.** Release (prepare) runs `tools/release.js
+--prepare`: it converts the pending fragments, runs `changeset version` (which
+bumps each named package, writes each package's `CHANGELOG.md`, and deletes the
+changesets), and commits that as the release PR, serialized behind the `release`
+concurrency group. `npx changeset status --verbose` previews the bumps at any
+time. The first release, 1.0.0, bumps nothing and archives what is pending; see
+`RELEASE.md`.
 
-**Nothing regenerates `CHANGELOG.md` per PR, on purpose.** Assembling at build
+**Nothing regenerates a `CHANGELOG.md` per PR, on purpose.** Assembling at build
 time would make it a generated-from-*everything* committed artifact byte-gated
 by `build:check` — which is the *other* merge-queue hazard (#1594, and #1547
 before it). That trades a visible conflict for a silent ejection, which is
@@ -637,9 +644,10 @@ strictly worse.
      is the real proof HEAD is fresh (uncommitted-but-rebuilt files mask a
      stale HEAD).
    - **`CHANGELOG.md` `## Unreleased`** used to conflict on every rebase.
-     It no longer should: entries are per-PR `changelog.d/` fragments (see
-     § Changelog entries below). If you still hit one — an older branch, or a
-     `changelog.d/` file two branches genuinely named the same — resolve by
+     It no longer should: entries are per-PR changesets (see § Changelog entries
+     below), and the root `CHANGELOG.md` is an index that takes no entries. If
+     you still hit one — an older branch that edited a changelog, or a
+     changeset or fragment two branches genuinely named the same — resolve by
      **keeping both** entries, never picking a side.
    - A PDF conflict should not happen any more: pull requests do not commit
      PDFs, and only the nightly bless writes them. If an older branch still
@@ -754,7 +762,7 @@ The loop for any perf-intent change:
    numbers with machine noise. The baseline is a ratchet for *real* deltas, not a
    per-machine scratchpad.
 6. **Record it.** Fill the PR's `## Performance` section with the before/after table;
-   add a `changelog.d/` fragment for user-visible wins; for a *large* perf effort, also
+   add a changeset for user-visible wins; for a *large* perf effort, also
    write an `engineering/decisions/YYYY-MM-DD-*.md` note.
 
 `bench:check` is **on-demand, not a blocking CI gate** — a wall-clock threshold in

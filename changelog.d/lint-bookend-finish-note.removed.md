@@ -1,1 +1,0 @@
-- The deck lint no longer reports `bookend-finish-contrast`. A deck-wide `finish:` on a title or closing slide renders correctly, and the presets put a finish there on purpose, so the note flagged nothing an author needed to change.

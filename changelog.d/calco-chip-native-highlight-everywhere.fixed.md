@@ -1,1 +1,0 @@
-- an inline code chip (or mark) in the editable export is always a native text highlight in a color close to the page behind it, including over a finish's grid or glow, so no picture film sits over or under the words and the text stays editable.

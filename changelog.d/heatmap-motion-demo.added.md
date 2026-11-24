@@ -1,1 +1,0 @@
-- A demo deck for heatmap motion — `examples/anima-heatmap.md` shows the grid building cell by cell across the four motion styles (`build`, `together`, `rise`, `off`), captured mid-build from the live Playground.
