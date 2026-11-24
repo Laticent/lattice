@@ -6,6 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-24 — raise the home and studio eagerJsGz ceilings by 2,048 B each (home 328,192 → 330,240; studio 640,684 → 642,732), by hand, for PR 3294, at the owner's direction
+
+Owner OK 2026-11-24, option (A) relayed by the Segno desk: "+2 KB on home and studio, own PR".
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds 3,120 B to home's eager JS and 3,170 B to studio's against main (CI run 45303178666, the per-PR check against main c3635999; a local build against the merge base 0fef07ac measured +3,124 and +3,192). The bytes are the tokenizer's driver: three docs readers on every route's eager path (theme-fetch.ts, single-slide-render.ts, snapshot-cache.js) moved their `url()` regexes onto `rewriteCssUrls`, which the owner chose on 2026-11-17 (option A, one tokenizer everywhere). No chunk moved from lazy to eager: the one new eager file, theme-fetch.js, is code main already loads eagerly inside video-overlay.js. Nothing could be given back. The tokenizer is CommonJS, so Node 24 cannot race its two load paths, and the docs build bundles a CommonJS module whole, so tree-shaking cannot trim it; as an ES module, `rewriteCssUrls` alone would still be 4,642 of the tokenizer's 5,163 B. Merged with main, PR 3294 measured home 321.4 KB against the 320.5 KB ceiling and studio at its 625.7 KB ceiling. The new ceilings leave about 1.1 KB on home and about 2 KB on studio after PR 3294. The soft targets are unchanged, so every byte above them is still declared in `docs/route-budget.d/`. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 330240 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 642732 |
+
 ### 2026-11-23 — raise the studio eagerJsGz ceiling by 2,048 B (638,636 → 640,684), by hand, for PR 3294, at the owner's direction
 
 Owner OK 2026-11-23, option (A) relayed by the command center and the Segno desk: "+2 KB raise, own PR".
