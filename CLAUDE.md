@@ -643,7 +643,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   random draw or the network. **Wait for a signal, not a duration** (no `waitForTimeout`, no hand-made sleep). **Assert on
   work done** (a count, a size, an order), **not on milliseconds**: speed goes to `npm run bench` (#19), never into a
   pass/fail test. **Seed every random input** and print the seed; **stub every network call**; give each test its own
-  state, port and temp folder; pin the date, timezone, locale and fonts it reads. The nine shapes (F1 to F9), each with
+  state, port and temp folder; pin the date, timezone, locale and fonts it reads. The ten shapes (F1 to F10), each with
   its fix, are `engineering/decisions/2026-11-06-flaky-tests.md`; **read it before writing or fixing a test that waits,
   times, randomizes or reaches out.** A flaky test is a defect owned by the session that finds it (#18): fixed at its
   cause, never retried, skipped or re-run until green. Born from #3041, ejected twice from the merge queue by a test that
@@ -709,7 +709,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |
 | **Starting on a branch, or told to check out / continue / pick one up** — another session may hold its baton (HARD RULE #31) | `engineering/workflow.md` §Relay, then `npm run baton -- take <branch>` |
 | Node, npm scripts, tests, lint, hooks, CI, the cloud sandbox setup | `engineering/development.md` |
-| **Writing, fixing or investigating a test (any tier)** — the missions, the practice, the gotchas; and, for a test that waits, times, randomizes or reaches out, the nine flaky shapes and their fixes (HARD RULE #32) | `engineering/testing.md` (section by section), then `engineering/decisions/2026-11-06-flaky-tests.md` for the flaky shapes |
+| **Writing, fixing or investigating a test (any tier)** — the missions, the practice, the gotchas; and, for a test that waits, times, randomizes or reaches out, the ten flaky shapes and their fixes (HARD RULE #32) | `engineering/testing.md` (section by section), then `engineering/decisions/2026-11-06-flaky-tests.md` for the flaky shapes |
 | **Waiting on a slow job** — a build, the integration tier, a push — one waiter per job, always bounded | `engineering/development.md` §Waiting for a slow job. Never hand-roll `until …; do sleep N; done` in a background call: it has no deadline and no identity, and a late fire re-sends the whole conversation at full price. Use `tools/wait-for.sh` |
 | Something behaving strangely (symptom index) | `dist/engineering/gotchas.md` (generated on install, not committed) lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
 | Where X lives (grep the map first) · engine internals | `dist/engineering/codemap.md` (generated, not committed) · `engineering/architecture.md` |
