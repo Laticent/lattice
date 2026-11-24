@@ -68,11 +68,11 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose entry fail
 	page.on('request', (r) => {
 		if (isEntry(r.url())) inFlight++;
 	});
-	for (const done of ['requestfinished', 'requestfailed'] as const) {
-		page.on(done, (r) => {
-			if (isEntry(r.url())) inFlight--;
-		});
-	}
+	const settled = (r: { url(): string }) => {
+		if (isEntry(r.url())) inFlight--;
+	};
+	page.on('requestfinished', settled);
+	page.on('requestfailed', settled);
 	await page.route(ENTRY, async (route) => {
 		const pressed = await page.evaluate(() => (window as { __retryPressed?: boolean }).__retryPressed === true).catch(() => false);
 		return pressed ? route.continue() : route.abort();
