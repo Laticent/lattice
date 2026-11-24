@@ -116,7 +116,7 @@ shapes to the ladder.
 
 ## Build
 
-`npm run segno-markdown-lib:build` writes `dist/` (ESM + CJS + `.d.ts`); `npm run segno-markdown-lib:check`
+`npm run segno-markdown-lib:build` writes `dist/` (ES modules + `.d.ts`); `npm run segno-markdown-lib:check`
 fails if it is stale. Tests: `cd docs && npx vitest run src/lib/segno-markdown`, and
 `node --test test/unit/core/deck-model.test.js` for the differential against markdown-it.
 
