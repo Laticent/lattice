@@ -7,3 +7,7 @@
   `lint:deck:all`) fails on it and the Coach's Contract score counts it; until now both set
   `legacy-directive-comment` aside while the repo's own decks were still written that way. `lint:deck --fix` or
   `lattice migrate meta` rewrites a deck in one pass.
+- **A reader-view (lens) tag is a field of the slide's record.** The Studio writes a slide's membership as
+  `<!-- @meta{lens="brief -evidence"} -->` instead of a `<!-- _lens: … -->` comment, and reads either until the cut;
+  toggling a view on a slide with an old comment moves the tag into the record. Lente stays a zero-dependency library:
+  a host injects where tags live (`setLensTagCarrier`), and its default is still the comment.

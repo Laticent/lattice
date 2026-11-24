@@ -2,7 +2,7 @@
 // the "unknown component" detection (the engine of the inline-validation badge)
 // are property-testable without rendering anything.
 
-import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { type LensRegistry, lensPairs } from '@/lib/lente-host';
 import { slideClassDirectives } from '../../../lib/core/class-directive-scan.mjs';
 import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
 import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';

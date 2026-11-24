@@ -11,7 +11,7 @@ import { createStageController } from '@/components/studio/present/stage-window.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
-import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
+import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente-host';
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
