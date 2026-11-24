@@ -1,5 +1,5 @@
-studio: +1400
-playground: +620
+studio: +1460
+playground: +680
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
@@ -44,3 +44,8 @@ The Playground's gate fix (2026-11-23: measure only a render the split changed, 
 never measured) reads the split's own answer and asks the engine whether a coda may move, and its fallback draws a
 render again unmeasured when the measured split does not load. CI on d0f5a3d measured +521 B gz on playground (+350
 PlaygroundIsland, +104 front-matter-fence, +47 fit-pack-wanted); the fallback adds a few bytes more. Declared +620.
+The iPhone Studio hang's fix (2026-11-24) bounds every wait the preview takes for the measured split: the lazy splitter
+and measured-split chunks wait at most 8 s (`src/lib/within-ms.ts`, imported by single-slide-render and the Playground's
+render bridge). Merged onto `main` at 4f32ecd, CI on 977883e measured +1430 B gz on studio (+409 venue.ts, +368
+progress-rail, +289 single-slide-render, +156 StudioIsland, +104 front-matter-fence) and +641 on playground (+421
+PlaygroundIsland, +104 front-matter-fence, +59 video-overlay, +47 fit-pack-wanted). Declared +1460 and +680.
