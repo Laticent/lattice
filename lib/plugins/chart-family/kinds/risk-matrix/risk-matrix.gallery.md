@@ -15,8 +15,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- @meta{footer=Default · risk-matrix} -->
+<!-- @meta{layout=risk-matrix, footer=Default · risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -32,9 +31,8 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix, footer="Stress test · risk-matrix — Ten risks, three sharing one cell, two with a planned move."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · risk-matrix — Ten risks, three sharing one cell, two with a planned move."} -->
 
 ## Ten risks, three in the same cell.
 

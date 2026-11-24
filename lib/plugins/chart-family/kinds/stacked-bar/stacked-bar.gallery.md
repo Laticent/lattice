@@ -15,8 +15,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- @meta{footer=Default · stacked-bar} -->
+<!-- @meta{layout=stacked-bar, footer=Default · stacked-bar} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -36,8 +35,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar share -->
-<!-- @meta{footer="share · stacked-bar share — Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar."} -->
+<!-- @meta{layout=stacked-bar, class=share, footer="share · stacked-bar share — Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar."} -->
 
 ## share normalizes every bar, so only the mix is compared.
 
@@ -57,8 +55,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar row -->
-<!-- @meta{footer="row · stacked-bar row — The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar."} -->
+<!-- @meta{layout=stacked-bar, class=row, footer="row · stacked-bar row — The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar."} -->
 
 ## row turns the stack on its side for long category names.
 
@@ -78,9 +75,8 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar share -->
+<!-- @meta{layout=stacked-bar, class=share, footer="Stress test · stacked-bar — Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · stacked-bar — Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar."} -->
 
 ## Six parts, six periods, one sliver that should have been folded in.
 

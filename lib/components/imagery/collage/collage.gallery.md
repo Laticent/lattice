@@ -15,8 +15,7 @@ Four to six photos of any shape packed edge to edge into a mood board, with the 
 
 ---
 
-<!-- _class: collage -->
-<!-- @meta{footer=Default · collage} -->
+<!-- @meta{layout=collage, footer=Default · collage} -->
 
 `The atelier`
 
@@ -35,8 +34,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage ordered -->
-<!-- @meta{footer="ordered · collage ordered — Keep the photos in the order written."} -->
+<!-- @meta{layout=collage, class=ordered, footer="ordered · collage ordered — Keep the photos in the order written."} -->
 
 `The atelier`
 
@@ -55,8 +53,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage fill -->
-<!-- @meta{footer="fill · collage fill — Allow a small crop to close empty space."} -->
+<!-- @meta{layout=collage, class=fill, footer="fill · collage fill — Allow a small crop to close empty space."} -->
 
 `The atelier`
 
@@ -75,8 +72,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage above -->
-<!-- @meta{footer="above · collage above — Text above the photos instead of beside them."} -->
+<!-- @meta{layout=collage, class=above, footer="above · collage above — Text above the photos instead of beside them."} -->
 
 `The atelier`
 
@@ -95,8 +91,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage bleed -->
-<!-- @meta{footer="bleed · collage bleed — The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix."} -->
+<!-- @meta{layout=collage, class=bleed, footer="bleed · collage bleed — The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix."} -->
 
 `The atelier`
 
@@ -115,8 +110,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage mirror -->
-<!-- @meta{footer="mirror · collage mirror — Text on the other side."} -->
+<!-- @meta{layout=collage, class=mirror, footer="mirror · collage mirror — Text on the other side."} -->
 
 `The atelier`
 
@@ -135,9 +129,8 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage, footer="Stress test · collage — Six photos of five different shapes, the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · collage — Six photos of five different shapes, the ceiling."} -->
 
 `Six shapes, one frame`
 

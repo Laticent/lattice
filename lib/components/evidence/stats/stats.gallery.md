@@ -15,8 +15,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: stats -->
-<!-- @meta{footer=Default · stats} -->
+<!-- @meta{layout=stats, footer=Default · stats} -->
 
 `evidence · stats`
 
@@ -36,9 +35,8 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats, footer="Stress test · stats — Six stats — the hard ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · stats — Six stats — the hard ceiling."} -->
 
 `stats · stress`
 

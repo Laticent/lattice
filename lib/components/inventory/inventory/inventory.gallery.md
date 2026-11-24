@@ -15,8 +15,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory -->
-<!-- @meta{footer=Default · inventory} -->
+<!-- @meta{layout=inventory, footer=Default · inventory} -->
 
 `inventory · the parts ledger`
 
@@ -30,8 +29,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory cards -->
-<!-- @meta{footer="Cards · inventory cards — The register as tiles with a pull-quote."} -->
+<!-- @meta{layout=inventory, class=cards, footer="Cards · inventory cards — The register as tiles with a pull-quote."} -->
 
 `inventory cards`
 
@@ -45,8 +43,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory timeline -->
-<!-- @meta{footer="Timeline · inventory timeline — A numbered run along a line."} -->
+<!-- @meta{layout=inventory, class=timeline, footer="Timeline · inventory timeline — A numbered run along a line."} -->
 
 `inventory timeline`
 
@@ -60,8 +57,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory editorial -->
-<!-- @meta{footer="Editorial · inventory editorial — A magazine split with a sidebar takeaway."} -->
+<!-- @meta{layout=inventory, class=editorial, footer="Editorial · inventory editorial — A magazine split with a sidebar takeaway."} -->
 
 `inventory editorial`
 
@@ -77,9 +73,8 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: inventory compact -->
+<!-- @meta{layout=inventory, class=compact, footer="Stress test · inventory — Five full rows are the 16:9 ceiling; a sixth clips."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · inventory — Five full rows are the 16:9 ceiling; a sixth clips."} -->
 
 ## The ledger clips past five full rows.
 

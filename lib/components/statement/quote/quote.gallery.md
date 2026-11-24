@@ -15,8 +15,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote -->
-<!-- @meta{footer=Default · quote} -->
+<!-- @meta{layout=quote, footer=Default · quote} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -25,8 +24,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote bare -->
-<!-- @meta{footer="bare · quote bare — No card, no quotation marks — a plain display-scale line."} -->
+<!-- @meta{layout=quote, class=bare, footer="bare · quote bare — No card, no quotation marks — a plain display-scale line."} -->
 
 > The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
 
@@ -35,9 +33,8 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote, footer="Stress test · quote — Forty words; the type steps down once."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · quote — Forty words; the type steps down once."} -->
 
 > This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.
 

@@ -15,8 +15,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number -->
-<!-- @meta{footer=Default · big-number} -->
+<!-- @meta{layout=big-number, footer=Default · big-number} -->
 
 `big-number · one number, the whole canvas`
 
@@ -26,9 +25,8 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number, footer="Stress test · big-number — Ten digits is the practical ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · big-number — Ten digits is the practical ceiling."} -->
 
 `big-number · stress — the longest number that still lands`
 

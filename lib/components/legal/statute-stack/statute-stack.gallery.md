@@ -15,8 +15,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack -->
-<!-- @meta{footer=Default · statute-stack} -->
+<!-- @meta{layout=statute-stack, footer=Default · statute-stack} -->
 
 ## Three jurisdictions, one obligation each.
 
@@ -33,8 +32,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack hierarchy -->
-<!-- @meta{footer="hierarchy · statute-stack hierarchy — Ordered by supremacy."} -->
+<!-- @meta{layout=statute-stack, class=hierarchy, footer="hierarchy · statute-stack hierarchy — Ordered by supremacy."} -->
 
 ## hierarchy orders the stack by supremacy.
 
@@ -48,8 +46,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack bands -->
-<!-- @meta{footer="Horizontal bands · statute-stack bands — Full-width strips."} -->
+<!-- @meta{layout=statute-stack, class=bands, footer="Horizontal bands · statute-stack bands — Full-width strips."} -->
 
 ## bands strips each jurisdiction full-width.
 
@@ -63,8 +60,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack preemption -->
-<!-- @meta{footer="preemption · statute-stack preemption — Which law yields."} -->
+<!-- @meta{layout=statute-stack, class=preemption, footer="preemption · statute-stack preemption — Which law yields."} -->
 
 ## preemption marks which law yields.
 
@@ -78,8 +74,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack lane -->
-<!-- @meta{footer="Markdown table · statute-stack lane — One column stack."} -->
+<!-- @meta{layout=statute-stack, class=lane, footer="Markdown table · statute-stack lane — One column stack."} -->
 
 ## lane runs the stack in one column.
 
@@ -92,9 +87,8 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack, footer="Stress test · statute-stack — Five jurisdictions — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · statute-stack — Five jurisdictions — the ceiling."} -->
 
 ## Five jurisdictions is the rail's hard ceiling.
 

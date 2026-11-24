@@ -15,8 +15,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- @meta{footer=Default · cards-stack} -->
+<!-- @meta{layout=cards-stack, footer=Default · cards-stack} -->
 
 ## The stack ranks three cards top to bottom.
 
@@ -30,8 +29,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack horizontal -->
-<!-- @meta{footer="Horizontal cards · cards-stack horizontal — The stack pivots sideways."} -->
+<!-- @meta{layout=cards-stack, class=horizontal, footer="Horizontal cards · cards-stack horizontal — The stack pivots sideways."} -->
 
 ## horizontal lays the stack on its side.
 
@@ -45,8 +43,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- @meta{footer="Numbered stack · cards-stack numbered — Corner numbers make rank explicit."} -->
+<!-- @meta{layout=cards-stack, footer="Numbered stack · cards-stack numbered — Corner numbers make rank explicit."} -->
 
 ## An ordered list makes the ranking explicit.
 
@@ -60,9 +57,8 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack, footer="Stress test · cards-stack — Four rows with pills — the limit."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · cards-stack — Four rows with pills — the limit."} -->
 
 ## Four rows with pills is the stack's ceiling.
 

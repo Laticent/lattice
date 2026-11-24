@@ -15,8 +15,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- @meta{footer=Default · authority-chain} -->
+<!-- @meta{layout=authority-chain, footer=Default · authority-chain} -->
 
 ## The chain descends from statute to practice.
 
@@ -36,8 +35,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain branching -->
-<!-- @meta{footer="branching · authority-chain branching — The chain forks."} -->
+<!-- @meta{layout=authority-chain, class=branching, footer="branching · authority-chain branching — The chain forks."} -->
 
 ## branching forks the chain where authority splits.
 
@@ -51,8 +49,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain trail -->
-<!-- @meta{footer="trail · authority-chain trail — A breadcrumb walk."} -->
+<!-- @meta{layout=authority-chain, class=trail, footer="trail · authority-chain trail — A breadcrumb walk."} -->
 
 ## trail walks the chain as a breadcrumb.
 
@@ -72,8 +69,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain pyramid -->
-<!-- @meta{footer="pyramid · authority-chain pyramid — Tiers weighted by force."} -->
+<!-- @meta{layout=authority-chain, class=pyramid, footer="pyramid · authority-chain pyramid — Tiers weighted by force."} -->
 
 ## pyramid weights the tiers by force.
 
@@ -93,8 +89,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain bracket -->
-<!-- @meta{footer="bracket · authority-chain bracket — Tiers grouped by actor."} -->
+<!-- @meta{layout=authority-chain, class=bracket, footer="bracket · authority-chain bracket — Tiers grouped by actor."} -->
 
 ## bracket groups the tiers by actor.
 
@@ -114,9 +109,8 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain, footer="Stress test · authority-chain — Six tiers — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · authority-chain — Six tiers — the ceiling."} -->
 
 ## Six tiers is the chain's ceiling.
 

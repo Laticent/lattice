@@ -15,8 +15,7 @@ An XY plot with real units on both axes — one dot per entity, showing how two 
 
 ---
 
-<!-- _class: scatter -->
-<!-- @meta{footer=Default · scatter} -->
+<!-- @meta{layout=scatter, footer=Default · scatter} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -36,8 +35,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter bubble -->
-<!-- @meta{footer="bubble · scatter bubble — A third measure sizes each dot by area."} -->
+<!-- @meta{layout=scatter, class=bubble, footer="bubble · scatter bubble — A third measure sizes each dot by area."} -->
 
 `[Annual cost, Teams adopting, Seats]`
 
@@ -53,8 +51,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter trend -->
-<!-- @meta{footer="trend · scatter trend — A least-squares line through the cloud."} -->
+<!-- @meta{layout=scatter, class=trend, footer="trend · scatter trend — A least-squares line through the cloud."} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -72,9 +69,8 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: scatter -->
+<!-- @meta{layout=scatter, footer="Stress test · scatter — Twelve entities, four of them inside four points of each other."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · scatter — Twelve entities, four of them inside four points of each other."} -->
 
 `[Annual cost, Teams adopting]`
 

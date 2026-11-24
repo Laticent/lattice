@@ -15,8 +15,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a -->
-<!-- @meta{footer=Default · q-and-a} -->
+<!-- @meta{layout=q-and-a, footer=Default · q-and-a} -->
 
 ## The Q&A pairs questions with short answers.
 
@@ -32,8 +31,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a spine -->
-<!-- @meta{footer="spine · q-and-a spine — Pairs threaded down an accent spine."} -->
+<!-- @meta{layout=q-and-a, class=spine, footer="spine · q-and-a spine — Pairs threaded down an accent spine."} -->
 
 ## spine threads the pairs down an accent spine.
 
@@ -47,8 +45,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a rail -->
-<!-- @meta{footer="rail · q-and-a rail — Numbered exhibit rows in columns."} -->
+<!-- @meta{layout=q-and-a, class=rail, footer="rail · q-and-a rail — Numbered exhibit rows in columns."} -->
 
 ## rail hangs the questions on a left rail.
 
@@ -62,8 +59,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a tab -->
-<!-- @meta{footer="tab · q-and-a tab — Underlined prompts; answers hang below."} -->
+<!-- @meta{layout=q-and-a, class=tab, footer="tab · q-and-a tab — Underlined prompts; answers hang below."} -->
 
 ## tab folds each answer under a question tab.
 
@@ -77,8 +73,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a grid -->
-<!-- @meta{footer="grid · q-and-a grid — Four pairs in a two-by-two."} -->
+<!-- @meta{layout=q-and-a, class=grid, footer="grid · q-and-a grid — Four pairs in a two-by-two."} -->
 
 ## grid deals the pairs into two columns.
 
@@ -94,8 +89,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a solo -->
-<!-- @meta{footer="solo · q-and-a solo — One pair, the whole slide."} -->
+<!-- @meta{layout=q-and-a, class=solo, footer="solo · q-and-a solo — One pair, the whole slide."} -->
 
 ## solo gives one question the whole slide.
 
@@ -105,9 +99,8 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 
 ---
 
-<!-- _class: q-and-a compact -->
+<!-- @meta{layout=q-and-a, class=compact, footer="Stress test · q-and-a — Five pairs — the hard ceiling, with compact."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · q-and-a — Five pairs — the hard ceiling, with compact."} -->
 
 ## Five pairs is the most one slide answers.
 

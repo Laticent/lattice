@@ -15,8 +15,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram -->
-<!-- @meta{footer=Default · histogram} -->
+<!-- @meta{layout=histogram, footer=Default · histogram} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -30,9 +29,8 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: histogram -->
+<!-- @meta{layout=histogram, footer="Stress test · histogram — Twelve equal bands on a linear axis, the tail bands under one percent."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · histogram — Twelve equal bands on a linear axis, the tail bands under one percent."} -->
 
 `[{Claim size}, {Share of claims}]`
 

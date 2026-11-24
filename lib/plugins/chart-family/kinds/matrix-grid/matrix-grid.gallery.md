@@ -15,8 +15,7 @@ Two ordered axes as an N×M chart-family grid — each cell marks a position (fi
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- @meta{footer=Default · matrix-grid} -->
+<!-- @meta{layout=matrix-grid, footer=Default · matrix-grid} -->
 
 ## Your level is a cell, not a rung.
 
@@ -38,9 +37,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid, footer="Stress test · matrix-grid — Six categories by five scope columns."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · matrix-grid — Six categories by five scope columns."} -->
 
 ## Six categories by five columns is the grid's practical ceiling.
 

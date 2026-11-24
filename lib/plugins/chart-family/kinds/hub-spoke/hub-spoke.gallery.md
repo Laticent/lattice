@@ -15,8 +15,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- @meta{footer=Default · hub-spoke} -->
+<!-- @meta{layout=hub-spoke, footer=Default · hub-spoke} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -36,8 +35,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke sized -->
-<!-- @meta{footer="sized · hub-spoke sized — Disc area carries each value."} -->
+<!-- @meta{layout=hub-spoke, class=sized, footer="sized · hub-spoke sized — Disc area carries each value."} -->
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -54,8 +52,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke flow-out -->
-<!-- @meta{footer="flow-out · hub-spoke flow-out — Arrowheads and stepped connector weight."} -->
+<!-- @meta{layout=hub-spoke, class=flow-out, footer="flow-out · hub-spoke flow-out — Arrowheads and stepped connector weight."} -->
 
 `Memphis distribution center · Pallets per week`
 
@@ -72,8 +69,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke flow-in -->
-<!-- @meta{footer="flow-in · hub-spoke flow-in — Heads point at the hub."} -->
+<!-- @meta{layout=hub-spoke, class=flow-in, footer="flow-in · hub-spoke flow-in — Heads point at the hub."} -->
 
 `Data platform · Records ingested per day`
 
@@ -89,8 +85,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke flow-both -->
-<!-- @meta{footer="flow-both · hub-spoke flow-both — Two-way flow on every spoke."} -->
+<!-- @meta{layout=hub-spoke, class=flow-both, footer="flow-both · hub-spoke flow-both — Two-way flow on every spoke."} -->
 
 `Shared services · Tickets per month`
 
@@ -106,8 +101,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke tiered -->
-<!-- @meta{footer="tiered · hub-spoke tiered — Branches, with leaves off each one."} -->
+<!-- @meta{layout=hub-spoke, class=tiered, footer="tiered · hub-spoke tiered — Branches, with leaves off each one."} -->
 
 `Platform organization · Service ownership · 2026`
 
@@ -133,9 +127,8 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke, footer="Stress test · hub-spoke — Twelve satellites in four groups — the cap."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · hub-spoke — Twelve satellites in four groups — the cap."} -->
 
 `Partner ecosystem · By capability`
 

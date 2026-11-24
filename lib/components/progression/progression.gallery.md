@@ -9,8 +9,7 @@ Progression — ordered movement through stages or time.
 
 ---
 
-<!-- _class: cycle -->
-<!-- @meta{footer=cycle · progression survey} -->
+<!-- @meta{layout=cycle, footer=cycle · progression survey} -->
 
 `The water cycle`
 
@@ -27,8 +26,7 @@ Progression — ordered movement through stages or time.
 
 ---
 
-<!-- _class: list-steps -->
-<!-- @meta{footer=list-steps · progression survey} -->
+<!-- @meta{layout=list-steps, footer=list-steps · progression survey} -->
 
 ## Steps promise an order and keep it.
 

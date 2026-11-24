@@ -15,8 +15,7 @@ Native state machine diagram — states as a list, transitions as arrows to a st
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- @meta{footer=Default · state-chart} -->
+<!-- @meta{layout=state-chart, class=lr, footer=Default · state-chart} -->
 
 `Submission lifecycle`
 
@@ -42,8 +41,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- @meta{footer="Left-to-right · state-chart lr — States flow left to right."} -->
+<!-- @meta{layout=state-chart, class=lr, footer="Left-to-right · state-chart lr — States flow left to right."} -->
 
 ## lr flows the states left to right.
 
@@ -59,8 +57,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart tb -->
-<!-- @meta{footer="Top-to-bottom · state-chart tb — States flow top to bottom, whatever the stage."} -->
+<!-- @meta{layout=state-chart, class=tb, footer="Top-to-bottom · state-chart tb — States flow top to bottom, whatever the stage."} -->
 
 ## tb stacks the states top to bottom.
 
@@ -74,8 +71,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart inline -->
-<!-- @meta{footer="Inline · state-chart inline — The machine as rows with transition chips, beside its prose."} -->
+<!-- @meta{layout=state-chart, class=inline, footer="Inline · state-chart inline — The machine as rows with transition chips, beside its prose."} -->
 
 ## inline sets the chart beside its prose.
 
@@ -90,8 +86,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart curved -->
-<!-- @meta{footer="Curved · state-chart curved — Generously rounded corners on the router's lines."} -->
+<!-- @meta{layout=state-chart, class=curved, footer="Curved · state-chart curved — Generously rounded corners on the router's lines."} -->
 
 ## curved rounds the lines between states.
 
@@ -111,8 +106,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart unnumbered -->
-<!-- @meta{footer="Unnumbered · state-chart unnumbered — No badges: the states show no place in the list."} -->
+<!-- @meta{layout=state-chart, class=unnumbered, footer="Unnumbered · state-chart unnumbered — No badges: the states show no place in the list."} -->
 
 ## unnumbered drops the badges.
 
@@ -125,8 +119,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart rearrange -->
-<!-- @meta{footer="Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart."} -->
+<!-- @meta{layout=state-chart, class=rearrange, footer="Rearrange · state-chart rearrange — States may leave their written order when that draws a cleaner chart."} -->
 
 ## rearrange lets a side state sit beside the state it leaves.
 
@@ -153,9 +146,8 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart, footer="Stress test · state-chart — A dense machine of states."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · state-chart — A dense machine of states."} -->
 
 `Submission lifecycle`
 

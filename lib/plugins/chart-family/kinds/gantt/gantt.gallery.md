@@ -15,8 +15,7 @@ Gantt chart — task bars across a date axis.
 
 ---
 
-<!-- _class: gantt -->
-<!-- @meta{footer=Default · gantt} -->
+<!-- @meta{layout=gantt, footer=Default · gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -38,9 +37,8 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt, footer="Stress test · gantt — Twelve months, every lane overlapping."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · gantt — Twelve months, every lane overlapping."} -->
 
 `[{Timeline, 2026 Jan .. 2026 Dec}]`
 

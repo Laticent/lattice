@@ -15,8 +15,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps -->
-<!-- @meta{footer=Default · list-steps} -->
+<!-- @meta{layout=list-steps, footer=Default · list-steps} -->
 
 ## Steps promise an order and keep it.
 
@@ -32,8 +31,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps vertical compact -->
-<!-- @meta{footer="vertical · list-steps vertical — Steps stack down the page."} -->
+<!-- @meta{layout=list-steps, class=vertical compact, footer="vertical · list-steps vertical — Steps stack down the page."} -->
 
 ## vertical stacks the steps down the page.
 
@@ -47,8 +45,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps chevron -->
-<!-- @meta{footer="chevron · list-steps chevron — Down-chevron tabs cascade into keyed description cards."} -->
+<!-- @meta{layout=list-steps, class=chevron, footer="chevron · list-steps chevron — Down-chevron tabs cascade into keyed description cards."} -->
 
 ## Make the case, one stage at a time.
 
@@ -64,8 +61,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps converge -->
-<!-- @meta{footer="converge · list-steps converge — Tapering bands narrow onto the final stage (a qualitative funnel)."} -->
+<!-- @meta{layout=list-steps, class=converge, footer="converge · list-steps converge — Tapering bands narrow onto the final stage (a qualitative funnel)."} -->
 
 ## Many concerns narrow onto one plan.
 
@@ -79,8 +75,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps ghost -->
-<!-- @meta{footer="ghost · list-steps ghost — Faint chevron watermark, eyebrow label, hero description — editorial."} -->
+<!-- @meta{layout=list-steps, class=ghost, footer="ghost · list-steps ghost — Faint chevron watermark, eyebrow label, hero description — editorial."} -->
 
 ## The argument, stated plainly.
 
@@ -94,8 +89,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- @meta{footer="timeline · list-steps timeline — Steps string along a line."} -->
+<!-- @meta{layout=list-steps, class=timeline, footer="timeline · list-steps timeline — Steps string along a line."} -->
 
 ## timeline strings the steps along a line.
 
@@ -109,8 +103,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps phase -->
-<!-- @meta{footer="phase · list-steps phase — Each step blocks as an era."} -->
+<!-- @meta{layout=list-steps, class=phase, footer="phase · list-steps phase — Each step blocks as an era."} -->
 
 ## phase blocks each step as an era.
 
@@ -124,8 +117,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps milestone lettered -->
-<!-- @meta{footer="milestone · list-steps milestone — Steps mark as checkpoints."} -->
+<!-- @meta{layout=list-steps, class=milestone lettered, footer="milestone · list-steps milestone — Steps mark as checkpoints."} -->
 
 ## milestone marks the steps as checkpoints.
 
@@ -139,8 +131,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps lettered -->
-<!-- @meta{footer="lettered · list-steps lettered — Letters count the steps."} -->
+<!-- @meta{layout=list-steps, class=lettered, footer="lettered · list-steps lettered — Letters count the steps."} -->
 
 ## lettered counts the steps with letters.
 
@@ -154,8 +145,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps stage -->
-<!-- @meta{footer="Stage · list-steps stage — Stage tags prefix each step."} -->
+<!-- @meta{layout=list-steps, class=stage, footer="Stage · list-steps stage — Stage tags prefix each step."} -->
 
 ## stage prefixes each step with its stage tag.
 
@@ -169,8 +159,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps rank -->
-<!-- @meta{footer="Rank · list-steps rank — Numbers read as standings."} -->
+<!-- @meta{layout=list-steps, class=rank, footer="Rank · list-steps rank — Numbers read as standings."} -->
 
 ## rank reads the numbers as standings.
 
@@ -184,8 +173,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps tier roman -->
-<!-- @meta{footer="Tier · list-steps tier — Steps render as service tiers."} -->
+<!-- @meta{layout=list-steps, class=tier roman, footer="Tier · list-steps tier — Steps render as service tiers."} -->
 
 ## tier renders the steps as service tiers.
 
@@ -199,8 +187,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps phase roman -->
-<!-- @meta{footer="Roman numerals · list-steps roman — Numerals count the phases."} -->
+<!-- @meta{layout=list-steps, class=phase roman, footer="Roman numerals · list-steps roman — Numerals count the phases."} -->
 
 ## roman counts the phases in numerals.
 
@@ -214,8 +201,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps capsule -->
-<!-- @meta{footer="capsule · list-steps capsule — Centered, editorial: pill badges, serif titles, no connectors."} -->
+<!-- @meta{layout=list-steps, class=capsule, footer="capsule · list-steps capsule — Centered, editorial: pill badges, serif titles, no connectors."} -->
 
 ## Turn the framework into a habit.
 
@@ -229,9 +215,8 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps, footer="Stress test · list-steps — Six steps — the last honest sequence."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · list-steps — Six steps — the last honest sequence."} -->
 
 ## Five steps is the last honest sequence.
 

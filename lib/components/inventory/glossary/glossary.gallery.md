@@ -15,8 +15,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: glossary -->
-<!-- @meta{footer=Default · glossary} -->
+<!-- @meta{layout=glossary, footer=Default · glossary} -->
 
 ## Glossary
 
@@ -32,9 +31,8 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary, footer="Stress test · glossary — Eight terms at the definition ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · glossary — Eight terms at the definition ceiling."} -->
 
 ## Glossary, at capacity
 

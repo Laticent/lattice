@@ -15,8 +15,7 @@ Boardroom-quality math layouts for mathematicians, quants, ML researchers, physi
 
 ---
 
-<!-- _class: math -->
-<!-- @meta{footer=Default · math} -->
+<!-- @meta{layout=math, footer=Default · math} -->
 
 `Linear regression · OLS`
 
@@ -32,8 +31,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math feature -->
-<!-- @meta{footer="feature · math feature — Alias for the base layout: a hero equation with a named legend."} -->
+<!-- @meta{layout=math, class=feature, footer="feature · math feature — Alias for the base layout: a hero equation with a named legend."} -->
 
 `Logistic regression · MLE`
 
@@ -49,8 +47,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math derivation -->
-<!-- @meta{footer="derivation · math derivation — A proof chain in two columns — the step left, its warrant right."} -->
+<!-- @meta{layout=math, class=derivation, footer="derivation · math derivation — A proof chain in two columns — the step left, its warrant right."} -->
 
 ## derivation walks the steps line by line.
 
@@ -64,8 +61,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math theorem -->
-<!-- @meta{footer="theorem · math theorem — Definition, Theorem and Proof as stacked color-coded cards."} -->
+<!-- @meta{layout=math, class=theorem, footer="theorem · math theorem — Definition, Theorem and Proof as stacked color-coded cards."} -->
 
 ## theorem boxes the statement and its proof.
 
@@ -78,8 +74,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math compare -->
-<!-- @meta{footer="compare · math compare — Two or three equations side by side, each under its own label."} -->
+<!-- @meta{layout=math, class=compare, footer="compare · math compare — Two or three equations side by side, each under its own label."} -->
 
 ## compare sets two formulations side by side.
 
@@ -98,8 +93,7 @@ Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is 
 
 ---
 
-<!-- _class: math canvas -->
-<!-- @meta{footer="canvas · math canvas — A hero equation beside a `functionplot` graph of its shape."} -->
+<!-- @meta{layout=math, class=canvas, footer="canvas · math canvas — A hero equation beside a `functionplot` graph of its shape."} -->
 
 ## canvas gives a long derivation the room.
 
@@ -122,8 +116,7 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 
 ---
 
-<!-- _class: math matrix -->
-<!-- @meta{footer="matrix · math matrix — A matrix beside a legend of its shape, rank and what rows mean."} -->
+<!-- @meta{layout=math, class=matrix, footer="matrix · math matrix — A matrix beside a legend of its shape, rank and what rows mean."} -->
 
 ## matrix typesets the block structures.
 
@@ -145,8 +138,7 @@ $$
 
 ---
 
-<!-- _class: math stats -->
-<!-- @meta{footer="stats · math stats — An estimate with its uncertainty, then a plain-language reading."} -->
+<!-- @meta{layout=math, class=stats, footer="stats · math stats — An estimate with its uncertainty, then a plain-language reading."} -->
 
 ## stats pairs the estimator with its variance.
 
@@ -160,8 +152,7 @@ For every additional unit of exposure, the outcome rises by 0.42 SD — roughly 
 
 ---
 
-<!-- _class: math matrix decompose -->
-<!-- @meta{footer="decompose · math decompose — A factorization as a sequence of matrices, each term named."} -->
+<!-- @meta{layout=math, class=matrix decompose, footer="decompose · math decompose — A factorization as a sequence of matrices, each term named."} -->
 
 ## decompose colors the terms it names.
 
@@ -180,9 +171,8 @@ $$
 
 ---
 
-<!-- _class: math derivation -->
+<!-- @meta{layout=math, class=derivation, footer="Stress test · math — Three steps — the longest chain."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · math — Three steps — the longest chain."} -->
 
 `math · stress`
 

@@ -15,8 +15,7 @@ A video as a static, PDF-safe embed: a poster that links to the clip, a play bad
 
 ---
 
-<!-- _class: video companion -->
-<!-- @meta{footer=Default · video} -->
+<!-- @meta{layout=video, class=companion, footer=Default · video} -->
 
 ## The video card plays beside its context.
 
@@ -27,8 +26,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: video companion -->
-<!-- @meta{footer="companion · video companion — The player beside the claim it proves."} -->
+<!-- @meta{layout=video, class=companion, footer="companion · video companion — The player beside the claim it proves."} -->
 
 ## companion seats the player beside its pitch.
 
@@ -39,8 +37,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: video gallery -->
-<!-- @meta{footer="gallery · video gallery — A contained, matted exhibit."} -->
+<!-- @meta{layout=video, class=gallery, footer="gallery · video gallery — A contained, matted exhibit."} -->
 
 ## gallery mats the player like an exhibit.
 
@@ -49,8 +46,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: video companion qr -->
-<!-- @meta{footer="qr · video qr — Adds a scannable code; combines with any look."} -->
+<!-- @meta{layout=video, class=companion qr, footer="qr · video qr — Adds a scannable code; combines with any look."} -->
 
 ## qr hands the video to the room’s phones.
 

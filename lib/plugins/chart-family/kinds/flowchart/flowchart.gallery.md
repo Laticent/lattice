@@ -15,8 +15,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart -->
-<!-- @meta{footer=Default · flowchart} -->
+<!-- @meta{layout=flowchart, footer=Default · flowchart} -->
 
 `Incident response`
 
@@ -36,8 +35,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart lr -->
-<!-- @meta{footer="Left-to-right · flowchart lr — Pins the flow left to right."} -->
+<!-- @meta{layout=flowchart, class=lr, footer="Left-to-right · flowchart lr — Pins the flow left to right."} -->
 
 ## Events land in the warehouse within a minute.
 
@@ -50,8 +48,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart tb -->
-<!-- @meta{footer="Top-to-bottom · flowchart tb — Pins the flow top to bottom."} -->
+<!-- @meta{layout=flowchart, class=tb, footer="Top-to-bottom · flowchart tb — Pins the flow top to bottom."} -->
 
 ## The operating model has three lines of reporting.
 
@@ -65,8 +62,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart curved -->
-<!-- @meta{footer="Curved · flowchart curved — Generously rounded corners on the router's lines."} -->
+<!-- @meta{layout=flowchart, class=curved, footer="Curved · flowchart curved — Generously rounded corners on the router's lines."} -->
 
 ## Every page reaches a human within 15 minutes.
 
@@ -81,8 +77,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart rearrange -->
-<!-- @meta{footer="Rearrange · flowchart rearrange — Shapes may leave their written order when that draws a cleaner chart."} -->
+<!-- @meta{layout=flowchart, class=rearrange, footer="Rearrange · flowchart rearrange — Shapes may leave their written order when that draws a cleaner chart."} -->
 
 ## rearrange lets a detour sit beside the step it leaves.
 
@@ -96,9 +91,8 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart, footer="Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape."} -->
 
 `Platform`
 

@@ -15,18 +15,17 @@ Two components stacked on one slide, one above the other.
 
 ---
 
-<!-- _class: rows -->
-<!-- @meta{footer=Default · rows} -->
+<!-- @meta{layout=rows, footer=Default · rows} -->
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |
@@ -37,8 +36,7 @@ Two components stacked on one slide, one above the other.
 
 ---
 
-<!-- _class: rows ratio-35-65 no-spine -->
-<!-- @meta{footer="no rule · rows no-spine — Drops the rule between the panes."} -->
+<!-- @meta{layout=rows, class=ratio-35-65 no-spine, footer="no rule · rows no-spine — Drops the rule between the panes."} -->
 
 ## Three regions carried the quarter.
 
@@ -46,7 +44,7 @@ Two components stacked on one slide, one above the other.
 
 Two renewals and a price rise lifted EMEA and APAC; North America held.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by region
 `$M, Q3`
 
@@ -57,19 +55,18 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: rows ratio-45-55 -->
+<!-- @meta{layout=rows, class=ratio-45-55, footer="Stress test · rows — Progress over a four-column table, with the slide's Key Insight below both."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · rows — Progress over a four-column table, with the slide's Key Insight below both."} -->
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired | Open |
@@ -86,13 +83,13 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |
@@ -107,13 +104,13 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |
@@ -128,13 +125,13 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |
