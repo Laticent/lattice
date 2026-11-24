@@ -483,8 +483,11 @@ async function touchAt(id, at, forcedHold = 0) {
 function hostLoadAt(ms) {
 	return new Promise((resolve) => {
 		setTimeout(() => {
-			execFile('sh', ['-c', 'sysctl -n vm.loadavg; ps -Ao pcpu=,rss=,comm= -r | head -8'], { timeout: 5000 }, (err, out) => {
-				if (err) return resolve(`host load unreadable (${String(err.message).slice(0, 80)})`);
+			// What the command printed is used even when it exited non-zero (run 45509624486 printed only "Command failed"), and
+			// when it printed nothing the line says how it ended: exit code, signal (the 15 s limit kills it; a host that starved
+			// cannot run ps in that long is itself the answer) and stderr.
+			execFile('sh', ['-c', 'sysctl -n vm.loadavg; ps -Ao pcpu=,rss=,comm= -r | head -8'], { timeout: 15000 }, (err, out, errOut) => {
+				if (!String(out).trim()) return resolve(`host load unreadable (code ${err?.code ?? '?'}, signal ${err?.signal ?? 'none'}, killed ${!!err?.killed}; ${String(errOut).trim().slice(0, 120) || 'no stderr'})`);
 				const [load, ...procs] = String(out).trim().split('\n');
 				const top = procs.map((l) => l.trim().split(/\s+/)).map(([cpu, rss, ...cmd]) => `${cmd.join(' ').split('/').pop()} ${cpu}% ${Math.round(Number(rss) / 1024)}MB`);
 				resolve(`host at +${ms} ms: load ${load.replace(/[{}]/g, '').trim()}; ${top.join(', ')}`);
