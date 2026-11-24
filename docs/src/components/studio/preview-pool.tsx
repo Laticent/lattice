@@ -354,13 +354,13 @@ export const RELEASE_GRACE = 600;
  */
 export const PARK_MS = 5000;
 
-/** When a slot is due to be parked: free, holding a slide, not parked yet; else never. */
 /** How long a slot handed a different slide may stay hidden waiting for its paint before it shows anyway. A patch paints in
  *  well under this; a full write on a slow phone takes longer, and then the old picture is the lesser evil than a blank tile. */
 export const PENDING_MAX_MS = 1500;
 /** Whether `next` puts a different SLIDE in a slot than `prev` did: the one change whose old picture is wrong rather than
  *  merely stale (a palette or mode change repaints the same slide). A slot with no props yet has no picture to hide. PURE. */
 export const showsOther = (prev: PooledPreviewProps | null, next: PooledPreviewProps) => prev != null && (prev.sample !== next.sample || prev.extraCss !== next.extraCss);
+/** When a slot is due to be parked: free, holding a slide, not parked yet; else never. */
 const parkDue = (s: { tileId: number | null; props: unknown; parked?: boolean; freeSince?: number | null }) => (s.tileId === null && s.props && !s.parked && s.freeSince != null ? s.freeSince + PARK_MS : Number.POSITIVE_INFINITY);
 /** A parked slot's props: nothing to load. The caller keeps the slot's own `drawn` flag, so the
  *  shape is unchanged and the park and the next re-point both take the patch path. */
