@@ -69,9 +69,14 @@ Migration (renames rule 5: old names are removed, not aliased):
 was a second way to set a slide's mode. The owner chose **D-dim** after seeing A, D-plain and D-dim
 rendered on indaco, cuoio and onyx in both modes:
 
-- **Dividers follow `color-mode:` and the slide's `light` / `dark`.** `divider light` is removed
-  (lint error with a --fix to `divider light` through the ordinary mode token, or nothing in a light
-  deck). The force-dark rule goes for dividers as it does for covers.
+- **Dividers follow `color-mode:` and the slide's `light` / `dark`.** `divider light` stays valid and
+  means what `light` means on any slide: the light color mode. The force-dark rule goes for dividers
+  as it does for covers.
+- **The smaller layout `divider light` used to imply is `divider subsection`** (the owner, 2026-11-24,
+  D16/D17, after seeing `divider`, `divider light`, `divider subsection` and `divider subsection light`
+  rendered: "that look is correct"). It is a layout variant, centered, a tier smaller, no rail, and
+  works in either mode. `divider light` is NOT flagged by lint; the repo's own 17 decks that relied on
+  the old small look were moved to `divider subsection light` by hand.
 - **Light mode: the background is `--accent`, the ink `--on-accent`.** No new tokens; the pair is
   already gated by `tools/contrast-audit.js` (`on-accent on accent`). Measured on all 33 themes:
   ink 5.5 to 21:1, the jump from the content background 5.2 to 21:1.

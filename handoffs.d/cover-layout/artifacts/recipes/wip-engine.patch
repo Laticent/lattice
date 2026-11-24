@@ -1,5 +1,174 @@
+diff --git a/examples/anchor-chrome.md b/examples/anchor-chrome.md
+index ba753812f..25fa0c4fb 100644
+--- a/examples/anchor-chrome.md
++++ b/examples/anchor-chrome.md
+@@ -44,7 +44,7 @@ The title names the deck, so the running header steps back. The confidential lin
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ `Part two`
+ 
+diff --git a/examples/deck-logo-canvas.md b/examples/deck-logo-canvas.md
+index 332152a03..fa2b62f00 100644
+--- a/examples/deck-logo-canvas.md
++++ b/examples/deck-logo-canvas.md
+@@ -55,7 +55,7 @@ The `dark` modifier declares `color-scheme: dark` and paints the canvas dark, so
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## A `divider light` is not
+ 
+diff --git a/examples/divider-numbered.md b/examples/divider-numbered.md
+index 374e07867..869434b70 100644
+--- a/examples/divider-numbered.md
++++ b/examples/divider-numbered.md
+@@ -62,7 +62,7 @@ meta: "numbered · the divider section mark"
+ 
+ ---
+ 
+-<!-- _class: divider light numbered -->
++<!-- _class: divider subsection light numbered -->
+ 
+ `divider light numbered`
+ 
+diff --git a/examples/gallery-jargon.md b/examples/gallery-jargon.md
+index e43124897..1c77319ed 100644
+--- a/examples/gallery-jargon.md
++++ b/examples/gallery-jargon.md
+@@ -30,7 +30,7 @@ A 59-slide answer to the question "have you considered writing things down"
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ <!-- _footer: "Section 1 opener, centered · divider light" -->
+ 
+ `Section 01 · Why This Exists`
+diff --git a/examples/indaco-bookend-chrome.md b/examples/indaco-bookend-chrome.md
+index c116cac7f..7845aadfb 100644
+--- a/examples/indaco-bookend-chrome.md
++++ b/examples/indaco-bookend-chrome.md
+@@ -48,7 +48,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ `Part three`
+ 
+diff --git a/examples/progress-rail.md b/examples/progress-rail.md
+index f86287a68..346e8d4dd 100644
+--- a/examples/progress-rail.md
++++ b/examples/progress-rail.md
+@@ -43,7 +43,7 @@ The section rail answers "which part", and the page number answers "how far".
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ <!-- _header: '' -->
+ 
+ ## Where it sits
+diff --git a/examples/slide-class-forms.md b/examples/slide-class-forms.md
+index 278cdc321..774bfe65d 100644
+--- a/examples/slide-class-forms.md
++++ b/examples/slide-class-forms.md
+@@ -17,7 +17,7 @@ A Mermaid SVG bakes its colors before the page exists. Every diagram here proves
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## What this deck shows.
+ 
+diff --git a/examples/sovereign-bookend-measures.md b/examples/sovereign-bookend-measures.md
+index d048cb25e..ca9ba8c60 100644
+--- a/examples/sovereign-bookend-measures.md
++++ b/examples/sovereign-bookend-measures.md
+@@ -42,7 +42,7 @@ The two agree only while the type size holds still — and it doesn't. Lattice c
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ <!-- _header: '' -->
+ <!-- _footer: "Lede measure · divider light" -->
+ 
+diff --git a/examples/speaker-notes.md b/examples/speaker-notes.md
+index 2b5ae360f..08721eb41 100644
+--- a/examples/speaker-notes.md
++++ b/examples/speaker-notes.md
+@@ -49,7 +49,7 @@ stays off the slide — exactly the way Marp has always treated it.
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## A slide with no note stays exactly as it was.
+ 
+diff --git a/examples/split-headings.md b/examples/split-headings.md
+index bddf43043..6a696ceb8 100644
+--- a/examples/split-headings.md
++++ b/examples/split-headings.md
+@@ -14,7 +14,7 @@ header: "Lattice · slides from headings"
+ There's nothing to set — every `##` is a slide by default, so a deck reads like
+ a document, with no `---` to remember or forget.
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## Headings already mark your slides.
+ 
+diff --git a/examples/state-chart-branching.md b/examples/state-chart-branching.md
+index abba1d727..9d48e362e 100644
+--- a/examples/state-chart-branching.md
++++ b/examples/state-chart-branching.md
+@@ -16,7 +16,7 @@ A chain keeps its reading order. A fan-out gets a real graph layout.
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## The rule
+ 
+diff --git a/examples/state-chart-paint.md b/examples/state-chart-paint.md
+index 3f830789b..8e8c02779 100644
+--- a/examples/state-chart-paint.md
++++ b/examples/state-chart-paint.md
+@@ -16,7 +16,7 @@ Status words, a heavy main path, line patterns and palette slots — every one a
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## The vocabulary
+ 
+diff --git a/examples/state-chart.md b/examples/state-chart.md
+index a291fcbbc..640586ad0 100644
+--- a/examples/state-chart.md
++++ b/examples/state-chart.md
+@@ -16,7 +16,7 @@ A list of states, arrows to a state's name, palette-blind SVG. The flowchart's g
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ ## What this deck shows.
+ 
 diff --git a/lib/authoring/lint-core.js b/lib/authoring/lint-core.js
-index e922f124d..a343ceb3e 100644
+index e922f124d..d82f04d12 100644
 --- a/lib/authoring/lint-core.js
 +++ b/lib/authoring/lint-core.js
 @@ -6428,11 +6428,12 @@ function lintChunksWith(source, vocab) {
@@ -16,7 +185,7 @@ index e922f124d..a343ceb3e 100644
    if (vocab.logoFinishNames) findings.push(...findUnknownAxisRegister(source, 'logo-finish', vocab.logoFinishNames, vocab.logoFinishAxes));
    if (vocab.logoFinishAxes) findings.push(...findRetiredLogoKeys(source, vocab.logoFinishAxes));
    if (vocab.progressRailNames) findings.push(...findUnknownAxisRegister(source, 'progress-rail', vocab.progressRailNames, vocab.progressRailAxes));
-@@ -10165,6 +10166,111 @@ function findUnknownCards(source, cardsNames) {
+@@ -10165,6 +10166,102 @@ function findUnknownCards(source, cardsNames) {
   * A `backdrop:` NESTED under `finish-override:` is indented, so `^backdrop:` (column 0)
   * never matches it. One finding per deck.
   */
@@ -32,9 +201,10 @@ index e922f124d..a343ceb3e 100644
 + *                                     surface word gets no slide edits.
 + *   _class: … cover-light           → `light`      (error: the class no longer paints)
 + *   _class: … cover-inverse         → `dark`       (error)
-+ *   _class: divider light           → `divider subsection` (WARNING, one release: `light` is a
-+ *                                     valid mode on a divider now, so an old deck renders, but it
-+ *                                     lost the smaller layout `light` used to mean, D17)
++ *
++ * `divider light` is NOT flagged: it is the light color mode on a divider, a valid choice (the
++ * owner, 2026-11-24, D16/D17). The smaller centered layout it used to imply is `subsection` now,
++ * and works in either mode (`divider subsection light`); the repo's own decks were moved by hand.
 + *
 + * One finding per changed line, so `--fix` applies every edit on a line at once. Reads both class
 + * spellings: the `<!-- _class: … -->` comment and the `<!-- @meta{layout=…, class=…} -->` record.
@@ -89,18 +259,12 @@ index e922f124d..a343ceb3e 100644
 +    }
 +    const all = layout ? [layout, ...tokens] : tokens;
 +    const isCover = all.includes('title') || all.includes('closing');
-+    const isDivider = all.includes('divider');
 +    const errs = [];
-+    let warn = '';
 +    let next = tokens.map((t) => {
 +      if (t === 'cover-light') { errs.push('`cover-light`'); return 'light'; }
 +      if (t === 'cover-inverse') { errs.push('`cover-inverse`'); return 'dark'; }
 +      return t;
 +    });
-+    if (isDivider && next.includes('light') && !next.includes('subsection')) {
-+      warn = 'divider light';
-+      next = next.map((t) => (t === 'light' ? 'subsection' : t));
-+    }
 +    if (isCover && modeWord && !next.includes('light') && !next.includes('dark')) next.push(modeWord);
 +    next = next.filter((t, k) => next.indexOf(t) === k);
 +    if (next.join(' ') === tokens.join(' ')) continue;
@@ -108,17 +272,13 @@ index e922f124d..a343ceb3e 100644
 +    if (cm) replaceLine = raw.replace(cm[1], next.join(' '));
 +    else if (/(?:^|,)\s*class=/.test(mm[1])) replaceLine = raw.replace(mm[1], mm[1].replace(/((?:^|,)\s*class=)[^,}]*/, `$1${next.join(' ')}`));
 +    else replaceLine = raw.replace(mm[1], `${mm[1]}, class=${next.join(' ')}`);
-+    const fromKey = !errs.length && !warn;
-+    const onlyWarn = warn && !errs.length;
++    const fromKey = !errs.length;
 +    out.push({
-+      slide, rule: onlyWarn ? 'divider-light-subsection' : 'retired-cover-key',
-+      severity: onlyWarn ? 'warning' : 'error', classToken: errs.length ? 'cover-light' : warn ? 'light' : 'cover',
++      slide, rule: 'retired-cover-key', severity: 'error', classToken: errs.length ? 'cover-light' : 'cover',
 +      shapeChange: true, line: raw.trim(), autofixable: true, replaceLine: replaceLine.trim(),
 +      message: fromKey
 +        ? `The deck's old \`cover:\` set this cover's surface; it is the slide's color mode now (\`${modeWord}\`).`
-+        : errs.length
-+          ? `${errs.join(' and ')} no longer ${errs.length > 1 ? 'work' : 'works'}: a cover follows the color mode, so it is \`light\` or \`dark\` like any slide.`
-+          : '`divider light` meant the smaller, centered subsection layout. `light` is the color mode on a divider now, so that layout is `divider subsection`.',
++        : `${errs.join(' and ')} no longer ${errs.length > 1 ? 'work' : 'works'}: a cover follows the color mode, so it is \`light\` or \`dark\` like any slide.`,
 +      fix: `Write \`${replaceLine.trim()}\`.`,
 +    });
 +  }
@@ -138,6 +298,32 @@ index 5824d50b8..288653013 100644
     Rebuild: node tools/build-stage-catalog.js */
 -module.exports = "actors|title=h2! rows=l1a!;agenda|title=h2!|progress-1 progress-2 progress-3 progress-4 progress-5 progress-6 circles checks;authority-chain|heading=h2! tiers=l1a!|branching trail pyramid bracket;bar|title=h2! categories=l1a!|row grouped diverging;big-number|number=l1a!;bullet|title=h2! rows=l1a!|shared-axis own-axis;cards-grid|title=h2! cards=l1a!|four three||numbered=s;cards-stack|title=h2! cards=l1a!|||numbered=s;checklist|title=h2! items=l1a!;citation-card|heading=h2! citation=c! quotation=q!|pull-quote split margin triptych;closing|heading=h12!|qr index spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;code|title=h2! code=f!;collage|photos=i!|ordered fill above;columns|heading=h2! pane=n!;compare-code|title=h2! left=f#1! right=f#2!;compare-prose|title=h2! options=l1a!|transition chosen decision vertical rejected axis|axis:options=l1a;contact|fields=l1a!;content|heading=h2!;cycle|title=h2! stages=l1a!;decision|title=h2! options=l1a!;diagram|title=h2! mermaid=f:mermaid!;divider|heading=h12!|qr;ep-curve|title=h2! curves=l1a!;flowchart|title=h2! shapes=l1a!|lr tb curved rearrange;funnel|title=h2! stages=l1a!;gantt|title=h2! tasks=l1a!;gift-card|fields=l1a!;glossary|title=h2! entries=l1a,t!;heatmap|title=h2! rows=t!|scale;histogram|title=h2! bands=l1a!;hub-spoke|title=h2! hub=l1a! satellites=l2a!|sized flow-out flow-in flow-both tiered;image|image=i,c:@image!|clean split spotlight gallery statement image-card-top-left image-card-top image-card-top-right image-card-center image-card-bottom-left image-card-bottom image-card-bottom-right image-card-solid image-card-soft image-card-sheer image-card-clear image-card-light image-card-dark image-card-sm image-card-md image-card-lg image-card-regular image-card-compact image-card-band image-card-float;inventory|title=h2! items=l1a!|cards timeline editorial;journey|heading=h12! sections=l1a!|heatmap curve swimlane weighted;kanban|title=h2! lanes=l1a!|keyline tinted;kpi|title=h2! kpis=l1a!|attention ops compliance trajectory spotlight;line|title=h2! points=l1a!|area stacked-area step;list|title=h2! items=l1a!|takeaway principles lettered roman bullet|principles:items=l1a;list-steps|title=h2! steps=l1a!|vertical chevron converge ghost timeline phase milestone lettered stage rank tier roman capsule;list-tabular|title=h2! rows=l1a!|def metric spec register rule solid stacked outline fit-name fit-body fit-meta flex-name flex-meta fixed;logo-wall|logos=l1a!|color dense;map|title=h2! regions=l1a!|us world highlight robinson grouped;math|heading=h2! equation=m,f:math!|feature derivation theorem compare matrix stats decompose|derivation:equation=t,m theorem:equation=q;matrix-2x2|title=h2! axes=l1a!;matrix-grid|heading=h2! matrix=t!;obligation-matrix|heading=h2! matrix=t!|asymmetric pills lanes;piechart|title=h2! slices=l1a!|donut;policy-recommendation|recommendation=h2! rationale=l1a!|adopt amend oppose defer;premise|heading=h2! lede=p! rows=l1a!;pricing|title=h2! tiers=l1a! features=l2a!|two four;progress|title=h2! rows=l1a!;q-and-a|question=l1a! answer=l2a!|spine rail tab grid solo;quadrant|title=h2! items=l2a!|bubble trail cohort threshold magic minimal;quote|quotation=q!|bare;radar|title=h2! series=l1a!|target delta benchmark quadrant small-multiples minimal;redline|heading=h2! citation=c! redline=q!|annotated three-col split stacked;regulatory-update|heading=h2! items=l1a!|timeline priority cards diff-bands;risk-matrix|title=h2! risks=l1a!;roadmap|title=h2! rows=t!|horizons status swimlane milestones;rows|heading=h2! pane=n!;scatter|title=h2! axes=c! points=l1a!|bubble trend;scene|scene=x:svg,f!|clean split spotlight gallery statement;slope|title=h2! entities=l1a! points=l2a!|dumbbell signal;split-compare|heading=h2! options=l1a!;split-panel|heading=h2! points=l1a!|metric pullquote steps proof capstone qr cat-1 cat-2 cat-3 cat-4 cat-5 cat-6 cat-7 cat-8|pullquote:heading=?+quote=q! steps:points=l1a watermark:points=l1a;stacked-bar|title=h2! categories=l1a! parts=l2a!|share row;state-chart|title=h2! states=l1a!|lr tb inline curved unnumbered rearrange;stats|title=h2! tiles=l1a!;statute-stack|heading=h2! rows=l1a!|hierarchy bands preemption lane|lane:rows=t;table|title=h2! table=t,x:table!;team-profile|people=l1a!|lead bench sides bio;timeline-list|title=h2! events=l1a!;title|heading=h1!|spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;topic|heading=h2!|fact;tower|title=h2! layers=l1a!;verdict-grid|title=h2! options=l1a! rationale=l2a!;video|video=c:@video!|companion gallery qr;waterfall|title=h2! steps=l1a!|zoom lower-is-better;wifi|title=h2! fields=l1a!;word-cloud|title=h2! words=l1a!|constellation dense spectrum focal;~c=a line of `inline code`|c:@image=a `@image…` line|c:@video=a `@video…` line|f=a fenced code block|f#1=a fenced code block|f#2=the second fenced code block|f:math=a fenced code block tagged `math`|f:mermaid=a fenced code block tagged `mermaid`|h1=a `# ` heading|h12=a `# ` heading or a `## ` heading|h2=a `## ` heading|i=an image (`![alt](src)`)|l1a=a list|l2a=a list nested 1 level under an item|m=a `$$` equation|n=two panes|p=a paragraph|q=a `>` blockquote|t=a table|x:svg=an inline `<svg>`|x:table=an inline `<table>`|@level='{c}' reads its {s} from {w}, but this slide writes {g}, so no {s} is built.|@levelFix=Write it as {w} instead.|@missing='{c}' needs its {s}, written as {w}. This slide has none, so that part of the layout is empty.|@missingFix=Add {w}.|@source='{t}' is not a class on '{c}': the layout reads it from how the Markdown is written, so the class does nothing.|@sourceFix=Remove '{t}' from the `_class`. {c}.docs.md says what to write instead.|@requires='{c} {t}' acts only with '{n}', so on its own it does nothing.|@requiresFix=Add '{n}', or remove '{t}'.|@foreign='{t}' is a variant of '{n}', not of '{c}', so it does nothing here.|@foreignFix=Remove '{t}', or use one of the variants '{c}'.docs.md lists.";
 +module.exports = "actors|title=h2! rows=l1a!;agenda|title=h2!|progress-1 progress-2 progress-3 progress-4 progress-5 progress-6 circles checks;authority-chain|heading=h2! tiers=l1a!|branching trail pyramid bracket;bar|title=h2! categories=l1a!|row grouped diverging;big-number|number=l1a!;bullet|title=h2! rows=l1a!|shared-axis own-axis;cards-grid|title=h2! cards=l1a!|four three||numbered=s;cards-stack|title=h2! cards=l1a!|||numbered=s;checklist|title=h2! items=l1a!;citation-card|heading=h2! citation=c! quotation=q!|pull-quote split margin triptych;closing|heading=h12!|qr index spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;code|title=h2! code=f!;collage|photos=i!|ordered fill above;columns|heading=h2! pane=n!;compare-code|title=h2! left=f#1! right=f#2!;compare-prose|title=h2! options=l1a!|transition chosen decision vertical rejected axis|axis:options=l1a;contact|fields=l1a!;content|heading=h2!;cycle|title=h2! stages=l1a!;decision|title=h2! options=l1a!;diagram|title=h2! mermaid=f:mermaid!;divider|heading=h12!|subsection qr;ep-curve|title=h2! curves=l1a!;flowchart|title=h2! shapes=l1a!|lr tb curved rearrange;funnel|title=h2! stages=l1a!;gantt|title=h2! tasks=l1a!;gift-card|fields=l1a!;glossary|title=h2! entries=l1a,t!;heatmap|title=h2! rows=t!|scale;histogram|title=h2! bands=l1a!;hub-spoke|title=h2! hub=l1a! satellites=l2a!|sized flow-out flow-in flow-both tiered;image|image=i,c:@image!|clean split spotlight gallery statement image-card-top-left image-card-top image-card-top-right image-card-center image-card-bottom-left image-card-bottom image-card-bottom-right image-card-solid image-card-soft image-card-sheer image-card-clear image-card-light image-card-dark image-card-sm image-card-md image-card-lg image-card-regular image-card-compact image-card-band image-card-float;inventory|title=h2! items=l1a!|cards timeline editorial;journey|heading=h12! sections=l1a!|heatmap curve swimlane weighted;kanban|title=h2! lanes=l1a!|keyline tinted;kpi|title=h2! kpis=l1a!|attention ops compliance trajectory spotlight;line|title=h2! points=l1a!|area stacked-area step;list|title=h2! items=l1a!|takeaway principles lettered roman bullet|principles:items=l1a;list-steps|title=h2! steps=l1a!|vertical chevron converge ghost timeline phase milestone lettered stage rank tier roman capsule;list-tabular|title=h2! rows=l1a!|def metric spec register rule solid stacked outline fit-name fit-body fit-meta flex-name flex-meta fixed;logo-wall|logos=l1a!|color dense;map|title=h2! regions=l1a!|us world highlight robinson grouped;math|heading=h2! equation=m,f:math!|feature derivation theorem compare matrix stats decompose|derivation:equation=t,m theorem:equation=q;matrix-2x2|title=h2! axes=l1a!;matrix-grid|heading=h2! matrix=t!;obligation-matrix|heading=h2! matrix=t!|asymmetric pills lanes;piechart|title=h2! slices=l1a!|donut;policy-recommendation|recommendation=h2! rationale=l1a!|adopt amend oppose defer;premise|heading=h2! lede=p! rows=l1a!;pricing|title=h2! tiers=l1a! features=l2a!|two four;progress|title=h2! rows=l1a!;q-and-a|question=l1a! answer=l2a!|spine rail tab grid solo;quadrant|title=h2! items=l2a!|bubble trail cohort threshold magic minimal;quote|quotation=q!|bare;radar|title=h2! series=l1a!|target delta benchmark quadrant small-multiples minimal;redline|heading=h2! citation=c! redline=q!|annotated three-col split stacked;regulatory-update|heading=h2! items=l1a!|timeline priority cards diff-bands;risk-matrix|title=h2! risks=l1a!;roadmap|title=h2! rows=t!|horizons status swimlane milestones;rows|heading=h2! pane=n!;scatter|title=h2! axes=c! points=l1a!|bubble trend;scene|scene=x:svg,f!|clean split spotlight gallery statement;slope|title=h2! entities=l1a! points=l2a!|dumbbell signal;split-compare|heading=h2! options=l1a!;split-panel|heading=h2! points=l1a!|metric pullquote steps proof capstone qr cat-1 cat-2 cat-3 cat-4 cat-5 cat-6 cat-7 cat-8|pullquote:heading=?+quote=q! steps:points=l1a watermark:points=l1a;stacked-bar|title=h2! categories=l1a! parts=l2a!|share row;state-chart|title=h2! states=l1a!|lr tb inline curved unnumbered rearrange;stats|title=h2! tiles=l1a!;statute-stack|heading=h2! rows=l1a!|hierarchy bands preemption lane|lane:rows=t;table|title=h2! table=t,x:table!;team-profile|people=l1a!|lead bench sides bio;timeline-list|title=h2! events=l1a!;title|heading=h1!|spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;topic|heading=h2!|fact;tower|title=h2! layers=l1a!;verdict-grid|title=h2! options=l1a! rationale=l2a!;video|video=c:@video!|companion gallery qr;waterfall|title=h2! steps=l1a!|zoom lower-is-better;wifi|title=h2! fields=l1a!;word-cloud|title=h2! words=l1a!|constellation dense spectrum focal;~c=a line of `inline code`|c:@image=a `@image…` line|c:@video=a `@video…` line|f=a fenced code block|f#1=a fenced code block|f#2=the second fenced code block|f:math=a fenced code block tagged `math`|f:mermaid=a fenced code block tagged `mermaid`|h1=a `# ` heading|h12=a `# ` heading or a `## ` heading|h2=a `## ` heading|i=an image (`![alt](src)`)|l1a=a list|l2a=a list nested 1 level under an item|m=a `$$` equation|n=two panes|p=a paragraph|q=a `>` blockquote|t=a table|x:svg=an inline `<svg>`|x:table=an inline `<table>`|@level='{c}' reads its {s} from {w}, but this slide writes {g}, so no {s} is built.|@levelFix=Write it as {w} instead.|@missing='{c}' needs its {s}, written as {w}. This slide has none, so that part of the layout is empty.|@missingFix=Add {w}.|@source='{t}' is not a class on '{c}': the layout reads it from how the Markdown is written, so the class does nothing.|@sourceFix=Remove '{t}' from the `_class`. {c}.docs.md says what to write instead.|@requires='{c} {t}' acts only with '{n}', so on its own it does nothing.|@requiresFix=Add '{n}', or remove '{t}'.|@foreign='{t}' is a variant of '{n}', not of '{c}', so it does nothing here.|@foreignFix=Remove '{t}', or use one of the variants '{c}'.docs.md lists.";
+diff --git a/lib/base/_logo/logo.gallery.md b/lib/base/_logo/logo.gallery.md
+index 243f3dde5..dc87c8a83 100644
+--- a/lib/base/_logo/logo.gallery.md
++++ b/lib/base/_logo/logo.gallery.md
+@@ -17,7 +17,7 @@ A grayscale watermark in the top-right corner — brightness adapts to dark and
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ 
+ `How it works`
+ 
+diff --git a/lib/base/base.docs.md b/lib/base/base.docs.md
+index c27e01430..1cb4533a0 100644
+--- a/lib/base/base.docs.md
++++ b/lib/base/base.docs.md
+@@ -1100,7 +1100,7 @@ proxy for line count, so wide-set text can clip without it firing).
+ 
+ ```markdown
+ <!-- _class: divider numbered -->         → stamps "01", then "02", …
+-<!-- _class: divider light numbered -->   → same series, no restart
++<!-- _class: divider subsection light numbered -->   → same series, no restart
+ ```
+ 
+ The number is stamped as `data-lat-section` by `lib/core/section-index.js` and read
 diff --git a/lib/base/base.finish.css b/lib/base/base.finish.css
 index b67cf30f0..a001ba611 100644
 --- a/lib/base/base.finish.css
@@ -759,6 +945,19 @@ index 3c9f7faa4..33751eabc 100644
  section.title { border-top: none; --_edge-t: 1; --_bar-t: 0px; --_bar-room-t: 0px; /* owns its top edge: no bar room to hold */ }
  /* A measure on the deck title: uncapped, a long title runs the full frame width
   * as one thin line that reads as a banner rather than a title block. Capped, it
+diff --git a/lib/components/legal/legal.gallery.md b/lib/components/legal/legal.gallery.md
+index 2836e1429..e41e7e3a4 100644
+--- a/lib/components/legal/legal.gallery.md
++++ b/lib/components/legal/legal.gallery.md
+@@ -21,7 +21,7 @@ Six anchors. Five variants per anchor. Pick the strongest of each row.
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ <!-- _footer: "Orientation · divider light" -->
+ 
+ `How to read this deck`
 diff --git a/lib/core/deck-settings.js b/lib/core/deck-settings.js
 index 07ae4b5e3..dbbb3294e 100644
 --- a/lib/core/deck-settings.js
@@ -1056,6 +1255,28 @@ index 1f3bf22c7..bc7e54f0b 100644
    // Front-matter keys the host reads that are not axis registers, and Marp's own: a plugin register
    // named like one would shadow it in the author's front matter.
    // (`theme`, `class`, `size`, `header`, `footer`, `paginate`, `logo` and every other slide-metadata field are
+diff --git a/test/integration/baseline-decks/gallery.md b/test/integration/baseline-decks/gallery.md
+index 9e5b8f302..b8eee88e8 100644
+--- a/test/integration/baseline-decks/gallery.md
++++ b/test/integration/baseline-decks/gallery.md
+@@ -28,7 +28,7 @@ A decision framework for product leaders navigating market uncertainty, quarterl
+ 
+ ---
+ 
+-<!-- _class: divider light -->
++<!-- _class: divider subsection light -->
+ <!-- _header: '' -->
+ <!-- _footer: "Centered orientation · divider light" -->
+ 
+@@ -927,7 +927,7 @@ Somebody renumbered this deck at one in the morning, once. The sections number t
+ 
+ ---
+ 
+-<!-- _class: divider light numbered -->
++<!-- _class: divider subsection light numbered -->
+ <!-- _header: '' -->
+ <!-- _footer: "Modifier — divider light numbered · divider light numbered" -->
+ 
 diff --git a/tools/lib/record-registers.js b/tools/lib/record-registers.js
 index 8bafa793d..14677b7a0 100644
 --- a/tools/lib/record-registers.js

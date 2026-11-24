@@ -3,7 +3,7 @@ owner: session_01DPMMjEgrcv6brmaXooaAX9 (🎨 presets desk)
 branch: claude/cover-layout
 pr: none yet
 status: in-progress
-updated: 2026-11-24
+updated: 2026-11-24 (D16/D17 decided)
 checkpoint: ~85% (shared pool; 78% read at 20:40 UTC 2026-11-23)
 budget: agents 9 of 13 spent session-wide; this PR's 4 (red team, inversion, checker, grader) not yet spent
 ---
@@ -41,7 +41,7 @@ What the patch does (21 files):
   `cover-layout` live, `cover` retired.
 - `lib/authoring/lint-core.js` `findRetiredCover`: `cover:` → `cover-layout:` (surface word moves onto
   title/closing as `dark`/`light`), `cover-light` → `light`, `cover-inverse` → `dark` (errors);
-  `divider light` → `divider subsection` (warning, D17 default). One `--fix` pass migrates a deck
+  (no `divider light` rule: it is valid). One `--fix` pass migrates a deck
   (tested on a fixture: lints clean after). `tools/regex-census.json` updated (no polynomial regex).
 
 Measured (artifacts/measurements/bookend-contrast.txt): all 33 themes x light and dark, the bookend
@@ -51,14 +51,9 @@ light and cuoio dark players: 112 runs, 0 below AA, as exported and after the to
 
 ## Open questions
 
-### D16 What is the old `divider light` composition called? (default A)
-`divider light` was a layout (smaller, centered, no rail, "former subtopic"), not only a color. With
-`light` now the mode, it needs its own word. A `divider subsection` (in the patch) · B `divider minor`.
-Recommendation A. Posted on #3470 (comment 7117183346).
-
-### D17 How does lint treat an old `divider light`? (default A)
-A one release of warning, `--fix` rewrites to `subsection` (in the patch) · B no warning.
-Recommendation A: a silent look change is a broken window.
+None open. D16/D17 were decided 2026-11-24 (decision note §5): `divider light` is the light mode and is
+not flagged; the small layout is `divider subsection`, combinable with `light`/`dark`; the repo's 17
+decks that used the old small look now say `divider subsection light` (in the patch).
 
 ## Next steps, in order
 
