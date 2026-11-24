@@ -1,4 +1,5 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
+import cssTokensLib from '../../../../lib/core/css-tokens.js';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
@@ -9,6 +10,8 @@ import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, 
 import { deckImageCardClasses, setImageCard } from './deck-axes';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
+
+const { cssUrls } = cssTokensLib;
 
 // THE PHOTO VERDICT: the one answer the Coach and the editor show for the text on a slide's photo. Both views render
 // the object `readVerdict` returns, with its message and its one fix button, so they cannot disagree (owner, 2026-10-28:
@@ -163,7 +166,7 @@ async function readLive(chunk: string, source: string, slideNumber: number, at?:
 		if (!sameSlide(headingOf(chunk), section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
-		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
+		const url = cssUrls(panel?.style.backgroundImage ?? '')[0]?.value;
 		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source, at), url)) return null;
 		// The preview can still be showing the OLD render of this slide right after an edit.
 		if (getClassTokens(chunk).some((c) => (CARD_CLASS.test(c) || c === 'dark' || c === 'light') && !section.classList.contains(c))) return null;
