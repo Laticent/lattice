@@ -335,8 +335,8 @@ the source itself**; the command center's own word is still a request (rule 10).
      - a subagent's report: `"isSynthetic":true` with an `origin` object;
      - a `send_message` that woke the idle command center (02:35:54Z): `get_event` held no `user` turn for
        the wake at all, only a `system` init event, and the message itself again arrived only inside the
-       notification read's `tool_result`. So a relayed message never takes a typed turn's shape, busy or
-       idle.
+       notification read's `tool_result`. In both reads, busy and idle, a relayed message did not take a
+       typed turn's shape; a later read that shows otherwise is new evidence and reopens this check.
 
      Only the iOS form has been read so far. A turn typed on the web or desktop app that lacks
      `client_platform` fails this check, and the receiving session asks the owner in its own chat, so a
