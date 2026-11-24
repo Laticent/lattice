@@ -243,6 +243,18 @@ usage watch below, and the session may stop before it saves anything (`engineeri
 draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8). Step 5 is a comment edit
 only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
 
+**A checkpoint never lowers the bar.** The owner's rule (2026-11-24, in the command center: "add the
+rule"): usage and a deadline are reasons to stop, never reasons to finish with less. Past any checkpoint, a
+session (the command center included) does not:
+- skip evidence a test or card owes (#34's failing arm, repeat and load runs; a surface #23 requires);
+- ask the owner for a merge "exception at HIGH" because time or usage is short (an exception asked for
+  a cap that is structural, one no run can lift, is still fine, and the ask says which);
+- make a design choice only to fit a budget (a byte limit, a CI minute) without putting it to the owner
+  as a choice.
+If the bar can't be met before the stop, the session stops and hands off. Born the night of 2026-11-23,
+when six merge asks went out as HIGH exceptions, one evidence run was skipped "to save usage", and one
+rename turned `fonts:` from a warning into an error to fit the lint-core limit.
+
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session keeps working (§Usage checkpoints). At **90%**, it does the five steps, stops, then
 `npm run baton -- release --pause` (with `--gate` instead if its card is posted), so the other person's
