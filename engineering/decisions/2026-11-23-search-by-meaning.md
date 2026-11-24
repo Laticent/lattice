@@ -149,6 +149,15 @@ fixed in this PR:
   `rd`), and the schema pattern no longer admits `&` or `'`.
 - Comments in `component-search.ts` still described the deleted routing.
 
+**A defect found while verifying it, fixed in this PR.** Typing `movie` then `science` showed the video slide's
+preview on the `math` tile for a moment. The gallery's previews come from a pool of frames that move between tiles
+(`docs/src/components/studio/preview-pool.tsx`). A tile that left the results kept its frame, picture and all, until the
+pool's next throttled pass, and the tile that moved into its spot wore it. A frame moved to a different slide also kept
+its old picture until the patch painted. Now `unregister` frees a departed tile's frame at once, and a frame handed a
+different slide stays hidden until its `onPaint`, with a 1.5 s backstop so a frame that never reports cannot leave a
+tile blank. `docs/e2e/add-slide-gallery.spec.ts` checks every animation frame from the second query until the tiles
+settle; it fails on `main`'s pool on desktop Chromium, WebKit (phone) and Gecko, and passes with the fix.
+
 With the "literal only" search setting (`intent: false`), `searchTerms` has no effect: that setting turns the meaning
 pass off, and `searchTerms` feed only the meaning pass.
 
