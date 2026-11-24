@@ -282,7 +282,10 @@ marp-core 4.x asks for katex 0.16 or 0.17, which `npm audit` flags (GHSA-238p-pm
 it. The test checks that each alias runs the root's katex, and its rule-for-rule snapshot of what each modeled Marp writes
 ahead of a theme proves the swap changes nothing the build packs (the four `dist/lattice-vscode*` files were byte-identical
 across it, 2026-11-23). marp-core stays on 4.4.0, the release Marp for VS Code 3.6.1 and marp-cli 4.5.1 run; 5.x was only a
-pre-release (npm's `next` tag) on that date.
+pre-release (npm's `next` tag) on that date. One consequence to know: marp-core 4.x ships its own KaTeX stylesheet with
+KaTeX 0.16/0.17's class names, so math rendered through these marp-cores with `math: 'katex'` would come out mis-styled
+against 0.18's markup. Nothing in the repo does that: the build calls `renderStyle` only, the parity test renders with
+marp-core's default MathJax, and real Marp renders run the separate `test/fixtures/marp-cli` install.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
@@ -445,6 +448,14 @@ in the area I'm changing?" Baseline today: ~41% statements / ~80%
 branches / ~77% functions. Statement number is low because
 `lattice.js` and `lattice-runtime.js` are exercised by
 integration tests, not unit tests.
+
+**c8's glob and minimatch are pinned by `overrides`.** c8 (11 and 12 alike) reaches them through
+test-exclude 8, which asks for glob ^13 and minimatch ^10, versions `npm audit` flags
+(GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). The fix `npm audit` suggests is a downgrade to c8 9.
+So `package.json` `overrides.test-exclude` pins glob 14.0.6 and minimatch 11.0.9 instead. test-exclude
+calls only `glob`, `glob.sync` and `minimatch`, which both majors export, and it matched the same 642
+files under both trees; a full unit coverage run gave identical totals (2026-11-23). Drop the entry
+once a c8 release takes a fixed test-exclude, and bump the exact pins by hand until then.
 
 ## CI
 
