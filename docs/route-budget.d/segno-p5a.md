@@ -1,9 +1,10 @@
-studio: +3170
-playground: +3074
-home: +3120
+studio: +3300
+playground: +3175
+home: +3225
 
-What grew, measured by CI's per-PR check on 5dec7201 against `main` c3635999, and locally against the merge base
-0fef07ac (studio +3192, playground +3070, home +3124). Segno P5a puts one CSS tokenizer on the eager path:
+What grew, measured by CI's per-PR check on 254a4143 against `main` 23524fc4 (studio +3198, playground +3075, home
++3124), on 5dec7201 against c3635999 (+3170, +3074, +3120), and locally against 0fef07ac (+3192, +3070, +3124). Each
+line carries about 100 bytes of margin, because the same bytes measure a few bytes apart as main's chunks shift. Segno P5a puts one CSS tokenizer on the eager path:
 lib/core/css-tokens.js, the driver and readers (`rewriteCssUrls`, `cssUrls`, `cssCommaParts`, `cssImports`) over the
 one generated CSS parser in lib/core/css-ref.generated.js, which now carries a second entry for every token. Three
 docs readers on every route's eager path moved their `url()` regexes onto `rewriteCssUrls` (theme-fetch.ts,
