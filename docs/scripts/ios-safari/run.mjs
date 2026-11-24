@@ -375,7 +375,15 @@ async function deckTapLeavesLibrary(id) {
 // Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
 function tapLogInstall() {
 	return `
-	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const log = (window.__tapLog = { t0: performance.now(), events: [], busy: [], renders: [] });
+	// The log with the scripts that finished arriving after it began: a module that arrives runs next, so one landing inside a busy
+	// stretch is a suspect for it.
+	window.__tapLogRead = () => {
+		const L = window.__tapLog;
+		if (!L) return null;
+		const scripts = performance.getEntriesByType('resource').filter((e) => e.initiatorType === 'script' || /\\.m?js(\\?|$)/.test(e.name)).filter((e) => e.responseEnd >= L.t0).map((e) => ({ name: e.name.split('/').pop().slice(0, 48), end: Math.round(e.responseEnd - L.t0) }));
+		return { ...L, scripts };
+	};
 	const inEditorOf = ${inEditorOf.toString()};
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
@@ -401,6 +409,22 @@ function tapLogInstall() {
 				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: inEditorOf(el), doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
 			}, { capture: true, passive: true });
 		}
+		// WHO HELD THE PAGE. A tap whose listeners ran seconds late (\`fail-sim-stall\`) met a busy main thread: run 45487561338's
+		// first Compose tap waited 1931 ms. A timer that fires late marks each busy stretch, and what finished inside it (a render
+		// sample with its engine time, a script that arrived and then ran) names the work, so the stall is fixed where it is.
+		let beat = performance.now();
+		const tick = () => {
+			const now = performance.now();
+			const L = window.__tapLog;
+			if (L && now - beat > 150) L.busy.push({ from: Math.round(beat - L.t0), to: Math.round(now - L.t0) });
+			beat = now;
+			setTimeout(tick, 16);
+		};
+		setTimeout(tick, 16);
+		window.__latticeRenderMetrics?.on?.((r) => {
+			const L = window.__tapLog;
+			if (L) L.renders.push({ t: Math.round(performance.now() - L.t0), engineMs: Math.round(r?.engineMs ?? r?.totalMs ?? -1), slides: r?.slides ?? r?.slideCount ?? '' });
+		});
 		document.addEventListener('selectionchange', () => {
 			const L = window.__tapLog;
 			if (!L) return;
@@ -422,7 +446,17 @@ function summarizeTapLog(log) {
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}`;
+	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}${busyNote(log)}`;
+}
+
+/** The page's busy stretches during the tap and what finished inside them (tapLogInstall's timer, render samples, scripts). */
+function busyNote(log) {
+	const busy = log.busy || [];
+	if (!busy.length) return '';
+	const inside = (t) => busy.some((b) => t >= b.from && t <= b.to + 50);
+	const renders = (log.renders || []).filter((r) => inside(r.t)).map((r) => `render@${r.t} engine ${r.engineMs} ms${r.slides !== '' ? `, ${r.slides} slides` : ''}`);
+	const scripts = (log.scripts || []).filter((x) => inside(x.end)).map((x) => `${x.name}@${x.end}`);
+	return `; BUSY ${busy.map((b) => `${b.from}-${b.to} (${b.to - b.from} ms)`).join(', ')}${renders.length ? `; inside: ${renders.join(', ')}` : ''}${scripts.length ? `; scripts in: ${scripts.slice(0, 12).join(', ')}` : ''}`;
 }
 
 /**
@@ -470,7 +504,7 @@ async function probeTap(id, at) {
 					const inAim = !!(block && node && block.contains(node));
 					const caret = !!(sel && sel.isCollapsed);
 					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
-					if ((inAim && caret && focused) || performance.now() - t0 > 4000) done({ inAim, caret, focused, picked: sel ? String(sel).slice(0, 40) : '', log: window.__tapLog || null });
+					if ((inAim && caret && focused) || performance.now() - t0 > 4000) done({ inAim, caret, focused, picked: sel ? String(sel).slice(0, 40) : '', log: window.__tapLogRead ? window.__tapLogRead() : window.__tapLog || null });
 					else requestAnimationFrame(read);
 				};
 				read();`,
@@ -666,7 +700,7 @@ async function composeTouchTap(id) {
 						const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
 						const marked = !!(p && p.classList.contains('cs-active-line'));
 						const caret = !!(sel && sel.isCollapsed);
-						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
+						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLogRead ? window.__tapLogRead() : window.__tapLog || null });
 						else requestAnimationFrame(read);
 					};
 					read();`,
