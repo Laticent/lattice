@@ -22,7 +22,7 @@
  * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
  * so run.sh restarts safaridriver, reboots the device and tries once more.
  */
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -476,6 +476,24 @@ async function touchAt(id, at, forcedHold = 0) {
 }
 
 /**
+ * WHAT STARVES THE SIMULATOR. A stalled tap is the simulator's, not the page's (run 45497340980: the page busy 3.7 s with no
+ * render or script inside, touchend stamped 9.9 s late by the simulator itself). So the host is sampled while the gesture is
+ * still in flight: load average and the busiest processes, `ms` after the tap went out. Resolves to one line, or why not.
+ */
+function hostLoadAt(ms) {
+	return new Promise((resolve) => {
+		setTimeout(() => {
+			execFile('sh', ['-c', 'sysctl -n vm.loadavg; ps -Ao pcpu=,rss=,comm= -r | head -8'], { timeout: 5000 }, (err, out) => {
+				if (err) return resolve(`host load unreadable (${String(err.message).slice(0, 80)})`);
+				const [load, ...procs] = String(out).trim().split('\n');
+				const top = procs.map((l) => l.trim().split(/\s+/)).map(([cpu, rss, ...cmd]) => `${cmd.join(' ').split('/').pop()} ${cpu}% ${Math.round(Number(rss) / 1024)}MB`);
+				resolve(`host at +${ms} ms: load ${load.replace(/[{}]/g, '').trim()}; ${top.join(', ')}`);
+			});
+		}, ms);
+	});
+}
+
+/**
  * The tap the Compose probe asks for at the stop that focuses the editor (compose-probe.js `tapInto`, #3291): delivered with
  * the same long-press guard as `composeTouchTap` (tap-guard.mjs), and judged by whether a caret landed in the block the
  * tapped point holds, with the editor focused. Returns the verdict the probe records as a step.
@@ -490,6 +508,7 @@ async function probeTap(id, at) {
 			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
 		}
 		await run(tapLogInstall());
+		const host = hostLoadAt(1500);
 		const tapMs = await touchAt(id, at);
 		const seen = await wd('POST', `/session/${id}/execute/async`, {
 			args: [],
@@ -514,6 +533,7 @@ async function probeTap(id, at) {
 		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n, lag: tapLag(seen.log) });
 		tries.push({ n, tapMs, hold, seen, decision });
 		console.log(`${LABEL}: compose probe tap ${n} at ${at.x},${at.y} (${at.what}): gesture ${tapMs} ms; hold ${hold ?? 'none'} ms; ${decision}; page saw ${summarizeTapLog(seen.log)}`);
+		if (decision !== 'pass') console.log(`${LABEL}: compose probe tap ${n} ${await host}`);
 		if (decision !== 'redeliver') break;
 		console.log(`${LABEL}: compose probe tap ${n} RE-DELIVERED: held ${hold} ms, ${redeliverWhy(seen.log)}`);
 	}
