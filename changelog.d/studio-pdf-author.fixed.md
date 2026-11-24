@@ -1,1 +1,0 @@
-- PDFs exported from the Studio now list `Lattice Studio` as their author instead of the retired `Lattice Drawing Board`.

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 delivery: restrained   # try expressive (the hand leads, ink marks each act) and somber (one gesture a slide, on its key beat)
 pace: brisk
 footer: "Laticent · the Guide plays every structure its own way"

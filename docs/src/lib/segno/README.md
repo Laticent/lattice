@@ -597,7 +597,7 @@ other takes the full bind: the results are the same and the saving is lost.
 ## Build
 
 `npm run segno-lib:build` regenerates `notation.generated.ts` and `notation-plain.generated.ts`
-(the parser of `plainRecordSpec`) and writes `dist/` (ESM + CJS + `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
+(the parser of `plainRecordSpec`) and writes `dist/` (ES modules + `.d.ts`); `npm run segno-lib:check` fails if either is stale. Three entries: `@laticent/segno`;
 `@laticent/segno/values` — `readNumber`, `malformedNumber` and `readTime` alone, a few KB against the full library's
 80, for a consumer that only reads values and cannot tree-shake a CommonJS `require`; and
 `@laticent/segno/read` — `parse`, the schema builders and the types without the grammar compiler

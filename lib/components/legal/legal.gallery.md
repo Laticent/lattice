@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · Legal & regulatory layouts"
 footer: "Six anchors · five variants each · candidate deck"
 ---

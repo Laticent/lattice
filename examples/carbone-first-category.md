@@ -2,7 +2,7 @@
 marp: true
 theme: carbone
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · carbone's first category"
 footer: "Blue leads; green is second"
 ---

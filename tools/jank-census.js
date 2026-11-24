@@ -188,7 +188,7 @@ function catalog() {
 // tool exists against. `form` is the Form WRAPPER every slide carries — not a component, so
 // the catalog never covers it, and not a modifier, so appending it to a host does nothing.
 // Its `::after` is the PAGE NUMBER (lib/forms/cell/pagination-right/pagination-right.css),
-// which paints only under `paginate: true` front matter — something a `_class` string cannot
+// which paints only under `pagination: true` front matter — something a `_class` string cannot
 // supply. Swept as `content form` it therefore rendered no mark, produced no candidate, and
 // landed in the committed table's "no placeable positioned mark" list: a clean bill for a
 // section-level running mark that was never on the page. The pagination number is precisely
@@ -198,7 +198,7 @@ function catalog() {
 // front-matter register the class string has no way to reach (#2168).
 const NOT_A_MODIFIER = Object.freeze({
   form: 'the Form wrapper class every slide carries, not a modifier. Its `::after` is the '
-    + 'page number, which needs `paginate: true` front matter that a _class string cannot supply',
+    + 'page number, which needs `pagination: true` front matter that a _class string cannot supply',
 });
 
 // A MODIFIER THAT PAINTS NOTHING ON ITS OWN NEEDS ITS COMPANION, or the census reports

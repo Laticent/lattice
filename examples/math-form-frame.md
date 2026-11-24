@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Math on the Form frame"
 footer: "Confidential"
 meta: "Q3 Review"

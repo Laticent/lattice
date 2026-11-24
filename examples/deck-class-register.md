@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 color-mode: dark
 class: no-note
 header: "Lattice · the deck-wide class register"

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · The default slide layout"
 meta: "Default layout · #1292"
 ---

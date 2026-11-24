@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 venue: hall
 header: "Lattice · quadrant axis titles"

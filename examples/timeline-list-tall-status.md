@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: portrait
-paginate: true
+pagination: true
 header: "Lattice · timeline-list status on tall decks"
 ---
 

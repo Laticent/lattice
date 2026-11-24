@@ -49,12 +49,12 @@ test('footers follow the same rule', () => {
 
 test('pagination is not a slide directive: a paginate comment is ignored, front matter and classes decide', () => {
   assert.deepEqual(attrs(five('<!-- paginate: false -->', '<!-- _paginate: false -->'), 'paginate'), ['true', 'true', 'true', 'true', 'true']);
-  assert.deepEqual(attrs(`---\npaginate: false\n---\n\n${five('<!-- _class: content with-pagination -->', '')}`, 'paginate'), ['-', 'true', '-', '-', '-']);
+  assert.deepEqual(attrs(`---\npagination: false\n---\n\n${five('<!-- _class: content with-pagination -->', '')}`, 'paginate'), ['-', 'true', '-', '-', '-']);
 });
 
 test('every off spelling the Studio and Export to Marp read as off, the engine reads as off (one rule)', () => {
   for (const v of ['false', 'False', 'no', 'off', '0', "'false'", 'false # quiet', 'skip', 'hold']) {
-    assert.deepEqual(attrs(`---\npaginate: ${v}\n---\n\n${five('', '')}`, 'lattice-pagination'), ['-', '-', '-', '-', '-'], v);
+    assert.deepEqual(attrs(`---\npagination: ${v}\n---\n\n${five('', '')}`, 'lattice-pagination'), ['-', '-', '-', '-', '-'], v);
   }
 });
 

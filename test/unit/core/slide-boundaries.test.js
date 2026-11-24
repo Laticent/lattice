@@ -90,7 +90,7 @@ test('the §7b shapes: front matter, empty chunks, a fence-masked separator', ()
 	// Front matter is stripped BEFORE the derivation, by contract — its closing `---` is a
 	// thematic break to any parser that sees it, and its opening `---` makes the first key a
 	// setext heading.
-	const withFm = '---\ntitle: x\npaginate: true\n---\n\n# One\n\n---\n\n# Two\n';
+	const withFm = '---\ntitle: x\npagination: true\n---\n\n# One\n\n---\n\n# Two\n';
 	assert.deepEqual(slideBoundaries(withFm.replace(FRONT_MATTER, '')).lines, [3]);
 
 	// An empty MIDDLE chunk is a real, rendered, empty slide; a body-LEADING one is dropped,

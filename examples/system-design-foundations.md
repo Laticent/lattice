@@ -2,7 +2,7 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 profile: teaching
 glossary: auto
 header: "System design"

@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: onyx
-paginate: true
+pagination: true
 footer: "Onyx · secondary + label tiers, light & dark"
 ---
 

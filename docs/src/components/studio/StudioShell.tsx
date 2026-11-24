@@ -2197,7 +2197,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	
-	// Deck-level front-matter (size / paginate / header / footer) is split off the
+	// Deck-level front-matter (size / pagination / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
@@ -2727,8 +2727,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
-	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
-	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
+	// Page numbers are on unless the front matter says `pagination: false` (the owner's ruling, 2026-10-20).
+	const pageNumbers = paginateOn(getFrontMatter(source, 'pagination'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
 	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
 	// override it in the source. (resolve-lift.js.)
@@ -3244,7 +3244,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// through the preset-aware helpers (typography.ts).
 	const deckType = deckTypography(source);
 	const setDeckType = (value: string) => settingsWrite(`Typography → ${TYPOGRAPHY_OPTIONS.find((o) => o.value === value)?.label ?? value}`, (s) => withTypography(s, value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
+	// The retired `paginate:` line goes too: the engine ignores it, and lint calls it an error (`key-renamed`).
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'paginate', null);
+		return writeFrontMatterLine(withoutOld, 'pagination', pageNumbers ? 'false' : null);
+	});
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);
@@ -8026,7 +8030,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className={presentOpen ? 'hidden' : 'size-full'} aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className={presentOpen ? 'hidden' : 'size-full'} aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader reloadSafe bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
 					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}

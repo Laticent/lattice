@@ -572,7 +572,7 @@ test('agent kit structure', { skip }, async (t) => {
 	 */
 	await t.test('the deck-writing path teaches front matter and the modifier catalog', () => {
 		const readme = fs.readFileSync(path.join(KIT, 'authoring', 'README.md'), 'utf8');
-		assert.match(readme, /paginate:\s*true/, 'the authoring README never shows front matter');
+		assert.match(readme, /pagination:\s*true/, 'the authoring README never shows front matter');
 		assert.doesNotMatch(readme, /marp:\s*true/, 'the authoring README teaches Marp front matter (2026-11-17-agent-pack.md)');
 		assert.match(readme, /theme:/, 'the authoring README never shows how to pick a theme');
 		assert.match(readme, /modifiers\.md/, 'the authoring README never points at the modifier catalog');
@@ -935,7 +935,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-pack-'));
 		try {
 			const deck = path.join(dir, 'skeletons.md');
-			fs.writeFileSync(deck, `---\ntheme: indaco\npaginate: true\n---\n\n${blocks.join('\n\n---\n\n')}\n`);
+			fs.writeFileSync(deck, `---\ntheme: indaco\npagination: true\n---\n\n${blocks.join('\n\n---\n\n')}\n`);
 			const examples = fs.readdirSync(path.join(KIT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(KIT, 'examples', f));
 			for (const file of [deck, ...examples]) {
 				let out;

@@ -1,0 +1,1 @@
+- **The Playground preview keeps a wheel scroll when slides mount around it.** On a busy machine Chromium could put the preview back on the slide it had just left, at the moment the slides around the new position mounted, so the walk bar and the slide map went back to slide 1. The window move now puts the scroll back where the reader left it.

@@ -400,7 +400,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// `class:` tokens with the slide's own, through the one precedence (`with-X` > `no-X` > `silent`).
 	// Flipping it writes the least the slide needs: `no-X` when the deck shows the band, `with-X` when
 	// the deck (or the slide's `silent`) hides it, and neither when the slide's wish IS the deck's.
-	// With no switch token, the page number follows what the ENGINE does: the deck's `paginate:` and
+	// With no switch token, the page number follows what the ENGINE does: the deck's `pagination:` and
 	// the layout's own default (title, divider and closing show none), by lib/core/pagination.js, the
 	// rule the engine uses. The other rows read the switch itself: `with-progress` cannot make a rail
 	// in a deck with no divider, nor `with-logo` a logo the deck never set, so those rows say what the
@@ -408,7 +408,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// The page-number fallback is lib/core/pagination.js `slidePaginates`, restated over the same
 	// generated table: that file has requires of its own, which the dev server's CJS shim refuses.
 	const shownWith = (name: string, list: string[]) =>
-		switchOn(name, list, name !== 'pagination' || (!list.some((t) => NO_PAGINATION.includes(t)) && paginateOn(getFrontMatter(source, 'paginate'))));
+		switchOn(name, list, name !== 'pagination' || (!list.some((t) => NO_PAGINATION.includes(t)) && paginateOn(getFrontMatter(source, 'pagination'))));
 	const switchHidden = (name: string) => !shownWith(name, [...deck.classTokens, ...tokens]);
 	const setSwitchHidden = (name: string, hide: boolean) => onMutate((c) => {
 		const own = getClassTokens(c).filter((t) => t !== `no-${name}` && t !== `with-${name}`);

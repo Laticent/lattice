@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · pane layouts"
 footer: "Pane layouts — columns and rows"
 ---

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: mobile-landscape
 footer: "size: mobile-landscape · 19.5:9, 1560 by 720 · HD type and content box, wider canvas"
 lang: en

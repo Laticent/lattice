@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · the universal coda"
 footer: "One cell for the trailing beats"
 acronyms:

@@ -51,7 +51,7 @@ marp: true
 theme: indaco
 header: "Running Header"
 footer: "Footer Text"
-paginate: true
+pagination: true
 progress-rail: on
 ---
 

@@ -1,1 +1,0 @@
-- Nine new skills for work on a deck you already have: `edit-deck`, `restyle-deck`, `fix-findings`, `chart-from-data`, `diagram`, `math`, `import`, `accessibility-review` and `studio`. The Studio chat offers every one except `import`, and Claude Code and the agent kit get all nine through the skill index.

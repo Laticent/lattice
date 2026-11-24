@@ -49,7 +49,7 @@ describe('the Segno Languages demo deck', () => {
 		expect(slideViews(split.model)).toHaveLength(6);
 		expect(slideViews(split.model)).toEqual(slideViews(build(split.model.source)));
 
-		const fm = step(prev, SAMPLE.replace('paginate: true', 'paginate: false'));
+		const fm = step(prev, SAMPLE.replace('pagination: true', 'pagination: false'));
 		expect(fm.full).toBe(true);
 		expect(fm.reread).toEqual([0, 1, 2, 3, 4]);
 		expect(fm.rereadLines).toBe(prev.lines);

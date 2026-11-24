@@ -33,7 +33,7 @@ const { resolvePalette } = require('../../../lib/core/resolve-palette.js');
 const DECK_LF = [
 	'---',
 	'theme: cuoio',
-	'paginate: true',
+	'pagination: true',
 	'---',
 	'',
 	'# First',

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 finish: atrium
-paginate: true
+pagination: true
 header: "Lattice · finishes"
 logo: sample:logo-acme-mark.svg
 logo-finish: bottom-center title

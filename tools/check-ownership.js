@@ -136,6 +136,9 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// changesets + the publish set: the formats live in their release modules; these gates only report them
+const { changesetProblems } = require('./changesets');
+const { publishSetProblems } = require('./release-packages');
 const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
@@ -7269,6 +7272,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/changesets.js',
+    why: 'reads `.changeset/*.md`, which are committed text (LF by .gitattributes), and is itself the gate for them: '
+       + '`changesetProblems` REJECTS a CR or a BOM by name before it parses, so normalizing at the read would hide the '
+       + 'very bytes it reports. `parseChangeset` also strips both before anchoring on `^---`, for its other callers.',
+  },
   {
     file: 'tools/platform-harness.js',
     why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
@@ -14862,8 +14871,8 @@ function checkPhantomTokenReads(errors) {
 }
 
 /**
- * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
- * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * HARD RULE #10's legacy landing spot is `changelog.d/` (a changeset in `.changeset/` is the
+ * other; see checkChangesets), never a CHANGELOG.md — one file per PR, so two PRs never edit the same region and
  * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
  * seven ejections in one evening before this).
  *
@@ -14877,6 +14886,23 @@ function checkPhantomTokenReads(errors) {
  */
 function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
+/**
+ * HARD RULE #10's other landing spot: a changeset in `.changeset/`. Changesets reads every one of
+ * them at release time, and a changeset it cannot read (a package that does not publish, a bump
+ * that is not patch/minor/major, a first line the notes cannot print) would fail `changeset
+ * version` on release day, after the queue had already landed the PR that wrote it. So the gate
+ * reads each one when it lands. The format is defined once, in tools/changesets.js.
+ *
+ * It also holds the publish set (tools/release-packages.js): every workspace package publishes,
+ * is held back by `.changeset/config.json` `ignore`, or is private, and the two lists agree. A
+ * public package in neither list would publish the first time anyone cut a release. This is the
+ * default check; the release runs the strict one, which also requires all thirteen to be public.
+ */
+function checkChangesets(errors) {
+  for (const problem of changesetProblems()) errors.push(problem);
+  for (const problem of publishSetProblems()) errors.push(`publish set: ${problem}`);
 }
 
 /**
@@ -16007,6 +16033,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkChangesets(errors);
   checkFollowups(errors);
   checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
@@ -16121,6 +16148,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkChangesets,
   checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,

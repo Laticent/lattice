@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: carta
-paginate: true
+pagination: true
 class: sketch
 header: "Lattice · sketch finish"
 ---

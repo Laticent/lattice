@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 header: "Lattice · Histogram edge labels"
 meta: "Histogram edge labels"

@@ -4,7 +4,8 @@
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
- * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
+ * (PROBE=focus-sync), playground-scroll-probe.js, a finger drag over the Playground's preview across a window move
+ * (PROBE=playground-scroll), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
@@ -27,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { runEngineRetryProbe } from './engine-retry.mjs';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { inEditorOf, LONG_PRESS_MS, pressMovedOut, pressSelected, pressSelectedWord, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
@@ -161,7 +163,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'playground-scroll' ? await runPlaygroundScrollProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -240,13 +242,26 @@ async function runStudioProbe(id) {
 	// A finger on the deck band leaves a Library just launched from the menu, on a fresh page each time (ui/sheet.tsx).
 	const leave = await deckTapLeavesLibrary(id);
 	if (!leave.ok) await shotIfFailed('deck-tap', leave);
+	// Last, because it opens a tab: an engine sub-file that fails to load, and whether the preview's way back works in real
+	// Safari (engine-retry.mjs, PR #3385). Its own origin, so nothing the probes above stored reaches it.
+	// Twice: a dropped connection, then a 503. Browsers recover from the two differently (engine-retry.mjs).
+	// ONLY ON A MANUAL DISPATCH (or ENGINE_RETRY=1 by hand). It costs minutes, and the iPad suite already ends near its
+	// 30-minute job cap on a slow runner: on run 44966439518 Safari's launch took 207 s and the cap stopped the job inside
+	// this probe. A nightly or pull-request run skips it, so their time is unchanged. Its regular home is its own nightly
+	// suite, which the owner approved (followups.d/3385-p1-nightly-engine-retry-suite.md).
+	const wantEngine = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' || process.env.ENGINE_RETRY === '1';
+	const engineRun = (mode) => runEngineRetryProbe(wd, id, BASE, mode).catch((e) => ({ ok: false, error: String(e), steps: [] }));
+	const skipped = { ok: true, steps: [{ name: 'skipped: runs on a manual dispatch only (job time)', pass: true }] };
+	const drop = wantEngine ? await shotIfFailed('engine-retry-drop', await engineRun('drop')) : skipped;
+	const http503 = wantEngine ? await shotIfFailed('engine-retry-503', await engineRun('503')) : { ok: true, steps: [] };
+	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
 	};
 }
 
@@ -796,6 +811,28 @@ async function emptyDeckTap(id) {
 		if (prep.hit) {
 			const deliver = async (n) => {
 				await wd('POST', `/session/${id}/execute/sync`, { script: tapLogInstall(), args: [] });
+				// THE START GRID'S FALLBACK, made visible. When Safari withholds the tap's click, the grid's touch release arms a
+				// START_GRID_CLICK_WAIT_MS (500 ms) timer that puts the caret (StudioShell `armStartGridFallback`). A failure with
+				// no click and no focus (iPad, job 137920664351) could be the timer never armed, armed and cancelled by a later
+				// press, or fired without the focus taking. The log shows presses and focus already; this adds the timer's set and
+				// its firing, so the next such failure names which. Probe-only: the page's own timer still runs as written.
+				await wd('POST', `/session/${id}/execute/sync`, {
+					args: [],
+					script: `if (!window.__startGridTimerLog) {
+						window.__startGridTimerLog = true;
+						const set0 = window.setTimeout;
+						window.setTimeout = function (fn, ms, ...rest) {
+							if (ms !== 500 || typeof fn !== 'function') return set0.call(this, fn, ms, ...rest);
+							const L = window.__tapLog;
+							if (L) L.events.push({ type: 'timer500-set', t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, target: '' });
+							return set0.call(this, function () {
+								const M = window.__tapLog;
+								if (M) M.events.push({ type: 'timer500-fire', t: Math.round(performance.now() - M.t0), lag: 0, x: 0, y: 0, target: String(document.activeElement && document.activeElement.tagName) });
+								return fn.apply(this, arguments);
+							}, ms, ...rest);
+						};
+					}`,
+				});
 				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 				// NO HOLD between down and up, for composeTouchTap's reason: a simulator can stretch a hold into a long press.
 				await wd('POST', `/session/${id}/actions`, {
@@ -1508,6 +1545,87 @@ async function runChatStorageProbe(id) {
 	});
 	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
 	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * THE PLAYGROUND SCROLL PROBE (PROBE=playground-scroll, playground-scroll-probe.js): a real finger drags the Playground's
+ * Explore preview, with the map open and the page kept busy, and the page checks that the preview stayed where the finger
+ * left it and that the rail and the walk bar followed. `applyWindow` writes the scroll back when a window move drops it
+ * (#3428); this is that guard on WebKit, on the device. Several fresh loads per device (PLAYGROUND_SCROLL_TRIALS, default 6,
+ * odd ones quiet and even ones with the burner), each with one finger drag and a script scroll after it (safaridriver stops answering after a second drag over
+ * the frame), so the walk crosses at least one window move.
+ * A trial fails the suite.
+ */
+async function runPlaygroundScrollProbe(id) {
+	const probe = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
+	const burn = Number(process.env.PLAYGROUND_SCROLL_BURN_MS ?? 150);
+	const trials = Number(process.env.PLAYGROUND_SCROLL_TRIALS ?? 6);
+	// EVERY CALL HAS A DEADLINE. The first harness run (#3428, run 45065714489) hung after psPrepare on both devices for
+	// 16 minutes until the connection failed, and named nothing. Now a stuck step fails as itself, and the log says which.
+	const t0 = Date.now();
+	const step = (what) => console.log(`${LABEL}: +${Math.round((Date.now() - t0) / 1000)}s ${what}`);
+	const call = (expr, timeoutMs) =>
+		wd(
+			'POST',
+			`/session/${id}/execute/async`,
+			{
+				script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`,
+				args: [],
+			},
+			{ timeoutMs },
+		);
+	const drag = async (x, y1, y2) => {
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
+		await wd(
+			'POST',
+			`/session/${id}/actions`,
+			{ actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x, y: y2 }, { type: 'pointerUp', button: 0 }] }] },
+			{ timeoutMs: 60000 },
+		);
+		await wd('DELETE', `/session/${id}/actions`, undefined, { timeoutMs: 30000 }).catch(() => {});
+	};
+	const result = { ua: '', width: 0, burn, steps: [], trials: [], ok: false };
+	let doing = 'reading the user agent';
+	try {
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] }, { timeoutMs: 30000 });
+		for (let i = 1; i <= trials; i++) {
+			// Odd trials on a quiet page, even ones with the burner: a step that only sticks under load names itself.
+			const ms = i % 2 === 0 ? burn : 0;
+			doing = `trial ${i} (burn ${ms} ms): loading the Playground`;
+			step(doing);
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?c=kpi&view=read&t=${i}` }, { timeoutMs: 120000 });
+			doing = `trial ${i} (burn ${ms} ms): psPrepare`;
+			step(doing);
+			const ready = await call(`psPrepare(${ms})`, 240000);
+			if (ready?.error) throw new Error(`${doing}: ${ready.error}`);
+			result.width = ready.width;
+			// ONE real finger drag, then a script scroll the rest of the way. On the hosted simulator safaridriver stopped
+			// answering after the first touch drag over the preview frame (harness run 45073632825: drag 1 took 32 s, and the
+			// next call got no answer at all, burner off), so a second drag ends the session. The script scroll waits for the
+			// walk's land, as a scroll with no reader input must (probe.selftest.mjs says why), and crosses a window move.
+			doing = `trial ${i} (burn ${ms} ms): the finger drag`;
+			step(doing);
+			await drag(ready.drag.x, ready.drag.bottom, ready.drag.top);
+			doing = `trial ${i} (burn ${ms} ms): the script scroll`;
+			step(doing);
+			const scrolled = await call('psScrollRest()', 60000);
+			if (scrolled?.error) throw new Error(`${doing}: ${scrolled.error}`);
+			doing = `trial ${i} (burn ${ms} ms): psAfter`;
+			step(doing);
+			const after = await call('psAfter()', 90000);
+			if (after?.error) throw new Error(`${doing}: ${after.error}`);
+			result.trials.push({ trial: i, burn: ms, start: ready.start, y: after.y, pane: after.pane, rail: after.rail, bar: after.bar, inView: after.inView, drops: after.drops, ok: after.ok });
+			console.log(`${LABEL}: trial ${i} (burn ${ms} ms): ${after.ok ? 'ok' : 'FAIL'} scrollY ${after.y} (pane ${after.pane}), rail ${after.rail + 1}, bar ${after.bar}, in view ${after.inView}, swaps that dropped the scroll: ${after.drops.length ? after.drops.join(' ') : 'none'}`);
+			for (const s of after.steps) result.steps.push({ ...s, name: `trial ${i}: ${s.name}` });
+		}
+		result.ok = result.trials.length === trials && result.trials.every((t) => t.ok);
+	} catch (e) {
+		result.error = `stuck or failed while ${doing}: ${e.name === 'TimeoutError' ? 'no answer before its deadline' : String(e)}`;
+		step(result.error);
+		// Stop a burner left running, so the screenshot and the next session see a page that answers.
+		await wd('POST', `/session/${id}/execute/sync`, { script: 'clearInterval(window.__psBurner)', args: [] }, { timeoutMs: 15000 }).catch(() => {});
+	}
+	return result;
 }
 
 /**

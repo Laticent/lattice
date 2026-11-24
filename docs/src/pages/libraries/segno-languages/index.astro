@@ -226,10 +226,10 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			});
 			$('front').addEventListener('click', () => {
 				const text = ed.value;
-				const m = /^paginate: (true|false)$/m.exec(text.slice(0, model.bodyStart));
-				if (m) apply(text.slice(0, m.index) + `paginate: ${m[1] === 'true' ? 'false' : 'true'}` + text.slice(m.index + m[0].length), m.index + m[0].length);
-				else if (model.bodyStart > 0) apply(`---\npaginate: true\n${text.slice(4)}`, 17);
-				else apply(`---\npaginate: true\n---\n\n${text}`, 17);
+				const m = /^pagination: (true|false)$/m.exec(text.slice(0, model.bodyStart));
+				if (m) apply(text.slice(0, m.index) + `pagination: ${m[1] === 'true' ? 'false' : 'true'}` + text.slice(m.index + m[0].length), m.index + m[0].length);
+				else if (model.bodyStart > 0) apply(`---\npagination: true\n${text.slice(4)}`, 19);
+				else apply(`---\npagination: true\n---\n\n${text}`, 19);
 			});
 			$('reset').addEventListener('click', reset);
 			ed.addEventListener('input', update);

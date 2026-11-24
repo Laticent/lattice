@@ -21,14 +21,8 @@
   "exports": {
     "./markdown": {
       "@laticent/source": "./index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -38,7 +32,8 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
-    "LICENSE.markdown-it.md"
+    "LICENSE.markdown-it.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"

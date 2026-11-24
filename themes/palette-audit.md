@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · Palette audit"
 footer: "13 themes · every token tier"
 style: |

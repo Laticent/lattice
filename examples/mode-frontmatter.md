@@ -2,7 +2,7 @@
 marp: true
 theme: carta
 mode: sketch
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title silent -->

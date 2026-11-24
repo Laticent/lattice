@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · spectrum edge cases"
 footer: "Edge-case deck"
 ---

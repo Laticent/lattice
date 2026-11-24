@@ -33,11 +33,11 @@ const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 // The markdown these cases pass must actually NEED deck context, or the gate in renderInto
 // correctly declines to render the deck at all (see needsDeckContext): a deck with no `paginate`,
 // no running-global directive and no divider has no deck-scoped fact to get right, so rendering
-// the whole thing would be pure cost. `paginate: true` is the realistic trigger — a deck showing
+// the whole thing would be pure cost. `pagination: true` is the realistic trigger — a deck showing
 // page numbers is precisely the case deck context exists for.
 // A deck that genuinely NEEDS the whole-deck render, used by the narrowing tests below as their
 // lever into that path. It is a DIVIDER deck, not a paginated one: pagination stopped forcing a
-// deck render once the position became something the caller supplies, so `paginate: true` here
+// deck render once the position became something the caller supplies, so `pagination: true` here
 // would quietly take the slice path and these tests would stop exercising narrowing at all.
 const DECK_SCOPED = '<!-- header: Q3 Review -->\n\ndeck body';
 
@@ -207,7 +207,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		// guard, every slide fell back to rendering alone and numbered itself 1, while the PDF numbered
 		// it right (followups.d/2436-p3-preview-page-number-glossary-auto.md). The glossary sits AFTER
 		// the authored slides, so section k is still slide k.
-		const GLOSSARY_DECK = '---\npaginate: true\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n\n---\n\nTwo\n\n---\n\nThree\n';
+		const GLOSSARY_DECK = '---\npagination: true\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }\n---\n\n<!-- header: Q3 -->\n\nOne\n\n---\n\nTwo\n\n---\n\nThree\n';
 		const WITH_GLOSSARY = `<article class="lattice">\n${section(1, 4, 'One')}\n${section(2, 4, 'Two')}\n${section(3, 4, 'Three')}\n${section(4, 4, 'Glossary')}\n</article>`;
 		const calls: string[] = [];
 		(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, md: string) => {
@@ -320,7 +320,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '---\npaginate: true\n---\n\nbody\n\n---\n\nmore';
+		const deck = '---\npagination: true\n---\n\nbody\n\n---\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});
@@ -332,7 +332,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const host = mountHost();
 		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
 		mock.mockClear();
-		await r.renderInto(host, '---\npaginate: true\n---\n\nbody\n\n---\n\nmore', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		await r.renderInto(host, '---\npagination: true\n---\n\nbody\n\n---\n\nmore', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][3]).toMatchObject({ page: { offset: 1, total: 2 } });
 	});
 
@@ -428,11 +428,11 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen).toEqual(['THE SLICE']);
 	});
 
-	it('`paginate: false` does NOT trigger a deck render', async () => {
+	it('`pagination: false` does NOT trigger a deck render', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		await r.renderInto(host, '---\npaginate: false\n---\n\nbody\n\n---\n\nmore', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		await r.renderInto(host, '---\npagination: false\n---\n\nbody\n\n---\n\nmore', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen).toEqual(['THE SLICE']);
 	});
 });
@@ -669,7 +669,7 @@ describe('supplied position is verified, not trusted', () => {
 
 	it('does NOT supply a position when an implicit heading split desyncs the count', async () => {
 		// THE REGRESSION. No `split:` directive at all — heading splitting is simply the default.
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n## B\n\n---\n\n# C\n', 2))?.page).toBeUndefined();
+		expect((await run('---\npagination: true\n---\n\n# A\n\n## B\n\n---\n\n# C\n', 2))?.page).toBeUndefined();
 	});
 
 	it('DOES supply a position for a non-`---` hr form, now that the counts agree', async () => {
@@ -682,11 +682,11 @@ describe('supplied position is verified, not trusted', () => {
 		// slides here exactly as the engine renders two sections, and the position is sound.
 		// The refusal is retired rather than loosened: there is no longer a disagreement to
 		// fail closed around.
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+		expect((await run('---\npagination: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
 	});
 
 	it.each(['___', '- - -', '--- ', '----'])('…and for %j too', async (sep) => {
-		const deck = `---\npaginate: true\n---\n\n# A\n\n${sep}\n\n# C\n`;
+		const deck = `---\npagination: true\n---\n\n# A\n\n${sep}\n\n# C\n`;
 		expect((await run(deck, 2))?.page).toEqual({ offset: 1, total: 2 });
 	});
 
@@ -694,12 +694,12 @@ describe('supplied position is verified, not trusted', () => {
 		// What replaces the retired form-by-form refusals: the scanner's own verdict. An
 		// unclosed fence is what a deck looks like mid-keystroke, and an index into a slide
 		// list nobody can vouch for is the plausible lie the guard exists to prevent.
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n```\n---\n\n# C\n', 2))?.page).toBeUndefined();
+		expect((await run('---\npagination: true\n---\n\n# A\n\n```\n---\n\n# C\n', 2))?.page).toBeUndefined();
 	});
 
 	it('DOES supply a position for an ordinary deck — the optimization must survive the guard', async () => {
 		// Measured: 72 of the 73 corpus decks on the slice path still earn a true number.
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+		expect((await run('---\npagination: true\n---\n\n# A\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
 	});
 
 	it('does NOT supply a position when the caller omits the count', async () => {
@@ -708,12 +708,12 @@ describe('supplied position is verified, not trusted', () => {
 		const host = mountHost();
 		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
 		mock.mockClear();
-		await r.renderInto(host, '---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideMarkdown: 'THE SLICE' });
+		await r.renderInto(host, '---\npagination: true\n---\n\n# A\n\n---\n\n# C\n', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideMarkdown: 'THE SLICE' });
 		expect(sent(mock)?.page).toBeUndefined();
 	});
 
 	it('a heading nested in a list does not count as a split', async () => {
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n- item\n  # nested\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+		expect((await run('---\npagination: true\n---\n\n# A\n\n- item\n  # nested\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
 	});
 });
 
@@ -807,7 +807,7 @@ describe('slice cache boundedness', () => {
 	it('serves a revisited slide from the cache — the navigation case it exists for', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		const deck = '---\npaginate: true\n---\n\na\n\n---\n\nb\n\n---\n\nc';
+		const deck = '---\npagination: true\n---\n\na\n\n---\n\nb\n\n---\n\nc';
 		const seen = recordRenders();
 		await renderSlide(r, host, deck, 0, 3);
 		await renderSlide(r, host, deck, 1, 3);
@@ -819,7 +819,7 @@ describe('slice cache boundedness', () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const n = 40; // > the 24-entry cap
-		const deck = `---\npaginate: true\n---\n\n${Array.from({ length: n }, (_, i) => `slide ${i}`).join('\n\n---\n\n')}`;
+		const deck = `---\npagination: true\n---\n\n${Array.from({ length: n }, (_, i) => `slide ${i}`).join('\n\n---\n\n')}`;
 		for (let i = 0; i < n; i++) await renderSlide(r, host, deck, i, n);
 		const seen = recordRenders();
 		await renderSlide(r, host, deck, 0, n); // evicted long ago

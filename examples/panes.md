@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · panes"
 footer: "Panes — two components, one slide"
 ---

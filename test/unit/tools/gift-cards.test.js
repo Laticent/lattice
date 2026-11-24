@@ -155,7 +155,7 @@ test('the deck is one gift-card slide per key at the card size, the PIN spaced f
 	assert.match(deck, /^---\nsize: card\n/);
 	assert.equal(deck.match(/<!-- @meta\{layout=gift-card\} -->/g).length, 2);
 	assert.ok(deck.includes('- `https://x.test/gift#v1.a.b` `link`'));
-	assert.match(deck, /paginate: false\nspectrum: off\n/);
+	assert.match(deck, /pagination: false\nspectrum: off\n/);
 	assert.ok(deck.includes('- 482 913 `pin`'));
 	assert.ok(!deck.split('\n---\n\n')[0].includes('`pin`'), 'an unlocked card prints no PIN line');
 	assert.match(g.buildDeck(cards, { size: 'iso' }), /^---\nsize: card-iso\n/);

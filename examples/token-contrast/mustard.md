@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: mustard
-paginate: true
+pagination: true
 footer: "Mustard · secondary + label tiers, light & dark"
 ---
 

@@ -1,1 +1,0 @@
-- Playground Edit: a map tile tapped soon after another one now takes the preview to its slide. Before, the first tap's scroll could report the slide it had stopped on in the same frame as the second tap, and that report replaced the second tap before it could scroll: the preview stayed where it was. The sync now drops a scroll report while a newer pick is still on its way.

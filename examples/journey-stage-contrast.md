@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · journey stage contrast"
 acronyms:
   CI: continuous integration

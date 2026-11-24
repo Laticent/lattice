@@ -477,7 +477,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
   the Playground and the exported PDF, but in the Studio (Present, its overview grid, the editor
-  preview) they all paint the SAME hue, always `cat-1`. Add `paginate: true` to the front matter and
+  preview) they all paint the SAME hue, always `cat-1`. Add `pagination: true` to the front matter and
   the colors come right — which is the confusing part, because pagination has nothing to do with
   color.
 
@@ -512,7 +512,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A live preview prints "1" as the page number on every slide
 
-- **Symptom:** a deck with `paginate: true` shows the page number `1` on every slide in a
+- **Symptom:** a deck with `pagination: true` shows the page number `1` on every slide in a
   preview — most visibly the Studio's Present slide-overview grid, where every tile reads
   "1". Navigating slides doesn't change it. The exported PDF/HTML numbers correctly, and the
   Playground's filmstrip numbers correctly, so it looks like a Studio-only rendering bug.

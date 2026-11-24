@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: atelier
-paginate: true
+pagination: true
 header: "Lattice · Categorical ink"
 meta: "Categorical ink · --cat-N-ink"
 acronyms:

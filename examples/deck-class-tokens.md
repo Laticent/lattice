@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · deck-wide class tokens"
 footer: "Feature deck"
 finish: atrium

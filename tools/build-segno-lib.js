@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 /**
- * Build the Segno library's consumable dist/ — the ESM + CJS entries + type
+ * Build the Segno library's consumable dist/ — the ESM entries + type
  * declarations that let ROOT CJS `require('@laticent/segno')` AND a plain
  * Node-ESM / bundler consumer `import '@laticent/segno'`.
  *
  *   docs/src/lib/segno/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/segno/dist/index.mjs   (bundled ESM, esbuild)
- *     →  docs/src/lib/segno/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/segno/dist/*.d.ts      (declarations, tsc)
  *
  * Segno is the grammar engine (engineering/decisions/2026-09-28-segno-unified-inline-notation.md).
  * It follows the library-shape recipe its siblings use
- * (2026-07-08-library-shape-cadenza-vetrina.md): the `exports` map sends `require` →
- * dist/index.cjs and `import` → dist/index.mjs, while docs + Vitest import the TS SOURCE
+ * (2026-07-08-library-shape-cadenza-vetrina.md): the `exports` map sends every consumer, `import` and `require` alike, to dist/index.mjs (ES modules only since 2026-11-23), while docs + Vitest import the TS SOURCE
  * through the `@/lib/*` path alias, so the docs runtime never depends on this build.
  *
  * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house

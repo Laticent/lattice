@@ -1,7 +1,7 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · footer band"
 footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not distribute outside the Audit Committee · ÅÉÀÖ"
 # Dots by name, and on at any length: eleven sections would otherwise draw as a bar (progress.transform.js

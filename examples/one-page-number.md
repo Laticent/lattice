@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · one page number"
 footer: "The mark in the bottom-right corner is the same element on every slide of this deck"
 ---

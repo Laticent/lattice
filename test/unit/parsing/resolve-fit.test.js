@@ -5,7 +5,7 @@
  *   · `heal` is the default and stamps no token (byte-identical renders);
  *   · an annotated or oddly cased value still resolves, and an unknown one falls to the default;
  *   · the retired `guards:` spelling resolves to NOTHING (renames decision D2, 2026-11-21) —
- *     lint's `guards-renamed` rewrites it, the engine never reads it;
+ *     lint's `key-renamed` rewrites it, the engine never reads it;
  *   · `trimEnabled` (the TRIM gate, injected on its own) and `fitLevel` agree on every
  *     combination of override tokens — the two are written out separately because the
  *     injected one may not call the other, and this is what keeps them one rule.
@@ -29,7 +29,7 @@ test('the vocabulary is report | heal | trim, and heal is the default with no to
 
 test('fitClassFromFrontMatter reads fit:, annotated or not, and nothing else', () => {
   assert.equal(fitClassFromFrontMatter('fit: report'), 'fit-report');
-  assert.equal(fitClassFromFrontMatter('theme: cuoio\nfit:   TRIM  \npaginate: true'), 'fit-trim');
+  assert.equal(fitClassFromFrontMatter('theme: cuoio\nfit:   TRIM  \npagination: true'), 'fit-trim');
   assert.equal(fitClassFromFrontMatter('fit: report  # for the rehearsal'), 'fit-report', 'an annotated value still resolves');
   assert.equal(fitClassFromFrontMatter('title: x'), '');
   assert.equal(fitClassFromFrontMatter(''), '');

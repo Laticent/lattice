@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · sequential ramp"
 footer: "Canvas-relative stops · #1697"
 ---

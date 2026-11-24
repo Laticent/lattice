@@ -1,11 +1,12 @@
 // @vitest-environment-options { "url": "https://example.test/" }
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ensureEngine } from './load-engine';
+import { __setEngineImportForTests, ensureEngine } from './load-engine';
 
 afterEach(() => {
 	document.head.innerHTML = '';
 	vi.useRealTimers();
 	window.LatticePlayground = undefined;
+	__setEngineImportForTests(null);
 });
 
 describe('ensureEngine', () => {
@@ -35,5 +36,24 @@ describe('ensureEngine', () => {
 		injected?.dispatchEvent(new Event('load'));
 		await expect(p).resolves.toBeUndefined();
 		expect(vi.getTimerCount()).toBe(before - 1);
+	});
+
+	it('retries a failed engine import under a new URL, because the browser caches the failure', async () => {
+		// The module map keeps a failed import() for the page's lifetime: importing the same URL again rejects with no
+		// fetch, so the preview's Retry did nothing on Chromium, WebKit and Gecko (PR #3385). Each retry adds ?retry=N.
+		const url = 'https://example.test/playground/v/abc123/esm/engine.js';
+		const asked: string[] = [];
+		let ok = false;
+		__setEngineImportForTests((src) => {
+			asked.push(src);
+			if (!ok) return Promise.reject(new TypeError('Failed to fetch dynamically imported module'));
+			(window as unknown as { LatticePlayground: object }).LatticePlayground = {};
+			return Promise.resolve();
+		});
+		await expect(ensureEngine(url)).rejects.toThrow(/Failed to fetch/);
+		await expect(ensureEngine(url)).rejects.toThrow(/Failed to fetch/);
+		ok = true;
+		await expect(ensureEngine(url)).resolves.toBeUndefined();
+		expect(asked).toEqual([url, `${url}?retry=1`, `${url}?retry=2`]);
 	});
 });

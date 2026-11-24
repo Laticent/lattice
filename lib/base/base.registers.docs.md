@@ -163,7 +163,7 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 **The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
 (`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
 says `guards:` gets the default, `heal`, and `lint:deck` reports the line as an error
-(`guards-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
+(`key-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
 `guards: loose`, which was the default. A typo (`fit: reprot`) resolves to the default and
 is flagged as `unknown-fit`.
 
@@ -1695,7 +1695,7 @@ agenda: circles no-pages
 `divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
 pages axis on, each item ends with the page its section starts on: the divider's place among the shown
 slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
-pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+pages are numbered `4.2` and move nothing after them. A deck with `pagination: false` prints no page numbers
 on its agenda either, and neither does an agenda whose lines no longer name the sections in order (reordered or
 renamed after the fill): a page number shows only beside the section it belongs to.
 

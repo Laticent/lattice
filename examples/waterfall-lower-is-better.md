@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Waterfall lower-is-better"
 meta: "Lower is better"
 ---

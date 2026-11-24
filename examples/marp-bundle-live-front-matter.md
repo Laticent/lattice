@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Deck settings · one rule everywhere"
 footer: "Lattice · switches"
 class: no-progress no-footer

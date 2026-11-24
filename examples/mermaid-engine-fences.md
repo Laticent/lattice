@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Fences the engine reads"
 meta: "Engine fences · the export draws exactly the Mermaid fences the engine parses"
 spectrum: duo

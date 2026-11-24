@@ -1,1 +1,0 @@
-- In the live preview, a wifi or video slide no longer pulls the deck's running header and footer into its content area. When the deck-wide `class:` arrived after the first pass, the browser-side layout pass put both inside the slide's stage, while the export kept them in the header and footer bands.

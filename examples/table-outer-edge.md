@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Table outer edge"
 meta: "Table outer edge · the last row draws no rule"
 spectrum: duo

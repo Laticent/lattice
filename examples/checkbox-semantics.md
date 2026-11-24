@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · checkbox semantics"
 footer: "Six answers, one meaning each"
 ---

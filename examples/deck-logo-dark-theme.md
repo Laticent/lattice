@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco-dark
-paginate: true
+pagination: true
 header: "Lattice · Deck logo on a dark THEME"
 meta: "Deck logo · the theme is a canvas too"
 logo: sample:logo-acme-mark.svg

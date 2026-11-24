@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Anchor chrome"
 footer: "Confidential · © 2026 Acme"
 progress-rail: on
