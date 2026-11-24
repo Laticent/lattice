@@ -213,7 +213,7 @@ resuming starts with `npm run baton -- take`.
 mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
 whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped. The
 usage cap is a stop reason for the raise loop (§The raise loop): the card's `raised` row says so, e.g.
-`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits and is not carded
+`1 round: HIGH (stopped: usage past 75%)`, and that card waits for the reset rather than going to a merge ask (§Checkpoint rules, "A checkpoint never lowers the bar"). Work that cannot fit even that one round waits and is not carded
 (`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
 reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 
@@ -242,6 +242,21 @@ usage watch below, and the session may stop before it saves anything (`engineeri
 **A PR parked at the merge gate with no new work skips steps 2 to 4**: there is nothing to push, and a
 draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8). Step 5 is a comment edit
 only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
+
+**A checkpoint never lowers the bar.** The owner's rule (2026-11-24, in the command center: "add the
+rule"): usage and a deadline are reasons to stop, never reasons to finish with less. At any point, and
+above all near a usage stop or a deadline, a session (the command center included) does not:
+- skip evidence a test or card owes (#34's failing arm, repeat and load runs; a surface #23 requires);
+- ask the owner to merge below VERY HIGH because time or usage is short. A card whose raise loop stopped
+  at the usage cap (`raised: … (stopped: usage past 75%)`, §Usage checkpoints) is posted on the PR as the
+  handoff and waits for the reset to be raised; it goes into a merge ask only if the owner asks for it. An
+  ask below VERY HIGH is still fine for a **structural cap**, one no run can lift (a check only a real
+  device makes, beyond what the iOS Simulator suite reaches, a reversibility limit built into the change), and the ask names that cap;
+- make a design choice only to fit a budget (a byte limit such as the route budget's lint-core ceiling, a
+  CI minute) without putting it to the owner as a choice.
+If the bar can't be met before the session must stop, it stops and hands off. Born the night of
+2026-11-23, when six merge asks went out as HIGH exceptions, one evidence run was skipped "to save usage",
+and one rename turned `fonts:` from a warning into an error so the lint core fit its route-budget ceiling.
 
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session keeps working (§Usage checkpoints). At **90%**, it does the five steps, stops, then
