@@ -102,3 +102,23 @@ test('the proxy never reuses an upstream socket, so a keep-alive close cannot re
 		upstream.close();
 	}
 });
+
+test('the proxy records an island chunk only when it did not come back 200', async () => {
+	// The iPad's Studio island stayed unhydrated with every chunk fetched (run 45460220846): the chunk that failed is the evidence.
+	const { startFaultProxy } = await load();
+	const upstream = http.createServer((req, res) => {
+		res.writeHead(req.url.includes('bad') ? 500 : 200);
+		res.end('x');
+	});
+	await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+	const proxy = await startFaultProxy(`http://127.0.0.1:${upstream.address().port}`);
+	const get = (p) => new Promise((resolve) => http.get(`${proxy.origin}${p}`, { agent: false }, (res) => res.resume().on('end', resolve)));
+	try {
+		await get('/_astro/good.js');
+		await get('/_astro/bad.js');
+		assert.deepEqual(proxy.state.seen, ['/_astro/bad.js 500']);
+	} finally {
+		proxy.close();
+		upstream.close();
+	}
+});

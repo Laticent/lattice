@@ -58,7 +58,10 @@ export function startFaultProxy(target, mode = 'drop') {
 		// to the gate that failed (followups.d/3368-p1: which request never came, or came back bad).
 		const note = (status) => {
 			// The LAST 60, not the first: a stall after Reload or in a new tab comes after the first load's requests.
-			if (!/\/playground\/v\/|\/sw\.js/.test(String(req.url))) return;
+			// An /_astro/ chunk only when it did not come back 200: one failed island chunk leaves the Studio unhydrated with no
+			// card (iPad, run 45460220846), and Safari keeps the failure in its module map, so astro's one retry cannot recover.
+			const astroBad = /^\/_astro\//.test(String(req.url)) && status !== 200;
+			if (!astroBad && !/\/playground\/v\/|\/sw\.js/.test(String(req.url))) return;
 			state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
 			if (state.seen.length > 60) state.seen.shift();
 		};
