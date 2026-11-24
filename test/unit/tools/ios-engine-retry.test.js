@@ -64,3 +64,41 @@ test('the proxy cuts a sub-file while failing, and forwards it, and everything e
 		upstream.close();
 	}
 });
+
+test('the proxy never reuses an upstream socket, so a keep-alive close cannot reset a forwarded request', async () => {
+	// Run 45453722865 (iPad, 503 arm): the docs server reset the proxy's forwarded engine.js and chunks.json at the same moment,
+	// before anything was cut, and the card that followed failed the verdict as "no fault". A pooled keep-alive socket the
+	// server had already closed does exactly that. This upstream resets any request that arrives on a socket it already
+	// served, so a proxy that pools sockets fails here every time, not only on a loaded runner.
+	const { startFaultProxy } = await load();
+	const served = new WeakSet();
+	const upstream = http.createServer((req, res) => {
+		if (served.has(req.socket)) return req.socket.resetAndDestroy();
+		served.add(req.socket);
+		res.writeHead(200, { 'content-type': 'text/plain' });
+		res.end(`ok ${req.url}`);
+	});
+	await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+	const proxy = await startFaultProxy(`http://127.0.0.1:${upstream.address().port}`);
+	// Safari asks for keep-alive, so the proxy sees `connection: keep-alive` on every request it forwards.
+	const browser = new http.Agent({ keepAlive: true, maxSockets: 1 });
+	const get = (p) =>
+		new Promise((resolve) => {
+			http
+				.get(`${proxy.origin}${p}`, { agent: browser }, (res) => {
+					let body = '';
+					res.on('data', (c) => (body += c));
+					res.on('end', () => resolve({ status: res.statusCode, body }));
+				})
+				.on('error', (e) => resolve({ error: e.code }));
+		});
+	try {
+		for (const p of ['/p/sw.js', '/p/esm/engine.js', '/p/esm/chunks.json', '/p/esm/engine.js']) {
+			assert.deepEqual(await get(p), { status: 200, body: `ok ${p}` }, `${p} is forwarded on a fresh upstream socket`);
+		}
+	} finally {
+		browser.destroy();
+		proxy.close();
+		upstream.close();
+	}
+});

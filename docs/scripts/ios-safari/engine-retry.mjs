@@ -74,7 +74,10 @@ export function startFaultProxy(target, mode = 'drop') {
 				return;
 			}
 		}
-		const fwd = http.request({ hostname: up.hostname, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host } }, (r) => {
+		// `agent: false`: a fresh upstream socket per request. Node 22's global agent pools keep-alive sockets, and on a starved
+		// runner it reused one the docs server had already closed; the server reset engine.js and chunks.json together, before
+		// anything was cut (iPad, run 45453722865). Pooling buys nothing on loopback, and a reset it causes is not the fault.
+		const fwd = http.request({ hostname: up.hostname, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host }, agent: false }, (r) => {
 			note(r.statusCode || 502);
 			res.writeHead(r.statusCode || 502, r.headers);
 			r.pipe(res);
