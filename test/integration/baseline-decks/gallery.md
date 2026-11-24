@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: mustard
-paginate: true
+pagination: true
 header: "Lattice · Layout Gallery"
 ---
 

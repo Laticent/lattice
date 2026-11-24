@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: brina
-paginate: true
+pagination: true
 footer: "Brina · secondary + label tiers, light & dark"
 ---
 

@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: false
+pagination: false
 ---
 
 <!-- _class: agenda agenda-pages -->

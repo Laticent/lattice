@@ -54,7 +54,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 ## Authoring
 
 ```markdown
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 
 ## What we expect to be asked.
 

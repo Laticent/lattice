@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 venue: hall
-paginate: true
+pagination: true
 header: "Lattice · venue chrome"
 footer: "Acme Corp · Confidential"
 ---

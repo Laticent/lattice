@@ -28,6 +28,7 @@ const { lintText, buildVocab } = require('../../../lib/authoring/lint');
 const { reviewText } = require('../../../lib/authoring/review-core');
 const { scoreDeck } = require('../../../lib/authoring/scorecard');
 const { loadAll } = require('../../../lib/components');
+const { LEGACY_META_RULES } = require('../../../lib/authoring/legacy-meta-rules');
 
 const comps = loadAll();
 const bucketOf = (n) => comps.find((c) => c.name === n)?.bucket ?? null;
@@ -41,7 +42,9 @@ const score = (src) => {
   const lint = lintText(src, vocab) || [];
   const review = reviewText(src, { bucketOf, densityOf });
   const card = scoreDeck({ source: src, lintFindings: lint, reviewFindings: review });
-  return { lint, contract: card.categories.find((c) => c.key === 'contract').score, craft: card.craft.score };
+  // The drafts are written in the old `_class:` spelling, whose two warnings Contract does not count until the cut
+  // (lib/authoring/legacy-meta-rules.js); the readings below are about everything else.
+  return { lint: lint.filter((f) => !LEGACY_META_RULES.includes(f.rule)), contract: card.categories.find((c) => c.key === 'contract').score, craft: card.craft.score };
 };
 
 test('a finished, lint-clean draft reads Contract 100', () => {
@@ -79,6 +82,15 @@ test('Contract separates these draft states — it is not a constant off the cor
   // The whole point of the correction: the spread on a draft is wide, where the committed
   // corpus shows exactly zero spread (100 on all 198).
   assert.ok(clean - errored >= 25, `a draft must move Contract materially (moved ${clean - errored})`);
+});
+
+test('the old comment spellings cost Contract nothing: a legacy draft and its @meta twin read the same', () => {
+  const legacy = `${HEAD}\n---\n\n<!-- _class: content -->\n\n${SLIDE}`;
+  const record = legacy.replace(/<!-- _class: (\w+) -->/g, '<!-- @meta{layout=$1} -->');
+  assert.notEqual(record, legacy);
+  assert.ok(lintText(legacy, vocab).some((f) => f.rule === 'legacy-directive-comment'), 'the legacy draft is warned');
+  assert.equal(score(legacy).contract, score(record).contract);
+  assert.equal(score(record).contract, 100);
 });
 
 test('and Craft moves with it, so the draft signal reaches the grade', () => {

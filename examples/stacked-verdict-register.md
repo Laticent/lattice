@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · stacked verdicts"
 ---
 

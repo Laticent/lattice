@@ -91,7 +91,7 @@ describe('settings rows that can be marked', () => {
 	});
 
 	it('reject a row that is not on the list, however it is spelled', () => {
-		expect(rowIdOf('Card rail placement')).toBe('card-rail-placement');
+		expect(rowIdOf('Card spectrum edge')).toBe('card-spectrum-edge');
 		expect(rowIdOf('Header')).toBe('header');
 		expect(rowIdOf('Section rail off')).toBe('section-rail');
 		expect(rowIdOf('Section rail on')).toBe('section-rail');

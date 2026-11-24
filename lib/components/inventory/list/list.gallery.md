@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · list"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # list
 
@@ -16,7 +16,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list -->
-<!-- _footer: "Default · list" -->
+<!-- @meta{footer=Default · list} -->
 
 ## The list states one point per line.
 
@@ -30,7 +30,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list takeaway -->
-<!-- _footer: "takeaway · list takeaway — Ruled single lines for conclusions." -->
+<!-- @meta{footer="takeaway · list takeaway — Ruled single lines for conclusions."} -->
 
 ## takeaway boxes the list as findings.
 
@@ -43,7 +43,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list principles -->
-<!-- _footer: "principles · list principles — Numbered declarations at display weight." -->
+<!-- @meta{footer="principles · list principles — Numbered declarations at display weight."} -->
 
 ## principles numbers the house rules.
 
@@ -56,7 +56,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list principles lettered -->
-<!-- _footer: "lettered · list lettered — Letters replace the counters." -->
+<!-- @meta{footer="lettered · list lettered — Letters replace the counters."} -->
 
 ## lettered counts the rules with letters.
 
@@ -68,7 +68,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list principles roman -->
-<!-- _footer: "roman · list roman — Roman numerals replace counters." -->
+<!-- @meta{footer="roman · list roman — Roman numerals replace counters."} -->
 
 ## roman sets the rules in numerals.
 
@@ -80,7 +80,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list principles bullet -->
-<!-- _footer: "bullet · list bullet — Dots replace the counters." -->
+<!-- @meta{footer="bullet · list bullet — Dots replace the counters."} -->
 
 ## bullet strips the markers back to dots.
 
@@ -92,8 +92,8 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 ---
 
 <!-- _class: list -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · list — Six lines at the hard ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · list — Six lines at the hard ceiling."} -->
 
 ## Six lines is the most a list should carry.
 
@@ -107,8 +107,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list dark -->
-<!-- _footer: "Composition: dark · list dark" -->
+<!-- @meta{layout=list, class=dark, footer=Composition: dark · list dark} -->
 
 ## The list states one point per line.
 
@@ -121,8 +120,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list compact -->
-<!-- _footer: "Composition: compact · list compact" -->
+<!-- @meta{layout=list, class=compact, footer=Composition: compact · list compact} -->
 
 ## The list states one point per line.
 
@@ -135,8 +133,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: list accent -->
-<!-- _footer: "Composition: accent · list accent" -->
+<!-- @meta{layout=list, class=accent, footer=Composition: accent · list accent} -->
 
 ## The list states one point per line.
 
@@ -149,8 +146,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · list" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · list} -->
 
 ## When NOT to reach for list.
 
@@ -163,7 +159,7 @@ A list under a heading — plain pills, hairline takeaways (a `1.` list numbers 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

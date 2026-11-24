@@ -1,282 +1,487 @@
 #!/usr/bin/env node
 /**
- * Release orchestrator — the deterministic, changelog-driven release.
+ * Release orchestrator: Changesets versions and publishes the engine and its libraries.
  *
- * Run locally or from .github/workflows/release.yml (manual dispatch). It
- * keeps ALL release logic here so CI is a thin trigger and the same flow is
- * reproducible on a laptop.
+ * Run locally or from .github/workflows/release.yml (dispatch) and release-publish.yml (the push
+ * the release PR's merge makes). ALL release logic lives here, so the workflows stay thin
+ * triggers and every step is reproducible on a laptop.
  *
- * TWO PHASES, because `main` does not take direct pushes. The "Main Merge
- * Queue" ruleset requires a PR + the merge queue + a green `ci`, so the
- * release commit CANNOT be pushed to main by anyone — bot or human (issue
- * #1439). It goes up as a PR like every other change, and the tag is cut
- * afterwards, on the squashed commit the queue actually merged:
+ * WHAT PUBLISHES. `tools/release-packages.js` PUBLISH_SET: `@laticent/lattice` and twelve
+ * libraries, each on its own version line. Six more libraries are held back by
+ * `.changeset/config.json` `ignore`. Decision: engineering/decisions/2026-10-07-first-npm-release.md
+ * §11, and issue #3449 for the owner's rulings.
  *
- *   --prepare   cut the release COMMIT on a branch. No tag, no zip, no push —
- *               a tag here would name a commit the queue is about to rewrite.
- *   --publish   on merged main: tag THAT commit, rebuild the zip from it, and
- *               regenerate the notes from the changelog section --prepare
- *               committed (release/ is gitignored, so nothing survives the
- *               phase boundary except what is in git).
+ * TWO PHASES, because `main` takes no direct pushes (the "Main Merge Queue" ruleset, #1439). The
+ * release commit goes up as a PR like every other change; the tags are cut afterwards, on the
+ * squashed commit the queue merged.
  *
- * --prepare sequence:
- *   1. Require a clean tree (a release is cut from committed state).
- *   2. Gate on build:check (no stale / colliding dist/).
- *   3. Read the bump level — `auto` derives it from CHANGELOG `## Unreleased`
- *      (tools/changelog.js); an explicit patch|minor|major overrides.
- *   4. Compute the next version from package.json.
- *   5. `npm version <next> --no-git-tag-version` (updates package.json + lock).
- *   6. Roll the changelog: `## Unreleased` → `## <version> - <date>`, fresh
- *      empty Unreleased seeded above it.
- *   7. `npm run build` — regenerate dist/ from the bumped tree.
- *   8. Commit `release: v<version>` (hooks run — dist is fresh).
+ *   --prepare   cut the release COMMIT on the current branch. No tag, no publish, no push.
+ *     1. Check the tree, the publish set (strict), every changeset and every fragment.
+ *     2. Ask npm whether the engine's current version is published.
+ *        - BOOTSTRAP (the engine is 1.0.0, not on npm, and untagged): the first release. Nothing is
+ *          bumped: the engine ships at 1.0.0 and each library at the version it already carries
+ *          (0.1.0). Pending fragments and changesets are archived into
+ *          changelog/pre-release-archive.md, because the curated release-notes/1.0.0.md covers
+ *          1.0.0. Each package's CHANGELOG.md gets its first section.
+ *        - Otherwise the engine's version must already be on npm; an unpublished one means the
+ *          previous release never finished, and the fix is a Release (publish) run, not a bump.
+ *     3. Convert every pending changelog.d/ fragment into a changeset for the engine
+ *        (tools/changesets.js), then `changeset version`, then refresh package-lock.json.
+ *     4. `npm run build`, then commit `release: <name>`.
  *
- * --publish sequence (HEAD = the merged release commit on main):
- *   1. Require a clean tree; gate on build:check.
- *   2. Read the version from package.json; refuse if `v<version>` already tags
- *      something (the release already went out).
- *   3. Rederive release/notes-v<version>.md from the `## <version>` section.
- *   4. Tag HEAD, build the release zip from it.
- *   5. With --push: push the TAG (the commit is already on main via the queue).
+ *   --publish   on merged main: publish whatever is not on npm yet, then tag it.
+ *     1. Check the tree, build:check, the publish set (strict).
+ *     2. Plan: every publish-set package whose version is not on npm, or has no
+ *        `<name>@<version>` tag. Nothing in the plan is a quiet no-op.
+ *     3. If the engine is in the plan: refuse when `v<version>` already tags something (the
+ *        August v1.0.0 tag must be retired first, slice D), write the GitHub Release notes and
+ *        build the release zip. Both happen BEFORE anything reaches npm, so their failure leaves
+ *        nothing half-published.
+ *     4. `changeset publish`: npm publish in each package folder, in dependency order (it sorts
+ *        the plan into rounds with @pnpm/deps.graph-sequencer, so ltt and the other leaf
+ *        libraries go before cadenza, and the engine goes last). Provenance comes from
+ *        NPM_CONFIG_PROVENANCE, which release-publish.yml sets.
+ *     5. Tag each package npm now has, plus `v<version>` for the engine; with --push, push only
+ *        those tags. A package still missing from npm fails the run after the tags for the rest
+ *        are pushed, so a re-run publishes only what is left.
+ *
+ *   --plan      the publish gate: print the plan and write `release=true|false` to $GITHUB_OUTPUT.
  *
  * Flags:
- *   --prepare                       phase 1 — cut the release commit
- *   --publish                       phase 2 — tag + package a merged release
- *   --bump=auto|patch|minor|major   default auto (read from the changelog)
- *   --dry-run                       print the plan; change nothing. Safe on a
- *                                   dirty tree.
- *   --push                          --publish only: push the tag to origin
- *   --skip-checks                   skip the build:check gate (CI ran it)
+ *   --dry-run      --prepare: print the plan, change nothing (safe on a dirty tree).
+ *                  --publish: run everything with npm's dry-run on, tag locally, never push.
+ *   --push         --publish: push the new tags to origin.
+ *   --skip-checks  skip the build:check gate (CI ran it).
  *
- * Both phases append `version=<x.y.z>` to $GITHUB_OUTPUT when it is set, so
- * the workflows never re-derive the version themselves.
+ * Every phase writes `version=<engine version>` (and more) to $GITHUB_OUTPUT when it is set.
  */
-
 const { spawnSync, execFileSync } = require('node:child_process');
-const fs   = require('node:fs');
+const fs = require('node:fs');
 const path = require('node:path');
-const cl   = require('./changelog.js');
+const cl = require('./changelog.js');
+const cs = require('./changesets.js');
+const rp = require('./release-packages.js');
 
-const ROOT          = path.resolve(__dirname, '..');
-const PKG_PATH      = path.join(ROOT, 'package.json');
-const CHANGELOG     = path.join(ROOT, 'CHANGELOG.md');
-const RELEASE_DIR   = path.join(ROOT, 'release');
+const ROOT = path.resolve(__dirname, '..');
+const NOTES_DIR = 'release-notes';
+/** The one version the bootstrap release ships as it stands. */
+const BOOTSTRAP_VERSION = '1.0.0';
+const REPO_URL = 'https://github.com/Laticent/lattice';
+const CHANGESET_BIN = path.join(ROOT, 'node_modules', '.bin', 'changeset');
 
-function arg(name, fallback) {
-  const hit = process.argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
-  if (!hit) return fallback;
-  const eq = hit.indexOf('=');
-  return eq === -1 ? true : hit.slice(eq + 1);
-}
-const DRY        = process.argv.includes('--dry-run');
-const PREPARE    = process.argv.includes('--prepare');
-const PUBLISH    = process.argv.includes('--publish');
-const PUSH       = process.argv.includes('--push');
-const SKIP_CHECK = process.argv.includes('--skip-checks');
-const BUMP_ARG   = String(arg('bump', 'auto'));
+// ── small helpers ────────────────────────────────────────────────────────────
 
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', ...opts }).trim();
-}
-function run(cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit' });
-  if (r.status !== 0) {
-    console.error(`\nrelease aborted: \`${cmd} ${args.join(' ')}\` exited ${r.status}.`);
-    process.exit(1);
-  }
+  return execFileSync('git', args, { cwd: opts.cwd || ROOT, encoding: 'utf8', ...opts }).trim();
 }
 
-/** Hand the version back to the calling workflow, so CI never re-derives it. */
-function emitVersion(version) {
-  if (process.env.GITHUB_OUTPUT) {
-    fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+function run(cmd, args, opts = {}) {
+  const r = spawnSync(cmd, args, { cwd: opts.cwd || ROOT, stdio: 'inherit', env: opts.env || process.env });
+  if (r.status !== 0 && !opts.allowFail) {
+    throw new Error(`\`${cmd} ${args.join(' ')}\` exited ${r.status}`);
   }
+  return r.status;
 }
 
-function requireCleanTree() {
-  if (git(['status', '--porcelain'])) {
-    console.error('error: working tree is dirty. Commit or stash before releasing.');
-    process.exit(1);
-  }
+function emit(outputs) {
+  if (!process.env.GITHUB_OUTPUT) return;
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(outputs).map(([k, v]) => `${k}=${v}\n`).join(''));
+}
+
+function tagExists(tag, cwd = ROOT) {
+  return Boolean(git(['tag', '--list', tag], { cwd }));
 }
 
 /**
- * Phase 2 — tag + package a release commit that is ALREADY on main.
- *
- * The version is read from package.json rather than recomputed: the bump
- * decision was made (and reviewed) in phase 1, and the merged commit is now
- * the only truth about what shipped.
+ * Is `name@version` on npm? `npm view` prints the version when it is and fails with E404 when it
+ * is not; anything else (no network, a registry error) throws, because guessing "not published"
+ * would re-run a bootstrap and guessing "published" would skip a publish.
  */
-function publish() {
-  requireCleanTree();
-  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted']);
-
-  const version = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8')).version;
-  const tag = `v${version}`;
-
-  if (git(['tag', '--list', tag])) {
-    console.error(`error: tag ${tag} already exists — that version has already been released.`);
-    process.exit(1);
-  }
-
-  // The notes file lives in the gitignored release/ dir, so phase 1's copy is
-  // long gone. Rederive it from the dated section phase 1 committed.
-  const section = cl.extractVersion(fs.readFileSync(CHANGELOG, 'utf8'), version);
-  if (!section) {
-    console.error(`error: CHANGELOG.md has no ## ${version} section — is HEAD the merged release commit?`);
-    process.exit(1);
-  }
-  fs.mkdirSync(RELEASE_DIR, { recursive: true });
-  const notesFile = path.join(RELEASE_DIR, `notes-${tag}.md`);
-  const fitted = cl.fitReleaseBody(cl.releaseNotes(section.body), version);
-  if (fitted.truncated) {
-    console.warn(
-      `warning: the ${version} changelog section exceeds GitHub's ${cl.RELEASE_BODY_MAX}-character\n` +
-      `  Release-body limit; the notes were trimmed to ${fitted.keptLines} lines with a pointer to CHANGELOG.md.`,
-    );
-  }
-  fs.writeFileSync(notesFile, fitted.body);
-
-  // Zip first, tag second: the archive is of HEAD, not of the tag, so nothing
-  // depends on the order — and this way a failed zip build doesn't leave a
-  // stray local tag that blocks the retry.
-  run(process.execPath, [path.join(ROOT, 'tools', 'build-release-zip.js')]);
-  run('git', ['tag', tag]);
-  // The commit reached main through the merge queue; only the tag needs pushing.
-  if (PUSH) run('git', ['push', 'origin', tag]);
-
-  emitVersion(version);
-  console.log(`\nPublished ${tag} at ${git(['rev-parse', '--short', 'HEAD'])}.`);
-  console.log(`  tag:   ${tag}${PUSH ? ' (pushed)' : ' (local — push it with `git push origin ' + tag + '`)'}`);
-  console.log(`  notes: ${path.relative(ROOT, notesFile)}`);
-  console.log(`  zip:   release/lattice-${tag}.zip`);
+function npmHasVersion(name, version) {
+  const r = spawnSync('npm', ['view', `${name}@${version}`, 'version', '--json'], { encoding: 'utf8' });
+  if (r.status === 0) return r.stdout.trim().length > 0;
+  if (/E404|404 Not Found|is not in this registry/.test(`${r.stdout}${r.stderr}`)) return false;
+  throw new Error(`npm view ${name}@${version} failed (exit ${r.status}): ${(r.stderr || r.stdout).trim().split('\n').slice(-3).join(' ')}`);
 }
 
-function main() {
-  // Must be a git repo.
-  try { git(['rev-parse', '--is-inside-work-tree'], { stdio: ['ignore', 'pipe', 'ignore'] }); }
-  catch (_e) { console.error('error: not a git repository.'); process.exit(1); }
+function requireCleanTree(cwd = ROOT) {
+  const dirty = git(['status', '--porcelain'], { cwd });
+  if (dirty) throw new Error(`the working tree is dirty; commit or stash first:\n${dirty}`);
+}
 
-  if (PREPARE && PUBLISH) {
-    console.error('error: --prepare and --publish are separate phases — pass one.');
-    process.exit(1);
-  }
-  if (PUBLISH) return publish();
-  if (!PREPARE && !DRY) {
-    console.error([
-      'error: pick a phase — a release is cut in two steps, because main takes',
-      'no direct pushes (the "Main Merge Queue" ruleset).',
-      '',
-      '  npm run release:dry        preview the bump, change nothing',
-      '  npm run release:prepare    cut the release commit → push a branch → PR',
-      '  npm run release:publish    after it merges: tag main, zip, notes',
-      '',
-      'See RELEASE.md § How to cut a release.',
-    ].join('\n'));
-    process.exit(1);
-  }
+function fail(problems, what) {
+  throw new Error(`${what}:\n  - ${problems.join('\n  - ')}`);
+}
 
-  const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
-  const current = pkg.version;
+/** The shared pre-flight: the publish set, every changeset, every fragment. */
+function preflight(root, { strict = true } = {}) {
+  const problems = [
+    ...rp.publishSetProblems({ strict, root }),
+    ...cs.changesetProblems(path.join(root, cs.CHANGESET_DIRNAME)),
+    ...cl.fragmentProblems(path.join(root, cl.FRAGMENT_DIRNAME)),
+  ];
+  return problems;
+}
 
-  // Per-PR entries live in changelog.d/ (#1593) — fold them in before anything
-  // reads the section, so the bump AND the notes see them. Refuse on a
-  // malformed fragment rather than silently dropping the entry from a release
-  // that cannot be re-cut.
-  const problems = cl.fragmentProblems();
-  if (problems.length) {
-    console.error(`error: ${cl.FRAGMENT_DIRNAME}/ has ${problems.length} problem(s) — fix before releasing:`);
-    for (const p of problems) console.error(`  - ${p}`);
-    process.exit(1);
-  }
-  const fragments = cl.readFragments();
-  const md = cl.assembleUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), fragments);
-  const section = cl.extractUnreleased(md);
-  if (!section) { console.error('error: no ## Unreleased section in CHANGELOG.md'); process.exit(1); }
+// ── changelog sections ───────────────────────────────────────────────────────
 
-  // Resolve bump level (deterministic from the changelog, or explicit).
-  let level;
-  if (BUMP_ARG === 'auto') {
-    try { level = cl.computeBump(section.body); }
-    catch (e) { console.error(`error: ${e.message}`); process.exit(1); }
-  } else if (['patch', 'minor', 'major'].includes(BUMP_ARG)) {
-    // An override still needs notes, so the section must have content.
-    try { cl.computeBump(section.body); }
-    catch (e) { console.error(`error: ${e.message}`); process.exit(1); }
-    level = BUMP_ARG;
-  } else {
-    console.error(`error: --bump must be auto|patch|minor|major (got "${BUMP_ARG}")`);
-    process.exit(1);
-  }
+/**
+ * Add `## <version>` with `body` to a package's CHANGELOG.md, where Changesets would put it: above
+ * the newest version section, or at the end when there is none yet (so an intro paragraph under
+ * the `# <name>` heading stays on top, and every later `changeset version` stacks below it).
+ * Returns false when the section is already there.
+ */
+function prependChangelogSection(file, name, version, body) {
+  const prior = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : `# ${name}\n`;
+  // The whole version escaped, not only its dots: a version is data, and a `+` or `(` in a build
+  // suffix would otherwise change the pattern.
+  const escaped = String(version).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`^## ${escaped}\\s*$`, 'm').test(prior)) return false;
+  const block = `## ${version}\n\n${body.trim()}\n`;
+  const at = prior.search(/^#{1,6}\s+\d+\.\d+/m);
+  const next = at >= 0
+    ? `${prior.slice(0, at)}${block}\n${prior.slice(at)}`
+    : `${prior.replace(/\n+$/, '')}\n\n${block}`;
+  fs.writeFileSync(file, next);
+  return true;
+}
 
-  const next = cl.nextVersion(current, level);
-  const date = new Date().toISOString().slice(0, 10);
-  const notes = cl.releaseNotes(section.body);
+function changelogHasVersion(file, version) {
+  return fs.existsSync(file) && Boolean(cl.extractVersion(fs.readFileSync(file, 'utf8'), version));
+}
 
-  console.log(`Release plan:`);
-  console.log(`  bump:    ${level}${BUMP_ARG === 'auto' ? ' (from CHANGELOG ## Unreleased)' : ' (override)'}`);
-  console.log(`  version: ${current} → ${next}`);
-  console.log(`  date:    ${date}`);
-  console.log(
-    `  notes:   ${notes.split('\n').length} lines from ## Unreleased` +
-    `${fragments.length ? ` + ${fragments.length} ${cl.FRAGMENT_DIRNAME}/ fragment(s)` : ''}\n`,
-  );
-
-  if (DRY) {
-    console.log('--- release notes preview ---');
-    console.log(notes.trimEnd());
-    console.log('\n[dry-run] no files changed, no tag created.');
-    return;
-  }
-
-  // Real run from here — require a clean tree and a fresh dist.
-  requireCleanTree();
-  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check', '--exclude-uncommitted']);
-
-  // Bump version, roll changelog, rebuild dist.
-  run('npm', ['version', next, '--no-git-tag-version']);
-  // Assemble from the file on disk (not the in-memory `md` above, which predates
-  // `npm version`), then consume the fragments: a fragment that survived the roll
-  // would be re-released in the next cut.
-  fs.writeFileSync(
-    CHANGELOG,
-    cl.rollUnreleased(cl.assembleUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), fragments), next, date),
-  );
-  for (const f of fragments) fs.rmSync(f.file);
-  run('npm', ['run', 'build']);
-
-  // Commit only (hooks run; dist is fresh so freshness gates pass). No tag and
-  // no zip: the queue squashes this commit into a NEW sha on main, so anything
-  // cut here would name a commit that never lands. Phase 2 does both.
-  // `changelog.d` stages the fragment DELETIONS the roll just made.
-  // NOT 'dist' — the bundles are built, not committed (.gitignore), so staging
-  // them here did nothing but look reassuring. They reach consumers through the
-  // npm tarball, which `prepack` builds and package.json's `files` whitelist
-  // includes regardless of .gitignore (verified: 135 dist/ files in npm pack).
-  git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', cl.FRAGMENT_DIRNAME]);
-
-  // `npm run build` regenerates 36 artifacts; only those four are the release
-  // surface. If it touched anything else the tree was stale before the release
-  // started — and the symptom would otherwise surface two phases later, as
-  // `--publish` refusing a dirty tree with no hint of why. Name it here.
-  const stray = git(['status', '--porcelain'])
+/** The top-level bullets of `## <version>` in a package CHANGELOG, first line of each. */
+function changelogFirstLines(file, version) {
+  if (!fs.existsSync(file)) return [];
+  const section = cl.extractVersion(fs.readFileSync(file, 'utf8'), version);
+  if (!section) return [];
+  return section.body
     .split('\n')
-    .filter((l) => l && l[1] !== ' ')
-    .map((l) => l.slice(3));
-  if (stray.length) {
-    console.error(
-      `error: the build changed files outside the release surface:\n  ${stray.join('\n  ')}\n` +
-      'Commit (or revert) them first — `npm run build` on a clean tree should be a no-op.',
-    );
-    process.exit(1);
-  }
-
-  run('git', ['commit', '-m', `release: v${next}`]);
-
-  emitVersion(next);
-  console.log(`\nPrepared v${next} — the release commit is on ${git(['rev-parse', '--abbrev-ref', 'HEAD'])}.`);
-  console.log('  next: push the branch, open the PR, get it merged through the queue,');
-  console.log('        then run `npm run release:publish` on the merged main.');
+    .filter((l) => /^- \S/.test(l) && !/^- Updated dependencies/.test(l))
+    .map((l) => l.slice(2).trim());
 }
 
-main();
+/**
+ * The GitHub Release body for an engine release: the curated release-notes/<version>.md when it
+ * exists, then one line per package published with it, built from the first line of each entry.
+ */
+function releaseNotes(root, version, items) {
+  const curated = path.join(root, NOTES_DIR, `${version}.md`);
+  const out = [];
+  if (fs.existsSync(curated)) out.push(fs.readFileSync(curated, 'utf8').trim(), '');
+  const engineFirst = [...items].sort((a, b) => (b.name === rp.ENGINE) - (a.name === rp.ENGINE) || a.name.localeCompare(b.name));
+  out.push('## Packages in this release', '');
+  for (const p of engineFirst) {
+    const lines = changelogFirstLines(path.join(p.dir, 'CHANGELOG.md'), p.version);
+    const label = `\`${p.name}\` ${p.version}`;
+    if (lines.length === 1) out.push(`- ${label}: ${lines[0]}`);
+    else out.push(`- ${label}`, ...lines.map((l) => `  - ${l}`));
+  }
+  const fitted = cl.fitReleaseBody(`${out.join('\n')}\n`, version);
+  return fitted.body;
+}
+
+// ── prepare ──────────────────────────────────────────────────────────────────
+
+/**
+ * Decide what this release is. Pure apart from `registry` and the tag lookup, both injectable.
+ * @returns {{ mode: 'bootstrap'|'version', engine: object }}
+ */
+function releaseMode(root, { registry = npmHasVersion, hasTag = (t) => tagExists(t, root) } = {}) {
+  const engine = rp.workspacePackages(root).find((p) => p.name === rp.ENGINE);
+  if (!engine) throw new Error(`no workspace declares ${rp.ENGINE}`);
+  const published = registry(engine.name, engine.version);
+  const tagged = hasTag(`${engine.name}@${engine.version}`);
+  if (!published && !tagged && engine.version === BOOTSTRAP_VERSION) return { mode: 'bootstrap', engine };
+  if (!published) {
+    throw new Error(
+      `${engine.name}@${engine.version} is versioned but not on npm, so the previous release never finished. ` +
+      'Run Release (publish) on main (workflow_dispatch) to publish it; do not cut another version on top.',
+    );
+  }
+  return { mode: 'version', engine };
+}
+
+function bootstrapPrepare(root, { dry, date }) {
+  const notes = path.join(root, NOTES_DIR, `${BOOTSTRAP_VERSION}.md`);
+  if (!fs.existsSync(notes)) throw new Error(`the first release needs its curated notes at ${NOTES_DIR}/${BOOTSTRAP_VERSION}.md`);
+  const fragments = cl.readFragments(path.join(root, cl.FRAGMENT_DIRNAME)).filter((f) => f.body.trim());
+  const changesets = cs.readChangesets(path.join(root, cs.CHANGESET_DIRNAME));
+  const pkgs = rp.publishable(root);
+
+  console.log(`Release plan: BOOTSTRAP — the first npm release, nothing is bumped.`);
+  for (const p of pkgs) console.log(`  ${p.name}@${p.version}`);
+  console.log(`  archive: ${fragments.length} fragment(s) and ${changesets.length} changeset(s) → changelog/pre-release-archive.md`);
+  if (dry) return { name: `v${BOOTSTRAP_VERSION}` };
+
+  if (fragments.length || changesets.length) {
+    const body = [
+      fragments.length ? cs.fragmentsAsMarkdown(fragments) : '',
+      changesets.length ? `### Changesets\n\n${cs.changesetsAsMarkdown(changesets) || '(empty changesets only)'}` : '',
+    ].filter(Boolean).join('\n\n');
+    cs.appendToArchive(
+      `Folded into 1.0.0 at release (${date})`,
+      `Entries that landed after the Changesets cutover and before the first npm release. 1.0.0 ships them; its notes are the curated \`release-notes/1.0.0.md\`, so they are archived here verbatim, as the earlier fragments were.`,
+      body,
+      path.join(root, 'changelog', 'pre-release-archive.md'),
+    );
+    for (const f of fragments) fs.rmSync(f.file);
+    for (const c of changesets) fs.rmSync(c.file);
+  }
+  for (const p of pkgs) {
+    const line = p.name === rp.ENGINE
+      ? `- First release on npm. What it does, and how to install it: [release notes](${REPO_URL}/blob/main/${NOTES_DIR}/${BOOTSTRAP_VERSION}.md).`
+      : '- First release on npm.';
+    prependChangelogSection(path.join(p.dir, 'CHANGELOG.md'), p.name, p.version, line);
+  }
+  return { name: `v${BOOTSTRAP_VERSION}` };
+}
+
+function versionPrepare(root, { dry, date, engine, lock = true }) {
+  const fragments = cl.readFragments(path.join(root, cl.FRAGMENT_DIRNAME)).filter((f) => f.body.trim());
+  const changesets = cs.readChangesets(path.join(root, cs.CHANGESET_DIRNAME))
+    .filter((c) => (cs.parseChangeset(c.text).releases || []).length);
+  if (!fragments.length && !changesets.length) {
+    throw new Error('nothing to release: no pending changeset in .changeset/ and no fragment in changelog.d/.');
+  }
+  const tally = {};
+  for (const f of fragments) tally[cs.fragmentBump(f)] = (tally[cs.fragmentBump(f)] || 0) + 1;
+  console.log('Release plan: version with Changesets.');
+  console.log(`  changesets: ${changesets.length} pending`);
+  console.log(`  fragments:  ${fragments.length} to convert into ${rp.ENGINE} changesets ${JSON.stringify(tally)}`);
+  if (dry) {
+    console.log('  (dry run: `changeset version` would run next; `npx changeset status --verbose` previews the bumps)');
+    return { name: '(dry run)' };
+  }
+  const before = new Map(rp.workspacePackages(root).map((p) => [p.name, p.version]));
+  cs.convertFragments({ fragmentDir: path.join(root, cl.FRAGMENT_DIRNAME), changesetDir: path.join(root, cs.CHANGESET_DIRNAME) });
+  run(CHANGESET_BIN, ['version'], { cwd: root });
+  if (lock) run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: root });
+  const afterAll = rp.workspacePackages(root);
+  const after = afterAll.find((p) => p.name === rp.ENGINE);
+  const majors = afterAll.filter((p) => crossesMajor(before.get(p.name), p.version)).map((p) => `${p.name} ${before.get(p.name)} → ${p.version}`);
+  return { name: after.version !== engine.version ? `v${after.version}` : `libraries-${date}`, majors };
+}
+
+/**
+ * Does `from` → `to` cross a major line? For a 0.x package, reaching 1.0.0 counts: it ends the 0.x line.
+ * A release that does waits for a human merge (release.yml), because the number is a promise to every user
+ * and the old tool's history shows how often an entry is marked breaking by mistake (95 of 1,674 fragments).
+ */
+function crossesMajor(from, to) {
+  if (!from || !to || from === to) return false;
+  return Number(String(to).split('.')[0]) > Number(String(from).split('.')[0]);
+}
+
+function prepare({ root = ROOT, dry = false, skipChecks = false, registry, hasTag, build = true } = {}) {
+  const problems = preflight(root);
+  if (problems.length) {
+    if (!dry) fail(problems, 'release refused');
+    console.warn(`warning: a real --prepare would refuse:\n  - ${problems.join('\n  - ')}\n`);
+  }
+  if (!dry) {
+    requireCleanTree(root);
+    if (!skipChecks) run(process.execPath, [path.join(root, 'tools', 'build.js'), '--check', '--exclude-uncommitted'], { cwd: root });
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  const { mode, engine } = releaseMode(root, { registry, hasTag });
+  const { name, majors = [] } = mode === 'bootstrap' ? bootstrapPrepare(root, { dry, date }) : versionPrepare(root, { dry, date, engine });
+  if (dry) {
+    console.log('\n[dry-run] no files changed.');
+    return { mode, name };
+  }
+  if (build) run('npm', ['run', 'build'], { cwd: root });
+
+  // The release surface: every manifest, every package CHANGELOG, the lock, both entry folders
+  // and the archive. Anything else the build touched means the tree was stale before the release.
+  const surface = [
+    'package-lock.json', cs.CHANGESET_DIRNAME, cl.FRAGMENT_DIRNAME, 'changelog/pre-release-archive.md',
+    ...rp.workspacePackages(root).flatMap((p) => [path.join(p.rel, 'package.json'), path.join(p.rel, 'CHANGELOG.md')]),
+  ].filter((f) => fs.existsSync(path.join(root, f)) || git(['ls-files', f], { cwd: root }));
+  git(['add', '--all', '--', ...surface], { cwd: root });
+  const stray = git(['status', '--porcelain'], { cwd: root }).split('\n').filter((l) => l && l[1] !== ' ').map((l) => l.slice(3));
+  if (stray.length) {
+    throw new Error(`the build changed files outside the release surface:\n  ${stray.join('\n  ')}\n\`npm run build\` on a clean tree should be a no-op.`);
+  }
+  git(['commit', '-m', `release: ${name}`], { cwd: root });
+  const version = rp.workspacePackages(root).find((p) => p.name === rp.ENGINE).version;
+  emit({ version, name, branch: `release/${name}`, needs_review: String(majors.length > 0), majors: majors.join('; ') });
+  if (majors.length) console.log(`\nMajor version crossed, so the release PR will NOT auto-merge:\n  ${majors.join('\n  ')}`);
+  console.log(`\nPrepared ${name} (${mode}). Next: push the branch, open the PR, let the queue merge it; Release (publish) takes over.`);
+  return { mode, name, version, majors };
+}
+
+// ── publish ──────────────────────────────────────────────────────────────────
+
+/** What a publish run has to do: each publish-set package not on npm, or not tagged. */
+function publishPlan(root, { registry = npmHasVersion, hasTag = (t) => tagExists(t, root) } = {}) {
+  return rp.publishable(root)
+    .map((p) => ({ ...p, onNpm: registry(p.name, p.version), tagged: hasTag(`${p.name}@${p.version}`) }))
+    .filter((p) => !p.onNpm || !p.tagged);
+}
+
+function planCommand({ root = ROOT, registry, hasTag } = {}) {
+  const problems = rp.publishSetProblems({ strict: true, root });
+  if (problems.length) fail(problems, 'publish refused');
+  const plan = publishPlan(root, { registry, hasTag });
+  const engine = rp.workspacePackages(root).find((p) => p.name === rp.ENGINE);
+  for (const p of plan) console.log(`  ${p.name}@${p.version}${p.onNpm ? ' (on npm; tag only)' : ''}`);
+  if (!plan.length) console.log('Nothing to publish: every package is on npm and tagged.');
+  // engine_due: the engine's GitHub Release is still to come, so the workflow checks its name is free first.
+  const engineDue = plan.some((p) => p.name === rp.ENGINE) && !(hasTag || ((t) => tagExists(t, root)))(`v${engine.version}`);
+  emit({ release: plan.length ? 'true' : 'false', version: engine.version, engine_due: String(engineDue) });
+  return plan;
+}
+
+/**
+ * Ask npm again, a few times, before calling a package missing. A brand-new package can read as a 404 for a
+ * little while after `npm publish` succeeds (the registry's edge cache answered the plan's lookup a minute
+ * earlier), and calling it missing would leave it untagged and the engine without its GitHub Release.
+ */
+function settledOnNpm(registry, name, version, retryMs, tries = 4) {
+  for (let i = 0; i < tries; i++) {
+    // A registry error (a timeout, a 5xx) here counts as "not yet", never as a crash: by now npm may already
+    // hold every package, and throwing would skip pushing the tags and writing the workflow outputs. After the
+    // last try the package is reported missing, which a re-run repairs.
+    try {
+      if (registry(name, version)) return true;
+    } catch {
+      // fall through to the retry
+    }
+    if (i < tries - 1 && retryMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryMs);
+  }
+  return false;
+}
+
+function publish({
+  root = ROOT, dry = false, push = false, skipChecks = false, registry = npmHasVersion, hasTag, retryMs = 15000,
+  changesetBin = CHANGESET_BIN,
+} = {}) {
+  hasTag = hasTag || ((t) => tagExists(t, root));
+  if (!dry) requireCleanTree(root);
+  if (!skipChecks) run(process.execPath, [path.join(root, 'tools', 'build.js'), '--check', '--exclude-uncommitted'], { cwd: root });
+  const problems = rp.publishSetProblems({ strict: true, root });
+  if (problems.length) fail(problems, 'publish refused');
+
+  const plan = publishPlan(root, { registry, hasTag });
+  if (!plan.length) {
+    console.log('Nothing to publish: every package is on npm and tagged.');
+    emit({ release: 'false', engine_released: 'false' });
+    return { published: [], tags: [] };
+  }
+  console.log(`Publish plan${dry ? ' (DRY RUN: npm publish --dry-run, local tags only)' : ''}:`);
+  for (const p of plan) console.log(`  ${p.name}@${p.version}${p.onNpm ? ' (already on npm; tag only)' : ''}`);
+
+  const engine = plan.find((p) => p.name === rp.ENGINE);
+  const vtag = engine ? `v${engine.version}` : null;
+  // The engine's GitHub Release is due when `v<version>` does not exist yet. That covers the normal
+  // run and the recovery run whose engine reached npm before the job died.
+  const releaseDue = Boolean(engine && !hasTag(vtag));
+  let notesFile = null;
+  if (engine && !engine.onNpm && !releaseDue) {
+    throw new Error(
+      `${vtag} already tags ${git(['rev-list', '-n', '1', vtag], { cwd: root }).slice(0, 9)}, but ${engine.name}@${engine.version} ` +
+      'is not on npm. That is the August tag: retire it first (issue #3449, release-day step 3: tag its commit v0.9.0, ' +
+      `delete ${vtag}). Nothing was published.`,
+    );
+  }
+  // Only a release commit can unlock a publish: each package going to npm must carry its `## <version>`
+  // section, which `changeset version` (or the first release) writes in the release PR. Without this, a push
+  // to main after the August tag was retired could publish whatever main held, with no changelog for it.
+  const unprepared = plan.filter((p) => !p.onNpm && !changelogHasVersion(path.join(p.dir, 'CHANGELOG.md'), p.version));
+  if (unprepared.length) {
+    throw new Error(
+      `${unprepared.map((p) => `${p.name}@${p.version}`).join(', ')} ha${unprepared.length === 1 ? 's' : 've'} no \`## <version>\` ` +
+      'section in its CHANGELOG.md, so this is not a release commit. Cut one with Release (prepare). Nothing was published.',
+    );
+  }
+  if (releaseDue) {
+    if (engine.version === BOOTSTRAP_VERSION && !fs.existsSync(path.join(root, NOTES_DIR, `${BOOTSTRAP_VERSION}.md`))) {
+      throw new Error(`${NOTES_DIR}/${BOOTSTRAP_VERSION}.md is missing; the first release ships its curated notes. Nothing was published.`);
+    }
+    // Notes and zip BEFORE npm: either failing must leave nothing half-published.
+    fs.mkdirSync(path.join(root, 'release'), { recursive: true });
+    notesFile = path.join(root, 'release', `notes-${vtag}.md`);
+    // The release's packages: this run's plan, plus any a previous attempt at this same commit already
+    // published and tagged (a recovery run), so the notes list the whole release, not only what was left.
+    const atHead = new Set(git(['tag', '--points-at', 'HEAD'], { cwd: root }).split('\n').filter(Boolean));
+    const shipped = rp.publishable(root).filter((p) => plan.some((q) => q.name === p.name) || atHead.has(`${p.name}@${p.version}`));
+    fs.writeFileSync(notesFile, releaseNotes(root, engine.version, shipped));
+    run(process.execPath, [path.join(root, 'tools', 'build-release-zip.js'), '--skip-check'], { cwd: root });
+  }
+
+  const env = { ...process.env };
+  if (dry) env.npm_config_dry_run = 'true';
+  const status = plan.some((p) => !p.onNpm) ? run(changesetBin, ['publish'], { cwd: root, env, allowFail: true }) : 0;
+
+  // Tag what npm now has. A dry run counts a successful `changeset publish` as "would publish".
+  const tags = [];
+  const missing = [];
+  for (const p of plan) {
+    const onNpm = p.onNpm || (dry ? status === 0 : settledOnNpm(registry, p.name, p.version, retryMs));
+    if (!onNpm) { missing.push(`${p.name}@${p.version}`); continue; }
+    const t = `${p.name}@${p.version}`;
+    if (!hasTag(t)) git(['tag', t], { cwd: root });
+    tags.push(t);
+  }
+  const engineReleased = releaseDue && !missing.includes(`${engine.name}@${engine.version}`);
+  if (engineReleased && !hasTag(vtag)) { git(['tag', vtag], { cwd: root }); tags.push(vtag); }
+  if (push && !dry && tags.length) run('git', ['push', 'origin', ...tags.map((t) => `refs/tags/${t}`)], { cwd: root });
+
+  emit({ release: 'true', engine_released: String(engineReleased), version: engine ? engine.version : '' });
+  console.log(`\n${dry ? '[dry-run] would publish and tag' : 'Tagged'}: ${tags.join(', ') || 'nothing'}${push && !dry ? ' (pushed)' : ''}`);
+  if (notesFile) console.log(`  notes: ${path.relative(root, notesFile)}`);
+  if (missing.length) {
+    throw new Error(`not on npm after \`changeset publish\` (exit ${status}): ${missing.join(', ')}. Re-run Release (publish) to retry only these.`);
+  }
+  return { published: plan, tags, notesFile, engineReleased };
+}
+
+// ── CLI ──────────────────────────────────────────────────────────────────────
+
+function main(argv = process.argv.slice(2)) {
+  const has = (f) => argv.includes(f);
+  const dry = has('--dry-run');
+  const phases = ['--prepare', '--publish', '--plan'].filter(has);
+  if (phases.length > 1) throw new Error(`pick one phase, not ${phases.join(' and ')}`);
+  if (has('--bump') || argv.some((a) => a.startsWith('--bump='))) {
+    throw new Error('--bump is gone: each changeset names its own bump (.changeset/README.md).');
+  }
+  if (has('--publish')) return publish({ dry, push: has('--push'), skipChecks: has('--skip-checks') });
+  if (has('--plan')) return planCommand();
+  if (has('--prepare') || dry) return prepare({ dry, skipChecks: has('--skip-checks') });
+  throw new Error([
+    'pick a phase. A release is cut in two steps, because main takes no direct pushes:',
+    '  npm run release:dry        preview the next release, change nothing',
+    '  npm run release:prepare    cut the release commit (then push a branch and open a PR)',
+    '  npm run release:publish    after it merges: publish to npm, tag, push the tags',
+    'See RELEASE.md § How to cut a release.',
+  ].join('\n'));
+}
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (e) {
+    console.error(`release: ${e.message}`);
+    process.exit(1);
+  }
+}
+
+module.exports = {
+  BOOTSTRAP_VERSION,
+  npmHasVersion,
+  prependChangelogSection,
+  changelogFirstLines,
+  releaseNotes,
+  releaseMode,
+  crossesMajor,
+  settledOnNpm,
+  bootstrapPrepare,
+  versionPrepare,
+  prepare,
+  publishPlan,
+  planCommand,
+  publish,
+  main,
+};

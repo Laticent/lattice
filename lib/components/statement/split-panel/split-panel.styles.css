@@ -118,8 +118,8 @@ section.split-panel.mirror .panel-right { background-position: left top; }
 /* The ribbon segment IS this frame's section-edge bar, so it obeys the same five
  * registers that clear the section border (base.variants.css). The panel mark is a
  * STRUCTURAL accent and survives `spectrum: off` — the white-label baseline. */
-section.split-panel:is(.no-spectrum, .spectrum-edge-left, .spectrum-edge-right,
-                       .spectrum-edge-bottom, .no-spectrum-edge) {
+section.split-panel:is(.no-spectrum, .spectrum-left, .spectrum-right,
+                       .spectrum-bottom, .no-spectrum) {
   --_ribbon: none;
 }
 /* `accent` replaces the rainbow with a solid accent line. On a split frame the edge

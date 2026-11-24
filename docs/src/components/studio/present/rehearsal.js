@@ -26,19 +26,14 @@ export const SPEAK_WPM = 135; // boardroom delivery pace, pauses folded in
 // stated contract is "Pure + Node-testable", and `test/unit/playground/rehearsal.test.js`
 // imports it under plain Node — which cannot resolve a `.ts` module at all. The `.mjs` kernel
 // is the same derivation `lint.ts` reads, so the two still cannot disagree.
+import { slideClassValue } from '../../../../../lib/core/class-entries.mjs';
 import { frontMatterBlockOf, splitSlideChunks } from '../../../../../lib/core/slide-boundaries.mjs';
 
-// KNOWN NARROW, deliberately, and #1271 moved HALF of its precondition. `lib/core/class-directive-scan.mjs`
-// is the shared reader for "what class governs this slide?", and it sees the running global
-// `<!-- class: … -->` this pattern is blind to (#1383). The note here used to say "wire it in
-// if `chunks()` ever moves onto the shared splitter" — `chunks()` has now moved (it reads
-// `splitSlideChunks` above), but the index spaces STILL do not line up: that reader indexes the
-// way `splitTopLevel` does, front matter as the first two chunks and empties kept, while
-// `parseSlides` strips front matter and drops empties. Aligning them is a behavior change to the
-// planner rather than a swap, so it stays out of #1271's diff (HARD RULE #17). The cost of the
-// gap is unchanged and bounded: a mid-deck global makes a slide's ROLE fall back to the density
-// heuristic, which shifts a dwell weight, never correctness.
-const CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+// The slide's class is read as the engine resolves it (lib/core/class-entries.mjs `slideClassValue`), so a slide written as a
+// record (`<!-- @meta{layout=decision} -->`) gets the same ROLE as its `_class` comment. It reads one chunk, so a running
+// global `<!-- class: … -->` on an earlier slide is still not carried here (#1383): the planner's chunks drop front
+// matter and empties, while the deck-wide reader indexes the way `splitTopLevel` does. The cost is bounded: a mid-deck
+// global makes a slide's ROLE fall back to the density heuristic, which shifts a dwell weight, never correctness.
 const TABLE_COMPS = new Set(['matrix-2x2', 'table', 'list-tabular', 'obligation-matrix', 'verdict-grid', 'glossary']);
 const BEAT_KINDS = new Set(['pause', 'eye', 'breathe', 'transition', 'emphasis']);
 
@@ -77,8 +72,7 @@ export function parseSlides(source) {
 }
 
 function classOf(chunk) {
-  const m = chunk.match(CLASS_DIRECTIVE);
-  return m ? m[1].trim().split(/\s+/)[0] : null;
+  return slideClassValue(chunk).trim().split(/\s+/)[0] || null;
 }
 function wordsOf(chunk) {
   return chunk

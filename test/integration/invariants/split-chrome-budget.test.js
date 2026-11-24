@@ -67,7 +67,7 @@ marp: true
 theme: indaco
 header: "Lattice · a running header long enough to reach well past any panel seam"
 footer: "Confidential · Laticent · a running footer long enough to run past any panel seam on any variant"
-paginate: true
+pagination: true
 ---
 
 ${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
@@ -154,7 +154,7 @@ const PORTRAIT_DECK = `---
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 ${[1, 3, 14].map((n) => `<!-- _class: split-panel pullquote -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}

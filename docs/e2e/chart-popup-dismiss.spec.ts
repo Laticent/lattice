@@ -44,7 +44,14 @@ async function openCard(page: import('@playwright/test').Page, width: number, ta
 			return { x: fb.x + (r.x + r.width / 2) * s, y: fb.y + (r.y + r.height * 0.6) * s };
 		});
 	const card = page.locator('[data-slot="popover-content"][data-state="open"]');
+	// The preview's hit-surface (chart-interact.js `reflow()`) is pinned over the chart on timers AFTER the marks
+	// paint, so the bars being there does not mean a press can reach them yet: a tap that lands first falls on the
+	// frame, which listens for nothing on this path, and the card never opens (a single tap, no hover to retry it).
+	// Wait for the signal a person's finger needs, the hit-surface under the point, then press (HARD RULE #32).
+	const hitAt = (p: { x: number; y: number }) =>
+		page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('db-pp-charthit') ?? false, p);
 	const open = async () => {
+		await expect.poll(async () => hitAt(await point()), { timeout: 15_000 }).toBe(true);
 		const p = await point();
 		if (tap) await page.touchscreen.tap(p.x, p.y);
 		else {

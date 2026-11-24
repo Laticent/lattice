@@ -93,7 +93,7 @@
       "description": "Optional nested bullets under a layer, one per reinsurer: `Acme Re \\`30%\\``. Each reinsurer keeps one color across every layer. Shares that add up to less than 100% leave the rest as an `Open` segment; a layer with no shares is drawn plain."
     }
   },
-  "skeleton": "<!-- _class: tower -->\n\n## Who carries each layer of the program.\n\n- Layer 2 `$100M xs $50M`\n  - Reinsurer A `60%`\n  - Reinsurer B `40%`\n- Layer 1 `$40M xs $10M`\n  - Reinsurer A `50%`\n  - Reinsurer C `50%`\n- Retention `$10M`\n",
+  "skeleton": "<!-- @meta{layout=tower} -->\n\n## Who carries each layer of the program.\n\n- Layer 2 `$100M xs $50M`\n  - Reinsurer A `60%`\n  - Reinsurer B `40%`\n- Layer 1 `$40M xs $10M`\n  - Reinsurer A `50%`\n  - Reinsurer C `50%`\n- Retention `$10M`\n",
   "anatomyBlock": "funnel",
   "sample": "<!-- _class: tower -->\n\n`Property catastrophe program · 2027`\n\n## Six reinsurers carry $310M above a $50M retention.\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n",
   "stressDoc": {

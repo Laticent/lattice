@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · diagram"
 footer: "Mermaid 12.3 · rendered through the diagram component"
 ---

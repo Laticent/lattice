@@ -55,7 +55,7 @@ Use when the story is geographic — program reach, service territories, where t
 ## Authoring
 
 ```markdown
-<!-- _class: map -->
+<!-- @meta{layout=map} -->
 
 ## Where the program runs.
 

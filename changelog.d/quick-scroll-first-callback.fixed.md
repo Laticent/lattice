@@ -1,0 +1,1 @@
+- The jump-to-top and jump-to-bottom control no longer vanishes the moment it appears when the page is busy. The pane's first resize report, which says nothing changed, used to remove it.

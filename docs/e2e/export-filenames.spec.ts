@@ -1,5 +1,5 @@
 import type { Browser, BrowserContextOptions, Page } from '@playwright/test';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // EXPORTS KEEP THE DECK'S NAME — on every engine, and natively on iOS.
 //
@@ -28,7 +28,7 @@ const IOS_AGENTS = {
 	chrome: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.7390.41 Mobile/15E148 Safari/604.1',
 };
 
-const saveToast = (page: Page) => page.locator('[data-sonner-toast]:not([data-removed="true"])', { hasText: /is ready/ });
+const saveToast = (page: Page) => liveToast(page, /is ready/);
 
 async function openExport(page: Page, row: RegExp) {
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();

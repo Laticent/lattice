@@ -123,7 +123,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: statute-stack -->\n\n## Jurisdiction comparison framing the three obligations.\n\n- Federal `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- State `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- Local `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n",
+  "skeleton": "<!-- @meta{layout=statute-stack} -->\n\n## Jurisdiction comparison framing the three obligations.\n\n- Federal `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- State `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- Local `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n",
   "anatomyBlock": "statute-stack",
   "sample": "<!-- _class: statute-stack -->\n\n## Three jurisdictions, one obligation each.\n\n- Federal `{15 U.S.C. §6501}`\n  - Parental consent for under-13 data.\n  - `{In effect since 2000}`\n- State `{Cal. Civ. §1798.120}`\n  - The right to opt out of sale.\n  - `{In effect since 2020}`\n- International `{GDPR Art. 8}`\n  - Member-state consent age, 13 to 16.\n  - `{In effect since 2018}`\n",
   "stressDoc": {

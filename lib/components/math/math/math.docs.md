@@ -59,7 +59,7 @@ Under a variant, a slot changes shape:
 ## Authoring
 
 ```markdown
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Eyebrow · context`
 

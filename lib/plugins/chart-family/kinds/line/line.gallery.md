@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · line"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # line
 
@@ -16,7 +16,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 ---
 
 <!-- _class: line -->
-<!-- _footer: "Default · line" -->
+<!-- @meta{footer=Default · line} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -49,7 +49,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 ---
 
 <!-- _class: line area -->
-<!-- _footer: "area · line area — One series with the region under it filled — the fill reads as quantity, so it is honest for a single series only and the axis always reaches zero." -->
+<!-- @meta{footer="area · line area — One series with the region under it filled — the fill reads as quantity, so it is honest for a single series only and the axis always reaches zero."} -->
 
 ## Cash on hand never dipped below one quarter of runway.
 
@@ -64,7 +64,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 ---
 
 <!-- _class: line stacked-area -->
-<!-- _footer: "stacked-area · line stacked-area — Composition over time: the series stack to a total, in the order they were authored, largest and steadiest at the bottom." -->
+<!-- @meta{footer="stacked-area · line stacked-area — Composition over time: the series stack to a total, in the order they were authored, largest and steadiest at the bottom."} -->
 
 ## The mix shifted; the total barely moved.
 
@@ -89,7 +89,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 ---
 
 <!-- _class: line step -->
-<!-- _footer: "step · line step — A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — drawn as a plateau per period rather than a slope between periods." -->
+<!-- @meta{footer="step · line step — A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — drawn as a plateau per period rather than a slope between periods."} -->
 
 ## The list price held for three quarters, then moved twice.
 
@@ -104,8 +104,8 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 ---
 
 <!-- _class: line -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · line — Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · line — Six series across six quarters with long names, a hole in the data, a negative value and a zero — every axis and label rule at once."} -->
 
 ## Six lines, six quarters, one hole and one loss.
 
@@ -154,8 +154,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line dark -->
-<!-- _footer: "Composition: dark · line dark" -->
+<!-- @meta{layout=line, class=dark, footer=Composition: dark · line dark} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -187,8 +186,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line compact -->
-<!-- _footer: "Composition: compact · line compact" -->
+<!-- @meta{layout=line, class=compact, footer=Composition: compact · line compact} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -220,8 +218,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: line accent -->
-<!-- _footer: "Composition: accent · line accent" -->
+<!-- @meta{layout=line, class=accent, footer=Composition: accent · line accent} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -253,8 +250,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · line · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · line · 1 of 2} -->
 
 ## When NOT to reach for line.
 
@@ -265,8 +261,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · line · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · line · 2 of 2} -->
 
 ## When NOT to reach for line.
 
@@ -277,7 +272,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

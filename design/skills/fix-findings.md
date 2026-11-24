@@ -118,7 +118,7 @@ allows 95. The `wall-of-text` message names whichever budget tripped.
 | `capacity-scale` | warning | too much for the `venue:` / `scale-*` size | Split, or pick the venue that matches the room. |
 | `unknown-class` | warning | a `_class:` token the engine doesn't know | Check the spelling; renamed classes name the new one. |
 | `unknown-finish` / `unknown-mode` / `unknown-theme` / `unknown-key` | warning | a front-matter value or key the deck ignores | Use a value the message lists, or delete the line. |
-| `paginate-comment-retired` | warning | `<!-- paginate: … -->` does nothing | `no-pagination` on the slide's `_class:`. |
+| `pagination-comment-retired` | warning | `<!-- paginate: … -->` does nothing | `no-pagination` on the slide's `_class:`. |
 | `web-image` | warning | a picture loaded from another site | Save it beside the deck; link by relative path. |
 | `typed-shape-glyph` | warning | a typed `✓` `→` `●` doing a drawing's job | `[x]` for a check, a word ("to", "then") for an arrow, a `-` list for a bullet (HARD RULE #29). |
 | `code-line-clipped` | info | a code line wider than its pane; the tail is cut | Wrap the line, or give the code its own slide. |
@@ -147,7 +147,7 @@ For a rule not listed here, the `fix:` line is the instruction. Grep
 size: 4k
 theme: indaco
 finish: atriumm
-paginate: true
+pagination: true
 header: "Field service · Q3 update"
 ---
 
@@ -194,7 +194,7 @@ the headings and the cut were judgment. The deck is lint-clean:
 size: 4k
 theme: indaco
 finish: atrium
-paginate: true
+pagination: true
 header: "Field service · Q3 update"
 ---
 

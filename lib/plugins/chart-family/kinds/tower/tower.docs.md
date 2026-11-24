@@ -45,7 +45,7 @@ Use for a reinsurance or insurance tower — a catastrophe program, a casualty e
 ## Authoring
 
 ```markdown
-<!-- _class: tower -->
+<!-- @meta{layout=tower} -->
 
 ## Who carries each layer of the program.
 

@@ -54,7 +54,7 @@ Use for a small register of related items where each carries similar weight. Aut
 ## Authoring
 
 ```markdown
-<!-- _class: inventory -->
+<!-- @meta{layout=inventory} -->
 
 `Eyebrow`
 

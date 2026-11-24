@@ -3,6 +3,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
+import { slidesStep } from '@/components/studio/export-options';
 import { bindPresentMedia, setPresentPlaybackState } from '@/components/studio/present/present-media';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { STAGE_CHROME_CSS } from '@/components/studio/present/stage-chrome.js';
@@ -549,9 +550,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const curWalk = walk && walk.idx === clamped && walk.slide === cur ? walk : null;
 	// A move made while the shown slide's walk is still being measured (entered by next/prev, render in flight) is
 	// queued and replayed once it is known, or a fast second press would skip a stepping slide's steps.
-	// Only a slide that CAN step waits: one whose source names `_build` / `_focusSteps`, or a deck that builds by default.
+	// Only a slide that CAN step waits: one that sets `build` or `focusSteps` (a comment or a record), or a deck that builds by default.
 	// Every other slide is known to have no steps before it renders, so an ordinary deck never queues a move.
-	const mayStep = React.useMemo(() => /<!--\s*_?(?:build|focusSteps)\b/.test(cur) || /^build\s*:/m.test(frontMatter), [cur, frontMatter]);
+	const mayStep = React.useMemo(() => slidesStep(cur) || /^build\s*:/m.test(frontMatter), [cur, frontMatter]);
 	const walkPending = mayStep && !curWalk && shownStep !== null && typeof shownStep === 'object';
 	// A slide that can step and has not reported its walk yet, however it was entered. Live holds its move until then.
 	const walkUnknown = mayStep && !curWalk;
@@ -913,12 +914,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// someone else's page is sitting on the projector showing the room the wrong
 			// thing, and the presenter should know to look at it; a window that vanished has
 			// left the projector blank. Both are re-opened with `S`.
-			onLost: (reason: 'navigated' | 'gone') =>
+			onLost: (reason: 'navigated' | 'gone' | 'unloaded') =>
 				notifyRef.current(
 					reason === 'navigated'
 						? 'The Stage left the deck — that window is showing the room something else. Press S to put the deck back on it.'
-						: 'Stage disconnected — press S to put the deck back on your second screen.',
+						: reason === 'unloaded'
+							? 'The Stage could not load its player, so it shows the first slide and cannot follow you. Reload the Studio, then press S.'
+							: 'Stage disconnected — press S to put the deck back on your second screen.',
 				),
+			// The deadline can call a slow load lost (the agents file waits on a stylesheet before it). When
+			// that deck says `ready` after all, the advice to reload no longer holds, so take it back.
+			onRecovered: () => notifyRef.current('The Stage loaded its player after all — it follows you again. No need to reload.'),
 			// DETECT to decide whether to OFFER; VERIFY the outcome to decide whether it
 			// WORKED (§7). A popup has no transient activation of its own, so its
 			// self-requested fullscreen may simply be declined — and a presenter looking at
@@ -2608,14 +2614,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		return () => window.removeEventListener('resize', measure);
 	}, [open, immersive, revealed]);
 	if (!open) return null;
-	// The caption band reserves space only while it's actually crawling (playing) — so
-	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
-	// (Quiet Bloom). The vertical grow/shrink is animated (motion-reduce snaps).
-	// The band stays reserved through the between-slide beat (`holding`), not just while the
-	// voice is sounding. Without that it would collapse and re-grow at every transition — the
-	// slide resizing twice per slide, a jank the beat itself would have introduced. During the
-	// hold it shows the new slide's opening line unhighlighted, which is exactly the intent:
-	// the audience reads it, then the voice starts.
+	// The caption band owns its space while captions are on (`data-reserved`, stage-chrome.js `.latt-cc-band`), playing
+	// or paused, so Play and Pause never resize the slide: `showCaption` only fades the crawl in and out. Turning CC on or
+	// off adds or removes the band in one step, one resize. It used to reserve space only while crawling, so every Play
+	// shrank the slide and every Pause grew it back, rescaling the slide frame each time. On an iPhone, with Guide on,
+	// that rescale of a 4K deck reloaded the tab (2026-11-20).
+	// The crawl stays shown through the between-slide beat (`holding`), not just while the voice is sounding: during
+	// the hold it shows the new slide's opening line unhighlighted, so the audience reads it, then the voice starts.
 	// DELIVERING = "the deck is mid-presentation", which is NOT the same as "a reader is
 	// sounding". Between two slides the previous reader has ended and the next has not started,
 	// yet the deck is plainly still presenting — so the transport must read Pause and the
@@ -2706,10 +2711,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// documents so they look identical.
 	//
 	// `announce=muted`: when Voice speaks the line the TTS is the audio, so the screen
-	// reader announcement is suppressed. The band is present but collapsed when there is
-	// nothing to show, so blooming in is a transition rather than a mount.
+	// reader announcement is suppressed. While captions are on the band holds its full height, and is
+	// transparent when there is nothing to show, so a caption fading in never moves the slide.
 	const captionBand = (
-		<div className="latt-cc-band" data-shown={showCaption ? '1' : '0'}>
+		<div className="latt-cc-band" data-reserved={captionsOn && !rehearse ? '1' : '0'} data-shown={showCaption ? '1' : '0'}>
 			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} carry={!immersive || !!stageHost} className={delivery.caption === 'still' ? 'latt-cc--still' : undefined} />}
 		</div>
 	);

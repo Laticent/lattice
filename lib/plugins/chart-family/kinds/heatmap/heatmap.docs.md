@@ -57,7 +57,7 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 ## Authoring
 
 ```markdown
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## Where it concentrates.
 

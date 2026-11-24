@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Form"
 footer: "Laticent · Form"
 meta: "Q2 FY26 · Board Pack | Owner · S. Aden"

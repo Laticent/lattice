@@ -4,7 +4,7 @@
 // `autocompletion` extension. Each source returns null outside its own context,
 // so they never compete:
 //   • class-directive — component names + modifiers inside `<!-- _class: … -->`
-//   • record          — fields and values inside `<!-- { … } -->`
+//   • record          — fields and values inside `<!-- @meta{ … } -->`
 //   • theme / finish / split / size — front-matter values
 //   • the shared context sources (context-sources.js) — directive names, focus,
 //     nested backdrop, mermaid, skeleton and the data-source registry; the Studio's

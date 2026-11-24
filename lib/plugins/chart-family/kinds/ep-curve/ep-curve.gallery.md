@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · ep-curve"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # ep-curve
 
@@ -16,7 +16,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 ---
 
 <!-- _class: ep-curve -->
-<!-- _footer: "Default · ep-curve" -->
+<!-- @meta{footer=Default · ep-curve} -->
 
 `[{Return period}, {Loss}]`
 
@@ -39,8 +39,8 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 ---
 
 <!-- _class: ep-curve -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · ep-curve — Four curves, eight return periods from 1-in-2 to 1-in-1,000." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · ep-curve — Four curves, eight return periods from 1-in-2 to 1-in-1,000."} -->
 
 ## Four curves, eight return periods.
 
@@ -72,8 +72,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: ep-curve dark -->
-<!-- _footer: "Composition: dark · ep-curve dark" -->
+<!-- @meta{layout=ep-curve, class=dark, footer=Composition: dark · ep-curve dark} -->
 
 `[{Return period}, {Loss}]`
 
@@ -95,8 +94,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: ep-curve compact -->
-<!-- _footer: "Composition: compact · ep-curve compact" -->
+<!-- @meta{layout=ep-curve, class=compact, footer=Composition: compact · ep-curve compact} -->
 
 `[{Return period}, {Loss}]`
 
@@ -118,8 +116,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: ep-curve accent -->
-<!-- _footer: "Composition: accent · ep-curve accent" -->
+<!-- @meta{layout=ep-curve, class=accent, footer=Composition: accent · ep-curve accent} -->
 
 `[{Return period}, {Loss}]`
 
@@ -141,8 +138,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · ep-curve" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · ep-curve} -->
 
 ## When NOT to reach for ep-curve.
 
@@ -153,7 +149,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

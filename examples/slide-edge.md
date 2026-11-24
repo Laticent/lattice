@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · one slide frame"
 ---
 
@@ -28,7 +28,7 @@ A 1px keyline in the deck's own border color, on every surface that shows a slid
 
 ---
 
-<!-- _class: content spectrum-edge-left -->
+<!-- _class: content spectrum-left -->
 
 `Spectrum on the left`
 

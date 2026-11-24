@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: indaco
-paginate: true
+pagination: true
 footer: "Indaco · secondary + label tiers, light & dark"
 ---
 

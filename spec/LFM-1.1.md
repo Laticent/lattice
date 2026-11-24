@@ -79,7 +79,7 @@ heading) belongs to the heading's slide, not the one before.
 ### 2.3 Front-matter directives
 
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
-(`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
+(`theme`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
 **`header` and `footer` are set for every slide only in front matter.** In a slide comment, in either
 spelling (`<!-- header: H -->` or `<!-- _header: H -->`), they apply to that slide only. This differs from Marpit,
@@ -87,10 +87,11 @@ where the plain spelling carries onto every later slide. A slide drops the deck'
 or `no-footer`. A renderer that exports to Marpit MUST write such a comment in the underscore spelling, so the
 exported deck renders the same.
 
-**`paginate` is a front-matter key only, and on unless it says off.** A `paginate` slide comment, in either spelling,
-has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
+**`pagination` is a front-matter key only, and on unless it says off.** It replaces Marpit's `paginate`, which an L2
+tool reports as `key-renamed` with a fix that renames it. A `pagination` or `paginate` slide comment, in either
+spelling, has no effect. A slide drops its page number with `_class: no-pagination` and keeps it with `with-pagination`; a
 component may opt out in its manifest. A renderer that exports to Marpit MUST write the result as Marpit's own
-`_paginate` comments, so the exported deck numbers the same slides.
+`paginate:` front matter and `_paginate` comments, so the exported deck numbers the same slides.
 
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
@@ -113,11 +114,9 @@ specify them, and `split:` and `preset:` have none.
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp` |
 | `tone:` | `rail` · `edge` · `glow` | The marker's tone. | `unknown-tone` |
-| `spectrum:` | `on` · `solid` · `duo` · `mono` · `off` | The spectrum accent. | `unknown-spectrum` |
-| `spectrum-edge:` | `top` · `left` · `right` · `bottom` · `off` | Which slide edge carries the spectrum. | `unknown-spectrum-edge` |
-| `spectrum-card:` | `off` · `auto` · `solid` · `duo` · `mono` · `rainbow` | The accent rail on each card. `auto` follows `spectrum:`. | `unknown-spectrum-card` |
-| `spectrum-card-edge:` | `left` · `top` · `right` · `bottom` | Which card edge carries the rail. | `unknown-spectrum-card-edge` |
-| `spectrum-trim:` | `off` · `restrained` · `on` | Whether the spectrum also colors structural accents: table rails, code strips, rules. | `unknown-spectrum-trim` |
+| `spectrum:` | up to one word per axis: style (`rainbow` `solid` `duo` `mono` `off`), edge (`top` `left` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on the slide edge: its gradient, the edge it sits on, and how thick it is. `off` drops the stripe; the accents in the content keep their style. | `unknown-spectrum` |
+| `card-spectrum:` | up to one word per axis: style (`off` `rainbow` `solid` `duo` `mono`), edge (`left` `top` `right` `bottom`), weight (`regular` `hairline` `band`) | The stripe on each card, with its own style: no key follows another. An edge or weight with no style means `rainbow`. | `unknown-card-spectrum` |
+| `trim-spectrum:` | `quiet` · `rainbow` · `solid` · `duo` · `mono` | The style of the structural accents: table rails, code strips, rules. | `unknown-trim-spectrum` |
 | `rule:` | `auto` · `full` · `short` · `accent` · `none` | The underline beneath a slide heading. | `unknown-rule` |
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
 | `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
@@ -136,7 +135,7 @@ specify them, and `split:` and `preset:` have none.
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
-| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
+| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. The older key `guards:` (`loose` for `heal`, `strict` for `trim`) is retired: the reference implementation no longer reads it and reports it as `key-renamed`. | `unknown-fit` |
 | `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
 | `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 
@@ -587,6 +586,8 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-29 | The header line no longer says nothing in 1.0 changes meaning. It names what 1.1 changes from 1.0: the `header`/`footer` and `paginate` keys (§2.3), which 1.0 left to Marpit, and the heading split (§2.2), which 1.0 left optional. Editorial: it states what the 2026-10-08 and 2026-10-20 rows already landed. |
 | 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
 | 1.1-draft | 2026-11-20 | §2.3 adds two `backdrop:` masks, `clear-footer` and `clear-hero`: the finish keeps running behind the content and clears only the footer band, or the footer band and a big-number's hero stack. `clear` keeps its meaning. Additive. Shared cases: `spec/conformance/lfm/front-matter-registers.json`. |
+| 1.1-draft | 2026-11-21 | §2.3 replaces the five spectrum registers with three, each named thing first and taking one word per axis: `spectrum:` (style, edge and a new weight axis), `card-spectrum:` (replacing `spectrum-card:` and `spectrum-card-edge:`) and `trim-spectrum:` (replacing `spectrum-trim:`, its words now styles: `quiet`, `rainbow`, `solid`, `duo`, `mono`). No key follows another: the old card `auto` and trim `on`, which copied the slide edge, have no successor word. `spectrum: on` is `spectrum: rainbow`, and `spectrum-edge:` folds into `spectrum:`, its `off` into `spectrum: off`. **Breaking** for a deck that writes an old key: a renderer ignores it, and the reference L2 tool reports it as `retired-spectrum-key` with a fix that rewrites it. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-11-21-spectrum-keys.md`. |
+| 1.1-draft | 2026-11-23 | §2.3: the page-number key is `pagination:`, Marpit's `paginate:` renamed so the key and its `no-pagination` / `with-pagination` classes share one word. **Breaking** for a deck that writes `paginate:`: a renderer ignores it, and the reference L2 tool reports it as `key-renamed` with a fix that renames it. A renderer that exports to Marpit writes `paginate:` back. Record: `engineering/decisions/2026-11-21-plain-english-key-renames.md` §D2. |
 
 ## Appendix A — A worked example (informative)
 
@@ -596,7 +597,7 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ---
 theme: indaco
 mode: boardroom
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

@@ -136,6 +136,9 @@ const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-c
 const { oklabDistance } = require('../lib/core/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 // changelog fragments: the assembler owns the format — this gate only reports it (reused, not reinvented)
 const { fragmentProblems: changelogFragmentProblems } = require('./changelog');
+// changesets + the publish set: the formats live in their release modules; these gates only report them
+const { changesetProblems } = require('./changesets');
+const { publishSetProblems } = require('./release-packages');
 const { followupProblems } = require('./followups');
 // #1595: the contrast floor a token's value must meet, read off its role-based name.
 // One source — the floors live there, not here (reused, not reinvented).
@@ -187,13 +190,13 @@ const VARIANT_DECL_IGNORE = new Map([
   // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
   // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
   ['checklist', new Set(['heat'])],
-  // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
-  // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
+  // `left`: legacy alias of `mirror` (base.modifiers.css). The others are DECK-REGISTER classes
+  // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
-  // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
-  // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
+  // `image-card-5` … `image-card-95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
+  // one axis, documented once under `image-card-solid`/`-soft`/`-sheer`/`-clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'no-heading-rule', 'with-spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'trim-spectrum-rainbow', 'trim-spectrum-solid', 'trim-spectrum-duo', 'trim-spectrum-mono', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `image-card-${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -7123,7 +7126,7 @@ const SANCTIONED_EOL_BOUNDARIES = [
   {
     file: 'lib/engine/index.js',
     count: 1,
-    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() test '
        + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
        + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
        + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
@@ -7191,10 +7194,11 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
-    file: 'lib/cli/migrate-meta.mjs',
-    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
-       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
-       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
+    file: 'lib/authoring/meta-migrate.mjs',
+    why: 'migrateMetaDeck — the one whole-deck meta migration (`lattice migrate meta`, `lint:deck --fix`, the Studio\'s '
+       + '`legacy-directive-comment` quick fix) reads an author\'s deck, folds CRLF to LF and strips the BOM so the '
+       + 'kernel reads it as the engine does (it refuses anything else), then puts both back on write: a codemod must not '
+       + 'rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',
@@ -7286,6 +7290,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/changesets.js',
+    why: 'reads `.changeset/*.md`, which are committed text (LF by .gitattributes), and is itself the gate for them: '
+       + '`changesetProblems` REJECTS a CR or a BOM by name before it parses, so normalizing at the read would hide the '
+       + 'very bytes it reports. `parseChangeset` also strips both before anchoring on `^---`, for its other callers.',
+  },
   {
     file: 'tools/platform-harness.js',
     why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
@@ -9640,6 +9650,58 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
   }
 }
 
+// ── Key-shaped literals: no committed file carries a string shaped like a real API key ──
+// A secret scanner reads source, not intent: `'<provider prefix><long run of key characters>'` is flagged whether the key
+// is live or a throwaway test value, and an alert raised on a public repo's history stays open until a human resolves it.
+// So a test fixture builds its fake key at run time from two strings (`fakeKey(prefix, body)`, docs/src/test/fake-key.ts),
+// and this gate holds every committed text file to zero literals of the shape (engineering/testing.md §Test data).
+// Budget 0, no allowlist: a real key is never committed either, and a fake one never needs to be one literal.
+// "Long" means 20 or more key characters after the prefix (AKIA: exactly 16 upper-case letters or digits); a shorter
+// placeholder such as `sk-or-v1-…` or a 12-character test body passes. Known limits: it reads the prefixes below and
+// nothing else (a provider with no fixed prefix passes), and a key split across two literals passes by design: that is the fix.
+const KEY_SHAPED_LITERAL = /(?<![A-Za-z0-9_])(?:(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}(?![0-9A-Z]))/g;
+
+/** The key-shaped literals in one file's text: [{ line, prefix }]. The match itself is never returned, so a real key never reaches a log. */
+function keyShapedLiterals(text) {
+  const found = [];
+  const src = String(text);
+  for (const m of src.matchAll(KEY_SHAPED_LITERAL)) {
+    const prefix = /^(?:sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\.|xox[abposr]-|AKIA)/.exec(m[0])[0];
+    found.push({ line: src.slice(0, m.index).split('\n').length, prefix });
+  }
+  return found;
+}
+
+function checkKeyShapedLiterals(errors, root = ROOT) {
+  // `git grep` (tracked text files only, binaries skipped) names the candidates by prefix in ~0.1 s; the exact
+  // shape is then matched here, so no grep flavor (-P is not built into every git) decides the verdict.
+  let files;
+  try {
+    files = execFileSync('git', ['grep', '--no-color', '-lIzE', 'sk-ant-|sk-or-v1-|sk-proj-|gh[pousr]_|github_pat_|AIza|AQ\\.|xox[abposr]-|AKIA'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).split('\0').filter(Boolean);
+  } catch (e) {
+    if (e.status === 1) return; // git grep exits 1 when nothing matches
+    errors.push(`the key-shaped-literal check could not search the committed files (${String(e.message).split('\n')[0]}). It needs git.`);
+    return;
+  }
+  for (const rel of files) {
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch (e) {
+      if (e.code === 'ENOENT') continue; // tracked, but deleted in the working tree
+      errors.push(`the key-shaped-literal check could not read ${rel} (${e.code || e.message}); it fails closed rather than skip a candidate.`);
+      continue;
+    }
+    for (const { line, prefix } of keyShapedLiterals(text)) {
+      errors.push(
+        `${rel}:${line}: a literal shaped like an API key (\`${prefix}…\` and a long run of key characters). A secret scanner flags the ` +
+        `shape whether or not the key is real. Build a test key at run time, e.g. fakeKey('${prefix}', '<body>') from docs/src/test/fake-key.ts ` +
+        `(engineering/testing.md §Test data). If it is a real key, revoke it first: it is already in history.`,
+      );
+    }
+  }
+}
+
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
   let baseline;
   try {
@@ -9857,7 +9919,10 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
-const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025'];
+// `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
+// an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
+// checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
+const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
 // A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening
@@ -10091,6 +10156,9 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if (!Array.isArray(s.os) || s.os.length === 0 || s.os.some((o) => !PLATFORM_SUITE_OS.includes(o))) {
       errors.push(`${at}: \`os\` must be a non-empty list drawn from ${PLATFORM_SUITE_OS.join(', ')}.`);
     }
+    if (Array.isArray(s.os) && s.os.includes('ubuntu-24.04') && !/(^|\s)(bash\s+)?docs\/scripts\/android\//.test(String(s.run || ''))) {
+      errors.push(`${at}: \`ubuntu-24.04\` is for the Android emulator suite only (a \`run\` under docs/scripts/android/); a Linux check that needs no emulator belongs in ci.yml.`);
+    }
     if (!Array.isArray(s.paths) || s.paths.length === 0 || s.paths.some((p) => typeof p !== 'string' || !p)) {
       errors.push(`${at}: \`paths\` must be a non-empty list of globs — a pull request runs the suite only when it touches one.`);
     }
@@ -10144,7 +10212,10 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
 //   2. NO ABUSE — our key must never be spent by the automated suite: no `test/**` file reads
 //      it or hits the live API, no CI workflow injects it, no `test`-family npm script invokes
 //      a spender. The one sanctioned spender is on-demand + opt-in (OPENROUTER_ALLOW_SPEND).
-const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/destructure reads too
+// The bare name catches bracket/destructure reads too. It also matches the spellings OpenRouter's own docs and SDK
+// examples use (OPENROUTER_KEY, OPENROUTER_API_KEY, OPEN_ROUTER_API_KEY), so the same key under another name is caught.
+// The word boundaries keep endpoint constants like OPENROUTER_KEY_URL out (release audit, 2026-11-06).
+const OPENROUTER_KEY_NAME = /\bOPEN_?ROUTER_(?:API_)?KEY\b/;
 // The gate's own test fixtures legitimately CONTAIN the key name as data (they build probe
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
@@ -11040,7 +11111,7 @@ function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
     allowNode: false,
     allowBare: new Set(),
     describe: (rel, spec) =>
-      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-languages/markdown takes the host's ` +
       `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
       `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });
@@ -13651,6 +13722,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // Compressed audio containers: the narration codec bake-off's fixtures (docs/scripts/ios-safari/codec-fixtures/),
+  // one 2 s sentence in every codec and container the iOS probe decodes.
+  '.aac', '.caf', '.flac', '.m4a', '.ogg', '.webm',
 ];
 
 // Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
@@ -14654,7 +14728,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
   { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
   { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
-  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
   { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
@@ -14815,8 +14889,8 @@ function checkPhantomTokenReads(errors) {
 }
 
 /**
- * HARD RULE #10's landing spot is `changelog.d/`, not `CHANGELOG.md`
- * `## Unreleased` — one file per PR, so two PRs never edit the same region and
+ * HARD RULE #10's legacy landing spot is `changelog.d/` (a changeset in `.changeset/` is the
+ * other; see checkChangesets), never a CHANGELOG.md — one file per PR, so two PRs never edit the same region and
  * the merge queue cannot eject either one on a `CHANGELOG.md` conflict (#1593;
  * seven ejections in one evening before this).
  *
@@ -14830,6 +14904,23 @@ function checkPhantomTokenReads(errors) {
  */
 function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
+}
+
+/**
+ * HARD RULE #10's other landing spot: a changeset in `.changeset/`. Changesets reads every one of
+ * them at release time, and a changeset it cannot read (a package that does not publish, a bump
+ * that is not patch/minor/major, a first line the notes cannot print) would fail `changeset
+ * version` on release day, after the queue had already landed the PR that wrote it. So the gate
+ * reads each one when it lands. The format is defined once, in tools/changesets.js.
+ *
+ * It also holds the publish set (tools/release-packages.js): every workspace package publishes,
+ * is held back by `.changeset/config.json` `ignore`, or is private, and the two lists agree. A
+ * public package in neither list would publish the first time anyone cut a release. This is the
+ * default check; the release runs the strict one, which also requires all thirteen to be public.
+ */
+function checkChangesets(errors) {
+  for (const problem of changesetProblems()) errors.push(problem);
+  for (const problem of publishSetProblems()) errors.push(`publish set: ${problem}`);
 }
 
 /**
@@ -15912,6 +16003,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkKeyShapedLiterals(errors);
   checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
@@ -15959,6 +16051,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkChangesets(errors);
   checkFollowups(errors);
   checkSpecParts(errors);
   checkVerbatimDistCopies(errors);
@@ -16006,6 +16099,8 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 module.exports = {
   writesMarkIdentity,
   readCssSource,
+  keyShapedLiterals,
+  checkKeyShapedLiterals,
   checkSpecParts,
   specPartProblems,
   checkTavolaBoundary,
@@ -16072,6 +16167,7 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkChangesets,
   checkFollowups,
   checkVerbatimDistCopies,
   verbatimCopyProblems,

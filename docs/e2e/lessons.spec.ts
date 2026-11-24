@@ -137,7 +137,7 @@ test('a site search for "pdf" opens the Studio running the PDF lesson @crosswidt
 	// The header is an island: a click before it hydrates does nothing, so click until the dialog opens.
 	const field = page.getByPlaceholder('Search docs, jump to a page, switch theme…');
 	await expect(async () => {
-		await page.getByRole('button', { name: 'Search (⌘K)' }).filter({ visible: true }).first().click();
+		await page.getByRole('button', { name: 'Search the docs, ⌘K' }).filter({ visible: true }).first().click();
 		await expect(field).toBeVisible({ timeout: 1000 });
 	}).toPass({ timeout: 20_000 });
 	await field.fill('pdf');

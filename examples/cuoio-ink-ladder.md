@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lumen · Festival of light"
 footer: "Lumen 2027 · Riverside, 14–23 May"
 ---

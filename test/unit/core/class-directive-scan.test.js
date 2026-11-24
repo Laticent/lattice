@@ -282,16 +282,20 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
       for (let i = 2; i < chunks.length; i++) {
-        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1 });
+        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1, chunk: chunks[i] });
       }
     }
     assert.ok(wrong.length >= 4, `the corpus must exercise the defect, got ${wrong.length}`);
-    const byDeck = new Set(wrong.map((w) => w.rel));
-    for (const rel of byDeck) {
-      const src = decks.find((d) => d.rel === rel).src;
+    // The other form the old reader cannot see is a record (`<!-- @meta{layout=…} -->`, record note §15), which the
+    // generators now write: a wrong slide must hold one, or sit in a deck with a running global directive.
+    const recordOn = (chunk) => /^\s*<!--\s*(?:@meta)?\{/m.test(chunk);
+    for (const w of wrong) {
+      if (recordOn(w.chunk)) continue;
+      const src = decks.find((d) => d.rel === w.rel).src;
       assert.match(src, /^\s*<!--\s*class:/m,
-        `${rel}: the old reader was wrong on a deck that uses NO global directive — a different defect`);
+        `${w.rel} slide ${w.slide}: the old reader was wrong on a slide with no record, in a deck that uses NO global directive — a different defect`);
     }
+    assert.ok(wrong.some((w) => !recordOn(w.chunk)), 'the corpus still exercises the running-global defect, not only records');
   });
 });
 
@@ -522,5 +526,47 @@ describe('cost — this runs on every keystroke', () => {
       const scanned = closeSearchCost(() => slideClassDirectives(src));
       assert.ok(scanned <= 3 * src.length, `the \`-->\` searches covered ${scanned} characters of a ${src.length}-character deck — the consumption is re-scanning its buffer`);
     }
+  });
+});
+
+// `classEntries`: every class setting the engine reads, in either spelling (meta-record §15, slice A). The tools that
+// counted `_class` comments with their own regex read this, so a deck swept to records reads the same.
+describe('classEntries — every class setting, comment or record', () => {
+  const { classEntries } = require('../../../lib/core/class-entries.mjs');
+  test('a comment deck and its record twin give the same entries, fences skipped', () => {
+    const deck = (a, b) => `---\nmarp: true\n---\n\n${a}\n# A\n\n---\n\n${b}\n# B\n\n\`\`\`\n<!-- _class: fenced -->\n\`\`\`\n`;
+    const pick = (es) => es.map(({ slide, value, spot }) => ({ slide, value, spot }));
+    const comments = classEntries(deck('<!-- _class: cards dark -->', '<!-- class: lead -->'));
+    const records = classEntries(deck('<!-- @meta{layout=cards, class=dark} -->', '<!-- @meta{class=lead, carry} -->'));
+    assert.deepEqual(pick(comments), [{ slide: 2, value: 'cards dark', spot: true }, { slide: 3, value: 'lead', spot: false }]);
+    assert.deepEqual(pick(records), pick(comments));
+    assert.deepEqual(records.map((e) => e.record), [true, true]);
+  });
+  test('a record that sets no class is no entry', () => {
+    assert.deepEqual(classEntries('<!-- @meta{footer="Q3"} -->\n# A\n'), []);
+  });
+});
+
+// `slideClassValue`: one slide's class as the ENGINE resolves it, for readers (meta-record §15, slice A). Where it
+// differs from meta-edit's `readMetaField` (an editor primitive that reads a `_class:` line anywhere in a comment, so
+// it can write back to it), it sides with the render.
+describe('slideClassValue — one slide, as the engine resolves it', () => {
+  const { slideClassValue } = require('../../../lib/core/class-entries.mjs');
+  test('a comment, a record, the bare record and last-wins all read as the engine does', () => {
+    assert.equal(slideClassValue('<!-- _class: kpi wide -->\n# X'), 'kpi wide');
+    assert.equal(slideClassValue('<!-- @meta{layout=kpi, footer=Q3} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- {layout=kpi} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- class: a -->\n<!-- _class: b -->\n# X'), 'b');
+    assert.equal(slideClassValue('<!-- _class: b -->\n<!-- @meta{layout=a} -->\n# X'), 'a');
+    assert.equal(slideClassValue('# no class'), '');
+  });
+  test('a comment that sets two directives: the engine gives the footer the rest, so there is no class', () => {
+    // The engine renders `data-footer="Q3\n_class: kpi"` and no `kpi` class for both of these.
+    assert.equal(slideClassValue('<!-- footer: Q3\n_class: kpi -->\n# X'), '');
+    assert.equal(slideClassValue('<!--\nfooter: Q3\n_class: kpi\n-->\n# X'), '');
+  });
+  test('a record shown in inline code, or opened on a later line, sets nothing', () => {
+    assert.equal(slideClassValue('Use `<!-- @meta{layout=kpi} -->` like so.\n\n# X'), '');
+    assert.equal(slideClassValue('<!--\n@meta{layout=kpi}\n-->\n# X'), '');
   });
 });

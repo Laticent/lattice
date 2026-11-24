@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 # This fixture pins the chart-frame DOM *skeleton* parity contract (progress-bars
 # / wedges / timeline-spine). It used to carry `form: off` to isolate the
 # section-class and flat-chrome assertions from the masthead hoist; Form is the

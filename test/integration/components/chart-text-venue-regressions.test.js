@@ -88,7 +88,7 @@ describe('chart text follows the venue without costing a label', () => {
     for (const [size, fm] of Object.entries(SIZES)) {
       for (const venue of VENUES) {
         const md = path.join(dir, `${size}-${venue}.md`);
-        fs.writeFileSync(md, ['---', 'theme: cuoio', 'paginate: true', 'header: "Northwind · Board review"',
+        fs.writeFileSync(md, ['---', 'theme: cuoio', 'pagination: true', 'header: "Northwind · Board review"',
           'meta: "Q3 2026 · Finance"', 'footer: "Confidential"', `venue: ${venue}`, ...fm, '---', '', body, ''].join('\n'));
         const pair = {};
         for (const [arm, pre] of [['shipped', []], ['old', ['-r', OFF]]]) {

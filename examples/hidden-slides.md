@@ -1,7 +1,7 @@
 ---
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · Hidden slides"
 ---
 

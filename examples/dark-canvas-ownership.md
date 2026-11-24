@@ -4,7 +4,7 @@ size: portrait
 theme: indaco
 color-mode: dark
 finish: atrium
-paginate: true
+pagination: true
 header: "Dark canvas ownership"
 ---
 

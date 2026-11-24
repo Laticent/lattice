@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Harvest Table · 2025 impact report"
 ---
 

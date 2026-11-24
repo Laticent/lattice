@@ -2,11 +2,12 @@
 // library pages speak in the author's STORED voice selection (the Studio's), never a ladder of whatever
 // was ready, and never write it. Every provider is mocked; nothing reaches the network.
 import type { Page } from '@playwright/test';
+import { fakeKey } from '../src/test/fake-key';
 import { expect, test } from './studio-fixture';
 
 // Fake credentials: named FAKE, not KEY, so no reader (or scanner) mistakes them for secrets.
-const OR_FAKE = 'sk-or-v1-e2e-library-voice-0b0b';
-const GEM = 'AIzaE2eLibraryVoiceFake000c3d4';
+const OR_FAKE = fakeKey('sk-or-v1-', 'e2e-library-voice-0b0b');
+const GEM = fakeKey('AIza', 'E2eLibraryVoiceFake000c3d4');
 const SEL = (o: object) => JSON.stringify({ v: 1, last: {}, ...o });
 
 /** A 0.2 s silent 16-bit mono WAV at 24 kHz: real audio bytes for the players to decode. */
@@ -144,6 +145,31 @@ test.describe('@crosswidth @webkit-phone @webkit-tablet @gecko library pages rea
 		await page.goto('/libraries/suono/');
 		await expect(page.locator('#keyDotLabel')).toHaveText('voice ready', { timeout: 30_000 });
 		await page.locator('#playBtn').click();
+		await expect.poll(() => spoke.gemini.length, { timeout: 30_000 }).toBeGreaterThan(0);
+		expect(spoke.openrouter).toEqual([]);
+	});
+
+	test('/suono speaks the stored Gemini voice when Play is pressed before the voice model has loaded', async ({ page }) => {
+		const sel = SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'kore' });
+		await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': sel });
+		const spoke = await mockProviders(page);
+		// Hold the lazily loaded voice model until Play has been pressed: the order a slow device or a loaded runner produces.
+		let release = () => {};
+		const held = new Promise<void>((r) => {
+			release = r;
+		});
+		let asked = false;
+		await page.route(/\/voice-model\.[^/]*\.js$/, async (route) => {
+			asked = true;
+			await held;
+			await route.continue();
+		});
+		// WebKit holds the load event for the pending chunk, so wait for the DOM; the label below is the readiness signal.
+		await page.goto('/libraries/suono/', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('#keyDotLabel')).toHaveText('voice ready', { timeout: 30_000 });
+		await expect.poll(() => asked, { timeout: 30_000 }).toBe(true);
+		await page.locator('#playBtn').click();
+		release();
 		await expect.poll(() => spoke.gemini.length, { timeout: 30_000 }).toBeGreaterThan(0);
 		expect(spoke.openrouter).toEqual([]);
 	});

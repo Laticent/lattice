@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · flowchart"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # flowchart
 
@@ -16,7 +16,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart -->
-<!-- _footer: "Default · flowchart" -->
+<!-- @meta{footer=Default · flowchart} -->
 
 `Incident response`
 
@@ -37,7 +37,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart lr -->
-<!-- _footer: "Left-to-right · flowchart lr — Pins the flow left to right." -->
+<!-- @meta{footer="Left-to-right · flowchart lr — Pins the flow left to right."} -->
 
 ## Events land in the warehouse within a minute.
 
@@ -51,7 +51,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart tb -->
-<!-- _footer: "Top-to-bottom · flowchart tb — Pins the flow top to bottom." -->
+<!-- @meta{footer="Top-to-bottom · flowchart tb — Pins the flow top to bottom."} -->
 
 ## The operating model has three lines of reporting.
 
@@ -66,7 +66,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart curved -->
-<!-- _footer: "Curved · flowchart curved — Generously rounded corners on the router's lines." -->
+<!-- @meta{footer="Curved · flowchart curved — Generously rounded corners on the router's lines."} -->
 
 ## Every page reaches a human within 15 minutes.
 
@@ -82,7 +82,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart rearrange -->
-<!-- _footer: "Rearrange · flowchart rearrange — Shapes may leave their written order when that draws a cleaner chart." -->
+<!-- @meta{footer="Rearrange · flowchart rearrange — Shapes may leave their written order when that draws a cleaner chart."} -->
 
 ## rearrange lets a detour sit beside the step it leaves.
 
@@ -97,8 +97,8 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 ---
 
 <!-- _class: flowchart -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · flowchart — Three groups, a group-to-shape line and a disconnected shape."} -->
 
 `Platform`
 
@@ -125,8 +125,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart dark -->
-<!-- _footer: "Composition: dark · flowchart dark" -->
+<!-- @meta{layout=flowchart, class=dark, footer=Composition: dark · flowchart dark} -->
 
 `Incident response`
 
@@ -146,8 +145,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart compact -->
-<!-- _footer: "Composition: compact · flowchart compact" -->
+<!-- @meta{layout=flowchart, class=compact, footer=Composition: compact · flowchart compact} -->
 
 `Incident response`
 
@@ -167,8 +165,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: flowchart accent -->
-<!-- _footer: "Composition: accent · flowchart accent" -->
+<!-- @meta{layout=flowchart, class=accent, footer=Composition: accent · flowchart accent} -->
 
 `Incident response`
 
@@ -188,8 +185,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · flowchart" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · flowchart} -->
 
 ## When NOT to reach for flowchart.
 
@@ -202,7 +198,7 @@ A free-form flowchart: shapes, groups and lines, written as a list.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

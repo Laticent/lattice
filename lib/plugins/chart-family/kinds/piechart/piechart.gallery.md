@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · piechart"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # piechart
 
@@ -16,7 +16,7 @@ Pie or donut chart with legend — proportional wedges.
 ---
 
 <!-- _class: piechart -->
-<!-- _footer: "Default · piechart" -->
+<!-- @meta{footer=Default · piechart} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -36,7 +36,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 ---
 
 <!-- _class: piechart donut -->
-<!-- _footer: "donut · piechart donut — The center carries the total." -->
+<!-- @meta{footer="donut · piechart donut — The center carries the total."} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -56,8 +56,8 @@ Refreshed weekly · figures from the time-tracking export
 ---
 
 <!-- _class: piechart -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · piechart — Eleven slices — the legend's limit." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · piechart — Eleven slices — the legend's limit."} -->
 
 `FY2026 · 1,840 person-hours`
 
@@ -78,8 +78,7 @@ Refreshed weekly · figures from the time-tracking export
 
 ---
 
-<!-- _class: piechart dark -->
-<!-- _footer: "Composition: dark · piechart dark" -->
+<!-- @meta{layout=piechart, class=dark, footer=Composition: dark · piechart dark} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -98,8 +97,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: piechart compact -->
-<!-- _footer: "Composition: compact · piechart compact" -->
+<!-- @meta{layout=piechart, class=compact, footer=Composition: compact · piechart compact} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -118,8 +116,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: piechart accent -->
-<!-- _footer: "Composition: accent · piechart accent" -->
+<!-- @meta{layout=piechart, class=accent, footer=Composition: accent · piechart accent} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -138,8 +135,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · piechart" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · piechart} -->
 
 ## When NOT to reach for piechart.
 
@@ -152,7 +148,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

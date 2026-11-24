@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · regulatory-update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # regulatory-update
 
@@ -16,7 +16,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update -->
-<!-- _footer: "Default · regulatory-update" -->
+<!-- @meta{footer=Default · regulatory-update} -->
 
 ## The update ledger tracks regulatory motion.
 
@@ -43,7 +43,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update timeline -->
-<!-- _footer: "timeline · regulatory-update timeline — Ordered by effective date." -->
+<!-- @meta{footer="timeline · regulatory-update timeline — Ordered by effective date."} -->
 
 ## timeline orders the changes by effective date.
 
@@ -70,7 +70,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update priority -->
-<!-- _footer: "priority · regulatory-update priority — Ranked by exposure." -->
+<!-- @meta{footer="priority · regulatory-update priority — Ranked by exposure."} -->
 
 ## priority ranks the changes by exposure.
 
@@ -93,7 +93,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update cards -->
-<!-- _footer: "cards · regulatory-update cards — One tile per change." -->
+<!-- @meta{footer="cards · regulatory-update cards — One tile per change."} -->
 
 ## cards deals each change its own tile.
 
@@ -120,7 +120,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update diff-bands -->
-<!-- _footer: "diff-bands · regulatory-update diff-bands — Changed versus stayed." -->
+<!-- @meta{footer="diff-bands · regulatory-update diff-bands — Changed versus stayed."} -->
 
 ## diff-bands shades what changed versus stayed.
 
@@ -152,8 +152,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 ---
 
 <!-- _class: regulatory-update -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · regulatory-update — Six changes — the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · regulatory-update — Six changes — the ceiling."} -->
 
 ## Six changes is the ledger's ceiling.
 
@@ -179,8 +179,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update dark -->
-<!-- _footer: "Composition: dark · regulatory-update dark" -->
+<!-- @meta{layout=regulatory-update, class=dark, footer=Composition: dark · regulatory-update dark} -->
 
 ## The update ledger tracks regulatory motion.
 
@@ -206,8 +205,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update compact -->
-<!-- _footer: "Composition: compact · regulatory-update compact" -->
+<!-- @meta{layout=regulatory-update, class=compact, footer=Composition: compact · regulatory-update compact} -->
 
 ## The update ledger tracks regulatory motion.
 
@@ -233,8 +231,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update accent -->
-<!-- _footer: "Composition: accent · regulatory-update accent" -->
+<!-- @meta{layout=regulatory-update, class=accent, footer=Composition: accent · regulatory-update accent} -->
 
 ## The update ledger tracks regulatory motion.
 
@@ -260,8 +257,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · regulatory-update" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · regulatory-update} -->
 
 ## When NOT to reach for regulatory-update.
 
@@ -274,7 +270,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

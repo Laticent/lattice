@@ -63,7 +63,7 @@ Use when the question is 'are we on plan'. Each row carries a measure bar, a per
 ## Authoring
 
 ```markdown
-<!-- _class: bullet -->
+<!-- @meta{layout=bullet} -->
 
 ## Are we on plan.
 

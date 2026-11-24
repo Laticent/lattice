@@ -34,6 +34,17 @@ import { installPreviewDrawHost } from './preview-draw-host';
 // single page only ever sees one). Survives React StrictMode double-mounts and
 // multiple islands on the same page.
 const loaders = new Map<string, Promise<void>>();
+/** How many times each engine URL's import has failed, so a retry asks for a URL the browser has not cached (below). */
+const failedImports = new Map<string, number>();
+/** The module loader, swappable for tests only: a bare `import()` cannot be intercepted in a unit test. */
+const importEngine = (src: string): Promise<unknown> => import(/* @vite-ignore */ src);
+let importModule: (src: string) => Promise<unknown> = importEngine;
+/** Test hook: replace the module loader, and forget past failures and loaders. Not for product code. */
+export function __setEngineImportForTests(fn: ((src: string) => Promise<unknown>) | null): void {
+	importModule = fn ?? importEngine;
+	failedImports.clear();
+	loaders.clear();
+}
 
 const POLL_MS = 50;
 
@@ -76,12 +87,23 @@ export function ensureEngine(url: string): Promise<void> {
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {
 		void preloadEntry(base, 'engine.js');
-		const m = import(/* @vite-ignore */ safeSrc).then(() => {
+		// A FAILED import() IS CACHED BY THE BROWSER for the page's lifetime (the module map keeps the failure), so
+		// importing the same URL again rejects at once without a fetch: measured on Chromium, WebKit and Gecko, the
+		// preview's Retry made no request at all (PR #3385). So a retry asks for a URL the module map has not seen:
+		// `?retry=N` on the entry. That recovers a failed ENTRY on every engine. A failed SUB-FILE (the entry's static
+		// chunk imports keep their URLs) comes back on a retry only where the browser's build fetches it again, and some
+		// builds keep it until a reload or a new tab, so after a failed Retry the preview offers Reload and names a new tab
+		// (DeckPreview `reloadNeeded`). Measured on PR #3385.
+		const failures = failedImports.get(url) ?? 0;
+		const src = failures ? `${safeSrc}${safeSrc.includes('?') ? '&' : '?'}retry=${failures}` : safeSrc;
+		const m = importModule(src).then(() => {
 			if (!window.LatticePlayground) throw new Error(`lattice engine loaded but did not register: ${url}`);
 		});
-		// A failed import() is cached by the browser for the page's lifetime, so a retry would replay
-		// the same rejection; un-caching keeps a later call from waiting on a settled failure anyway.
-		m.catch(() => loaders.delete(url));
+		// Un-cache our own promise too, so a later call does not wait on a settled failure.
+		m.catch(() => {
+			loaders.delete(url);
+			failedImports.set(url, failures + 1);
+		});
 		loaders.set(url, m);
 		return m;
 	}

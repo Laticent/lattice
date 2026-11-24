@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: portrait
-paginate: true
+pagination: true
 header: "Lattice · inventory split pages"
 ---
 

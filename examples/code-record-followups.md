@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · code record follow-ups"
 ---
 

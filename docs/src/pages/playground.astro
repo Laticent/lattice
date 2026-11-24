@@ -111,7 +111,7 @@ const lintVocab = {
 
 // Starter deck = the hero component's sample (verdict-grid).
 const heroComp = manifests.find((m) => m.showcase && m.showcase.hero);
-const starter = (heroComp && heroComp.sample) || '<!-- _class: title silent -->\n\n# Lattice\n';
+const starter = (heroComp && heroComp.sample) || '<!-- @meta{layout=title, class=silent} -->\n\n# Lattice\n';
 
 // Full showcase + per-family survey decks for the "Load a deck" drawer. Loaded
 // from repo markdown at build time (galleries.mjs), with local image assets

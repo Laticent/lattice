@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- @note{Measurement fixture for the three sub-fallback glyph entries — `―` `→` `　`.

@@ -100,6 +100,8 @@ const ASSET = /asset:/i;
  *  slide looks like even though it is not in the slide's text. `header` and `footer` set their own slide
  *  only (audit §11r), so they are not carried. */
 const CARRIED = /<!--\s*(?!_|(?:header|footer|paginate)\s*:)[A-Za-z][\w-]*\s*:[\s\S]*?-->/g;
+/** The record spelling of the same carry (`<!-- @meta{class=dark, carry} -->`). Over-matching is fine: this is a cache key. */
+const CARRIED_RECORD = /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b[\s\S]*?-->/g;
 
 /**
  * A DIAGNOSTIC CEILING for the map's frame pool, read once from `localStorage['lattice-studio-map-slots']` (an
@@ -177,8 +179,8 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		let acc = '';
 		for (const it of look.items) {
 			out.push(acc);
-			const found = partText(look.index, it.unit, it.section).match(CARRIED);
-			if (found) acc += found.join('');
+			const text = partText(look.index, it.unit, it.section);
+			for (const found of [text.match(CARRIED), text.match(CARRIED_RECORD)]) if (found) acc += found.join('');
 		}
 		return out;
 	}, [look]);

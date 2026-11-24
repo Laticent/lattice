@@ -1,1 +1,0 @@
-- **The Studio's deck settings now choose the Guide's delivery.** Settings ▸ Speech has a Delivery menu under Pace: Restrained (the default), Expressive or Somber. It writes the deck's `delivery:` line, and choosing Restrained removes it, so the choice travels with the deck the same way typing it did.

@@ -52,7 +52,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   process.exit(0);
 }
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-  const pkg = require(path.join(__dirname, '..', 'package.json'));
+  const pkg = require(path.join(__dirname, '..', 'packages', 'lattice', 'package.json'));
   console.log(`screenshot-slides ${pkg.version}`);
   process.exit(0);
 }

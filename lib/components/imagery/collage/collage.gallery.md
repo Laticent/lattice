@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · collage"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # collage
 
@@ -16,7 +16,7 @@ Four to six photos of any shape packed edge to edge into a mood board, with the 
 ---
 
 <!-- _class: collage -->
-<!-- _footer: "Default · collage" -->
+<!-- @meta{footer=Default · collage} -->
 
 `The atelier`
 
@@ -36,7 +36,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage ordered -->
-<!-- _footer: "ordered · collage ordered — Keep the photos in the order written." -->
+<!-- @meta{footer="ordered · collage ordered — Keep the photos in the order written."} -->
 
 `The atelier`
 
@@ -56,7 +56,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage fill -->
-<!-- _footer: "fill · collage fill — Allow a small crop to close empty space." -->
+<!-- @meta{footer="fill · collage fill — Allow a small crop to close empty space."} -->
 
 `The atelier`
 
@@ -76,7 +76,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage above -->
-<!-- _footer: "above · collage above — Text above the photos instead of beside them." -->
+<!-- @meta{footer="above · collage above — Text above the photos instead of beside them."} -->
 
 `The atelier`
 
@@ -96,7 +96,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage bleed -->
-<!-- _footer: "bleed · collage bleed — The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix." -->
+<!-- @meta{footer="bleed · collage bleed — The collage runs edge to edge. Each photo loses a share of its edges to fill the slide: about 4% on average, up to a sixth for an awkward mix."} -->
 
 `The atelier`
 
@@ -116,7 +116,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage mirror -->
-<!-- _footer: "mirror · collage mirror — Text on the other side." -->
+<!-- @meta{footer="mirror · collage mirror — Text on the other side."} -->
 
 `The atelier`
 
@@ -136,8 +136,8 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: collage -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · collage — Six photos of five different shapes, the ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · collage — Six photos of five different shapes, the ceiling."} -->
 
 `Six shapes, one frame`
 
@@ -157,8 +157,7 @@ Six is the ceiling: past it the photos get too small to read, and the layout fal
 
 ---
 
-<!-- _class: collage dark -->
-<!-- _footer: "Composition: dark · collage dark" -->
+<!-- @meta{layout=collage, class=dark, footer=Composition: dark · collage dark} -->
 
 `The atelier`
 
@@ -177,8 +176,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage compact -->
-<!-- _footer: "Composition: compact · collage compact" -->
+<!-- @meta{layout=collage, class=compact, footer=Composition: compact · collage compact} -->
 
 `The atelier`
 
@@ -197,8 +195,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: collage accent -->
-<!-- _footer: "Composition: accent · collage accent" -->
+<!-- @meta{layout=collage, class=accent, footer=Composition: accent · collage accent} -->
 
 `The atelier`
 
@@ -217,8 +214,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · collage" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · collage} -->
 
 ## When NOT to reach for collage.
 
@@ -231,7 +227,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

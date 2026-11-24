@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · footer band room"
 footer: "Acme Holdings · Q3 board review · strictly confidential · do not forward outside the board and its advisers"
 logo: lattice

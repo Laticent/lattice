@@ -32,7 +32,7 @@ function oneLine(markup: string): string {
  * Flatten a label to something that can sit on ONE markdown line.
  *
  * `label` reaches here from a record, and a record can come from an imported bundle whose manifest a
- * stranger hand-edited — where a label carrying newlines wrote `---` and a second `<!-- _class -->`
+ * stranger hand-edited — where a label carrying newlines wrote `---` and a second layout comment
  * straight into the heading, injecting arbitrary slides into the author's deck under their own name.
  * The `<title>` half was already safe (escaped, then newline-collapsed by `oneLine`); the heading was
  * not, because it is markdown rather than markup.
@@ -121,7 +121,7 @@ export function slideSkeleton({ label, description, art, spec, caption }: Skelet
 	const copy = reinstance(art, spec);
 	const poster = oneLine(labelArt(copy.art, heading, description));
 	const fence = JSON.stringify(copy.spec, null, 2);
-	const lines = ['<!-- _class: scene -->', '', `## ${heading}`, ''];
+	const lines = ['<!-- @meta{layout=scene} -->', '', `## ${heading}`, ''];
 	if (caption) lines.push(oneLineText(caption), '');
 	lines.push(poster, '', '```anima', fence, '```', '');
 	return lines.join('\n');

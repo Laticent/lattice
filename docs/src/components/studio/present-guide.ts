@@ -2645,6 +2645,66 @@ export type FocusLook = { dim?: number; dimMark?: number; dimInner?: number; fad
 
 const EXPRESSION_CLASSES = ['lat-guide-focus', 'lat-guide-highlight', 'lat-guide-ring'];
 
+// ── THE FADE, stepped — no compositing layer inside a slide ─────────────────────────────────
+//
+// The dims used to fade by a CSS `transition: opacity`. WebKit runs an opacity transition on the compositor, so each
+// fading element got a layer, and a layer inside a slide frame is sized by the frame's own box (3840x2160 for a 4K deck)
+// times the screen's pixel density: about 300 MB a layer on an iPhone at 3x, and Present with Guide reloaded the tab
+// (2026-11-20; engineering/gotchas/memory-profiling.md). So the opacity steps here, frame by frame, as inline style: a
+// changing static opacity repaints at the size the slide is shown and needs no layer. The classes still carry every
+// look (the dim levels, the ink, the highlight) and their color transitions; this moves only the opacity's motion. The
+// inline value clears when the fade lands, so what is left is exactly the class's rule.
+
+const opacityFade = new WeakMap<Element, number>();
+
+/** Change classes with `mutate`, and ease each element's opacity from where it was to where its new class puts it. */
+function crossfadeOpacity(els: readonly Element[], fade: number, mutate: () => void): void {
+	const view = els[0]?.ownerDocument?.defaultView;
+	const styled = (e: Element) => (e as HTMLElement | SVGElement).style;
+	if (!view || fade <= 0 || view.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+		for (const e of els) {
+			const id = opacityFade.get(e);
+			if (id) view?.cancelAnimationFrame(id);
+			opacityFade.delete(e);
+			if (styled(e)) styled(e).opacity = '';
+		}
+		mutate();
+		return;
+	}
+	// Where each element is now: a running fade's inline value, or its class's opacity.
+	const from = els.map((e) => {
+		const inline = styled(e)?.opacity;
+		return inline ? Number(inline) : Number(view.getComputedStyle(e).opacity);
+	});
+	mutate();
+	const start = view.performance.now();
+	els.forEach((e, i) => {
+		const st = styled(e);
+		if (!st) return;
+		const running = opacityFade.get(e);
+		if (running) view.cancelAnimationFrame(running);
+		opacityFade.delete(e);
+		st.opacity = '';
+		const to = Number(view.getComputedStyle(e).opacity);
+		const a = from[i];
+		if (!Number.isFinite(a) || !Number.isFinite(to) || Math.abs(to - a) < 0.005) return;
+		// Coming up arrives fast (ease-out), going down recedes gently (ease-in-out), as the classes' transitions did.
+		const ease = to > a ? (t: number) => 1 - (1 - t) ** 3 : (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
+		st.opacity = String(a);
+		const tick = (now: number) => {
+			const t = Math.min(1, (now - start) / fade);
+			if (t >= 1) {
+				st.opacity = '';
+				opacityFade.delete(e);
+				return;
+			}
+			st.opacity = String(a + (to - a) * ease(t));
+			opacityFade.set(e, view.requestAnimationFrame(tick));
+		};
+		opacityFade.set(e, view.requestAnimationFrame(tick));
+	});
+}
+
 /**
  * Focus the content `el` names, and return the undo — or null when nothing on the slide can be
  * focused, so the caller can gesture another way. The undo lifts every peer back (a crossfade
@@ -2675,22 +2735,24 @@ export function focusParts(section: HTMLElement, found: FocusParts, look: FocusL
 	section.style?.setProperty('--guide-fade', `${fade}ms`);
 	// The named thing comes up if it was down (a peer a moment ago), never down, and takes its look.
 	const cls = expression === 'recede' ? null : `lat-guide-${expression}`;
-	for (const e of found.unit) {
-		e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner', ...EXPRESSION_CLASSES);
-		e.classList.add('lat-guide-undim');
-		if (cls) e.classList.add(cls);
-	}
 	// A highlight or a ring names the part by marking it; the rest stays as it is.
 	const recedes = expression === 'focus' || expression === 'recede';
-	for (const e of recedes ? found.peers : []) {
-		e.classList.remove('lat-guide-undim', 'lat-guide-dim-inner');
-		e.classList.add('lat-guide-dim');
-	}
-	for (const e of recedes ? found.inner : []) {
-		e.classList.remove('lat-guide-undim', 'lat-guide-dim');
-		e.classList.add('lat-guide-dim-inner');
-	}
 	const touched = [...found.unit, ...found.peers, ...found.inner];
+	crossfadeOpacity(touched, fade, () => {
+		for (const e of found.unit) {
+			e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner', ...EXPRESSION_CLASSES);
+			e.classList.add('lat-guide-undim');
+			if (cls) e.classList.add(cls);
+		}
+		for (const e of recedes ? found.peers : []) {
+			e.classList.remove('lat-guide-undim', 'lat-guide-dim-inner');
+			e.classList.add('lat-guide-dim');
+		}
+		for (const e of recedes ? found.inner : []) {
+			e.classList.remove('lat-guide-undim', 'lat-guide-dim');
+			e.classList.add('lat-guide-dim-inner');
+		}
+	});
 	const view = section.ownerDocument?.defaultView;
 	// Each fade-up belongs to the focus that started it: a clear left over from an OLDER focus must
 	// not strip a newer one's `-undim` mid-crossfade, which snapped the element to full (checker).
@@ -2701,12 +2763,14 @@ export function focusParts(section: HTMLElement, found: FocusParts, look: FocusL
 		if (done) return;
 		done = true;
 		if (cls) for (const e of found.unit) if (fadeOwner.get(e) === token) e.classList.remove(cls);
-		for (const e of [...found.peers, ...found.inner]) {
-			if (!e.classList.contains('lat-guide-dim') && !e.classList.contains('lat-guide-dim-inner')) continue;
-			e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');
-			e.classList.add('lat-guide-undim');
-			fadeOwner.set(e, token);
-		}
+		const lifting = [...found.peers, ...found.inner].filter((e) => e.classList.contains('lat-guide-dim') || e.classList.contains('lat-guide-dim-inner'));
+		crossfadeOpacity(lifting, fade, () => {
+			for (const e of lifting) {
+				e.classList.remove('lat-guide-dim', 'lat-guide-dim-inner');
+				e.classList.add('lat-guide-undim');
+				fadeOwner.set(e, token);
+			}
+		});
 		// The fade-up class leaves once the crossfade is over — except on an element a later focus
 		// dimmed again. No timer is ever cancelled; each clear skips what is no longer its own.
 		const clear = () => {

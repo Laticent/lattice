@@ -269,28 +269,37 @@ describe('preview font gate — the injection order at every call site', () => {
 	const path = require('node:path');
 	const ROOT = path.join(__dirname, '../../..');
 
-	// The revealer is matched at its INJECTION site, not by its bare name: the FIT
-	// agent's own `function fitAgent(gap, clamp)` definition sits 300 lines above the
-	// emission, so a bare-name match compares the gate against the wrong occurrence
-	// and fails on a file that is correct. Match the concatenation idiom, which only
-	// appears where the document is assembled.
+	// The gate and the self-revealing agents ride in ONE same-origin file (frame-agents.mjs): a preview
+	// frame inherits its page's script policy, which allows no inline script. So each builder emits
+	// TAGS (`agentTag(…, 'fontgate')`), and the order the census pins is the order of those tags in the
+	// document the builder assembles. The revealer is matched at its tag, which only appears where the
+	// document is assembled.
 	//
-	// `waiter` is what actually consumes the gate, and it differs by revealer shape:
-	// the two documents that reveal THEMSELVES use the `onFontsReady` idiom; the one
-	// revealed by its PARENT polls the flag from `facesReady`. A site that injects the
+	// `waiter` is what actually consumes the gate, and it differs by revealer shape: the two documents
+	// that reveal THEMSELVES run an agent built on the `onFontsReady` idiom (checked in frame-agents.mjs
+	// below); the one revealed by its PARENT polls the flag from `facesReady`. A site that injects the
 	// gate and consumes it nowhere is the same silent no-op as a late injection.
+	const GATE = "'fontgate'";
 	const SITES = [
 		{
 			file: 'docs/src/playground/deck-preview.js',
-			revealer: '+ fitAgent(gap, clamp) +',
-			waiter: 'onFontsReady(',
+			revealer: "agentTag(agents, 'fit'",
+			agent: 'fit',
 			what: "the filmstrip preview's FIT agent (Playground + Studio)",
 		},
 		{
 			file: 'docs/src/components/studio/present/stage-window.js',
-			revealer: 'function lattStageReveal()',
-			waiter: 'onFontsReady(',
+			revealer: "agentTag(agents, 'stage-reveal'",
+			agent: 'stage-reveal',
 			what: 'the Stage window, which under `standalone` an audience watches',
+			// NOT <head>, and the one exception. The opener writes this document with `document.write`,
+			// which stops at a `<script src>` until the file loads, then asks `isOpen()` (is `#latt-stage`
+			// there?) the moment the write returns. A gate in <head> hid the marker, so every Stage that
+			// opened also said "Allow pop-ups…" (stage-window.spec.ts, the hand-close cell). The Stage
+			// reveals itself from inside the document and nothing outside it polls the flag, so the
+			// <head> reason below does not apply; the gate still precedes the runtime and the revealer.
+			after: 'id="latt-stage"',
+			before: "' src=\"' + rt + '\"",
 		},
 		{
 			file: 'docs/src/playground/single-slide-render.ts',
@@ -303,27 +312,33 @@ describe('preview font gate — the injection order at every call site', () => {
 			what: 'the landing islands / specimens, revealed by the PARENT in scaleFrame',
 		},
 	];
+	const AGENTS = fs.readFileSync(path.join(ROOT, 'lib/core/frame-agents.mjs'), 'utf8');
 
 	for (const site of SITES) {
 		it(`${site.file} emits the gate BEFORE ${site.what}`, () => {
 			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
-			const gate = src.indexOf('fontGateAgent(');
+			const gate = src.indexOf(GATE);
 			const reveal = src.indexOf(site.revealer);
-			assert.ok(gate !== -1, `${site.file} no longer injects fontGateAgent() — the reveal is ungated again`);
+			assert.ok(gate !== -1, `${site.file} no longer emits the fontgate agent — the reveal is ungated again`);
 			assert.ok(reveal !== -1, `${site.file} no longer contains its revealer (${site.revealer})`);
-			assert.ok(
-				src.includes(site.waiter),
-				`${site.file} injects the gate but nothing consumes it (${site.waiter}) — the reveal is ungated`,
-			);
+			if (site.agent) assert.ok(gate < reveal, `${site.file} emits its revealer before the gate`);
+			if (site.waiter) {
+				assert.ok(src.includes(site.waiter), `${site.file} injects the gate but nothing consumes it (${site.waiter}) — the reveal is ungated`);
+			}
 		});
 
-		// No photo holds the reveal (followup 2412-p2): a slide whose photo is loading holds its
-		// own text back, so a site passing an image cap again would bring back the blank wait.
-		it(`${site.file} passes the gate no image wait`, () => {
-			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
-			assert.match(src, /fontGateAgent\(\)/);
-		});
-
+		if (site.after) {
+			it(`${site.file} emits the gate after ${site.after} and before the runtime`, () => {
+				const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
+				const gate = src.indexOf(GATE);
+				const marker = src.indexOf(site.after);
+				const runtime = src.indexOf(site.before);
+				assert.ok(marker !== -1 && runtime !== -1, `${site.file} no longer writes ${site.after} or its runtime tag — the document shape changed`);
+				assert.ok(marker < gate, `${site.file} emits the fontgate tag before ${site.after}, so isOpen() reads false while the file loads`);
+				assert.ok(gate < runtime, `${site.file} emits the fontgate tag after the runtime`);
+			});
+			continue;
+		}
 		it(`${site.file} emits the gate into <head>`, () => {
 			// Placement is the contract, not a preference. The agent publishes its flag
 			// synchronously and defers its measurement to DOMContentLoaded precisely so
@@ -332,16 +347,28 @@ describe('preview font gate — the injection order at every call site', () => {
 			// would read `undefined`, conclude "no gate", and reveal early. That exact
 			// mistake shipped in this change's first cut and measured as no fix at all.
 			const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
-			const gate = src.indexOf('fontGateAgent(');
+			const gate = src.indexOf(GATE);
 			const headClose = src.indexOf('</head>');
 			assert.ok(headClose !== -1, `${site.file} no longer closes a <head> — the document shape changed`);
 			assert.ok(
 				gate < headClose,
-				`${site.file} emits fontGateAgent() after </head>. A polling revealer cannot tell a not-yet-parsed ` +
+				`${site.file} emits the fontgate agent after </head>. A polling revealer cannot tell a not-yet-parsed ` +
 					'gate from an absent one, so a body-placed gate reads as "no gate" and reveals early.',
 			);
 		});
 	}
+
+	// The self-revealing agents consume the gate in the file itself.
+	it('frame-agents.mjs: the fit and Stage reveal agents wait on the gate (onFontsReady)', () => {
+		assert.match(AGENTS, /' {2}' \+ onFontsReady\('revealNow'\)/);
+		assert.match(AGENTS, /onFontsReady\('lattStageReveal'\)/);
+	});
+
+	// No photo holds the reveal (followup 2412-p2): a slide whose photo is loading holds its
+	// own text back, so a gate given an image cap again would bring back the blank wait.
+	it('frame-agents.mjs passes the gate no image wait', () => {
+		assert.match(AGENTS, /fontgate: fontGateAgent\(\),/);
+	});
 });
 
 // No photo holds the first reveal (followup 2412-p2). An adaptive `image` slide whose photo is

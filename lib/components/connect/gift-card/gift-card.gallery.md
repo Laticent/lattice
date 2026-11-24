@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · gift-card"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # gift-card
 
@@ -16,7 +16,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 ---
 
 <!-- _class: gift-card -->
-<!-- _footer: "Default · gift-card" -->
+<!-- @meta{footer=Default · gift-card} -->
 
 `connect · gift-card`
 
@@ -29,8 +29,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 
 ---
 
-<!-- _class: gift-card dark -->
-<!-- _footer: "Composition: dark · gift-card dark" -->
+<!-- @meta{layout=gift-card, class=dark, footer=Composition: dark · gift-card dark} -->
 
 `connect · gift-card`
 
@@ -43,8 +42,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 
 ---
 
-<!-- _class: gift-card accent -->
-<!-- _footer: "Composition: accent · gift-card accent" -->
+<!-- @meta{layout=gift-card, class=accent, footer=Composition: accent · gift-card accent} -->
 
 `connect · gift-card`
 
@@ -57,8 +55,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · gift-card" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · gift-card} -->
 
 ## When NOT to reach for gift-card.
 
@@ -69,7 +66,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

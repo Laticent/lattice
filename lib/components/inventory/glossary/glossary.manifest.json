@@ -80,7 +80,7 @@
       "description": "The term's definition, nested under it. `-` or `1.` read the same here: the layout turns the pair into a table row."
     }
   },
-  "skeleton": "<!-- _class: glossary -->\n\n## Glossary\n\n- Adjacency\n  - The relationship between two slides that share an audience or context.\n- Anchor\n  - A title, divider, or closing slide that orients the audience.\n- Cadence\n  - The deck's pacing — how much new information per slide.\n",
+  "skeleton": "<!-- @meta{layout=glossary} -->\n\n## Glossary\n\n- Adjacency\n  - The relationship between two slides that share an audience or context.\n- Anchor\n  - A title, divider, or closing slide that orients the audience.\n- Cadence\n  - The deck's pacing — how much new information per slide.\n",
   "anatomyBlock": "glossary",
   "sample": "<!-- _class: glossary -->\n\n## Glossary\n\n- Component\n  - A slide layout with a manifest, styles, and docs.\n- Variant\n  - A named modifier that changes one layout decision.\n- Modifier\n  - A universal class — dark, compact, accent — any layout accepts.\n- Stress test\n  - The slide that shows a layout's upper limit.\n",
   "stressDoc": {

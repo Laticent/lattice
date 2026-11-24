@@ -53,6 +53,9 @@ test('a deck-relative script loads when the output is in another folder; one tha
     assert.equal(r.status, 0, why(r));
     assert.doesNotMatch(r.stderr, /ok\.js/, 'the deck\'s own script was refused');
     assert.match(r.stderr, /refused file:\/\/\/.*secret\.js/, 'a script outside the deck must still be refused');
+    // The warning names the path the author wrote, read from the deck folder, not only the output-folder address.
+    const asWritten = path.join(base, 'outside', 'secret.js');
+    assert.ok(r.stderr.includes(`(from the deck folder: ${asWritten})`), `the warning should name ${asWritten}\n${r.stderr}`);
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }

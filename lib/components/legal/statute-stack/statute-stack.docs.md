@@ -55,7 +55,7 @@ Under a variant, a slot changes shape:
 ## Authoring
 
 ```markdown
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## Jurisdiction comparison framing the three obligations.
 

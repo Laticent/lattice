@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · content-capacity contract"
 footer: "Pick the layout by content shape"
 ---

@@ -46,7 +46,7 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 ## Authoring
 
 ```markdown
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the flow drops off.
 

@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: atelier
-paginate: true
+pagination: true
 footer: "Atelier · secondary + label tiers, light & dark"
 ---
 

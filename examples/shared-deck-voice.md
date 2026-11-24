@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 pace: deliberate
 header: "Lattice · a shared deck finds its voice"
 ---

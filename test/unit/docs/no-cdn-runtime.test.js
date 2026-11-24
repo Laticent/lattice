@@ -159,8 +159,32 @@ const sanctionedHosts = new Set([...SANCTIONED_CDN_IMPORTS.keys()].map((u) => u.
 // This test file itself, which necessarily spells the hosts out.
 const SELF = path.relative(REPO, __filename);
 
+// A working tree is not a frozen tree. `tools/check-lint-coverage.js` writes real probe
+// files (`_lint-teeth-probe-*`) into docs/src and removes them within its own run, so a
+// test file running beside it can list a probe and find it gone a moment later. That
+// failed this test at pre-commit on `docs/src/components/studio/lessons/_lint-teeth-probe-*.ts`.
+// The fix is the one `style-guard-census.test.js` made for #2117: swallow ENOENT, and only
+// for a path the walk itself just listed. A file that exists and cannot be read still
+// throws, and a file that is gone cannot load anything from a CDN.
+const readdirOrNull = (p) => {
+	try {
+		return fs.readdirSync(p, { withFileTypes: true });
+	} catch (e) {
+		if (e.code === 'ENOENT') return null;
+		throw e;
+	}
+};
+const readOrNull = (p) => {
+	try {
+		return fs.readFileSync(p, 'utf8');
+	} catch (e) {
+		if (e.code === 'ENOENT') return null;
+		throw e;
+	}
+};
+
 function walk(dir, out = []) {
-	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+	for (const entry of readdirOrNull(dir) ?? []) {
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			if (entry.name === 'node_modules' || entry.name === 'dist') continue;
@@ -183,7 +207,8 @@ test('no docs/src file references a CDN host', () => {
 	for (const file of files) {
 		const rel = path.relative(REPO, file);
 		if (rel === SELF) continue;
-		const text = fs.readFileSync(file, 'utf8');
+		const text = readOrNull(file);
+		if (text === null) continue;
 		text.split('\n').forEach((line, i) => {
 			for (const host of BARRED_HOSTS) {
 				if (!line.includes(host)) continue;
@@ -224,7 +249,7 @@ test('every sanctioned CDN import is still loaded by docs/src', () => {
 	// the allowlist back into a bar the day the AI tier is self-hosted.
 	const text = walk(DOCS_SRC)
 		.filter((f) => path.relative(REPO, f) !== SELF)
-		.map((f) => fs.readFileSync(f, 'utf8'))
+		.map((f) => readOrNull(f) ?? '')
 		.join('\n');
 
 	const stale = [...SANCTIONED_CDN_IMPORTS.keys()].filter((url) => !text.includes(url));

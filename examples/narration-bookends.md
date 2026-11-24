@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · narration bookends"
 greeting: "{greeting}, and welcome to a short tour of narration bookends."
 closing: "Thank you for listening. Questions are welcome."

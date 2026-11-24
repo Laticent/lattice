@@ -18,7 +18,7 @@ import { frontMatterBlock } from '../../lib/front-matter';
 // slot, its index in the new deck, or -1 if the op removed it.
 
 /** Default body for a freshly-added slide. */
-export const NEW_SLIDE = '<!-- _class: content -->\n\n## New slide\n\nReplace this with your point.';
+export const NEW_SLIDE = '<!-- @meta{layout=content} -->\n\n## New slide\n\nReplace this with your point.';
 
 /** The canonical slide separator. Exported because the previews reassemble a viewed slide LIST back into a
  *  deck document too (they render the deck for context and display one slide, so the engine's page number

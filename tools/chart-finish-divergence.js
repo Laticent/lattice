@@ -45,6 +45,7 @@
  */
 
 const fs = require('node:fs');
+const { slideClassValue } = require('../lib/core/class-entries.mjs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -78,8 +79,9 @@ function parseArgs(argv) {
 function slideMembers(md) {
   const body = md.replace(/^---\n[\s\S]*?\n---\n/, '');
   return body.split(/\n---\s*\n/).map((chunk, i) => {
-    const m = /<!--\s*_class:\s*([^\s>-]+)/.exec(chunk);
-    return { index: i + 1, name: m ? m[1] : `slide-${i + 1}` };
+    // The slide's first class word, a comment or a record (`@meta{layout=…}`): the shared reader.
+    const first = slideClassValue(chunk).trim().split(/\s+/)[0];
+    return { index: i + 1, name: first || `slide-${i + 1}` };
   });
 }
 

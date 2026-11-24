@@ -28,6 +28,8 @@
  * Exit 0 always (an audit, not a gate), unless the render fails. Skips loudly with no Chromium.
  */
 const fs = require('node:fs');
+const { readMetaField } = require('../lib/core/meta-edit.mjs');
+const { slideClassValue } = require('../lib/core/class-entries.mjs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
@@ -86,9 +88,12 @@ const exceptionOf = (component, variant) => EXCEPTIONS[`${component} ${variant}`
 /** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
 function splitSample(md, name) {
   const first = String(md || '').split(/\n---\s*\n/)[0];
-  const m = first.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
-  const tokens = m ? m[1].split(/\s+/).filter(Boolean) : [name];
-  const body = m ? first.replace(m[0], '') : first;
+  // The sample's class, a `_class` comment or a record (`@meta{layout=…}`), as the engine resolves it (`slideClassValue`);
+  // the editor's reader (`readMetaField`) only finds the comment's span, so it comes out of the body whole.
+  const value = slideClassValue(first);
+  const cls = value ? readMetaField(first, 'class') : null;
+  const tokens = value ? value.split(/\s+/).filter(Boolean) : [name];
+  const body = cls?.commentSpan ? first.slice(0, cls.commentSpan[0]) + first.slice(cls.commentSpan[1]) : first;
   return { tokens: tokens[0] === name ? tokens.slice(1) : tokens, body: body.trim() };
 }
 

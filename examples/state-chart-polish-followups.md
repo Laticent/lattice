@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · State chart follow-ups"
 ---
 

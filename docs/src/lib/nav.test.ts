@@ -60,8 +60,8 @@ describe('nav model', () => {
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
 
-	it('lists every workspace library, Trama, Segno, Calco, Tavola, Fuoco, Mosaico, Veduta, Fluido, Filo and Squadra included, and LTT under Specs', () => {
-		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco', 'Mosaico', 'Veduta', 'Fluido', 'Filo', 'Squadra']);
+	it('lists every workspace library, LTT, Markup, Lastra and Segno Languages included, and LTT under Specs as well', () => {
+		expect(labels(librariesNav(url))).toEqual(['Suono', 'Cadenza', 'Vetrina', 'Lente', 'Trama', 'Segno', 'Calco', 'Tavola', 'Fuoco', 'Mosaico', 'Veduta', 'Fluido', 'Filo', 'Squadra', 'LTT', 'Markup', 'Lastra', 'Segno Languages']);
 		expect(labels(specsNav(url))).toEqual(['LFM 1.0', 'Diagnostic Protocol', 'LTT 1.0']);
 		for (const s of specsNav(url)) expect(s.href).toMatch(/\/spec\/[a-z]+\/$/);
 	});
@@ -106,16 +106,30 @@ describe('nav model', () => {
 		// and nothing asked the nav to list it. Each workspace's own package.json names the package.
 		const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 		const workspaces: string[] = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).workspaces;
-		// A `private` package is not published, so it has no page yet (@laticent/markup, until its publish is approved).
-		const published = workspaces.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8'))).filter((p) => !p.private).map((p) => p.name);
+		// A `private` package is not published, so it has no page.
+		// The engine is a workspace too (packages/lattice, its publish folder), but it is the product, not a library page.
+		const published = workspaces
+			.map((dir) => JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')))
+			.filter((p) => !p.private && p.name !== '@laticent/lattice')
+			.map((p) => p.name);
+		// Published but WITHOUT a page yet. @laticent/lattice depends on each, so each publishes for a
+		// clean `npm i @laticent/lattice` (owner ruling 2026-11-22, first-npm-release §9). Every
+		// published library is official and gets a page (ruling 2026-11-23), so this list only shrinks:
+		// a library leaves it in the PR that adds its page. Each entry must be a published engine
+		// dependency, so it cannot outlive its package.
+		const unlisted: string[] = [];
+		for (const name of unlisted) expect(published, `${name} is in \`unlisted\` but is not a published workspace`).toContain(name);
+		const engineDeps = Object.keys(JSON.parse(readFileSync(join(root, 'packages', 'lattice', 'package.json'), 'utf8')).dependencies ?? {});
+		for (const name of unlisted) expect(engineDeps, `${name} is in \`unlisted\` but @laticent/lattice does not depend on it`).toContain(name);
 		// A spec's reference implementation counts: @laticent/ltt is listed under Specs (spec audit §8.5).
 		const listed = new Set([...librariesNav(url), ...specsNav(url)].map((l) => l.pkg).filter((p) => p !== '@laticent/lattice'));
-		expect([...listed].sort()).toEqual(published.sort());
+		expect([...listed].sort()).toEqual(published.filter((p) => !unlisted.includes(p)).sort());
 	});
 
 	it('points every library at its own demo page, which marks it current', () => {
 		for (const l of librariesNav(url)) {
-			const slug = l.label.toLowerCase();
+			// The label in lower case, words joined by a hyphen: "Segno Languages" lives at segno-languages/.
+			const slug = l.label.toLowerCase().replaceAll(' ', '-');
 			expect(l.href).toBe(url(`libraries/${slug}/`));
 			expect(isCurrent(l, `/lattice/libraries/${slug}/`)).toBe(true);
 			expect(isCurrent(l, `/lattice/libraries/${slug}/learn/`)).toBe(true);

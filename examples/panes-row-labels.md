@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · panes"
 footer: "Row labels in a pane — the label column keeps its slide width"
 ---

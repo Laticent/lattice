@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 delivery: restrained
 footer: "Laticent · the Guide focuses what it names"
 ---

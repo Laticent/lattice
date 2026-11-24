@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: crepuscolo
-paginate: true
+pagination: true
 header: "Lattice · Form"
 footer: "Laticent · The composition model"
 meta: "Composition Model · 2026-06-15 | Owner · S. Aden"

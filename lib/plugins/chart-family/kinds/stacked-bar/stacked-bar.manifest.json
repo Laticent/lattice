@@ -100,7 +100,7 @@
       "description": "A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: stacked-bar -->\n\n## What the total is made of.\n\n- First category\n  - Part one `40`\n  - Part two `25`\n  - Part three `15`\n- Second category\n  - Part one `46`\n  - Part two `31`\n  - Part three `12`\n",
+  "skeleton": "<!-- @meta{layout=stacked-bar} -->\n\n## What the total is made of.\n\n- First category\n  - Part one `40`\n  - Part two `25`\n  - Part three `15`\n- Second category\n  - Part one `46`\n  - Part two `31`\n  - Part three `12`\n",
   "sample": "<!-- _class: stacked-bar -->\n\n## Each bar is a total; the bands inside it are the mix.\n\n- FY23\n  - Licenses `18.4`\n  - Services `6.2`\n  - Support `4.1`\n- FY24\n  - Licenses `19.1`\n  - Services `9.8`\n  - Support `4.6`\n- FY25\n  - Licenses `19.6`\n  - Services `15.4`\n  - Support `5.2`\n",
   "stressDoc": {
     "summary": "Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar.",

@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # math
 
@@ -10,7 +10,7 @@ Math — typeset equations and proofs.
 ---
 
 <!-- _class: math -->
-<!-- _footer: "math · math survey" -->
+<!-- @meta{footer=math · math survey} -->
 
 `Linear regression · OLS`
 

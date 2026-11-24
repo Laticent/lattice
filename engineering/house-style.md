@@ -161,6 +161,21 @@ concision, it is an omission.
 **Chat reply.** Answer first. Then evidence. Then, only if there is one, the
 open question. If you ran something and it failed, say so and paste the output.
 
+**Naming a PR or a session to the owner.** Every time, in every surface the owner
+reads (chat, a relay, a PR or issue comment), a PR goes out as a clickable
+link with the session that works on it right after, its link text the session's
+own name, cut to a few words:
+`[#3427](https://github.com/Laticent/lattice/pull/3427) ([Workflow desk: two-person relay](https://claude.ai/code/session_01…))`.
+Generic text (`session`, `desk`, `worker`) tells the owner nothing; the name is already
+in the `list_sessions` result in hand, so it costs a few words and no extra call.
+Several sessions on one PR get one named link each. A session named on its own is a
+link too, never a bare `session_…` id. A fenced card (🚦, 📋, 🎯, ❓) renders
+links as plain text, so put the links on the line that introduces the card. The owner reads from a phone and should never have to ask "which
+session is that?" or copy an id into a URL. If no session is known (a colleague's
+PR, a bot's PR), say so: `(session: none on this account)`. Find the session from
+`list_sessions` / `get_session`, the PR body's session link, or the `origin:pr-N`
+tag. The owner made this a standing rule on 2026-11-22.
+
 **Commit message.** `area(scope): short summary`, imperative, lower case, no
 trailing period (HARD RULE #13). The body says what changed and why, not how
 hard it was.
@@ -204,6 +219,7 @@ middle of a reference doc.
 Before you send a reply, open an issue, or write a doc:
 
 - [ ] Is the answer in the first sentence?
+- [ ] Every PR or session I name to the owner: a clickable link, the PR with its session?
 - [ ] Any sentence I could delete without losing information? Delete it.
 - [ ] Every claim: who or what does it? Named?
 - [ ] Any term of art used before it was defined?

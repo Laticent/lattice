@@ -40,11 +40,11 @@ test('lint: a leftover `fonts:` line is flagged as renamed, and the fix renames 
   const { applyAllFixes } = require('../../../lib/authoring/lint-core');
   const vocab = buildVocab();
   const deck = (fm) => `---\ntheme: indaco\n${fm}\n---\n\n## A\n\nText.\n`;
-  const found = (fm) => lintText(deck(fm), { vocab }).filter((f) => f.rule === 'fonts-renamed' || (f.rule === 'unknown-key' && f.classToken === 'fonts'));
+  const found = (fm) => lintText(deck(fm), { vocab }).filter((f) => f.rule === 'key-renamed' || (f.rule === 'unknown-key' && f.classToken === 'fonts'));
   const [f] = found('fonts: used exact-emoji');
   assert.equal(found('fonts: used exact-emoji').length, 1, 'one finding, and no unknown-key beside it');
-  assert.equal(f.severity, 'warning');
-  assert.match(f.message, /`fonts:` was renamed to `font-embedding:`; the deck ignores it until renamed/);
+  assert.equal(f.severity, 'error'); // a `KEY_RENAMES` row since #3506: every renamed key is an error
+  assert.match(f.message, /`fonts:` is now `font-embedding:`; the deck ignores the old key/);
   assert.equal(applyAllFixes(deck('fonts: used exact-emoji'), vocab), deck('font-embedding: used exact-emoji'));
   // With both keys present the new one already decides, so the fix deletes the old line.
   assert.equal(applyAllFixes(deck('fonts: exact\nfont-embedding: full'), vocab), deck('font-embedding: full'));
@@ -52,7 +52,7 @@ test('lint: a leftover `fonts:` line is flagged as renamed, and the fix renames 
   const emptyDeck = deck('fonts: used\nfont-embedding:');
   const [e] = found('fonts: used\nfont-embedding:');
   assert.equal(e.autofixable, false);
-  assert.match(e.fix, /Move the words onto the `font-embedding:` line/);
+  assert.match(e.fix, /Move the value onto the `font-embedding:` line/);
   assert.equal(applyAllFixes(emptyDeck, vocab), emptyDeck, 'the deck is left as the author wrote it');
   // A new key that names no tier decides nothing either: only a comment, or only unknown words.
   for (const fm of ['fonts: used\nfont-embedding: # todo', 'fonts: used\nfont-embedding: bogus']) {

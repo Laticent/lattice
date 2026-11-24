@@ -60,7 +60,7 @@ Under a variant, a slot changes shape:
 ## Authoring
 
 ```markdown
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Heading framing the comparison.
 

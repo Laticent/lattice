@@ -67,7 +67,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 ## Authoring
 
 ```markdown
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Eyebrow · context`
 

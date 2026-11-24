@@ -95,7 +95,7 @@
       "description": "Optional nested sublist under a point. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): the Present-mode reveal popover keyed on the dot's `data-mark`, and the PDF speaker note. Renders nowhere on the chart face — a scatter with detail bullets is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `{4.2, 62}`\n- Second entity `{2.1, 38}`\n- Third entity `{6.8, 81}`\n- Fourth entity `{3.4, 55}`\n",
+  "skeleton": "<!-- @meta{layout=scatter} -->\n\n`[Annual cost, Teams adopting]`\n\n## Two measures, one relationship.\n\n- First entity `{4.2, 62}`\n- Second entity `{2.1, 38}`\n- Third entity `{6.8, 81}`\n- Fourth entity `{3.4, 55}`\n",
   "anatomyBlock": "scatter",
   "sample": "<!-- _class: scatter -->\n\n`[Annual cost, Teams adopting]`\n\n## The tools we pay most for are the ones nobody adopts.\n\nCost is the renewal we signed; adoption is the share of teams with a weekly active user.\n\n- Atlas `{$420k, 18%}`\n  - Renewal lands in March\n  - Two teams asked to drop it\n- Borealis `{$310k, 24%}`\n- Cardinal `{$180k, 52%}`\n- Dovetail `{$95k, 61%}`\n- Everline `{$240k, 31%}`\n- Fathom `{$60k, 74%}`\n",
   "stressDoc": {

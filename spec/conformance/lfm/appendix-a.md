@@ -1,7 +1,7 @@
 ---
 theme: indaco
 mode: boardroom
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

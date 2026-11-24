@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · code"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # code
 
@@ -16,7 +16,7 @@ Single fenced code block as the slide's centerpiece.
 ---
 
 <!-- _class: code -->
-<!-- _footer: "Default · code" -->
+<!-- @meta{footer=Default · code} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -33,8 +33,8 @@ function fitsOnASlide(block) {
 ---
 
 <!-- _class: code -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · code — Fourteen lines — the wall for one block." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · code — Fourteen lines — the wall for one block."} -->
 
 ## Fourteen lines is the wall.
 
@@ -58,8 +58,7 @@ function stressTheFrame(lines) {
 
 ---
 
-<!-- _class: code dark -->
-<!-- _footer: "Composition: dark · code dark" -->
+<!-- @meta{layout=code, class=dark, footer=Composition: dark · code dark} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -75,8 +74,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: code compact -->
-<!-- _footer: "Composition: compact · code compact" -->
+<!-- @meta{layout=code, class=compact, footer=Composition: compact · code compact} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -92,8 +90,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: code accent -->
-<!-- _footer: "Composition: accent · code accent" -->
+<!-- @meta{layout=code, class=accent, footer=Composition: accent · code accent} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -109,8 +106,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · code" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · code} -->
 
 ## When NOT to reach for code.
 
@@ -123,7 +119,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

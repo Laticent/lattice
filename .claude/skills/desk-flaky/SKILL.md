@@ -40,13 +40,20 @@ Read first, by section: `engineering/workflow.md` §Desks (your powers and budge
    test. Switching one off needs the three-part `// disabled:` reason. Say so to any
    session that tries.
 4. **Report** to the command center: one `send_message` with a fleet item per flake
-   (level, title, pr, session, state) and `budget: N/10 today`.
+   (level, title, pr, session, state) and `budget: N/10 today`, with its `meter:` ledger.
 
 5. **Claim before fix.** When a session reports a flake you already assigned, tell it
    who owns the fix and where, so it does not write a second copy.
 
 ## Lane
 
-Yours: messaging sessions about their flaky tests, and starting fix sessions. Not
-yours: merging, labels, CI config, another session's branch, a non-test bug (send that
-to the command center).
+Yours: messaging sessions about their flaky tests, and starting fix sessions. Also yours
+(owner, 2026-11-24): every **fleet-wide blocker** the command center routes here, test or
+not: a red on `main`, a tool or dependency missing from the sandbox image, a broken runner or
+hook that two or more sessions hit (`engineering/workflow.md` §Desks, "Blockers go to the
+command center"), except a nightly, golden-bless or platform-suite red and a break a
+dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
+tell the command center the owner and tag so it can tell every affected session. A fix that
+changes a CI job or step, a hook or the environment's settings goes to the owner first
+(CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a bug that
+only one session hits (the command center answers that one).

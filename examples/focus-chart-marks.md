@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · focus on a chart mark"
 ---
 

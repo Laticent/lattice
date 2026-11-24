@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 delivery: restrained   # try expressive (the cursor leads and inks every act) and somber (one gesture, on the key beat)
 pace: natural
 footer: "Laticent · every delivery plays each chart its own way"

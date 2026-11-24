@@ -63,11 +63,13 @@ test('each copy on disk is the one its manifest records', () => {
 });
 
 test('each source is pinned exactly, installed at the build the copy came from, and ignored by Dependabot', () => {
-  const pkg = require(path.join(ROOT, 'package.json'));
+  // A pin lives in the engine's manifest (a dependency it ships) or the root's (a devDependency).
+  const engine = require(path.join(ROOT, 'packages', 'lattice', 'package.json'));
+  const root = require(path.join(ROOT, 'package.json'));
   const dependabot = read('.github/dependabot.yml');
   for (const { plugin, key, entry } of COPIES) {
     const name = pkgOf(entry.from);
-    const pin = pkg.dependencies[name] || pkg.devDependencies?.[name];
+    const pin = engine.dependencies[name] || root.devDependencies?.[name];
     assert.equal(pin, entry.version, `package.json pins ${name} "${pin}"; ${plugin}:${key} is ${entry.version} — pin the exact version the plugin vendors`);
     assert.match(dependabot, new RegExp(`dependency-name: "?${name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"?\\n`), `${name} is vendored but Dependabot would still bump it (.github/dependabot.yml ignore)`);
   }

@@ -81,7 +81,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
 // phone layout has no "Fix all" control, as the arm above assumes too.
 const FIX_ALL_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
 	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
@@ -90,7 +90,8 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi -->');
+	// The typo is fixed, then (last) the old comment is written as a `@meta` record (record note §15).
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=kpi} -->');
 	// The Studio persists the source as a JSON string.
 	const raw = await persistedSource(page);
 	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
@@ -121,12 +122,41 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// The clean break to `@meta` records (engineering/decisions/2026-10-17-meta-record.md §15): every old directive comment
+// is a `legacy-directive-comment` warning whose fix is the whole-deck migration, which also respells a bare
+// `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
+// `lattice migrate meta` writes, and the slides render as before.
+const LEGACY_DECK = [
+	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
+	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+].join('\n');
+
+test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {
+	await setEditorContent(page, LEGACY_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	// The evidence shot: the deck before, with its warnings underlined.
+	await page.screenshot({ path: info.outputPath('meta-fix-before.png') });
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=cards-grid, footer=\\"Board, Q3\\"} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @meta{layout=title} -->');
+	expect(src).toContain('<!-- @meta{layout=kpi} -->');
+	expect(src).not.toMatch(/<!-- _(class|footer):/);
+	expect(src).not.toContain('<!-- {');
+	// Every line keeps its place: the merged record leaves a blank line where the footer comment was.
+	expect(src.split('\n')).toHaveLength(LEGACY_DECK.split('\n').length);
+	await expect(fixAll(page)).toBeDisabled();
+	await page.screenshot({ path: info.outputPath('meta-fix-after.png') });
+});
+
 // A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
 // a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
 // Run from the command palette, which every width offers (the phone layout has no "Fix all" button).
 const REFUSED_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');
@@ -393,28 +423,28 @@ test('@crosswidth @webkit-phone a nested render-target key warns on the nested l
 
 // ── A mistyped deck REGISTER value warns in the Studio, as `lint:deck` does ─
 // Each `*Names` list in the lint vocab turns on one `findUnknown*` rule. `buildVocabSets`
-// once forwarded six of the twenty-one, so `guards: strcit` drew a warning from
-// `npm run lint:deck` and nothing in the Studio, while the editor autocompleted `strict`.
+// once forwarded six of the twenty-one, so a mistyped register value drew a warning from
+// `npm run lint:deck` and nothing in the Studio, while the editor autocompleted the right one.
 // The unit test in editor-diagnostics.test.ts proves every register's rule fires through the
 // builder; this arm proves the running Studio paints one — the surface an author sees.
-const REGISTER_DECK = ['---', 'theme: indaco', 'guards: strcit', '---', '', '# Guards', '', 'Body copy.', ''].join('\n');
+const REGISTER_DECK = ['---', 'theme: indaco', 'fit: tirm', '---', '', '# Fit', '', 'Body copy.', ''].join('\n');
 
-test('a mistyped register value (`guards: strcit`) underlines its front-matter line', async ({ page }, testInfo) => {
+test('a mistyped register value (`fit: tirm`) underlines its front-matter line', async ({ page }, testInfo) => {
 	await setEditorContent(page, REGISTER_DECK);
 
 	await expect
-		.poll(() => underlineLine(page, 'guards: strcit'), { message: 'no warning underline ever appeared for `guards: strcit`' })
-		.toEqual({ number: 3, text: 'guards: strcit' });
+		.poll(() => underlineLine(page, 'fit: tirm'), { message: 'no warning underline ever appeared for `fit: tirm`' })
+		.toEqual({ number: 3, text: 'fit: tirm' });
 
-	await warningCovering(page, 'guards: strcit').hover();
+	await warningCovering(page, 'fit: tirm').hover();
 	const tooltip = page.locator('.cm-tooltip-lint');
-	await expect(tooltip).toContainText("`guards:` has been renamed to `fit:`, and 'strcit' isn't a valid value");
-	// The fix names the new key, `fit:`, and its values — `guards:` is the old spelling.
+	await expect(tooltip).toContainText("'tirm' isn't a valid `fit:` value");
+	// The fix names the register's real values.
 	await expect(tooltip).toContainText('report, heal, trim');
 
 	// The whole page, not the editor box: the tooltip opens above line 3 and an editor-box
 	// crop cuts the message off at its first line.
-	const shot = testInfo.outputPath('register-guards-tooltip.png');
+	const shot = testInfo.outputPath('register-fit-tooltip.png');
 	await page.screenshot({ path: shot });
-	await testInfo.attach('register-guards-tooltip.png', { path: shot, contentType: 'image/png' });
+	await testInfo.attach('register-fit-tooltip.png', { path: shot, contentType: 'image/png' });
 });

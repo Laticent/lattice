@@ -17,12 +17,12 @@ Use when two wide components make one point together: progress over the table be
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | The slide's title, above both panes. It makes the point; the panes support it. |
-| `pane` | two panes | yes | Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
+| `pane` | two panes | yes | Two panes, top then bottom. Each opens with `<!-- @meta{pane=component} -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
 
 ### Common mistakes
 
 - **A `##` inside a pane.** A `##` starts a new slide. Use `###` for a pane's title and `####` for a heading inside a pane.
-- **Naming a component in the layout's `_class` (`_class: columns bar`).** Each pane names its own component: `<!-- _pane: bar -->` above the pane's `###`.
+- **Naming a component in the layout's class (`@meta{layout=columns, class=bar}`).** Each pane names its own component: `<!-- @meta{pane=bar} -->` above the pane's `###`.
 
 ## When to use
 
@@ -38,7 +38,7 @@ Use when two wide components make one point together: progress over the table be
 ## Authoring
 
 ```markdown
-<!-- _class: rows -->
+<!-- @meta{layout=rows} -->
 
 ## The slide's point, in one line.
 

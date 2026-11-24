@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
 	type Catalog,
 	detectComponent,
+	loadClassReader,
 	renderSig,
 	resolveThemeName,
 	sanitizePalette,
@@ -26,6 +27,9 @@ const catalog: Catalog = {
 };
 
 describe('detectComponent', () => {
+	// The class reader loads on demand; the Playground awaits it on mount.
+	beforeAll(() => loadClassReader());
+
 	it('returns null when there is no _class comment', () => {
 		expect(detectComponent(catalog, '# just a heading')).toBeNull();
 	});

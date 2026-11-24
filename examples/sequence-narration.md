@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · sequence narration"
 footer: "read-aloud narrates the message script"
 ---

@@ -60,7 +60,7 @@ Use when the argument is that two measures move together (or against each other)
 ## Authoring
 
 ```markdown
-<!-- _class: scatter -->
+<!-- @meta{layout=scatter} -->
 
 `[Annual cost, Teams adopting]`
 

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 mode: sketch
 header: "Lattice · hub-spoke in sketch"
 ---

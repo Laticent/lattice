@@ -197,8 +197,8 @@ test('the engine prints each filled item\'s page: the slide its divider is, coun
   assert.deepEqual([...agenda.matchAll(/<code class="agenda-page"[^>]*>([^<]*)<\/code>/g)].map((m) => m[1]), ['p.3', 'p.5']);
 });
 
-test('no page numbers where the deck has none (`paginate: false`), and none on an authored agenda', () => {
-  const off = deck(slide('agenda', '## A.'), ...DIVIDERS).replace('theme: indaco', 'theme: indaco\npaginate: false');
+test('no page numbers where the deck has none (`pagination: false`), and none on an authored agenda', () => {
+  const off = deck(slide('agenda', '## A.'), ...DIVIDERS).replace('theme: indaco', 'theme: indaco\npagination: false');
   assert.doesNotMatch(createEngine().render(off, 'indaco').html, /class="agenda-page"/);
   const written = deck(slide('agenda', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
   assert.doesNotMatch(createEngine().render(written, 'indaco').html, /class="agenda-page"/);

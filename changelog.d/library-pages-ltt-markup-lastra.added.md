@@ -1,0 +1,2 @@
+- The docs site has a page for three more libraries, each with a live demo running the real code and a Learn page: **LTT** (`@laticent/ltt`, word timings for narration), **Markup** (`@laticent/markup`, balanced-HTML string walking) and **Lastra** (`@laticent/lastra`, the image library). They join the family under `/libraries/`.
+- `@laticent/lente`'s README now opens with a deck you can copy and the whole approve-then-read flow, and says that the default lenses come from the host, not from Lente.

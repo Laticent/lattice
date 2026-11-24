@@ -5,10 +5,11 @@
 // IDBObjectStore's own methods before the Studio loads; the engine underneath is the real one.
 // engineering/decisions/2026-11-07-studio-model-spine.md §10.1.
 import type { Page } from '@playwright/test';
+import { fakeKey } from '../src/test/fake-key';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
 // A fake credential, named FAKE so no reader (or scanner) mistakes it for a secret.
-const OR_FAKE = 'sk-or-v1-e2e-key-store-fault-0c0c';
+const OR_FAKE = fakeKey('sk-or-v1-', 'e2e-key-store-fault-0c0c');
 const SLOT = 'lattice-db-or-key';
 const MODELS = [{ id: 'test/model', name: 'Test Model', context_length: 200000, pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: ['text'], output_modalities: ['text'] }, top_provider: { max_completion_tokens: 8000 } }];
 

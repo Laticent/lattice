@@ -2,7 +2,7 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · word-cloud portrait"
 ---
 

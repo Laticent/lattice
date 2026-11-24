@@ -50,7 +50,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 ## Authoring
 
 ```markdown
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix} -->
 
 ## Headline framing what the matrix compares.
 

@@ -1,0 +1,1 @@
+- **Desk meter: a ledger with many stages in use renders.** `npm run card` refused a desk meter whose items spanned five or more stages, because the count line needed more than two lines. The meter's computed lines now wrap as far as they need, and a line that breaks always fits the 38-column card, its ` ·` included.

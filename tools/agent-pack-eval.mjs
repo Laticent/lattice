@@ -17,7 +17,8 @@
  *
  * Usage:  OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1 node tools/agent-pack-eval.mjs
  *           [--arm start|small] [--limit <n>] [--out <dir>]
- *         node tools/agent-pack-eval.mjs --judge deck.md   (judge one deck, no model call)
+ *         node tools/agent-pack-eval.mjs --judge deck.md [--out <dir>]
+ *           (judge one deck, no model call; its PDF goes to --out, never beside the deck)
  *
  * Spends OUR OpenRouter key (HARD RULE #24): opt-in only, never on the PR path. Without
  * OPENROUTER_ALLOW_SPEND=1 it prints what it would spend and exits 0. It prints the real
@@ -30,9 +31,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classEntries } from '../lib/core/class-entries.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KIT = path.join(ROOT, 'dist', 'agent-kit');
+/** Where the decks, their PDFs and summary.json go unless `--out` says otherwise. Never beside a committed deck. */
+export const DEFAULT_OUT = path.join(ROOT, '.scratch', 'agent-pack-eval');
 const arg = (name, fallback) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : fallback);
 
 const ARMS = {
@@ -151,7 +155,8 @@ function judge(deckPath, pdfPath) {
   }
   const render = spawnSync(process.execPath, [path.join(ROOT, 'dist', 'lattice.js'), deckPath, pdfPath], { encoding: 'utf8' });
   const renderOut = `${render.stdout}\n${render.stderr}`;
-  const classes = [...deck.matchAll(/<!--\s*_class:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
+  // The first word of every spot class the deck sets, comment or record (`@meta{layout=…}`): the shared reader.
+  const classes = classEntries(deck).filter((e) => e.spot).map((e) => e.value.trim().split(/\s+/)[0]).filter(Boolean);
   // The renderer's own count: a slide with no `_class` still counts, and a `_class` quoted in a
   // code fence does not. The `_class` count is the fallback when the render failed.
   const rendered = renderOut.match(/(\d+) slides? →/);
@@ -176,7 +181,7 @@ function judge(deckPath, pdfPath) {
 async function main() {
   const arms = arg('--arm') ? [arg('--arm')] : Object.keys(ARMS);
   const limit = Number(arg('--limit', BRIEFS.length));
-  const out = path.resolve(arg('--out', path.join(ROOT, '.scratch', 'agent-pack-eval')));
+  const out = path.resolve(arg('--out', DEFAULT_OUT));
   for (const a of arms) {
     if (!ARMS[a]) {
       console.error(`unknown arm ${a}; one of ${Object.keys(ARMS).join(', ')}`);
@@ -226,10 +231,20 @@ async function main() {
 
 // Run only as a script: a test imports deckFrom without spending anything.
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+/**
+ * Judge one deck already on disk, with no model call: how the gate itself is tested. The PDF goes to `outDir`,
+ * never beside the deck: judging a committed example once wrote over its golden (`examples/split-horizontal.pdf`).
+ * `judgeFn` is the seam a test uses to see where the PDF would go without rendering.
+ */
+export function judgeOne(deckPath, outDir = DEFAULT_OUT, judgeFn = judge) {
+  const deck = path.resolve(deckPath);
+  const out = path.resolve(outDir);
+  mkdirSync(out, { recursive: true });
+  return judgeFn(deck, path.join(out, `${path.basename(deck, '.md')}.pdf`));
+}
+
 if (isMain && process.argv.includes('--judge')) {
-  // Judge one deck already on disk, with no model call: how the gate itself is tested.
-  const deck = path.resolve(arg('--judge'));
-  console.log(JSON.stringify(judge(deck, deck.replace(/\.md$/, '.pdf')), null, 2));
+  console.log(JSON.stringify(judgeOne(arg('--judge'), arg('--out', DEFAULT_OUT)), null, 2));
   process.exit(0);
 }
 

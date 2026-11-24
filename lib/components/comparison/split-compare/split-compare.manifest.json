@@ -128,7 +128,7 @@
       "description": "Each option's points, one line per row. Rows stay parallel across the options."
     }
   },
-  "skeleton": "<!-- _class: split-compare -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",
+  "skeleton": "<!-- @meta{layout=split-compare} -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",
   "anatomyBlock": "split-compare",
   "sample": "<!-- _class: split-compare -->\n\n`comparison · split-compare`\n\n## The dark panel asks; the grid answers.\n\nOne question on the left; two option cards and a verdict on the right.\n\n- Option A\n  - Three short rows state the case\n  - Rows stay parallel across cards\n- Option B\n  - The grid begs comparison\n  - Mismatched rows read as bias\n\n> The verdict card lands last: one recommendation, one revisit date.\n",
   "stressDoc": {
@@ -196,7 +196,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- _header: … -->` / `<!-- _footer: … -->`."
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
     },
     {
       "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",

@@ -127,7 +127,7 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
  *      toward the deck ground. One class, caught by the matrix.
  *   2. Re-pointing it for `.dark` unconditionally broke every row where a SECOND class
  *      out-specifies the frame and repaints it anyway — `section.dark.no-spectrum`
- *      (0,2,1), `section.dark:is(.spectrum-edge-…):not(.divider)` (0,3,1),
+ *      (0,2,1), `section.dark:is(.spectrum-left…):not(.divider)` (0,3,1),
  *      `section.accent.dark` (0,2,1), the `print` remap. TWO classes: invisible here.
  *   3. Excluding those registers UNCONDITIONALLY then broke the light path, because
  *      every one of those repainters requires `.dark`. Without it nothing repaints, the
@@ -162,7 +162,7 @@ const ALL_FRAMES = [...EXEMPTED_FRAMES, ...OTHER_FRAMES];
 // at (0,2,1) needs both present at once).
 const REGISTERS = [
   'print', 'accent', 'no-spectrum',
-  'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'no-spectrum-edge',
+  'spectrum-left', 'spectrum-right', 'spectrum-bottom', 'no-spectrum',
 ];
 // The canvas modifiers a deck can be IN, for the attribute axis below. `print` is in
 // REGISTERS too (it is both a mode and a repainter), so the attribute cross pairs these
@@ -174,7 +174,7 @@ const REGISTERS_NO_PRINT = REGISTERS.filter((r) => r !== 'print');
  * Every class the bundle uses in a SECTION-SUBJECT rule that paints a background,
  * minus the frame names themselves — i.e. the modifiers that can land on a frame and
  * change what it paints. Recurses into `:is()`/`:where()`/`:not()`, because
- * `section.dark:is(.spectrum-edge-left, …)` hides four of them there.
+ * `section.dark:is(.spectrum-left, …)` hides four of them there.
  */
 function deriveModifiers(css) {
   const csstree = require('css-tree');
@@ -1012,7 +1012,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
   /**
    * THE BAR RULES STILL REMOVE THE BAR, which nothing else in this file can see.
    *
-   * After #2291 `section.dark.no-spectrum`, `section.dark:is(.spectrum-edge-*)` and the
+   * After #2291 `section.dark.no-spectrum`, `section.dark:is(.spectrum-<edge>)` and the
    * two divider carve-outs consist of `background-image: none` plus the three geometry
    * longhands and NOTHING else. This cross compares `backgroundColor`, so 100% of what
    * those rules now do is invisible to it — and the HARD RULE #25 checker proved the
@@ -1030,14 +1030,13 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       // [class list, what should be left]
       ['content dark', 'image'],                   // the control: the hairline IS painted
       ['content dark no-spectrum', 'none'],
-      ['content dark spectrum-edge-left', 'none'],
-      ['content dark no-spectrum-edge', 'none'],
+      ['content dark spectrum-left', 'none'],
+      ['content dark no-spectrum', 'none'],
       ['divider', 'image'],                        // the control: the rail IS painted
       ['divider no-spectrum', 'none'],
-      ['divider no-spectrum-edge', 'none'],
-      // `spectrum-edge:` moves the bar to a border and is EXEMPT on a divider, whose own
-      // rail stays — only `edge: off` clears that, on the row above.
-      ['divider spectrum-edge-left', 'image'],
+      // The edge word on `spectrum:` moves the bar to a border and is EXEMPT on a divider,
+      // whose own rail stays: only `spectrum: off` clears that, on the row above.
+      ['divider spectrum-left', 'image'],
     ];
     const rows = await xPage.evaluate((cases) => {
       const host = document.querySelector('article');
