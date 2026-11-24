@@ -92,3 +92,13 @@ function latticeStallReport() {
 		return `stall report failed: ${e}`;
 	}
 }
+
+/**
+ * The preview's fallbacks this page took since `latticeWatch()` (#2988): a measured split that failed or ran past its
+ * deadline, or a splitter or measured-split chunk that did not load in time. Each one logs a warning, so a probe that
+ * passes with this list empty rendered the real split, not the bounded wait's fallback.
+ */
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
+function latticeFallbacks() {
+	return (window.__latticeWatched || []).filter((s) => /measured split (failed|did not load|did not finish)|structural split did not load|splitForPreview ran before splitReady/.test(s));
+}

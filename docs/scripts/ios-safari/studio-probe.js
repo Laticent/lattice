@@ -185,6 +185,9 @@ async function latticeStudioProbe() {
 		const inline = window.__latticeProbeInline ?? frame()?.contentWindow?.__latticeProbeInline;
 		step('the frame refuses an inline onerror= attribute (the script-src second wall)', inline === undefined, `__latticeProbeInline = ${inline}`);
 		holder.remove();
+		// Every render above was the real one, not a bounded wait's fallback (#2988): none logged one.
+		const fell = latticeFallbacks();
+		step('no preview render fell back (measured split, splitter)', fell.length === 0, fell.join(' | ') || 'none');
 		result.ok = true;
 	} catch (e) {
 		result.error = String(e?.message ?? e);

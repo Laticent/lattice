@@ -83,6 +83,9 @@ async function latticeNarrationImport(title) {
 	await h.until(() => h.heading(h.preview()) === `${title}.`, 150000, `the preview to show "${title}"`).catch((e) => {
 		throw new Error(`${e.message} (${latticeStallReport()})`);
 	});
+	// The preview showed the deck; it must not have done so through a bounded wait's fallback (#2988).
+	const fell = latticeFallbacks();
+	if (fell.length) throw new Error(`the preview showed the deck only through a fallback: ${fell.join(' | ')}`);
 	return { importMs: Date.now() - t0, bytes: file.size, ua: navigator.userAgent, width: innerWidth };
 }
 
