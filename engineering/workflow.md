@@ -332,7 +332,7 @@ the source itself**; the command center's own word is still a request (rule 10).
   command center's reading of what the owner meant.
 - **Enforcement.** Discipline today. A hook that checks `release` the way the merge gate checks `merge`,
   and `npm run baton -- take --relay <event>` that runs the check itself, are tracked in
-  `followups.d/relay-owner-word-hooks.md`.
+  `followups.d/3513-p1-relay-owner-word-hooks.md`.
 
 ### What the baton does not do
 
