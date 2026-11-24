@@ -2927,7 +2927,18 @@ function checkReadingRole(errors) {
 // Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
 // `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
 // ask the pill plugin for a pill holding a check.
-const SANCTIONED_PILL_READS = [];
+const SANCTIONED_PILL_READS = [
+  {
+    file: 'lib/components/legal/statute-stack/statute-stack.styles.css',
+    count: 1,
+    // The header's line box must be exactly one pill tall, or a floated status pill sits off the
+    // label's center (measured 1.5px high on a 16:9 card; 0.23px under the old flex row). The
+    // height is the plugin's own `1em + 2 * --pill-pad-y + 2px`; copying 0.3em instead would drift
+    // silently the day the plugin's padding changes. A read, never a write: the plugin still
+    // draws the pill.
+    why: 'statute-stack header line box = one pill height, so a floated pill shares the label center',
+  },
+];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
@@ -5960,7 +5971,14 @@ function writesMarkIdentity(src, key) {
   // that pairs backticks cannot see inside one, so literal-scoping reported four real emitters as
   // silent. Stripping comments removes the false positive that mattered — a docblock that merely
   // NAMES the attribute reddening the build — and nothing else here needs the narrower match.
-  const code = src.replace(COMMENTS, ' ');
+  // A READ IS NOT A WRITE. `readAttr(tag, 'data-label')` (@laticent/markup, the engine's one
+  // attribute reader) takes a member's declared name off markup another file already wrote:
+  // relationship.js names a split's next page that way. Booking it as an emitter would put a
+  // reader in a ledger whose third failure mode then holds it to keep "writing". So a
+  // `readAttr(…, 'data-<key>')` call leaves the code before the search; any other spelling of the
+  // attribute in the same file still counts.
+  const code = src.replace(COMMENTS, ' ')
+    .replace(new RegExp(`\\breadAttr\\s*\\([^()]*,\\s*(['"\`])data-${key}\\1\\s*\\)`, 'g'), ' ');
   // BOUNDED, because `data-label` is a PREFIX of `data-label-drops` — a different attribute that
   // label-drops.js really does write, and an unbounded search would book it as a mark identity.
   if (new RegExp(`data-${key}(?![-\\w])`).test(code)) return true;
@@ -16099,6 +16117,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  writesMarkIdentity,
   readCssSource,
   keyShapedLiterals,
   checkKeyShapedLiterals,

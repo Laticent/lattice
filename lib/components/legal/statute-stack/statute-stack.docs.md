@@ -43,7 +43,7 @@ Under a variant, a slot changes shape:
 ## When to use
 
 - **Three parallel jurisdictions.** Federal / state / local — or any three peer regimes — that the room must hold side-by-side. The hue rotation cues which row is which without a legend.
-- **Citation plus obligation plus status.** Each card is a three-part record: a citation pill, the headline obligation in prose, and a status pill — pill placement follows the card shape (row variants keep both on the header line; the narrow default splits them to opposite corners). Use when all three matter; for citation-only, reach for list-tabular.
+- **Citation plus obligation plus status.** Each card is a three-part record: a citation pill, the headline obligation in prose, and a status pill — pill placement follows the card shape (row variants keep both on the header line; the narrow default splits them to opposite corners). When a card is too narrow for the label and its pills on one line, as on a portrait or story box at a hall venue, the header wraps like a line of text: the trailing pill drops to the next line, still at the right, and never lands on the label. Use when all three matter; for citation-only, reach for list-tabular.
 - **Compliance briefings.** Reach for statute-stack when the deck reads as a regulatory memo — counsel and operations need the same view of the same record at the same time.
 
 ## When NOT to use
