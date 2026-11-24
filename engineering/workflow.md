@@ -244,16 +244,19 @@ draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8)
 only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
 
 **A checkpoint never lowers the bar.** The owner's rule (2026-11-24, in the command center: "add the
-rule"): usage and a deadline are reasons to stop, never reasons to finish with less. Past any checkpoint, a
-session (the command center included) does not:
+rule"): usage and a deadline are reasons to stop, never reasons to finish with less. At any point, and
+above all near a usage stop or a deadline, a session (the command center included) does not:
 - skip evidence a test or card owes (#34's failing arm, repeat and load runs; a surface #23 requires);
-- ask the owner for a merge "exception at HIGH" because time or usage is short (an exception asked for
-  a cap that is structural, one no run can lift, is still fine, and the ask says which);
-- make a design choice only to fit a budget (a byte limit, a CI minute) without putting it to the owner
-  as a choice.
-If the bar can't be met before the stop, the session stops and hands off. Born the night of 2026-11-23,
-when six merge asks went out as HIGH exceptions, one evidence run was skipped "to save usage", and one
-rename turned `fonts:` from a warning into an error to fit the lint-core limit.
+- ask the owner to merge below VERY HIGH because time or usage is short. A card whose raise loop stopped
+  at the usage cap (`raised: … (stopped: usage past 75%)`, §Usage checkpoints) is posted on the PR as the
+  handoff and waits for the reset to be raised; it goes into a merge ask only if the owner asks for it. An
+  ask below VERY HIGH is still fine for a **structural cap**, one no run can lift (a check only a real
+  iPhone can make, a reversibility limit built into the change), and the ask names that cap;
+- make a design choice only to fit a budget (a byte limit such as the route budget's lint-core ceiling, a
+  CI minute) without putting it to the owner as a choice.
+If the bar can't be met before the session must stop, it stops and hands off. Born the night of
+2026-11-23, when six merge asks went out as HIGH exceptions, one evidence run was skipped "to save usage",
+and one rename turned `fonts:` from a warning into an error so the lint core fit its route-budget ceiling.
 
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session keeps working (§Usage checkpoints). At **90%**, it does the five steps, stops, then
