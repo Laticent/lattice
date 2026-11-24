@@ -213,7 +213,7 @@ resuming starts with `npm run baton -- take`.
 mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
 whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped. The
 usage cap is a stop reason for the raise loop (§The raise loop): the card's `raised` row says so, e.g.
-`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits and is not carded
+`1 round: HIGH (stopped: usage past 75%)`, and that card waits for the reset rather than going to a merge ask (§Checkpoint rules, "A checkpoint never lowers the bar"). Work that cannot fit even that one round waits and is not carded
 (`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
 reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 
@@ -251,7 +251,7 @@ above all near a usage stop or a deadline, a session (the command center include
   at the usage cap (`raised: … (stopped: usage past 75%)`, §Usage checkpoints) is posted on the PR as the
   handoff and waits for the reset to be raised; it goes into a merge ask only if the owner asks for it. An
   ask below VERY HIGH is still fine for a **structural cap**, one no run can lift (a check only a real
-  iPhone can make, a reversibility limit built into the change), and the ask names that cap;
+  device makes, beyond what the iOS Simulator suite reaches, a reversibility limit built into the change), and the ask names that cap;
 - make a design choice only to fit a budget (a byte limit such as the route budget's lint-core ceiling, a
   CI minute) without putting it to the owner as a choice.
 If the bar can't be met before the session must stop, it stops and hands off. Born the night of
