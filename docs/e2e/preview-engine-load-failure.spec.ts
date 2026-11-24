@@ -57,11 +57,40 @@ async function expectRecovered(page: Page): Promise<void> {
 }
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose entry fails to load shows the failure card, and Retry loads it', async ({ page }) => {
-	await page.route(ENTRY, (route) => route.abort());
+	// THE ENTRY STAYS UNREACHABLE UNTIL THE PRESS. Lifting the block before the click raced the page's own attempts: each
+	// surface that renders calls ensureEngine, so a render could retry by itself the moment the block lifted, load the
+	// engine and take the card (and its button) away before the click; or the press joined an attempt that started while
+	// blocked and failed with it. Gecko failed 4 runs in 20 that way on PR #2988, whose slower page widened the window,
+	// and 0 in 25 on main (#32: a signal, not timing). So a request passes only once the page has seen the press: a
+	// capture listener marks it before the button's own handler asks for the entry.
+	const isEntry = (url: string) => /\/esm\/engine\.js(\?|$)/.test(url);
+	let inFlight = 0;
+	page.on('request', (r) => {
+		if (isEntry(r.url())) inFlight++;
+	});
+	for (const done of ['requestfinished', 'requestfailed'] as const) {
+		page.on(done, (r) => {
+			if (isEntry(r.url())) inFlight--;
+		});
+	}
+	await page.route(ENTRY, async (route) => {
+		const pressed = await page.evaluate(() => (window as { __retryPressed?: boolean }).__retryPressed === true).catch(() => false);
+		return pressed ? route.continue() : route.abort();
+	});
 	await openToCard(page);
-	// The engine is reachable again: a real click on Retry (no `force`, so a box that swallows pointer events
-	// fails here) imports the entry under a fresh URL, and the engine loads.
-	await page.unroute(ENTRY);
+	// No attempt is in flight, so the press starts its own rather than joining one the block dooms.
+	await expect.poll(() => inFlight).toBe(0);
+	await page.evaluate(() =>
+		document.addEventListener(
+			'click',
+			(e) => {
+				if ((e.target as Element | null)?.closest?.('.nacre-failed__retry')) (window as { __retryPressed?: boolean }).__retryPressed = true;
+			},
+			true,
+		),
+	);
+	// A real click on Retry (no `force`, so a box that swallows pointer events fails here) imports the entry under a
+	// fresh URL, and the engine loads.
 	await card(page).getByRole('button', { name: 'Retry' }).click();
 	await expectRecovered(page);
 });
