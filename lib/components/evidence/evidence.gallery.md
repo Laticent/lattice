@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # evidence
 
@@ -10,7 +10,7 @@ Evidence — data that supports the argument.
 ---
 
 <!-- _class: kpi -->
-<!-- _footer: "kpi · evidence survey" -->
+<!-- @meta{footer=kpi · evidence survey} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -30,7 +30,7 @@ Evidence — data that supports the argument.
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "stats · evidence survey" -->
+<!-- @meta{footer=stats · evidence survey} -->
 
 `evidence · stats`
 

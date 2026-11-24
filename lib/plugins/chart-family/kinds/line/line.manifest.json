@@ -104,7 +104,7 @@
       "description": "Optional nested bullet under a CATEGORY whose trailing pill is not a number — that is the whole disambiguation rule: a nested item ending in a numeric pill is a data point, anything else is detail. Drives the Present-mode reveal for that category's band and folds into the slide's speaker note; it paints nothing on the chart, so a deck with detail is pixel-identical to one without."
     }
   },
-  "skeleton": "<!-- _class: line -->\n\n## The number moved, and here is the shape of it.\n\n- Q1 `12`\n- Q2 `18`\n- Q3 `17`\n- Q4 `26`\n",
+  "skeleton": "<!-- @meta{layout=line} -->\n\n## The number moved, and here is the shape of it.\n\n- Q1 `12`\n- Q2 `18`\n- Q3 `17`\n- Q4 `26`\n",
   "sample": "<!-- _class: line -->\n\n## Services grew into the gap enterprise left.\n\n- Q1 2025\n  - Enterprise `4.1`\n  - Mid-market `2.6`\n  - Services `1.2`\n- Q2 2025\n  - Enterprise `4.4`\n  - Mid-market `2.9`\n  - Services `1.6`\n- Q3 2025\n  - Enterprise `4.2`\n  - Mid-market `3.4`\n  - Services `2.3`\n- Q4 2025\n  - Enterprise `3.8`\n  - Mid-market `3.9`\n  - Services `3.1`\n- Q1 2026\n  - Enterprise `3.6`\n  - Mid-market `4.3`\n  - Services `4.0`\n- Q2 2026\n  - Enterprise `3.5`\n  - Mid-market `4.6`\n  - Services `5.2`\n",
   "variantDocs": {
     "area": {

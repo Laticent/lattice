@@ -76,7 +76,7 @@
       "description": "Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`)."
     }
   },
-  "skeleton": "<!-- _class: table -->\n\n## Heading framing the comparison.\n\n| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| First criterion | Value | Value | Value |\n| Second criterion | Value | Value | Value |\n| Third criterion | Value | Value | Value |\n",
+  "skeleton": "<!-- @meta{layout=table} -->\n\n## Heading framing the comparison.\n\n| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| First criterion | Value | Value | Value |\n| Second criterion | Value | Value | Value |\n| Third criterion | Value | Value | Value |\n",
   "anatomyBlock": "T22-table",
   "sample": "<!-- _class: table -->\n\n## The table compares rows on consistent columns.\n\n| Row | Holds | Budget |\n| --- | --- | --- |\n| A label | One cell per column | Twelve words |\n| Every row | The same column set | Twelve words |\n| Six rows | The comfortable page | Twelve words |\n",
   "stressDoc": {

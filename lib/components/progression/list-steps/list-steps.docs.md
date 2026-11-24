@@ -61,7 +61,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 ## Authoring
 
 ```markdown
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How to roll this out.
 

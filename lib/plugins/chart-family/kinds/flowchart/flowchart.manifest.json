@@ -186,7 +186,7 @@
       "description": "A connection from a shape inside a group, written under that shape (`=> Target`, `-label-> Target`)."
     }
   },
-  "skeleton": "<!-- _class: flowchart -->\n\n## The flow in one line.\n\n- Start `pill` => Check => Decide?\n- Decide? `diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
+  "skeleton": "<!-- @meta{layout=flowchart} -->\n\n## The flow in one line.\n\n- Start `pill` => Check => Decide?\n- Decide? `diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
   "sample": "<!-- _class: flowchart -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `doc`\n\n`[{\"=>\", Paging path}, {dotted, Waits for business hours}]`\n",
   "stressDoc": {
     "summary": "Three groups, a group-to-shape line and a disconnected shape.",

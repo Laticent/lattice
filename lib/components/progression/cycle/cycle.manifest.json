@@ -47,7 +47,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: cycle -->\n\n## The heading names the loop.\n\n- First stage\n  - One clause saying what happens here.\n- Second stage\n  - One clause saying what happens here.\n- Third stage\n  - One clause saying what happens here.\n- Fourth stage\n  - One clause saying what happens here.\n",
+  "skeleton": "<!-- @meta{layout=cycle} -->\n\n## The heading names the loop.\n\n- First stage\n  - One clause saying what happens here.\n- Second stage\n  - One clause saying what happens here.\n- Third stage\n  - One clause saying what happens here.\n- Fourth stage\n  - One clause saying what happens here.\n",
   "sample": "<!-- _class: cycle -->\n\n`The water cycle`\n\n## Nothing is spent — only moved.\n\n- Evaporation\n  - The sun lifts water from ocean and leaf into vapor.\n- Condensation\n  - Vapor cools into cloud, a reservoir held aloft.\n- Precipitation\n  - Rain and snow return the water to the ground.\n- Collection\n  - Rivers gather it back to the sea, and it begins again.\n",
   "stressDoc": {
     "summary": "Six stages — the last legible ring.",

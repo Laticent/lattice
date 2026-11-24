@@ -123,7 +123,7 @@
       "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
     }
   },
-  "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
+  "skeleton": "<!-- @meta{layout=inventory} -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
   "sample": "<!-- _class: inventory -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n",
   "stressDoc": {
     "summary": "Five full rows are the 16:9 ceiling; a sixth clips.",

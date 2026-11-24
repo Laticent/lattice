@@ -53,7 +53,7 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 ## Authoring
 
 ```markdown
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `Eyebrow · context`
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · title"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # title
 
@@ -16,7 +16,7 @@ Opening slide. Dark canvas, centered, no chrome.
 ---
 
 <!-- _class: title silent -->
-<!-- _footer: "Default · title" -->
+<!-- @meta{footer=Default · title} -->
 
 # The title slide opens on the dark canvas.
 
@@ -28,7 +28,7 @@ One heading, an eyebrow, one line of context — centered, chrome-free, quickly 
 ---
 
 <!-- _class: title silent spectrum -->
-<!-- _footer: "spectrum · title spectrum — A generated gradient bar below the subtitle, in the theme's own six-step palette." -->
+<!-- @meta{footer="spectrum · title spectrum — A generated gradient bar below the subtitle, in the theme's own six-step palette."} -->
 
 # A deck built on a color-coded spectrum.
 
@@ -40,7 +40,7 @@ The title echoes the same six-step story the deck's own components carry.
 ---
 
 <!-- _class: title silent cover-masthead -->
-<!-- _footer: "cover-masthead · title cover-masthead — A heavy rule over the title, set left." -->
+<!-- @meta{footer="cover-masthead · title cover-masthead — A heavy rule over the title, set left."} -->
 
 # The cover composes as a masthead.
 
@@ -52,7 +52,7 @@ The heading sits under a heavy rule as wide as its measure.
 ---
 
 <!-- _class: title silent cover-ledger -->
-<!-- _footer: "cover-ledger · title cover-ledger — A small-caps title over a double rule." -->
+<!-- @meta{footer="cover-ledger · title cover-ledger — A small-caps title over a double rule."} -->
 
 # The cover composes as a ledger.
 
@@ -64,7 +64,7 @@ Small capitals over a double rule, centered.
 ---
 
 <!-- _class: title silent cover-column -->
-<!-- _footer: "cover-column · title cover-column — An accent column at the right edge, the title set left." -->
+<!-- @meta{footer="cover-column · title cover-column — An accent column at the right edge, the title set left."} -->
 
 # The cover composes as a column.
 
@@ -76,7 +76,7 @@ The accent column runs between the header and footer bands.
 ---
 
 <!-- _class: title silent cover-label -->
-<!-- _footer: "cover-label · title cover-label — A gallery wall label: a smaller title low on the left under a hairline." -->
+<!-- @meta{footer="cover-label · title cover-label — A gallery wall label: a smaller title low on the left under a hairline."} -->
 
 # The cover composes as a label.
 
@@ -88,7 +88,7 @@ A quiet caption sits under the hairline, the way a museum labels a work.
 ---
 
 <!-- _class: title silent cover-stage -->
-<!-- _footer: "cover-stage · title cover-stage — A stage-size centered title." -->
+<!-- @meta{footer="cover-stage · title cover-stage — A stage-size centered title."} -->
 
 # Built for the back row.
 
@@ -100,7 +100,7 @@ One short line, sized for the back of the hall.
 ---
 
 <!-- _class: title silent cover-frame -->
-<!-- _footer: "cover-frame · title cover-frame — The title boxed in a keyline." -->
+<!-- @meta{footer="cover-frame · title cover-frame — The title boxed in a keyline."} -->
 
 # The cover composes as a frame.
 
@@ -112,7 +112,7 @@ The keyline follows the deck's rule weight.
 ---
 
 <!-- _class: title silent cover-poster -->
-<!-- _footer: "cover-poster · title cover-poster — A giant title set left." -->
+<!-- @meta{footer="cover-poster · title cover-poster — A giant title set left."} -->
 
 # Say it loud.
 
@@ -123,8 +123,7 @@ A poster headline, heavy, tight and set left.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · title" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · title} -->
 
 ## When NOT to reach for title.
 
@@ -137,7 +136,7 @@ A poster headline, heavy, tight and set left.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

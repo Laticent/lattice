@@ -54,7 +54,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 ## Authoring
 
 ```markdown
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 

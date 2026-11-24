@@ -53,7 +53,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 ## Authoring
 
 ```markdown
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 ## Walking through my Tuesday morning.
 

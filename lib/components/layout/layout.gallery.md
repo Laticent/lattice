@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # layout
 
@@ -10,7 +10,7 @@ layout
 ---
 
 <!-- _class: columns ratio-60-40 -->
-<!-- _footer: "columns · layout survey" -->
+<!-- @meta{footer=columns · layout survey} -->
 
 `Q3 review`
 
@@ -35,7 +35,7 @@ layout
 ---
 
 <!-- _class: rows -->
-<!-- _footer: "rows · layout survey" -->
+<!-- @meta{footer=rows · layout survey} -->
 
 ## Hiring kept pace with the plan through Q3.
 

@@ -117,7 +117,7 @@
       "description": "The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one."
     }
   },
-  "skeleton": "<!-- _class: q-and-a -->\n\n## What we expect to be asked.\n\n- First question the audience will raise?\n  - The prepared answer — two or three sentences that close it down.\n- Second question?\n  - The prepared answer.\n- Third question?\n  - The prepared answer.\n",
+  "skeleton": "<!-- @meta{layout=q-and-a} -->\n\n## What we expect to be asked.\n\n- First question the audience will raise?\n  - The prepared answer — two or three sentences that close it down.\n- Second question?\n  - The prepared answer.\n- Third question?\n  - The prepared answer.\n",
   "anatomyBlock": "q-and-a",
   "sample": "<!-- _class: q-and-a -->\n\n## The Q&A pairs questions with short answers.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n- What if answers run long?\n  - Use solo, one per slide.\n",
   "stressDoc": {

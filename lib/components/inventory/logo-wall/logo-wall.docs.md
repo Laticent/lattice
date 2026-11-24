@@ -50,7 +50,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 ## Authoring
 
 ```markdown
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Trusted by`
 

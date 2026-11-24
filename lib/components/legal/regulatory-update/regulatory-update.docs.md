@@ -53,7 +53,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 ## Authoring
 
 ```markdown
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## Headline naming the period or theme.
 

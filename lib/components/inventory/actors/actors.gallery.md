@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · actors"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # actors
 
@@ -16,7 +16,7 @@ Roster of responsibilities owned by named actors.
 ---
 
 <!-- _class: actors -->
-<!-- _footer: "Default · actors" -->
+<!-- @meta{footer=Default · actors} -->
 
 ## The actors ledger names who owns what.
 
@@ -33,8 +33,8 @@ Roster of responsibilities owned by named actors.
 ---
 
 <!-- _class: actors -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · actors — Seven rows — the ledger's ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · actors — Seven rows — the ledger's ceiling."} -->
 
 ## Seven rows is where the ledger maxes out.
 
@@ -56,8 +56,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: actors dark -->
-<!-- _footer: "Composition: dark · actors dark" -->
+<!-- @meta{layout=actors, class=dark, footer=Composition: dark · actors dark} -->
 
 ## The actors ledger names who owns what.
 
@@ -73,8 +72,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: actors compact -->
-<!-- _footer: "Composition: compact · actors compact" -->
+<!-- @meta{layout=actors, class=compact, footer=Composition: compact · actors compact} -->
 
 ## The actors ledger names who owns what.
 
@@ -90,8 +88,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: actors accent -->
-<!-- _footer: "Composition: accent · actors accent" -->
+<!-- @meta{layout=actors, class=accent, footer=Composition: accent · actors accent} -->
 
 ## The actors ledger names who owns what.
 
@@ -107,8 +104,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · actors" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · actors} -->
 
 ## When NOT to reach for actors.
 
@@ -121,7 +117,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

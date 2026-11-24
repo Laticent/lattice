@@ -43,7 +43,7 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 ## Authoring
 
 ```markdown
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `Eyebrow · context`
 

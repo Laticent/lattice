@@ -115,7 +115,7 @@
       "description": "Nested items whose trailing pill is NOT a number (or that carry no pill) are per-category detail, not data. They render nowhere on the chart face: they drive the Present-mode reveal popover and fold into the slide's speaker note, so a chart with detail is pixel-identical to one without. This is the same detail-vs-data rule every Cartesian member shares."
     }
   },
-  "skeleton": "<!-- _class: bar -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`\n",
+  "skeleton": "<!-- @meta{layout=bar} -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `86`\n- Third `54`\n- Fourth `31`\n",
   "sample": "<!-- _class: bar -->\n\n`Revenue · FY26`\n\n## Growth is concentrated in two regions.\n\n- North America `$4.2M`\n  - Two enterprise renewals landed in Q4\n- EMEA `$3.1M`\n- APAC `$1.8M`\n- LATAM `$0.6M`\n",
   "stressDoc": {
     "summary": "Eight business units with full-length names — the case that forces the row form.",

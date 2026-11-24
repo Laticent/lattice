@@ -49,7 +49,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 ## Authoring
 
 ```markdown
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 ## Watch the 90-second product tour.
 

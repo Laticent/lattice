@@ -58,7 +58,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 ## Authoring
 
 ```markdown
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 

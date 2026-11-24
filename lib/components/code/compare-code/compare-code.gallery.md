@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · compare-code"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # compare-code
 
@@ -16,7 +16,7 @@ Two fenced code blocks side-by-side, each with a label.
 ---
 
 <!-- _class: compare-code -->
-<!-- _footer: "Default · compare-code" -->
+<!-- @meta{footer=Default · compare-code} -->
 
 `Query path · report generation`
 
@@ -45,8 +45,8 @@ return signals;
 ---
 
 <!-- _class: compare-code -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · compare-code — Two ten-line panes — the side-by-side ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · compare-code — Two ten-line panes — the side-by-side ceiling."} -->
 
 `compare-code · stress`
 
@@ -85,8 +85,7 @@ function afterPane(rows) {
 
 ---
 
-<!-- _class: compare-code dark -->
-<!-- _footer: "Composition: dark · compare-code dark" -->
+<!-- @meta{layout=compare-code, class=dark, footer=Composition: dark · compare-code dark} -->
 
 `Query path · report generation`
 
@@ -114,8 +113,7 @@ return signals;
 
 ---
 
-<!-- _class: compare-code compact -->
-<!-- _footer: "Composition: compact · compare-code compact" -->
+<!-- @meta{layout=compare-code, class=compact, footer=Composition: compact · compare-code compact} -->
 
 `Query path · report generation`
 
@@ -143,8 +141,7 @@ return signals;
 
 ---
 
-<!-- _class: compare-code accent -->
-<!-- _footer: "Composition: accent · compare-code accent" -->
+<!-- @meta{layout=compare-code, class=accent, footer=Composition: accent · compare-code accent} -->
 
 `Query path · report generation`
 
@@ -172,8 +169,7 @@ return signals;
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · compare-code · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · compare-code · 1 of 2} -->
 
 ## When NOT to reach for compare-code.
 
@@ -184,8 +180,7 @@ return signals;
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · compare-code · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · compare-code · 2 of 2} -->
 
 ## When NOT to reach for compare-code.
 
@@ -196,7 +191,7 @@ return signals;
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

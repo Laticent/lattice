@@ -27,6 +27,7 @@ import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
+import { readRecord } from '../../../lib/core/meta-door.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
@@ -573,11 +574,31 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
-/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
- *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
- *  and a miss would preview a wrong slide. */
+/** Each slide RECORD in the text (`<!-- @meta{layout=divider} -->`, `<!-- {…} -->`), read through the shared door: its
+ *  class words (`readRecord` folds `layout`, `variant`, `universal` and `modifiers` into `class`) and whether it carries.
+ *  Raw on purpose, like the `_class` probes below: a record in code or prose still counts, which costs one whole-deck
+ *  render, and a miss would preview a wrong slide. But only the CLASS is read: a footer, a note or an alt text that says
+ *  "proof", "carry" or "agenda" is prose (a footer saying "A proof chain" sent the math gallery's preview to the
+ *  whole-deck route and typeset all of its math).
+ *
+ *  It starts only at a record OPENER (`<!--` then `{` or `@meta{`). Pairing every `<!--` with the next `-->` let an
+ *  unclosed `<!--` in inline code or a fence swallow the record after it, and the preview lost a `carry` the engine
+ *  applies (the checker on #3433). */
+function slideRecords(text: string): Array<{ words: Set<string>; carry: boolean }> {
+	const out: Array<{ words: Set<string>; carry: boolean }> = [];
+	const opener = /<!--(?=\s*(?:@meta)?\{)/g;
+	for (let m = opener.exec(text); m; m = opener.exec(text)) {
+		const end = text.indexOf('-->', m.index + 4);
+		if (end < 0) break;
+		const rec = readRecord(text.slice(m.index + 4, end));
+		if (rec?.ok) out.push({ words: new Set(String(rec.d.class ?? '').split(/\s+/).filter(Boolean)), carry: !!rec.carry });
+	}
+	return out;
+}
+
+/** A class word in a slide record, the record arm beside each `_class` probe below. */
 function recordHasWord(text: string, word: string): boolean {
-	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
+	return slideRecords(text).some((r) => r.words.has(word));
 }
 
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
@@ -659,7 +680,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
 		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		test: (deck) => slideRecords(deck).some((r) => r.carry),
 	},
 
 	{
@@ -716,9 +738,10 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
-			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
+		// A slide record (`<!-- @meta{layout=split-panel, class=proof} -->`), by its class words only.
+		test: (deck) => slideRecords(deck).some((r) => r.words.has('proof') || r.words.has('capstone')),
 	},
 ];
 

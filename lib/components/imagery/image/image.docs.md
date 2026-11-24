@@ -55,7 +55,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 ## Authoring
 
 ```markdown
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## Text leads; the image earns its place.
 

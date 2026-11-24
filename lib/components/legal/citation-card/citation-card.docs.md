@@ -50,7 +50,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 ## Authoring
 
 ```markdown
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## Headline framing what this citation establishes.
 

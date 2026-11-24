@@ -24,6 +24,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readMetaField } = require('../../../lib/core/meta-edit.mjs');
 
 const {
   parseBar, buildBar, transformSection,
@@ -402,7 +403,9 @@ describe('bar kernel', () => {
       const samples = [manifest.sample, manifest.skeleton, manifest.stressDoc.sample,
         ...Object.values(manifest.variantDocs).map((v) => v.sample)];
       for (const md of samples) {
-        const tokens = md.match(/_class:\s*([^\s-][^-]*?)\s*-->/)[1].trim().split(/\s+/);
+        // The skeleton is a record (`<!-- @meta{layout=bar} -->`, record note §15); the samples are still comments until
+        // the corpus sweep. The shared reader reads both.
+        const tokens = readMetaField(md.split(/\n---\n/)[0], 'class').value.trim().split(/\s+/);
         const items = [...md.matchAll(/^(\s*)- (.+)$/gm)];
         const inner = items.map(([, indent, body], i) => {
           const html = body.replace(/`([^`]*)`/g, '<code>$1</code>');

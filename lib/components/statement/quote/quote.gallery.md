@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · quote"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # quote
 
@@ -16,7 +16,7 @@ A pulled quotation, centered, with attribution.
 ---
 
 <!-- _class: quote -->
-<!-- _footer: "Default · quote" -->
+<!-- @meta{footer=Default · quote} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -26,7 +26,7 @@ A pulled quotation, centered, with attribution.
 ---
 
 <!-- _class: quote bare -->
-<!-- _footer: "bare · quote bare — No card, no quotation marks — a plain display-scale line." -->
+<!-- @meta{footer="bare · quote bare — No card, no quotation marks — a plain display-scale line."} -->
 
 > The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
 
@@ -36,8 +36,8 @@ A pulled quotation, centered, with attribution.
 ---
 
 <!-- _class: quote -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · quote — Forty words; the type steps down once." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · quote — Forty words; the type steps down once."} -->
 
 > This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.
 
@@ -46,8 +46,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote dark -->
-<!-- _footer: "Composition: dark · quote dark" -->
+<!-- @meta{layout=quote, class=dark, footer=Composition: dark · quote dark} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -56,8 +55,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote compact -->
-<!-- _footer: "Composition: compact · quote compact" -->
+<!-- @meta{layout=quote, class=compact, footer=Composition: compact · quote compact} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -66,8 +64,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote accent -->
-<!-- _footer: "Composition: accent · quote accent" -->
+<!-- @meta{layout=quote, class=accent, footer=Composition: accent · quote accent} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -76,8 +73,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · quote" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · quote} -->
 
 ## When NOT to reach for quote.
 
@@ -90,7 +86,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

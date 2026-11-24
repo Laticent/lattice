@@ -23,7 +23,7 @@ describe('LayoutStudio — controlled component body', () => {
 		expect(screen.getByText(/Gate — all clear/)).toBeInTheDocument();
 		const dp = screen.getByTestId('dp');
 		expect(dp.getAttribute('data-extracss')).toMatch(/section\.callout/);
-		expect(dp.getAttribute('data-sample')).toMatch(/_class: callout/);
+		expect(dp.getAttribute('data-sample')).toMatch(/@meta\{layout=callout\}/);
 	});
 
 	it('renders the error findings it is handed, with a “to fix” header', () => {
@@ -40,7 +40,7 @@ describe('LayoutStudio — controlled component body', () => {
 		render(<LayoutStudio options={options} name="callout" css={evil} skeleton={STARTER_SKELETON} onCss={noop} onSkeleton={noop} findings={[{ level: 'error', rule: 'css-url-remote', line: 1, message: 'remote url() blocked' }]} nameOk />);
 		const dp = screen.getByTestId('dp');
 		expect(dp.getAttribute('data-extracss')).toBe(''); // the exfil CSS was withheld
-		expect(dp.getAttribute('data-sample')).toMatch(/_class: callout/); // the skeleton still previews
+		expect(dp.getAttribute('data-sample')).toMatch(/@meta\{layout=callout\}/); // the skeleton still previews
 		expect(screen.getByText(/Preview paused/i)).toBeInTheDocument();
 	});
 

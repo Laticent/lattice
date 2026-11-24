@@ -46,7 +46,7 @@ Use when the question is how big a loss to plan for: a reinsurance program's 1-i
 ## Authoring
 
 ```markdown
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 ## A 1-in-100 year costs $410M.
 

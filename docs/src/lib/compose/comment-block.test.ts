@@ -315,6 +315,11 @@ describe('the clipboard shape gate', () => {
 		expect(readCommentText('<!-- @meta{layout=cards} -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- {pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- {pane=bar no-title} -->' });
 		expect(readCommentText('<!-- {pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		// The `@meta` spelling Compose itself writes (record note §15) passes the same strict shape, and fails the same way.
+		expect(readCommentText('<!-- @meta{pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=bar no-title} -->' });
+		expect(readCommentText('<!-- @meta{pane=""} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- @meta{pane=""} -->' });
+		expect(readCommentText('<!-- @meta{pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{pane=bar, background-image="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
 		// The bare spelling of a directive is refused too: the engine applies it from this slide on.
 		expect(readCommentText('<!-- backgroundImage: url(https://evil.example/x.png) -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- class: dark -->', CLIP_ORIGIN)).toBe(false);

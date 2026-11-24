@@ -267,7 +267,7 @@
       }
     }
   },
-  "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Archived\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
+  "skeleton": "<!-- @meta{layout=state-chart} -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Archived\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
   "sample": "<!-- _class: state-chart lr -->\n\n`Submission lifecycle`\n\n## States connect; the arrows carry the rules.\n\nHow a draft moves from author to publication.\n\n- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review `at-risk`\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n  > Two reviewers must sign off before approval.\n- Approved\n  - -publish-> Published\n- Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
   "stressDoc": {
     "summary": "A dense machine of states.",

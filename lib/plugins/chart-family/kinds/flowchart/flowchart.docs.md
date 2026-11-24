@@ -57,7 +57,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 ## Authoring
 
 ```markdown
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## The flow in one line.
 
