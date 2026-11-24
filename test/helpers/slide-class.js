@@ -8,6 +8,7 @@
  * `_class:` matches these tests used never counted it.
  */
 const { slideClassDirectives } = require('../../lib/core/class-directive-scan.mjs');
+const { isRecordOpener, readRecord } = require('../../lib/core/meta-door.mjs');
 
 /**
  * @param {string} md  one slide's source (no front matter)
@@ -15,7 +16,10 @@ const { slideClassDirectives } = require('../../lib/core/class-directive-scan.mj
  */
 function ownClassOf(md) {
   const [own] = slideClassDirectives(String(md ?? ''));
-  if (!own?.text || /\bcarry\b/.test(own.text) || /^<!--\s*class\s*:/.test(own.text)) return null;
+  if (!own?.text || /^<!--\s*class\s*:/.test(own.text)) return null;
+  // A `carry` record is a running global; read the record's own flag, not the word (a footer may say "carry on").
+  const body = own.text.replace(/^<!--/, '').replace(/-->$/, '');
+  if (isRecordOpener(body) && readRecord(body)?.carry) return null;
   return { text: own.text, payload: String(own.payload).trim() };
 }
 

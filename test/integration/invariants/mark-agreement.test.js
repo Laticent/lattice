@@ -12,7 +12,7 @@
  *
  * HOW IT KNOWS THE ANSWER. The ground truth comes from the SOURCE, through a reader written here that shares no code
  * with any mark: it splits on `---` outside code fences (and at each heading under `split: headings`) and reads each
- * slide's `_class:` and `hide` comments. Every mark is then READ FROM THE RENDER and compared with it.
+ * slide's class and `hide` settings (a comment or a `@meta` record field). Every mark is then READ FROM THE RENDER and compared with it.
  *
  * BOTH ARMS. The string arm is the engine render plus `structuralSplit`, exactly as the CLI composes them. The DOM arm
  * takes that document into jsdom, strips every mark the string arm drew, and lets each mark's own `applyToDom` draw it
@@ -68,6 +68,25 @@ function frontValue(front, key) {
   const m = new RegExp(`^${key}:\\s*(.*)$`, 'm').exec(front);
   return m ? m[1].trim().replace(/^["']|["']$/g, '') : null;
 }
+/**
+ * Every setting of `key` on these lines, in source order, as `{ at, value }`: a directive comment (`<!-- _hide -->`,
+ * `<!-- _paginate: false -->`) or a field of a `<!-- @meta{…} -->` record (`hide`, `hide=false`, `paginate=skip`), the
+ * corpus's spelling since the meta sweep. Read here with its own small pattern, not the shared record reader, so the
+ * oracle stays independent of the code it checks. A record's items split on commas outside quotes; `value` is '' for a
+ * bare flag.
+ */
+function settings(outside, key) {
+  const out = [];
+  for (const m of outside.matchAll(new RegExp(`^<!--\\s*_?${key}(?::\\s*([^>]*?))?\\s*-->`, 'gm'))) out.push({ at: m.index, value: (m[1] || '').trim() });
+  for (const m of outside.matchAll(/^<!--\s*@meta\{(.*)\}\s*-->/gm)) {
+    for (const item of m[1].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((t) => t.trim())) {
+      if (item === key) out.push({ at: m.index, value: '' });
+      else if (item.startsWith(`${key}=`)) out.push({ at: m.index, value: item.slice(key.length + 1).replace(/^"|"$/g, '').trim() });
+    }
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
 function sourceDeck(md) {
   const text = md.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
   const fm = FRONT.exec(text);
@@ -79,11 +98,10 @@ function sourceDeck(md) {
   const { spans } = slideClassSpans(text);
   const slides = spans.map((sp) => {
     const outside = text.slice(sp.start, sp.end).replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '');
-    const hides = [...outside.matchAll(/^<!--\s*_?hide(?::\s*([^>]*?))?\s*-->/gm)];
-    const last = hides.pop();
-    const hidden = !!last && !/^(false|no|off|0)$/i.test((last[1] || '').trim());
+    const last = settings(outside, 'hide').pop();
+    const hidden = !!last && !/^(false|no|off|0)$/i.test(last.value);
     const head = (/^#{1,6}\s+(.*?)\s*#*\s*$/m.exec(outside) || [])[1] || '';
-    const unnumbered = /^<!--\s*_?paginate\s*:\s*(false|skip|hold)\s*-->/m.test(outside);
+    const unnumbered = settings(outside, 'paginate').some((p) => /^(false|skip|hold)$/.test(p.value));
     return { unnumbered, tok: String(sp.slideClass || '').replace(/["']/g, '').split(/\s+/).filter(Boolean), hidden, head };
   });
   return {
@@ -92,7 +110,7 @@ function sourceDeck(md) {
     size: frontValue(front, 'size') || 'hd',
     // A panes slide the engine splits becomes one slide per pane, a question about measured fits this reader does
     // not answer, so a deck with pane markers is not held to the authored-slide count (every mark still is).
-    panes: /<!--\s*_?panes?\s*:/.test(text),
+    panes: /<!--\s*(?:_?panes?\s*:|@meta\{(?:[^}]*?,\s*)?panes?=)/.test(text),
   };
 }
 
@@ -340,7 +358,7 @@ describe('mark agreement', () => {
   // step, so every mark on it must be its first page's: the page stamp, the slide stamp, the divider marker, the rail,
   // the eyebrow. Only the step paint may differ. Checked by stripping the paint and comparing each copy whole.
   const STEP_DECKS = [...CORPUS, ...fs.readdirSync(FIXTURES).filter((n) => n.endsWith('.md')).map((n) => path.join(FIXTURES, n))]
-    .filter((f) => /<!--\s*_?(?:build|focusSteps)\b/.test(fs.readFileSync(f, 'utf8')));
+    .filter((f) => /<!--\s*(?:_?(?:build|focusSteps)\b|@meta\{(?:[^}]*?,\s*)?(?:build|focus-steps)\b)/.test(fs.readFileSync(f, 'utf8')));
   async function stepPages(file, mutate) {
     const { expandStepPages } = await import(path.join(ROOT, 'lib/core/step-pages.mjs'));
     const { applyStepAt } = await import(path.join(ROOT, 'lib/core/step-state.mjs'));

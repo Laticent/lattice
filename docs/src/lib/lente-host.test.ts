@@ -30,6 +30,20 @@ describe('the record carrier', () => {
 		expect([...parseSlideTags(moved).include].sort()).toEqual(['ask', 'brief']);
 	});
 
+	it('a slide the record reader cannot edit keeps the comment behavior: the first tag counts and a toggle still writes', () => {
+		// The checker on slice D: duplicate or nested tags made `writeMeta` a no-op, so a Studio toggle did nothing, and a
+		// duplicate read the LAST tag where LFM 1.1 says the first counts.
+		const dup = '<!-- _lens: brief -->\n<!-- _lens: ask -->\n\n# X';
+		expect([...parseSlideTags(dup).include]).toEqual(['brief']);
+		expect(applyTag(dup, 'story', true, 'none')).not.toBe(dup);
+		expect([...parseSlideTags(applyTag(dup, 'story', true, 'none')).include].sort()).toEqual(['brief', 'story']);
+		const nested = '- item\n  <!-- _lens: brief -->\n\n# X';
+		expect([...parseSlideTags(nested).include]).toEqual(['brief']);
+		expect(applyTag(nested, 'brief', false, 'none')).not.toContain('_lens: brief');
+		// A running global `<!-- lens: … -->` was never a tag, and still is not.
+		expect(parseSlideTags('<!-- lens: brief -->\n# X').include.size).toBe(0);
+	});
+
 	it('ignores a tag shown in a code fence', () => {
 		expect(taggedLensIds(['## A\n\n```md\n<!-- @meta{lens=brief} -->\n```\n']).size).toBe(0);
 	});

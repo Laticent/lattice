@@ -276,8 +276,8 @@ lenses:
 which is the right default for anything that is not a strict superset of the rung
 below it.
 
-Per-slide tags are the `lens` field of the slide's record (lowercase, space-separated tokens; quote a value with a
-space or a leading `-`):
+Per-slide tags are the `lens` field of the slide's record (lowercase, space-separated tokens; the Studio quotes a value
+that starts with `-`, and either form reads):
 
 ```markdown
 <!-- @meta{layout=kpi, lens="brief ask"} -->
