@@ -72,7 +72,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: actors -->\n\n## Who owns each part of the process.\n\n- Owns the first part `{First actor}`\n  - One-line note on what that ownership covers.\n- Owns the second part `{Second actor}`\n  - One-line note.\n- Owns the third part `{Third actor}`\n  - One-line note.\n",
+  "skeleton": "<!-- @meta{layout=actors} -->\n\n## Who owns each part of the process.\n\n- Owns the first part `{First actor}`\n  - One-line note on what that ownership covers.\n- Owns the second part `{Second actor}`\n  - One-line note.\n- Owns the third part `{Third actor}`\n  - One-line note.\n",
   "anatomyBlock": "actors",
   "sample": "<!-- _class: actors -->\n\n## The actors ledger names who owns what.\n\n- Owns one row `{Each actor}`\n  - A verb-first responsibility, twelve words at most.\n- Reads top to bottom `{The ledger}`\n  - Order carries seniority or sequence.\n- Answers by name `{The role chip}`\n  - The inline code names the seat.\n- Stops at six rows `{This layout}`\n  - Past six, reach for list-tabular.\n",
   "stressDoc": {

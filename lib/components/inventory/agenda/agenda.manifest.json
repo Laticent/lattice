@@ -91,7 +91,7 @@
       "description": "A list of section titles (`1.` or `-`; the ledger numbers itself). Leave it out and the agenda fills itself from the deck's `divider` headings."
     }
   },
-  "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
+  "skeleton": "<!-- @meta{layout=agenda} -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
   "anatomyBlock": "agenda",
   "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n",
   "stressDoc": {

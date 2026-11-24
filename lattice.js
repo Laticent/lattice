@@ -1202,7 +1202,7 @@ const { deckClassRefusalsFromFrontMatter } = require('./lib/core/deck-class-regi
 const { frontMatterBody: deckFrontMatterBody } = require('./lib/core/resolve-color-mode');
 for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatterBody(md))) {
   console.error(reason === 'component'
-    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- _class: ${token} -->, or once for a run with <!-- class: ${token} -->.`
+    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- @meta{layout=${token}} -->, or once for a run with <!-- @meta{layout=${token}, carry} -->.`
     : `warning: deck-wide \`class: ${token}\` is superseded by \`color-mode:\` — it is dropped, not merged. Remove it from the class list.`);
 }
 

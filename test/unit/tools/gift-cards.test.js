@@ -153,7 +153,7 @@ test('the deck is one gift-card slide per key at the card size, the PIN spaced f
 	];
 	const deck = g.buildDeck(cards, { size: 'us', cap: 1 });
 	assert.match(deck, /^---\nsize: card\n/);
-	assert.equal(deck.match(/<!-- _class: gift-card -->/g).length, 2);
+	assert.equal(deck.match(/<!-- @meta\{layout=gift-card\} -->/g).length, 2);
 	assert.ok(deck.includes('- `https://x.test/gift#v1.a.b` `link`'));
 	assert.match(deck, /pagination: false\nspectrum: off\n/);
 	assert.ok(deck.includes('- 482 913 `pin`'));

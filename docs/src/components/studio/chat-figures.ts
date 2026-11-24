@@ -44,15 +44,15 @@ export function figureSample(lang: string, code: string, frontMatter: string): s
 		}
 		case 'mermaid': {
 			const f = fenceFor(body);
-			return `${frontMatter}<!-- _class: diagram -->\n\n${f}mermaid\n${body}\n${f}\n`;
+			return `${frontMatter}<!-- @meta{layout=diagram} -->\n\n${f}mermaid\n${body}\n${f}\n`;
 		}
 		case 'math':
 			// The `math` layout is the one built to give a hero equation the room; `content` set it as small
 			// text in a corner.
-			return `${frontMatter}<!-- _class: math -->\n\n$$\n${body}\n$$\n`;
+			return `${frontMatter}<!-- @meta{layout=math} -->\n\n$$\n${body}\n$$\n`;
 		case 'functionplot': {
 			const f = fenceFor(body);
-			return `${frontMatter}<!-- _class: content -->\n\n${f}functionplot\n${body}\n${f}\n`;
+			return `${frontMatter}<!-- @meta{layout=content} -->\n\n${f}functionplot\n${body}\n${f}\n`;
 		}
 	}
 }

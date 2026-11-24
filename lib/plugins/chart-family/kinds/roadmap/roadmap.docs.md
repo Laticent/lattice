@@ -58,7 +58,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ## Authoring
 
 ```markdown
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 
 ## What ships in each phase, by workstream.
 

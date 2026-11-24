@@ -39,7 +39,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 ## Authoring
 
 ```markdown
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## What the new endpoint looks like.
 

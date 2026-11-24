@@ -57,7 +57,7 @@
       "description": "Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``."
     }
   },
-  "skeleton": "<!-- _class: wifi -->\n\n`Room Wi-Fi`\n\n## Join the room.\n\n- Network-Name `ssid`\n- network-password `password`\n- WPA2 `security`\n- Scan to connect `caption`\n",
+  "skeleton": "<!-- @meta{layout=wifi} -->\n\n`Room Wi-Fi`\n\n## Join the room.\n\n- Network-Name `ssid`\n- network-password `password`\n- WPA2 `security`\n- Scan to connect `caption`\n",
   "sample": "<!-- _class: wifi -->\n\n`connect · wifi`\n\n## The credentials you can read, the QR joins for you.\n\n- Lattice-Demo `ssid`\n- specimen2026 `password`\n- WPA2 `security`\n- One scan connects the room `caption`\n",
   "whenToUse": [
     {

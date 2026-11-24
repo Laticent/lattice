@@ -94,7 +94,7 @@
       "description": "Body lines under a gloss item, such as what the citation obliges you to do."
     }
   },
-  "skeleton": "<!-- _class: citation-card -->\n\n## Headline framing what this citation establishes.\n\n`Citation reference · short name`\n\n> Verbatim quotation of the cited language.\n\n- Plain-English interpretation of what the language covers.\n- **What we must do.**\n  - The concrete action this citation argues for.\n",
+  "skeleton": "<!-- @meta{layout=citation-card} -->\n\n## Headline framing what this citation establishes.\n\n`Citation reference · short name`\n\n> Verbatim quotation of the cited language.\n\n- Plain-English interpretation of what the language covers.\n- **What we must do.**\n  - The concrete action this citation argues for.\n",
   "anatomyBlock": "citation-card",
   "sample": "<!-- _class: citation-card -->\n\n## The card quotes the law verbatim, cited.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> \"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.\n\n- In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.\n- **What we must do.**\n  - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.\n",
   "stressDoc": {

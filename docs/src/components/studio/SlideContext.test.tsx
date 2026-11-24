@@ -394,9 +394,9 @@ describe('SlideContextBody controls', () => {
 		expect(lastReset(onResetChange)?.dirty).toBe(false);
 	});
 
-	it('shows the emitted _class line', () => {
+	it('shows the emitted @meta record, typed, for a slide written either way', () => {
 		setup('<!-- _class: kpi dark -->\n\n# Hi');
-		expect(screen.getByText(/kpi dark/)).toBeTruthy();
+		expect(screen.getByText(/layout=kpi, class=dark/)).toBeTruthy();
 	});
 
 	it('goes read-only on a non-editable class shape', () => {

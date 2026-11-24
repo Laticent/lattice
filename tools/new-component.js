@@ -85,7 +85,7 @@ const manifest = {
 	bucket,
 	description: 'TODO: one sentence — what this layout is and when to reach for it.',
 	tags: [],
-	skeleton: `<!-- _class: ${name} -->\n\n## TODO heading\n\n- TODO first item\n- TODO second item\n`,
+	skeleton: `<!-- @meta{layout=${name}} -->\n\n## TODO heading\n\n- TODO first item\n- TODO second item\n`,
 	variants: [],
 	families: [],
 	dataCompletion: false,

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · wifi"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # wifi
 
@@ -16,7 +16,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 ---
 
 <!-- _class: wifi -->
-<!-- _footer: "Default · wifi" -->
+<!-- @meta{footer=Default · wifi} -->
 
 `connect · wifi`
 
@@ -30,8 +30,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: wifi dark -->
-<!-- _footer: "Composition: dark · wifi dark" -->
+<!-- @meta{layout=wifi, class=dark, footer=Composition: dark · wifi dark} -->
 
 `connect · wifi`
 
@@ -45,8 +44,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: wifi accent -->
-<!-- _footer: "Composition: accent · wifi accent" -->
+<!-- @meta{layout=wifi, class=accent, footer=Composition: accent · wifi accent} -->
 
 `connect · wifi`
 
@@ -60,8 +58,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · wifi" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · wifi} -->
 
 ## When NOT to reach for wifi.
 
@@ -72,7 +69,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -55,7 +55,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 ## Authoring
 
 ```markdown
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## Revenue ahead of plan; margin and cash both expanded.
 

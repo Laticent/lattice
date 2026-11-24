@@ -56,7 +56,7 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 ## Authoring
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Slide heading.
 

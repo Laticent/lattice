@@ -32,7 +32,7 @@
       "enum": [
         "panes"
       ],
-      "description": "This component's body is OTHER COMPONENTS. `panes`: two panes, each a component the author names with `<!-- _pane: … -->` or opens with a `### title` (lib/core/panes.js). A host has no stage of its own, so the content contracts (capacity, slots) belong to its panes; pair it with `function: layout` and `pane: { side: false, stack: false }`, since a host never goes inside a pane."
+      "description": "This component's body is OTHER COMPONENTS. `panes`: two panes, each a component the author names with `<!-- @meta{pane=…} -->` or opens with a `### title` (lib/core/panes.js). A host has no stage of its own, so the content contracts (capacity, slots) belong to its panes; pair it with `function: layout` and `pane: { side: false, stack: false }`, since a host never goes inside a pane."
     },
     "type": {
       "const": "component",

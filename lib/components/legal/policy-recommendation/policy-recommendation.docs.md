@@ -55,7 +55,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 ## Authoring
 
 ```markdown
-<!-- _class: policy-recommendation adopt -->
+<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 ## The recommendation as a complete sentence.
 

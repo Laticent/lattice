@@ -25,10 +25,10 @@ type Strategy = 'eager' | 'pool' | 'bake' | 'bake-img';
 const FM = '---\ntheme: indaco\n---\n\n';
 
 const BODY: Record<Kind, (i: number) => string> = {
-	mermaid: (i) => `<!-- _class: diagram -->\n\n## Figure ${i}\n\n\`\`\`mermaid\nflowchart LR\n  A["Raw ${i}"] --> B["Classify"]\n  B --> C["Score"]\n  C --> D["Decision"]\n  D -.->|retro| B\n  B --> E["Archive"]\n  E --> F["Report"]\n\`\`\`\n`,
-	math: (i) => `<!-- _class: content -->\n\n## Figure ${i}\n\n$$\n\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2} + ${i}\n$$\n\nAnd inline $\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}$.\n`,
-	plot: (i) => `<!-- _class: content -->\n\n## Figure ${i}\n\n\`\`\`functionplot\n{ "data": [{ "fn": "x^2 + ${i}" }, { "fn": "sin(x) * ${i}" }] }\n\`\`\`\n`,
-	slide: (i) => `<!-- _class: cards-grid -->\n\n## Four moves to the boardroom ${i}\n\n- Write\n  - Plain Markdown, headings, lists.\n- Choose\n  - A layout per slide.\n- Check\n  - The engine lints and fits.\n- Ship\n  - One PDF, one link.\n`,
+	mermaid: (i) => `<!-- @meta{layout=diagram} -->\n\n## Figure ${i}\n\n\`\`\`mermaid\nflowchart LR\n  A["Raw ${i}"] --> B["Classify"]\n  B --> C["Score"]\n  C --> D["Decision"]\n  D -.->|retro| B\n  B --> E["Archive"]\n  E --> F["Report"]\n\`\`\`\n`,
+	math: (i) => `<!-- @meta{layout=content} -->\n\n## Figure ${i}\n\n$$\n\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2} + ${i}\n$$\n\nAnd inline $\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}$.\n`,
+	plot: (i) => `<!-- @meta{layout=content} -->\n\n## Figure ${i}\n\n\`\`\`functionplot\n{ "data": [{ "fn": "x^2 + ${i}" }, { "fn": "sin(x) * ${i}" }] }\n\`\`\`\n`,
+	slide: (i) => `<!-- @meta{layout=cards-grid} -->\n\n## Four moves to the boardroom ${i}\n\n- Write\n  - Plain Markdown, headings, lists.\n- Choose\n  - A layout per slide.\n- Check\n  - The engine lints and fits.\n- Ship\n  - One PDF, one link.\n`,
 };
 const source = (kind: Kind, i: number) => FM + BODY[kind](i);
 const drawnFor = (kind: Kind) => kind === 'mermaid' || kind === 'plot';

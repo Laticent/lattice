@@ -57,7 +57,7 @@
       "description": "Optional line under the heading, as a postfix-key bullet: ``- Scan to start. `caption` ``."
     }
   },
-  "skeleton": "<!-- _class: gift-card -->\n\n`A deck on us`\n\n## Make your next deck with Lattice.\n\n- `https://lattice.style/gift#v1.…` `link`\n- Scan to start. `caption`\n",
+  "skeleton": "<!-- @meta{layout=gift-card} -->\n\n`A deck on us`\n\n## Make your next deck with Lattice.\n\n- `https://lattice.style/gift#v1.…` `link`\n- Scan to start. `caption`\n",
   "sample": "<!-- _class: gift-card -->\n\n`connect · gift-card`\n\n## Make your next deck with Lattice.\n\n- `https://lattice.style/gift#v1.ASNFZ4mrze8BI0VniavN7wEjRWeJq83vASNFZ4mrze8.mm_u` `link`\n- Scan to start. Up to $1 of AI is on the house. `caption`\n- No. 1 `number`\n",
   "whenToUse": [
     {

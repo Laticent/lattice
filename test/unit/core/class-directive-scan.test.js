@@ -290,16 +290,20 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
       for (let i = 2; i < chunks.length; i++) {
-        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1 });
+        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1, chunk: chunks[i] });
       }
     }
     assert.ok(wrong.length >= 4, `the corpus must exercise the defect, got ${wrong.length}`);
-    const byDeck = new Set(wrong.map((w) => w.rel));
-    for (const rel of byDeck) {
-      const src = decks.find((d) => d.rel === rel).src;
+    // The other form the old reader cannot see is a record (`<!-- @meta{layout=…} -->`, record note §15), which the
+    // generators now write: a wrong slide must hold one, or sit in a deck with a running global directive.
+    const recordOn = (chunk) => /^\s*<!--\s*(?:@meta)?\{/m.test(chunk);
+    for (const w of wrong) {
+      if (recordOn(w.chunk)) continue;
+      const src = decks.find((d) => d.rel === w.rel).src;
       assert.match(src, /^\s*<!--\s*class:/m,
-        `${rel}: the old reader was wrong on a deck that uses NO global directive — a different defect`);
+        `${w.rel} slide ${w.slide}: the old reader was wrong on a slide with no record, in a deck that uses NO global directive — a different defect`);
     }
+    assert.ok(wrong.some((w) => !recordOn(w.chunk)), 'the corpus still exercises the running-global defect, not only records');
   });
 });
 

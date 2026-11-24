@@ -97,7 +97,7 @@
       "description": "One nested `-` line under an event: what changed there."
     }
   },
-  "skeleton": "<!-- _class: timeline-list -->\n\n`Eyebrow · context`\n\n## How it unfolded.\n\n1. `2024 Q3` First milestone\n   - One-sentence description of what shipped.\n2. `2025 Q1` Second milestone `decision`\n   - One-sentence description.\n3. `2025 Q3` Third milestone `live`\n   - One-sentence description.\n",
+  "skeleton": "<!-- @meta{layout=timeline-list} -->\n\n`Eyebrow · context`\n\n## How it unfolded.\n\n1. `2024 Q3` First milestone\n   - One-sentence description of what shipped.\n2. `2025 Q1` Second milestone `decision`\n   - One-sentence description.\n3. `2025 Q3` Third milestone `live`\n   - One-sentence description.\n",
   "anatomyBlock": "timeline-list",
   "sample": "<!-- _class: timeline-list -->\n\n`chart · timeline-list`\n\n## The timeline pins events to their dates.\n\nFour milestones show the shape; the date chips carry the when.\n\n1. `Q1` The first milestone\n   - One clause says what changed here.\n2. `Q2` The second, marked `decision`\n   - A tag names the milestone's kind.\n3. `Q3` The third milestone\n   - Sixteen words is each entry's budget.\n4. `Q4` The fourth milestone\n   - Four to six entries reads best.\n",
   "stressDoc": {

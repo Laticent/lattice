@@ -175,7 +175,7 @@ describe('set_theme, set_finish, chart_from_data and render_slide', () => {
 	it('chart_from_data inserts a chart slide in the documented shape', async () => {
 		const tb = look();
 		await tb.run('chart_from_data', JSON.stringify({ after: 1, kind: 'bar', heading: 'EMEA leads the year', rows: [{ label: 'EMEA', value: '$4.2M' }, { label: 'APAC', value: '$3.1M' }, { label: 'Americas', value: '2,900,000' }] }));
-		expect(tb.draft).toContain('<!-- _class: bar -->\n\n## EMEA leads the year.\n\n- EMEA `$4.2M`\n- APAC `$3.1M`\n- Americas `2,900,000`');
+		expect(tb.draft).toContain('<!-- @meta{layout=bar} -->\n\n## EMEA leads the year.\n\n- EMEA `$4.2M`\n- APAC `$3.1M`\n- Americas `2,900,000`');
 		expect(tb.proposal()).toEqual([expect.objectContaining({ action: 'insert', slide: 1 })]);
 	});
 
@@ -183,7 +183,7 @@ describe('set_theme, set_finish, chart_from_data and render_slide', () => {
 		const stacked = buildChartSlide({ kind: 'stacked-bar', heading: 'Costs grew in two places', rows: [{ label: 'Q1', parts: [{ label: 'Staff', value: '40' }, { label: 'Cloud', value: '25' }] }, { label: 'Q2', parts: [{ label: 'Staff', value: '46' }, { label: 'Cloud', value: '31' }] }] });
 		expect('body' in stacked && stacked.body).toContain('- Q1\n  - Staff `40`\n  - Cloud `25`');
 		const donut = buildChartSlide({ kind: 'piechart', variant: 'donut', heading: 'Half the spend is staff', rows: [{ label: 'Staff', value: '50%' }, { label: 'Other', value: '50%' }] });
-		expect('body' in donut && donut.body.startsWith('<!-- _class: piechart donut -->')).toBe(true);
+		expect('body' in donut && donut.body.startsWith('<!-- @meta{layout=piechart, class=donut} -->')).toBe(true);
 		expect(buildChartSlide({ kind: 'radar', heading: 'X happened', rows: [] })).toEqual({ error: expect.stringContaining('kind must be one of') });
 		expect(buildChartSlide({ kind: 'line', variant: 'donut', heading: 'X happened', rows: [] })).toEqual({ error: expect.stringContaining('no donut variant') });
 		expect(buildChartSlide({ kind: 'bar', heading: 'X happened', rows: [{ label: 'A', value: 'about ten' }, { label: 'B', value: '3' }] })).toEqual({ error: expect.stringContaining('is not one number') });

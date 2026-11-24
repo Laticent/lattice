@@ -83,7 +83,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: matrix-2x2 -->\n\n## Where each option lives.\n\n- **High value · Low cost.**\n  - First item in this quadrant\n  - Second item\n- **High value · High cost.**\n  - First item in this quadrant\n- **Low value · Low cost.**\n  - First item in this quadrant\n- **Low value · High cost.**\n  - First item in this quadrant\n",
+  "skeleton": "<!-- @meta{layout=matrix-2x2} -->\n\n## Where each option lives.\n\n- **High value · Low cost.**\n  - First item in this quadrant\n  - Second item\n- **High value · High cost.**\n  - First item in this quadrant\n- **Low value · Low cost.**\n  - First item in this quadrant\n- **Low value · High cost.**\n  - First item in this quadrant\n",
   "anatomyBlock": "matrix-2x2",
   "sample": "<!-- _class: matrix-2x2 -->\n\n## The matrix places items on two named axes.\n\n- **High impact · Low effort.**\n  - Quick wins\n  - Two per cell\n- **High impact · High effort.**\n  - Strategic bets\n  - Named plainly\n- **Low impact · Low effort.**\n  - Habit fillers\n  - Prune here\n- **Low impact · High effort.**\n  - Time sinks\n  - One suffices\n",
   "stressDoc": {

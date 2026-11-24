@@ -130,7 +130,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
+  "skeleton": "<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
   "sample": "<!-- _class: cards-grid -->\n\n## A cards grid gives equal weight to peers.\n\n- Parallel titles.\n  - Noun phrases of similar weight, never mixed.\n- Short bodies.\n  - One clause each; a long card collapses the grid.\n- Rank order.\n  - Left to right reads strongest first.\n- Four cards.\n  - The hard ceiling; five means a new slide.\n",
   "stressDoc": {
     "summary": "Four cards at the hard budget.",

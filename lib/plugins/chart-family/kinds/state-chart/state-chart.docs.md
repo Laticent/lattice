@@ -57,7 +57,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 ## Authoring
 
 ```markdown
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Submission lifecycle`
 

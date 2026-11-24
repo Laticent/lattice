@@ -40,7 +40,7 @@
       "description": "Optional section number or category label above the heading."
     }
   },
-  "skeleton": "<!-- _class: divider -->\n\n`Section 01`\n\n## Section name\n",
+  "skeleton": "<!-- @meta{layout=divider} -->\n\n`Section 01`\n\n## Section name\n",
   "anatomyBlock": "divider-bookend",
   "sample": "<!-- _class: divider silent -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
   "whenToUse": [

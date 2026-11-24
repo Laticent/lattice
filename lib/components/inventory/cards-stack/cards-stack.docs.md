@@ -51,7 +51,7 @@ Use when the items want vertical reading order — sequential exploration rather
 ## Authoring
 
 ```markdown
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Slide heading.
 

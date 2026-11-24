@@ -19,6 +19,25 @@ const fs     = require('fs');
 const os     = require('os');
 const { spawnSync, execFileSync } = require('child_process');
 
+/**
+ * The text of the PDF attachment named `name`, or null when there is none. Walks the catalog's
+ * /Names /EmbeddedFiles name tree (flat, as pdf-lib's `attach` writes it) and decodes the stream
+ * through its own filters.
+ */
+function embeddedFileText(doc, name) {
+  const { PDFName, PDFDict, PDFArray, decodePDFRawStream } = require('pdf-lib');
+  const names = doc.catalog.lookup(PDFName.of('Names'), PDFDict)?.lookup(PDFName.of('EmbeddedFiles'), PDFDict)?.lookup(PDFName.of('Names'), PDFArray);
+  if (!names) return null;
+  for (let i = 0; i + 1 < names.size(); i += 2) {
+    const spec = names.lookup(i + 1, PDFDict);
+    const label = (spec.lookup(PDFName.of('UF')) ?? spec.lookup(PDFName.of('F'))).decodeText();
+    if (label !== name) continue;
+    const stream = spec.lookup(PDFName.of('EF'), PDFDict).lookup(PDFName.of('F'));
+    return Buffer.from(decodePDFRawStream(stream).decode()).toString('utf8');
+  }
+  return null;
+}
+
 describe('export-formats', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
   const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -1046,11 +1065,11 @@ describe('export-formats', () => {
     const noteText = contents.decodeText ? contents.decodeText() : contents.asString();
     assert.ok(noteText.includes(NOTE_MARKER), `annotation should carry the note, got: ${noteText}`);
 
-    // --embed-source round-trips: extract the attachment and compare bytes.
-    const extractDir = path.join(dir, 'extract');
-    fs.mkdirSync(extractDir);
-    execFileSync('pdfdetach', ['-saveall', '-o', extractDir + path.sep, out]);
-    const extracted = fs.readFileSync(path.join(extractDir, 'deck.md'), 'utf8');
+    // --embed-source round-trips: extract the attachment and compare bytes. Read with pdf-lib, as the
+    // Studio reads it (reopenable.test.js `pdfPayload`), not poppler's `pdfdetach`: a sandbox image
+    // that leaves out that one binary made this test crash with ENOENT (PR #3491's render run).
+    const extracted = embeddedFileText(doc, 'deck.md');
+    assert.ok(extracted !== null, 'the PDF should carry a deck.md attachment');
     assert.ok(extracted.includes(SOURCE_MARKER), 'extracted attachment should be the deck source');
     assert.equal(extracted, fs.readFileSync(src, 'utf8'), 'attachment must be byte-identical to the source');
   });

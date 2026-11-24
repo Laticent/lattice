@@ -56,17 +56,20 @@ describe('classifyComment and directiveKey', () => {
 });
 
 describe('readMetaField and writeMeta', () => {
-  test('set, replace, remove, and a compound comment keeps its other lines', () => {
-    // A key the slide does not set is written as a record, the form the cut (step 6) leaves standing.
-    // A slide with no record keeps the comment form: the form follows the slide until the cut (#3136).
-    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- _footer: Q3 -->\n\n# A');
-    assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- _footer: Q4 -->\n\n# A');
+  test('set, replace, remove, and a comment holding two lines is left as the engine reads it', () => {
+    // Every write is a record, the one spelling Lattice writes (the owner, 2026-11-22: "we only support @meta"). A value
+    // in an old directive comment moves into the record; the comment goes when it held nothing else.
+    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- @meta{footer=Q3} -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- @meta{footer=Q4} -->\n\n# A');
+    // A second directive line is part of the class to the engine (class `a _footer: Q3`, no footer), so the footer is absent:
+    // setting it adds a record, and the comment, and what it renders, stay as written.
+    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- @meta{footer=Q4} -->\n\n<!-- _class: a\n_footer: Q3 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: null }), '# A');
-    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a\n_footer: Q3 -->\n\n# A');
   });
   test('a value can never close the comment', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- _footer: a -> b -->\n\n# A');
-    assert.equal(m.writeMeta('<!-- _footer: x -->\n\n# A', { footer: 'a ---> b --!> c' }), '<!-- _footer: a -> b -!> c -->\n\n# A');
+    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- @meta{footer="a -> b"} -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _footer: x -->\n\n# A', { footer: 'a ---> b --!> c' }), '<!-- @meta{footer="a -> b -!> c"} -->\n\n# A');
   });
   test('a duplicate or a YAML array is left alone', () => {
     const dup = '<!-- _class: a -->\n<!-- _class: b -->';
@@ -198,8 +201,8 @@ describe('commentBlocks remembers each text', () => {
 describe('writeMeta on records: the inversion’s cases', () => {
   const edit = require('../../../lib/core/meta-edit.mjs');
   test('a one-slide key never joins a carry record or a pane marker', () => {
-    assert.equal(edit.writeMeta('<!-- {class=cards, carry} -->\n\n# A', { backgroundColor: 'red' }), '<!-- _backgroundColor: red -->\n\n<!-- {class=cards, carry} -->\n\n# A');
-    assert.equal(edit.writeMeta('<!-- {pane=bar} -->\n\n- a', { footer: 'x' }), '<!-- _footer: x -->\n\n<!-- {pane=bar} -->\n\n- a');
+    assert.equal(edit.writeMeta('<!-- {class=cards, carry} -->\n\n# A', { backgroundColor: 'red' }), '<!-- @meta{background-color=red} -->\n\n<!-- {class=cards, carry} -->\n\n# A');
+    assert.equal(edit.writeMeta('<!-- {pane=bar} -->\n\n- a', { footer: 'x' }), '<!-- @meta{footer=x} -->\n\n<!-- {pane=bar} -->\n\n- a');
   });
   test('red team: a note line reading `class:` is never a directive; a cleared field keeps the paragraphs apart; a line break folds', () => {
     const noted = '<!-- {footer=Q3}\nnote: |\n  Open with the chart.\n  class: the cohort we sold to\n-->\n\n# One';
@@ -224,7 +227,7 @@ describe('writeMeta on records: the inversion’s cases', () => {
   });
 });
 
-describe('the red team on #3133 (#3136): the form follows the slide, dead records and repeats', () => {
+describe('the red team on #3133 (#3136): dead records and repeats', () => {
   const edit = require('../../../lib/core/meta-edit.mjs');
   test('the live record is edited, never its twin in a blockquote', () => {
     assert.equal(edit.writeMeta('<!-- {class=dark} -->\n\n# T\n\n> <!-- {class=dark} -->\n', { class: 'lead' }).split('\n')[0], '<!-- {class=lead} -->');
@@ -234,9 +237,12 @@ describe('the red team on #3133 (#3136): the form follows the slide, dead record
     assert.equal(edit.readMetaField(two, 'footer').reason, 'duplicate');
     assert.equal(edit.writeMeta(two, { footer: '' }), two);
   });
-  test('a pane marker written for a comment slide is the comment form', () => {
-    assert.equal(edit.setCommentField('', 'pane', 'bar no-title'), '<!-- _pane: bar no-title -->');
-    assert.equal(edit.setCommentField('<!-- _pane: list -->', 'pane', 'bar'), '<!-- _pane: bar -->');
+  test('a pane marker is always written as a record, an old `_pane:` marker included', () => {
+    assert.equal(edit.setCommentField('', 'pane', 'bar no-title'), '<!-- @meta{pane=bar no-title} -->');
+    assert.equal(edit.setCommentField('<!-- _pane: list -->', 'pane', 'bar'), '<!-- @meta{pane=bar} -->');
+    assert.equal(edit.setCommentField('', 'pane', ''), '<!-- @meta{pane=""} -->');
+    assert.equal(edit.setCommentField('', 'panes', '60/40 stack'), '<!-- @meta{panes=60/40 stack} -->');
+    assert.equal(edit.setCommentField('<!-- panes: 2 -->', 'footer', 'Q3'), '<!-- @meta{footer=Q3} -->');
     assert.equal(edit.setCommentField('<!-- {pane=list} -->', 'pane', 'bar'), '<!-- {pane=bar} -->');
   });
   test('a slide of many records nested in list items has no live record and no field (the shape the quadratic count hit)', () => {
@@ -281,4 +287,97 @@ describe('commentBlocks memory is bounded by size as well as count', () => {
     m.commentBlocks(slide(11));
     assert.equal(m.blocksStats.heldChars, before);
   });
+});
+
+// Slice C of the clean break (record note §15): the Studio writes `@meta` only, and an edit on a slide written in old
+// directive comments moves that setting into the record WITHOUT changing what renders.
+describe('writeMeta writes @meta only, and a moved setting renders the same', () => {
+  const edit = require('../../../lib/core/meta-edit.mjs');
+  const { createEngine } = require('../../../lib/engine');
+  const engine = createEngine();
+  const deck = (slide) => `---\nmarp: true\n---\n\n${slide}\n\n---\n\n# Next\n`;
+  const cases = [
+    // [slide, patch that re-sets the value it already has]
+    ['<!-- _class: stats -->\n\n# A', { class: 'stats' }],
+    ['<!-- _class: cards-grid dark -->\n\n# A', { class: 'cards-grid dark' }],
+    ['<!-- _class: dark cards-grid -->\n\n# A', { class: 'dark cards-grid' }],
+    ['<!-- _class: stats -->\n<!-- _footer: Q3 -->\n\n# A', { footer: 'Q3' }],
+    ['<!-- _footer: Q3 -->\n<!-- _class: lead -->\n\n# A', { class: 'lead' }],
+    // A running global (no `_`) keeps running onto the next slide: it becomes a `carry` record.
+    ['<!-- backgroundColor: #123456 -->\n\n# A', { backgroundColor: '#123456' }],
+    ['<!-- _backgroundColor: #123456 -->\n\n# A', { backgroundColor: '#123456' }],
+    ['<!-- _paginate: false -->\n\n# A', { paginate: 'false' }],
+    // An old comment beside a record (what the gallery generator writes for every sample slide): the attributes keep
+    // their order, so the HTML stays byte for byte (the checker on this change).
+    ['<!-- _footer: Q3 -->\n<!-- @meta{layout=stats} -->\n\n# A', { footer: 'Q3' }],
+    ['<!-- _class: lead -->\n<!-- @meta{footer=x} -->\n\n# A', { class: 'lead' }],
+    ['<!-- @meta{layout=stats} -->\n<!-- _footer: Q3 -->\n\n# A', { footer: 'Q3' }],
+  ];
+  for (const [slide, patch] of cases) {
+    test(`${JSON.stringify(slide)} → a record, same HTML and CSS`, () => {
+      const out = edit.writeMeta(slide, patch);
+      assert.match(out, /<!-- @meta\{/, 'the setting is written as a record');
+      const key = Object.keys(patch)[0];
+      assert.doesNotMatch(out, new RegExp(`<!--\\s*_?${key}\\s*:`), 'the old comment no longer carries it');
+      const a = engine.render(deck(slide));
+      const b = engine.render(deck(out));
+      assert.equal(b.html, a.html);
+      assert.equal(b.css, a.css);
+    });
+  }
+  test('the failing arm: writing the record WITHOUT the carry flag changes the next slide', () => {
+    const slide = '<!-- backgroundColor: #123456 -->\n\n# A';
+    const spot = '<!-- @meta{background-color=#123456} -->\n\n# A';
+    assert.notEqual(engine.render(deck(spot)).html, engine.render(deck(slide)).html);
+  });
+  test('a comment inside a quote or a list, and a deck-wide key, are left to the markdown', () => {
+    // A record there applies nothing, and a slide record cannot hold `lang`: moving either would drop it from the render.
+    for (const [slide, patch, reason] of [
+      ['> <!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }, 'nested'],
+      ['- <!-- _class: lead -->\n\n# A', { class: 'lead invert' }, 'nested'],
+      ['<!-- _lang: fr -->\n\n# A', { lang: 'de' }, 'deck'],
+      ['# A', { lang: 'de' }, 'deck'],
+    ]) {
+      const key = Object.keys(patch)[0];
+      assert.equal(edit.readMetaField(slide, key).reason, reason, slide);
+      assert.equal(edit.readMetaField(slide, key).editable, false, slide);
+      assert.equal(edit.writeMeta(slide, patch), slide, slide);
+      const out = engine.render(deck(slide)).html;
+      assert.equal(engine.render(deck(edit.writeMeta(slide, patch))).html, out);
+    }
+  });
+  test('the failing arm: a nested record applies nothing', () => {
+    assert.match(engine.render(deck('> <!-- _footer: Q3 -->\n\n# A')).html, /data-footer="Q3"/);
+    assert.doesNotMatch(engine.render(deck('> <!-- @meta{footer=Q3} -->\n\n# A')).html.split('</section>')[0], /data-footer=/);
+  });
+  test('no write anywhere in the edit produces the old form or the bare form', () => {
+    const outs = [
+      edit.writeMeta('# A', { class: 'stats', footer: 'Q3', header: 'H', backgroundColor: 'red', paginate: 'true' }),
+      edit.writeMeta('<!-- _class: stats -->\n# A', { footer: 'Q3' }),
+      edit.setCommentField('', 'footer', 'Q3'),
+      edit.setCommentField('<!-- _pane: bar -->', 'pane', 'line'),
+    ].join('\n');
+    assert.doesNotMatch(outs.replace(/<!-- _class: stats -->/g, ''), /<!--\s*_|<!--\s*\{/);
+  });
+});
+
+test('a comment with a second directive line reads as the engine reads it: one class, no footer', async () => {
+  // The engine reads `<!-- _class: stats\n_footer: Q3 -->` as ONE directive: class `stats _footer: Q3`, and no footer.
+  // The failing arm: the old reader answered class `stats` and footer `Q3`, two settings the slide never got.
+  const { readMetaField, writeMeta } = await import('../../../lib/core/meta-edit.mjs');
+  const { createEngine } = require('../../../lib/engine');
+  const c = '<!-- _class: stats\n_footer: Q3 -->\n\n# A\n';
+  const html = createEngine().render(`---\ntheme: indaco\n---\n\n${c}`).html;
+  assert.doesNotMatch(html, /data-footer=/);
+  const cls = readMetaField(c, 'class');
+  assert.equal(cls.value.replace(/\s+/g, ' '), 'stats _footer: Q3');
+  assert.equal(cls.editable, false);
+  assert.equal(cls.reason, 'compound');
+  const footer = readMetaField(c, 'footer');
+  assert.equal(footer.present, false);
+  // Setting the footer the slide lacks writes a record that applies, and leaves the comment as written.
+  const out = writeMeta(c, { footer: 'Q4' });
+  const text = typeof out === 'string' ? out : out.text;
+  assert.ok(text.includes('<!-- _class: stats\n_footer: Q3 -->'));
+  assert.match(createEngine().render(`---\ntheme: indaco\n---\n\n${text}`).html, /data-footer="Q4"/);
 });

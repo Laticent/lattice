@@ -52,7 +52,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 ## Authoring
 
 ```markdown
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## Rule name — the chain, tier by tier.
 

@@ -63,7 +63,7 @@ Use when the claim is that these categories differ in size: revenue by region, h
 ## Authoring
 
 ```markdown
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Which category is biggest.
 

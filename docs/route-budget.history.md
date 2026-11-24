@@ -6,6 +6,26 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-24 — raise the studio lintCoreGz ceiling by 1,024 B (172,998 → 174,022), by hand, for PR 2988, at the owner's direction
+
+Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-22 lintCoreGz entry below is: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it. Soft stays 152,151.
+
+Why: merged with today's main, PR #2988 (fit everywhere, tier 1) measures the lint core at 169.4 KB, 0.5 KB over the old ceiling, which main alone sits about 0.2 KB under. #2988's lint rules add about 0.66 KB gzipped: the handheld-chrome-hidden rule (0.19 KB), the passage and lede split checks the measured split needs, the venue-capacity hints for the phone and tablet venues, and the four `cards-*` to `align-*` rename hints (0.04 KB). Cutting rules to fit would have taken most of them; the owner chose the raise. About 0.5 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 174022 |
+### 2026-11-24 — raise the home eagerJsGz ceiling by 3,072 B (328,192 → 331,264) and studio's by 2,048 B (640,684 → 642,732), by hand, for PR 3294, at the owner's direction
+
+Owner OK 2026-11-24, option (A) relayed by the Segno desk: "+2 KB on home and studio, own PR". A build of main 6bb9f459 with this raise and PR 3294 merged then left home only 573 B (main had grown about 550 B since the CI run below), so the owner raised home to +3 KB in this session; studio stays +2 KB.
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds 3,120 B to home's eager JS and 3,170 B to studio's against main (CI run 45303178666, the per-PR check against main c3635999; a local build against the merge base 0fef07ac measured +3,124 and +3,192). The bytes are the tokenizer's driver: three docs readers on every route's eager path (theme-fetch.ts, single-slide-render.ts, snapshot-cache.js) moved their `url()` regexes onto `rewriteCssUrls`, which the owner chose on 2026-11-17 (option A, one tokenizer everywhere). No chunk moved from lazy to eager: the one new eager file, theme-fetch.js, is code main already loads eagerly inside video-overlay.js. Nothing could be given back. The tokenizer is CommonJS, so Node 24 cannot race its two load paths, and the docs build bundles a CommonJS module whole, so tree-shaking cannot trim it; as an ES module, `rewriteCssUrls` alone would still be 4,642 of the tokenizer's 5,163 B. Merged with main, PR 3294 measured home 321.4 KB against the 320.5 KB ceiling and studio at its 625.7 KB ceiling. Measured on that merged build: home 329,667 B (about 1.6 KB under 331,264) and studio 641,299 B (1,433 B under 642,732). The soft targets are unchanged, so every byte above them is still declared in `docs/route-budget.d/`. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 331264 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 642732 |
+
 ### 2026-11-23 — raise the studio eagerJsGz ceiling by 2,048 B (638,636 → 640,684), by hand, for PR 3294, at the owner's direction
 
 Owner OK 2026-11-23, option (A) relayed by the command center and the Segno desk: "+2 KB raise, own PR".

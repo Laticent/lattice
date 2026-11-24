@@ -50,7 +50,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 ## Authoring
 
 ```markdown
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Pick the plan that fits the team.
 

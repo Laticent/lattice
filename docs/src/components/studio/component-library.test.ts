@@ -92,7 +92,8 @@ describe('component-library — a shipped name saves as <name>-custom', () => {
 		expect(asset.manifest.name).toBe('kpi-custom');
 		// `.kpi` is rewritten as a whole class token; `.kpi-row` is a different class.
 		expect(asset.text).toBe('section.kpi-custom{padding:1rem}\nsection.kpi-custom .kpi-row{gap:1rem}');
-		expect(asset.skeleton).toBe('<!-- _class: kpi-custom -->\n\n## Numbers');
+		// The renamed class is written as a record (record note §15): the old comment moves into one.
+		expect(asset.skeleton).toBe('<!-- @meta{class=kpi-custom} -->\n\n## Numbers');
 	});
 
 	it('leaves an unreserved name exactly as given', async () => {

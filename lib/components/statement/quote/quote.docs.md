@@ -39,7 +39,7 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 ## Authoring
 
 ```markdown
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > The quoted sentence sits here, kept short enough to read in one breath.
 

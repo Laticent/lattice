@@ -50,7 +50,7 @@
       "description": "One-line caption below the number (nested bullet)."
     }
   },
-  "skeleton": "<!-- _class: big-number -->\n\n`Optional eyebrow`\n\n- 92%\n  - of the audience remembers a single number from a deck.\n",
+  "skeleton": "<!-- @meta{layout=big-number} -->\n\n`Optional eyebrow`\n\n- 92%\n  - of the audience remembers a single number from a deck.\n",
   "anatomyBlock": "big-number-canvas",
   "sample": "<!-- _class: big-number -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
   "stressDoc": {

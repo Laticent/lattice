@@ -447,7 +447,7 @@
 			"type": "function",
 			"function": {
 				"name": "edit_slides",
-				"description": "Stage slide edits on the draft. replace: `body` is the WHOLE new slide (its `<!-- _class -->` line through its last line), exactly one slide. insert: new slide(s) after slide `slide` (0 = before the first); separate several with a line containing only `---`. delete: removes slide `slide`. Edits apply in order; numbers refer to the draft as it stands. The result includes the checker’s verdict on the draft.",
+				"description": "Stage slide edits on the draft. replace: `body` is the WHOLE new slide (its `<!-- @meta{layout=…} -->` line through its last line), exactly one slide. insert: new slide(s) after slide `slide` (0 = before the first); separate several with a line containing only `---`. delete: removes slide `slide`. Edits apply in order; numbers refer to the draft as it stands. The result includes the checker’s verdict on the draft.",
 				"parameters": {
 					"type": "object",
 					"properties": {

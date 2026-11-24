@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · stats"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # stats
 
@@ -16,7 +16,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "Default · stats" -->
+<!-- @meta{footer=Default · stats} -->
 
 `evidence · stats`
 
@@ -37,8 +37,8 @@ Row of 3–5 stat tiles, each with a big number and a label.
 ---
 
 <!-- _class: stats -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · stats — Six stats — the hard ceiling." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · stats — Six stats — the hard ceiling."} -->
 
 `stats · stress`
 
@@ -60,8 +60,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: stats dark -->
-<!-- _footer: "Composition: dark · stats dark" -->
+<!-- @meta{layout=stats, class=dark, footer=Composition: dark · stats dark} -->
 
 `evidence · stats`
 
@@ -81,8 +80,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: stats compact -->
-<!-- _footer: "Composition: compact · stats compact" -->
+<!-- @meta{layout=stats, class=compact, footer=Composition: compact · stats compact} -->
 
 `evidence · stats`
 
@@ -102,8 +100,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: stats accent -->
-<!-- _footer: "Composition: accent · stats accent" -->
+<!-- @meta{layout=stats, class=accent, footer=Composition: accent · stats accent} -->
 
 `evidence · stats`
 
@@ -123,8 +120,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · stats" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · stats} -->
 
 ## When NOT to reach for stats.
 
@@ -137,7 +133,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

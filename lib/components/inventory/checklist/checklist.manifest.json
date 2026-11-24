@@ -62,7 +62,7 @@
       "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing pill, written `{status}` in inline code, floats right as a status tag."
     }
   },
-  "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
+  "skeleton": "<!-- @meta{layout=checklist} -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
   "anatomyBlock": "checklist",
   "sample": "<!-- _class: checklist -->\n\n## The checklist tracks readiness in six answers.\n\n- [x] Done rows take a solid check\n- [-] Half-done rows show the dash\n- [!] Failed rows take the red cross\n- [?] Unsettled rows ring a question mark\n- [ ] Open rows stay an empty ring\n- [/] Descoped rows get the slash\n",
   "stressDoc": {

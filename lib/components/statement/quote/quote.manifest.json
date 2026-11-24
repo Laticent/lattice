@@ -44,7 +44,7 @@
       "description": "Attribution line below the quote."
     }
   },
-  "skeleton": "<!-- _class: quote -->\n\n> The quoted sentence sits here, kept short enough to read in one breath.\n\n— Person, Role\n",
+  "skeleton": "<!-- @meta{layout=quote} -->\n\n> The quoted sentence sits here, kept short enough to read in one breath.\n\n— Person, Role\n",
   "anatomyBlock": "quote-canvas",
   "sample": "<!-- _class: quote -->\n\n> A quotation earns the whole slide, or it does not belong on one.\n\n— the quote layout, stating its own rule\n",
   "stressDoc": {

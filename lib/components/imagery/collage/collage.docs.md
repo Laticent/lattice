@@ -43,7 +43,7 @@ Use when several photographs make the argument together: a product line, a site,
 ## Authoring
 
 ```markdown
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 `The atelier`
 

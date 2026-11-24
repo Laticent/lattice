@@ -128,7 +128,7 @@
       "description": "The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body."
     }
   },
-  "skeleton": "<!-- _class: list-steps -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",
+  "skeleton": "<!-- @meta{layout=list-steps} -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",
   "anatomyBlock": "list-steps",
   "sample": "<!-- _class: list-steps -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
   "stressDoc": {

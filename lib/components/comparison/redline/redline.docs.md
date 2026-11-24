@@ -53,7 +53,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 ## Authoring
 
 ```markdown
-<!-- _class: redline -->
+<!-- @meta{layout=redline} -->
 
 ## Headline naming the amendment.
 

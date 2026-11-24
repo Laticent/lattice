@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # progression
 
@@ -10,7 +10,7 @@ Progression — ordered movement through stages or time.
 ---
 
 <!-- _class: cycle -->
-<!-- _footer: "cycle · progression survey" -->
+<!-- @meta{footer=cycle · progression survey} -->
 
 `The water cycle`
 
@@ -28,7 +28,7 @@ Progression — ordered movement through stages or time.
 ---
 
 <!-- _class: list-steps -->
-<!-- _footer: "list-steps · progression survey" -->
+<!-- @meta{footer=list-steps · progression survey} -->
 
 ## Steps promise an order and keep it.
 

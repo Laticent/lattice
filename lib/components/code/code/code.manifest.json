@@ -42,7 +42,7 @@
       "description": "Fenced code block — language tag drives syntax highlighting."
     }
   },
-  "skeleton": "<!-- _class: code -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
+  "skeleton": "<!-- @meta{layout=code} -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
   "anatomyBlock": "code-canvas",
   "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Ten lines reads from the back row; fourteen is the wall.\n  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';\n}\n```\n",
   "stressDoc": {

@@ -106,7 +106,7 @@
       "description": "An item's details: its citation and effective date in inline code, and a one-line summary."
     }
   },
-  "skeleton": "<!-- _class: regulatory-update -->\n\n## Headline naming the period or theme.\n\n`Scope label · jurisdiction tier`\n\n1. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n2. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n3. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n",
+  "skeleton": "<!-- @meta{layout=regulatory-update} -->\n\n## Headline naming the period or theme.\n\n`Scope label · jurisdiction tier`\n\n1. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n2. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n3. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n",
   "anatomyBlock": "regulatory-update",
   "sample": "<!-- _class: regulatory-update -->\n\n## The update ledger tracks regulatory motion.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `{Effective Feb 2026}`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for covered systems.\n   - `{Effective Feb 2026}`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard.\n   - `{Final Mar 2026}`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; safe-harbor narrowed.\n   - `{Effective Mar 2026}`\n",
   "stressDoc": {

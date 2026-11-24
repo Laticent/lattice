@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · rows"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # rows
 
@@ -16,7 +16,7 @@ Two components stacked on one slide, one above the other.
 ---
 
 <!-- _class: rows -->
-<!-- _footer: "Default · rows" -->
+<!-- @meta{footer=Default · rows} -->
 
 ## Hiring kept pace with the plan through Q3.
 
@@ -38,7 +38,7 @@ Two components stacked on one slide, one above the other.
 ---
 
 <!-- _class: rows ratio-35-65 no-spine -->
-<!-- _footer: "no rule · rows no-spine — Drops the rule between the panes." -->
+<!-- @meta{footer="no rule · rows no-spine — Drops the rule between the panes."} -->
 
 ## Three regions carried the quarter.
 
@@ -58,8 +58,8 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 ---
 
 <!-- _class: rows ratio-45-55 -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · rows — Progress over a four-column table, with the slide's Key Insight below both." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · rows — Progress over a four-column table, with the slide's Key Insight below both."} -->
 
 ## Hiring kept pace with the plan through Q3.
 
@@ -82,8 +82,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: rows dark -->
-<!-- _footer: "Composition: dark · rows dark" -->
+<!-- @meta{layout=rows, class=dark, footer=Composition: dark · rows dark} -->
 
 ## Hiring kept pace with the plan through Q3.
 
@@ -104,8 +103,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: rows compact -->
-<!-- _footer: "Composition: compact · rows compact" -->
+<!-- @meta{layout=rows, class=compact, footer=Composition: compact · rows compact} -->
 
 ## Hiring kept pace with the plan through Q3.
 
@@ -126,8 +124,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: rows accent -->
-<!-- _footer: "Composition: accent · rows accent" -->
+<!-- @meta{layout=rows, class=accent, footer=Composition: accent · rows accent} -->
 
 ## Hiring kept pace with the plan through Q3.
 
@@ -148,8 +145,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · rows" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · rows} -->
 
 ## When NOT to reach for rows.
 
@@ -162,7 +158,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

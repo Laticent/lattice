@@ -134,7 +134,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
+  "skeleton": "<!-- @meta{layout=compare-prose} -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
   "anatomyBlock": "T11-comparison",
   "sample": "<!-- _class: compare-prose -->\n\n## Two options, equal footing, corner tags.\n\n- The left option\n  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.\n- The right option\n  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.\n",
   "stressDoc": {

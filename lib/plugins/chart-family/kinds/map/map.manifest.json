@@ -137,7 +137,7 @@
       "sample": "<!-- _class: map highlight grouped -->\n\n## grouped fills whole blocs at once.\n\n- European Union `Tier 1`\n- ASEAN `Tier 1`\n- Sub-Saharan Africa `Tier 2`\n- Latin America `Tier 2`\n"
     }
   },
-  "skeleton": "<!-- _class: map -->\n\n## Where the program runs.\n\n- Kenya `4.2`\n- Nigeria `3.1`\n- India `2.8`\n- Brazil `2.2`\n",
+  "skeleton": "<!-- @meta{layout=map} -->\n\n## Where the program runs.\n\n- Kenya `4.2`\n- Nigeria `3.1`\n- India `2.8`\n- Brazil `2.2`\n",
   "sample": "<!-- _class: map -->\n\n## The map fills regions by value.\n\n- India `48.2`\n  - Largest by volume, thinnest by margin\n  - Two new state hubs this year\n- Nigeria `36.4`\n- Kenya `31.0`\n- Brazil `27.5`\n- Indonesia `19.3`\n- Ethiopia `14.1`\n- Bangladesh `11.8`\n- Peru `9.6`\n",
   "stressDoc": {
     "summary": "A wide-range choropleth — the ceiling.",

@@ -49,7 +49,7 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 ## Authoring
 
 ```markdown
-<!-- _class: scene gallery -->
+<!-- @meta{layout=scene, class=gallery} -->
 
 ## What the mechanism does.
 

@@ -80,11 +80,11 @@ describe('buildLatticePrimer — the authoring dossier', () => {
     assert.match(p, /slide title ≤ 10/);
   });
 
-  test('intro instructs exact `_class` names + skeleton-verbatim, never guess', async () => {
+  test('intro instructs exact `@meta{layout=…}` names + skeleton-verbatim, never guess', async () => {
     const { buildLatticePrimer } = await load();
     const p = buildLatticePrimer(SAMPLE);
     assert.match(p, /You know Lattice/);
-    assert.match(p, /exact layout name in `_class`/);
+    assert.match(p, /exact layout name in `@meta\{layout=…\}`/);
     assert.match(p, /never guess/);
   });
 

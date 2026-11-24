@@ -61,7 +61,7 @@
       "description": "Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it."
     }
   },
-  "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n`Before`\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n`After`\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
+  "skeleton": "<!-- @meta{layout=compare-code} -->\n\n## Heading framing the comparison.\n\n`Before`\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n`After`\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
   "anatomyBlock": "compare-code",
   "sample": "<!-- _class: compare-code -->\n\n`Query path · report generation`\n\n## Before and after, the diff you can read aloud.\n\n`Before · one query per row`\n\n```js\nconst signals = await db.signals.findAll();\nfor (const s of signals) {\n  s.owner = await db.users.find(s.ownerId);\n}\nreturn signals;\n```\n\n`After · one batched join`\n\n```js\nconst signals = await db.signals.findAll({\n  include: { owner: true },\n});\nreturn signals;\n```\n",
   "stressDoc": {

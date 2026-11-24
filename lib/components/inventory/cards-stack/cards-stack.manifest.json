@@ -91,7 +91,7 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: cards-stack -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first stacked card, two short sentences max.\n- Second card title\n  - Body text for the second stacked card.\n- Third card title\n  - Body text for the third stacked card.\n",
+  "skeleton": "<!-- @meta{layout=cards-stack} -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first stacked card, two short sentences max.\n- Second card title\n  - Body text for the second stacked card.\n- Third card title\n  - Body text for the third stacked card.\n",
   "anatomyBlock": "cards-stack",
   "sample": "<!-- _class: cards-stack -->\n\n## The stack ranks three cards top to bottom.\n\n- Order is the argument.\n  - The stack reads as priority; the top card wins.\n- Three is the sweet spot.\n  - Bodies run a short paragraph at most.\n- Sixteen words per card.\n  - The budget that keeps rows breathing.\n",
   "stressDoc": {

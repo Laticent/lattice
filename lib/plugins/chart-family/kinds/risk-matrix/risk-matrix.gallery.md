@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · risk-matrix"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # risk-matrix
 
@@ -16,7 +16,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 ---
 
 <!-- _class: risk-matrix -->
-<!-- _footer: "Default · risk-matrix" -->
+<!-- @meta{footer=Default · risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -33,8 +33,8 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 ---
 
 <!-- _class: risk-matrix -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · risk-matrix — Ten risks, three sharing one cell, two with a planned move." -->
+<!-- @meta{stress-slide} -->
+<!-- @meta{footer="Stress test · risk-matrix — Ten risks, three sharing one cell, two with a planned move."} -->
 
 ## Ten risks, three in the same cell.
 
@@ -52,8 +52,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: risk-matrix dark -->
-<!-- _footer: "Composition: dark · risk-matrix dark" -->
+<!-- @meta{layout=risk-matrix, class=dark, footer=Composition: dark · risk-matrix dark} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -69,8 +68,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: risk-matrix compact -->
-<!-- _footer: "Composition: compact · risk-matrix compact" -->
+<!-- @meta{layout=risk-matrix, class=compact, footer=Composition: compact · risk-matrix compact} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -86,8 +84,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: risk-matrix accent -->
-<!-- _footer: "Composition: accent · risk-matrix accent" -->
+<!-- @meta{layout=risk-matrix, class=accent, footer=Composition: accent · risk-matrix accent} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -103,8 +100,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · risk-matrix" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · risk-matrix} -->
 
 ## When NOT to reach for risk-matrix.
 
@@ -115,7 +111,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -69,7 +69,7 @@ Use when the claim is that something MOVED: revenue by quarter, headcount throug
 ## Authoring
 
 ```markdown
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## The number moved, and here is the shape of it.
 

@@ -71,7 +71,7 @@
       "description": "The option's body lines, nested under its title. `-` or `1.` read the same here: the layout styles them as the card body."
     }
   },
-  "skeleton": "<!-- _class: decision -->\n\n## What we are doing.\n\n- Chosen path\n  - One-line rationale for the decision.\n- Rejected option\n  - One-line rationale for why this didn't fit.\n",
+  "skeleton": "<!-- @meta{layout=decision} -->\n\n## What we are doing.\n\n- Chosen path\n  - One-line rationale for the decision.\n- Rejected option\n  - One-line rationale for why this didn't fit.\n",
   "anatomyBlock": "decision",
   "sample": "<!-- _class: decision -->\n\n## The decision slide names the chosen path.\n\n- The pick, stated plainly.\n  - The chosen option leads with the verdict treatment and the reason it won, in one breath.\n- The road not taken.\n  - The alternative keeps its honest case — a decision against a straw man persuades no one.\n",
   "stressDoc": {

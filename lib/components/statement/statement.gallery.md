@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # statement
 
@@ -10,7 +10,7 @@ Statement — one declarative claim per slide.
 ---
 
 <!-- _class: big-number -->
-<!-- _footer: "big-number · statement survey" -->
+<!-- @meta{footer=big-number · statement survey} -->
 
 `big-number · one number, the whole canvas`
 
@@ -20,7 +20,7 @@ Statement — one declarative claim per slide.
 ---
 
 <!-- _class: content -->
-<!-- _footer: "content · statement survey" -->
+<!-- @meta{footer=content · statement survey} -->
 
 `statement · content`
 
@@ -31,7 +31,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 ---
 
 <!-- _class: premise -->
-<!-- _footer: "premise · statement survey" -->
+<!-- @meta{footer=premise · statement survey} -->
 
 ## Growth is a change in thinking, not title.
 
@@ -59,7 +59,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 ---
 
 <!-- _class: quote -->
-<!-- _footer: "quote · statement survey" -->
+<!-- @meta{footer=quote · statement survey} -->
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -68,7 +68,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 ---
 
 <!-- _class: split-panel -->
-<!-- _footer: "split-panel · statement survey" -->
+<!-- @meta{footer=split-panel · statement survey} -->
 
 `statement · split-panel`
 

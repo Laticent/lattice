@@ -53,7 +53,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ## Authoring
 
 ```markdown
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## What this deck covers.
 

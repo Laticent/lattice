@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # comparison
 
@@ -10,7 +10,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: compare-prose -->
-<!-- _footer: "compare-prose · comparison survey" -->
+<!-- @meta{footer=compare-prose · comparison survey} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -22,7 +22,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: decision -->
-<!-- _footer: "decision · comparison survey" -->
+<!-- @meta{footer=decision · comparison survey} -->
 
 ## The decision slide names the chosen path.
 
@@ -34,7 +34,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- _footer: "matrix-2x2 · comparison survey" -->
+<!-- @meta{footer=matrix-2x2 · comparison survey} -->
 
 ## The matrix places items on two named axes.
 
@@ -54,7 +54,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: pricing -->
-<!-- _footer: "pricing · comparison survey" -->
+<!-- @meta{footer=pricing · comparison survey} -->
 
 ## Three tiers, one recommended column.
 
@@ -77,7 +77,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: redline -->
-<!-- _footer: "redline · comparison survey" -->
+<!-- @meta{footer=redline · comparison survey} -->
 
 ## The redline tracks an amendment verbatim.
 
@@ -90,7 +90,7 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: split-compare -->
-<!-- _footer: "split-compare · comparison survey" -->
+<!-- @meta{footer=split-compare · comparison survey} -->
 
 `comparison · split-compare`
 
@@ -110,7 +110,7 @@ One question on the left; two option cards and a verdict on the right.
 ---
 
 <!-- _class: table -->
-<!-- _footer: "table · comparison survey" -->
+<!-- @meta{footer=table · comparison survey} -->
 
 ## The table compares rows on consistent columns.
 
@@ -123,7 +123,7 @@ One question on the left; two option cards and a verdict on the right.
 ---
 
 <!-- _class: verdict-grid -->
-<!-- _footer: "verdict-grid · comparison survey" -->
+<!-- @meta{footer=verdict-grid · comparison survey} -->
 
 ## The grid scores options against shared criteria.
 

@@ -54,7 +54,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 ## Authoring
 
 ```markdown
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 ## How the number moved.
 
