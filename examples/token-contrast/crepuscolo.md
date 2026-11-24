@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: crepuscolo
-paginate: true
+pagination: true
 footer: "Crepuscolo · secondary + label tiers, light & dark"
 ---
 

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · panes"
 footer: "Radar in a pane — it lays out for the pane's box"
 ---

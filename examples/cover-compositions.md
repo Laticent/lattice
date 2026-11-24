@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Cover compositions"
 footer: "Lattice · cover compositions"
 logo: sample:logo-acme-mark.svg

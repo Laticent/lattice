@@ -15,11 +15,11 @@ const deck = (body: string, fm = 'theme: indaco\n') => `---\n${fm}---\n\n${body}
 
 describe('renameAssetInSource — theme', () => {
 	it('rewrites the deck-wide theme key', () => {
-		const src = deck('# Title\n', 'theme: midnight\npaginate: true\n');
+		const src = deck('# Title\n', 'theme: midnight\npagination: true\n');
 		const out = renameAssetInSource(src, 'theme', 'midnight', 'midnight-blue');
 		expect(out.hits).toBe(1);
 		expect(out.source).toContain('theme: midnight-blue');
-		expect(out.source).toContain('paginate: true'); // the neighbors are untouched
+		expect(out.source).toContain('pagination: true'); // the neighbors are untouched
 	});
 
 	it('leaves a deck on a different theme alone', () => {

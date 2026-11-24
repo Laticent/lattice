@@ -20,7 +20,7 @@ import { expect, gotoStudio, persistedSource, setEditorContent, test } from './s
  *     modifiers), so the basemap swaps while the modifiers survive untouched.
  */
 
-const FM = ['---', 'theme: indaco', 'paginate: true', '---', ''].join('\n');
+const FM = ['---', 'theme: indaco', 'pagination: true', '---', ''].join('\n');
 const WALL_DECK = [FM, '<!-- _class: logo-wall -->', '', '`Trusted by`', '', '## Six partners already run the program.', '', ...['acme', 'globex', 'vantage', 'umbra', 'meridian', 'helios'].map((n) => `- ![${n}](sample:logo-${n}.svg)`), ''].join('\n');
 const MAP_DECK = [FM, '<!-- _class: map world highlight -->', '', '## Where the program runs.', '', '- Kenya `4.2`', '- Nigeria `3.1`', '- India `2.8`', ''].join('\n');
 

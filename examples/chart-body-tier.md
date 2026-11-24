@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 color-mode: dark
-paginate: true
+pagination: true
 header: "Lattice · one token for the body wash"
 ---
 

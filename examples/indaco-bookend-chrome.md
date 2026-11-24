@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind · Board review"
 footer: "Confidential · prepared for the board"
 ---

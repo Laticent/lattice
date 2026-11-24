@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- @note{A deliberately over-budget figure: the type-floor watcher's integration test needs a

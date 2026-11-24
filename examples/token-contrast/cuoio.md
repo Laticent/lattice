@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: cuoio
-paginate: true
+pagination: true
 footer: "Cuoio · secondary + label tiers, light & dark"
 ---
 

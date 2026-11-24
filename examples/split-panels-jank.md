@@ -2,7 +2,7 @@
 marp: true
 theme: carbone
 finish: strata
-paginate: true
+pagination: true
 header: "Lattice · split panels · a header long enough to reach the seam"
 footer: "Confidential · Laticent · a footer long enough to cross the panel seam"
 ---

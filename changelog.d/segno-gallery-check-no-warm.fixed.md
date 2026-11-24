@@ -1,1 +1,0 @@
-- The Library's sample-slide check renders without warming the Mermaid draw host, so checking a gallery can no longer reopen a draw frame the preview closed.

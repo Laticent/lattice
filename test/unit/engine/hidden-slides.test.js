@@ -22,7 +22,7 @@ const sectionsOf = (html) => html.match(/<section[\s\S]*?<\/section>/g) || [];
 const attr = (s, name) => (s.match(new RegExp(`<section[^>]*\\s${name}="([^"]*)"`)) || [])[1];
 const rail = (html) => (html.match(/<div class="tile-progress"[\s\S]*?<\/div>/) || [''])[0];
 const glyph = (html) => (html.match(/class="tile-watermark[^"]*"[^>]*>([^<]*)</) || ['', ''])[1];
-const deckOf = (slides, fm = '') => `---\ntheme: indaco\npaginate: true\n${fm}---\n\n${slides.join('\n\n---\n\n')}\n`;
+const deckOf = (slides, fm = '') => `---\ntheme: indaco\npagination: true\n${fm}---\n\n${slides.join('\n\n---\n\n')}\n`;
 // `progress-rail: on` draws the rail from two sections, so a six-slide fixture has one to compare.
 const RAIL_ON = 'progress-rail: on\n';
 const marker = (html) => (html.match(/<span class="divider-marker-count">([^<]*)</) || ['', ''])[1];
@@ -99,12 +99,12 @@ describe('the checker\'s findings, pinned', () => {
   const marks = (md) => sectionsOf(createEngine().render(md, 'lattice').html).map((x) => (attr(x, 'data-lattice-hidden') ? 'H' : attr(x, 'data-lattice-pagination') ?? '-'));
 
   test('split: headings — a hide anywhere in a `---` block hides every part of it', () => {
-    const md = '---\ntheme: indaco\nsplit: headings\npaginate: true\n---\n\n## A\n\n---\n\n<!-- hide -->\n## C1\n\nc\n\n## C2\n\n---\n\n## D1\n\n<!-- hide -->\n## D2\n\n---\n\n## E\n';
+    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n## A\n\n---\n\n<!-- hide -->\n## C1\n\nc\n\n## C2\n\n---\n\n## D1\n\n<!-- hide -->\n## D2\n\n---\n\n## E\n';
     assert.deepEqual(marks(md), ['1', 'H', 'H', 'H', 'H', '2']);
   });
 
   test('a hidden pane-split slide hides every pane page', () => {
-    const md = '---\ntheme: indaco\npaginate: true\nsize: square\n---\n\n# A\n\n---\n\n<!-- hide -->\n## Panes.\n\n<!-- _class: columns ratio-55-45 -->\n<!-- _pane: bar -->\n\np95.\n\n- Before `840`\n- After `190`\n\n<!-- _pane: list -->\n\n- one\n- two\n\n---\n\n# C\n';
+    const md = '---\ntheme: indaco\npagination: true\nsize: square\n---\n\n# A\n\n---\n\n<!-- hide -->\n## Panes.\n\n<!-- _class: columns ratio-55-45 -->\n<!-- _pane: bar -->\n\np95.\n\n- Before `840`\n- After `190`\n\n<!-- _pane: list -->\n\n- one\n- two\n\n---\n\n# C\n';
     const m = marks(md);
     assert.deepEqual([m[0], m[m.length - 1]], ['1', '2']);
     assert.ok(m.slice(1, -1).length >= 1 && m.slice(1, -1).every((x) => x === 'H'), m.join(' '));
@@ -119,7 +119,7 @@ describe('the checker\'s findings, pinned', () => {
   });
 
   test('front-matter `hide:` hides nothing: hide is a slide key', () => {
-    const md = '---\ntheme: indaco\npaginate: true\nhide: true\n---\n\n## A\n\n---\n\n## B\n';
+    const md = '---\ntheme: indaco\npagination: true\nhide: true\n---\n\n## A\n\n---\n\n## B\n';
     assert.deepEqual(marks(md), ['1', '2']);
   });
 
@@ -139,7 +139,7 @@ describe('the second checker\'s findings, pinned', () => {
   });
 
   test('split: headings — a block is shown or hidden WHOLE, whichever part its comments sit in', () => {
-    const md = '---\ntheme: indaco\nsplit: headings\npaginate: true\n---\n\n<!-- hide -->\n## B1\n\nb\n\n<!-- _hide: false -->\n## B2\n\n---\n\n## C\n';
+    const md = '---\ntheme: indaco\nsplit: headings\npagination: true\n---\n\n<!-- hide -->\n## B1\n\nb\n\n<!-- _hide: false -->\n## B2\n\n---\n\n## C\n';
     assert.deepEqual(marks(md), ['1', '2', '3']);
   });
 

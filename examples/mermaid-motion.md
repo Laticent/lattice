@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Diagram motion"
 meta: "Diagram motion · motion: on animates a Mermaid diagram like a chart"
 motion: on

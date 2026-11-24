@@ -45,7 +45,10 @@ test('the root is a private workspace root and the engine manifest carries every
   for (const field of ['devDependencies', 'workspaces', 'overrides']) {
     assert.ok(!(field in engine), `packages/lattice/package.json declares "${field}", which stays at the root`);
   }
-  assert.deepEqual(Object.keys(engine.scripts).sort(), ['postpack', 'prepack', 'prepublishOnly'], 'the publish folder carries only its pack lifecycle');
+  // No prepublishOnly: inside `changeset publish`, npm hands `--json` to lifecycle scripts as npm_config_json, and
+  // a full `npm test` there broke a packing test and stranded the libraries without their engine (decision
+  // 2026-10-07-first-npm-release §11). The release commit already passed `ci`; `prepack` builds.
+  assert.deepEqual(Object.keys(engine.scripts).sort(), ['postpack', 'prepack'], 'the publish folder carries only its pack lifecycle');
 });
 
 test("the root's $puppeteer override names the puppeteer range the engine ships", () => {
@@ -78,6 +81,13 @@ test('stage places every shipped entry plus the README npm adds from a packed fo
   assert.equal(fs.readFileSync(path.join(dest, 'lib', 'core', 'pkg-root.js'), 'utf8'), fs.readFileSync(path.join(ROOT, 'lib', 'core', 'pkg-root.js'), 'utf8'));
   stager.clean(entries, dest);
   assert.deepEqual(fs.readdirSync(dest), ['package.json']);
+});
+
+test('the engine CHANGELOG.md is the publish folder\'s own: never staged from the root, never cleaned', () => {
+  assert.ok(stager.NATIVE.has('CHANGELOG.md'));
+  assert.ok(!stager.stagedEntries().includes('CHANGELOG.md'), 'staging would overwrite the engine changelog with the root index');
+  assert.ok(fs.existsSync(path.join(ROOT, 'packages', 'lattice', 'CHANGELOG.md')));
+  assert.throws(() => execFileSync('git', ['check-ignore', '--no-index', 'packages/lattice/CHANGELOG.md'], { cwd: ROOT, stdio: 'ignore' }), 'packages/lattice/CHANGELOG.md is gitignored');
 });
 
 test('.gitignore hides every staged entry and never the manifest', () => {

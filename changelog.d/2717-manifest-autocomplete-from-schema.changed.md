@@ -1,1 +1,0 @@
-- Studio manifest autocomplete now offers every key and value in `manifest.schema.json` (it offered 9 keys and omitted `single-orientation` from `adapt.mode`).

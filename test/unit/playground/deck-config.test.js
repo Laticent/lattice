@@ -20,7 +20,7 @@ describe('readFrontMatter', () => {
     const { readFrontMatter } = await import(MOD);
     const fm = readFrontMatter(CLEAN);
     assert.equal(fm.size, 'hd');
-    assert.equal(fm.paginate, true);
+    assert.equal(fm.pagination, true);
     assert.equal(fm.header, '');
     assert.equal(fm.footer, '');
     assert.equal(fm.class, '');
@@ -31,10 +31,10 @@ describe('readFrontMatter', () => {
 
   test('parses a real block, quoted values, and booleans', async () => {
     const { readFrontMatter } = await import(MOD);
-    const src = '---\nmarp: true\nsize: 4K\npaginate: true\nheader: "Lattice · Board"\n---\n\n# Deck\n';
+    const src = '---\nmarp: true\nsize: 4K\npagination: true\nheader: "Lattice · Board"\n---\n\n# Deck\n';
     const fm = readFrontMatter(src);
     assert.equal(fm.size, '4K');
-    assert.equal(fm.paginate, true);
+    assert.equal(fm.pagination, true);
     assert.equal(fm.header, 'Lattice · Board');
     assert.equal(fm.configured, true);
   });
@@ -103,9 +103,9 @@ describe('readFrontMatter', () => {
 describe('writeFrontMatter', () => {
   test('adds a managed block to a clean deck, body preserved', async () => {
     const { writeFrontMatter } = await import(MOD);
-    const out = writeFrontMatter(CLEAN, 'paginate', false);
-    assert.equal(out, '---\nmarp: true\npaginate: false\n---\n\n' + CLEAN);
-    assert.ok(out.startsWith('---\nmarp: true\npaginate: false\n---\n'));
+    const out = writeFrontMatter(CLEAN, 'pagination', false);
+    assert.equal(out, '---\nmarp: true\npagination: false\n---\n\n' + CLEAN);
+    assert.ok(out.startsWith('---\nmarp: true\npagination: false\n---\n'));
     assert.ok(out.includes('<!-- _class: title silent -->'));
   });
 
@@ -118,10 +118,10 @@ describe('writeFrontMatter', () => {
   test('emits in canonical order regardless of write order', async () => {
     const { writeFrontMatter } = await import(MOD);
     let src = writeFrontMatter(CLEAN, 'footer', 'Confidential');
-    src = writeFrontMatter(src, 'paginate', false);
+    src = writeFrontMatter(src, 'pagination', false);
     src = writeFrontMatter(src, 'size', '4K');
     const block = src.slice(0, src.indexOf('\n---\n'));
-    assert.equal(block, '---\nmarp: true\nsize: 4K\npaginate: false\nfooter: Confidential');
+    assert.equal(block, '---\nmarp: true\nsize: 4K\npagination: false\nfooter: Confidential');
   });
 
 
@@ -194,16 +194,16 @@ describe('writeFrontMatter', () => {
   test('setting a field back to its default removes just that key', async () => {
     const { writeFrontMatter } = await import(MOD);
     let src = writeFrontMatter(CLEAN, 'size', '4K');
-    src = writeFrontMatter(src, 'paginate', false);
+    src = writeFrontMatter(src, 'pagination', false);
     src = writeFrontMatter(src, 'size', 'hd'); // back to default
     assert.ok(!src.includes('size:'));
-    assert.ok(src.includes('paginate: false'));
+    assert.ok(src.includes('pagination: false'));
   });
 
   test('clearing the last managed field drops the block entirely (back to clean)', async () => {
     const { writeFrontMatter } = await import(MOD);
-    const withBlock = writeFrontMatter(CLEAN, 'paginate', false);
-    const cleared = writeFrontMatter(withBlock, 'paginate', true);
+    const withBlock = writeFrontMatter(CLEAN, 'pagination', false);
+    const cleared = writeFrontMatter(withBlock, 'pagination', true);
     assert.equal(cleared, CLEAN);
   });
 
@@ -218,14 +218,14 @@ describe('writeFrontMatter', () => {
     // other key this panel does not model.
     const { writeFrontMatter, readFrontMatter } = await import(MOD);
     const withMath = '---\nmarp: true\nmath: mathjax\n---\n\n# Deck\n';
-    const out = writeFrontMatter(withMath, 'paginate', false);
+    const out = writeFrontMatter(withMath, 'pagination', false);
     assert.ok(out.includes('math: mathjax'), 'a hand-written math: survives an unrelated write');
-    assert.ok(out.includes('paginate: false'));
+    assert.ok(out.includes('pagination: false'));
     // It no longer counts as CONFIGURATION, though — `configured` (the trigger's accent
     // cue) asks whether a deck carries settings this panel manages, and no control owns
     // this key any more. Preserved, not claimed.
     assert.equal(readFrontMatter(withMath).configured, false);
-    assert.equal(readFrontMatter(writeFrontMatter(withMath, 'paginate', false)).configured, true);
+    assert.equal(readFrontMatter(writeFrontMatter(withMath, 'pagination', false)).configured, true);
   });
 
   test('finish (backdrop): atrium is written; none + empty are the baseline and omitted', async () => {
@@ -290,9 +290,9 @@ describe('writeFrontMatter', () => {
     // `finish-override:`. Deck-setup never manages that block — but a flat edit here must
     // PRESERVE it verbatim, never flatten its two-level nesting into stray scalars.
     const src = '---\nmarp: true\nfinish: finish-recede\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off\n---\n\n# D\n';
-    const out = writeFrontMatter(src, 'paginate', false);
+    const out = writeFrontMatter(src, 'pagination', false);
     assert.match(out, /\nfinish-override:\n {2}backdrop:\n {4}strength: 0\.4\n {4}clearance: off\n/);
-    assert.match(out, /\npaginate: false\n/);
+    assert.match(out, /\npagination: false\n/);
     // no stray flattened scalars leaked out of the block
     assert.doesNotMatch(out, /^strength:/m);
     assert.doesNotMatch(out, /^backdrop:/m);
@@ -303,7 +303,7 @@ describe('writeFrontMatter', () => {
     // An author may space layers apart for readability; the scanner must not stop at the
     // blank and tear the later layer out to a top-level scalar (matches front-matter.ts).
     const src = '---\nmarp: true\nfinish: finish-recede\nfinish-override:\n  backdrop:\n    strength: 0.4\n\n  texture:\n    intensity: 4\n---\n\n# D\n';
-    const out = writeFrontMatter(src, 'paginate', false);
+    const out = writeFrontMatter(src, 'pagination', false);
     assert.match(out, /\n {2}backdrop:\n {4}strength: 0\.4\n/);
     assert.match(out, /\n {2}texture:\n {4}intensity: 4\n/); // the later layer survives
     assert.doesNotMatch(out, /^texture:/m); // NOT torn out to top level
@@ -323,10 +323,10 @@ describe('writeFrontMatter', () => {
   test('preserves unmanaged keys (style, backgroundColor) on write-back', async () => {
     const { writeFrontMatter } = await import(MOD);
     const src = '---\nmarp: true\nbackgroundColor: "#000"\nstyle: section{}\n---\n\n# Deck\n';
-    const out = writeFrontMatter(src, 'paginate', false);
+    const out = writeFrontMatter(src, 'pagination', false);
     assert.ok(out.includes('backgroundColor: "#000"'));
     assert.ok(out.includes('style: section{}'));
-    assert.ok(out.includes('paginate: false'));
+    assert.ok(out.includes('pagination: false'));
   });
 
   test('round-trips: write then read returns the same field value', async () => {
@@ -347,20 +347,20 @@ describe('writeFrontMatter', () => {
     const { writeFrontMatter } = await import(MOD);
     let src = writeFrontMatter(CLEAN, 'theme', 'indaco');
     assert.ok(/^---\nmarp: true\ntheme: indaco\n---\n/.test(src), 'theme leads the block after marp');
-    src = writeFrontMatter(src, 'paginate', false);
+    src = writeFrontMatter(src, 'pagination', false);
     src = writeFrontMatter(src, 'theme', 'cuoio'); // switch palette
     assert.equal((src.match(/theme:/g) || []).length, 1, 'no duplicate theme key');
     assert.ok(src.includes('theme: cuoio'));
-    assert.ok(src.includes('paginate: false'));
+    assert.ok(src.includes('pagination: false'));
   });
 
   test('clearing theme ("") drops just the theme key', async () => {
     const { writeFrontMatter } = await import(MOD);
     let src = writeFrontMatter(CLEAN, 'theme', 'indaco');
-    src = writeFrontMatter(src, 'paginate', false);
+    src = writeFrontMatter(src, 'pagination', false);
     src = writeFrontMatter(src, 'theme', '');
     assert.ok(!src.includes('theme:'));
-    assert.ok(src.includes('paginate: false'));
+    assert.ok(src.includes('pagination: false'));
   });
 
   test('writeFrontMatter never scrubs an unknown theme from the author source', async () => {

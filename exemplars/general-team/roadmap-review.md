@@ -2,7 +2,7 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Orbit · H1 roadmap review"
 ---
 

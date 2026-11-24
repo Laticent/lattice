@@ -2,7 +2,7 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · avatars"
 acronyms:
   QBR: quarterly business review

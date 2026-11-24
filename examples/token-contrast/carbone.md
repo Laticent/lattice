@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: carbone
-paginate: true
+pagination: true
 footer: "Carbone · secondary + label tiers, light & dark"
 ---
 

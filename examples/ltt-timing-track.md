@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 pace: natural
 header: "Lattice · the timing track, step 2"
 ---

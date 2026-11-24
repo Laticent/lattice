@@ -3,7 +3,7 @@ marp: true
 size: 4K
 theme: cuoio
 color-mode: dark
-paginate: true
+pagination: true
 profile: teaching
 header: "The Seven Steps · Problem to code"
 acronyms:

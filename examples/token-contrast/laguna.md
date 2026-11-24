@@ -2,7 +2,7 @@
 marp: true
 size: 16:9
 theme: laguna
-paginate: true
+pagination: true
 footer: "Laguna · secondary + label tiers, light & dark"
 ---
 

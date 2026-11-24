@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · align: stats, actors, kpi"
 ---
 

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind · Type sets"
 meta: "Q3 2026 · Design"
 footer: "Four curated sets, one front-matter word"

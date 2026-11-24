@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · mindmap branch colors"
 footer: "Feature deck"
 ---

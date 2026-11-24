@@ -1,7 +1,10 @@
-# `changelog.d/` — one changelog entry per PR, in its own file
+# `changelog.d/` — one changelog entry per PR, in its own file (legacy form)
 
-**Write your changelog entry here, not in `CHANGELOG.md`.** This is HARD RULE
-#10's landing spot.
+**Prefer a changeset** (`npx changeset`; contract in `.changeset/README.md`). It
+is HARD RULE #10's native form since the Changesets cutover, and the only form that
+can name a library. A fragment here is **still accepted, unchanged**: the release
+converts it into a changeset for `@laticent/lattice`. Open PRs that already carry
+one need no change.
 
 ## Why the entry is not in `CHANGELOG.md`
 
@@ -49,26 +52,23 @@ still reads that marker and bumps major, whichever category the file carries.
 
 ## What happens to it
 
-Nothing, until a release. `tools/changelog.js` reads `## Unreleased` **plus**
-every pending fragment as one body, so `--bump`, `--notes` and `--check` all
-already see your entry. The release (`tools/release.js`, serialized behind the
-`release` concurrency group) folds the fragments into `## Unreleased` under
-their category headings, rolls that into the dated version section, and deletes
-the fragment files in the same commit.
+Nothing, until a release. **Release (prepare)** (`tools/release.js --prepare`)
+converts every pending fragment into `.changeset/fragment-<slug>-<category>.md`,
+naming `@laticent/lattice` with the bump the category above picks
+(`tools/changesets.js` `fragmentToChangeset`). The first bullet, unwrapped onto one
+line, becomes the changeset's first line, which is the line the release notes
+print; the rest keeps its wording. `changeset version` then writes it into
+`packages/lattice/CHANGELOG.md` and deletes both files in the release PR.
 
-**Nothing regenerates `CHANGELOG.md` per PR.** That is deliberate: a
-build-time assembly would make `CHANGELOG.md` a generated-from-*everything*
-committed artifact byte-gated by `build:check`, which is the *other* merge-queue
-hazard (#1594 / #1547) — trading a visible conflict for a silent ejection.
+The first release, 1.0.0, is the exception: it bumps nothing and archives every
+pending fragment into `changelog/pre-release-archive.md`, because its notes are the
+curated `release-notes/1.0.0.md`. The 1,674 fragments pending at the cutover were
+archived the same way.
 
-## This is an interim
-
-Its successor is `.changeset/`. `engineering/decisions/2026-08-09-changesets-multi-package-release.md`
-plans to adopt Changesets across the five workspace packages and retire
-`tools/changelog.js`'s versioning role; that is gated behind a manual first npm
-publish which has not happened. When it does, slice 1 of that record converts
-whatever is pending here. Until then this directory is where entries go.
-Reasoning: `engineering/decisions/2026-08-11-changelog-fragments.md` §7.
+**Nothing regenerates a `CHANGELOG.md` per PR.** That is deliberate: a build-time
+assembly would make it a generated-from-*everything* committed artifact
+byte-gated by `build:check`, which is the *other* merge-queue hazard (#1594 /
+#1547), trading a visible conflict for a silent ejection.
 
 ## Gates
 

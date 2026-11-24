@@ -268,7 +268,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 	// rail counts slides in the STRIPPED body: `slideStartOffset(src, 3)` framed slide 2 and a caret in
 	// slide 0 reported slide 1. Both functions were self-consistent, so the round-trip property held and
 	// the editor still framed a different slide than the preview showed.
-	const FM = '---\nmarp: true\npaginate: true\nheader: "H"\n---\n\n';
+	const FM = '---\nmarp: true\npagination: true\nheader: "H"\n---\n\n';
 
 	it('indexes slides the same way the rail does — WITH front matter', () => {
 		fc.assert(

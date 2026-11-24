@@ -45,7 +45,8 @@ describe('makeStudioCompletion', () => {
 	it('completes front-matter keys inside the --- block', () => {
 		const r = complete('---\nsi', 6);
 		expect(labels(r)).toContain('size');
-		expect(labels(r)).toContain('paginate');
+		expect(labels(r)).toContain('pagination');
+		expect(labels(r)).not.toContain('paginate');
 	});
 
 	it('completes the finish-override + mode keys in the --- block', () => {
@@ -840,7 +841,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
 		// Slice 3.
-		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a slide directive value', `${FM}<!-- _pagination: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],

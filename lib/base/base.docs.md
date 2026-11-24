@@ -1364,7 +1364,7 @@ the diagram but not the labels inside it. Full contract:
 
 ### `no-pagination` / `with-pagination`
 
-Page-number pair. Front matter `paginate:` numbers the deck and is on unless it
+Page-number pair. Front matter `pagination:` numbers the deck and is on unless it
 says `false`. `no-pagination` hides one slide's number; `with-pagination` shows
 it, even on a component that opts out. A component opts its slides out in its
 manifest with `"chrome": { "pagination": false }` (title, divider, topic and

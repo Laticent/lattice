@@ -87,7 +87,7 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
  *  for both. */
 const DECK = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- _class: math compare -->

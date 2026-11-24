@@ -2,7 +2,7 @@
 marp: true
 size: square
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- A square deck whose `stats` slide autosplits down to ONE tile per page.

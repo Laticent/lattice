@@ -131,8 +131,8 @@ seen the options first.)*
    `npm run build:check`, the integration tier — *before* declaring done. Hooks
    enforce these at commit/push as a backstop, not a substitute.
 6. **Keep docs + changelog in sync in the SAME change.** Any behavior change
-   updates the matching `engineering/`/`design/` doc AND adds a `changelog.d/`
-   fragment (HARD RULE #10 — **not** `CHANGELOG.md` `## Unreleased`). Never
+   updates the matching `engineering/`/`design/` doc AND adds a changeset in
+   `.changeset/` (HARD RULE #10 — **never** an edit to a `CHANGELOG.md`). Never
    return a behavior change with stale docs.
 7. **Open the PR when review-ready, then drive it green — then ASK to merge.**
    Use `.github/pull_request_template.md`. Open ready; iterate as a draft, then mark ready.
@@ -342,14 +342,13 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   the measured table, the arm that proves the thing can fail. *(discipline — no automated
   gate; the test is whether a reviewer can see the change without checking out the
   branch.)*
-- **#10 — Record every user-visible change in a `changelog.d/` fragment** as it
-  lands — one file per PR, `changelog.d/<slug>.<category>.md`, bullets only; lead
-  with `**Breaking:**` for anything that breaks a deck/consumer. **Do NOT append
-  to `CHANGELOG.md` `## Unreleased`** — that shared region is what ejected seven
-  PRs from the merge queue in one evening (#1593); the release folds fragments in
-  and deletes them. *(gated — `checkChangelogFragments` in
-  `tools/check-ownership.js`, via `build:check`; contract in
-  `changelog.d/README.md`.)*
+- **#10 — Record every user-visible change in a changeset** as it lands — one
+  file per PR (`npx changeset`), each package with its bump (`major` breaks a
+  deck/consumer), first line one plain sentence. A `changelog.d/` fragment still
+  works; the release converts it. **Never edit a `CHANGELOG.md`** — a shared region
+  ejected seven PRs from the merge queue in one evening (#1593). *(gated —
+  `checkChangesets`, `checkChangelogFragments` in `tools/check-ownership.js`, via
+  `build:check`; contract in `.changeset/README.md`.)*
 - **#13 — Commit messages are `area(scope): short summary`**; PRs follow
   `.github/pull_request_template.md`, and the issue(s) they close must read true
   before merge. See `engineering/workflow.md` § Merging.
@@ -614,7 +613,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 
 - **#30 — House voice: active, plain, and short enough that a junior engineer can act on
   it.** Every surface where we write ABOUT the work — a chat reply, an issue, a PR body, a
-  commit message, a `changelog.d/` fragment, an `engineering/`/`design/` doc, a code
+  commit message, a changeset, an `engineering/`/`design/` doc, a code
   comment. Four rules: **active voice with a named actor** ("`build-css.js` resolves the
   token", not "the token is resolved"); **plain words, and a term of art defined on first
   use**; **lead with the answer**, cutting the preamble, the restatement and the options you

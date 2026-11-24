@@ -2,7 +2,7 @@
 marp: true
 size: 4K
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Chart family coverage"
 ---
 

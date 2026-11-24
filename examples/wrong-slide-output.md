@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 size: story
-paginate: true
+pagination: true
 header: "Lattice · slide output"
 footer: "Three decks that rendered wrong"
 lenses:

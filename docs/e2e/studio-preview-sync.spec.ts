@@ -16,7 +16,7 @@ function slides(n: number): string {
 /** No deck-scoped state — the gate renders the SLICE. The shipped default shape. */
 const DEFAULT_DECK = `---\ntheme: indaco\n---\n\n${slides(5)}\n`;
 /** `paginate` on — the gate renders the DECK and narrows to one section. */
-const PAGINATED_DECK = `---\ntheme: indaco\npaginate: true\n---\n\n${slides(5)}\n`;
+const PAGINATED_DECK = `---\ntheme: indaco\npagination: true\n---\n\n${slides(5)}\n`;
 
 /** The visible text of the one section the preview frame is showing. */
 async function previewText(page: import('@playwright/test').Page): Promise<string> {

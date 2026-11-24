@@ -62,17 +62,17 @@ const FIELD_DEFAULTS = {
   split: 'headings',
   // `glossary` opts the deck into the auto-glossary: a reference-appendix slide built from
   // the `acronyms:` registry's `definition` fields (lib/core/glossary-auto.mjs, #920). Off
-  // (default → omitted) / `auto`. Surfaced as a boolean, like `paginate`; the canonical
+  // (default → omitted) / `auto`. Surfaced as a boolean, like `pagination`; the canonical
   // written value is `auto`. No-op unless the deck's `acronyms:` registry defines a term.
   glossary: 'off',
   // `lift` opts the deck into card ELEVATION — the "Struck" box-shadow that lifts card
   // surfaces (cards-grid, kpi tiles, stats, …) off the slide (lib/core/resolve-lift.js).
-  // Off (default → omitted) / `on`; surfaced as a boolean like `paginate`, the canonical
+  // Off (default → omitted) / `on`; surfaced as a boolean like `pagination`, the canonical
   // written value is `on`. Per-slide `_class: lifted` / `flat` override it.
   lift: 'off',
   size: 'hd', // default landscape (memorable name; 16:9 geometry) (themes also define 4K / standard)
-  // Page numbers are ON by default (the owner's ruling, 2026-10-20); a deck opts out with `paginate: false`.
-  paginate: 'true',
+  // Page numbers are ON by default (the owner's ruling, 2026-10-20); a deck opts out with `pagination: false`.
+  pagination: 'true',
   header: '',
   footer: '',
   class: '',
@@ -122,7 +122,7 @@ export const PRESET_OPTIONS = frontMatterKey.PRESET_NAMES.map((name) => ({
 }));
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'split', 'glossary', 'lift', 'size', 'venue', 'paginate', 'header', 'footer', 'class', 'validate', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'split', 'glossary', 'lift', 'size', 'venue', 'pagination', 'header', 'footer', 'class', 'validate', 'lang'];
 
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
@@ -176,7 +176,7 @@ function splitFrontMatter(source) {
 }
 
 // The form-facing view of a deck's current front matter — pre-fills the sheet's
-// controls ("some of which are filled in"). paginate is surfaced as a boolean;
+// controls ("some of which are filled in"). pagination is surfaced as a boolean;
 // everything else as a trimmed string with sensible defaults.
 export function readFrontMatter(source) {
   const { entries, present } = splitFrontMatter(source);
@@ -206,11 +206,11 @@ export function readFrontMatter(source) {
     // `lift` is binary — on when the deck opts in with `lift: on`.
     lift: map.lift ? TRUEY.test(map.lift) : lookBaseline(map.preset, 'lift') === 'on',
     size: map.size || 'hd',
-    paginate: paginateOn(map.paginate),
+    pagination: paginateOn(map.pagination),
     header: map.header || '',
     footer: map.footer || '',
     class: scalarOf(entries, 'class'),
-    // `validate` is binary, default ON — surfaced as a boolean (like paginate) for
+    // `validate` is binary, default ON — surfaced as a boolean (like pagination) for
     // the switch. On unless the deck explicitly opts out with a falsey value.
     validate: !FALSEY.test((map.validate || '').trim()),
     lang: map.lang || '',
@@ -252,8 +252,8 @@ function presetRecommends(name, key) {
 }
 
 function isDefault(key, value) {
-  // `paginate` is binary, default ON: only an explicit `paginate: false` is written, like `validate: off`.
-  if (key === 'paginate') return paginateOn(value);
+  // `pagination` is binary, default ON: only an explicit `pagination: false` is written, like `validate: off`.
+  if (key === 'pagination') return paginateOn(value);
   // `glossary` is binary — off is the omitted default; only `glossary: auto` is written.
   if (key === 'glossary') return (value == null ? '' : String(value)).trim().toLowerCase() !== 'auto';
   // `lift` is binary — off is the omitted default; only `lift: on` is written.
@@ -278,9 +278,9 @@ function isDefault(key, value) {
 
 // Coerce a control's value into the canonical front-matter string, or null when
 // it's at its default (and should be omitted). `value` is a boolean for
-// paginate, a string otherwise.
+// pagination, a string otherwise.
 function normalize(key, value, preset) {
-  if (key === 'paginate') return value === false || !paginateOn(value) ? 'false' : null;
+  if (key === 'pagination') return value === false || !paginateOn(value) ? 'false' : null;
   // engine reads on/true/yes — we always emit `on` (matches the example decks).
   // `glossary` writes the canonical `auto` when enabled; off omits the key. The switch
   // passes a boolean; a hand-typed `auto` is honored too.
@@ -354,7 +354,7 @@ export function writeFrontMatter(source, key, value) {
     if (raw?.block) {
       preserved.push([k, raw]); // a nested block (finish-override:, …) — never form-managed
     } else if (MANAGED.includes(k)) {
-      const n = normalize(k, k === 'paginate' ? raw : stripQuotes(raw), preset);
+      const n = normalize(k, k === 'pagination' ? raw : stripQuotes(raw), preset);
       if (n != null) managed.set(k, n);
     } else {
       preserved.push([k, raw]);

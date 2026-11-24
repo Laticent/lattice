@@ -63,7 +63,7 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 
 	it('an ALIGNED deck lets every authored index name the right section', () => {
 		// The common case, and the one the feature is for: index k really is section k.
-		const src = '---\npaginate: true\n---\n\n# Alpha\n\n---\n\n## Bravo\n\n---\n\n## Charlie\n';
+		const src = '---\npagination: true\n---\n\n# Alpha\n\n---\n\n## Bravo\n\n---\n\n## Charlie\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		expect(sectionCount(html)).toBe(slides.length);
@@ -76,7 +76,7 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		// The harm this used to pin: authored slide 2 became 2 sections, so authored slide 3
 		// ("Omega") lived at section index 3, not 2. Since the walk is a behavior on ONE slide
 		// (engineering/decisions/2026-11-09-steps-as-a-behavior.md), index k is section k again.
-		const src = '---\npaginate: true\n---\n\n## Alpha\n\nx\n\n---\n\n<!-- _focusSteps: a | b -->\n\n## Steps\n\n- a\n- b\n\n---\n\n## Omega\n\nEnd.\n';
+		const src = '---\npagination: true\n---\n\n## Alpha\n\nx\n\n---\n\n<!-- _focusSteps: a | b -->\n\n## Steps\n\n- a\n- b\n\n---\n\n## Omega\n\nEnd.\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		expect(slides.length).toBe(3);
@@ -99,7 +99,7 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		// assertion that proves it on the REAL engine over the REAL splitter rather than in
 		// the scanner's own unit test.
 		for (const sep of ['***', '___', '- - -', '---   ', '----', '  ---']) {
-			const src = `---\npaginate: true\n---\n\n## Alpha\n\none\n\n${sep}\n\n## Beta\n\ntwo\n`;
+			const src = `---\npagination: true\n---\n\n## Alpha\n\none\n\n${sep}\n\n## Beta\n\ntwo\n`;
 			const { slides, doc } = deckDoc(src);
 			const sections = sectionCount(engine.render(doc, 'lattice').html);
 			expect(slides.length, `separator ${JSON.stringify(sep)}`).toBe(2);
@@ -113,7 +113,7 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		// `split: rule` isolates the question to the SEPARATOR. Under the default heading split
 		// a setext underline also makes a new h2, which divides the slide for a different reason
 		// — the one `positionIsTrustworthy` still refuses on, and not the one under test here.
-		const src = '---\npaginate: true\nsplit: rule\n---\n\n## Alpha\n\nInterlude\n---\n\nmore\n';
+		const src = '---\npagination: true\nsplit: rule\n---\n\n## Alpha\n\nInterlude\n---\n\nmore\n';
 		const { slides, doc } = deckDoc(src);
 		expect(slides.length).toBe(1);
 		expect(sectionCount(engine.render(doc, 'lattice').html)).toBe(slides.length);
@@ -129,7 +129,7 @@ describe('narrowing fails closed on shapes the walker cannot resolve', () => {
 		// flat "next </section>" pairing closed slide 1 early, and the neighbor's markup — including
 		// its visible page number — could leak into the frame, so this deck used to be refused.
 		// `sectionsOf` is the engine's depth-aware walker now: slide 1 is whole, and it identifies.
-		const src = '---\npaginate: true\n---\n\n## One\n\n<section class="form">\nnested\n</section>\n\ntail\n\n---\n\n## Two\n\n---\n\n## Three\n';
+		const src = '---\npagination: true\n---\n\n## One\n\n<section class="form">\nnested\n</section>\n\ntail\n\n---\n\n## Two\n\n---\n\n## Three\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		const opens = (html.match(/<section\b/g) || []).length;
@@ -162,7 +162,7 @@ describe('a lone authored chunk is not necessarily one section (#1551)', () => {
 		// one is a setext underline under `header: "…"`, which is why the keys render as an
 		// `<h2>` and why the count shifts by one rather than two.
 		const src =
-			'---\ntheme: indaco\npaginate: true\n---\n\n---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Pasted deck"\n---\n\n<!-- _class: quadrant -->\n\n## A quadrant that should be reachable.\n\n- Fast\n- Slow\n\n---\n\n## An ordinary second slide.\n\nBody text.\n';
+			'---\ntheme: indaco\npagination: true\n---\n\n---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Pasted deck"\n---\n\n<!-- _class: quadrant -->\n\n## A quadrant that should be reachable.\n\n- Fast\n- Slow\n\n---\n\n## An ordinary second slide.\n\nBody text.\n';
 		const { fm, slides } = deckDoc(src);
 
 		// What the fallback actually renders is `frontMatter + chunk` — the deck's own front
@@ -185,7 +185,7 @@ describe('a lone authored chunk is not necessarily one section (#1551)', () => {
 	it('an ORDINARY chunk still renders as exactly one section, so the guard stays quiet', () => {
 		// The guard must not fire on the common case, or it converts a working preview into an
 		// error banner. Every authored chunk of a well-formed deck is one section.
-		const src = '---\ntheme: indaco\npaginate: true\n---\n\n## One\n\nBody.\n\n---\n\n## Two\n\nBody.\n';
+		const src = '---\ntheme: indaco\npagination: true\n---\n\n## One\n\nBody.\n\n---\n\n## Two\n\nBody.\n';
 		const { fm, slides } = deckDoc(src);
 		expect(slides.length).toBe(2);
 		for (const chunk of slides) {
@@ -209,7 +209,7 @@ describe('a legitimate 1→N chunk must never be refused (#1551 over-fire)', () 
 		// `hr` separators, so this deck is 1 slide to the caller and 3 to the engine. This
 		// is the shape `examples/split-headings.md` markets ("write the outline, skip the
 		// separators"), which the refusing guard turned into an error card.
-		const src = '---\ntheme: indaco\npaginate: true\n---\n\n# Title\n\nLead.\n\n## One\n\nBody.\n\n## Two\n\nMore body.\n';
+		const src = '---\ntheme: indaco\npagination: true\n---\n\n# Title\n\nLead.\n\n## One\n\nBody.\n\n## Two\n\nMore body.\n';
 		const { fm, slides } = deckDoc(src);
 		expect(slides.length).toBe(1);
 		expect(sectionCount(engine.render(fm + slides[0], 'lattice').html)).toBeGreaterThan(1);
@@ -217,7 +217,7 @@ describe('a legitimate 1→N chunk must never be refused (#1551 over-fire)', () 
 	});
 
 	it('a `_focusSteps` chunk expands, and is still a legitimate slide', () => {
-		const src = '---\ntheme: indaco\npaginate: true\n---\n\n<!-- _class: content -->\n<!-- _focusSteps: 2 -->\n\n## Focused\n\n- one\n- two\n';
+		const src = '---\ntheme: indaco\npagination: true\n---\n\n<!-- _class: content -->\n<!-- _focusSteps: 2 -->\n\n## Focused\n\n- one\n- two\n';
 		const { fm, slides } = deckDoc(src);
 		expect(slides.length).toBe(1);
 		// Whatever the expansion count is, the caller still believes it is one slide.

@@ -234,7 +234,7 @@ const spacedPin = (pin) => pin.replace(/(\d{3})(?=\d)/g, '$1 ');
 export function buildDeck(cards, { size = 'us', cap = 1 } = {}) {
 	// No page numbers and no spectrum bar: a printed card has neither, and a bar on the edge is the
 	// first thing a home cut gets wrong.
-	const front = ['---', `size: ${size === 'iso' ? 'card-iso' : 'card'}`, 'theme: cuoio', 'paginate: false', 'spectrum: off', '---', ''].join('\n');
+	const front = ['---', `size: ${size === 'iso' ? 'card-iso' : 'card'}`, 'theme: cuoio', 'pagination: false', 'spectrum: off', '---', ''].join('\n');
 	const slides = cards.map((c) =>
 		[
 			'<!-- _class: gift-card -->',

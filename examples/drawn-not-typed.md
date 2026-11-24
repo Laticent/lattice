@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · drawn, not typed"
 footer: "Drawn, not typed"
 ---

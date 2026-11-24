@@ -213,7 +213,7 @@ resuming starts with `npm run baton -- take`.
 mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
 whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped. The
 usage cap is a stop reason for the raise loop (§The raise loop): the card's `raised` row says so, e.g.
-`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits and is not carded
+`1 round: HIGH (stopped: usage past 75%)`, and that card waits for the reset rather than going to a merge ask (§Checkpoint rules, "A checkpoint never lowers the bar"). Work that cannot fit even that one round waits and is not carded
 (`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
 reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 
@@ -242,6 +242,21 @@ usage watch below, and the session may stop before it saves anything (`engineeri
 **A PR parked at the merge gate with no new work skips steps 2 to 4**: there is nothing to push, and a
 draft or a stale mark would void the 🚦 card the owner is deciding on (rule 8). Step 5 is a comment edit
 only: `npm run card -- --living` at the parked head keeps `baton: released` and the gate line.
+
+**A checkpoint never lowers the bar.** The owner's rule (2026-11-24, in the command center: "add the
+rule"): usage and a deadline are reasons to stop, never reasons to finish with less. At any point, and
+above all near a usage stop or a deadline, a session (the command center included) does not:
+- skip evidence a test or card owes (#34's failing arm, repeat and load runs; a surface #23 requires);
+- ask the owner to merge below VERY HIGH because time or usage is short. A card whose raise loop stopped
+  at the usage cap (`raised: … (stopped: usage past 75%)`, §Usage checkpoints) is posted on the PR as the
+  handoff and waits for the reset to be raised; it goes into a merge ask only if the owner asks for it. An
+  ask below VERY HIGH is still fine for a **structural cap**, one no run can lift (a check only a real
+  device makes, beyond what the iOS Simulator suite reaches, a reversibility limit built into the change), and the ask names that cap;
+- make a design choice only to fit a budget (a byte limit such as the route budget's lint-core ceiling, a
+  CI minute) without putting it to the owner as a choice.
+If the bar can't be met before the session must stop, it stops and hands off. Born the night of
+2026-11-23, when six merge asks went out as HIGH exceptions, one evidence run was skipped "to save usage",
+and one rename turned `fonts:` from a warning into an error so the lint core fit its route-budget ceiling.
 
 Rules 2 and 3 already hold for every push, including the 30-minute floor. At **75%**, after these five
 steps, the session keeps working (§Usage checkpoints). At **90%**, it does the five steps, stops, then
@@ -422,7 +437,7 @@ measured table, the arm that proves the thing can fail.*
 2. Keep the deck small — title slide, one slide per surface the work
    changes, closing. Six to ten slides is the comfortable cap.
 3. Use the same front matter as the galleries (`marp: true`, `theme:
-   indaco`, `paginate: true`, a deck-scoped `header:`).
+   indaco`, `pagination: true`, a deck-scoped `header:`).
 4. Author the slides as you would any boardroom deck — the eyebrow
    above the heading, the heading itself, the demo, and a one-line
    below-note explaining the change.
@@ -573,20 +588,26 @@ graduates from "new" to "documented". Treat them like
 - If a fix is non-obvious, add a gotcha **before** committing, and link it from the commit message. Write it as a `##` entry in the matching `engineering/gotchas/<topic>.md`, and nothing else: the symptom index is generated into `dist/engineering/gotchas.md` on install, and `engineering/gotchas.md` is the hand-written guide, where an entry would never be listed (`gotchas:index:check` refuses one). **Keep the heading to a scannable symptom**: it is rendered twice per index row (link label, then slugged again as the anchor), so a character there costs two, and a heading over `ROW_CAP` (280 characters of row, in `tools/build-gotchas-index.js`) makes `npm run gotchas:index:check`, and so `build:check`, refuse and name the entry (the plain write only warns). Put the detail in the entry body, where nobody pays for it until they open the topic file.
 - Gallery edits and feature decks: look at the render locally (`npm run preview -- <deck>`), and commit only the markdown. CI shows the before/after on the PR, and the nightly bless commits the PDFs to `main`.
 
-## Changelog entries — one file per PR (`changelog.d/`)
+## Changelog entries — one file per PR (`.changeset/`)
 
-**Write the entry in `changelog.d/<slug>.<category>.md`. Do not append to
-`CHANGELOG.md` `## Unreleased`.** This is HARD RULE #10; the full contract —
-naming, the six categories, what the body may contain — is in
-`changelog.d/README.md`, and the reasoning is
-`decisions/2026-08-11-changelog-fragments.md`.
+**Record the change in a changeset: `npx changeset`, or a file in `.changeset/` by
+hand. Never edit a `CHANGELOG.md`.** This is HARD RULE #10; the full contract
+(front matter, bumps, the first-line rule, which packages may be named) is in
+`.changeset/README.md`, and the reasoning is
+`decisions/2026-10-07-first-npm-release.md` §11 (Changesets) and
+`decisions/2026-08-11-changelog-fragments.md` (one file per PR).
 
-**Why, in one measurement.** `## Unreleased` is one shared region every PR
-appends to at the top, so two PRs in flight always edit the same lines. Under a
-merge queue that is not a conflict you resolve once — it is an **ejection**, and
-an ejection **silently clears auto-merge**, so the PR goes green again and
-merges nothing. Shipping five PRs in one evening produced **seven ejections,
-every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
+**A `changelog.d/` fragment still works.** The contract is unchanged
+(`changelog.d/README.md`), and the release converts each pending fragment into a
+changeset for `@laticent/lattice` with the bump its category always picked. A
+fragment cannot name a library, so a library change needs a changeset.
+
+**Why one file per PR, in one measurement.** The old `CHANGELOG.md` `## Unreleased`
+was one shared region every PR appended to at the top, so two PRs in flight always
+edited the same lines. Under a merge queue that is not a conflict you resolve once
+— it is an **ejection**, and an ejection **silently clears auto-merge**, so the PR
+goes green again and merges nothing. Shipping five PRs in one evening produced
+**seven ejections, every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
 
 | PR | ejections | what landed in the gap |
 |---|---|---|
@@ -595,17 +616,18 @@ every one a `MERGE_CONFLICT` on `CHANGELOG.md`**:
 
 Every resolution was the same mechanical "keep both entries"; #1566 needed six
 cycles across about four hours for a change whose content stopped moving after
-the second. Two PRs never write the same fragment file, so the conflict cannot
+the second. Two PRs never write the same changeset file, so the conflict cannot
 occur.
 
-**The release consumes them.** `tools/release.js` folds every pending fragment
-into `## Unreleased` under its `### Category` heading, rolls that into the dated
-version section, and deletes the fragment files — one commit, serialized behind
-the `release` concurrency group. Until then `node tools/changelog.js --bump`,
-`--notes` and `--check` read `## Unreleased` **plus** the fragments as one body,
-so the bump is correct while the entries are still loose files.
+**The release consumes them.** Release (prepare) runs `tools/release.js
+--prepare`: it converts the pending fragments, runs `changeset version` (which
+bumps each named package, writes each package's `CHANGELOG.md`, and deletes the
+changesets), and commits that as the release PR, serialized behind the `release`
+concurrency group. `npx changeset status --verbose` previews the bumps at any
+time. The first release, 1.0.0, bumps nothing and archives what is pending; see
+`RELEASE.md`.
 
-**Nothing regenerates `CHANGELOG.md` per PR, on purpose.** Assembling at build
+**Nothing regenerates a `CHANGELOG.md` per PR, on purpose.** Assembling at build
 time would make it a generated-from-*everything* committed artifact byte-gated
 by `build:check` — which is the *other* merge-queue hazard (#1594, and #1547
 before it). That trades a visible conflict for a silent ejection, which is
@@ -637,9 +659,10 @@ strictly worse.
      is the real proof HEAD is fresh (uncommitted-but-rebuilt files mask a
      stale HEAD).
    - **`CHANGELOG.md` `## Unreleased`** used to conflict on every rebase.
-     It no longer should: entries are per-PR `changelog.d/` fragments (see
-     § Changelog entries below). If you still hit one — an older branch, or a
-     `changelog.d/` file two branches genuinely named the same — resolve by
+     It no longer should: entries are per-PR changesets (see § Changelog entries
+     below), and the root `CHANGELOG.md` is an index that takes no entries. If
+     you still hit one — an older branch that edited a changelog, or a
+     changeset or fragment two branches genuinely named the same — resolve by
      **keeping both** entries, never picking a side.
    - A PDF conflict should not happen any more: pull requests do not commit
      PDFs, and only the nightly bless writes them. If an older branch still
@@ -754,7 +777,7 @@ The loop for any perf-intent change:
    numbers with machine noise. The baseline is a ratchet for *real* deltas, not a
    per-machine scratchpad.
 6. **Record it.** Fill the PR's `## Performance` section with the before/after table;
-   add a `changelog.d/` fragment for user-visible wins; for a *large* perf effort, also
+   add a changeset for user-visible wins; for a *large* perf effort, also
    write an `engineering/decisions/YYYY-MM-DD-*.md` note.
 
 `bench:check` is **on-demand, not a blocking CI gate** — a wall-clock threshold in

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Deck presets"
 meta: "Deck presets · four looks"
 ---
