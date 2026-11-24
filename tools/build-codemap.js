@@ -90,6 +90,7 @@ const FOLDERS = {
   'exemplars/': 'Full, realistic decks by sector: what good looks like.',
   'experiments/': 'Measured prototypes kept in reserve. Nothing imports from here and no build step runs it.',
   'followups.d/': 'One file per pending follow-up that has no issue yet.',
+  'handoffs.d/': 'One folder per line of work in flight: its HANDOFF.md and small artifacts, removed before merge (engineering/decisions/2026-11-23-handoff-folder.md).',
   'lib/': 'The engine source. Every folder is listed below.',
   'spec/': 'The hand-written specs: Lattice-Flavored Markdown, the Diagnostic Protocol, the Lattice Timing Track.',
   'test/': 'Unit and integration tests, fixtures and committed baselines. Every folder is listed below.',

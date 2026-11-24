@@ -1,0 +1,1119 @@
+diff --git a/lib/authoring/lint-core.js b/lib/authoring/lint-core.js
+index e922f124d..a343ceb3e 100644
+--- a/lib/authoring/lint-core.js
++++ b/lib/authoring/lint-core.js
+@@ -6428,11 +6428,12 @@ function lintChunksWith(source, vocab) {
+   // A leftover top-level `backdrop:` block is retired (backdrop is a baked finish layer
+   // now) — flag it with the migration to `finish-override:`. Needs no vocab.
+   findings.push(...findRetiredBackdrop(source));
++  findings.push(...findRetiredCover(source));
+   if (vocab.backdropNames) findings.push(...findUnknownBackdrop(source, vocab.backdropNames));
+   if (vocab.tagNames) findings.push(...findUnknownCardTag(source, vocab.tagNames, vocab.cardTagAxes));
+   for (const r of vocab.pluginRegisters || []) findings.push(...findUnknownAxisRegister(source, r.key, r.names, r.axes));
+   if (vocab.imageCardNames) findings.push(...findUnknownAxisRegister(source, 'image-card', vocab.imageCardNames, vocab.imageCardAxes));
+-  if (vocab.coverNames) findings.push(...findUnknownAxisRegister(source, 'cover', vocab.coverNames, vocab.coverAxes));
++  if (vocab.coverNames) findings.push(...findUnknownAxisRegister(source, 'cover-layout', vocab.coverNames, vocab.coverAxes));
+   if (vocab.logoFinishNames) findings.push(...findUnknownAxisRegister(source, 'logo-finish', vocab.logoFinishNames, vocab.logoFinishAxes));
+   if (vocab.logoFinishAxes) findings.push(...findRetiredLogoKeys(source, vocab.logoFinishAxes));
+   if (vocab.progressRailNames) findings.push(...findUnknownAxisRegister(source, 'progress-rail', vocab.progressRailNames, vocab.progressRailAxes));
+@@ -10165,6 +10166,111 @@ function findUnknownCards(source, cardsNames) {
+  * A `backdrop:` NESTED under `finish-override:` is indented, so `^backdrop:` (column 0)
+  * never matches it. One finding per deck.
+  */
++/**
++ * `cover:` → `cover-layout:`, and the old cover / divider surface words → the color mode
++ * (engineering/decisions/2026-11-23-cover-layout.md, D4a/D10/D12). Covers and dividers follow the
++ * deck's `color-mode:` and the slide's `light` / `dark` now, so the surface words that were a second
++ * way to set a slide's mode are retired, each with a fix that keeps the deck looking as it did:
++ *
++ *   cover: <surface> <composition>  → `cover-layout: <composition>`, and the surface moves onto
++ *                                     every title and closing slide as the mode it meant
++ *                                     (`inverse` → `dark`, `light` → `light`). A deck with no
++ *                                     surface word gets no slide edits.
++ *   _class: … cover-light           → `light`      (error: the class no longer paints)
++ *   _class: … cover-inverse         → `dark`       (error)
++ *   _class: divider light           → `divider subsection` (WARNING, one release: `light` is a
++ *                                     valid mode on a divider now, so an old deck renders, but it
++ *                                     lost the smaller layout `light` used to mean, D17)
++ *
++ * One finding per changed line, so `--fix` applies every edit on a line at once. Reads both class
++ * spellings: the `<!-- _class: … -->` comment and the `<!-- @meta{layout=…, class=…} -->` record.
++ */
++const COVER_COMPOSITION_WORDS = ['plain', 'masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'];
++function findRetiredCover(source) {
++  const src = String(source || '');
++  const fmBlock = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
++  const out = [];
++  let modeWord = '';
++  if (fmBlock) {
++    const line = fmBlock[1].split(/\r?\n/).find((l) => /^cover:/.test(l));
++    if (line) {
++      const body = line.replace(/^cover:/, '');
++      const words = (body.includes('#') ? body.slice(0, body.indexOf('#')) : body).toLowerCase().split(/[\s,[\]]+/).filter(Boolean);
++      const comp = words.find((w) => COVER_COMPOSITION_WORDS.includes(w));
++      if (words.includes('inverse')) modeWord = 'dark';
++      else if (words.includes('light')) modeWord = 'light';
++      const replaceLine = comp && comp !== 'plain' ? `cover-layout: ${comp}` : '';
++      out.push({
++        slide: 0, rule: 'retired-cover-key', severity: 'error', classToken: 'cover', shapeChange: true,
++        line: line.trim(), autofixable: true, replaceLine,
++        message: '`cover:` no longer works. Its composition word goes on `cover-layout:`, and a cover follows the color mode like every slide.',
++        fix: replaceLine
++          ? `Write \`${replaceLine}\`${modeWord ? ` and add \`${modeWord}\` to the title and closing slides` : ''}.`
++          : `Delete this line${modeWord ? ` and add \`${modeWord}\` to the title and closing slides` : ''}.`,
++      });
++    }
++  }
++  const lines = src.split(/\r?\n/);
++  // Slides count from 1, as every finding numbers them (0 is the front matter).
++  let slide = 1;
++  let inFm = lines[0] === '---';
++  for (let i = 0; i < lines.length; i++) {
++    const raw = lines[i];
++    if (i > 0 && raw === '---') { if (inFm) { inFm = false; continue; } slide++; continue; }
++    if (inFm) continue;
++    // String work, not a pattern over the whole comment (regex census, HARD RULE #32): its inside, then its head.
++    const open = raw.indexOf('<!--');
++    const close = open < 0 ? -1 : raw.indexOf('-->', open + 4);
++    const inner = close < 0 ? '' : raw.slice(open + 4, close).trim();
++    const head = inner.match(/^_?class:/);
++    const cm = head ? [null, inner.slice(head[0].length).trim()] : null;
++    const mm = cm || !inner.startsWith('@meta{') || !inner.endsWith('}') ? null : [null, inner.slice(6, -1)];
++    if (!cm && !mm) continue;
++    let layout = '';
++    let tokens;
++    if (cm) tokens = cm[1].split(/\s+/).filter(Boolean);
++    else {
++      layout = ((mm[1].match(/(?:^|,)\s*layout=([\w-]+)/) || [])[1]) || '';
++      tokens = ((mm[1].match(/(?:^|,)\s*class=([^,}]*)/) || [])[1] || '').split(/\s+/).filter(Boolean);
++    }
++    const all = layout ? [layout, ...tokens] : tokens;
++    const isCover = all.includes('title') || all.includes('closing');
++    const isDivider = all.includes('divider');
++    const errs = [];
++    let warn = '';
++    let next = tokens.map((t) => {
++      if (t === 'cover-light') { errs.push('`cover-light`'); return 'light'; }
++      if (t === 'cover-inverse') { errs.push('`cover-inverse`'); return 'dark'; }
++      return t;
++    });
++    if (isDivider && next.includes('light') && !next.includes('subsection')) {
++      warn = 'divider light';
++      next = next.map((t) => (t === 'light' ? 'subsection' : t));
++    }
++    if (isCover && modeWord && !next.includes('light') && !next.includes('dark')) next.push(modeWord);
++    next = next.filter((t, k) => next.indexOf(t) === k);
++    if (next.join(' ') === tokens.join(' ')) continue;
++    let replaceLine;
++    if (cm) replaceLine = raw.replace(cm[1], next.join(' '));
++    else if (/(?:^|,)\s*class=/.test(mm[1])) replaceLine = raw.replace(mm[1], mm[1].replace(/((?:^|,)\s*class=)[^,}]*/, `$1${next.join(' ')}`));
++    else replaceLine = raw.replace(mm[1], `${mm[1]}, class=${next.join(' ')}`);
++    const fromKey = !errs.length && !warn;
++    const onlyWarn = warn && !errs.length;
++    out.push({
++      slide, rule: onlyWarn ? 'divider-light-subsection' : 'retired-cover-key',
++      severity: onlyWarn ? 'warning' : 'error', classToken: errs.length ? 'cover-light' : warn ? 'light' : 'cover',
++      shapeChange: true, line: raw.trim(), autofixable: true, replaceLine: replaceLine.trim(),
++      message: fromKey
++        ? `The deck's old \`cover:\` set this cover's surface; it is the slide's color mode now (\`${modeWord}\`).`
++        : errs.length
++          ? `${errs.join(' and ')} no longer ${errs.length > 1 ? 'work' : 'works'}: a cover follows the color mode, so it is \`light\` or \`dark\` like any slide.`
++          : '`divider light` meant the smaller, centered subsection layout. `light` is the color mode on a divider now, so that layout is `divider subsection`.',
++      fix: `Write \`${replaceLine.trim()}\`.`,
++    });
++  }
++  return out;
++}
++
+ function findRetiredBackdrop(source) {
+   const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+   if (!fmBlock) return [];
+diff --git a/lib/authoring/slot-contract.generated.js b/lib/authoring/slot-contract.generated.js
+index 5824d50b8..288653013 100644
+--- a/lib/authoring/slot-contract.generated.js
++++ b/lib/authoring/slot-contract.generated.js
+@@ -4,4 +4,4 @@
+    vocabulary as `slotContract`, so it rides the vocabulary every caller already hands lint-core (the CLI's
+    buildVocab, the Studio page's inlined vocab) instead of lint-core's own bundle (the studio route's lintCoreGz).
+    Rebuild: node tools/build-stage-catalog.js */
+-module.exports = "actors|title=h2! rows=l1a!;agenda|title=h2!|progress-1 progress-2 progress-3 progress-4 progress-5 progress-6 circles checks;authority-chain|heading=h2! tiers=l1a!|branching trail pyramid bracket;bar|title=h2! categories=l1a!|row grouped diverging;big-number|number=l1a!;bullet|title=h2! rows=l1a!|shared-axis own-axis;cards-grid|title=h2! cards=l1a!|four three||numbered=s;cards-stack|title=h2! cards=l1a!|||numbered=s;checklist|title=h2! items=l1a!;citation-card|heading=h2! citation=c! quotation=q!|pull-quote split margin triptych;closing|heading=h12!|qr index spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;code|title=h2! code=f!;collage|photos=i!|ordered fill above;columns|heading=h2! pane=n!;compare-code|title=h2! left=f#1! right=f#2!;compare-prose|title=h2! options=l1a!|transition chosen decision vertical rejected axis|axis:options=l1a;contact|fields=l1a!;content|heading=h2!;cycle|title=h2! stages=l1a!;decision|title=h2! options=l1a!;diagram|title=h2! mermaid=f:mermaid!;divider|heading=h12!|qr;ep-curve|title=h2! curves=l1a!;flowchart|title=h2! shapes=l1a!|lr tb curved rearrange;funnel|title=h2! stages=l1a!;gantt|title=h2! tasks=l1a!;gift-card|fields=l1a!;glossary|title=h2! entries=l1a,t!;heatmap|title=h2! rows=t!|scale;histogram|title=h2! bands=l1a!;hub-spoke|title=h2! hub=l1a! satellites=l2a!|sized flow-out flow-in flow-both tiered;image|image=i,c:@image!|clean split spotlight gallery statement image-card-top-left image-card-top image-card-top-right image-card-center image-card-bottom-left image-card-bottom image-card-bottom-right image-card-solid image-card-soft image-card-sheer image-card-clear image-card-light image-card-dark image-card-sm image-card-md image-card-lg image-card-regular image-card-compact image-card-band image-card-float;inventory|title=h2! items=l1a!|cards timeline editorial;journey|heading=h12! sections=l1a!|heatmap curve swimlane weighted;kanban|title=h2! lanes=l1a!|keyline tinted;kpi|title=h2! kpis=l1a!|attention ops compliance trajectory spotlight;line|title=h2! points=l1a!|area stacked-area step;list|title=h2! items=l1a!|takeaway principles lettered roman bullet|principles:items=l1a;list-steps|title=h2! steps=l1a!|vertical chevron converge ghost timeline phase milestone lettered stage rank tier roman capsule;list-tabular|title=h2! rows=l1a!|def metric spec register rule solid stacked outline fit-name fit-body fit-meta flex-name flex-meta fixed;logo-wall|logos=l1a!|color dense;map|title=h2! regions=l1a!|us world highlight robinson grouped;math|heading=h2! equation=m,f:math!|feature derivation theorem compare matrix stats decompose|derivation:equation=t,m theorem:equation=q;matrix-2x2|title=h2! axes=l1a!;matrix-grid|heading=h2! matrix=t!;obligation-matrix|heading=h2! matrix=t!|asymmetric pills lanes;piechart|title=h2! slices=l1a!|donut;policy-recommendation|recommendation=h2! rationale=l1a!|adopt amend oppose defer;premise|heading=h2! lede=p! rows=l1a!;pricing|title=h2! tiers=l1a! features=l2a!|two four;progress|title=h2! rows=l1a!;q-and-a|question=l1a! answer=l2a!|spine rail tab grid solo;quadrant|title=h2! items=l2a!|bubble trail cohort threshold magic minimal;quote|quotation=q!|bare;radar|title=h2! series=l1a!|target delta benchmark quadrant small-multiples minimal;redline|heading=h2! citation=c! redline=q!|annotated three-col split stacked;regulatory-update|heading=h2! items=l1a!|timeline priority cards diff-bands;risk-matrix|title=h2! risks=l1a!;roadmap|title=h2! rows=t!|horizons status swimlane milestones;rows|heading=h2! pane=n!;scatter|title=h2! axes=c! points=l1a!|bubble trend;scene|scene=x:svg,f!|clean split spotlight gallery statement;slope|title=h2! entities=l1a! points=l2a!|dumbbell signal;split-compare|heading=h2! options=l1a!;split-panel|heading=h2! points=l1a!|metric pullquote steps proof capstone qr cat-1 cat-2 cat-3 cat-4 cat-5 cat-6 cat-7 cat-8|pullquote:heading=?+quote=q! steps:points=l1a watermark:points=l1a;stacked-bar|title=h2! categories=l1a! parts=l2a!|share row;state-chart|title=h2! states=l1a!|lr tb inline curved unnumbered rearrange;stats|title=h2! tiles=l1a!;statute-stack|heading=h2! rows=l1a!|hierarchy bands preemption lane|lane:rows=t;table|title=h2! table=t,x:table!;team-profile|people=l1a!|lead bench sides bio;timeline-list|title=h2! events=l1a!;title|heading=h1!|spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;topic|heading=h2!|fact;tower|title=h2! layers=l1a!;verdict-grid|title=h2! options=l1a! rationale=l2a!;video|video=c:@video!|companion gallery qr;waterfall|title=h2! steps=l1a!|zoom lower-is-better;wifi|title=h2! fields=l1a!;word-cloud|title=h2! words=l1a!|constellation dense spectrum focal;~c=a line of `inline code`|c:@image=a `@image…` line|c:@video=a `@video…` line|f=a fenced code block|f#1=a fenced code block|f#2=the second fenced code block|f:math=a fenced code block tagged `math`|f:mermaid=a fenced code block tagged `mermaid`|h1=a `# ` heading|h12=a `# ` heading or a `## ` heading|h2=a `## ` heading|i=an image (`![alt](src)`)|l1a=a list|l2a=a list nested 1 level under an item|m=a `$$` equation|n=two panes|p=a paragraph|q=a `>` blockquote|t=a table|x:svg=an inline `<svg>`|x:table=an inline `<table>`|@level='{c}' reads its {s} from {w}, but this slide writes {g}, so no {s} is built.|@levelFix=Write it as {w} instead.|@missing='{c}' needs its {s}, written as {w}. This slide has none, so that part of the layout is empty.|@missingFix=Add {w}.|@source='{t}' is not a class on '{c}': the layout reads it from how the Markdown is written, so the class does nothing.|@sourceFix=Remove '{t}' from the `_class`. {c}.docs.md says what to write instead.|@requires='{c} {t}' acts only with '{n}', so on its own it does nothing.|@requiresFix=Add '{n}', or remove '{t}'.|@foreign='{t}' is a variant of '{n}', not of '{c}', so it does nothing here.|@foreignFix=Remove '{t}', or use one of the variants '{c}'.docs.md lists.";
++module.exports = "actors|title=h2! rows=l1a!;agenda|title=h2!|progress-1 progress-2 progress-3 progress-4 progress-5 progress-6 circles checks;authority-chain|heading=h2! tiers=l1a!|branching trail pyramid bracket;bar|title=h2! categories=l1a!|row grouped diverging;big-number|number=l1a!;bullet|title=h2! rows=l1a!|shared-axis own-axis;cards-grid|title=h2! cards=l1a!|four three||numbered=s;cards-stack|title=h2! cards=l1a!|||numbered=s;checklist|title=h2! items=l1a!;citation-card|heading=h2! citation=c! quotation=q!|pull-quote split margin triptych;closing|heading=h12!|qr index spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;code|title=h2! code=f!;collage|photos=i!|ordered fill above;columns|heading=h2! pane=n!;compare-code|title=h2! left=f#1! right=f#2!;compare-prose|title=h2! options=l1a!|transition chosen decision vertical rejected axis|axis:options=l1a;contact|fields=l1a!;content|heading=h2!;cycle|title=h2! stages=l1a!;decision|title=h2! options=l1a!;diagram|title=h2! mermaid=f:mermaid!;divider|heading=h12!|subsection qr;ep-curve|title=h2! curves=l1a!;flowchart|title=h2! shapes=l1a!|lr tb curved rearrange;funnel|title=h2! stages=l1a!;gantt|title=h2! tasks=l1a!;gift-card|fields=l1a!;glossary|title=h2! entries=l1a,t!;heatmap|title=h2! rows=t!|scale;histogram|title=h2! bands=l1a!;hub-spoke|title=h2! hub=l1a! satellites=l2a!|sized flow-out flow-in flow-both tiered;image|image=i,c:@image!|clean split spotlight gallery statement image-card-top-left image-card-top image-card-top-right image-card-center image-card-bottom-left image-card-bottom image-card-bottom-right image-card-solid image-card-soft image-card-sheer image-card-clear image-card-light image-card-dark image-card-sm image-card-md image-card-lg image-card-regular image-card-compact image-card-band image-card-float;inventory|title=h2! items=l1a!|cards timeline editorial;journey|heading=h12! sections=l1a!|heatmap curve swimlane weighted;kanban|title=h2! lanes=l1a!|keyline tinted;kpi|title=h2! kpis=l1a!|attention ops compliance trajectory spotlight;line|title=h2! points=l1a!|area stacked-area step;list|title=h2! items=l1a!|takeaway principles lettered roman bullet|principles:items=l1a;list-steps|title=h2! steps=l1a!|vertical chevron converge ghost timeline phase milestone lettered stage rank tier roman capsule;list-tabular|title=h2! rows=l1a!|def metric spec register rule solid stacked outline fit-name fit-body fit-meta flex-name flex-meta fixed;logo-wall|logos=l1a!|color dense;map|title=h2! regions=l1a!|us world highlight robinson grouped;math|heading=h2! equation=m,f:math!|feature derivation theorem compare matrix stats decompose|derivation:equation=t,m theorem:equation=q;matrix-2x2|title=h2! axes=l1a!;matrix-grid|heading=h2! matrix=t!;obligation-matrix|heading=h2! matrix=t!|asymmetric pills lanes;piechart|title=h2! slices=l1a!|donut;policy-recommendation|recommendation=h2! rationale=l1a!|adopt amend oppose defer;premise|heading=h2! lede=p! rows=l1a!;pricing|title=h2! tiers=l1a! features=l2a!|two four;progress|title=h2! rows=l1a!;q-and-a|question=l1a! answer=l2a!|spine rail tab grid solo;quadrant|title=h2! items=l2a!|bubble trail cohort threshold magic minimal;quote|quotation=q!|bare;radar|title=h2! series=l1a!|target delta benchmark quadrant small-multiples minimal;redline|heading=h2! citation=c! redline=q!|annotated three-col split stacked;regulatory-update|heading=h2! items=l1a!|timeline priority cards diff-bands;risk-matrix|title=h2! risks=l1a!;roadmap|title=h2! rows=t!|horizons status swimlane milestones;rows|heading=h2! pane=n!;scatter|title=h2! axes=c! points=l1a!|bubble trend;scene|scene=x:svg,f!|clean split spotlight gallery statement;slope|title=h2! entities=l1a! points=l2a!|dumbbell signal;split-compare|heading=h2! options=l1a!;split-panel|heading=h2! points=l1a!|metric pullquote steps proof capstone qr cat-1 cat-2 cat-3 cat-4 cat-5 cat-6 cat-7 cat-8|pullquote:heading=?+quote=q! steps:points=l1a watermark:points=l1a;stacked-bar|title=h2! categories=l1a! parts=l2a!|share row;state-chart|title=h2! states=l1a!|lr tb inline curved unnumbered rearrange;stats|title=h2! tiles=l1a!;statute-stack|heading=h2! rows=l1a!|hierarchy bands preemption lane|lane:rows=t;table|title=h2! table=t,x:table!;team-profile|people=l1a!|lead bench sides bio;timeline-list|title=h2! events=l1a!;title|heading=h1!|spectrum cover-masthead cover-ledger cover-column cover-label cover-stage cover-frame cover-poster;topic|heading=h2!|fact;tower|title=h2! layers=l1a!;verdict-grid|title=h2! options=l1a! rationale=l2a!;video|video=c:@video!|companion gallery qr;waterfall|title=h2! steps=l1a!|zoom lower-is-better;wifi|title=h2! fields=l1a!;word-cloud|title=h2! words=l1a!|constellation dense spectrum focal;~c=a line of `inline code`|c:@image=a `@image…` line|c:@video=a `@video…` line|f=a fenced code block|f#1=a fenced code block|f#2=the second fenced code block|f:math=a fenced code block tagged `math`|f:mermaid=a fenced code block tagged `mermaid`|h1=a `# ` heading|h12=a `# ` heading or a `## ` heading|h2=a `## ` heading|i=an image (`![alt](src)`)|l1a=a list|l2a=a list nested 1 level under an item|m=a `$$` equation|n=two panes|p=a paragraph|q=a `>` blockquote|t=a table|x:svg=an inline `<svg>`|x:table=an inline `<table>`|@level='{c}' reads its {s} from {w}, but this slide writes {g}, so no {s} is built.|@levelFix=Write it as {w} instead.|@missing='{c}' needs its {s}, written as {w}. This slide has none, so that part of the layout is empty.|@missingFix=Add {w}.|@source='{t}' is not a class on '{c}': the layout reads it from how the Markdown is written, so the class does nothing.|@sourceFix=Remove '{t}' from the `_class`. {c}.docs.md says what to write instead.|@requires='{c} {t}' acts only with '{n}', so on its own it does nothing.|@requiresFix=Add '{n}', or remove '{t}'.|@foreign='{t}' is a variant of '{n}', not of '{c}', so it does nothing here.|@foreignFix=Remove '{t}', or use one of the variants '{c}'.docs.md lists.";
+diff --git a/lib/base/base.finish.css b/lib/base/base.finish.css
+index b67cf30f0..a001ba611 100644
+--- a/lib/base/base.finish.css
++++ b/lib/base/base.finish.css
+@@ -532,15 +532,15 @@ section {
+  * source-shape assertions in `test/unit/palette/finish-canvas-contract.test.js` are
+  * structurally unable to see this class of failure: the CSS is valid whichever color
+  * it resolves to. */
+-section:is(.title, .closing):not(.print, .cover-light),
+-section.divider:not(.light):not(.print) {
+-  --fin-canvas: var(--surface-inverse);
++/* The bookends follow the color mode (base.modifiers.css, "THE BOOKENDS FOLLOW THE COLOR MODE"),
++ * so the finish composites against the field each one actually paints in each mode: a cover's
++ * canvas in light and the brand panel in dark; a divider's accent field, dimmed in dark. */
++section:is(.title, .closing):not(.print) {
++  --fin-canvas: light-dark(var(--bg), var(--surface-inverse));
++}
++section.divider:not(.print) {
++  --fin-canvas: light-dark(var(--accent), color-mix(in oklab, var(--accent) 40%, var(--bg)));
+ }
+-/* `cover-light` (the `cover: light` register, lib/core/resolve-cover.js) is the one bookend
+- * surface that is NOT the panel: it paints `var(--bg)` (base.modifiers.css, the light-cover
+- * block), so it is carved out of the rule above inside the `:not()` that already held `.print`
+- * (the selector keeps its (0,2,1)), and `--fin-canvas` falls back to the `section` default,
+- * `var(--bg)`, which is the surface it paints. No rule of its own is needed, so none is written. */
+ 
+ /* TOPIC IS A SEPARATE BLOCK, and the split is defensive rather than cosmetic.
+  * Selectors-4 invalidates a WHOLE selector list on one unparsable complex
+diff --git a/lib/base/base.modifiers.css b/lib/base/base.modifiers.css
+index 1ef63c2f2..41d7ba571 100644
+--- a/lib/base/base.modifiers.css
++++ b/lib/base/base.modifiers.css
+@@ -92,8 +92,8 @@ section.closing :is(h1, h2) + p:has(> code:only-child):not(:where([data-prose]))
+ /* divider.light is the bright-canvas variant (former subtopic) — the dark-canvas
+  * eyebrow color above would render near-invisible on it, so reset to the
+  * standard muted ink and center it. */
+-section.divider.light h1 + p:has(> code:only-child):not(:where([data-prose])),
+-section.divider.light h2 + p:has(> code:only-child):not(:where([data-prose])) { color: var(--text-secondary); text-align: var(--headline-align, center); }
++section.divider.subsection h1 + p:has(> code:only-child):not(:where([data-prose])),
++section.divider.subsection h2 + p:has(> code:only-child):not(:where([data-prose])) { text-align: var(--headline-align, center); }
+ /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
+  * section.dark flips color-scheme:dark — so it resolves to its dark-canvas value
+  * automatically. No extra rule needed. (The bookends above hardcode
+@@ -123,8 +123,8 @@ section.divider.light h2 + p:has(> code:only-child):not(:where([data-prose])) {
+  * component styling its own table. Written with `:is()` rather than a class
+  * chained onto `section`, which is the form checkUniversalTableGuard reads as a
+  * claim; see that gate's coverage boundary. */
+-section:is(.title, .divider:not(.light), .closing) > table thead th { color: var(--on-dark-secondary); }
+-section:is(.title, .divider:not(.light), .closing) > table td { color: var(--on-dark-primary); }
++section:is(.title, .divider, .closing) > table thead th { color: var(--on-dark-secondary); }
++section:is(.title, .divider, .closing) > table td { color: var(--on-dark-primary); }
+ 
+ 
+ /* ── EYEBROW (inline-code paragraph) ─────────────────────────────────────────
+@@ -201,11 +201,9 @@ section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > cod
+ section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+ section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+ section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+-section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+-section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
+-/* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
+-section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+-section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--text-secondary); }
++section.divider:not(.subsection) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
++section.divider:not(.subsection) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
++/* A subsection divider's eyebrow takes the field's ink from the tokens, like every divider's. */
+ /* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
+  * It used to name --on-dark-ghost, the documented "very muted decorative chrome"
+  * rung, for a real content label: measured 2.49:1 on indaco and 2.67–2.91:1 on
+@@ -1265,115 +1263,76 @@ section.color-inherited {
+ }
+ 
+ 
+-/* ── A DARK PANEL RE-ASSERTS ITS SCHEME, AFTER the canvas registers ──────────────────
+- * THE POSITION OF THIS BLOCK IS THE WHOLE POINT. It must stay below every rule above.
+- *
+- * The bookend components declare `color-scheme: dark` beside the `--surface-inverse` they
+- * paint, which is the honest place for it. But `section.title` and `section.color-light`
+- * are both (0,1,1), and the bundle emits this file AFTER the component sheets — so at
+- * equal specificity, source order hands the win to the register. Measured before this
+- * block: a deck with `color-mode: light`, `system`, or `inherited`, or a slide written
+- * `<!-- _class: title light -->`, rendered bold body text at 1.61:1 and a link at 1.20:1
+- * on the dark panel — bit-for-bit the defect 2026-08-17-dark-surface-ink.md was written
+- * to close. The first fix for that defect fell into the SAME equal-specificity trap it
+- * had just diagnosed one token over.
+- *
+- * Why the register must lose here, rather than the panel following it: `.light` and the
+- * `color-*` registers set a SCHEME and paint nothing (see base.finish.css — a
+- * `title light` deliberately keeps its inverse panel). The panel is therefore still dark
+- * no matter which register is on, so on-dark ink is not a preference, it is the only
+- * legible answer. `--surface-inverse` is a constant dark hex in all 32 shipped themes,
+- * verified — there is no theme where deferring to the register would be right.
+- *
+- * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
+- * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
+- * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
+- * the light scheme it declares beside that background. `cover-light` (the `cover: light`
+- * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+- * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
+- * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
+-section:is(.title, .closing):not(.print, .cover-light),
+-section.divider:not(.light):not(.print) {
+-  color-scheme: dark;
+-  /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
+-   * `section.title, section.divider, section.closing, section.dark`, a selector list that
+-   * named LAYOUT CLASSES while its own comment claimed to name DARK CANVASES. The two
+-   * agree only while those layouts are always dark, and they are not: `divider.light`
+-   * REPLACES the canvas with `--bg` (divider.styles.css), and `.print` remaps the whole
+-   * band to paper. On `<!-- _class: divider light -->` the mark therefore got the
+-   * light-gray on-dark treatment on a light ground and vanished — present in the DOM,
+-   * correctly positioned, invisible, and silent by construction: nothing errors and
+-   * nothing is missing, which is why it took a pixel gate disagreeing with an element
+-   * count to find it (#2149, #2142).
+-   * Declaring the flip HERE, in the rule that already decides which bookend canvases are
+-   * dark, means there is one predicate rather than two copies free to drift. */
+-  --deck-logo-filter: var(--deck-logo-filter-inverse);
+-  --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+-}
+-/* CHROME ON THE DARK PANEL takes the panel's muted ink, when the theme names one. The bands read the
+- * Marp chrome colors, which base.tokens.css maps to `--text-muted`, and on these panels that resolves
+- * to the theme's dark-scheme muted ink, tuned for its dark CANVAS. Every theme but one paints the panel
+- * near-black, so the two agree. Indaco paints it brand navy (#003D66, the lightest --surface-inverse in
+- * the repo), where its dark muted ink measured 3.5:1, under AA for 15 px text (found by
+- * tools/type-voice-audit.mjs, 2026-11-09). Lifting that ink everywhere was measured and rejected: the
+- * first passing value sits 1.01:1 from the theme's secondary ink, so muted and secondary would merge on
+- * every dark surface. So a theme may name `--on-inverse-muted`, read only here, and a theme that names
+- * nothing renders exactly as before (the fallback is the mapping base.tokens.css already makes). The
+- * print block above remaps the same three tokens the same way; `.print` is excluded here as there.
+- * Gated by test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes.
+- *
+- * SPECIFICITY (0,1,1), ON PURPOSE: the panel predicate sits in `:where()`, so the rule weighs exactly
+- * what an author's `section.my-class { --marp-slide-footer-color: … }` weighs, and the author's style,
+- * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
+- * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
+- * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
+-section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {
+-  --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
+-  --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
+-  --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
+-}
+-
+-/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+- * The front and back cover on the deck's own light canvas instead of the inverse panel. The
+- * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+- * the `light` mood token.
+- *
+- * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
+- * named through a token rather than a color: the heading reads `--text-display` (a constant
+- * light ink in every theme), and the subtitle, eyebrow, closing list, inline-code chip and the
+- * eyebrow rebinds above all read the `--on-dark-*` tier. Repointing those tokens on the section
+- * reaches every one of them at once, the way `section.print` remaps the same tokens to the print
+- * band, so no element rule is copied and none can be missed. Each points at the light-canvas
+- * ink a content slide uses for the same role: display → heading, primary → heading, secondary →
+- * secondary, ghost → muted.
+- *
+- * `background: var(--bg)` with `color-scheme: light`, the pair `section.divider.light` paints, so
+- * the light cover and the bright divider are the same surface. THE SAME IN BOTH COLOR MODES: in a
+- * dark deck a light cover is still the light canvas, because the scheme travels with the surface
+- * (2026-08-17-dark-surface-ink.md) and `--bg` is a `light-dark()` pair that resolves to its light
+- * side under `color-scheme: light`. A dark deck that wants dark covers leaves the key out.
+- *
+- * The CHROME and the LOGO go back to the light canvas's own: the two blocks above carve
+- * `cover-light` out of their panel predicate, so the bands keep the `--text-muted` mapping from
+- * base.tokens.css, and the logo filter is reset here because a `-dark` theme or a `.dark` deck
+- * sets the inverse mark on every section at (0,1,1). `--fin-canvas` is repointed in
+- * base.finish.css, beside the rule that points it at the panel.
+- *
+- * `:not(.print)`: a printed cover is paper already, and print's own remap of these tokens must
+- * keep winning, so a `cover-light` slide under print renders exactly as a printed title does.
+- *
+- * (0,3,1) beats the component sheets' `section.title` / `section.closing` (0,1,1) canvas, the
+- * `.dark` / `.color-*` scheme registers (0,1,1), and the inverse-logo rules (0,1,1). No font
+- * size, no margin, no hex: HARD RULES #4, #20 and #3. */
+-section:is(.title, .closing).cover-light:not(.print) {
+-  background: var(--bg);
+-  color-scheme: light;
+-  --text-display: var(--text-heading);
+-  --on-dark-primary: var(--text-heading);
+-  --on-dark-secondary: var(--text-secondary);
+-  --on-dark-ghost: var(--text-muted);
+-  --deck-logo-filter: initial;
+-  --deck-logo-opacity: initial;
++/* ── THE BOOKENDS FOLLOW THE COLOR MODE (covers: title, closing; and divider) ─────────────
++ * engineering/decisions/2026-11-23-cover-layout.md (D4a, D4b, D12). The bookends used to FORCE
++ * `color-scheme: dark`, so a light deck opened on a dark panel, and `cover: light` / `divider light`
++ * were a second way to set a slide's mode. Now they take the slide's own scheme, like every slide:
++ * the deck's `color-mode:`, the slide's `light` / `dark`, the player's toggle.
++ *
++ * THE INKS ARE TOKENS, SO THE REMAP IS ONE PLACE. Every bookend ink is named through a token rather
++ * than a color: `--text-display` for the heading, the `--on-dark-*` tier for subtitle, eyebrow, list,
++ * chip and eyebrow rebinds. Those tokens were written for a panel that was always dark. Each gets a
++ * `light-dark()` pair here: the dark arm is the theme's own value (so a dark bookend is byte-identical
++ * to the panel it always was), and the light arm is the light-canvas ink a content slide uses for
++ * the same role (the pairs the light cover used: display → heading, primary → heading, secondary →
++ * secondary, ghost → muted).
++ *
++ * WHY A CAPTURE, THEN THE CHILDREN. A custom property cannot name itself, and themes declare these
++ * tokens at :root, so the section first CAPTURES each theme value under a private name, and its
++ * children (which is where every consumer sits) redefine the public token from the capture.
++ * `light-dark()` resolves where the value is used, under the inherited scheme.
++ *
++ * `.print` keeps winning: it remaps these tokens to paper itself. No font size, margin or hex:
++ * HARD RULES #3, #4, #20. */
++section:is(.title, .closing, .divider):not(.print) {
++  --_bk-display: var(--text-display);
++  --_bk-on-primary: var(--on-dark-primary);
++  --_bk-on-secondary: var(--on-dark-secondary);
++  --_bk-on-ghost: var(--on-dark-ghost);
++  --_bk-on-muted: var(--on-inverse-muted, var(--text-muted));
++}
++section:is(.title, .closing):not(.print) > * {
++  --text-display: light-dark(var(--text-heading), var(--_bk-display));
++  --on-dark-primary: light-dark(var(--text-heading), var(--_bk-on-primary));
++  --on-dark-secondary: light-dark(var(--text-secondary), var(--_bk-on-secondary));
++  --on-dark-ghost: light-dark(var(--text-muted), var(--_bk-on-ghost));
++}
++/* A COVER IN DARK PAINTS THE BRAND PANEL (D4b), in light the canvas. (0,2,1) beats the component
++ * sheets' `section.title` / `section.closing` (0,1,1) canvas. */
++section:is(.title, .closing):not(.print) {
++  background-color: light-dark(var(--bg), var(--surface-inverse));
++}
++/* A DIVIDER IS A FIELD OF THE THEME'S ACCENT (D12, "D-dim"): the accent in light, inked with the
++ * theme's curated `--on-accent`; in dark, the accent dimmed halfway into the canvas, inked with the
++ * panel's light ink, so a dimmed room gets a chapter break and no flash. Measured on all 33 themes
++ * before the build: light ink 5.5–21:1, the jump from the content canvas 5.2–21:1; the dark arm's
++ * contrast is gated in tools/contrast-audit.js. Every ink tier rides the field's PRIMARY ink in both arms:
++ * on the light accent, `--on-accent`'s 70% derivative is sub-AA on half the palettes (base.tokens.css,
++ * the accent rail); on the dimmed field the panel's 76% secondary measured 3.6–4.3:1 (ardesia,
++ * carbone, concrete), and a theme's `--on-inverse-muted` (indaco's, tuned for its navy) 2.6:1. */
++section.divider:not(.print) {
++  background-color: light-dark(var(--accent), color-mix(in oklab, var(--accent) 40%, var(--bg)));
++}
++section.divider:not(.print) > * {
++  --text-display: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --on-dark-primary: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --on-dark-secondary: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --on-dark-ghost: light-dark(var(--on-accent-ghost), var(--_bk-on-ghost));
++}
++/* THE CHROME follows the same pairs: the band's muted ink in light, the panel's in dark (a theme
++ * may name `--on-inverse-muted` for its panel; indaco does, for its navy). On the divider's light
++ * accent field the band takes `--on-accent`. `:where()` keeps (0,1,1), so an author's
++ * `section.my-class { --marp-slide-footer-color: … }`, which loads later, still wins. Gated by
++ * test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes. */
++section:where(.title, .closing):not(.print) {
++  --marp-slide-header-color: light-dark(var(--text-muted), var(--_bk-on-muted));
++  --marp-slide-footer-color: light-dark(var(--text-muted), var(--_bk-on-muted));
++  --marp-slide-pagination-color: light-dark(var(--text-muted), var(--_bk-on-muted));
++}
++section:where(.divider):not(.print) {
++  --marp-slide-header-color: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --marp-slide-footer-color: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --marp-slide-pagination-color: light-dark(var(--on-accent), var(--_bk-on-primary));
+ }
+ 
+ 
+@@ -1457,10 +1416,6 @@ section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
+ section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) code {
+   --code-inline-fg: var(--cat-on-fill);
+ }
+-/* divider.light is the bright-canvas variant — keep the brand-accent ink. */
+-section.divider.light code {
+-  --code-inline-fg: var(--accent);
+-}
+ 
+ 
+ /* ── FONT SCALE ──
+@@ -2421,12 +2376,6 @@ section.divider.numbered :is(h1, h2)::after {
+   z-index: var(--z-content);
+ }
+ 
+-/* `divider.light` is the bright-canvas variant, so both rungs reset to their light-canvas
+- * equivalents — the same tokens the eyebrow and the engine's hairlines already take. */
+-section.divider.light.numbered :is(h1, h2)::after {
+-  color: var(--text-secondary);
+-  border-bottom-color: var(--border);
+-}
+ 
+ section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(data-lat-section); }
+ 
+diff --git a/lib/base/base.variants.css b/lib/base/base.variants.css
+index 0c6622735..a81284505 100644
+--- a/lib/base/base.variants.css
++++ b/lib/base/base.variants.css
+@@ -351,7 +351,7 @@ section.dark.no-spectrum {
+   background-repeat: repeat;
+   --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
+ }
+-section.divider:not(.light).no-spectrum {
++section.divider:not(.subsection).no-spectrum {
+   background-image: none;
+   background-position: 0% 0%;
+   background-size: auto;
+@@ -470,7 +470,7 @@ section.dark:is(.spectrum-left, .spectrum-right, .spectrum-bottom, .no-spectrum)
+   --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
+ }
+ /* the divider's default is a left rail; edge:off clears it deck-wide. */
+-section.divider:not(.light).no-spectrum {
++section.divider:not(.subsection).no-spectrum {
+   background-image: none;
+   background-position: 0% 0%;
+   background-size: auto;
+@@ -554,27 +554,9 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
+   line-height: 1;
+ }
+ 
+-/* HISTORICAL, and now redundant — kept because it is harmless and states the same intent
+-   the section does. These bookends USED to paint --surface-inverse while keeping
+-   color-scheme:light, which left the marker's light-dark() --stamp-color resolving to its
+-   faint LIGHT value on the dark field; flipping the marker PSEUDO's own scheme was the
+-   targeted fix. The sections now declare `color-scheme: dark` themselves
+-   (2026-08-17-dark-surface-ink.md), so the pseudo inherits dark and this rule changes
+-   nothing. Removing it is safe but unverified, so it stays until someone measures it.
+-   divider.light is bright, so it is excluded. */
+-section:is(.title, .closing)::before,
+-section.divider:not(.light)::before {
+-  color-scheme: dark;
+-}
+-/* The light cover (`cover: light`, lib/core/resolve-cover.js) paints the light canvas, so its pseudo
+-   takes the light scheme, as divider.light's does by its exclusion above. Without it the spectrum bar
+-   and a state stamp on a light cover drew their dark-canvas arms on white (found by the checker:
+-   `title spectrum cover-light`, indaco, about 4.6:1 where the light arms give 7.1 to 10:1). Added as
+-   its own rule rather than a `:not()` on the one above, so that rule keeps its specificity.
+-   `:not(.print)`, as on the cover block itself: a printed cover keeps print's treatment. */
+-section:is(.title, .closing).cover-light:not(.print)::before {
+-  color-scheme: light;
+-}
++/* A bookend's pseudo (the spectrum bar, a state stamp) takes the slide's own scheme: the bookends
++   follow the color mode now (base.modifiers.css), so the pseudo inherits the right one and no rule
++   forces it. The old pair forced `dark` here and carved the light cover back to `light`. */
+ 
+ /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
+ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
+diff --git a/lib/components/anchor/closing/closing.styles.css b/lib/components/anchor/closing/closing.styles.css
+index bf46cd592..22169556a 100644
+--- a/lib/components/anchor/closing/closing.styles.css
++++ b/lib/components/anchor/closing/closing.styles.css
+@@ -14,7 +14,7 @@
+ /* `color-scheme: dark` rides with `--surface-inverse` — see the note on `section.title`.
+  * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
+  * `--accent` on the dark field), and every unnamed inherited ink was equally exposed. */
+-section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
++section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+ section.closing { border-top: none; --_edge-t: 1; --_bar-t: 0px; --_bar-room-t: 0px; /* owns its top edge: no bar room to hold */ }
+ section.closing hr { margin:0; }
+ /* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
+diff --git a/lib/components/anchor/divider/divider.docs.md b/lib/components/anchor/divider/divider.docs.md
+index 54886a876..df3a9e409 100644
+--- a/lib/components/anchor/divider/divider.docs.md
++++ b/lib/components/anchor/divider/divider.docs.md
+@@ -21,28 +21,28 @@ Marks the start of a major section. Use sparingly — every divider is a context
+ 
+ ### Variant decision rule
+ 
+-- **default (no modifier).** A standard mid-deck section start — dark canvas, one heading, no extra chrome.
+-- **`numbered`.** The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider light` share one series, so mixing them does not restart it.
+-- **`light`.** A narrower re-focus within a section rather than a full section start — sits between a dark divider and a run of content slides. Reserve the dark default for genuine section starts.
++- **default (no modifier).** A standard mid-deck section start — the accent field, one heading, no extra chrome.
++- **`numbered`.** The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider subsection` share one series, so mixing them does not restart it.
++- **`subsection`.** A narrower re-focus within a section rather than a full section start — sits between a divider and a run of content slides. Reserve the default for genuine section starts.
+ - **`qr`.** The divider itself should carry a scannable link — a resource specific to the section it's opening.
+ 
+ ### Common mistakes
+ 
+ - **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
+ - **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended eyebrow kicker.
+-- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
++- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `subsection` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
+ 
+ ## When to use
+ 
+ - **Major section starts.** Marks the boundary between two themed sections of the deck. The dark canvas is a strong context-switch signal — use it when the audience needs to re-orient.
+ - **Sparingly.** A 30-slide deck typically has 3-5 dividers. More becomes navigation noise; the signal weakens if every third slide is a divider.
+ - **With an eyebrow.** An inline-code paragraph above the heading stamps a section number or category label. Useful for serialized decks where the audience needs to remember which section they're in.
+-- **Light variant for sub-section orientation.** The `light` variant keeps the bright body-slide canvas and centers the heading at h2 weight — a lighter context switch for narrowing focus within a section, between a dark divider and the content slides. (Absorbed the standalone `subtopic` component on 2026-06-07.)
++- **Light variant for sub-section orientation.** The `subsection` variant centers the heading at h2 weight with no rail — a lighter context switch for narrowing focus within a section, between a divider and the content slides. It takes every divider's field, so it follows the color mode. (Absorbed the standalone `subtopic` component on 2026-06-07; named `divider light` until 2026-11-23.)
+ 
+ ## When NOT to use
+ 
+ - **More than five per deck.** Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
+-- **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
++- **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `subsection` variant. Keep the default divider for real section starts.
+ - **Header or footer overrides.** Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
+ 
+ ## Authoring
+@@ -84,16 +84,16 @@ Masthead — the running section number over a hairline, top-left.
+ ## The stamp counts this divider for you.
+ ```
+ 
+-### `light` — light
++### `subsection` — subsection
+ 
+-Bright canvas, sentence-length waypoint.
++A finer, sentence-length break: centered, a tier smaller, no rail.
+ 
+ ```markdown
+-<!-- _class: divider light -->
++<!-- _class: divider subsection -->
+ 
+-`divider light`
++`divider subsection`
+ 
+-## The light divider trades the dark canvas for a bright, full-sentence waypoint.
++## A subsection divider marks a finer turn with a full-sentence waypoint.
+ ```
+ 
+ ### `qr` — qr
+diff --git a/lib/components/anchor/divider/divider.gallery.md b/lib/components/anchor/divider/divider.gallery.md
+index f890723f5..a5bc31143 100644
+--- a/lib/components/anchor/divider/divider.gallery.md
++++ b/lib/components/anchor/divider/divider.gallery.md
+@@ -35,12 +35,12 @@ Section boundary slide. Dark canvas with a single heading.
+ 
+ ---
+ 
+-<!-- _class: divider light -->
+-<!-- _footer: "light · divider light — Bright canvas, sentence-length waypoint." -->
++<!-- _class: divider subsection -->
++<!-- _footer: "subsection · divider subsection — A finer, sentence-length break: centered, a tier smaller, no rail." -->
+ 
+-`divider light`
++`divider subsection`
+ 
+-## The light divider trades the dark canvas for a bright, full-sentence waypoint.
++## A subsection divider marks a finer turn with a full-sentence waypoint.
+ 
+ 
+ ---
+@@ -66,7 +66,7 @@ Section boundary slide. Dark canvas with a single heading.
+ - More than five per deck
+   - Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
+ - Section title that doesn't earn a section
+-  - If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
++  - If the next few slides aren't one unit, use the `subsection` variant. Keep the default divider for real section starts.
+ - Header or footer overrides
+   - Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
+ 
+diff --git a/lib/components/anchor/divider/divider.manifest.json b/lib/components/anchor/divider/divider.manifest.json
+index 65683d197..88e4b159e 100644
+--- a/lib/components/anchor/divider/divider.manifest.json
++++ b/lib/components/anchor/divider/divider.manifest.json
+@@ -10,8 +10,14 @@
+   },
+   "function": "anchor",
+   "form": "divider",
+-  "chrome": { "pagination": false },
+-  "coda": { "claims": ["trailing-paragraph"] },
++  "chrome": {
++    "pagination": false
++  },
++  "coda": {
++    "claims": [
++      "trailing-paragraph"
++    ]
++  },
+   "substance": "prose",
+   "tags": [
+     "section-break",
+@@ -22,19 +28,27 @@
+   "purpose": "Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise. It keeps the deck's running header and its footer, the standing note (a \"Confidential\", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md).",
+   "variants": [
+     "numbered",
+-    "light",
++    "subsection",
+     "qr"
+   ],
+   "slots": {
+     "heading": {
+       "selector": "h2",
+-      "match": { "kind": "heading", "level": [1, 2] },
++      "match": {
++        "kind": "heading",
++        "level": [
++          1,
++          2
++        ]
++      },
+       "required": true,
+       "description": "Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`."
+     },
+     "eyebrow": {
+       "selector": "p > code",
+-      "match": { "kind": "code-line" },
++      "match": {
++        "kind": "code-line"
++      },
+       "required": false,
+       "description": "Optional section number or category label above the heading."
+     }
+@@ -57,7 +71,7 @@
+     },
+     {
+       "title": "Light variant for sub-section orientation",
+-      "body": "The `light` variant keeps the bright body-slide canvas and centers the heading at h2 weight — a lighter context switch for narrowing focus within a section, between a dark divider and the content slides. (Absorbed the standalone `subtopic` component on 2026-06-07.)"
++      "body": "The `subsection` variant centers the heading at h2 weight with no rail — a lighter context switch for narrowing focus within a section, between a divider and the content slides. It takes every divider's field, so it follows the color mode. (Absorbed the standalone `subtopic` component on 2026-06-07; named `divider light` until 2026-11-23.)"
+     }
+   ],
+   "antiPatterns": [
+@@ -67,7 +81,7 @@
+     },
+     {
+       "title": "Section title that doesn't earn a section",
+-      "body": "If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts."
++      "body": "If the next few slides aren't one unit, use the `subsection` variant. Keep the default divider for real section starts."
+     },
+     {
+       "title": "Header or footer overrides",
+@@ -95,21 +109,21 @@
+     },
+     {
+       "mistake": "Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.",
+-      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3."
++      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `subsection` and `qr` need the band too: measured without it they collide at -15.2 and -85.3."
+     }
+   ],
+   "variantDecisionRule": [
+     {
+       "variant": "default",
+-      "useWhen": "A standard mid-deck section start — dark canvas, one heading, no extra chrome."
++      "useWhen": "A standard mid-deck section start — the accent field, one heading, no extra chrome."
+     },
+     {
+       "variant": "numbered",
+-      "useWhen": "The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider light` share one series, so mixing them does not restart it."
++      "useWhen": "The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider subsection` share one series, so mixing them does not restart it."
+     },
+     {
+-      "variant": "light",
+-      "useWhen": "A narrower re-focus within a section rather than a full section start — sits between a dark divider and a run of content slides. Reserve the dark default for genuine section starts."
++      "variant": "subsection",
++      "useWhen": "A narrower re-focus within a section rather than a full section start — sits between a divider and a run of content slides. Reserve the default for genuine section starts."
+     },
+     {
+       "variant": "qr",
+@@ -122,10 +136,10 @@
+       "summary": "Masthead — the running section number over a hairline, top-left.",
+       "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
+     },
+-    "light": {
+-      "label": "light",
+-      "summary": "Bright canvas, sentence-length waypoint.",
+-      "sample": "<!-- _class: divider light -->\n\n`divider light`\n\n## The light divider trades the dark canvas for a bright, full-sentence waypoint.\n"
++    "subsection": {
++      "label": "subsection",
++      "summary": "A finer, sentence-length break: centered, a tier smaller, no rail.",
++      "sample": "<!-- _class: divider subsection -->\n\n`divider subsection`\n\n## A subsection divider marks a finer turn with a full-sentence waypoint.\n"
+     },
+     "qr": {
+       "label": "qr",
+diff --git a/lib/components/anchor/divider/divider.styles.css b/lib/components/anchor/divider/divider.styles.css
+index fa5f240bf..0ea7f2fda 100644
+--- a/lib/components/anchor/divider/divider.styles.css
++++ b/lib/components/anchor/divider/divider.styles.css
+@@ -31,10 +31,10 @@
+  * them either way -- they name no `var()`. */
+ section.divider {
+   background-color: var(--surface-inverse);
+-  /* Rides with the surface — see the note on `section.title`. Measured here before it: the
+-   * divider's own lede ran 1.02:1, near-black body ink on the dark canvas. `.light` REPLACES
+-   * this canvas below, so it puts the scheme back with it. */
+-  color-scheme: dark;
++  /* The scheme is the slide's own (the deck's color mode, the slide's `light` / `dark`), and the
++   * field follows it: base.modifiers.css "THE BOOKENDS FOLLOW THE COLOR MODE" repaints this
++   * background-color as the accent field and remaps the inks. This line is the fallback a
++   * renderer without `light-dark()` keeps. */
+   background-image: var(--spectrum-bar-vertical);
+   background-position: left;
+   background-size: calc(var(--_sec-1cqi,1cqi)*0.46875) 100%;
+@@ -67,23 +67,24 @@ section.divider { border-top: none; --_edge-t: 1; --_bar-t: 0px; --_bar-room-t:
+ section.divider h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
+ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
+ 
+-/* light variant — former `subtopic` component (anchor.divider.light)
++/* subsection variant — former `subtopic` component (was `divider light` until 2026-11-23, when
++ * `light` became the ordinary mode class on every divider: engineering/decisions/2026-11-23-cover-layout.md)
+  *
+- * A bright-canvas sub-section break: drops the dark reskin and the
+- * left-edge spectrum rail, re-centers, and shrinks the heading to h2.
++ * A finer sub-section break: drops the left-edge spectrum rail, re-centers, and shrinks the
++ * heading to h2. Its field and ink are every divider's, so it follows the color mode.
+  * Sits between a dark divider and a run of content slides for finer
+  * orientation. Merged from the standalone subtopic on 2026-06-07. */
+ /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
+  * byte-identical while head-left/right still re-anchor it. */
+-section.divider.light { --_edge-l: 1; background:var(--bg); color-scheme: light; padding-left:var(--_wide-gutter, 0px); justify-content:center; align-items:var(--headline-justify, center); }
++section.divider.subsection { --_edge-l: 1; background-image:none; padding-left:var(--_wide-gutter, 0px); justify-content:center; align-items:var(--headline-justify, center); }
+ /* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
+  * so the frame is already a sane measure for it and a cap only ever costs a
+  * line. It still takes `balance`, which spends no width: measured across the
+  * corpus this heading never binds, but it does wrap, and an even split is the
+  * difference between a sub-section break and a ragged one. */
+-section.divider.light h1 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
+-section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
+-section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
++section.divider.subsection h1 { font-size:var(--fs-h2); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
++section.divider.subsection h2 { font-size:var(--fs-h2); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
++section.divider.subsection p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
+ /* Every eyebrow shape is out of the subtitle's measure, matching what closing
+  * already does for its own. `section.divider.light p` above is written for the
+  * SUBTITLE but matches every paragraph on the slide, so it also caught the
+@@ -107,7 +108,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-
+  * eyebrow with the subtitle rule's `balance`. `wrap` resets both halves
+  * (mode:wrap, style:auto). Caught by review; the first cut shipped the dead
+  * `normal`. */
+-section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-width:none; text-wrap:wrap; }
++section.divider.subsection p:has(> code:only-child):not(:where([data-prose])) { max-width:none; text-wrap:wrap; }
+ 
+ /* ── THE SECTION MARKER — the divider's own legend for the deck's section rail ─────────────────
+  * progress.transform.js writes `.divider-marker` as the FIRST child of a divider, when the deck draws
+diff --git a/lib/components/anchor/title/title.styles.css b/lib/components/anchor/title/title.styles.css
+index 3c9f7faa4..33751eabc 100644
+--- a/lib/components/anchor/title/title.styles.css
++++ b/lib/components/anchor/title/title.styles.css
+@@ -24,7 +24,7 @@
+  * beside the surface makes the whole class resolve correctly by default and turns those
+  * rebinds into belt-and-braces rather than the only thing holding.
+  * See engineering/decisions/2026-08-17-dark-surface-ink.md. */
+-section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); color-scheme: dark; }
++section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
+ section.title { border-top: none; --_edge-t: 1; --_bar-t: 0px; --_bar-room-t: 0px; /* owns its top edge: no bar room to hold */ }
+ /* A measure on the deck title: uncapped, a long title runs the full frame width
+  * as one thin line that reads as a banner rather than a title block. Capped, it
+diff --git a/lib/core/deck-settings.js b/lib/core/deck-settings.js
+index 07ae4b5e3..dbbb3294e 100644
+--- a/lib/core/deck-settings.js
++++ b/lib/core/deck-settings.js
+@@ -97,7 +97,8 @@ const DECK_SETTINGS = Object.freeze([
+   { key: 'backdrop', kind: 'axis', rule: 'unknown-backdrop', spec: '2.3', vocab: 'backdropNames', group: 'look', default: 'the finish\'s own' },
+   { key: 'tag', kind: 'axis', rule: 'unknown-tag', spec: '2.3', vocab: 'tagNames', group: 'look', default: 'the component\'s own' },
+   { key: 'image-card', kind: 'axis', rule: 'unknown-image-card', spec: '2.3', vocab: 'imageCardNames', group: 'look', default: 'bottom-left solid md regular' },
+-  { key: 'cover', kind: 'axis', rule: 'unknown-cover', spec: '2.3', vocab: 'coverNames', group: 'look', default: 'inverse plain' },
++  { key: 'cover-layout', kind: 'axis', rule: 'unknown-cover', spec: '2.3', vocab: 'coverNames', group: 'look', default: 'plain' },
++  { key: 'cover', kind: 'retired', offer: false, rule: 'retired-cover-key', group: 'look', default: 'none' },
+   { key: 'agenda', kind: 'axis', rule: 'unknown-agenda', spec: '2.3', vocab: 'agendaNames', group: 'look', default: 'ledger pages' },
+   { key: 'lift', kind: 'register', rule: 'unknown-lift', spec: '2.3', vocab: 'liftNames', group: 'look', default: 'off' },
+   { key: 'marks', kind: 'axis', rule: 'unknown-marks', spec: '2.3', vocab: 'marksNames', group: 'look', default: 'pigment muted' },
+diff --git a/lib/core/deck-settings.prose.js b/lib/core/deck-settings.prose.js
+index d87158a1e..1e9f58361 100644
+--- a/lib/core/deck-settings.prose.js
++++ b/lib/core/deck-settings.prose.js
+@@ -36,7 +36,7 @@ const DECK_SETTING_PROSE = Object.freeze({
+   tag: { info: 'Style every card tag — up to one word per axis: color (color / plain / none), size (small / regular / large), placement (corner / foot / notch / band / inline), text (start / center / end). e.g. `tag: plain band center`.', studio: 'Look → Card tags (Tag color · size · placement · text)', slide: '_class: tag-<value>', valuesText: 'up to one word per axis: color (color · plain · none), size (small · regular · large), placement (corner · foot · notch · band · inline), text (start · center · end), e.g. plain band center' },
+   'progress-rail': { info: 'The section rail — where it sits and how it looks. e.g. `progress-rail: edge bar`.', studio: 'Chrome → Section rail', slide: '_class: progress-rail-<value>', valuesText: 'placement (right · center · edge), style (dots · bar), show (on · off)' },
+   'logo-finish': { info: 'Style the logo on one line, up to one word per axis: placement (top-left / top-center / top-right / bottom-left / bottom-center / bottom-right — the header, footer or page number in that band hides), color (auto / accent / ink / muted / canvas / inverse / brand / accent-ink / accent-canvas / ink-canvas), plate (no-plate / plate: a soft plate behind the mark, off unless asked for), size (sm / md / lg), scope (all / title). e.g. `logo-finish: bottom-center accent-ink`. `_class: no-logo` hides it on one slide.', studio: 'Chrome → Logo' },
+-  cover: { info: 'The front and back cover (the title and closing slides), up to one word per axis. Surface: inverse (default: the dark panel) / light (the deck\'s own light canvas, in both color modes). Composition: plain (default: the centered block) / masthead / ledger / column / label / stage / frame / poster. Dividers and topic slides keep their own surfaces. e.g. `cover: light column`.', slide: '_class: cover-light · cover-inverse · cover-<composition> · cover-plain', scope: 'title and closing slides only', valuesText: 'inverse · light · plain · masthead · ledger · column · label · stage · frame · poster' },
++  'cover-layout': { info: 'How the front and back cover (the title and closing slides) are composed, one word: plain (default: the centered block) / masthead / ledger / column / label / stage / frame / poster. Covers follow the color mode like every slide: the canvas in light, the theme\'s brand panel in dark; one dark cover in a light deck is `_class: title dark`. e.g. `cover-layout: column`.', studio: 'Look → Cover layout', slide: '_class: title cover-<value>', valuesText: 'plain · masthead · ledger · column · label · stage · frame · poster' },
+   'image-card': { info: 'Style the text card on every image slide that floats its words over the photo (spotlight, statement) — up to one word per axis: placement (top-left / top / top-right / center / bottom-left / bottom / bottom-right), backing (solid / soft / sheer / clear, or a level such as 65%), ink (light / dark), size (sm / md / lg), density (regular / compact), shape (float / band). e.g. `image-card: top-right soft sm`, or `image-card: bottom band` for a full-width strip along the bottom edge.', studio: 'Image (Placement · Backing · Ink · Size · Density · Shape)', slide: '_class: image-card-<placement> · image-card-<backing> · image-card-<level> · image-card-<ink> · image-card-<size> · image-card-<density> · image-card-<shape>', scope: 'image slides only', valuesText: 'up to one word per axis: placement (top-left · top · top-right · center · bottom-left · bottom · bottom-right), backing (solid · soft · sheer · clear · 5%…95%), ink (light · dark), size (sm · md · lg), density (regular · compact), shape (float · band), e.g. top-right soft sm' },
+   agenda: { info: 'How the deck\'s agendas look, and whether an agenda the engine fills from the dividers shows page numbers — up to one word per axis: style (ledger / circles / checks), pages (pages / no-pages). e.g. `agenda: circles no-pages`. An agenda you write yourself keeps its own list and page numbers.', studio: 'Look → Agenda', slide: '_class: agenda circles · agenda checks · agenda agenda-ledger · agenda-no-pages', scope: 'agenda slides only', valuesText: 'up to one word per axis: style (ledger · circles · checks), pages (pages · no-pages), e.g. checks no-pages' },
+   lift: { info: 'Card lift — the "Struck" shadow on card surfaces. on / off.', studio: 'Look → Card lift', slide: '_class: lifted · flat' },
+diff --git a/lib/core/resolve-cover.js b/lib/core/resolve-cover.js
+index 0e86ec3cf..89b5e7aec 100644
+--- a/lib/core/resolve-cover.js
++++ b/lib/core/resolve-cover.js
+@@ -1,88 +1,73 @@
+ /**
+  * lib/core/resolve-cover.js
+  *
+- * The deck front-matter `cover:` register sets the deck's front and back cover: the `title`
+- * slide and the `closing` slide. Two axes, one word each, in any order (`cover: light column`):
++ * The deck front-matter `cover-layout:` register sets how the deck's front and back cover (the
++ * `title` slide and the `closing` slide) are composed. One axis, one word:
+  *
+- *   SURFACE — what the cover is painted on
+- *   cover: inverse   → (no token)    the dark inverse panel, today's look and the default
+- *   cover: light     → `cover-light` the deck's light canvas, with light-canvas inks
++ *   cover-layout: plain     → (no token)        a centered block, the default
++ *   cover-layout: masthead  → `cover-masthead`  a heavy rule over the title
++ *   cover-layout: ledger    → `cover-ledger`    a small-caps title over a double rule
++ *   cover-layout: column    → `cover-column`    an accent column at the right edge, clear of the bands
++ *   cover-layout: label     → `cover-label`     a gallery wall label: a smaller title low on the left, under a hairline
++ *   cover-layout: stage     → `cover-stage`     a stage-size centered title
++ *   cover-layout: frame     → `cover-frame`     the title boxed in a keyline
++ *   cover-layout: poster    → `cover-poster`    a giant title on the left
+  *
+- *   COMPOSITION — how the heading block sits on that surface (plan step N1)
+- *   cover: plain     → (no token)        today's centered block, the default
+- *   cover: masthead  → `cover-masthead`  a heavy rule over the title
+- *   cover: ledger    → `cover-ledger`    a small-caps title over a double rule
+- *   cover: column    → `cover-column`    an accent column at the right edge, clear of the bands
+- *   cover: label     → `cover-label`     a gallery wall label: a smaller title low on the left, under a hairline
+- *   cover: stage     → `cover-stage`     a stage-size centered title
+- *   cover: frame     → `cover-frame`     the title boxed in a keyline
+- *   cover: poster    → `cover-poster`    a giant title on the left
++ * COMPOSITION ONLY, SINCE 2026-11-23. The key was `cover:` and carried a second axis, the SURFACE
++ * (`inverse` for the dark panel, `light` for the canvas). That was a second way to set a slide's
++ * color mode, and it lost to the slide's own: `cover: light` plus `title dark` stayed light. Covers
++ * now follow the deck's `color-mode:` and the slide's `light` / `dark` like every slide, painting the
++ * canvas in light and the theme's brand panel in dark (base.modifiers.css, "THE BOOKENDS FOLLOW THE
++ * COLOR MODE"). So the surface axis is gone, and the key says what is left: the layout
++ * (plain-English rule 1, the thing then the attribute). `cover:`, `cover-light` and `cover-inverse`
++ * are lint errors with a --fix (lib/authoring/lint-core.js `retired-cover-key`).
++ * engineering/decisions/2026-11-23-cover-layout.md.
++ *
++ * The per-slide class names stay `cover-<word>`: they are component variants of `title` and
++ * `closing`, and value words wait for the later sweep (2026-11-21-plain-english-key-renames.md Q8).
+  *
+  * WHY THE COMPOSITIONS ARE COMPONENT VARIANTS. Three of them (`stage` and `poster` up, `label`
+- * down) put the heading in a different type role, and a cross-component modifier may
+- * never change a type role's size (engineering/typography.md, "One size across modifiers";
++ * down) put the heading in a different type role, and a cross-component modifier may never change
++ * a type role's size (engineering/typography.md, "One size across modifiers";
+  * `checkTypeSizeModifiers`). A component's own variant may, so each `cover-*` composition is
+- * declared in the `title` and `closing` manifests and styled in their own sheets. The register
+- * is only the deck-wide way to write them.
+- *
+- * WHY A REGISTER OF ITS OWN, and not the `light` mood token. `title light` already has a
+- * decided, test-pinned meaning: `light` sets a scheme and paints nothing, so a bookend keeps its
+- * inverse panel (base.finish.css, the `light is NOT an exclusion` note;
+- * test/integration/invariants/finish-canvas-matrix.test.js; the HTML player's
+- * `BOOKEND_FORCES_DARK`). Repainting under that word would move every deck that already writes
+- * it. `cover-light` is a fresh token nothing else reads, so the old meaning stays put.
++ * declared in the `title` and `closing` manifests and styled in their own sheets. The register is
++ * only the deck-wide way to write them.
+  *
+- * WHY NOT `bookends:`. That word is the narration feature's (lib/core/resolve-bookends.mjs), and
+- * `divider light` is a different layout with its own bright variant. So `cover:` reaches title and
+- * closing only; dividers and `topic` keep their own surfaces.
++ * SCOPED to the two cover layouts, the way `image-card:` is scoped to `image`: the deck's word rides
++ * only a slide whose own class list names `title` or `closing`, and `coverDeckTokens` is the one
++ * place that decides it, for both render paths (HARD RULE #1).
+  *
+- * SCOPED to the two cover layouts, the way `image-card:` is scoped to `image`
+- * (lib/core/resolve-image-card.js): the deck's word rides only a slide whose own class list
+- * names `title` or `closing`, and `coverDeckTokens` is the one place that decides it, for both
+- * render paths (HARD RULE #1). On any other slide the class would paint nothing, because the CSS
+- * keys on `:is(.title, .closing)` too, so this keeps the class lists honest rather than guarding a
+- * render.
++ * `plain` stamps `cover-plain` only on a SLIDE: it is how one cover opts out of a deck-wide
++ * composition (`_class: closing cover-plain` keeps the centered block in a `cover-layout: poster`
++ * deck). A deck `cover-layout: plain` stamps nothing, the same as leaving the key out.
+  *
+- * `inverse` stamps `cover-inverse` only on a SLIDE: it is how one cover opts out of a deck-wide
+- * `cover: light` (`_class: closing cover-inverse`). A deck `cover: inverse` stamps nothing, the same
+- * as leaving the key out, so every existing deck renders byte-identical. `plain` is the same on the
+- * composition axis (`_class: closing cover-plain` keeps the centered block in a `cover: poster` deck).
+- *
+- * Built on the axis-register factory (lib/core/register-factory.js), so the composition axis is one
+- * more entry in the list below rather than a new resolver.
+  * Pure and fs-free; bundles into the browser runtime.
+  */
+ 
+ const { makeRegister } = require('./register-factory');
+ 
+-const REGISTER = makeRegister('cover', [
+-  { axis: 'surface', names: ['inverse', 'light'] },
+-  { axis: 'composition', names: ['plain', 'masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'] },
++const REGISTER = makeRegister('cover-layout', [
++  { axis: 'composition', names: ['plain', 'masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'], prefix: 'cover-' },
+ ]);
+ 
+-/** The one class the light surface stamps. Exported so the CSS-side consumers (the HTML player's
+- *  scheme pins, lib/export/player-core.mjs) name it from here rather than retyping it. */
+-const COVER_LIGHT_CLASS = 'cover-light';
+-
+ /** The two layouts the register reaches. */
+ const COVER_LAYOUTS = Object.freeze(['title', 'closing']);
+ 
+-/** Each axis's default word stamps nothing deck-wide: on a SLIDE it is the opt-out of the deck's
+- *  word (`_class: closing cover-inverse`, `_class: closing cover-plain`). */
+-const SLIDE_ONLY = new Set(['cover-inverse', 'cover-plain']);
++/** The default word stamps nothing deck-wide: on a SLIDE it is the opt-out of the deck's word. */
++const SLIDE_ONLY = new Set(['cover-plain']);
+ 
+ /** The seven composition classes that paint, in register order (`cover-plain` paints nothing, so it
+  *  is left out). The `title` and `closing` manifests declare exactly these as variants;
+  *  test/unit/core/cover-register.test.js pins the three lists together. */
+-const COVER_COMPOSITION_CLASSES = Object.freeze(REGISTER.AXES.find((a) => a.axis === 'composition').tokens.filter((t) => !SLIDE_ONLY.has(t)));
++const COVER_COMPOSITION_CLASSES = Object.freeze(REGISTER.AXES[0].tokens.filter((t) => !SLIDE_ONLY.has(t)));
+ 
+-/** A deck value → the classes it stamps on a cover slide; each default word is slide-only. */
++/** A deck value → the classes it stamps on a cover slide; the default word is slide-only. */
+ const coverClasses = (value) => REGISTER.classes(value).filter((c) => !SLIDE_ONLY.has(c));
+ 
+ /**
+  * The deck's cover classes one slide takes: none unless the slide is a `title` or `closing`, and
+- * none on an axis the slide already fills (`_class: title cover-inverse` keeps its panel in a
+- * `cover: light` deck). Both render paths append exactly these.
++ * none when the slide already names a composition (`_class: title cover-plain` keeps its block in a
++ * `cover-layout: poster` deck). Both render paths append exactly these.
+  */
+ function coverDeckTokens(cur, deckTokens) {
+   if (!deckTokens?.length || !COVER_LAYOUTS.some((l) => cur.includes(l))) return [];
+@@ -94,7 +79,6 @@ module.exports = {
+   COVER_REGISTER: REGISTER,
+   COVER_NAMES: REGISTER.NAMES,
+   COVER_TOKENS: REGISTER.TOKENS,
+-  COVER_LIGHT_CLASS,
+   COVER_LAYOUTS,
+   COVER_COMPOSITION_CLASSES,
+   coverClasses,
+diff --git a/lib/export/player-core.mjs b/lib/export/player-core.mjs
+index 64ad4a9e5..33022073d 100644
+--- a/lib/export/player-core.mjs
++++ b/lib/export/player-core.mjs
+@@ -379,11 +379,9 @@ function resolveMasked(css, pick) {
+ // The slide classes that PIN a scheme against the player's own — a slide the author marked
+ // light, and the print band, both of which must keep their light values when the viewer is
+ // in dark. Shared by the two emitters below so the pin set cannot drift between them.
+-// `.cover-light` is the light cover (the `cover: light` register, lib/core/resolve-cover.js): a
+-// title or closing painted on the light canvas in every scheme, as `divider light` is. It is a pin
+-// for the same reason `.light` is, and it is the one pin the two cover bookends honor — see the
+-// `unless` on their ALWAYS_DARK entries below.
+-const PINNED_TO_LIGHT = ['.light', '.color-light', '.cover-light', '.print'];
++// (`.cover-light` was a pin here until 2026-11-23: the bookends follow the color mode now, so a
++// light cover is just a bookend on a light slide. engineering/decisions/2026-11-23-cover-layout.md.)
++const PINNED_TO_LIGHT = ['.light', '.color-light', '.print'];
+ 
+ // The author-pinned-dark slide selector, with the pin set EXCLUDED — derived from
+ // PINNED_TO_LIGHT for the same reason the restore rules share it: so the two cannot drift.
+@@ -432,7 +430,12 @@ const PINNED_TO_LIGHT = ['.light', '.color-light', '.cover-light', '.print'];
+ // `:not(.cover-light)` because a LIGHT COVER is not a dark panel: the engine carves it out of the
+ // same force-dark rule (base.modifiers.css, `section:is(.title, .closing):not(.print, .cover-light)`).
+ // `title light` keeps its meaning — a bookend pinned `.light` stays dark, as above.
+-const BOOKEND_FORCES_DARK = ['.title:not(.cover-light)', '.closing:not(.cover-light)'];
++// SINCE 2026-11-23 NO BOOKEND FORCES DARK. The engine dropped `color-scheme: dark` from title,
++// closing and divider (base.modifiers.css, "THE BOOKENDS FOLLOW THE COLOR MODE"): each takes the
++// slide's own scheme and repaints its field and inks with `light-dark()`. So the player treats a
++// bookend as any slide, and both lists are empty. They stay, empty, so the history above reads
++// against the code and a future always-dark frame has one place to go.
++const BOOKEND_FORCES_DARK = [];
+ //
+ // AND THE RESTORES NEED THE SAME CARVE-OUT, which is the half a first fix missed. Re-admitting
+ // bookends to the unconditional dark rule is not enough: on a `-dark` theme the player starts
+@@ -443,11 +446,7 @@ const BOOKEND_FORCES_DARK = ['.title:not(.cover-light)', '.closing:not(.cover-li
+ //
+ // `.print` is deliberately NOT carved out. A printed bookend IS paper — the engine says so with
+ // the same `:not(.print)` on its own bookend rule — so the print band must keep restoring.
+-const ALWAYS_DARK = [
+-	{ cls: '.title', unless: ':not(.cover-light)' },
+-	{ cls: '.closing', unless: ':not(.cover-light)' },
+-	{ cls: '.divider', unless: ':not(.light)' },
+-];
++const ALWAYS_DARK = [];
+ 
+ // THE CARVE-OUT IS PER PINNED CLASS, because "always dark" is itself conditional. A
+ // `divider light` is NOT force-dark — the engine's own predicate says `divider:not(.light)`,
+@@ -1558,8 +1557,8 @@ function themeDualModeFlat(css, matches) {
+ 	// the selector-list forms are Safari-14-era, and an engine that can't parse one drops
+ 	// the WHOLE rule — which here would silently un-theme dark mode. Single-class `:not()`
+ 	// is CSS3 and as old as the rest of this block's vocabulary.
+-	const PIN_LIGHT = ['.light', '.color-light', '.cover-light'];
+-	const PIN_EXCLUDE = ':not(.dark):not(.light):not(.color-light):not(.cover-light):not(.print)';
++	const PIN_LIGHT = ['.light', '.color-light'];
++	const PIN_EXCLUDE = ':not(.dark):not(.light):not(.color-light):not(.print)';
+ 	// The blanket rule targets :root (the chrome + article inherit from it) and every
+ 	// UNPINNED section.
+ 	const sel = (scope) => `${scope},${scope} section[data-lattice-slide]${PIN_EXCLUDE}`;
+@@ -1606,7 +1605,7 @@ function themeDualModeFlat(css, matches) {
+ 		// the dark scopes, so the player's LIGHT scheme had no rule re-asserting dark for a
+ 		// slide that never stops being dark. DARK_SLIDE_SEL does not cover it: that one
+ 		// needs an author's `.dark` class, and a plain `title` carries none.
+-		`${ALWAYS_DARK_SEL}{${body}}` +
++		(ALWAYS_DARK_SEL ? `${ALWAYS_DARK_SEL}{${body}}` : '') +
+ 		`${sel(':root[data-lp-scheme=dark]')}{${body}}` +
+ 		`${pinned(':root[data-lp-scheme=dark]')}{${lightBody}}` +
+ 		// The no-JS flip (see NJ_DARK_ROOT). A flip to LIGHT must leave the always-dark
+@@ -3120,7 +3119,7 @@ var deckMode=root.getAttribute('data-lp-deck-mode')||'';
+ // state. That is the same white-on-white this whole change exists to remove, reintroduced
+ // through a class instead of a token.
+ function pinsOpposite(el){
+- if(deckMode==='dark')return el.classList.contains('light')||el.classList.contains('color-light')||el.classList.contains('cover-light');
++ if(deckMode==='dark')return el.classList.contains('light')||el.classList.contains('color-light');
+  return el.classList.contains('dark');}
+ function applyDeckMode(){if(!deckMode)return;
+  var want=(deckMode==='dark')===isDark;
+diff --git a/lib/forms/tile/progress/progress.css b/lib/forms/tile/progress/progress.css
+index c685713af..704da25ef 100644
+--- a/lib/forms/tile/progress/progress.css
++++ b/lib/forms/tile/progress/progress.css
+@@ -42,9 +42,11 @@ section:is(.form, .divider) {
+   --_rail-on: var(--text-heading);
+   --_rail-off: color-mix(in srgb, var(--muted-mark) 50%, transparent);
+ }
+-section.divider:not(.light) {
+-  --_rail-on: var(--text-display);
+-  --_rail-off: color-mix(in srgb, var(--text-display) 35%, transparent);
++section.divider {
++  /* The divider's field follows the mode (base.modifiers.css): its ink is `--on-accent` on the
++   * light accent and the panel's light ink on the dimmed dark one. */
++  --_rail-on: light-dark(var(--on-accent), var(--_bk-on-primary));
++  --_rail-off: color-mix(in srgb, light-dark(var(--on-accent), var(--_bk-on-primary)) 35%, transparent);
+ }
+ :is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot {
+   width: calc(0.85cqi * var(--_mk, 1));
+diff --git a/lib/packages/reserved-classes.generated.js b/lib/packages/reserved-classes.generated.js
+index e32604a2a..b09f21388 100644
+--- a/lib/packages/reserved-classes.generated.js
++++ b/lib/packages/reserved-classes.generated.js
+@@ -6,6 +6,6 @@
+    reserved separately, from the package index.
+    Rebuild: node tools/build-packages-index.js */
+ module.exports = {
+-  names: ["above","accent","adopt","agenda-checks","agenda-circles","agenda-ledger","agenda-no-pages","agenda-pages","align-bottom","align-center","align-left","align-middle","align-right","align-top","amend","annotated","archived","area","asymmetric","at-bl","at-bottom","at-br","at-left","at-right","at-tl","at-top","at-tr","attention","avatar-bare","avatar-circle","avatar-framed","avatar-rounded","avatar-square","axis","backdrop-20","backdrop-40","backdrop-60","backdrop-80","backdrop-clear","backdrop-clear-footer","backdrop-clear-hero","backdrop-full","backdrop-open","backdrop-spot-b","backdrop-spot-bl","backdrop-spot-br","backdrop-spot-c","backdrop-spot-l","backdrop-spot-r","backdrop-spot-t","backdrop-spot-tl","backdrop-spot-tr","bands","banner-tag","bare","bench","benchmark","bio","bleed","boardroom","bottom","bottom-left","bottom-right","bracket","branching","briefing","bubble","canvas","capstone","capsule","card-spectrum-band","card-spectrum-bottom","card-spectrum-duo","card-spectrum-hairline","card-spectrum-left","card-spectrum-mono","card-spectrum-regular","card-spectrum-right","card-spectrum-solid","card-spectrum-top","cards","cards-center","cards-spread","cards-stretch","cards-top","cat-1","cat-2","cat-3","cat-4","cat-5","cat-6","cat-7","cat-8","chart-anima","chart-frame","checks","checks-bold","checks-knockout","checks-outline","checks-ringed","checks-tonal","chevron","chosen","circles","claim-bleed","claim-framed","claim-hero","claim-quiet","clean","clip-marked","cohort","color","color-inherited","color-light","color-system","compact","companion","compare","compare-code-block","compare-code-cover","compare-split-cover","compare-split-points","compliance","confidential","constellation","converge","corners-rounded","corners-square","cover-column","cover-frame","cover-inverse","cover-label","cover-ledger","cover-light","cover-masthead","cover-plain","cover-poster","cover-stage","curve","curved","dark","decision-cover","decision-points","decompose","def","defer","delta","dense","derivation","diff-bands","diverging","donut","draft","dumbbell","editorial","eyebrow-arrow","eyebrow-bar","eyebrow-dot","eyebrow-plain","eyebrow-underline","fact","feature","fill","fill-anchor","fill-center","fill-optical","finish","finish-atrium","finish-gallery","finish-halo","finish-ledger","finish-loom","finish-meridian","finish-nimbus","finish-savile","finish-strata","fit-body","fit-heal","fit-marked","fit-meta","fit-name","fit-report","fit-trim","fixed","flat","flex-meta","flex-name","flow-both","flow-in","flow-out","focal","footer-inset","form","four","gallery","ghost","grid","grouped","head-auto","head-center","head-left","head-right","heat","hierarchy","highlight","horizons","horizontal","icon-bare","icon-etch","icon-font","icon-framed","icon-pigment","icon-rounded","icon-square","icon-svg","icon-tone","illegible","image-card-10","image-card-15","image-card-20","image-card-25","image-card-30","image-card-35","image-card-40","image-card-45","image-card-5","image-card-50","image-card-60","image-card-65","image-card-70","image-card-75","image-card-85","image-card-90","image-card-95","image-card-band","image-card-bottom","image-card-bottom-left","image-card-bottom-right","image-card-center","image-card-clear","image-card-compact","image-card-dark","image-card-float","image-card-lg","image-card-light","image-card-md","image-card-regular","image-card-sheer","image-card-sm","image-card-soft","image-card-solid","image-card-top","image-card-top-left","image-card-top-right","image-corners","image-device","image-duotone","image-duotone-20","image-duotone-40","image-duotone-60","image-duotone-80","image-duotone-full","image-float","image-grayscale","image-grayscale-20","image-grayscale-40","image-grayscale-60","image-grayscale-80","image-grayscale-full","image-halo","image-halo-20","image-halo-40","image-halo-60","image-halo-80","image-halo-full","image-keyline","image-lg","image-mat","image-md","image-meridian","image-meridian-20","image-meridian-40","image-meridian-60","image-meridian-80","image-meridian-full","image-natural","image-nimbus","image-nimbus-20","image-nimbus-40","image-nimbus-60","image-nimbus-80","image-nimbus-full","image-sm","image-unfinished","image-unframed","index","inline","inline-code-literal","insight-bottom-line","insight-implication","insight-key","insight-next-step","insight-our-view","insight-recommendation","insight-so-what","insight-takeaway","insight-the-ask","insight-verdict","insight-why","keyline","lane","lanes","lat-pane-host","lat-raw-tables","lat-split-cover","lattice-exporting","lead","left","lettered","lifted","light","list-tabular-cover","list-tabular-points","logo-accent","logo-accent-canvas","logo-accent-ink","logo-all","logo-auto","logo-bottom-center","logo-bottom-left","logo-bottom-right","logo-brand","logo-canvas","logo-ink","logo-ink-canvas","logo-inverse","logo-lg","logo-md","logo-muted","logo-no-plate","logo-plate","logo-sm","logo-title","logo-top-center","logo-top-left","logo-top-right","lower-is-better","lr","magic","margin","mark-asterisks","mark-brackets","mark-chevron","mark-grid","mark-micro","mark-orbit","mark-pills","mark-seeds","mark-slashes","mark-threads","mark-ticks","marks-accent","marks-etch","marks-ink","marks-muted","marks-pigment","marks-tone","marks-vivid","matrix","metric","milestone","milestones","minimal","mirror","motion-auto","motion-build","motion-fast","motion-normal","motion-rise","motion-slow","motion-together","no-backdrop","no-callout","no-card-spectrum","no-finish","no-footer","no-header","no-heading-rule","no-logo","no-motion","no-note","no-pagination","no-period","no-progress","no-row-label","no-spectrum","no-spine","no-table-reflow","no-treatment","note-warn","numbered","oppose","ops","ordered","outline","overflow","own-axis","phase","pills","pinned","preemption","principles","print","priority","progress-1","progress-2","progress-3","progress-4","progress-5","progress-6","progress-rail-bar","progress-rail-center","progress-rail-dots","progress-rail-edge","progress-rail-off","progress-rail-on","progress-rail-right","proof","pull-quote","pullquote","pyramid","qr","rail","rank","rearrange","redacted","register","rejected","revised","right","robinson","roman","row","rule","rule-accent","rule-auto","rule-full","rule-short","safe","scale","scale-2xl","scale-l","scale-xl","share","shared-axis","sides","signal","silent","sized","sketch","sketch-clean-body","small-multiples","solid","solo","spark-bare","spark-etch","spark-framed","spark-pigment","spark-rounded","spark-square","spark-tone","spec","spectrum","spectrum-band","spectrum-bottom","spectrum-duo","spectrum-hairline","spectrum-left","spectrum-mono","spectrum-regular","spectrum-right","spectrum-solid","spectrum-top","spine","split","split-panel-cover","split-panel-points","split-panel-split","spotlight","stacked","stacked-area","stage","stamp-bar","stamp-bracket","stamp-dot","stamp-flag","stamp-mark","stamp-notch","stamp-pill","stamp-pin","stamp-ribbon","stamp-seal","stamp-tab","stamp-underline","stamp-veil","state-cells","statement","status","step","steps","swimlane","tab","table-cards","table-fill","table-lists","table-pairs","table-plain","tag-band","tag-bare","tag-center","tag-color","tag-corner","tag-end","tag-foot","tag-inline","tag-large","tag-notch","tag-plain","tag-regular","tag-small","tag-start","takeaway","target","tb","tbd","theorem","three","three-col","threshold","tier","tiered","timeline","tint-ambient","tint-at-bl","tint-at-bottom","tint-at-br","tint-at-left","tint-at-right","tint-at-tl","tint-at-top","tint-at-tr","tint-corner","tint-duotone","tint-edge","tint-frame","tint-ground","tint-horizon","tint-spotlight","tint-sweep","tint-vignette","tinted","tone-edge","tone-fail","tone-glow","tone-pass","tone-rail","tone-skip","tone-warn","top","top-left","top-right","trail","trajectory","transition","trend","trim-spectrum-duo","trim-spectrum-mono","trim-spectrum-quiet","trim-spectrum-rainbow","trim-spectrum-solid","triptych","two","typography-classic","typography-festival","typography-ledger","typography-poster","unnumbered","us","venue-conference","venue-hall","venue-huddle","vertical","video-corners","video-device","video-duotone","video-duotone-20","video-duotone-40","video-duotone-60","video-duotone-80","video-duotone-full","video-float","video-grayscale","video-grayscale-20","video-grayscale-40","video-grayscale-60","video-grayscale-80","video-grayscale-full","video-halo","video-halo-20","video-halo-40","video-halo-60","video-halo-80","video-halo-full","video-keyline","video-lg","video-mat","video-md","video-meridian","video-meridian-20","video-meridian-40","video-meridian-60","video-meridian-80","video-meridian-full","video-natural","video-nimbus","video-nimbus-20","video-nimbus-40","video-nimbus-60","video-nimbus-80","video-nimbus-full","video-sm","video-unfinished","video-unframed","watermark","weighted","wip","with-backdrop","with-callout","with-card-spectrum","with-finish","with-footer","with-header","with-heading-rule","with-logo","with-motion","with-note","with-pagination","with-period","with-progress","with-row-label","with-spectrum","with-spine","with-treatment","world","zoom"],
++  names: ["above","accent","adopt","agenda-checks","agenda-circles","agenda-ledger","agenda-no-pages","agenda-pages","align-bottom","align-center","align-left","align-middle","align-right","align-top","amend","annotated","archived","area","asymmetric","at-bl","at-bottom","at-br","at-left","at-right","at-tl","at-top","at-tr","attention","avatar-bare","avatar-circle","avatar-framed","avatar-rounded","avatar-square","axis","backdrop-20","backdrop-40","backdrop-60","backdrop-80","backdrop-clear","backdrop-clear-footer","backdrop-clear-hero","backdrop-full","backdrop-open","backdrop-spot-b","backdrop-spot-bl","backdrop-spot-br","backdrop-spot-c","backdrop-spot-l","backdrop-spot-r","backdrop-spot-t","backdrop-spot-tl","backdrop-spot-tr","bands","banner-tag","bare","bench","benchmark","bio","bleed","boardroom","bottom","bottom-left","bottom-right","bracket","branching","briefing","bubble","canvas","capstone","capsule","card-spectrum-band","card-spectrum-bottom","card-spectrum-duo","card-spectrum-hairline","card-spectrum-left","card-spectrum-mono","card-spectrum-regular","card-spectrum-right","card-spectrum-solid","card-spectrum-top","cards","cards-center","cards-spread","cards-stretch","cards-top","cat-1","cat-2","cat-3","cat-4","cat-5","cat-6","cat-7","cat-8","chart-anima","chart-frame","checks","checks-bold","checks-knockout","checks-outline","checks-ringed","checks-tonal","chevron","chosen","circles","claim-bleed","claim-framed","claim-hero","claim-quiet","clean","clip-marked","cohort","color","color-inherited","color-light","color-system","compact","companion","compare","compare-code-block","compare-code-cover","compare-split-cover","compare-split-points","compliance","confidential","constellation","converge","corners-rounded","corners-square","cover-column","cover-frame","cover-label","cover-ledger","cover-masthead","cover-plain","cover-poster","cover-stage","curve","curved","dark","decision-cover","decision-points","decompose","def","defer","delta","dense","derivation","diff-bands","diverging","donut","draft","dumbbell","editorial","eyebrow-arrow","eyebrow-bar","eyebrow-dot","eyebrow-plain","eyebrow-underline","fact","feature","fill","fill-anchor","fill-center","fill-optical","finish","finish-atrium","finish-gallery","finish-halo","finish-ledger","finish-loom","finish-meridian","finish-nimbus","finish-savile","finish-strata","fit-body","fit-heal","fit-marked","fit-meta","fit-name","fit-report","fit-trim","fixed","flat","flex-meta","flex-name","flow-both","flow-in","flow-out","focal","footer-inset","form","four","gallery","ghost","grid","grouped","head-auto","head-center","head-left","head-right","heat","hierarchy","highlight","horizons","horizontal","icon-bare","icon-etch","icon-font","icon-framed","icon-pigment","icon-rounded","icon-square","icon-svg","icon-tone","illegible","image-card-10","image-card-15","image-card-20","image-card-25","image-card-30","image-card-35","image-card-40","image-card-45","image-card-5","image-card-50","image-card-60","image-card-65","image-card-70","image-card-75","image-card-85","image-card-90","image-card-95","image-card-band","image-card-bottom","image-card-bottom-left","image-card-bottom-right","image-card-center","image-card-clear","image-card-compact","image-card-dark","image-card-float","image-card-lg","image-card-light","image-card-md","image-card-regular","image-card-sheer","image-card-sm","image-card-soft","image-card-solid","image-card-top","image-card-top-left","image-card-top-right","image-corners","image-device","image-duotone","image-duotone-20","image-duotone-40","image-duotone-60","image-duotone-80","image-duotone-full","image-float","image-grayscale","image-grayscale-20","image-grayscale-40","image-grayscale-60","image-grayscale-80","image-grayscale-full","image-halo","image-halo-20","image-halo-40","image-halo-60","image-halo-80","image-halo-full","image-keyline","image-lg","image-mat","image-md","image-meridian","image-meridian-20","image-meridian-40","image-meridian-60","image-meridian-80","image-meridian-full","image-natural","image-nimbus","image-nimbus-20","image-nimbus-40","image-nimbus-60","image-nimbus-80","image-nimbus-full","image-sm","image-unfinished","image-unframed","index","inline","inline-code-literal","insight-bottom-line","insight-implication","insight-key","insight-next-step","insight-our-view","insight-recommendation","insight-so-what","insight-takeaway","insight-the-ask","insight-verdict","insight-why","keyline","lane","lanes","lat-pane-host","lat-raw-tables","lat-split-cover","lattice-exporting","lead","left","lettered","lifted","light","list-tabular-cover","list-tabular-points","logo-accent","logo-accent-canvas","logo-accent-ink","logo-all","logo-auto","logo-bottom-center","logo-bottom-left","logo-bottom-right","logo-brand","logo-canvas","logo-ink","logo-ink-canvas","logo-inverse","logo-lg","logo-md","logo-muted","logo-no-plate","logo-plate","logo-sm","logo-title","logo-top-center","logo-top-left","logo-top-right","lower-is-better","lr","magic","margin","mark-asterisks","mark-brackets","mark-chevron","mark-grid","mark-micro","mark-orbit","mark-pills","mark-seeds","mark-slashes","mark-threads","mark-ticks","marks-accent","marks-etch","marks-ink","marks-muted","marks-pigment","marks-tone","marks-vivid","matrix","metric","milestone","milestones","minimal","mirror","motion-auto","motion-build","motion-fast","motion-normal","motion-rise","motion-slow","motion-together","no-backdrop","no-callout","no-card-spectrum","no-finish","no-footer","no-header","no-heading-rule","no-logo","no-motion","no-note","no-pagination","no-period","no-progress","no-row-label","no-spectrum","no-spine","no-table-reflow","no-treatment","note-warn","numbered","oppose","ops","ordered","outline","overflow","own-axis","phase","pills","pinned","preemption","principles","print","priority","progress-1","progress-2","progress-3","progress-4","progress-5","progress-6","progress-rail-bar","progress-rail-center","progress-rail-dots","progress-rail-edge","progress-rail-off","progress-rail-on","progress-rail-right","proof","pull-quote","pullquote","pyramid","qr","rail","rank","rearrange","redacted","register","rejected","revised","right","robinson","roman","row","rule","rule-accent","rule-auto","rule-full","rule-short","safe","scale","scale-2xl","scale-l","scale-xl","share","shared-axis","sides","signal","silent","sized","sketch","sketch-clean-body","small-multiples","solid","solo","spark-bare","spark-etch","spark-framed","spark-pigment","spark-rounded","spark-square","spark-tone","spec","spectrum","spectrum-band","spectrum-bottom","spectrum-duo","spectrum-hairline","spectrum-left","spectrum-mono","spectrum-regular","spectrum-right","spectrum-solid","spectrum-top","spine","split","split-panel-cover","split-panel-points","split-panel-split","spotlight","stacked","stacked-area","stage","stamp-bar","stamp-bracket","stamp-dot","stamp-flag","stamp-mark","stamp-notch","stamp-pill","stamp-pin","stamp-ribbon","stamp-seal","stamp-tab","stamp-underline","stamp-veil","state-cells","statement","status","step","steps","subsection","swimlane","tab","table-cards","table-fill","table-lists","table-pairs","table-plain","tag-band","tag-bare","tag-center","tag-color","tag-corner","tag-end","tag-foot","tag-inline","tag-large","tag-notch","tag-plain","tag-regular","tag-small","tag-start","takeaway","target","tb","tbd","theorem","three","three-col","threshold","tier","tiered","timeline","tint-ambient","tint-at-bl","tint-at-bottom","tint-at-br","tint-at-left","tint-at-right","tint-at-tl","tint-at-top","tint-at-tr","tint-corner","tint-duotone","tint-edge","tint-frame","tint-ground","tint-horizon","tint-spotlight","tint-sweep","tint-vignette","tinted","tone-edge","tone-fail","tone-glow","tone-pass","tone-rail","tone-skip","tone-warn","top","top-left","top-right","trail","trajectory","transition","trend","trim-spectrum-duo","trim-spectrum-mono","trim-spectrum-quiet","trim-spectrum-rainbow","trim-spectrum-solid","triptych","two","typography-classic","typography-festival","typography-ledger","typography-poster","unnumbered","us","venue-conference","venue-hall","venue-huddle","vertical","video-corners","video-device","video-duotone","video-duotone-20","video-duotone-40","video-duotone-60","video-duotone-80","video-duotone-full","video-float","video-grayscale","video-grayscale-20","video-grayscale-40","video-grayscale-60","video-grayscale-80","video-grayscale-full","video-halo","video-halo-20","video-halo-40","video-halo-60","video-halo-80","video-halo-full","video-keyline","video-lg","video-mat","video-md","video-meridian","video-meridian-20","video-meridian-40","video-meridian-60","video-meridian-80","video-meridian-full","video-natural","video-nimbus","video-nimbus-20","video-nimbus-40","video-nimbus-60","video-nimbus-80","video-nimbus-full","video-sm","video-unfinished","video-unframed","watermark","weighted","wip","with-backdrop","with-callout","with-card-spectrum","with-finish","with-footer","with-header","with-heading-rule","with-logo","with-motion","with-note","with-pagination","with-period","with-progress","with-row-label","with-spectrum","with-spine","with-treatment","world","zoom"],
+   prefixes: ["at-","backdrop","checks-","fill-","finish","mark-","no-","tint-","tone-","treatment-","with-"],
+ };
+diff --git a/lib/plugins/meta.generated.mjs b/lib/plugins/meta.generated.mjs
+index c569cb8b5..8978e4d9c 100644
+--- a/lib/plugins/meta.generated.mjs
++++ b/lib/plugins/meta.generated.mjs
+@@ -12,4 +12,4 @@ export const META_NOTES = /* @__PURE__ */ Object.freeze(["note", "say", "alt", "
+ 
+ export const META_REGISTERS = /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "key": "avatar", "plugin": "avatars", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "shape", "names": /* @__PURE__ */ Object.freeze(["circle", "rounded", "square"]) }), /* @__PURE__ */ Object.freeze({ "axis": "frame", "names": /* @__PURE__ */ Object.freeze(["framed", "bare"]) })]) }), /* @__PURE__ */ Object.freeze({ "key": "callout", "plugin": "callout", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "show", "names": /* @__PURE__ */ Object.freeze(["on", "off"]) })]) }), /* @__PURE__ */ Object.freeze({ "key": "icon", "plugin": "icons", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "frame", "names": /* @__PURE__ */ Object.freeze(["framed", "bare"]) }), /* @__PURE__ */ Object.freeze({ "axis": "look", "names": /* @__PURE__ */ Object.freeze(["pigment", "etch", "tone"]) }), /* @__PURE__ */ Object.freeze({ "axis": "corners", "names": /* @__PURE__ */ Object.freeze(["square", "rounded"]) }), /* @__PURE__ */ Object.freeze({ "axis": "draw", "names": /* @__PURE__ */ Object.freeze(["font", "svg"]) })]) }), /* @__PURE__ */ Object.freeze({ "key": "image", "plugin": "image", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "size", "names": /* @__PURE__ */ Object.freeze(["md", "sm", "lg"]) }), /* @__PURE__ */ Object.freeze({ "axis": "frame", "names": /* @__PURE__ */ Object.freeze(["unframed", "mat", "keyline", "float", "device", "corners"]) }), /* @__PURE__ */ Object.freeze({ "axis": "finish", "names": /* @__PURE__ */ Object.freeze(["unfinished", "nimbus", "nimbus-20", "nimbus-40", "nimbus-60", "nimbus-80", "nimbus-full", "halo", "halo-20", "halo-40", "halo-60", "halo-80", "halo-full", "meridian", "meridian-20", "meridian-40", "meridian-60", "meridian-80", "meridian-full"]) }), /* @__PURE__ */ Object.freeze({ "axis": "tone", "names": /* @__PURE__ */ Object.freeze(["natural", "duotone", "duotone-20", "duotone-40", "duotone-60", "duotone-80", "duotone-full", "grayscale", "grayscale-20", "grayscale-40", "grayscale-60", "grayscale-80", "grayscale-full"]) })]) }), /* @__PURE__ */ Object.freeze({ "key": "spark", "plugin": "sparks", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "frame", "names": /* @__PURE__ */ Object.freeze(["framed", "bare"]) }), /* @__PURE__ */ Object.freeze({ "axis": "look", "names": /* @__PURE__ */ Object.freeze(["pigment", "etch", "tone"]) }), /* @__PURE__ */ Object.freeze({ "axis": "corners", "names": /* @__PURE__ */ Object.freeze(["square", "rounded"]) })]) }), /* @__PURE__ */ Object.freeze({ "key": "video", "plugin": "video", "axes": /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "axis": "size", "names": /* @__PURE__ */ Object.freeze(["md", "sm", "lg"]) }), /* @__PURE__ */ Object.freeze({ "axis": "frame", "names": /* @__PURE__ */ Object.freeze(["unframed", "mat", "keyline", "float", "device", "corners"]) }), /* @__PURE__ */ Object.freeze({ "axis": "finish", "names": /* @__PURE__ */ Object.freeze(["unfinished", "nimbus", "nimbus-20", "nimbus-40", "nimbus-60", "nimbus-80", "nimbus-full", "halo", "halo-20", "halo-40", "halo-60", "halo-80", "halo-full", "meridian", "meridian-20", "meridian-40", "meridian-60", "meridian-80", "meridian-full"]) }), /* @__PURE__ */ Object.freeze({ "axis": "tone", "names": /* @__PURE__ */ Object.freeze(["natural", "duotone", "duotone-20", "duotone-40", "duotone-60", "duotone-80", "duotone-full", "grayscale", "grayscale-20", "grayscale-40", "grayscale-60", "grayscale-80", "grayscale-full"]) })]) })]);
+ 
+-export const META_HOST_REGISTERS = /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "key": "finish", "values": /* @__PURE__ */ Object.freeze({ "none": "no-finish", "atrium": "finish finish-atrium", "meridian": "finish finish-meridian", "strata": "finish finish-strata", "halo": "finish finish-halo", "ledger": "finish finish-ledger", "nimbus": "finish finish-nimbus", "loom": "finish finish-loom", "savile": "finish finish-savile", "gallery": "finish finish-gallery" }) }), /* @__PURE__ */ Object.freeze({ "key": "headline", "values": /* @__PURE__ */ Object.freeze({ "auto": "head-auto", "left": "head-left", "center": "head-center", "right": "head-right" }) }), /* @__PURE__ */ Object.freeze({ "key": "rule", "values": /* @__PURE__ */ Object.freeze({ "auto": "rule-auto", "full": "rule-full", "short": "rule-short", "accent": "rule-accent", "none": "no-heading-rule" }) }), /* @__PURE__ */ Object.freeze({ "key": "eyebrow", "values": /* @__PURE__ */ Object.freeze({ "plain": "eyebrow-plain", "dot": "eyebrow-dot", "bar": "eyebrow-bar", "arrow": "eyebrow-arrow", "underline": "eyebrow-underline" }) }), /* @__PURE__ */ Object.freeze({ "key": "spectrum", "values": /* @__PURE__ */ Object.freeze({ "rainbow": "with-spectrum", "solid": "spectrum-solid", "duo": "spectrum-duo", "mono": "spectrum-mono", "off": "no-spectrum", "top": "spectrum-top", "left": "spectrum-left", "right": "spectrum-right", "bottom": "spectrum-bottom", "regular": "spectrum-regular", "hairline": "spectrum-hairline", "band": "spectrum-band" }) }), /* @__PURE__ */ Object.freeze({ "key": "card-spectrum", "values": /* @__PURE__ */ Object.freeze({ "off": "no-card-spectrum", "rainbow": "with-card-spectrum", "solid": "card-spectrum-solid", "duo": "card-spectrum-duo", "mono": "card-spectrum-mono", "left": "card-spectrum-left", "top": "card-spectrum-top", "right": "card-spectrum-right", "bottom": "card-spectrum-bottom", "regular": "card-spectrum-regular", "hairline": "card-spectrum-hairline", "band": "card-spectrum-band" }) }), /* @__PURE__ */ Object.freeze({ "key": "trim-spectrum", "values": /* @__PURE__ */ Object.freeze({ "quiet": "trim-spectrum-quiet", "rainbow": "trim-spectrum-rainbow", "solid": "trim-spectrum-solid", "duo": "trim-spectrum-duo", "mono": "trim-spectrum-mono" }) }), /* @__PURE__ */ Object.freeze({ "key": "lift", "values": /* @__PURE__ */ Object.freeze({ "on": "lifted", "off": "flat" }) }), /* @__PURE__ */ Object.freeze({ "key": "stamp", "values": /* @__PURE__ */ Object.freeze({ "tab": "stamp-tab", "notch": "stamp-notch", "bracket": "stamp-bracket", "seal": "stamp-seal", "pill": "stamp-pill", "ribbon": "stamp-ribbon", "flag": "stamp-flag", "underline": "stamp-underline", "dot": "stamp-dot", "mark": "stamp-mark", "veil": "stamp-veil", "bar": "stamp-bar", "pin": "stamp-pin" }) }), /* @__PURE__ */ Object.freeze({ "key": "tone", "values": /* @__PURE__ */ Object.freeze({ "rail": "tone-rail", "edge": "tone-edge", "glow": "tone-glow" }) }), /* @__PURE__ */ Object.freeze({ "key": "corners", "values": /* @__PURE__ */ Object.freeze({ "square": "corners-square", "rounded": "corners-rounded" }) }), /* @__PURE__ */ Object.freeze({ "key": "cover", "values": /* @__PURE__ */ Object.freeze({ "inverse": "cover-inverse", "light": "cover-light", "plain": "cover-plain", "masthead": "cover-masthead", "ledger": "cover-ledger", "column": "cover-column", "label": "cover-label", "stage": "cover-stage", "frame": "cover-frame", "poster": "cover-poster" }) })]);
++export const META_HOST_REGISTERS = /* @__PURE__ */ Object.freeze([/* @__PURE__ */ Object.freeze({ "key": "finish", "values": /* @__PURE__ */ Object.freeze({ "none": "no-finish", "atrium": "finish finish-atrium", "meridian": "finish finish-meridian", "strata": "finish finish-strata", "halo": "finish finish-halo", "ledger": "finish finish-ledger", "nimbus": "finish finish-nimbus", "loom": "finish finish-loom", "savile": "finish finish-savile", "gallery": "finish finish-gallery" }) }), /* @__PURE__ */ Object.freeze({ "key": "headline", "values": /* @__PURE__ */ Object.freeze({ "auto": "head-auto", "left": "head-left", "center": "head-center", "right": "head-right" }) }), /* @__PURE__ */ Object.freeze({ "key": "rule", "values": /* @__PURE__ */ Object.freeze({ "auto": "rule-auto", "full": "rule-full", "short": "rule-short", "accent": "rule-accent", "none": "no-heading-rule" }) }), /* @__PURE__ */ Object.freeze({ "key": "eyebrow", "values": /* @__PURE__ */ Object.freeze({ "plain": "eyebrow-plain", "dot": "eyebrow-dot", "bar": "eyebrow-bar", "arrow": "eyebrow-arrow", "underline": "eyebrow-underline" }) }), /* @__PURE__ */ Object.freeze({ "key": "spectrum", "values": /* @__PURE__ */ Object.freeze({ "rainbow": "with-spectrum", "solid": "spectrum-solid", "duo": "spectrum-duo", "mono": "spectrum-mono", "off": "no-spectrum", "top": "spectrum-top", "left": "spectrum-left", "right": "spectrum-right", "bottom": "spectrum-bottom", "regular": "spectrum-regular", "hairline": "spectrum-hairline", "band": "spectrum-band" }) }), /* @__PURE__ */ Object.freeze({ "key": "card-spectrum", "values": /* @__PURE__ */ Object.freeze({ "off": "no-card-spectrum", "rainbow": "with-card-spectrum", "solid": "card-spectrum-solid", "duo": "card-spectrum-duo", "mono": "card-spectrum-mono", "left": "card-spectrum-left", "top": "card-spectrum-top", "right": "card-spectrum-right", "bottom": "card-spectrum-bottom", "regular": "card-spectrum-regular", "hairline": "card-spectrum-hairline", "band": "card-spectrum-band" }) }), /* @__PURE__ */ Object.freeze({ "key": "trim-spectrum", "values": /* @__PURE__ */ Object.freeze({ "quiet": "trim-spectrum-quiet", "rainbow": "trim-spectrum-rainbow", "solid": "trim-spectrum-solid", "duo": "trim-spectrum-duo", "mono": "trim-spectrum-mono" }) }), /* @__PURE__ */ Object.freeze({ "key": "lift", "values": /* @__PURE__ */ Object.freeze({ "on": "lifted", "off": "flat" }) }), /* @__PURE__ */ Object.freeze({ "key": "stamp", "values": /* @__PURE__ */ Object.freeze({ "tab": "stamp-tab", "notch": "stamp-notch", "bracket": "stamp-bracket", "seal": "stamp-seal", "pill": "stamp-pill", "ribbon": "stamp-ribbon", "flag": "stamp-flag", "underline": "stamp-underline", "dot": "stamp-dot", "mark": "stamp-mark", "veil": "stamp-veil", "bar": "stamp-bar", "pin": "stamp-pin" }) }), /* @__PURE__ */ Object.freeze({ "key": "tone", "values": /* @__PURE__ */ Object.freeze({ "rail": "tone-rail", "edge": "tone-edge", "glow": "tone-glow" }) }), /* @__PURE__ */ Object.freeze({ "key": "corners", "values": /* @__PURE__ */ Object.freeze({ "square": "corners-square", "rounded": "corners-rounded" }) }), /* @__PURE__ */ Object.freeze({ "key": "cover-layout", "values": /* @__PURE__ */ Object.freeze({ "plain": "cover-plain", "masthead": "cover-masthead", "ledger": "cover-ledger", "column": "cover-column", "label": "cover-label", "stage": "cover-stage", "frame": "cover-frame", "poster": "cover-poster" }) })]);
+diff --git a/lib/plugins/resolve.js b/lib/plugins/resolve.js
+index 1f3bf22c7..bc7e54f0b 100644
+--- a/lib/plugins/resolve.js
++++ b/lib/plugins/resolve.js
+@@ -538,7 +538,7 @@ function checkInlineClaims(byName, errors) {
+  * classes the host's own register also stamps.
+  */
+ const HOST_REGISTERS = Object.freeze(['tag', 'finish', 'mode', 'split', 'stamp', 'tone', 'spectrum', 'rule',
+-  'eyebrow', 'headline', 'lift', 'corners', 'cover', 'cards', 'backdrop', 'venue', 'marks', 'inline-code', 'guards', 'plugins',
++  'eyebrow', 'headline', 'lift', 'corners', 'cover', 'cover-layout', 'cards', 'backdrop', 'venue', 'marks', 'inline-code', 'guards', 'plugins',
+   // Front-matter keys the host reads that are not axis registers, and Marp's own: a plugin register
+   // named like one would shadow it in the author's front matter.
+   // (`theme`, `class`, `size`, `header`, `footer`, `paginate`, `logo` and every other slide-metadata field are
+diff --git a/tools/lib/record-registers.js b/tools/lib/record-registers.js
+index 8bafa793d..14677b7a0 100644
+--- a/tools/lib/record-registers.js
++++ b/tools/lib/record-registers.js
+@@ -41,7 +41,7 @@ const SOURCES = [
+   ['stamp', stamp.STAMP_STYLE_NAMES, stamp.stampClass, stamp.STAMP_STYLE_TOKENS],
+   ['tone', tone.TONE_STYLE_NAMES, tone.toneStyleClass, tone.TONE_STYLE_TOKENS],
+   ['corners', corners.CORNERS_NAMES, corners.cornersClass, corners.CORNERS_TOKENS],
+-  ['cover', cover.COVER_NAMES, (v) => cover.coverClasses(v).join(' '), cover.COVER_TOKENS],
++  ['cover-layout', cover.COVER_NAMES, (v) => cover.coverClasses(v).join(' '), cover.COVER_TOKENS],
+ ];
+ 
+ /** The one-slide word for each register's default (front matter writes none for it). */
+@@ -52,8 +52,7 @@ const RESTORE = Object.freeze({
+   'eyebrow:plain': 'eyebrow-plain',
+   'lift:off': 'flat',
+   'corners:square': 'corners-square',
+-  'cover:inverse': 'cover-inverse',
+-  'cover:plain': 'cover-plain',
++  'cover-layout:plain': 'cover-plain',
+ });
+ 
+ /**
+diff --git a/tools/regex-census.json b/tools/regex-census.json
+index cbddae5ea..e579d3c24 100644
+--- a/tools/regex-census.json
++++ b/tools/regex-census.json
+@@ -268,6 +268,7 @@
+     "/'/": "safe",
+     "/'/g": "safe",
+     "/(!\\[[^\\]]*\\]\\()([^)\\s]+)(\\s*(?:\"[^\"]*\")?\\))/g": "polynomial",
++    "/((?:^|,)\\s*class=)[^,}]*/": "safe",
+     "/(--(?:font-display|font-body|eyebrow-(?:face|style|weight|case|tracking|scale|anchor-scale)|chart-text-face|chart-figure-face))[ \\t]*:/g": "safe",
+     "/(--[a-zA-Z0-9-]+)\\s*:/g": "polynomial",
+     "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*?)\\s*(?=[;}])/g": {
+@@ -313,6 +314,9 @@
+     "/(?:\\r?\\n[ \\t]*){2,}/": "safe",
+     "/(?:\\r\\n|\\r|\\n)$/": "safe",
+     "/(?:\\s*·\\s*)+/g": "polynomial",
++    "/(?:^|,)\\s*class=([^,}]*)/": "safe",
++    "/(?:^|,)\\s*class=/": "safe",
++    "/(?:^|,)\\s*layout=([\\w-]+)/": "safe",
+     "/(?:^|,)\\s*line\\s+([\\d\\s-]+)/i": "safe",
+     "/(?:^|[;\\s])font\\s*:/i": "safe",
+     "/(?:^|[;{\\s])font\\s*:([^;}]*)/gi": "safe",
+@@ -2546,6 +2550,7 @@
+     "/^\\|?\\s*:?-+:?\\s*(?:\\|\\s*:?-+:?\\s*)*\\|?$/": "safe",
+     "/^\\|?\\s*:?-{2,}:?\\s*(\\|\\s*:?-{2,}:?\\s*)+\\|?$/": "safe",
+     "/^_?([A-Za-z][\\w-]*)\\s*(:|$)/": "safe",
++    "/^_?class:/": "safe",
+     "/^_?class:[ \\t]*(.*)$/m": "safe",
+     "/^_?hide\\s*:(.*)$/": "safe",
+     "/^`(?:@video|>)(\\{[^\\r\\n]*\\})`[ \\t]*$/": "safe",
+@@ -2602,6 +2607,7 @@
+     "/^color\\(srgb ([\\d.e-]+) ([\\d.e-]+) ([\\d.e-]+)(?: \\/ ([\\d.e-]+))?\\)$/": "safe",
+     "/^column/": "safe",
+     "/^const (\\w+) = require\\('([^']+)'\\);$/gm": "safe",
++    "/^cover:/": "safe",
+     "/^curve\\s+(.+)$/i": "polynomial",
+     "/^data:(image\\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/i": "safe",
+     "/^data:/": "safe",
