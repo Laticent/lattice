@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -977,5 +977,20 @@ describe('the pool hears the reader from the moment it mounts', () => {
 		render(<fresh.PreviewPool>{null}</fresh.PreviewPool>);
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
 		expect(fresh.readerQuietFor()).toBeLessThan(fresh.CAPTURE_INPUT_QUIET_MS);
+	});
+});
+
+describe('showsOther, the check that hides a frame until it paints its new slide (#3507)', () => {
+	const p = (sample: string, extraCss?: string) => ({ sample, extraCss }) as unknown as Parameters<typeof showsOther>[1];
+	it('a different slide or a different component stylesheet is another picture', () => {
+		expect(showsOther(p('# A'), p('# B'))).toBe(true);
+		expect(showsOther(p('# A', 'x{}'), p('# A', 'y{}'))).toBe(true);
+	});
+	it('the same slide is not, and a slot with no picture yet has nothing to hide', () => {
+		expect(showsOther(p('# A'), p('# A'))).toBe(false);
+		expect(showsOther(null, p('# A'))).toBe(false);
+	});
+	it('the backstop is short enough that a frame that never reports cannot leave a tile blank for long', () => {
+		expect(PENDING_MAX_MS).toBeLessThanOrEqual(2000);
 	});
 });

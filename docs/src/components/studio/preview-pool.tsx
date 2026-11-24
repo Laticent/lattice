@@ -586,6 +586,8 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				else {
 					if (s.tileId !== null) s.freeSince = now;
 					s.tileId = null;
+					// A free slot is hidden anyway; clearing the flag keeps it from outliving the slide it was waiting on.
+					s.pending = false;
 				}
 			}
 			// 2. Everything else takes a free slot, preferring one whose document is already the
@@ -657,9 +659,13 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			setSlots(next);
 			// THE BACKSTOP for a hidden slot: a frame that never reports a paint must not leave its tile blank for good, which is
 			// a worse defect than the stale picture the hiding prevents. Past PENDING_MAX_MS it shows whatever it holds.
-			if (next.some((x) => x.pending)) {
-				window.clearTimeout(pendingTimer.current as number);
-				pendingTimer.current = window.setTimeout(() => setSlots((prev) => (prev.some((x) => x.pending) ? prev.map((x) => (x.pending ? { ...x, pending: false } : x)) : prev)), PENDING_MAX_MS);
+			// Armed only when none is armed: re-arming on every pass let a scroll that kept re-pointing other slots push it back
+			// for as long as the scroll lasted (checker on #3507).
+			if (pendingTimer.current === null && next.some((x) => x.pending)) {
+				pendingTimer.current = window.setTimeout(() => {
+					pendingTimer.current = null;
+					setSlots((prev) => (prev.some((x) => x.pending) ? prev.map((x) => (x.pending ? { ...x, pending: false } : x)) : prev));
+				}, PENDING_MAX_MS);
 			}
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
@@ -871,7 +877,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 				// document stays alive for the next tile, so this costs no write.
 				if (slotsRef.current.some((x) => x.tileId === id)) {
 					const at = Date.now();
-					setSlots((prev) => prev.map((x) => (x.tileId === id ? { ...x, tileId: null, freeSince: at } : x)));
+					setSlots((prev) => prev.map((x) => (x.tileId === id ? { ...x, tileId: null, freeSince: at, pending: false } : x)));
 				}
 				schedule();
 			},
@@ -919,6 +925,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			window.clearTimeout(parkTimer.current as number);
 			window.clearTimeout(graceTimer.current as number);
 			window.clearTimeout(pendingTimer.current as number);
+			pendingTimer.current = null;
 			if (raf.current) window.cancelAnimationFrame(raf.current);
 			raf.current = 0;
 			for (const off of nested.current.values()) off();
