@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-24 — raise the studio eagerJsGz ceiling by 2,048 B (642,732 → 644,780), by hand, for PR 2988, at the owner's direction
+
+Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 2 KB", in its own PR. Written by hand, as the entries below are; soft stays 571,778.
+
+Why: merged with main after #3294 (Segno P5a), PR #2988 (fit everywhere, tier 1) measures the Studio's eager JS at 628.4 KB, 0.8 KB over the old ceiling; main alone sits about 0.7 KB under it. #2988 adds 1,430 B gzipped, CI-measured: the venue picker's per-shape table (venue.ts, +409), the Align catalog (in progress-rail, +368), the measured-split call and its bounded waits (single-slide-render, +289), StudioIsland (+156) and front-matter-fence (+104), declared in `docs/route-budget.d/2988-measured-split.md`. Giving the bytes back would mean loading the settings panel's tables on demand, a refactor the owner chose not to wait for. About 1.2 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 644780 |
+
 ### 2026-11-24 — raise the studio lintCoreGz ceiling by 1,024 B (172,998 → 174,022), by hand, for PR 2988, at the owner's direction
 
 Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-22 lintCoreGz entry below is: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it. Soft stays 152,151.
