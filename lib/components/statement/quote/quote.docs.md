@@ -68,7 +68,7 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 No card, no quotation marks — a plain display-scale line.
 
 ```markdown
-<!-- _class: quote bare -->
+<!-- @meta{layout=quote, class=bare} -->
 
 > The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
 

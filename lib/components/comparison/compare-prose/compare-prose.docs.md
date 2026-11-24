@@ -95,7 +95,7 @@ Under a variant, a slot changes shape:
 Left reads as before, right as after.
 
 ```markdown
-<!-- _class: compare-prose transition -->
+<!-- @meta{layout=compare-prose, class=transition} -->
 
 ## transition reads left as before, right as after.
 
@@ -110,7 +110,7 @@ Left reads as before, right as after.
 Swaps the reading order.
 
 ```markdown
-<!-- _class: compare-prose mirror -->
+<!-- @meta{layout=compare-prose, class=mirror} -->
 
 ## mirror swaps the reading order.
 
@@ -125,7 +125,7 @@ Swaps the reading order.
 Crowns the right pane the winner.
 
 ```markdown
-<!-- _class: compare-prose chosen -->
+<!-- @meta{layout=compare-prose, class=chosen} -->
 
 ## chosen crowns the right pane the winner.
 
@@ -140,7 +140,7 @@ Crowns the right pane the winner.
 Stamps the verdict banner across the pair.
 
 ```markdown
-<!-- _class: compare-prose decision -->
+<!-- @meta{layout=compare-prose, class=decision} -->
 
 ## decision stamps the verdict banner across the pair.
 
@@ -155,7 +155,7 @@ Stamps the verdict banner across the pair.
 Stacks the panes for longer cases.
 
 ```markdown
-<!-- _class: compare-prose vertical -->
+<!-- @meta{layout=compare-prose, class=vertical} -->
 
 ## vertical stacks the panes for longer cases.
 
@@ -170,7 +170,7 @@ Stacks the panes for longer cases.
 Corner tags become banners.
 
 ```markdown
-<!-- _class: compare-prose tag-band -->
+<!-- @meta{layout=compare-prose, class=tag-band} -->
 
 ## tag-band fills the corner tags at banner weight.
 
@@ -185,7 +185,7 @@ Corner tags become banners.
 Strikes the losing pane.
 
 ```markdown
-<!-- _class: compare-prose rejected -->
+<!-- @meta{layout=compare-prose, class=rejected} -->
 
 ## rejected strikes the losing pane.
 
@@ -200,7 +200,7 @@ Strikes the losing pane.
 A lede above, numeral-led facet cards, a closing note below.
 
 ```markdown
-<!-- _class: compare-prose axis -->
+<!-- @meta{layout=compare-prose, class=axis} -->
 
 ## The second axis: how far it reaches.
 

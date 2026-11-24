@@ -77,7 +77,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 Masthead — the running section number over a hairline, top-left.
 
 ```markdown
-<!-- _class: divider silent numbered -->
+<!-- @meta{layout=divider, class=silent numbered} -->
 
 `divider numbered`
 
@@ -89,7 +89,7 @@ Masthead — the running section number over a hairline, top-left.
 Bright canvas, sentence-length waypoint.
 
 ```markdown
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 `divider light`
 
@@ -101,7 +101,7 @@ Bright canvas, sentence-length waypoint.
 The payload bullet becomes a code.
 
 ```markdown
-<!-- _class: divider qr -->
+<!-- @meta{layout=divider, class=qr} -->
 
 `divider qr`
 

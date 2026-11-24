@@ -103,7 +103,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 The bar the shape must clear.
 
 ```markdown
-<!-- _class: radar target -->
+<!-- @meta{layout=radar, class=target} -->
 
 `[{Scale, 0..100}]`
 
@@ -130,7 +130,7 @@ The bar the shape must clear.
 The gap between two shapes, shaded.
 
 ```markdown
-<!-- _class: radar delta -->
+<!-- @meta{layout=radar, class=delta} -->
 
 `[{Scale, 0..10}]`
 
@@ -155,7 +155,7 @@ The gap between two shapes, shaded.
 A reference shape overlaid.
 
 ```markdown
-<!-- _class: radar benchmark -->
+<!-- @meta{layout=radar, class=benchmark} -->
 
 `[{Scale, 0..10}]`
 
@@ -196,7 +196,7 @@ A reference shape overlaid.
 The compass quarters, shaded.
 
 ```markdown
-<!-- _class: radar quadrant -->
+<!-- @meta{layout=radar, class=quadrant} -->
 
 `[{Scale, 0..5}]`
 
@@ -224,7 +224,7 @@ The compass quarters, shaded.
 One radar per option.
 
 ```markdown
-<!-- _class: radar small-multiples -->
+<!-- @meta{layout=radar, class=small-multiples} -->
 
 `[{Scale, 0..10}]`
 
@@ -261,7 +261,7 @@ One radar per option.
 Rings stripped to the shape.
 
 ```markdown
-<!-- _class: radar minimal -->
+<!-- @meta{layout=radar, class=minimal} -->
 
 `[{Scale, 0..10}]`
 

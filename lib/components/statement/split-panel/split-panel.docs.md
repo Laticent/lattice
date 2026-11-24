@@ -107,7 +107,7 @@ One-sentence framing paragraph explaining what the points cover.
 Light panel behind one hero number.
 
 ```markdown
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `split-panel metric`
 
@@ -126,7 +126,7 @@ Words per item — the budget this layout holds its supporting column to.
 Half the slide to one quotation.
 
 ```markdown
-<!-- _class: split-panel pullquote -->
+<!-- @meta{layout=split-panel, class=pullquote} -->
 
 > pullquote gives half the slide to one voice, and the other half to what it means.
 
@@ -143,7 +143,7 @@ Half the slide to one quotation.
 The panel anchors a numbered phase.
 
 ```markdown
-<!-- _class: split-panel steps -->
+<!-- @meta{layout=split-panel, class=steps} -->
 
 `02`
 
@@ -164,7 +164,7 @@ The left panel anchors a phase; the column numbers its moves.
 Accent panel, letterform, h3 rubric.
 
 ```markdown
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 ## Watermark
 
@@ -183,7 +183,7 @@ Accent panel, letterform, h3 rubric.
 Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list.
 
 ```markdown
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Level 1 · Remembering`
 
@@ -204,7 +204,7 @@ Scenario signal + two paired proof cards, filling the column top to bottom. Narr
 Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.
 
 ```markdown
-<!-- _class: split-panel capstone -->
+<!-- @meta{layout=split-panel, class=capstone} -->
 
 `Level 6 · Creating`
 
@@ -225,7 +225,7 @@ Composes with `proof`: the signal reads as a quoted card, the two proof points r
 Featured panel moves right.
 
 ```markdown
-<!-- _class: split-panel mirror -->
+<!-- @meta{layout=split-panel, class=mirror} -->
 
 `split-panel mirror`
 
@@ -244,7 +244,7 @@ Same anatomy, flipped — for when the deck's rhythm wants the claim to land lat
 Payload bullet becomes a code.
 
 ```markdown
-<!-- _class: split-panel qr -->
+<!-- @meta{layout=split-panel, class=qr} -->
 
 `split-panel qr`
 
@@ -261,7 +261,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-1 -->
+<!-- @meta{layout=split-panel, class=cat-1} -->
 
 `Stage 1 of 8`
 
@@ -278,7 +278,7 @@ Override: pins this slide to the theme's categorical slot #1 — the claim panel
 Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-2 -->
+<!-- @meta{layout=split-panel, class=cat-2} -->
 
 `Stage 2 of 8`
 
@@ -295,7 +295,7 @@ Override: pins this slide to the theme's categorical slot #2 — the claim panel
 Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-3 -->
+<!-- @meta{layout=split-panel, class=cat-3} -->
 
 `Stage 3 of 8`
 
@@ -312,7 +312,7 @@ Override: pins this slide to the theme's categorical slot #3 — the claim panel
 Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-4 -->
+<!-- @meta{layout=split-panel, class=cat-4} -->
 
 `Stage 4 of 8`
 
@@ -329,7 +329,7 @@ Override: pins this slide to the theme's categorical slot #4 — the claim panel
 Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-5 -->
+<!-- @meta{layout=split-panel, class=cat-5} -->
 
 `Stage 5 of 8`
 
@@ -346,7 +346,7 @@ Override: pins this slide to the theme's categorical slot #5 — the claim panel
 Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-6 -->
+<!-- @meta{layout=split-panel, class=cat-6} -->
 
 `Stage 6 of 8`
 
@@ -363,7 +363,7 @@ Override: pins this slide to the theme's categorical slot #6 — the claim panel
 Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-7 -->
+<!-- @meta{layout=split-panel, class=cat-7} -->
 
 `Stage 7 of 8`
 
@@ -380,7 +380,7 @@ Override: pins this slide to the theme's categorical slot #7 — the claim panel
 Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
-<!-- _class: split-panel cat-8 -->
+<!-- @meta{layout=split-panel, class=cat-8} -->
 
 `Stage 8 of 8`
 

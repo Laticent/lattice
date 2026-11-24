@@ -91,7 +91,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 Re-bases the axis on the walk; the tear marks the clipped anchors.
 
 ```markdown
-<!-- _class: waterfall zoom -->
+<!-- @meta{layout=waterfall, class=zoom} -->
 
 `FY26 · cash`
 
@@ -110,7 +110,7 @@ Re-bases the axis on the walk; the tear marks the clipped anchors.
 For walks where a rise is bad news: a rise wears the fail hue.
 
 ```markdown
-<!-- _class: waterfall lower-is-better -->
+<!-- @meta{layout=waterfall, class=lower-is-better} -->
 
 `Combined ratio · %`
 

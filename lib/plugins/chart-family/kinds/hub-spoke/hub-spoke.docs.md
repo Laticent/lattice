@@ -103,7 +103,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 Disc area carries each value.
 
 ```markdown
-<!-- _class: hub-spoke sized -->
+<!-- @meta{layout=hub-spoke, class=sized} -->
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -123,7 +123,7 @@ Disc area carries each value.
 Arrowheads and stepped connector weight.
 
 ```markdown
-<!-- _class: hub-spoke flow-out -->
+<!-- @meta{layout=hub-spoke, class=flow-out} -->
 
 `Memphis distribution center · Pallets per week`
 
@@ -143,7 +143,7 @@ Arrowheads and stepped connector weight.
 Heads point at the hub.
 
 ```markdown
-<!-- _class: hub-spoke flow-in -->
+<!-- @meta{layout=hub-spoke, class=flow-in} -->
 
 `Data platform · Records ingested per day`
 
@@ -162,7 +162,7 @@ Heads point at the hub.
 Two-way flow on every spoke.
 
 ```markdown
-<!-- _class: hub-spoke flow-both -->
+<!-- @meta{layout=hub-spoke, class=flow-both} -->
 
 `Shared services · Tickets per month`
 
@@ -181,7 +181,7 @@ Two-way flow on every spoke.
 Branches, with leaves off each one.
 
 ```markdown
-<!-- _class: hub-spoke tiered -->
+<!-- @meta{layout=hub-spoke, class=tiered} -->
 
 `Platform organization · Service ownership · 2026`
 

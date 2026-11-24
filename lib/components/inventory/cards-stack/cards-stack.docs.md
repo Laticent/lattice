@@ -88,7 +88,7 @@ Use when the items want vertical reading order — sequential exploration rather
 The stack pivots sideways.
 
 ```markdown
-<!-- _class: cards-stack horizontal -->
+<!-- @meta{layout=cards-stack, class=horizontal} -->
 
 ## horizontal lays the stack on its side.
 
@@ -105,7 +105,7 @@ The stack pivots sideways.
 Corner numbers make rank explicit.
 
 ```markdown
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## An ordered list makes the ranking explicit.
 

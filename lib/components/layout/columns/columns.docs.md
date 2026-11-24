@@ -62,7 +62,7 @@ Use when two components make one point together: a chart and what it means, befo
 Drops the spine between the panes.
 
 ```markdown
-<!-- _class: columns ratio-45-55 no-spine -->
+<!-- @meta{layout=columns, class=ratio-45-55 no-spine} -->
 
 `Support · after the migration`
 

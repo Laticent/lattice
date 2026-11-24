@@ -80,10 +80,10 @@
     }
   },
   "skeleton": "<!-- @meta{layout=waterfall} -->\n\n## How the number moved.\n\n- Opening `100`\n- First driver `+18`\n- Second driver `-7`\n- Third driver `-11`\n- Closing `100`\n",
-  "sample": "<!-- _class: waterfall -->\n\n`FY26 plan · actual`\n\n## Price paid for the volume we lost.\n\n- Plan `12.0M`\n- Price `+1.4M`\n  - Two list-price rises, both held\n- Volume `-0.8M`\n- Mix `-0.6M`\n- FX `-0.3M`\n- Cost base `-1.9M`\n- Actual `9.8M`\n",
+  "sample": "<!-- @meta{layout=waterfall} -->\n\n`FY26 plan · actual`\n\n## Price paid for the volume we lost.\n\n- Plan `12.0M`\n- Price `+1.4M`\n  - Two list-price rises, both held\n- Volume `-0.8M`\n- Mix `-0.6M`\n- FX `-0.3M`\n- Cost base `-1.9M`\n- Actual `9.8M`\n",
   "stressDoc": {
     "summary": "A subtotal mid-walk, a step below zero and back, and a level authored as a negative.",
-    "sample": "<!-- _class: waterfall -->\n\n## The quarter we went negative and came back.\n\n- Opening cash `2.4M`\n- Sales `+3.1M`\n- Payroll `-2.9M`\n- Tax bill `-4.2M`\n- Trough `-1.6M` `total`\n- Credit line `+5.0M`\n- Working capital `-0.9M`\n- Closing cash `2.5M`\n"
+    "sample": "<!-- @meta{layout=waterfall} -->\n\n## The quarter we went negative and came back.\n\n- Opening cash `2.4M`\n- Sales `+3.1M`\n- Payroll `-2.9M`\n- Tax bill `-4.2M`\n- Trough `-1.6M` `total`\n- Credit line `+5.0M`\n- Working capital `-0.9M`\n- Closing cash `2.5M`\n"
   },
   "whenToUse": [
     {
@@ -174,11 +174,11 @@
   "variantDocs": {
     "zoom": {
       "summary": "Re-bases the axis on the walk; the tear marks the clipped anchors.",
-      "sample": "<!-- _class: waterfall zoom -->\n\n`FY26 · cash`\n\n## The drivers are the story, so the anchors are cut.\n\n- Opening cash `12.0M`\n- Price `+0.3M`\n- Volume `-0.4M`\n- Mix `-0.2M`\n- Cost base `-1.9M`\n- Closing cash `9.8M`\n"
+      "sample": "<!-- @meta{layout=waterfall, class=zoom} -->\n\n`FY26 · cash`\n\n## The drivers are the story, so the anchors are cut.\n\n- Opening cash `12.0M`\n- Price `+0.3M`\n- Volume `-0.4M`\n- Mix `-0.2M`\n- Cost base `-1.9M`\n- Closing cash `9.8M`\n"
     },
     "lower-is-better": {
       "summary": "For walks where a rise is bad news: a rise wears the fail hue.",
-      "sample": "<!-- _class: waterfall lower-is-better -->\n\n`Combined ratio · %`\n\n## Cat losses pushed the combined ratio 6 points above plan.\n\n- Plan `94`\n- Cat losses `+8`\n- Attritional `+1`\n- Rate `-2`\n- Expenses `-1`\n- Actual `100`\n"
+      "sample": "<!-- @meta{layout=waterfall, class=lower-is-better} -->\n\n`Combined ratio · %`\n\n## Cat losses pushed the combined ratio 6 points above plan.\n\n- Plan `94`\n- Cat losses `+8`\n- Attritional `+1`\n- Rate `-2`\n- Expenses `-1`\n- Actual `100`\n"
     }
   },
   "pane": {

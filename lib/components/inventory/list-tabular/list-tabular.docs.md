@@ -98,7 +98,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 Counter spans rows; eyebrow above.
 
 ```markdown
-<!-- _class: list-tabular def -->
+<!-- @meta{layout=list-tabular, class=def} -->
 
 ## def pairs each term with its role.
 
@@ -115,7 +115,7 @@ Counter spans rows; eyebrow above.
 Values in bordered tiles.
 
 ```markdown
-<!-- _class: list-tabular metric -->
+<!-- @meta{layout=list-tabular, class=metric} -->
 
 ## metric turns the chips into figures.
 
@@ -129,7 +129,7 @@ Values in bordered tiles.
 Mono keys for flags and params.
 
 ```markdown
-<!-- _class: list-tabular spec -->
+<!-- @meta{layout=list-tabular, class=spec} -->
 
 ## spec documents flags and their types.
 
@@ -144,7 +144,7 @@ Mono keys for flags and params.
 Status pills on each row.
 
 ```markdown
-<!-- _class: list-tabular register -->
+<!-- @meta{layout=list-tabular, class=register} -->
 
 ## register pairs names with status chips.
 
@@ -159,7 +159,7 @@ Status pills on each row.
 Accent rail down the left edge.
 
 ```markdown
-<!-- _class: list-tabular def rule -->
+<!-- @meta{layout=list-tabular, class=def rule} -->
 
 ## rule draws a hairline under every row.
 
@@ -174,7 +174,7 @@ Accent rail down the left edge.
 Filled value tiles for headlines.
 
 ```markdown
-<!-- _class: list-tabular metric solid -->
+<!-- @meta{layout=list-tabular, class=metric solid} -->
 
 ## solid fills the register with panel color.
 
@@ -188,7 +188,7 @@ Filled value tiles for headlines.
 Clause drops below the name.
 
 ```markdown
-<!-- _class: list-tabular spec stacked -->
+<!-- @meta{layout=list-tabular, class=spec stacked} -->
 
 ## stacked drops the clause under its label.
 
@@ -203,7 +203,7 @@ Clause drops below the name.
 Outline pills — a lighter register.
 
 ```markdown
-<!-- _class: list-tabular register outline -->
+<!-- @meta{layout=list-tabular, class=register outline} -->
 
 ## outline boxes each row in a keyline.
 
@@ -217,7 +217,7 @@ Outline pills — a lighter register.
 The label column hugs its content, uncapped.
 
 ```markdown
-<!-- _class: list-tabular fit-name -->
+<!-- @meta{layout=list-tabular, class=fit-name} -->
 
 ## fit-name lets short labels keep their own width.
 
@@ -234,7 +234,7 @@ The label column hugs its content, uncapped.
 The clause column hugs; the trailing column takes the slack.
 
 ```markdown
-<!-- _class: list-tabular fit-body -->
+<!-- @meta{layout=list-tabular, class=fit-body} -->
 
 ## fit-body hugs the clause and holds the right edge.
 
@@ -251,7 +251,7 @@ The clause column hugs; the trailing column takes the slack.
 The trailing column hugs its content, uncapped.
 
 ```markdown
-<!-- _class: list-tabular fit-meta -->
+<!-- @meta{layout=list-tabular, class=fit-meta} -->
 
 ## fit-meta keeps a long trailing value on one line.
 
@@ -265,7 +265,7 @@ The trailing column hugs its content, uncapped.
 The label column takes the leftover.
 
 ```markdown
-<!-- _class: list-tabular flex-name -->
+<!-- @meta{layout=list-tabular, class=flex-name} -->
 
 ## flex-name hands the slack to the label.
 
@@ -282,7 +282,7 @@ The label column takes the leftover.
 The trailing column takes the leftover.
 
 ```markdown
-<!-- _class: list-tabular flex-meta -->
+<!-- @meta{layout=list-tabular, class=flex-meta} -->
 
 ## flex-meta gives the trailing column the room.
 
@@ -299,7 +299,7 @@ The trailing column takes the leftover.
 The pre-responsive fixed-width tracks.
 
 ```markdown
-<!-- _class: list-tabular fixed -->
+<!-- @meta{layout=list-tabular, class=fixed} -->
 
 ## fixed pins the columns to their old widths.
 

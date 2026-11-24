@@ -65,7 +65,7 @@ One screen, one story — the fastest way to see the product work.
 The player beside the claim it proves.
 
 ```markdown
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 ## companion seats the player beside its pitch.
 
@@ -79,7 +79,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 A contained, matted exhibit.
 
 ```markdown
-<!-- _class: video gallery -->
+<!-- @meta{layout=video, class=gallery} -->
 
 ## gallery mats the player like an exhibit.
 
@@ -91,7 +91,7 @@ A contained, matted exhibit.
 Adds a scannable code; combines with any look.
 
 ```markdown
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## qr hands the video to the room’s phones.
 

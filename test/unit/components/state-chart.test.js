@@ -19,6 +19,7 @@ const { stateChartAdapter, browserJs, installStateChartLayout, fitInlineStateCha
 const { htmlNeedsDagre, figureNeedsDagre, machineBranches } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.adoption');
 const { outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 const { STATUS_TONE } = require('../../../lib/plugins/chart-family/shared/graph-key');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const ROOT = path.join(__dirname, '../../..');
 const render = (body, cls = 'state-chart') => String(engine.render(`<!-- _class: ${cls} -->\n\n## A machine.\n\n${body}\n`).html);
@@ -374,7 +375,8 @@ describe('state chart — every shipped slide lays out with zero quality faults'
     const parts = fs.readFileSync(path.join(ROOT, deck), 'utf8').split(/\n---\n/);
     parts.forEach((md, i) => {
       // The slide's class, in a comment (`_class: state-chart`) or a record (`@meta{layout=state-chart}`).
-      if (!/(?:_class:|@meta\{)[^>]*\bstate-chart\b/.test(md) || /(?:_class:|@meta\{)[^>]*\binline\b/.test(md)) return;
+      const words = ownClassOf(md)?.payload.split(/\s+/) ?? [];
+      if (!words.includes('state-chart') || words.includes('inline')) return;
       const m = parseStateChart(outlineFromMarkdown(md.replace(/^[\s\S]*?\n## .*\n/, '')));
       if (!m.states.length) return;
       slides++;

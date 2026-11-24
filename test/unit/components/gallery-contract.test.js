@@ -30,6 +30,7 @@ const {
 } = require('../../../tools/build-component-docs');
 const { elementWordCounts } = require('../../../lib/authoring/prose-budgets');
 const { countPrimaryCollection } = require('../../../lib/authoring/lint-core');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 // ---- the ledger: NAMED debt, measured at PR 1 (re-run this file to re-measure) ----
 const VOICE_DEBT = {
@@ -136,7 +137,7 @@ function measure(m) {
       // A stress slide that carries `compact` is judged by the capacity it has WITH compact
       // (`capacity.withCompact`), as lint judges it — q-and-a's ceiling specimen is five pairs
       // with compact, where the bare slide holds four.
-      const compact = /<!--\s*_class:[^>]*\bcompact\b/.test(sd.sample) && m.capacity.withCompact;
+      const compact = /\bcompact\b/.test(ownClassOf(sd.sample)?.payload ?? '') && m.capacity.withCompact;
       const cap = compact ? { ...m.capacity, ...m.capacity.withCompact } : m.capacity;
       const n = countPrimaryCollection(sd.sample, cap.axis);
       const lo = Math.min(cap.soft + 1, cap.hard);

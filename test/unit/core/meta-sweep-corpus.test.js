@@ -4,8 +4,8 @@
  * or a bare `<!-- {…} -->` record. `<!-- @meta{…} -->` is the one spelling (owner, 2026-11-22).
  *
  * THE ORACLE IS THE MIGRATION ITSELF. A deck is clean when `lattice migrate meta` (lib/cli/migrate-meta.mjs
- * `migrateDeckText`, the kernel the lint fix and the Studio's fix button run) would change nothing in it and keep nothing
- * as written. So this test and the tool cannot disagree about what an old spelling is: a comment the converter would
+ * `migrateDeckText`, the kernel the lint fix and the Studio's fix button run) would convert no comment, respell no bare
+ * record and keep nothing as written (merging two adjacent records is tidying, not a spelling). So this test and the tool cannot disagree about what an old spelling is: a comment the converter would
  * rewrite is one, and nothing else is. A deck sample inside a fenced code block is documentation, not a deck, and the
  * converter (rightly) never touches it.
  *
@@ -52,16 +52,6 @@ const KEEP = Object.freeze({
   'spec/conformance/lfm/state-markers.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',
 });
 
-/**
- * THE GALLERIES UNDER lib/, until the gallery tools read and write records. `tools/build-component-docs.js`,
- * `tools/build-bucket-galleries.js` and `tools/build-showcase-galleries.js` compose most of them from the manifests, and
- * the hand-authored ones (`galleryAuthored`, the bucket marker, `EXTRA_GALLERIES`) still go through
- * `tools/build-galleries.js` `injectDark`, which darkens only a `_class:` comment: a record gallery would render its
- * dark PDF light (the checker on slice D). Moving those tools is #3433 (slice C). Once it lands, the sweep converts the
- * manifest `sample` strings and these galleries, and deletes this rule; it fails when it covers nothing.
- */
-const PENDING_GALLERY_TOOLS = (rel) => rel === 'examples/data-viz-gallery.md' || /^lib\/.*\.gallery\.md$/.test(rel);
-
 /** Every tracked `.md` that is a shipped deck, with its text. */
 function shippedDecks() {
   return execSync(`git ls-files "*.md" ${EXCLUDE_MIRRORS_SHELL}`, { cwd: ROOT, encoding: 'utf8' })
@@ -78,7 +68,9 @@ async function oldSpellings(decks) {
   for (const { rel, text } of decks) {
     if (!text.includes('<!--')) continue;
     const r = migrateDeckText(text, components);
-    if (r.text !== text || r.kept.length) out.set(rel, `${r.converted} comment(s), ${r.respelled} bare record(s), ${r.kept.length} kept`);
+    // Two adjacent records the migration would MERGE are not an old spelling (the gallery generators write the class and
+    // the footer as two records), so only a converted comment, a respelled bare record or a kept comment counts.
+    if (r.converted || r.respelled || r.kept.length) out.set(rel, `${r.converted} comment(s), ${r.respelled} bare record(s), ${r.kept.length} kept`);
   }
   return out;
 }
@@ -87,9 +79,7 @@ test('no shipped deck holds an old directive comment or a bare record, outside t
   const decks = shippedDecks();
   assert.ok(decks.length > 900, `the walk reaches the corpus (${decks.length} files)`);
   const found = await oldSpellings(decks);
-  const pending = [...found.keys()].filter(PENDING_GALLERY_TOOLS);
-  assert.ok(pending.length > 0, 'every gallery is in records: delete PENDING_GALLERY_TOOLS');
-  const stray = [...found].filter(([rel]) => !Object.hasOwn(KEEP, rel) && !PENDING_GALLERY_TOOLS(rel)).map(([rel, what]) => `${rel}: ${what}`);
+  const stray = [...found].filter(([rel]) => !Object.hasOwn(KEEP, rel)).map(([rel, what]) => `${rel}: ${what}`);
   assert.deepEqual(stray, [], 'run `lattice migrate meta <file>` (or `lint:deck --fix`) on each; a deck that must keep the old form goes in KEEP with its reason');
   const stale = Object.keys(KEEP).filter((rel) => !found.has(rel));
   assert.deepEqual(stale, [], 'these KEEP entries no longer hold an old spelling (or are gone): remove them');

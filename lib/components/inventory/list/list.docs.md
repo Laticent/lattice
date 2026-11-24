@@ -93,7 +93,7 @@ Under a variant, a slot changes shape:
 Ruled single lines for conclusions.
 
 ```markdown
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## takeaway boxes the list as findings.
 
@@ -108,7 +108,7 @@ Ruled single lines for conclusions.
 Numbered declarations at display weight.
 
 ```markdown
-<!-- _class: list principles -->
+<!-- @meta{layout=list, class=principles} -->
 
 ## principles numbers the house rules.
 
@@ -123,7 +123,7 @@ Numbered declarations at display weight.
 Letters replace the counters.
 
 ```markdown
-<!-- _class: list principles lettered -->
+<!-- @meta{layout=list, class=principles lettered} -->
 
 ## lettered counts the rules with letters.
 
@@ -137,7 +137,7 @@ Letters replace the counters.
 Roman numerals replace counters.
 
 ```markdown
-<!-- _class: list principles roman -->
+<!-- @meta{layout=list, class=principles roman} -->
 
 ## roman sets the rules in numerals.
 
@@ -151,7 +151,7 @@ Roman numerals replace counters.
 Dots replace the counters.
 
 ```markdown
-<!-- _class: list principles bullet -->
+<!-- @meta{layout=list, class=principles bullet} -->
 
 ## bullet strips the markers back to dots.
 

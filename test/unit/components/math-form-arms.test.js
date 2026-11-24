@@ -135,8 +135,8 @@ test('a compare slide keeps its eyebrow and heading OUT of the column flow', () 
   const fm = '---\ntheme: indaco\nheader: A\nfooter: B\npagination: true\nmeta: M\n---\n\n'
     + '<!-- _class: divider -->\n\n# S\n\n---\n\n';
   const md = MANIFEST.variantDocs.compare.sample.replace(
-    '<!-- _class: math compare -->',
-    '<!-- _class: math compare -->\n\n`Estimators · asymptotics`',
+    '<!-- @meta{layout=math, class=compare} -->',
+    '<!-- @meta{layout=math, class=compare} -->\n\n`Estimators · asymptotics`',
   );
   const out = render(fm + md);
   const html = typeof out === 'string' ? out : out.html;
