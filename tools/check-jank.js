@@ -446,7 +446,9 @@ function headingSweep() {
   // Every directive line — carried from the sample, or already in the skeleton (a manifest
   // with no skeleton sweeps its sample, whose `_track` names the sample's heading) — gets the
   // swept heading in place of the sample's, so the lit label grows with the axis.
-  const swap = (l, heading) => (sampleHeading && DIRECTIVE.test(l) ? l.replaceAll(sampleHeading, heading) : l);
+  // A setting line in either spelling: a `_track:` comment, or a record holding the track (the meta sweep merged topic's
+  // track into its class record, and a `_key:`-only test left the lit label fixed while the heading grew).
+  const swap = (l, heading) => (sampleHeading && carriesSetting(l) ? l.replaceAll(sampleHeading, heading) : l);
   return {
     steps: Array.from({ length: MAX }, (_, i) => i + 1),
     slideFor: (n) => {

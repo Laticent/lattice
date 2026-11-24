@@ -7,9 +7,9 @@ header: "Lattice · universal token system"
 footer: "Phase 7 — the whole system"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The universal token system, whole.
 
@@ -19,7 +19,7 @@ footer: "Phase 7 — the whole system"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Organized on two axes.
 
@@ -34,7 +34,7 @@ footer: "Phase 7 — the whole system"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Seven phases, each byte-identical.
 
@@ -49,7 +49,7 @@ footer: "Phase 7 — the whole system"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Proof`
 
@@ -68,9 +68,9 @@ pie showData
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## A boardroom-ready token system, built to scale.
 

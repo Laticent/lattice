@@ -7,9 +7,9 @@ header: "Lattice · universal token system"
 footer: "Phase 5 — sequential ramp"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # One word, one meaning.
 
@@ -19,7 +19,7 @@ footer: "Phase 5 — sequential ramp"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## "scale" meant two unrelated things.
 
@@ -34,7 +34,7 @@ footer: "Phase 5 — sequential ramp"
 
 ---
 
-<!-- _class: word-cloud spectrum -->
+<!-- @meta{layout=word-cloud, class=spectrum} -->
 
 ## The seq ramp in use — frequency as heat.
 
@@ -47,7 +47,7 @@ footer: "Phase 5 — sequential ramp"
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Sequential is for ordered data.
 
@@ -57,9 +57,9 @@ The `--seq-*` ramp encodes magnitude — heat, progress intensity, faint grid. T
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## No more two-meaning "scale".
 

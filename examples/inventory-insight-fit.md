@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · inventory insight fit"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The inventory seats its insight.
 
@@ -15,8 +15,8 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: inventory -->
-<!-- _footer: "Ledger · four rows + the insight band. Was clipped mid-line; titles now set at the tight line height." -->
+<!-- @meta{layout=inventory, footer="Ledger · four rows + the insight band. Was clipped mid-line; titles now set at the tight line height."} -->
+
 
 `inventory · ledger`
 
@@ -31,8 +31,8 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: inventory cards -->
-<!-- _footer: "Cards · the pull-quote's marks sit on the sentence, not on lines of their own." -->
+<!-- @meta{layout=inventory, class=cards, footer="Cards · the pull-quote's marks sit on the sentence, not on lines of their own."} -->
+
 
 `inventory cards`
 
@@ -47,8 +47,8 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: inventory timeline -->
-<!-- _footer: "Timeline · a two-line title wraps at the tight line height, not the body's." -->
+<!-- @meta{layout=inventory, class=timeline, footer="Timeline · a two-line title wraps at the tight line height, not the body's."} -->
+
 
 `inventory timeline`
 
@@ -63,8 +63,8 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: inventory editorial -->
-<!-- _footer: "Editorial · the same titles, tightened to match the other looks." -->
+<!-- @meta{layout=inventory, class=editorial, footer="Editorial · the same titles, tightened to match the other looks."} -->
+
 
 `inventory editorial`
 
@@ -79,8 +79,8 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: inventory dark -->
-<!-- _footer: "Ledger · dark · the band holds in either mode." -->
+<!-- @meta{layout=inventory, class=dark, footer=Ledger · dark · the band holds in either mode.} -->
+
 
 `inventory · ledger · dark`
 
@@ -95,7 +95,7 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

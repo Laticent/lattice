@@ -8,7 +8,7 @@ acronyms:
   CDN: content delivery network
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `B&W-safe · ink on paper`
 
@@ -30,7 +30,7 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Impact · pilot`
 
@@ -47,7 +47,7 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `What survives grayscale`
 
@@ -64,7 +64,7 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Where the budget goes`
 
@@ -81,7 +81,7 @@ The wedges differ by pattern, so the split survives a gray printer.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Print ready`
 

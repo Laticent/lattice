@@ -15,8 +15,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle -->
-<!-- @meta{footer=Default · cycle} -->
+<!-- @meta{layout=cycle, footer=Default · cycle} -->
 
 `The water cycle`
 
@@ -34,9 +33,8 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cycle -->
+<!-- @meta{layout=cycle, footer="Stress test · cycle — Six stages — the last legible ring."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · cycle — Six stages — the last legible ring."} -->
 
 `The carbon cycle`
 

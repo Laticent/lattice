@@ -8,7 +8,7 @@ logo: lattice
 logo-finish: bottom-center accent-ink lg
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One line styles the logo
 
@@ -23,7 +23,7 @@ logo-finish: bottom-center accent-ink lg
 
 ---
 
-<!-- _class: dark -->
+<!-- @meta{class=dark} -->
 
 ## Dark slide
 
@@ -32,7 +32,7 @@ logo-finish: bottom-center accent-ink lg
 
 ---
 
-<!-- _class: no-logo -->
+<!-- @meta{class=no-logo} -->
 
 ## This slide hides it
 
@@ -41,7 +41,7 @@ logo-finish: bottom-center accent-ink lg
 
 ---
 
-<!-- _class: logo-ink -->
+<!-- @meta{class=logo-ink} -->
 
 ## One slide, another color
 
@@ -58,7 +58,7 @@ logo-finish: bottom-center accent-ink lg
 
 ---
 
-<!-- _class: logo-brand -->
+<!-- @meta{class=logo-brand} -->
 
 ## Original colors, nothing behind them
 
@@ -67,7 +67,7 @@ logo-finish: bottom-center accent-ink lg
 
 ---
 
-<!-- _class: logo-brand logo-plate -->
+<!-- @meta{class=logo-brand logo-plate} -->
 
 ## A plate, when asked for
 

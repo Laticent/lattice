@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · journey label sets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Not every scale runs from pain to delight.
 
@@ -17,8 +17,8 @@ decision record had already argued exactly that, about a different chart.
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Default · a customer journey really does run pain to delight" -->
+<!-- @meta{layout=journey, footer=Default · a customer journey really does run pain to delight} -->
+
 
 ## Onboarding, as a customer feels it.
 
@@ -33,8 +33,8 @@ decision record had already argued exactly that, about a different chart.
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Overridden · the same board, for an on-call rotation" -->
+<!-- @meta{layout=journey, footer="Overridden · the same board, for an on-call rotation"} -->
+
 
 `[{1, Friction}, {5, Flow}]`
 
@@ -52,8 +52,8 @@ decision record had already argued exactly that, about a different chart.
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Partial · name one pole, keep the other" -->
+<!-- @meta{layout=journey, footer="Partial · name one pole, keep the other"} -->
+
 
 `[{1, Blocked}]`
 
@@ -68,8 +68,8 @@ decision record had already argued exactly that, about a different chart.
 
 ---
 
-<!-- _class: journey curve -->
-<!-- _footer: "curve · the key follows every variant" -->
+<!-- @meta{layout=journey, class=curve, footer=curve · the key follows every variant} -->
+
 
 `[{1, Cost}, {5, Value}]`
 
@@ -86,8 +86,8 @@ decision record had already argued exactly that, about a different chart.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What the label set changed here" -->
+<!-- @meta{layout=list, footer=What the label set changed here} -->
+
 
 ## What changed.
 

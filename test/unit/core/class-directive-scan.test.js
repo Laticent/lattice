@@ -18,6 +18,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+const { recordsToComments } = require('../../../lib/core/meta-door.mjs');
 const { splitTopLevel } = require('../../../lib/authoring/slide-split');
 const { resolveSplitMode } = require('../../../lib/core/resolve-split');
 const scan = require('../../../lib/core/class-directive-scan.mjs');
@@ -171,8 +172,10 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       try { src = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { return null; }
       const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       if (!fm || !/^\s*(marp|theme|split):/m.test(fm[1])) return null;
-      if (!/<!--\s*_?class:/.test(src)) return null;
-      return { rel, src };
+      // A class in either spelling: a directive comment, or a record (the corpus is records since the meta sweep).
+      if (!/<!--\s*(?:_?class:|@meta\{)/.test(src)) return null;
+      // `legacy`: the same deck in directive comments (the engine's form), which the historical reader below needs.
+      return { rel, src, legacy: recordsToComments(src, null, { legacy: true }) };
     })
     .filter(Boolean);
 
@@ -191,7 +194,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       const scanned = payloads(src).slice(2); // drop the two front-matter chunks
       // A PANE-SPLIT divergence, a second known kind: a deck that cannot lay panes side by side (square, portrait,
       // story, mobile) gives each pane its own page (lib/core/panes.js), which a `^---$` scan cannot see either.
-      if (spans.length > scanned.length && /<!--\s*_?pane:/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
+      if (spans.length > scanned.length && /<!--\s*(?:_?pane:|@meta\{pane)/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
         paneSplit++;
         continue;
       }
@@ -276,8 +279,10 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
         i = open + 4;
       }
     };
+    // Over each deck's directive-comment form: the corpus is written in records since the meta sweep (slice D), and the
+    // historical reader read only comments.
     const wrong = [];
-    for (const { rel, src } of decks) {
+    for (const { rel, legacy: src } of decks) {
       const spans = slideClassSpans(src).spans.map((s) => s.slideClass);
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
@@ -291,7 +296,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
     const recordOn = (chunk) => /^\s*<!--\s*(?:@meta)?\{/m.test(chunk);
     for (const w of wrong) {
       if (recordOn(w.chunk)) continue;
-      const src = decks.find((d) => d.rel === w.rel).src;
+      const src = decks.find((d) => d.rel === w.rel).legacy;
       assert.match(src, /^\s*<!--\s*class:/m,
         `${w.rel} slide ${w.slide}: the old reader was wrong on a slide with no record, in a deck that uses NO global directive — a different defect`);
     }

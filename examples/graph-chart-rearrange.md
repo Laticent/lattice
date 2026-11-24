@@ -8,7 +8,7 @@ acronyms:
   QA: Q A
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -18,8 +18,8 @@ acronyms:
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "1 — written order (the default)" -->
+<!-- @meta{layout=state-chart, footer="1 — written order (the default)"} -->
+
 
 `Written order`
 
@@ -52,8 +52,8 @@ acronyms:
 
 ---
 
-<!-- _class: state-chart rearrange -->
-<!-- _footer: "2 — the same machine, rearrange" -->
+<!-- @meta{layout=state-chart, class=rearrange, footer="2 — the same machine, rearrange"} -->
+
 
 `rearrange`
 
@@ -86,8 +86,8 @@ acronyms:
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "3 — a flowchart in written order" -->
+<!-- @meta{layout=flowchart, footer="3 — a flowchart in written order"} -->
+
 
 `Written order`
 
@@ -104,8 +104,8 @@ acronyms:
 
 ---
 
-<!-- _class: flowchart rearrange -->
-<!-- _footer: "4 — the same flowchart, rearrange" -->
+<!-- @meta{layout=flowchart, class=rearrange, footer="4 — the same flowchart, rearrange"} -->
+
 
 `rearrange`
 
@@ -122,8 +122,8 @@ acronyms:
 
 ---
 
-<!-- _class: state-chart rearrange -->
-<!-- _footer: "5 — a chain, rearrange" -->
+<!-- @meta{layout=state-chart, class=rearrange, footer="5 — a chain, rearrange"} -->
+
 
 `Nothing to fix`
 

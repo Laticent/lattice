@@ -92,7 +92,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 The first person takes a hero cell; the rest rank beneath.
 
 ```markdown
-<!-- _class: team-profile lead -->
+<!-- @meta{layout=team-profile, class=lead} -->
 
 `team-profile lead`
 
@@ -121,7 +121,7 @@ The first person takes a hero cell; the rest rank beneath.
 The long roster, packed to a face, a name and a role.
 
 ```markdown
-<!-- _class: team-profile bench -->
+<!-- @meta{layout=team-profile, class=bench} -->
 
 `team-profile bench`
 
@@ -166,7 +166,7 @@ The long roster, packed to a face, a name and a role.
 Two labeled rosters facing each other across the slide.
 
 ```markdown
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 `team-profile sides`
 
@@ -196,7 +196,7 @@ Two labeled rosters facing each other across the slide.
 One person per row, with room for a real sentence.
 
 ```markdown
-<!-- _class: team-profile bio -->
+<!-- @meta{layout=team-profile, class=bio} -->
 
 `team-profile bio`
 

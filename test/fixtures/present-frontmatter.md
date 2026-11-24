@@ -7,7 +7,7 @@ present: true
 header: "Lattice · present front-matter fixture"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Present front-matter fixture
 
@@ -18,8 +18,8 @@ exported PDF for full-screen presentation mode with no CLI flag.
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "fixture · closing" -->
+<!-- @meta{layout=closing, footer=fixture · closing} -->
+
 
 ## Final slide.
 

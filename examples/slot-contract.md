@@ -4,7 +4,7 @@ pagination: true
 header: "Lattice · the slot contract"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The manifest is now the contract lint checks
 
@@ -14,8 +14,8 @@ Each layout says what you write for it, and `lint:deck` holds every slide to tha
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "quote · only the paragraph right after the quote is the credit" -->
+<!-- @meta{layout=quote, footer=quote · only the paragraph right after the quote is the credit} -->
+
 
 > A quotation earns the whole slide, or it does not belong on one.
 
@@ -25,8 +25,8 @@ A second paragraph used to print as a second credit, in tracked capitals. It rea
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "cards-grid · `##` builds the heading; `#` used to drop it silently" -->
+<!-- @meta{layout=cards-grid, footer="cards-grid · `##` builds the heading; `#` used to drop it silently"} -->
+
 
 ## A `##` heading builds the layout's title.
 
@@ -39,8 +39,8 @@ A second paragraph used to print as a second credit, in tracked capitals. It rea
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "stats · the tiles come from a `1.` list; a `-` list collapses them" -->
+<!-- @meta{layout=stats, footer="stats · the tiles come from a `1.` list; a `-` list collapses them"} -->
+
 
 ## Tiles come from a numbered list.
 
@@ -53,8 +53,8 @@ A second paragraph used to print as a second credit, in tracked capitals. It rea
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "list · each word that does nothing as written warns" -->
+<!-- @meta{layout=list, class=takeaway, footer=list · each word that does nothing as written warns} -->
+
 
 ## A variant that does nothing as written says so.
 
@@ -64,7 +64,7 @@ A second paragraph used to print as a second credit, in tracked capitals. It rea
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Lint-clean now means the layout gets what it reads.
 

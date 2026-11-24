@@ -90,7 +90,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 Marks keep their brand hues.
 
 ```markdown
-<!-- _class: logo-wall color -->
+<!-- @meta{layout=logo-wall, class=color} -->
 
 `logo-wall color`
 
@@ -111,7 +111,7 @@ Marks keep their brand hues.
 Six columns for the long roster.
 
 ```markdown
-<!-- _class: logo-wall dense -->
+<!-- @meta{layout=logo-wall, class=dense} -->
 
 `logo-wall dense`
 

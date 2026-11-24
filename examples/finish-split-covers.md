@@ -6,7 +6,7 @@ pagination: true
 header: "Finish on covers"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · split-envelope.js`
 
@@ -16,7 +16,7 @@ The cover used to lose it. Every page after this one is a split run, and every p
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The plain split: a cover, then one point per page
 
@@ -27,7 +27,7 @@ The cover used to lose it. Every page after this one is a split run, and every p
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Carousel · split-panel`
 
@@ -40,7 +40,7 @@ The cover used to lose it. Every page after this one is a split run, and every p
 
 ---
 
-<!-- _class: split-panel cat-3 -->
+<!-- @meta{layout=split-panel, class=cat-3} -->
 
 `Carousel · a tinted panel`
 
@@ -53,7 +53,7 @@ The cover used to lose it. Every page after this one is a split run, and every p
 
 ---
 
-<!-- _class: decision finish finish-strata -->
+<!-- @meta{layout=decision, class=finish finish-strata} -->
 
 `Decision · a per-slide finish`
 
@@ -66,6 +66,6 @@ The cover used to lose it. Every page after this one is a split run, and every p
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One run, one finish — on the cover, the carousel and the body.

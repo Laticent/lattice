@@ -4,19 +4,19 @@ pagination: true
 progress-rail: on
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 ## Alpha &amp; omega.
 
 ---
 
-<!-- hide -->
+<!-- @meta{hide} -->
 
 ## A hidden body
 
@@ -24,7 +24,7 @@ Cut for this audience.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## T1
 
@@ -32,7 +32,7 @@ Body.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## T2
 
@@ -40,13 +40,13 @@ Body.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 ## The `code` part
 
 ---
 
-<!-- _paginate: false -->
+<!-- @meta{paginate=false} -->
 
 ## An unnumbered body
 
@@ -60,7 +60,7 @@ Body.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 ## Gamma <em>x</em>
 

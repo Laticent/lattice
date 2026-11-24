@@ -91,7 +91,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 Flags the tile that misses.
 
 ```markdown
-<!-- _class: kpi attention -->
+<!-- @meta{layout=kpi, class=attention} -->
 
 ## attention flags the tile that misses.
 
@@ -114,7 +114,7 @@ Flags the tile that misses.
 Reads the tiles against SLOs.
 
 ```markdown
-<!-- _class: kpi ops -->
+<!-- @meta{layout=kpi, class=ops} -->
 
 `kpi ops`
 
@@ -139,7 +139,7 @@ Reads the tiles against SLOs.
 Tallies findings per framework.
 
 ```markdown
-<!-- _class: kpi compliance -->
+<!-- @meta{layout=kpi, class=compliance} -->
 
 `kpi compliance`
 
@@ -161,7 +161,7 @@ Tallies findings per framework.
 Pairs each tile with its delta.
 
 ```markdown
-<!-- _class: kpi trajectory -->
+<!-- @meta{layout=kpi, class=trajectory} -->
 
 `kpi trajectory`
 
@@ -183,7 +183,7 @@ Pairs each tile with its delta.
 One tile earns double width.
 
 ```markdown
-<!-- _class: kpi spotlight -->
+<!-- @meta{layout=kpi, class=spotlight} -->
 
 ## spotlight gives one tile double width.
 

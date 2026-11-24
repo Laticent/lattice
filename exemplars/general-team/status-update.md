@@ -6,7 +6,7 @@ pagination: true
 header: "Lumen Platform · Weekly status"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Platform team · Week of 8 June 2026`
@@ -17,7 +17,7 @@ The checkout migration is on track for 1 July — one risk needs a decision toda
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Bottom line: we ship checkout on Lumen 1 July, on plan, with one open call.
@@ -26,7 +26,7 @@ The migration of checkout to the Lumen platform is 78% complete and tracking to 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Why this matters now: the legacy checkout stack goes end-of-support 31 July.
@@ -38,7 +38,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Eleven of fourteen live; latency and errors inside target.
@@ -55,7 +55,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Shadow traffic · last 7 days`
@@ -75,7 +75,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: standard -->
 
 `Progress · Q2 2026`
@@ -93,7 +93,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Path to cutover · 1 July`
@@ -108,7 +108,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: full -->
 
 ## Where our open risks sit by likelihood and impact.
@@ -124,7 +124,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: full -->
 
 ## Cutover readiness as of today.
@@ -138,7 +138,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Decision today: run a full peak-load rehearsal before cutover.
@@ -150,9 +150,9 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## On track for 1 July — pending your call on load testing.

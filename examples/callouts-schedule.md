@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · callouts on plans and networks · placed by measure"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes pin to the task or the node they name
 
@@ -15,8 +15,8 @@ A ring on a bar, a milestone or a disc, a numbered marker on it, and the words s
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "gantt · a task by its label; its bar is ringed." -->
+<!-- @meta{layout=gantt, footer="gantt · a task by its label; its bar is ringed."} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -35,8 +35,8 @@ A ring on a bar, a milestone or a disc, a numbered marker on it, and the words s
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- _footer: "hub-spoke · a spoke by its label; its disc is ringed." -->
+<!-- @meta{layout=hub-spoke, footer="hub-spoke · a spoke by its label; its disc is ringed."} -->
+
 
 `Transformation program · Workstream status · Q3`
 
@@ -54,7 +54,7 @@ A ring on a bar, a milestone or a disc, a numbered marker on it, and the words s
 
 ---
 
-<!-- _class: flowchart -->
+<!-- @meta{layout=flowchart} -->
 
 ## The queue clears in three steps.
 
@@ -70,7 +70,7 @@ A ring on a bar, a milestone or a disc, a numbered marker on it, and the words s
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 ## A release moves one way, then rolls back.
 

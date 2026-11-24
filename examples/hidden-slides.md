@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Hidden slides"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Keep a slide without showing it.
 
@@ -15,7 +15,7 @@ One line at the top of a slide hides it from Present and every export.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -34,7 +34,7 @@ One line at the top of a slide hides it from Present and every export.
 
 ---
 
-<!-- hide -->
+<!-- @meta{hide} -->
 
 ## Backup: the full cost model
 
@@ -51,8 +51,8 @@ This slide is hidden. If you can read it in the exported PDF, hiding is broken.
 
 ---
 
-<!-- _hide: true -->
-<!-- _class: divider -->
+<!-- @meta{hide=true, layout=divider} -->
+
 
 `Section 02`
 
@@ -68,6 +68,6 @@ This slide is hidden. If you can read it in the exported PDF, hiding is broken.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Hide a slide, keep the deck.

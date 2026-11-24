@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · plugin system, phase B"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Plugins, phase B
 
@@ -13,8 +13,8 @@ header: "Lattice · plugin system, phase B"
 
 ---
 
-<!-- _class: math canvas -->
-<!-- _footer: "Unchanged pixels, one source: the runtime and the CLI page run the same hydrate." -->
+<!-- @meta{layout=math, class=canvas, footer="Unchanged pixels, one source: the runtime and the CLI page run the same hydrate."} -->
+
 
 `function-plot · one hydrate source`
 
@@ -38,8 +38,8 @@ The logistic link: $S$-shaped, $\sigma(0) = 0.5$.
 
 ---
 
-<!-- _class: math canvas -->
-<!-- _footer: "The render reports function-plot/deprecated-alias." -->
+<!-- @meta{layout=math, class=canvas, footer=The render reports function-plot/deprecated-alias.} -->
+
 
 `function-plot · the deprecated alias`
 
@@ -59,8 +59,8 @@ A damped oscillation, written with the old fence name.
 
 ---
 
-<!-- _class: math canvas -->
-<!-- _footer: "The error settles the figure, so no capture waits on it." -->
+<!-- @meta{layout=math, class=canvas, footer="The error settles the figure, so no capture waits on it."} -->
+
 
 `function-plot · a config that fails`
 
@@ -76,8 +76,8 @@ The config below is missing its closing brace.
 
 ---
 
-<!-- _class: math -->
-<!-- _footer: "The spelling GitHub and GitLab use for display math." -->
+<!-- @meta{layout=math, footer=The spelling GitHub and GitLab use for display math.} -->
+
 
 `math · the fence form`
 
@@ -93,8 +93,8 @@ The config below is missing its closing brace.
 
 ---
 
-<!-- _class: math -->
-<!-- _footer: "KaTeX errorColor is var(--warn) now, not an inline #cc0000." -->
+<!-- @meta{layout=math, footer="KaTeX errorColor is var(--warn) now, not an inline #cc0000."} -->
+
 
 `math · a formula KaTeX cannot parse`
 
@@ -108,7 +108,7 @@ $$ \frac{a}{b $$
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every figure settles before capture
 

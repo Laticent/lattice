@@ -1,5 +1,5 @@
-<!-- _class: diagram dark -->
-<!-- _footer: "sequence · diagram survey" -->
+<!-- @meta{layout=diagram, class=dark, footer=sequence · diagram survey} -->
+
 
 `Flow & sequence · Sequence`
 

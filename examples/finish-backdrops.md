@@ -51,7 +51,7 @@ section.finish.finish-signal.lattice-exporting {
 }
 </style>
 
-<!-- _class: title silent no-finish -->
+<!-- @meta{layout=title, class=silent no-finish} -->
 
 `Feature demo · finishes`
 
@@ -82,7 +82,7 @@ finish behind every slide, so you never repeat a class.
 
 ---
 
-<!-- _class: finish finish-meridian -->
+<!-- @meta{class=finish finish-meridian} -->
 
 ## Meridian — duotone, contours, a ghost numeral.
 
@@ -92,7 +92,7 @@ this slide opts in with its own `Q3`; by default a finish paints no glyph at all
 
 ---
 
-<!-- _class: finish finish-strata list-tabular -->
+<!-- @meta{class=finish finish-strata list-tabular} -->
 
 ## Strata — bands, a dot-matrix, a corner tick.
 
@@ -105,7 +105,7 @@ this slide opts in with its own `Q3`; by default a finish paints no glyph at all
 
 ---
 
-<!-- _class: finish finish-halo -->
+<!-- @meta{class=finish finish-halo} -->
 
 ## Halo — a spotlight section treatment.
 
@@ -115,7 +115,7 @@ dark, legible text. Set per-slide with `_class: finish finish-halo`.
 
 ---
 
-<!-- _class: finish finish-ledger -->
+<!-- @meta{class=finish finish-ledger} -->
 
 ## Ledger — ruled lines, a margin bar, a fold.
 
@@ -125,7 +125,7 @@ surface. The deck-wide Atrium finish is replaced for this one slide.
 
 ---
 
-<!-- _class: finish finish-nimbus -->
+<!-- @meta{class=finish finish-nimbus} -->
 
 ## Nimbus — a gradient mesh of soft blooms.
 
@@ -136,7 +136,7 @@ air, set per-slide with `_class: finish finish-nimbus`.
 
 ---
 
-<!-- _class: finish finish-loom list-tabular -->
+<!-- @meta{class=finish finish-loom list-tabular} -->
 
 ## Loom — a woven lattice, a movable glow.
 
@@ -150,7 +150,7 @@ air, set per-slide with `_class: finish finish-nimbus`.
 
 ---
 
-<!-- _class: finish finish-savile -->
+<!-- @meta{class=finish finish-savile} -->
 
 ## Savile — a tailored pinstripe, a placed monogram.
 
@@ -161,7 +161,7 @@ tailored, set with `_class: finish finish-savile`.
 
 ---
 
-<!-- _class: finish finish-gallery -->
+<!-- @meta{class=finish finish-gallery} -->
 
 ## Gallery — a museum keyline frame.
 
@@ -173,7 +173,7 @@ finish-gallery`.
 
 ---
 
-<!-- _class: finish finish-signal -->
+<!-- @meta{class=finish finish-signal} -->
 
 ## Marks are sized, moved, and tilted — not stamped in a corner.
 
@@ -185,7 +185,7 @@ lower-left. Exported verbatim from the Finish Studio.
 
 ---
 
-<!-- _class: title silent no-finish -->
+<!-- @meta{layout=title, class=silent no-finish} -->
 
 `brand · placed, not stamped`
 
@@ -197,7 +197,7 @@ the mark moves, identically in the live preview and the baked PDF.
 
 ---
 
-<!-- _class: agenda progress-2 -->
+<!-- @meta{layout=agenda, class=progress-2} -->
 
 ## How the finish is wired.
 
@@ -209,7 +209,7 @@ the mark moves, identically in the live preview and the baked PDF.
 
 ---
 
-<!-- _class: no-finish silent -->
+<!-- @meta{class=no-finish silent} -->
 
 ## Pick it in the Studio.
 
@@ -220,7 +220,7 @@ deck's default Atrium finish nowhere here.
 
 ---
 
-<!-- _class: title silent no-finish -->
+<!-- @meta{layout=title, class=silent no-finish} -->
 
 `one line to re-surface the room`
 

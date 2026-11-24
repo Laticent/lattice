@@ -7,7 +7,7 @@ logo: lattice
 progress-rail: dots on
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## One
 
@@ -19,13 +19,13 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Two
 
 ---
 
-<!-- _class: no-progress -->
+<!-- @meta{class=no-progress} -->
 
 ## A slide without a rail
 
@@ -33,7 +33,7 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: logo-bottom-right -->
+<!-- @meta{class=logo-bottom-right} -->
 
 ## A bottom-right logo
 
@@ -41,7 +41,7 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: logo-bottom-right logo-lg -->
+<!-- @meta{class=logo-bottom-right logo-lg} -->
 
 ## A large bottom-right logo
 
@@ -49,7 +49,7 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: logo-bottom-right logo-plate -->
+<!-- @meta{class=logo-bottom-right logo-plate} -->
 
 ## A bottom-right logo on a plate
 
@@ -57,7 +57,7 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: logo-bottom-right progress-rail-center -->
+<!-- @meta{class=logo-bottom-right progress-rail-center} -->
 
 ## A centered rail under a bottom-right logo
 
@@ -65,7 +65,7 @@ progress-rail: dots on
 
 ---
 
-<!-- _class: progress-rail-center -->
+<!-- @meta{class=progress-rail-center} -->
 
 ## A centered rail
 

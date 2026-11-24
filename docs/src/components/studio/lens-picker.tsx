@@ -1,7 +1,7 @@
 import { ChevronDown, FileText, Plus } from 'lucide-react';
 import type * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import type { LensDef } from '@/lib/lente';
+import type { LensDef } from '@/lib/lente-host';
 import { cn } from '@/lib/utils';
 import type { PresentLens } from '../../lib/deck-lint';
 import { LensIcon } from './icons';

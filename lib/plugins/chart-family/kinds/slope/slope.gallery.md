@@ -15,8 +15,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope -->
-<!-- @meta{footer=Default · slope} -->
+<!-- @meta{layout=slope, footer=Default · slope} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -39,8 +38,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope dumbbell -->
-<!-- @meta{footer="Dumbbell · slope dumbbell — The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid."} -->
+<!-- @meta{layout=slope, class=dumbbell, footer="Dumbbell · slope dumbbell — The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid."} -->
 
 ## Every team came in over plan except two.
 
@@ -63,8 +61,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope signal -->
-<!-- @meta{footer="Signal · slope signal — Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news."} -->
+<!-- @meta{layout=slope, class=signal, footer="Signal · slope signal — Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news."} -->
 
 ## Adoption rose everywhere but the two legacy regions.
 
@@ -87,9 +84,8 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: slope -->
+<!-- @meta{layout=slope, footer="Stress test · slope — Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · slope — Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on."} -->
 
 ## Eight suppliers, four in a dead heat.
 

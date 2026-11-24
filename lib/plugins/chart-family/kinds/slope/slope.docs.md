@@ -83,7 +83,7 @@ Use when the claim is that the ORDER changed between two points — market share
 The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid.
 
 ```markdown
-<!-- _class: slope dumbbell -->
+<!-- @meta{layout=slope, class=dumbbell} -->
 
 ## Every team came in over plan except two.
 
@@ -109,7 +109,7 @@ The same before/after model as one row per entity: two dots joined by a bar on a
 Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news.
 
 ```markdown
-<!-- _class: slope signal -->
+<!-- @meta{layout=slope, class=signal} -->
 
 ## Adoption rose everywhere but the two legacy regions.
 

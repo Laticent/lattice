@@ -6,7 +6,7 @@ pagination: true
 header: "Harvest Table · 2025 impact report"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Annual impact report · fiscal year 2025`
@@ -17,7 +17,7 @@ We rescue surplus food and turn it into hot meals for neighbors who need them.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## In our city, good food gets thrown away while too many people go to bed hungry.
@@ -29,7 +29,7 @@ Harvest Table closes that gap. We recover surplus food from grocers and farms, c
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `HARVEST TABLE · 2025`
@@ -48,7 +48,7 @@ Harvest Table closes that gap. We recover surplus food from grocers and farms, c
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## 2025 was the year Harvest Table grew from one kitchen to two — and never missed a meal.
@@ -60,7 +60,7 @@ We opened our Eastside kitchen in March, grew our volunteer corps to 340, and ad
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 <!-- tier: short -->
 
 ## How a rescued meal reaches a neighbor.
@@ -77,7 +77,7 @@ We opened our Eastside kitchen in March, grew our volunteer corps to 340, and ad
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Every meal, accounted for`
@@ -87,7 +87,7 @@ We opened our Eastside kitchen in March, grew our volunteer corps to 340, and ad
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: short -->
 
 > I came for the meal. I stayed because someone learned my name and saved me a seat every night.
@@ -96,7 +96,7 @@ We opened our Eastside kitchen in March, grew our volunteer corps to 340, and ad
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Theresa is one of 7,400 neighbors who sat at our tables this year.
@@ -108,7 +108,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Impact · fiscal year 2025`
@@ -128,7 +128,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Where the money goes · 2025`
@@ -148,7 +148,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 `What makes the model work`
@@ -166,7 +166,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The need still ahead`
@@ -176,7 +176,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 `Next year · the plan`
@@ -192,7 +192,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `THE PLAN · 2026`
@@ -211,7 +211,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## We are ready to grow — the kitchens are mapped, the volunteers are waiting.
@@ -223,9 +223,9 @@ Two more kitchens take us from 412,000 meals to 600,000. Each new site needs a l
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## A full plate, a known name, a saved seat — that is the whole mission.

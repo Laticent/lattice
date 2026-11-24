@@ -15,8 +15,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey -->
-<!-- @meta{footer=Default · journey} -->
+<!-- @meta{layout=journey, footer=Default · journey} -->
 
 ## The journey scores each stage of the path.
 
@@ -34,8 +33,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey heatmap -->
-<!-- @meta{footer="heatmap · journey heatmap — Stages shade by score."} -->
+<!-- @meta{layout=journey, class=heatmap, footer="heatmap · journey heatmap — Stages shade by score."} -->
 
 ## heatmap shades the stages by score.
 
@@ -52,8 +50,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey curve -->
-<!-- @meta{footer="curve · journey curve — A sentiment line rides the stages."} -->
+<!-- @meta{layout=journey, class=curve, footer="curve · journey curve — A sentiment line rides the stages."} -->
 
 ## curve draws the sentiment line.
 
@@ -70,8 +67,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey swimlane -->
-<!-- @meta{footer="swimlane · journey swimlane — One lane per actor."} -->
+<!-- @meta{layout=journey, class=swimlane, footer="swimlane · journey swimlane — One lane per actor."} -->
 
 ## swimlane splits the journey by actor.
 
@@ -88,8 +84,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey weighted -->
-<!-- @meta{footer="weighted · journey weighted — Stage size carries weight."} -->
+<!-- @meta{layout=journey, class=weighted, footer="weighted · journey weighted — Stage size carries weight."} -->
 
 ## weighted sizes the stages by importance.
 
@@ -106,9 +101,8 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey, footer="Stress test · journey — Five stages, twelve tasks — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · journey — Five stages, twelve tasks — the ceiling."} -->
 
 ## Five stages of twelve tasks is the ceiling.
 

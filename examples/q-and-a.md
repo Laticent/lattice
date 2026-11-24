@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · q-and-a"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The questions we know are coming.
 
@@ -16,7 +16,7 @@ The end-of-pitch slide that pre-empts the room — the three or four hardest que
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A few defended answers, not a help page.
 
@@ -28,7 +28,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 
 `The ledger — default`
 
@@ -43,7 +43,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a spine -->
+<!-- @meta{layout=q-and-a, class=spine} -->
 
 `Spine — a sequential walkthrough`
 
@@ -58,7 +58,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a rail -->
+<!-- @meta{layout=q-and-a, class=rail} -->
 
 `Rail — question / answer columns`
 
@@ -73,7 +73,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a tab -->
+<!-- @meta{layout=q-and-a, class=tab} -->
 
 `Tab — underlined prompts`
 
@@ -88,7 +88,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a grid -->
+<!-- @meta{layout=q-and-a, class=grid} -->
 
 `Grid — two-up density`
 
@@ -105,7 +105,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a solo -->
+<!-- @meta{layout=q-and-a, class=solo} -->
 
 `Solo — one question, the whole slide`
 
@@ -116,7 +116,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
 
 ---
 
-<!-- _class: q-and-a compact -->
+<!-- @meta{layout=q-and-a, class=compact} -->
 
 ## Five we expect, numbered and tightened.
 
@@ -132,7 +132,7 @@ Q&A is a *function*, not a flat list: you close the objection on your own terms.
    1. Opt-in for thirty days, with a fallback.
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Pre-empt the room.
 

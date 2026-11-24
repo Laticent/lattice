@@ -15,8 +15,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update -->
-<!-- @meta{footer=Default · regulatory-update} -->
+<!-- @meta{layout=regulatory-update, footer=Default · regulatory-update} -->
 
 ## The update ledger tracks regulatory motion.
 
@@ -42,8 +41,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update timeline -->
-<!-- @meta{footer="timeline · regulatory-update timeline — Ordered by effective date."} -->
+<!-- @meta{layout=regulatory-update, class=timeline, footer="timeline · regulatory-update timeline — Ordered by effective date."} -->
 
 ## timeline orders the changes by effective date.
 
@@ -69,8 +67,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update priority -->
-<!-- @meta{footer="priority · regulatory-update priority — Ranked by exposure."} -->
+<!-- @meta{layout=regulatory-update, class=priority, footer="priority · regulatory-update priority — Ranked by exposure."} -->
 
 ## priority ranks the changes by exposure.
 
@@ -92,8 +89,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update cards -->
-<!-- @meta{footer="cards · regulatory-update cards — One tile per change."} -->
+<!-- @meta{layout=regulatory-update, class=cards, footer="cards · regulatory-update cards — One tile per change."} -->
 
 ## cards deals each change its own tile.
 
@@ -119,8 +115,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update diff-bands -->
-<!-- @meta{footer="diff-bands · regulatory-update diff-bands — Changed versus stayed."} -->
+<!-- @meta{layout=regulatory-update, class=diff-bands, footer="diff-bands · regulatory-update diff-bands — Changed versus stayed."} -->
 
 ## diff-bands shades what changed versus stayed.
 
@@ -151,9 +146,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update, footer="Stress test · regulatory-update — Six changes — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · regulatory-update — Six changes — the ceiling."} -->
 
 ## Six changes is the ledger's ceiling.
 

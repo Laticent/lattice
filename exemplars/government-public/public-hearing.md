@@ -6,7 +6,7 @@ pagination: true
 header: "Planning Commission · Public Hearing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Public hearing · Case ZA-2027-118`
@@ -17,7 +17,7 @@ The department's testimony on the application to rezone the 14-acre former rail 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The department's position: approve the rezoning, with three binding conditions.
@@ -26,7 +26,7 @@ The application meets the comprehensive plan's housing and transit goals. We rec
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The site has sat vacant for eleven years since the rail yard closed.
@@ -35,7 +35,7 @@ The 14-acre parcel was rezoned industrial in 1974 and has produced no jobs or ho
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## What the applicant proposes to build.
@@ -47,7 +47,7 @@ A phased development of 620 housing units, 84,000 square feet of ground-floor re
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## What the comprehensive plan requires of any approval here.
@@ -63,7 +63,7 @@ A phased development of 620 housing units, 84,000 square feet of ground-floor re
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: short -->
 
 `Impact · As-conditioned`
@@ -83,7 +83,7 @@ A phased development of 620 housing units, 84,000 square feet of ground-floor re
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Where the as-filed plan falls short of policy.
@@ -92,7 +92,7 @@ The application meets the density and transit goals but proposes only 9% afforda
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: full -->
 
 ## The summary of public comment received during the review period.
@@ -108,7 +108,7 @@ The application meets the density and transit goals but proposes only 9% afforda
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The opposition's traffic concern is real, and the condition answers it.
@@ -117,7 +117,7 @@ Construction-phase traffic on the residential approach is the most-cited objecti
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Comparison · Status quo`
@@ -137,7 +137,7 @@ Construction-phase traffic on the residential approach is the most-cited objecti
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- tier: standard -->
 
 > We have waited eleven years for something to happen on that land. Build the homes, keep the river public, and fix the intersection. That is a fair trade.
@@ -146,9 +146,9 @@ Construction-phase traffic on the residential approach is the most-cited objecti
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Approve the rezoning, with the three conditions that make it serve the plan.

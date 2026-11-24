@@ -9,8 +9,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: bar -->
-<!-- @meta{footer=bar · chart survey} -->
+<!-- @meta{layout=bar, footer=bar · chart survey} -->
 
 `Revenue · FY26`
 
@@ -24,8 +23,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: bullet -->
-<!-- @meta{footer=bullet · chart survey} -->
+<!-- @meta{layout=bullet, footer=bullet · chart survey} -->
 
 `Q3 2026 · commercial plan`
 
@@ -39,8 +37,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: ep-curve -->
-<!-- @meta{footer=ep-curve · chart survey} -->
+<!-- @meta{layout=ep-curve, footer=ep-curve · chart survey} -->
 
 `[{Return period}, {Loss}]`
 
@@ -61,8 +58,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: flowchart -->
-<!-- @meta{footer=flowchart · chart survey} -->
+<!-- @meta{layout=flowchart, footer=flowchart · chart survey} -->
 
 `Incident response`
 
@@ -81,8 +77,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: funnel -->
-<!-- @meta{footer=funnel · chart survey} -->
+<!-- @meta{layout=funnel, footer=funnel · chart survey} -->
 
 ## The funnel narrows; the width is the story.
 
@@ -96,8 +91,7 @@ Chart — series-substance data visualizations (SVG kernel).
 
 ---
 
-<!-- _class: gantt -->
-<!-- @meta{footer=gantt · chart survey} -->
+<!-- @meta{layout=gantt, footer=gantt · chart survey} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -118,8 +112,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: heatmap -->
-<!-- @meta{footer=heatmap · chart survey} -->
+<!-- @meta{layout=heatmap, footer=heatmap · chart survey} -->
 
 `Retention · 2026 cohorts`
 
@@ -134,8 +127,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: histogram -->
-<!-- @meta{footer=histogram · chart survey} -->
+<!-- @meta{layout=histogram, footer=histogram · chart survey} -->
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -148,8 +140,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: hub-spoke -->
-<!-- @meta{footer=hub-spoke · chart survey} -->
+<!-- @meta{layout=hub-spoke, footer=hub-spoke · chart survey} -->
 
 `Transformation program · Workstream status · Q3`
 
@@ -168,8 +159,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: journey -->
-<!-- @meta{footer=journey · chart survey} -->
+<!-- @meta{layout=journey, footer=journey · chart survey} -->
 
 ## The journey scores each stage of the path.
 
@@ -186,8 +176,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: kanban -->
-<!-- @meta{footer=kanban · chart survey} -->
+<!-- @meta{layout=kanban, footer=kanban · chart survey} -->
 
 `chart · kanban`
 
@@ -204,8 +193,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: line -->
-<!-- @meta{footer=line · chart survey} -->
+<!-- @meta{layout=line, footer=line · chart survey} -->
 
 ## Services grew into the gap enterprise left.
 
@@ -236,8 +224,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: map -->
-<!-- @meta{footer=map · chart survey} -->
+<!-- @meta{layout=map, footer=map · chart survey} -->
 
 ## The map fills regions by value.
 
@@ -254,8 +241,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- @meta{footer=matrix-grid · chart survey} -->
+<!-- @meta{layout=matrix-grid, footer=matrix-grid · chart survey} -->
 
 ## Your level is a cell, not a rung.
 
@@ -276,8 +262,7 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: piechart -->
-<!-- @meta{footer=piechart · chart survey} -->
+<!-- @meta{layout=piechart, footer=piechart · chart survey} -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -295,8 +280,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: progress -->
-<!-- @meta{footer=progress · chart survey} -->
+<!-- @meta{layout=progress, footer=progress · chart survey} -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -312,8 +296,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: quadrant -->
-<!-- @meta{footer=quadrant · chart survey} -->
+<!-- @meta{layout=quadrant, footer=quadrant · chart survey} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -338,8 +321,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: radar -->
-<!-- @meta{footer=radar · chart survey} -->
+<!-- @meta{layout=radar, footer=radar · chart survey} -->
 
 `[{Scale, 0..10}]`
 
@@ -368,8 +350,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: risk-matrix -->
-<!-- @meta{footer=risk-matrix · chart survey} -->
+<!-- @meta{layout=risk-matrix, footer=risk-matrix · chart survey} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -384,8 +365,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: roadmap -->
-<!-- @meta{footer=roadmap · chart survey} -->
+<!-- @meta{layout=roadmap, footer=roadmap · chart survey} -->
 
 `H2 2026 · Rollout plan`
 
@@ -399,8 +379,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: scatter -->
-<!-- @meta{footer=scatter · chart survey} -->
+<!-- @meta{layout=scatter, footer=scatter · chart survey} -->
 
 `[Annual cost, Teams adopting]`
 
@@ -419,8 +398,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: slope -->
-<!-- @meta{footer=slope · chart survey} -->
+<!-- @meta{layout=slope, footer=slope · chart survey} -->
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -442,8 +420,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- @meta{footer=stacked-bar · chart survey} -->
+<!-- @meta{layout=stacked-bar, footer=stacked-bar · chart survey} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -462,8 +439,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- @meta{footer=state-chart · chart survey} -->
+<!-- @meta{layout=state-chart, class=lr, footer=state-chart · chart survey} -->
 
 `Submission lifecycle`
 
@@ -488,8 +464,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- @meta{footer=timeline-list · chart survey} -->
+<!-- @meta{layout=timeline-list, footer=timeline-list · chart survey} -->
 
 `chart · timeline-list`
 
@@ -508,8 +483,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: tower -->
-<!-- @meta{footer=tower · chart survey} -->
+<!-- @meta{layout=tower, footer=tower · chart survey} -->
 
 `Property catastrophe program · 2027`
 
@@ -530,8 +504,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: waterfall -->
-<!-- @meta{footer=waterfall · chart survey} -->
+<!-- @meta{layout=waterfall, footer=waterfall · chart survey} -->
 
 `FY26 plan · actual`
 
@@ -548,8 +521,7 @@ Four milestones show the shape; the date chips carry the when.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- @meta{footer=word-cloud · chart survey} -->
+<!-- @meta{layout=word-cloud, footer=word-cloud · chart survey} -->
 
 ## Weight is meaning in a word cloud.
 

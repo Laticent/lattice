@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · one inline notation"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every inline value is now one record.
 
@@ -15,8 +15,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Pills and sparks: the modifiers moved inside the braces." -->
+<!-- @meta{layout=list-tabular, footer=Pills and sparks: the modifiers moved inside the braces.} -->
+
 
 ## The release train, by workstream.
 
@@ -29,8 +29,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "A quadrant point is one record: `{2, 82}` is effort 2, reach 82." -->
+<!-- @meta{layout=quadrant, footer="A quadrant point is one record: `{2, 82}` is effort 2, reach 82."} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -51,8 +51,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "The axis line sets the window and today; a dependency is `after=`." -->
+<!-- @meta{layout=gantt, footer="The axis line sets the window and today; a dependency is `after=`."} -->
+
 
 `[{Timeline, 2026 Q1..2026 Q4, today=Q3}]`
 
@@ -68,8 +68,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "The scale is the axis line; the ring ticks print it." -->
+<!-- @meta{layout=radar, footer="The scale is the axis line; the ring ticks print it."} -->
+
 
 `[{Scale, 0..10}]`
 
@@ -88,8 +88,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "A step is one record: who, how it felt, and how many." -->
+<!-- @meta{layout=journey, footer="A step is one record: who, how it felt, and how many."} -->
+
 
 ## Walking a new customer to their first report.
 
@@ -104,8 +104,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "A state's style is the flowchart's record: `\{start, c1}` is the start, in palette slot 1." -->
+<!-- @meta{layout=state-chart, footer="A state's style is the flowchart's record: `\\{start, c1}` is the start, in palette slot 1."} -->
+
 
 ## A document moves from draft to published.
 
@@ -118,8 +118,8 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: flowchart -->
-<!-- _footer: "A style is one record, or one bare word." -->
+<!-- @meta{layout=flowchart, footer="A style is one record, or one bare word."} -->
+
 
 ## An incident pages a human only when it must.
 
@@ -134,7 +134,7 @@ Braces hold the value, commas separate what describes it, and the order is free.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## One notation, one set of rules.
 

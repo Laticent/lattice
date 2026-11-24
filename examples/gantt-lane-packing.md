@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · gantt lane packing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Gantt lane packing
 
@@ -15,8 +15,8 @@ What a lane looks like when two tasks run at the same time.
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Concurrency is the point — and now it is visible." -->
+<!-- @meta{layout=gantt, footer="Concurrency is the point — and now it is visible."} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -35,8 +35,8 @@ Scoring model v2 overlaps both its neighbors, so it takes a row of its own; the 
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "A sequential lane costs no extra height." -->
+<!-- @meta{layout=gantt, footer=A sequential lane costs no extra height.} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -55,8 +55,8 @@ Packing only spends height where the data needs it. Nothing here overlaps, so ev
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Three mutually overlapping tasks earn three rows." -->
+<!-- @meta{layout=gantt, footer=Three mutually overlapping tasks earn three rows.} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -74,8 +74,8 @@ The decision log's three workstreams run across each other end to end. On one ro
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "A milestone inside a bar's span is a separate task." -->
+<!-- @meta{layout=gantt, footer=A milestone inside a bar's span is a separate task.} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -91,8 +91,8 @@ GA falls inside the rollout's span. It is its own task, so it takes its own row 
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "The chart grows; it does not shrink." -->
+<!-- @meta{layout=gantt, footer="The chart grows; it does not shrink."} -->
+
 
 `[{Timeline, 2026 Jan .. 2026 Dec}]`
 
@@ -112,8 +112,8 @@ Bars and captions are one fixed size on every gantt in the deck. More work makes
 
 ---
 
-<!-- _class: gantt dark -->
-<!-- _footer: "Dark · the today rule is a reference, not a status." -->
+<!-- @meta{layout=gantt, class=dark, footer="Dark · the today rule is a reference, not a status."} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -132,7 +132,7 @@ It takes the neutral every other reference line in the family takes, so it never
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## What changed.
 

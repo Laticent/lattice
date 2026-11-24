@@ -5,7 +5,7 @@ header: "Lattice · panes"
 footer: "Panes — two components, one slide"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Two components, one slide
 
@@ -19,13 +19,13 @@ footer: "Panes — two components, one slide"
 
 `Regional pipeline, $M — list beside table, 35/65`
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: list -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=list} -->
 
 - EMEA closed three late deals
 - APAC renewals slipped
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 
 | Region | Q2 | Q3 | Δ |
 |---|---|---|---|
@@ -41,15 +41,15 @@ footer: "Panes — two components, one slide"
 
 ## Services outgrew licenses for the first time.
 
-<!-- _class: columns ratio-55-45 -->
-<!-- _pane: bar -->
+<!-- @meta{layout=columns, class=ratio-55-45} -->
+<!-- @meta{pane=bar} -->
 
 - Licenses `42`
 - Services `47`
 - Support `18`
 - Training `6`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Services crossed licenses in March
 - Support margin is the steadiest line
@@ -63,12 +63,12 @@ footer: "Panes — two components, one slide"
 
 ## The new office opened on time and under budget.
 
-<!-- _class: columns no-spine -->
-<!-- _pane: image -->
+<!-- @meta{layout=columns, class=no-spine} -->
+<!-- @meta{pane=image} -->
 
 ![Office](sample:photo-tall.svg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
@@ -84,8 +84,8 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
 ## Payback shortened in every segment.
 
-<!-- _class: columns ratio-70-30 -->
-<!-- _pane: table -->
+<!-- @meta{layout=columns, class=ratio-70-30} -->
+<!-- @meta{pane=table} -->
 
 | Segment | CAC | Margin | Payback |
 |---|---|---|---|
@@ -94,7 +94,7 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 | SMB | $2.1k | 71% | 5 mo |
 | Self-serve | $310 | 88% | 2 mo |
 
-<!-- _pane: big-number -->
+<!-- @meta{pane=big-number} -->
 
 - 9 mo
   - blended payback, down from 13
@@ -105,8 +105,8 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
 ## Engineering hiring ran ahead of plan every month.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: line -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=line} -->
 
 - Jul `5`
 - Aug `10`
@@ -114,7 +114,7 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 - Oct `19`
 - Nov `24`
 
-<!-- _pane: stats -->
+<!-- @meta{pane=stats} -->
 
 1. 24
    - hires vs plan of 20
@@ -129,14 +129,14 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
 ## Three segments now carry most of the revenue.
 
-<!-- _class: columns ratio-45-55 -->
-<!-- _pane: piechart -->
+<!-- @meta{layout=columns, class=ratio-45-55} -->
+<!-- @meta{pane=piechart} -->
 
 - Enterprise `46%`
 - Mid-market `31%`
 - SMB `23%`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Enterprise grew fastest
 - Mid-market is steadiest
@@ -148,8 +148,8 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 
 ## Q3 carried the year.
 
-<!-- _class: rows -->
-<!-- _pane: table -->
+<!-- @meta{layout=rows} -->
+<!-- @meta{pane=table} -->
 
 | Quarter | Revenue | Margin | Headcount |
 |---|---|---|---|
@@ -157,7 +157,7 @@ Forty desks, two studios and a roof terrace, fitted out in eleven weeks.
 | Q2 | $18M | 40% | 224 |
 | Q3 | $26M | 44% | 231 |
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 
 - Q1 `12`
 - Q2 `18`

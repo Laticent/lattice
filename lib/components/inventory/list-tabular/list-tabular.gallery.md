@@ -15,8 +15,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- @meta{footer=Default · list-tabular} -->
+<!-- @meta{layout=list-tabular, footer=Default · list-tabular} -->
 
 ## The tabular list rules rows into a register.
 
@@ -33,8 +32,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular def -->
-<!-- @meta{footer="Editorial (def) · list-tabular def — Counter spans rows; eyebrow above."} -->
+<!-- @meta{layout=list-tabular, class=def, footer="Editorial (def) · list-tabular def — Counter spans rows; eyebrow above."} -->
 
 ## def pairs each term with its role.
 
@@ -48,8 +46,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular metric -->
-<!-- @meta{footer="Tile (metric) · list-tabular metric — Values in bordered tiles."} -->
+<!-- @meta{layout=list-tabular, class=metric, footer="Tile (metric) · list-tabular metric — Values in bordered tiles."} -->
 
 ## metric turns the chips into figures.
 
@@ -60,8 +57,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular spec -->
-<!-- @meta{footer="spec · list-tabular spec — Mono keys for flags and params."} -->
+<!-- @meta{layout=list-tabular, class=spec, footer="spec · list-tabular spec — Mono keys for flags and params."} -->
 
 ## spec documents flags and their types.
 
@@ -73,8 +69,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular register -->
-<!-- @meta{footer="register · list-tabular register — Status pills on each row."} -->
+<!-- @meta{layout=list-tabular, class=register, footer="register · list-tabular register — Status pills on each row."} -->
 
 ## register pairs names with status chips.
 
@@ -86,8 +81,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular def rule -->
-<!-- @meta{footer="def + rule · list-tabular rule — Accent rail down the left edge."} -->
+<!-- @meta{layout=list-tabular, class=def rule, footer="def + rule · list-tabular rule — Accent rail down the left edge."} -->
 
 ## rule draws a hairline under every row.
 
@@ -99,8 +93,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular metric solid -->
-<!-- @meta{footer="metric + solid · list-tabular solid — Filled value tiles for headlines."} -->
+<!-- @meta{layout=list-tabular, class=metric solid, footer="metric + solid · list-tabular solid — Filled value tiles for headlines."} -->
 
 ## solid fills the register with panel color.
 
@@ -111,8 +104,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular spec stacked -->
-<!-- @meta{footer="spec + stacked · list-tabular stacked — Clause drops below the name."} -->
+<!-- @meta{layout=list-tabular, class=spec stacked, footer="spec + stacked · list-tabular stacked — Clause drops below the name."} -->
 
 ## stacked drops the clause under its label.
 
@@ -124,8 +116,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular register outline -->
-<!-- @meta{footer="register + outline · list-tabular outline — Outline pills — a lighter register."} -->
+<!-- @meta{layout=list-tabular, class=register outline, footer="register + outline · list-tabular outline — Outline pills — a lighter register."} -->
 
 ## outline boxes each row in a keyline.
 
@@ -136,8 +127,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular fit-name -->
-<!-- @meta{footer="fit-name · list-tabular fit-name — The label column hugs its content, uncapped."} -->
+<!-- @meta{layout=list-tabular, class=fit-name, footer="fit-name · list-tabular fit-name — The label column hugs its content, uncapped."} -->
 
 ## fit-name lets short labels keep their own width.
 
@@ -151,8 +141,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular fit-body -->
-<!-- @meta{footer="fit-body · list-tabular fit-body — The clause column hugs; the trailing column takes the slack."} -->
+<!-- @meta{layout=list-tabular, class=fit-body, footer="fit-body · list-tabular fit-body — The clause column hugs; the trailing column takes the slack."} -->
 
 ## fit-body hugs the clause and holds the right edge.
 
@@ -166,8 +155,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular fit-meta -->
-<!-- @meta{footer="fit-meta · list-tabular fit-meta — The trailing column hugs its content, uncapped."} -->
+<!-- @meta{layout=list-tabular, class=fit-meta, footer="fit-meta · list-tabular fit-meta — The trailing column hugs its content, uncapped."} -->
 
 ## fit-meta keeps a long trailing value on one line.
 
@@ -178,8 +166,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular flex-name -->
-<!-- @meta{footer="flex-name · list-tabular flex-name — The label column takes the leftover."} -->
+<!-- @meta{layout=list-tabular, class=flex-name, footer="flex-name · list-tabular flex-name — The label column takes the leftover."} -->
 
 ## flex-name hands the slack to the label.
 
@@ -193,8 +180,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular flex-meta -->
-<!-- @meta{footer="flex-meta · list-tabular flex-meta — The trailing column takes the leftover."} -->
+<!-- @meta{layout=list-tabular, class=flex-meta, footer="flex-meta · list-tabular flex-meta — The trailing column takes the leftover."} -->
 
 ## flex-meta gives the trailing column the room.
 
@@ -208,8 +194,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular fixed -->
-<!-- @meta{footer="fixed · list-tabular fixed — The pre-responsive fixed-width tracks."} -->
+<!-- @meta{layout=list-tabular, class=fixed, footer="fixed · list-tabular fixed — The pre-responsive fixed-width tracks."} -->
 
 ## fixed pins the columns to their old widths.
 
@@ -223,9 +208,8 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: list-tabular register -->
+<!-- @meta{layout=list-tabular, class=register, footer="Stress test · list-tabular — Six rows — the register's page."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · list-tabular — Six rows — the register's page."} -->
 
 ## Six rows is the register's practical page.
 

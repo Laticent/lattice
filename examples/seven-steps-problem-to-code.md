@@ -12,7 +12,7 @@ acronyms:
   WORKED: worked
 ---
 
-<!-- _class: title silent spectrum -->
+<!-- @meta{layout=title, class=silent spectrum} -->
 
 # The Seven Steps
 
@@ -22,7 +22,7 @@ How to get from a problem statement to working code, without guessing.
 
 ---
 
-<!-- _class: quote bare -->
+<!-- @meta{layout=quote, class=bare} -->
 
 > You are not stuck because you cannot code. You are stuck because you never worked out the algorithm.
 
@@ -30,7 +30,7 @@ How to get from a problem statement to working code, without guessing.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Why this happens`
 
@@ -47,7 +47,7 @@ How to get from a problem statement to working code, without guessing.
 
 ---
 
-<!-- _class: premise -->
+<!-- @meta{layout=premise} -->
 
 ## Writing code is the fifth step, not the first.
 
@@ -68,7 +68,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 1 · Work an example`
 
@@ -85,7 +85,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 2 · Write it down`
 
@@ -102,7 +102,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 3 · Generalize`
 
@@ -119,7 +119,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 4 · Test by hand`
 
@@ -136,7 +136,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Steps 5–7`
 
@@ -144,7 +144,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 5 · Translate to code`
 
@@ -161,7 +161,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 `Step 6 · Test`
 
@@ -178,7 +178,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: split-panel capstone -->
+<!-- @meta{layout=split-panel, class=capstone} -->
 
 `Step 7 · Debug`
 
@@ -195,7 +195,7 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `The whole method`
 
@@ -228,7 +228,7 @@ flowchart LR
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## Every way of being stuck has a step to go back to.
 
@@ -244,7 +244,7 @@ flowchart LR
 
 ---
 
-<!-- _class: split-panel pullquote -->
+<!-- @meta{layout=split-panel, class=pullquote} -->
 
 > …I worked on all of my code for one or two hours before I even looked at the computer. AND IT WORKED!
 
@@ -257,7 +257,7 @@ flowchart LR
 
 ---
 
-<!-- _class: list-steps capsule -->
+<!-- @meta{layout=list-steps, class=capsule} -->
 
 ## How to use this on your next assignment.
 
@@ -270,7 +270,7 @@ flowchart LR
 
 ---
 
-<!-- _class: closing silent spectrum -->
+<!-- @meta{layout=closing, class=silent spectrum} -->
 
 ## Work the problem first. The keyboard comes fifth.
 

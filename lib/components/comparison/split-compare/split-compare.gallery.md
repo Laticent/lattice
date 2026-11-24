@@ -15,8 +15,7 @@ Two options + verdict — dark frame on the left, 2-column option grid + a recom
 
 ---
 
-<!-- _class: split-compare -->
-<!-- @meta{footer=Default · split-compare} -->
+<!-- @meta{layout=split-compare, footer=Default · split-compare} -->
 
 `comparison · split-compare`
 
@@ -36,9 +35,8 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare, footer="Stress test · split-compare — Four rows per card — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · split-compare — Four rows per card — the ceiling."} -->
 
 `split-compare · stress`
 

@@ -4,7 +4,7 @@ theme: indaco
 pagination: false
 ---
 
-<!-- _class: team-profile lead -->
+<!-- @meta{layout=team-profile, class=lead} -->
 
 ## Six people, one ranked row
 
@@ -24,7 +24,7 @@ pagination: false
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## Six people under a closing line
 
@@ -51,7 +51,7 @@ pagination: false
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 ## Six people, no closing line
 
@@ -74,4 +74,4 @@ pagination: false
   - `Customer Success`
   - Your standing contact between reviews.
 
-<!-- _footer: A standing footer line -->
+<!-- @meta{footer=A standing footer line} -->

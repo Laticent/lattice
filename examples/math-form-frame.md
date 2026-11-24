@@ -13,7 +13,7 @@ acronyms:
   LU: "L U"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Math · the frame it never needed`
 
@@ -23,7 +23,7 @@ Every slide after this one is a math slide on the shared Form frame. The running
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Linear regression · OLS`
 
@@ -38,7 +38,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math derivation -->
+<!-- @meta{layout=math, class=derivation} -->
 
 `Chain rule · four steps`
 
@@ -52,7 +52,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math theorem -->
+<!-- @meta{layout=math, class=theorem} -->
 
 `Continuity · IVT`
 
@@ -66,7 +66,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math compare -->
+<!-- @meta{layout=math, class=compare} -->
 
 `Estimators · asymptotics`
 
@@ -86,7 +86,7 @@ Biased, lower variance. The penalty $\lambda$ buys stability when $X^\top X$ is 
 
 ---
 
-<!-- _class: math matrix -->
+<!-- @meta{layout=math, class=matrix} -->
 
 `Design matrix · structure`
 
@@ -109,7 +109,7 @@ $$
 
 ---
 
-<!-- _class: math matrix decompose -->
+<!-- @meta{layout=math, class=matrix decompose} -->
 
 `LU · a factorization`
 
@@ -128,7 +128,7 @@ $$
 
 ---
 
-<!-- _class: math stats -->
+<!-- @meta{layout=math, class=stats} -->
 
 `Effect size · the reading`
 
@@ -143,7 +143,7 @@ For every additional unit of exposure the outcome rises by 0.42 SD — roughly a
 
 ---
 
-<!-- _class: math canvas -->
+<!-- @meta{layout=math, class=canvas} -->
 
 `Logistic link · the shape`
 

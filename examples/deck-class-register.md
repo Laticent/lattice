@@ -8,7 +8,7 @@ class: no-note
 header: "Lattice · the deck-wide class register"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Fix deck`
 
@@ -20,7 +20,7 @@ did not ask for. Every one was a deck that set two of them.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The register is filtered where it is read, not stripped afterwards.
 
@@ -31,8 +31,8 @@ slide, and by then that is gone.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "Three spellings, three scopes" -->
+<!-- @meta{layout=table, footer="Three spellings, three scopes"} -->
+
 
 ## The three spellings of `class:` are not interchangeable.
 
@@ -48,8 +48,8 @@ collide rather than compose._
 
 ---
 
-<!-- _class: content light -->
-<!-- _footer: "A slide still owns its own canvas" -->
+<!-- @meta{layout=content, class=light, footer=A slide still owns its own canvas} -->
+
 
 `This deck is dark`
 
@@ -63,8 +63,8 @@ rather than merged.
 
 ---
 
-<!-- class: diagram -->
-<!-- _footer: "A running global, declared once" -->
+<!-- @meta{layout=diagram, carry} -->
+<!-- @meta{footer="A running global, declared once"} -->
 
 `Filtered at the boundary`
 
@@ -86,7 +86,7 @@ flowchart TB
 
 ---
 
-<!-- _footer: "…and it carries to the next slide" -->
+<!-- @meta{footer="…and it carries to the next slide"} -->
 
 `No directive on this slide`
 
@@ -104,8 +104,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "What the author is told" -->
+<!-- @meta{layout=content, footer=What the author is told} -->
+
 
 `The refusal is not silent`
 
@@ -121,7 +121,7 @@ flowchart LR
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

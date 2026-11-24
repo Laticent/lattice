@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · matrix-grid label sets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The key that existed for screen readers only.
 
@@ -17,8 +17,8 @@ draw one of them, on purpose.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Derived · two shapes named, one deliberately not" -->
+<!-- @meta{layout=matrix-grid, footer="Derived · two shapes named, one deliberately not"} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -32,8 +32,8 @@ draw one of them, on purpose.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Why [x] has no key row" -->
+<!-- @meta{layout=matrix-grid, footer="Why [x] has no key row"} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -49,8 +49,8 @@ would repeat that on every slide, worse.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Overridden · a coverage grid wants other words" -->
+<!-- @meta{layout=matrix-grid, footer=Overridden · a coverage grid wants other words} -->
+
 
 `[Wider market, Deeper product]`
 
@@ -66,8 +66,8 @@ would repeat that on every slide, worse.
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Derived · a grid of only filled cells needs no key" -->
+<!-- @meta{layout=matrix-grid, footer=Derived · a grid of only filled cells needs no key} -->
+
 
 `[Wider reach, Deeper cognition]`
 
@@ -82,8 +82,8 @@ Every cell labels itself, so the grid draws no key at all.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What the label set changed here" -->
+<!-- @meta{layout=list, footer=What the label set changed here} -->
+
 
 ## What changed.
 

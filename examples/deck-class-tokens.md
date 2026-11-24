@@ -8,8 +8,8 @@ finish: atrium
 class: no-note
 ---
 
-<!-- _class: title no-finish -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, class=no-finish, header=""} -->
+
 
 # A deck-wide token reaches every slide
 
@@ -19,7 +19,7 @@ Including the slides that name a class of their own.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## This deck declares `class: no-note` once, in front matter.
 
@@ -32,7 +32,7 @@ Every slide you are about to see inherits it the same way.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A section carries the class information twice.
 
@@ -49,7 +49,7 @@ Only the second is the truth, and it is the one a transform must read.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## `data-class` comes first, so the careless read wins.
 
@@ -63,7 +63,7 @@ A transform reading the first two saw the author's payload and none of the deck'
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two transforms shipped reading it that way.
 
@@ -76,7 +76,7 @@ Both read one attribute earlier in the tag than they meant to.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## This slide names its own `_class:`, and stays body copy.
 
@@ -100,8 +100,8 @@ This slide always worked. The point of the fix is that the slide above it now lo
 
 ---
 
-<!-- _class: closing no-finish -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, class=no-finish, header=""} -->
+
 
 `Where The Fix Lives`
 

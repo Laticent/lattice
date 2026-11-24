@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · Print handouts"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Print · paper · N-up · notes`
 
@@ -27,7 +27,7 @@ The Print drawer and the `lattice` CLI now fit a deck onto real sheets, pack sev
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## One kernel decides the sheet, everywhere.
 
@@ -40,7 +40,7 @@ The Print drawer and the `lattice` CLI now fit a deck onto real sheets, pack sev
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `What N-up saves`
 
@@ -57,7 +57,7 @@ The Print drawer and the `lattice` CLI now fit a deck onto real sheets, pack sev
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Pick the layout for the room.
 
@@ -82,7 +82,7 @@ The Print drawer and the `lattice` CLI now fit a deck onto real sheets, pack sev
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 `Print · shared kernel`
 

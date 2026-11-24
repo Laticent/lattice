@@ -10,7 +10,7 @@ acronyms:
   AY: accident year
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Property catastrophe program · 1/1/2027 renewal`
@@ -21,7 +21,7 @@ Raise the retention to $50M and the program costs 8% less, with the 1-in-200 pro
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## A $50M retention saves $3.7M of ceded premium.
@@ -34,7 +34,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: standard -->
 
 ## This renewal turns on four questions.
@@ -46,7 +46,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 <!-- tier: standard -->
 
 `Cat rates · 2022 = 100`
@@ -61,7 +61,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 <!-- tier: full -->
 
 `Paid losses · USD M`
@@ -77,7 +77,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 <!-- tier: standard -->
 
 `2026 underwriting result · USD M`
@@ -93,7 +93,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: bar diverging row -->
+<!-- @meta{layout=bar, class=diverging row} -->
 <!-- tier: full -->
 
 `Premium saved · USD M`
@@ -108,8 +108,8 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: col 3 -->
+<!-- @meta{layout=table, class=state-cells, focus=col 3} -->
+
 <!-- tier: short -->
 
 ## Only a higher retention cuts premium and keeps every cover.
@@ -123,7 +123,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 <!-- tier: standard -->
 
 `Ceded premium by layer`
@@ -141,7 +141,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: standard -->
 
 ## The new program keeps every risk limit inside appetite.
@@ -158,7 +158,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 <!-- tier: full -->
 
 `Security panel · 2027`
@@ -178,7 +178,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: flowchart lr -->
+<!-- @meta{layout=flowchart, class=lr} -->
 <!-- tier: full -->
 
 ## One Gulf hurricane is the event that could breach the program.
@@ -190,7 +190,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Raise the retention to $50M and renew the rest as is.
@@ -204,7 +204,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 <!-- tier: short -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
@@ -220,7 +220,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 <!-- tier: standard -->
 
 `Your Halcyon Re team`
@@ -241,7 +241,7 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 <!-- tier: standard -->
 
 ## These are the three questions your board will ask.
@@ -255,9 +255,9 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Approve the $50M retention by November 20.

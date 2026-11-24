@@ -15,8 +15,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- @meta{footer=Default · matrix-2x2} -->
+<!-- @meta{layout=matrix-2x2, footer=Default · matrix-2x2} -->
 
 ## The matrix places items on two named axes.
 
@@ -36,9 +35,8 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2, footer="Stress test · matrix-2x2 — Three items per cell — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · matrix-2x2 — Three items per cell — the ceiling."} -->
 
 ## Three items per cell is the matrix ceiling.
 

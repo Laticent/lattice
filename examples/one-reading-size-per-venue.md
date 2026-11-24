@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · one reading size per venue"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every list, card and table now reads at one size.
 
@@ -13,7 +13,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `list takeaway · was 21pt`
 
@@ -28,7 +28,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `cards-grid · was 16pt, unchanged`
 
@@ -45,7 +45,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 `list-tabular · was 13.5pt`
 
@@ -64,7 +64,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `table · was 13.5pt`
 
@@ -81,7 +81,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 `glossary · was 13.5pt`
 
@@ -98,7 +98,7 @@ header: "Lattice · one reading size per venue"
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `code · stays at 13.5pt`
 
@@ -115,7 +115,7 @@ const code = venueScale * FS_BODY_COMPACT;    // 13.5pt at laptop
 
 ---
 
-<!-- _class: list-steps timeline -->
+<!-- @meta{layout=list-steps, class=timeline} -->
 
 `list-steps timeline · was 11.2pt`
 
@@ -130,7 +130,7 @@ const code = venueScale * FS_BODY_COMPACT;    // 13.5pt at laptop
 
 ---
 
-<!-- _class: authority-chain branching -->
+<!-- @meta{layout=authority-chain, class=branching} -->
 
 `authority-chain branching · was 11.2pt`
 
@@ -144,7 +144,7 @@ const code = venueScale * FS_BODY_COMPACT;    // 13.5pt at laptop
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One reading size, in every room.
 

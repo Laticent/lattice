@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · the Guide gesture vocabulary"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · Guide`
 
@@ -15,7 +15,7 @@ Turn Guide on in Present and read this deck. Each slide is a different shape, an
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `The vocabulary`
 
@@ -34,7 +34,7 @@ Turn Guide on in Present and read this deck. Each slide is a different shape, an
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The bullet, not the line`
 
@@ -48,7 +48,7 @@ Attention spreads across a whole object once any part of it is cued, so the mark
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `The value, not the card`
 
@@ -67,7 +67,7 @@ Attention spreads across a whole object once any part of it is cued, so the mark
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Wash`
 
@@ -77,7 +77,7 @@ Growth held across every region. Spend stayed disciplined through the second hal
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `The header, not the card`
 
@@ -92,7 +92,7 @@ Growth held across every region. Spend stayed disciplined through the second hal
 
 ---
 
-<!-- _class: list-steps timeline -->
+<!-- @meta{layout=list-steps, class=timeline} -->
 
 `The rail disc`
 
@@ -109,7 +109,7 @@ Growth held across every region. Spend stayed disciplined through the second hal
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Two blocks, one sentence`
 
@@ -128,8 +128,8 @@ Its narration joins the option's label to its first fact, and no single element 
 
 ---
 
-<!-- _class: table -->
-<!-- _focus: row 4 -->
+<!-- @meta{layout=table, focus=row 4} -->
+
 
 ## Where the deck declares focus, Guide names that row instead.
 
@@ -142,7 +142,7 @@ Its narration joins the option's label to its first fact, and no single element 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Read it with Guide on`
 

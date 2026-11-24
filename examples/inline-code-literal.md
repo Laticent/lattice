@@ -6,7 +6,7 @@ inline-code: literal
 header: "Lattice · `{DEMO}` and `[x]` stay text up here too"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Some decks want none of this.
 
@@ -16,7 +16,7 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## Why an off switch exists.
 
@@ -27,8 +27,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Rendered by this deck, which sets inline-code: literal." -->
+<!-- @meta{layout=list-tabular, footer="Rendered by this deck, which sets inline-code: literal."} -->
+
 
 ## Nothing on this slide is drawn.
 
@@ -43,7 +43,7 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Two values, two behaviors.
 
@@ -54,8 +54,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "A typo must never silently change what a deck looks like." -->
+<!-- @meta{layout=list, footer=A typo must never silently change what a deck looks like.} -->
+
 
 ## The value is `literal`, not `off`.
 
@@ -66,8 +66,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "This slide's own footer: `{FTR}` `[x]` — literal, like the rest." -->
+<!-- @meta{layout=list, footer="This slide's own footer: `{FTR}` `[x]` — literal, like the rest."} -->
+
 
 ## The header up there is the proof.
 
@@ -78,7 +78,7 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## On a raw Marp deck, use Marp's own directive.
 
@@ -89,8 +89,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 # Your text, as you typed it.
 

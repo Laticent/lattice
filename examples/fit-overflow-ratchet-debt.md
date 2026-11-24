@@ -7,7 +7,7 @@ header: "Lattice · Histogram edge labels"
 meta: "Histogram edge labels"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · histogram`
 
@@ -17,8 +17,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "Linear axis · the last edge, `$120k`, ends on the plot's right end" -->
+<!-- @meta{layout=histogram, footer="Linear axis · the last edge, `$120k`, ends on the plot's right end"} -->
+
 
 `[{Claim size}, {Share of claims}]`
 
@@ -39,8 +39,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "Log axis · `$250M` turns inward at the end" -->
+<!-- @meta{layout=histogram, footer="Log axis · `$250M` turns inward at the end"} -->
+
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -53,8 +53,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "A wide last label · `$1,000,000` reads in full" -->
+<!-- @meta{layout=histogram, footer="A wide last label · `$1,000,000` reads in full"} -->
+
 
 `[{Contract value}, {Share of contracts}]`
 
@@ -67,8 +67,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram -->
-<!-- _footer: "Short labels · every edge stays centered under its tick" -->
+<!-- @meta{layout=histogram, footer=Short labels · every edge stays centered under its tick} -->
+
 
 `[{Seconds}, {Share of requests}]`
 
@@ -82,8 +82,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram dark -->
-<!-- _footer: "Dark · the inward last edge keeps the tick ink" -->
+<!-- @meta{layout=histogram, class=dark, footer=Dark · the inward last edge keeps the tick ink} -->
+
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -96,8 +96,8 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: histogram compact -->
-<!-- _footer: "Compact · the tightest box the fit nightly scored" -->
+<!-- @meta{layout=histogram, class=compact, footer=Compact · the tightest box the fit nightly scored} -->
+
 
 `[{Annual loss, $1M..$250M, log}, {Share of years}]`
 
@@ -110,7 +110,7 @@ An edge label that would cross the chart's end now turns inward. One that fits s
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Measured`
 

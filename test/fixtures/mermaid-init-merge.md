@@ -5,7 +5,7 @@ size: hd
 pagination: false
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Control
 
@@ -19,7 +19,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Color-neutral init directive
 
@@ -34,7 +34,7 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## Author-pinned Mermaid theme
 

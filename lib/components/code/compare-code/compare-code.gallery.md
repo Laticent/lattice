@@ -15,8 +15,7 @@ Two fenced code blocks side-by-side, each with a label.
 
 ---
 
-<!-- _class: compare-code -->
-<!-- @meta{footer=Default · compare-code} -->
+<!-- @meta{layout=compare-code, footer=Default · compare-code} -->
 
 `Query path · report generation`
 
@@ -44,9 +43,8 @@ return signals;
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code, footer="Stress test · compare-code — Two ten-line panes — the side-by-side ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · compare-code — Two ten-line panes — the side-by-side ceiling."} -->
 
 `compare-code · stress`
 

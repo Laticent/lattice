@@ -15,8 +15,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map -->
-<!-- @meta{footer=Default · map} -->
+<!-- @meta{layout=map, footer=Default · map} -->
 
 ## The map fills regions by value.
 
@@ -34,8 +33,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map us -->
-<!-- @meta{footer="us · map us — The US-states basemap, with insets."} -->
+<!-- @meta{layout=map, class=us, footer="us · map us — The US-states basemap, with insets."} -->
 
 ## us swaps in the US-states basemap.
 
@@ -51,8 +49,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map world -->
-<!-- @meta{footer="world · map world — The Basemap axis default, spelled out."} -->
+<!-- @meta{layout=map, class=world, footer="world · map world — The Basemap axis default, spelled out."} -->
 
 ## The same engine, pinned to the world basemap.
 
@@ -68,8 +65,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map highlight -->
-<!-- @meta{footer="highlight · map highlight — Category fills instead of values."} -->
+<!-- @meta{layout=map, class=highlight, footer="highlight · map highlight — Category fills instead of values."} -->
 
 ## highlight fills by category, not value.
 
@@ -81,8 +77,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map robinson -->
-<!-- @meta{footer="robinson · map robinson — The Robinson projection swap."} -->
+<!-- @meta{layout=map, class=robinson, footer="robinson · map robinson — The Robinson projection swap."} -->
 
 ## robinson swaps the projection.
 
@@ -98,8 +93,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map highlight grouped -->
-<!-- @meta{footer="grouped · map grouped — Whole blocs fill as one."} -->
+<!-- @meta{layout=map, class=highlight grouped, footer="grouped · map grouped — Whole blocs fill as one."} -->
 
 ## grouped fills whole blocs at once.
 
@@ -111,9 +105,8 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map us -->
+<!-- @meta{layout=map, class=us, footer="Stress test · map — A wide-range choropleth — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · map — A wide-range choropleth — the ceiling."} -->
 
 ## A wide spread across fifteen states.
 

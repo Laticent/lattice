@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · list-tabular responsive"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The ledger fits its own content.
 
@@ -15,7 +15,7 @@ Columns size to what is in them, and the deck says which column should absorb th
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## What changed.
 
@@ -27,7 +27,7 @@ Columns size to what is in them, and the deck says which column should absorb th
 
 ---
 
-<!-- _class: list-tabular fixed -->
+<!-- @meta{layout=list-tabular, class=fixed} -->
 
 ## Before: every label paid for the longest one.
 
@@ -40,11 +40,11 @@ Columns size to what is in them, and the deck says which column should absorb th
 4. Governance and control framework alignment
    - And again.
 
-<!-- _footer: "`fixed` is the pre-responsive behavior, kept as an opt-out." -->
+<!-- @meta{footer="`fixed` is the pre-responsive behavior, kept as an opt-out."} -->
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## After: the track is the widest label, once.
 
@@ -57,11 +57,11 @@ Columns size to what is in them, and the deck says which column should absorb th
 4. Governance and control framework alignment
    - The column is content, not a guess.
 
-<!-- _footer: "The default. No modifier was added to this slide." -->
+<!-- @meta{footer=The default. No modifier was added to this slide.} -->
 
 ---
 
-<!-- _class: list-tabular flex-name -->
+<!-- @meta{layout=list-tabular, class=flex-name} -->
 
 ## `flex-name` hands the leftover to the label.
 
@@ -72,11 +72,11 @@ Columns size to what is in them, and the deck says which column should absorb th
 3. Retirement of the legacy reconciliation batch
    - Q1
 
-<!-- _footer: "When the label is the point and the clause is a short qualifier." -->
+<!-- @meta{footer=When the label is the point and the clause is a short qualifier.} -->
 
 ---
 
-<!-- _class: list-tabular fit-body -->
+<!-- @meta{layout=list-tabular, class=fit-body} -->
 
 ## `fit-body` hugs the clause and holds the right edge.
 
@@ -87,11 +87,11 @@ Columns size to what is in them, and the deck says which column should absorb th
 3. Exception review `Weekly`
    - Risk committee
 
-<!-- _footer: "The trailing column takes the slack, so it never strands itself mid-slide." -->
+<!-- @meta{footer="The trailing column takes the slack, so it never strands itself mid-slide."} -->
 
 ---
 
-<!-- _class: list-tabular register -->
+<!-- @meta{layout=list-tabular, class=register} -->
 
 ## Every variant inherits the same tracks.
 
@@ -100,11 +100,11 @@ Columns size to what is in them, and the deck says which column should absorb th
 3. sdk `{beta}`
 4. web `{preview}`
 
-<!-- _footer: "`register` — the pills sit at the right edge instead of a fixed 0.9fr column." -->
+<!-- @meta{footer="`register` — the pills sit at the right edge instead of a fixed 0.9fr column."} -->
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## The columns are the content.
 

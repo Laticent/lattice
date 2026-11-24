@@ -1,0 +1,9 @@
+# Commits that rewrote spelling, not meaning: `git blame` skips them and shows the change before.
+# GitHub reads this file by name; locally, run once:  git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# One full SHA per line, with a comment saying what it rewrote. Merges land as squash commits, so a sweep's
+# SHA exists only once it is on `main`: the sweep's own PR adds this file, and its SHA follows in the
+# first commit after the merge.
+#
+# The meta sweep (engineering/decisions/2026-10-17-meta-record.md §15, slice D): every deck's directive
+# comments rewritten as `<!-- @meta{…} -->` records, same HTML and CSS.

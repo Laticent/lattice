@@ -6,7 +6,7 @@ pagination: true
 header: "Digital Governance Caucus · Session brief"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The session's four calls.
 
@@ -16,7 +16,7 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
+<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 ## Adopt a 30-day deadline for breach notification.
 
@@ -31,7 +31,7 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 ---
 
-<!-- _class: policy-recommendation amend -->
+<!-- @meta{layout=policy-recommendation, class=amend} -->
 
 ## Amend SB 88 to require bias audits before deployment, not after.
 
@@ -46,7 +46,7 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 ---
 
-<!-- _class: policy-recommendation oppose -->
+<!-- @meta{layout=policy-recommendation, class=oppose} -->
 
 `AB 402 · Encryption Backdoors`
 
@@ -63,7 +63,7 @@ A state-held decryption key is a single point of failure for every resident's da
 
 ---
 
-<!-- _class: policy-recommendation defer -->
+<!-- @meta{layout=policy-recommendation, class=defer} -->
 
 `HR 19 · Municipal Facial Recognition`
 
@@ -80,7 +80,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Two ayes, one no, one to study — the caucus speaks with one voice.
 

@@ -18,9 +18,9 @@ lexicon:
   Northwind: north wind
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 
 # Q3 FY26: ahead on revenue, one call to make.
@@ -31,7 +31,7 @@ Prepared for the Northwind Analytics board of directors.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 
 ## Revenue ahead of plan; payback is slipping.
@@ -54,7 +54,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 
 `ARR bridge · Q2 to Q3`
@@ -70,7 +70,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 
 ## SMB deals stall between the demo and the proposal.
@@ -83,7 +83,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 
 ## Fixing SMB costs $2.1M; exiting frees nine sellers for mid-market.
@@ -95,9 +95,9 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: split-panel -->
-<!-- _header: "Northwind · Q3 FY26" -->
-<!-- _footer: "split-panel · full-bleed, chrome on the 16:9 inset" -->
+<!-- @meta{layout=split-panel, header=Northwind · Q3 FY26, footer="split-panel · full-bleed, chrome on the 16:9 inset"} -->
+
+
 
 `Where it leaks`
 
@@ -114,7 +114,7 @@ Three findings from the cohort review.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 
 ## How the exit would run.
@@ -130,7 +130,7 @@ Three findings from the cohort review.
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 
 ## We recommend exiting SMB by June 2027.
@@ -146,9 +146,9 @@ Three findings from the cohort review.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 
 ## Approve the SMB exit plan.

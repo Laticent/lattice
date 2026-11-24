@@ -4,7 +4,7 @@ theme: indaco
 pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Per-slice detail, in the PDF.
 
@@ -14,7 +14,7 @@ A pie slice can carry an indented sub-list. On screen it reveals on hover/tap; i
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## One source, two surfaces.
 
@@ -22,7 +22,7 @@ The sublist under a slice powers **both** the Present-mode reveal popover **and*
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `FY26 · $4.2M infrastructure`
 
@@ -40,7 +40,7 @@ The chart shows the split; the notes carry the why.
 
 ---
 
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `Q2 · 1,840 person-hours`
 
@@ -58,7 +58,7 @@ Nearly half went to producing decks; deciding was the smallest slice.
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Pipeline · 312 opportunities`
 
@@ -73,7 +73,7 @@ Nearly half went to producing decks; deciding was the smallest slice.
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Headcount · 240 FTE`
 
@@ -88,7 +88,7 @@ No sublists here — so this pie emits **no note** and exports exactly as a plai
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Read the notes.
 

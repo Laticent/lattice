@@ -37,6 +37,7 @@ import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
 import { migrateMetaSource } from '../../lib/authoring/meta-migrate.mjs';
 import { META_KIT } from '../../lib/cli/migrate-meta.mjs';
+import { slideClassValue } from '../../lib/core/class-entries.mjs';
 import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
@@ -141,7 +142,8 @@ function stressDeck(times) {
 
 function hubSpokeDeck(tieredCopies) {
   const gallery = readFileSync(join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.gallery.md'), 'utf8');
-  const tiered = gallery.split('\n---\n').find((s) => /_class: hub-spoke tiered/.test(s));
+  // The slide's class through the engine's own reader: the gallery is written in `@meta` records since the meta sweep.
+  const tiered = gallery.split('\n---\n').find((s) => { const w = slideClassValue(s).split(/\s+/); return w.includes('hub-spoke') && w.includes('tiered'); });
   if (!tiered) throw new Error('hub-spoke.gallery.md has no tiered slide — the hub-spoke dataset would measure the wrong thing');
   return gallery + Array.from({ length: tieredCopies }, () => `\n---\n${tiered}`).join('');
 }

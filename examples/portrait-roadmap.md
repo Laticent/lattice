@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · roadmap portrait"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A roadmap that reads down the page.
 
@@ -16,7 +16,7 @@ A roadmap is a wide grid — workstreams down, phases across. On a tall deck tho
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Same table, the right shape for the box.
 
@@ -28,8 +28,8 @@ You author the same workstream × phase table. The kernel reads the deck's orien
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Auto-horizons · four quarters stacked" -->
+<!-- @meta{layout=roadmap, footer=Auto-horizons · four quarters stacked} -->
+
 
 `H1 2026 – H2 2026`
 
@@ -43,8 +43,8 @@ You author the same workstream × phase table. The kernel reads the deck's orien
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Three horizons · Now / Next / Later" -->
+<!-- @meta{layout=roadmap, footer=Three horizons · Now / Next / Later} -->
+
 
 `Three-horizon planning`
 
@@ -59,7 +59,7 @@ You author the same workstream × phase table. The kernel reads the deck's orien
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Every chart now meets the box where it is.
 

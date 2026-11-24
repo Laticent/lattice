@@ -9,7 +9,7 @@ terms:
   "6.5:1": 6.5 to 1
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Dark slides, read at a glance
 
@@ -19,7 +19,7 @@ Export this deck with `--player --player-mode dark` to see the player fix; the P
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Retention · 2026 cohorts`
 
@@ -36,7 +36,7 @@ The top ramp steps print dark values on a light cell, at 4.6:1 or better in the 
 
 ---
 
-<!-- _class: heatmap scale -->
+<!-- @meta{layout=heatmap, class=scale} -->
 
 `Retention · 2026 cohorts`
 
@@ -51,8 +51,8 @@ The top ramp steps print dark values on a light cell, at 4.6:1 or better in the 
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: Cost to win | Lifetime value | [Payback] -->
+<!-- @meta{layout=topic, track="Cost to win | Lifetime value | [Payback]"} -->
+
 
 `Section 02 · Unit economics`
 
@@ -62,8 +62,8 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->
+<!-- @meta{layout=topic, track="Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence"} -->
+
 
 `Section 04 · Operating review`
 
@@ -73,7 +73,7 @@ Three of the nine paths route to a team that no longer owns the service.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## What changed.
 

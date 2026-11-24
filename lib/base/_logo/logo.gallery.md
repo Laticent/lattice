@@ -7,7 +7,7 @@ header: "Lattice · custom logo"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Custom Logo
 
@@ -17,7 +17,7 @@ A grayscale watermark in the top-right corner — brightness adapts to dark and 
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 `How it works`
 
@@ -27,7 +27,7 @@ CSS desaturates the injected image to a faint grayscale watermark and inverts th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## How it lands in the DOM.
 
@@ -42,7 +42,7 @@ Build-time only. The directive does not render in the marp-vscode preview pane b
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## When to use which style.
 
@@ -53,7 +53,7 @@ Build-time only. The directive does not render in the marp-vscode preview pane b
 
 ---
 
-<!-- _class: content tint-corner at-tl tint-edge at-right -->
+<!-- @meta{layout=content, class=tint-corner at-tl tint-edge at-right} -->
 
 ## Layered gradient background, logo on top.
 
@@ -61,7 +61,7 @@ Build-time only. The directive does not render in the marp-vscode preview pane b
 
 ---
 
-<!-- _class: content mark-orbit -->
+<!-- @meta{layout=content, class=mark-orbit} -->
 
 ## SVG-mark background and logo coexist.
 
@@ -69,7 +69,7 @@ Build-time only. The directive does not render in the marp-vscode preview pane b
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Lattice · custom logo`
 

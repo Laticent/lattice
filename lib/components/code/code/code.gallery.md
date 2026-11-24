@@ -15,8 +15,7 @@ Single fenced code block as the slide's centerpiece.
 
 ---
 
-<!-- _class: code -->
-<!-- @meta{footer=Default · code} -->
+<!-- @meta{layout=code, footer=Default · code} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -32,9 +31,8 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code, footer="Stress test · code — Fourteen lines — the wall for one block."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · code — Fourteen lines — the wall for one block."} -->
 
 ## Fourteen lines is the wall.
 

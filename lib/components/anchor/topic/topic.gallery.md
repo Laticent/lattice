@@ -15,9 +15,8 @@ Topic anchor inside a section. A horizontal cut: the topic above, the section's 
 
 ---
 
-<!-- _class: topic -->
-<!-- @meta{footer=Default · topic} -->
-<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->
+<!-- @meta{layout=topic, track="Cost to win | Lifetime value | [Payback] | The assumptions", footer=Default · topic} -->
+
 
 `Section 02 · Unit economics`
 
@@ -28,8 +27,7 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic fact -->
-<!-- @meta{footer="fact · topic fact — One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on."} -->
+<!-- @meta{layout=topic, class=fact, footer="fact · topic fact — One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on."} -->
 
 `Section 02 · Unit economics`
 
@@ -42,10 +40,9 @@ Fourteen months blended, against a nine-month plan.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic, track="Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence", footer="Stress test · topic — a nine-topic section — the track at its documented ceiling, labels stepped down two rungs"} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · topic — a nine-topic section — the track at its documented ceiling, labels stepped down two rungs"} -->
-<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->
+
 
 `Section 04 · Operating review`
 

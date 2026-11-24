@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · callouts on points · placed by measure"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Notes pin to the point they name
 
@@ -15,8 +15,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: line -->
-<!-- _footer: "line · a category, and a series after a slash." -->
+<!-- @meta{layout=line, footer="line · a category, and a series after a slash."} -->
+
 
 ## Enterprise pulled away after the Q3 launch.
 
@@ -37,8 +37,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: ep-curve -->
-<!-- _footer: "ep-curve · a point by its return period." -->
+<!-- @meta{layout=ep-curve, footer=ep-curve · a point by its return period.} -->
+
 
 `[{Return period}, {Loss}]`
 
@@ -55,8 +55,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: scatter -->
-<!-- _footer: "scatter · a point by its label." -->
+<!-- @meta{layout=scatter, footer=scatter · a point by its label.} -->
+
 
 `[Annual cost, Teams adopting]`
 
@@ -73,8 +73,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: slope -->
-<!-- _footer: "slope · the marker sits beside the middle of the line." -->
+<!-- @meta{layout=slope, footer=slope · the marker sits beside the middle of the line.} -->
+
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -95,8 +95,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: slope dumbbell -->
-<!-- _footer: "slope dumbbell · the same entities, each bar ringed." -->
+<!-- @meta{layout=slope, class=dumbbell, footer="slope dumbbell · the same entities, each bar ringed."} -->
+
 
 ## Kestrel took the lead; Northwind gave it up.
 
@@ -117,8 +117,8 @@ A ring on the dot, a numbered marker beside it and clear of the line, and the wo
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "quadrant · an item by its label." -->
+<!-- @meta{layout=quadrant, footer=quadrant · an item by its label.} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 

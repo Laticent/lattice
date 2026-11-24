@@ -15,8 +15,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile -->
-<!-- @meta{footer=Default · team-profile} -->
+<!-- @meta{layout=team-profile, footer=Default · team-profile} -->
 
 `inventory · team-profile`
 
@@ -50,8 +49,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile lead -->
-<!-- @meta{footer="lead · team-profile lead — The first person takes a hero cell; the rest rank beneath."} -->
+<!-- @meta{layout=team-profile, class=lead, footer="lead · team-profile lead — The first person takes a hero cell; the rest rank beneath."} -->
 
 `team-profile lead`
 
@@ -77,8 +75,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bench -->
-<!-- @meta{footer="bench · team-profile bench — The long roster, packed to a face, a name and a role."} -->
+<!-- @meta{layout=team-profile, class=bench, footer="bench · team-profile bench — The long roster, packed to a face, a name and a role."} -->
 
 `team-profile bench`
 
@@ -120,8 +117,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile sides -->
-<!-- @meta{footer="sides · team-profile sides — Two labeled rosters facing each other across the slide."} -->
+<!-- @meta{layout=team-profile, class=sides, footer="sides · team-profile sides — Two labeled rosters facing each other across the slide."} -->
 
 `team-profile sides`
 
@@ -148,8 +144,7 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bio -->
-<!-- @meta{footer="bio · team-profile bio — One person per row, with room for a real sentence."} -->
+<!-- @meta{layout=team-profile, class=bio, footer="bio · team-profile bio — One person per row, with room for a real sentence."} -->
 
 `team-profile bio`
 
@@ -175,9 +170,8 @@ A roster of named people, each under a portrait, with the role they own.
 
 ---
 
-<!-- _class: team-profile bench -->
+<!-- @meta{layout=team-profile, class=bench, footer="Stress test · team-profile — Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · team-profile — Twelve people with a note each — the hard ceiling, where the grid spends the last of its breathing room."} -->
 
 `team-profile at the ceiling`
 

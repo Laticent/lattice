@@ -15,8 +15,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card -->
-<!-- @meta{footer=Default · citation-card} -->
+<!-- @meta{layout=citation-card, footer=Default · citation-card} -->
 
 ## The card quotes the law verbatim, cited.
 
@@ -31,8 +30,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card pull-quote -->
-<!-- @meta{footer="pull-quote · citation-card pull-quote — The operative phrase, lifted."} -->
+<!-- @meta{layout=citation-card, class=pull-quote, footer="pull-quote · citation-card pull-quote — The operative phrase, lifted."} -->
 
 ## pull-quote lifts the operative phrase.
 
@@ -46,8 +44,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card split -->
-<!-- @meta{footer="split · citation-card split — Quote beside plain reading."} -->
+<!-- @meta{layout=citation-card, class=split, footer="split · citation-card split — Quote beside plain reading."} -->
 
 ## split pairs the quote with its plain reading.
 
@@ -61,8 +58,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card margin -->
-<!-- @meta{footer="margin · citation-card margin — The cite in the gutter."} -->
+<!-- @meta{layout=citation-card, class=margin, footer="margin · citation-card margin — The cite in the gutter."} -->
 
 ## margin hangs the cite in the gutter.
 
@@ -76,8 +72,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card triptych -->
-<!-- @meta{footer="triptych · citation-card triptych — Three authorities abreast."} -->
+<!-- @meta{layout=citation-card, class=triptych, footer="triptych · citation-card triptych — Three authorities abreast."} -->
 
 ## triptych sets three authorities abreast.
 
@@ -93,9 +88,8 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card, footer="Stress test · citation-card — The longest quotable block."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · citation-card — The longest quotable block."} -->
 
 ## The longest quote one card should carry.
 

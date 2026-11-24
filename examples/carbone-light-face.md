@@ -6,9 +6,9 @@ pagination: true
 header: "Carbone · the light face"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Carbone light · title" -->
+<!-- @meta{layout=title, header="", footer=Carbone light · title} -->
+
+
 
 # Carbone, in daylight
 
@@ -18,8 +18,8 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The accent · one hue, two lightnesses" -->
+<!-- @meta{layout=content, footer="The accent · one hue, two lightnesses"} -->
+
 
 `Brand axis · the electric lime`
 
@@ -36,8 +36,8 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "Status trio · the washes" -->
+<!-- @meta{layout=checklist, footer=Status trio · the washes} -->
+
 
 ## The status washes are curated, not derived from the ink.
 
@@ -49,8 +49,8 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "The terminal register · code" -->
+<!-- @meta{layout=code, footer=The terminal register · code} -->
+
 
 `Surfaces · what did not flip`
 
@@ -70,8 +70,8 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Categorical cycle · diagram" -->
+<!-- @meta{layout=diagram, footer=Categorical cycle · diagram} -->
+
 
 `Diagrams · the three-layer contract`
 
@@ -88,8 +88,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The ground · graphite, after two wrong turns" -->
+<!-- @meta{layout=content, footer="The ground · graphite, after two wrong turns"} -->
+
 
 `The mistake worth recording`
 
@@ -106,8 +106,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The rule that generalizes · content" -->
+<!-- @meta{layout=content, footer=The rule that generalizes · content} -->
+
 
 `One line worth keeping`
 
@@ -122,9 +122,9 @@ flowchart LR
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Carbone light · closing" -->
+<!-- @meta{layout=closing, header="", footer=Carbone light · closing} -->
+
+
 
 `What this face is for`
 

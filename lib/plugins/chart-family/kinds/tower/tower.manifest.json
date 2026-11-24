@@ -95,10 +95,10 @@
   },
   "skeleton": "<!-- @meta{layout=tower} -->\n\n## Who carries each layer of the program.\n\n- Layer 2 `$100M xs $50M`\n  - Reinsurer A `60%`\n  - Reinsurer B `40%`\n- Layer 1 `$40M xs $10M`\n  - Reinsurer A `50%`\n  - Reinsurer C `50%`\n- Retention `$10M`\n",
   "anatomyBlock": "funnel",
-  "sample": "<!-- _class: tower -->\n\n`Property catastrophe program · 2027`\n\n## Six reinsurers carry $310M above a $50M retention.\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n",
+  "sample": "<!-- @meta{layout=tower} -->\n\n`Property catastrophe program · 2027`\n\n## Six reinsurers carry $310M above a $50M retention.\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n",
   "stressDoc": {
     "summary": "Six layers, eight reinsurers (two fold into Others), one layer part-placed.",
-    "sample": "<!-- _class: tower -->\n\n## A six-layer casualty tower, 85% placed at the top.\n\n- Layer 6 `$100M xs $400M`\n  - Acme Re `35%`\n  - Globex Re `30%`\n  - Helios Re `20%`\n- Layer 5 `$100M xs $300M`\n  - Acme Re `25%`\n  - Vantage Re `25%`\n  - Umbra Re `25%`\n  - Meridian Re `25%`\n- Layer 4 `$100M xs $200M`\n  - Orion Re `50%`\n  - Atlas Re `50%`\n- Layer 3 `$100M xs $100M`\n  - Globex Re `50%`\n  - Acme Re `50%`\n- Layer 2 `$75M xs $25M`\n  - Vantage Re `60%`\n  - Helios Re `40%`\n- Layer 1 `$15M xs $10M`\n  - Acme Re `100%`\n- Retention `$10M`\n"
+    "sample": "<!-- @meta{layout=tower} -->\n\n## A six-layer casualty tower, 85% placed at the top.\n\n- Layer 6 `$100M xs $400M`\n  - Acme Re `35%`\n  - Globex Re `30%`\n  - Helios Re `20%`\n- Layer 5 `$100M xs $300M`\n  - Acme Re `25%`\n  - Vantage Re `25%`\n  - Umbra Re `25%`\n  - Meridian Re `25%`\n- Layer 4 `$100M xs $200M`\n  - Orion Re `50%`\n  - Atlas Re `50%`\n- Layer 3 `$100M xs $100M`\n  - Globex Re `50%`\n  - Acme Re `50%`\n- Layer 2 `$75M xs $25M`\n  - Vantage Re `60%`\n  - Helios Re `40%`\n- Layer 1 `$15M xs $10M`\n  - Acme Re `100%`\n- Retention `$10M`\n"
   },
   "whenToUse": [
     {

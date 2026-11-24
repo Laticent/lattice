@@ -5,7 +5,7 @@ pagination: true
 footer: "Auto-split coverage"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Split coverage
 
@@ -15,7 +15,7 @@ A component's declared reader is one shape. A variant that renders another still
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck is for
 
@@ -26,8 +26,8 @@ A component's declared reader is one shape. A variant that renders another still
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "code · one block" -->
+<!-- @meta{layout=code, footer=code · one block} -->
+
 
 ## A listing past the wall splits by line-run.
 
@@ -56,8 +56,8 @@ export function pages(body) {
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "code · two blocks" -->
+<!-- @meta{layout=code, footer=code · two blocks} -->
+
 
 ## Two fenced blocks take a page each.
 
@@ -71,8 +71,8 @@ const after = pages(deck).length;
 
 ---
 
-<!-- _class: list-tabular register -->
-<!-- _footer: "list-tabular · register" -->
+<!-- @meta{layout=list-tabular, class=register, footer=list-tabular · register} -->
+
 
 ## A register with no clause still paginates.
 
@@ -83,8 +83,8 @@ const after = pages(deck).length;
 
 ---
 
-<!-- _class: compare-prose axis -->
-<!-- _footer: "compare-prose · axis" -->
+<!-- @meta{layout=compare-prose, class=axis, footer=compare-prose · axis} -->
+
 
 ## The second axis: how far it reaches.
 
@@ -99,8 +99,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: roadmap horizons -->
-<!-- _footer: "roadmap · horizons" -->
+<!-- @meta{layout=roadmap, class=horizons, footer=roadmap · horizons} -->
+
 
 ## The rollout, by horizon.
 
@@ -112,8 +112,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- _footer: "obligation-matrix" -->
+<!-- @meta{layout=obligation-matrix, footer=obligation-matrix} -->
+
 
 ## Duties, regime by regime.
 
@@ -125,8 +125,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "matrix-2x2" -->
+<!-- @meta{layout=matrix-2x2, footer=matrix-2x2} -->
+
 
 ## Effort against impact.
 
@@ -145,8 +145,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: split-panel pullquote -->
-<!-- _footer: "split-panel pullquote" -->
+<!-- @meta{layout=split-panel, class=pullquote, footer=split-panel pullquote} -->
+
 
 > A split page should look like the slide it came from, one element at a time.
 

@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · a photo in a pane is fitted, never cropped"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A photo in a pane fits its box
 
@@ -15,91 +15,91 @@ A picture beside text is scaled to fit its pane and centered, at any share and a
 
 ---
 
-<!-- _class: columns ratio-75-25 -->
+<!-- @meta{layout=columns, class=ratio-75-25} -->
 
 ## A wide photo takes most of a wide pane.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ![A figure on a hill at sunset](sample:photo-wide.jpg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 - Fitted to the pane's box
 - Centered in it
 
 ---
 
-<!-- _class: columns ratio-75-25 -->
+<!-- @meta{layout=columns, class=ratio-75-25} -->
 
 ## A tall photo stops at the pane's height.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ![A figure on a hill at sunset](sample:photo-tall.jpg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 - It was cropped here, the sun cut off
 - Now the whole picture shows
 
 ---
 
-<!-- _class: columns ratio-50-50 -->
+<!-- @meta{layout=columns, class=ratio-50-50} -->
 
 ## A square photo fits an even split.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ![A figure on a hill at sunset](sample:photo-square.jpg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 - Before: the lower third ran past the pane
 - After: the square sits whole
 
 ---
 
-<!-- _class: columns ratio-25-75 -->
+<!-- @meta{layout=columns, class=ratio-25-75} -->
 
 ## A narrow pane takes a small, whole picture.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ![A figure on a hill at sunset](sample:photo-pano.jpg)
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 - A panorama at 25% is a strip
 - It is never scaled past its own pixels
 
 ---
 
-<!-- _class: columns ratio-50-50 -->
+<!-- @meta{layout=columns, class=ratio-50-50} -->
 
 ## A caption under the photo keeps its place.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ![A figure on a hill at sunset](sample:photo-wide.jpg)
 
 A caption line under the photo.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 - The picture takes the height the caption leaves
 
 ---
 
-<!-- _class: columns ratio-50-50 -->
+<!-- @meta{layout=columns, class=ratio-50-50} -->
 
 ## An image pane still fills its box and crops.
 
-<!-- _pane: image -->
+<!-- @meta{pane=image} -->
 
 ![A figure on a hill at sunset](sample:photo-tall.jpg)
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 ### What changes
 

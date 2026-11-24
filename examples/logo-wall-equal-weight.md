@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · logo-wall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # No mark wins the room by being wide.
 
@@ -15,7 +15,7 @@ Beside a crest, wordmarks come down to a badge's area, and the crest keeps its o
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A box that fits every mark favors the wide ones.
 
@@ -27,7 +27,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Four shapes`
 
@@ -40,7 +40,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: logo-wall dense -->
+<!-- @meta{layout=logo-wall, class=dense} -->
 
 `Dense`
 
@@ -59,7 +59,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: logo-wall color -->
+<!-- @meta{layout=logo-wall, class=color} -->
 
 `Color`
 
@@ -78,7 +78,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `With captions`
 
@@ -99,7 +99,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: logo-wall dark -->
+<!-- @meta{layout=logo-wall, class=dark} -->
 
 `Wordmarks only`
 
@@ -116,7 +116,7 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # One area, capped at the row.
 

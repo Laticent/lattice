@@ -15,8 +15,7 @@ An Anima motion scene as its poster still — an inline, palette-blind SVG that 
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- @meta{footer=Default · scene} -->
+<!-- @meta{layout=scene, class=gallery, footer=Default · scene} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -43,8 +42,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: scene clean -->
-<!-- @meta{footer="clean · scene clean — A card shaped to the still, beside its point."} -->
+<!-- @meta{layout=scene, class=clean, footer="clean · scene clean — A card shaped to the still, beside its point."} -->
 
 ## clean seats the scene beside its claim.
 
@@ -55,8 +53,7 @@ The still floats in a card; the argument runs alongside.
 
 ---
 
-<!-- _class: scene split -->
-<!-- @meta{footer="split · scene split — A tall scene gets its own column."} -->
+<!-- @meta{layout=scene, class=split, footer="split · scene split — A tall scene gets its own column."} -->
 
 ## split gives a tall scene its full column.
 
@@ -67,8 +64,7 @@ A portrait scene wants its height; the claim leads beside it.
 
 ---
 
-<!-- _class: scene spotlight -->
-<!-- @meta{footer="spotlight · scene spotlight — A wide scene owns the frame."} -->
+<!-- @meta{layout=scene, class=spotlight, footer="spotlight · scene spotlight — A wide scene owns the frame."} -->
 
 ## spotlight lets a wide scene carry the slide.
 
@@ -79,8 +75,7 @@ When the scene already matches the canvas, let it own the frame.
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- @meta{footer="gallery · scene gallery — The whole still contained on a matte."} -->
+<!-- @meta{layout=scene, class=gallery, footer="gallery · scene gallery — The whole still contained on a matte."} -->
 
 ## gallery mats the scene like an exhibit.
 
@@ -91,8 +86,7 @@ The whole scene on a matte — the default when the shape is the point.
 
 ---
 
-<!-- _class: scene statement -->
-<!-- @meta{footer="statement · scene statement — The title rides an editorial band below the scene."} -->
+<!-- @meta{layout=scene, class=statement, footer="statement · scene statement — The title rides an editorial band below the scene."} -->
 
 ## statement rides the title below the scene.
 
@@ -103,8 +97,7 @@ The still sits on a matte stage; the title rides an editorial band beneath it.
 
 ---
 
-<!-- _class: scene mirror -->
-<!-- @meta{footer="mirror · scene mirror — The scene lands on the left."} -->
+<!-- @meta{layout=scene, class=mirror, footer="mirror · scene mirror — The scene lands on the left."} -->
 
 ## mirror lands the scene on the left.
 

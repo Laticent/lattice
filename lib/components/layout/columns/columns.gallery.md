@@ -15,14 +15,13 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-60-40 -->
-<!-- @meta{footer=Default · columns} -->
+<!-- @meta{layout=columns, class=ratio-60-40, footer=Default · columns} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -30,7 +29,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -41,8 +40,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-45-55 no-spine -->
-<!-- @meta{footer="no rule · columns no-spine — Drops the spine between the panes."} -->
+<!-- @meta{layout=columns, class=ratio-45-55 no-spine, footer="no rule · columns no-spine — Drops the spine between the panes."} -->
 
 `Support · after the migration`
 
@@ -61,21 +59,20 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-40-60 -->
+<!-- @meta{layout=columns, class=ratio-40-60, footer="Stress test · columns — A list beside a four-column table at 40/60, with the slide's Key Insight."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · columns — A list beside a four-column table at 40/60, with the slide's Key Insight."} -->
 
 `columns · stress`
 
 ## Two vendors cleared the security review.
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### Cleared
 
 - Northwind
 - Contoso
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### Findings by vendor
 
 | Vendor | Critical | High | Status |
@@ -95,7 +92,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -103,7 +100,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -120,7 +117,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -128,7 +125,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -145,7 +142,7 @@ Two components side by side on one slide, at a ratio you choose.
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -153,7 +150,7 @@ Two components side by side on one slide, at a ratio you choose.
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March

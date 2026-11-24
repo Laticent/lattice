@@ -9,14 +9,13 @@ layout
 
 ---
 
-<!-- _class: columns ratio-60-40 -->
-<!-- @meta{footer=columns · layout survey} -->
+<!-- @meta{layout=columns, class=ratio-60-40, footer=columns · layout survey} -->
 
 `Q3 review`
 
 ## Services outgrew licenses for the first time.
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 ### Revenue by line
 `$M, trailing four quarters`
 
@@ -24,7 +23,7 @@ layout
 - Services `47`
 - Training `9`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 ### What changed
 
 - Services passed licenses in March
@@ -34,18 +33,17 @@ layout
 
 ---
 
-<!-- _class: rows -->
-<!-- @meta{footer=rows · layout survey} -->
+<!-- @meta{layout=rows, footer=rows · layout survey} -->
 
 ## Hiring kept pace with the plan through Q3.
 
-<!-- _pane: progress -->
+<!-- @meta{pane=progress} -->
 ### Hired against plan
 
 - Engineering `98%`
 - Sales `92%` `at-risk`
 
-<!-- _pane: table -->
+<!-- @meta{pane=table} -->
 ### By function
 
 | Function | Plan | Hired |

@@ -6,7 +6,7 @@ pagination: true
 header: "Lattice · venue budgets"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Components that know the room
 
@@ -16,8 +16,8 @@ Each slide below is set for the back row of a large room and holds what its comp
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Hall holds 4 rows" -->
+<!-- @meta{layout=progress, footer=Hall holds 4 rows} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -30,8 +30,8 @@ Each slide below is set for the back row of a large room and holds what its comp
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Hall holds 2 stages" -->
+<!-- @meta{layout=journey, footer=Hall holds 2 stages} -->
+
 
 ## The journey scores each stage of the path.
 
@@ -44,8 +44,8 @@ Each slide below is set for the back row of a large room and holds what its comp
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "Hall holds 2 rows" -->
+<!-- @meta{layout=matrix-grid, footer=Hall holds 2 rows} -->
+
 
 ## Your level is a cell, not a rung.
 
@@ -58,8 +58,8 @@ Each slide below is set for the back row of a large room and holds what its comp
 
 ---
 
-<!-- _class: collage -->
-<!-- _footer: "Hall holds 20 words of description" -->
+<!-- @meta{layout=collage, footer=Hall holds 20 words of description} -->
+
 
 `The atelier`
 
@@ -77,8 +77,8 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "Hall holds 30 words of body" -->
+<!-- @meta{layout=image, footer=Hall holds 30 words of body} -->
+
 
 ## The image layout reads the asset’s shape.
 
@@ -88,8 +88,8 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: logo-wall -->
-<!-- _footer: "Hall holds 4 logos" -->
+<!-- @meta{layout=logo-wall, footer=Hall holds 4 logos} -->
+
 
 `inventory · logo-wall`
 
@@ -110,8 +110,8 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: citation-card -->
-<!-- _footer: "Hall holds 31 words of card" -->
+<!-- @meta{layout=citation-card, footer=Hall holds 31 words of card} -->
+
 
 ## The card quotes the law verbatim, cited.
 
@@ -125,8 +125,8 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "Hall holds 12 words of caption" -->
+<!-- @meta{layout=big-number, footer=Hall holds 12 words of caption} -->
+
 
 `big-number · one number, the whole canvas`
 

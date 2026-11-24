@@ -5,7 +5,7 @@ pagination: true
 footer: "illegible AND clipping — two axes, not one"
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## The readiness checklist, with a small figure above it.
 

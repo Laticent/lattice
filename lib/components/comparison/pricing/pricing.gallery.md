@@ -15,8 +15,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing -->
-<!-- @meta{footer=Default · pricing} -->
+<!-- @meta{layout=pricing, footer=Default · pricing} -->
 
 ## Three tiers, one recommended column.
 
@@ -39,8 +38,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing two -->
-<!-- @meta{footer="two · pricing two — A pair of plans, head to head."} -->
+<!-- @meta{layout=pricing, class=two, footer="two · pricing two — A pair of plans, head to head."} -->
 
 ## two sets a pair of plans head to head.
 
@@ -56,8 +54,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing four compact -->
-<!-- @meta{footer="four · pricing four — The whole ladder, compact."} -->
+<!-- @meta{layout=pricing, class=four compact, footer="four · pricing four — The whole ladder, compact."} -->
 
 ## four compact fits the whole ladder.
 
@@ -81,9 +78,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing four -->
+<!-- @meta{layout=pricing, class=four, footer="Stress test · pricing — Four tiers, five feature rows each — the ceiling on both axes."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · pricing — Four tiers, five feature rows each — the ceiling on both axes."} -->
 
 ## Four tiers at five feature rows each is the ceiling.
 

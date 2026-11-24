@@ -15,8 +15,7 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: ep-curve -->
-<!-- @meta{footer=Default · ep-curve} -->
+<!-- @meta{layout=ep-curve, footer=Default · ep-curve} -->
 
 `[{Return period}, {Loss}]`
 
@@ -38,9 +37,8 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve, footer="Stress test · ep-curve — Four curves, eight return periods from 1-in-2 to 1-in-1,000."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · ep-curve — Four curves, eight return periods from 1-in-2 to 1-in-1,000."} -->
 
 ## Four curves, eight return periods.
 

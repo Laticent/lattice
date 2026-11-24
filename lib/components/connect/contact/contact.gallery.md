@@ -15,8 +15,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: contact -->
-<!-- @meta{footer=Default · contact} -->
+<!-- @meta{layout=contact, footer=Default · contact} -->
 
 - Ada Slide `name`
 - One scan saves the speaker `title`

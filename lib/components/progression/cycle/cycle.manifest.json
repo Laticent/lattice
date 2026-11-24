@@ -48,10 +48,10 @@
     }
   },
   "skeleton": "<!-- @meta{layout=cycle} -->\n\n## The heading names the loop.\n\n- First stage\n  - One clause saying what happens here.\n- Second stage\n  - One clause saying what happens here.\n- Third stage\n  - One clause saying what happens here.\n- Fourth stage\n  - One clause saying what happens here.\n",
-  "sample": "<!-- _class: cycle -->\n\n`The water cycle`\n\n## Nothing is spent — only moved.\n\n- Evaporation\n  - The sun lifts water from ocean and leaf into vapor.\n- Condensation\n  - Vapor cools into cloud, a reservoir held aloft.\n- Precipitation\n  - Rain and snow return the water to the ground.\n- Collection\n  - Rivers gather it back to the sea, and it begins again.\n",
+  "sample": "<!-- @meta{layout=cycle} -->\n\n`The water cycle`\n\n## Nothing is spent — only moved.\n\n- Evaporation\n  - The sun lifts water from ocean and leaf into vapor.\n- Condensation\n  - Vapor cools into cloud, a reservoir held aloft.\n- Precipitation\n  - Rain and snow return the water to the ground.\n- Collection\n  - Rivers gather it back to the sea, and it begins again.\n",
   "stressDoc": {
     "summary": "Six stages — the last legible ring.",
-    "sample": "<!-- _class: cycle -->\n\n`The carbon cycle`\n\n## Six stages is the crowded ceiling.\n\n- Photosynthesis\n  - Plants pull carbon from the air into sugar.\n- Respiration\n  - Living things burn sugar and breathe carbon back.\n- Decomposition\n  - Decay returns carbon from the dead to the soil.\n- Combustion\n  - Fire and fuel release stored carbon at once.\n- Ocean uptake\n  - Seawater absorbs a share of the airborne carbon.\n- Sedimentation\n  - The slow route locks carbon into stone, and the wheel turns.\n"
+    "sample": "<!-- @meta{layout=cycle} -->\n\n`The carbon cycle`\n\n## Six stages is the crowded ceiling.\n\n- Photosynthesis\n  - Plants pull carbon from the air into sugar.\n- Respiration\n  - Living things burn sugar and breathe carbon back.\n- Decomposition\n  - Decay returns carbon from the dead to the soil.\n- Combustion\n  - Fire and fuel release stored carbon at once.\n- Ocean uptake\n  - Seawater absorbs a share of the airborne carbon.\n- Sedimentation\n  - The slow route locks carbon into stone, and the wheel turns.\n"
   },
   "whenToUse": [
     { "title": "The sequence is circular", "body": "When the last stage feeds the first and there is no true beginning — a natural cycle, a feedback loop, a recurring season. The return is the point; a layout with a start and end would misrepresent it." },

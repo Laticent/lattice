@@ -15,8 +15,7 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: checklist -->
-<!-- @meta{footer=Default · checklist} -->
+<!-- @meta{layout=checklist, footer=Default · checklist} -->
 
 ## The checklist tracks readiness in six answers.
 
@@ -30,9 +29,8 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist, footer="Stress test · checklist — Nine rows, all six answers — the ceiling."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · checklist — Nine rows, all six answers — the ceiling."} -->
 
 ## Nine rows is where the checklist overflows.
 

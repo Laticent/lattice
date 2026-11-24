@@ -7,7 +7,7 @@ pace: brisk
 footer: "Laticent · the Guide plays every structure its own way"
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Net dollar retention`
 
@@ -16,7 +16,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How the rollout reaches every region.
 
@@ -31,7 +31,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three bets for next year.
 
@@ -44,7 +44,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## Where each region stands.
 
@@ -57,7 +57,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- @meta{layout=compare-prose, class=chosen} -->
 
 ## Build the data platform, or buy one.
 
@@ -68,7 +68,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Mid-market grew into the gap enterprise left.
 
@@ -87,7 +87,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the pipeline drops off.
 
@@ -98,7 +98,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Impact, 0..100}]`
 
@@ -116,7 +116,7 @@ footer: "Laticent · the Guide plays every structure its own way"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## How a signal becomes a decision.
 
@@ -130,7 +130,7 @@ flowchart LR
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## The one call that starts a trial.
 

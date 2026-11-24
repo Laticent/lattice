@@ -40,8 +40,9 @@ function bucketOf(name) {
 function corpus() {
   const src = fs.readFileSync(CORPUS, 'utf8');
   const fm = src.match(/^---\n([\s\S]*?)\n---\n/)[1];
-  const classes = [...src.matchAll(/<!--\s*_class:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
-  const panes = [...src.matchAll(/<!--\s*_pane:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
+  // The corpus is written in records (`<!-- @meta{layout=kpi} -->`, `<!-- @meta{pane=list} -->`) since the meta sweep.
+  const classes = [...src.matchAll(/<!--\s*@meta\{layout=([a-z0-9-]+)/g)].map((m) => m[1]);
+  const panes = [...src.matchAll(/<!--\s*@meta\{pane=([a-z0-9-]+)/g)].map((m) => m[1]);
   return { src, fm, classes, panes };
 }
 

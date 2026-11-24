@@ -5,7 +5,7 @@ pagination: true
 header: "Lattice · speaker notes"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- @note{Open cold. Hold for two seconds before the first word — let the room settle. This whole line is a speaker note: it lives in the PDF and the HTML, but it never shows on the slide.} -->
 
 Speaker notes
@@ -17,7 +17,7 @@ stays off the slide — exactly the way Marp has always treated it.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- @note{The mechanic: any comment that is not a directive and not a tooling pragma is the slide's note. Say this slowly — it is the whole feature.} -->
 
 `The rule`
@@ -33,7 +33,7 @@ stays off the slide — exactly the way Marp has always treated it.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- @note{Stress that nothing prints. The note you are reading right now proves it: this slide has a long note and the canvas is still clean.} -->
 
 `Where it goes`
@@ -49,7 +49,7 @@ stays off the slide — exactly the way Marp has always treated it.
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## A slide with no note stays exactly as it was.
 
@@ -58,7 +58,7 @@ plain slides sit side by side with no change to either.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- @note{Closing beat: the degradation story is the point. Land it, then stop talking.} -->
 
 `Why it travels`
@@ -74,7 +74,7 @@ plain slides sit side by side with no change to either.
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 <!-- @note{Thank the room. This is the last note — let the silence do the work.} -->
 
 > The slide is for them. The note is for you.

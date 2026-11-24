@@ -4,7 +4,7 @@ pagination: true
 meta: "Lattice · claim"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Feature demo`
 
@@ -14,7 +14,7 @@ Give the content the stage.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The dial`
 
@@ -29,7 +29,7 @@ Give the content the stage.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -37,7 +37,7 @@ Give the content the stage.
 
 ---
 
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `Revenue · FY26`
 
@@ -50,7 +50,7 @@ Give the content the stage.
 
 ---
 
-<!-- _class: piechart donut claim-quiet -->
+<!-- @meta{layout=piechart, class=donut claim-quiet} -->
 
 `Revenue · FY26`
 
@@ -63,7 +63,7 @@ Give the content the stage.
 
 ---
 
-<!-- _class: piechart donut claim-hero -->
+<!-- @meta{layout=piechart, class=donut claim-hero} -->
 
 `Revenue · FY26`
 
@@ -78,7 +78,7 @@ Nearly half came from subscriptions this year.
 
 ---
 
-<!-- _class: big-number claim-hero -->
+<!-- @meta{layout=big-number, class=claim-hero} -->
 
 `Recall`
 
@@ -87,7 +87,7 @@ Nearly half came from subscriptions this year.
 
 ---
 
-<!-- _class: code claim-hero -->
+<!-- @meta{layout=code, class=claim-hero} -->
 
 `API`
 
@@ -102,7 +102,7 @@ app.post('/api/v2/auth', async (req, res) => {
 
 ---
 
-<!-- _class: big-number claim-bleed -->
+<!-- @meta{layout=big-number, class=claim-bleed} -->
 
 `bleed`
 
@@ -111,7 +111,7 @@ app.post('/api/v2/auth', async (req, res) => {
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `claim`
 

@@ -15,8 +15,7 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 
 ---
 
-<!-- _class: gift-card -->
-<!-- @meta{footer=Default · gift-card} -->
+<!-- @meta{layout=gift-card, footer=Default · gift-card} -->
 
 `connect · gift-card`
 

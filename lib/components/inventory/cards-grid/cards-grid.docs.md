@@ -97,7 +97,7 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 Four columns; pair with compact.
 
 ```markdown
-<!-- _class: cards-grid four compact -->
+<!-- @meta{layout=cards-grid, class=four compact} -->
 
 ## four locks a two-by-two, compact tightens it.
 
@@ -116,7 +116,7 @@ Four columns; pair with compact.
 Three equal columns.
 
 ```markdown
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## three widens the grid to three columns.
 
@@ -133,7 +133,7 @@ Three equal columns.
 Ordered source stamps corner tags.
 
 ```markdown
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## An ordered list numbers the cards.
 

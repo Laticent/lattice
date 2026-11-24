@@ -15,8 +15,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall -->
-<!-- @meta{footer=Default · logo-wall} -->
+<!-- @meta{layout=logo-wall, footer=Default · logo-wall} -->
 
 `inventory · logo-wall`
 
@@ -50,8 +49,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall color -->
-<!-- @meta{footer="color · logo-wall color — Marks keep their brand hues."} -->
+<!-- @meta{layout=logo-wall, class=color, footer="color · logo-wall color — Marks keep their brand hues."} -->
 
 `logo-wall color`
 
@@ -69,8 +67,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: logo-wall dense -->
-<!-- @meta{footer="dense · logo-wall dense — Six columns for the long roster."} -->
+<!-- @meta{layout=logo-wall, class=dense, footer="dense · logo-wall dense — Six columns for the long roster."} -->
 
 `logo-wall dense`
 

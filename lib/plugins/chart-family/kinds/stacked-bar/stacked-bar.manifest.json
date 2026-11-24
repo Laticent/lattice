@@ -101,10 +101,10 @@
     }
   },
   "skeleton": "<!-- @meta{layout=stacked-bar} -->\n\n## What the total is made of.\n\n- First category\n  - Part one `40`\n  - Part two `25`\n  - Part three `15`\n- Second category\n  - Part one `46`\n  - Part two `31`\n  - Part three `12`\n",
-  "sample": "<!-- _class: stacked-bar -->\n\n## Each bar is a total; the bands inside it are the mix.\n\n- FY23\n  - Licenses `18.4`\n  - Services `6.2`\n  - Support `4.1`\n- FY24\n  - Licenses `19.1`\n  - Services `9.8`\n  - Support `4.6`\n- FY25\n  - Licenses `19.6`\n  - Services `15.4`\n  - Support `5.2`\n",
+  "sample": "<!-- @meta{layout=stacked-bar} -->\n\n## Each bar is a total; the bands inside it are the mix.\n\n- FY23\n  - Licenses `18.4`\n  - Services `6.2`\n  - Support `4.1`\n- FY24\n  - Licenses `19.1`\n  - Services `9.8`\n  - Support `4.6`\n- FY25\n  - Licenses `19.6`\n  - Services `15.4`\n  - Support `5.2`\n",
   "stressDoc": {
     "summary": "Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar.",
-    "sample": "<!-- _class: stacked-bar share -->\n\n## Six parts, six periods, one sliver that should have been folded in.\n\n- Q1 FY24\n  - Enterprise `41`\n  - Mid-market `24`\n  - SMB `16`\n  - Channel `11`\n  - Marketplace `6`\n  - Other `2`\n- Q2 FY24\n  - Enterprise `39`\n  - Mid-market `25`\n  - SMB `17`\n  - Channel `12`\n  - Marketplace `5`\n  - Other `2`\n- Q3 FY24\n  - Enterprise `37`\n  - Mid-market `26`\n  - SMB `18`\n  - Channel `12`\n  - Marketplace `5`\n  - Other `2`\n- Q4 FY24\n  - Enterprise `35`\n  - Mid-market `26`\n  - SMB `19`\n  - Channel `13`\n  - Marketplace `5`\n  - Other `2`\n- Q1 FY25\n  - Enterprise `33`\n  - Mid-market `27`\n  - SMB `20`\n  - Channel `13`\n  - Marketplace `5`\n  - Other `2`\n- Q2 FY25\n  - Enterprise `31`\n  - Mid-market `28`\n  - SMB `21`\n  - Channel `14`\n  - Marketplace `4`\n  - Other `2`\n"
+    "sample": "<!-- @meta{layout=stacked-bar, class=share} -->\n\n## Six parts, six periods, one sliver that should have been folded in.\n\n- Q1 FY24\n  - Enterprise `41`\n  - Mid-market `24`\n  - SMB `16`\n  - Channel `11`\n  - Marketplace `6`\n  - Other `2`\n- Q2 FY24\n  - Enterprise `39`\n  - Mid-market `25`\n  - SMB `17`\n  - Channel `12`\n  - Marketplace `5`\n  - Other `2`\n- Q3 FY24\n  - Enterprise `37`\n  - Mid-market `26`\n  - SMB `18`\n  - Channel `12`\n  - Marketplace `5`\n  - Other `2`\n- Q4 FY24\n  - Enterprise `35`\n  - Mid-market `26`\n  - SMB `19`\n  - Channel `13`\n  - Marketplace `5`\n  - Other `2`\n- Q1 FY25\n  - Enterprise `33`\n  - Mid-market `27`\n  - SMB `20`\n  - Channel `13`\n  - Marketplace `5`\n  - Other `2`\n- Q2 FY25\n  - Enterprise `31`\n  - Mid-market `28`\n  - SMB `21`\n  - Channel `14`\n  - Marketplace `4`\n  - Other `2`\n"
   },
   "whenToUse": [
     {
@@ -192,12 +192,12 @@
     "share": {
       "label": "share",
       "summary": "Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar.",
-      "sample": "<!-- _class: stacked-bar share -->\n\n## share normalizes every bar, so only the mix is compared.\n\n- FY23\n  - Licenses `18.4`\n  - Services `6.2`\n  - Support `4.1`\n- FY24\n  - Licenses `19.1`\n  - Services `9.8`\n  - Support `4.6`\n- FY25\n  - Licenses `19.6`\n  - Services `15.4`\n  - Support `5.2`\n"
+      "sample": "<!-- @meta{layout=stacked-bar, class=share} -->\n\n## share normalizes every bar, so only the mix is compared.\n\n- FY23\n  - Licenses `18.4`\n  - Services `6.2`\n  - Support `4.1`\n- FY24\n  - Licenses `19.1`\n  - Services `9.8`\n  - Support `4.6`\n- FY25\n  - Licenses `19.6`\n  - Services `15.4`\n  - Support `5.2`\n"
     },
     "row": {
       "label": "row",
       "summary": "The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar.",
-      "sample": "<!-- _class: stacked-bar row -->\n\n## row turns the stack on its side for long category names.\n\n- Professional services\n  - Delivery `4.2`\n  - Training `1.6`\n  - Advisory `0.9`\n- Platform subscriptions\n  - Delivery `11.8`\n  - Training `2.1`\n  - Advisory `1.4`\n- Managed operations\n  - Delivery `6.4`\n  - Training `0.8`\n  - Advisory `2.2`\n"
+      "sample": "<!-- @meta{layout=stacked-bar, class=row} -->\n\n## row turns the stack on its side for long category names.\n\n- Professional services\n  - Delivery `4.2`\n  - Training `1.6`\n  - Advisory `0.9`\n- Platform subscriptions\n  - Delivery `11.8`\n  - Training `2.1`\n  - Advisory `1.4`\n- Managed operations\n  - Delivery `6.4`\n  - Training `0.8`\n  - Advisory `2.2`\n"
     }
   },
   "pane": {

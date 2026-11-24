@@ -7,9 +7,9 @@ header: "Lattice · universal token system"
 footer: "Phase 4 — surfaces / scheme"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # One surface, one honest name.
 
@@ -19,7 +19,7 @@ footer: "Phase 4 — surfaces / scheme"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The --bg-dark vs --dark-bg fix.
 
@@ -34,7 +34,7 @@ footer: "Phase 4 — surfaces / scheme"
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## This panel is --surface-inverse too.
 
@@ -44,7 +44,7 @@ The whole dark-bookend trio paints one surface token. Reading the component CSS 
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## And the code panel rides it as well.
 
@@ -59,9 +59,9 @@ function panel(scheme) {
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Surfaces you can read at a glance.
 

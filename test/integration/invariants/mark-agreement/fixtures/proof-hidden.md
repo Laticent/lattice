@@ -4,7 +4,7 @@ pagination: true
 progress-rail: on
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 ## A
 
@@ -13,8 +13,8 @@ progress-rail: on
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- hide -->
+<!-- @meta{layout=split-panel, class=proof, hide} -->
+
 
 ## B
 
@@ -23,7 +23,7 @@ progress-rail: on
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 ## C
 

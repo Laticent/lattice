@@ -15,8 +15,7 @@ Regulation × obligation grid — state-marker cells encode applies / partial / 
 
 ---
 
-<!-- _class: obligation-matrix -->
-<!-- @meta{footer=Default · obligation-matrix} -->
+<!-- @meta{layout=obligation-matrix, footer=Default · obligation-matrix} -->
 
 ## The matrix grids obligations across regimes.
 
@@ -34,8 +33,7 @@ Neutral ink — data first.
 
 ---
 
-<!-- _class: obligation-matrix heat -->
-<!-- @meta{footer="heat · obligation-matrix heat — Cells shaded by burden."} -->
+<!-- @meta{layout=obligation-matrix, class=heat, footer="heat · obligation-matrix heat — Cells shaded by burden."} -->
 
 ## heat shades the cells by burden.
 
@@ -53,8 +51,7 @@ Heat marks burden, not relief — exempt cells stay neutral.
 
 ---
 
-<!-- _class: obligation-matrix asymmetric -->
-<!-- @meta{footer="asymmetric · obligation-matrix asymmetric — Regimes differ in kind."} -->
+<!-- @meta{layout=obligation-matrix, class=asymmetric, footer="asymmetric · obligation-matrix asymmetric — Regimes differ in kind."} -->
 
 ## asymmetric admits the regimes differ in kind.
 
@@ -69,8 +66,7 @@ Each row promotes to a card with body-level breathing room.
 
 ---
 
-<!-- _class: obligation-matrix pills -->
-<!-- @meta{footer="pills · obligation-matrix pills — Cells as status words."} -->
+<!-- @meta{layout=obligation-matrix, class=pills, footer="pills · obligation-matrix pills — Cells as status words."} -->
 
 ## pills spell each cell as a status word.
 
@@ -88,8 +84,7 @@ Same data, neutral chrome — the state pills carry the meaning without the heat
 
 ---
 
-<!-- _class: obligation-matrix lanes -->
-<!-- @meta{footer="lanes · obligation-matrix lanes — One regime per band."} -->
+<!-- @meta{layout=obligation-matrix, class=lanes, footer="lanes · obligation-matrix lanes — One regime per band."} -->
 
 ## lanes walks one regime per band.
 
@@ -107,9 +102,8 @@ Each lane stripe signals that the row is its own regime, not a rank.
 
 ---
 
-<!-- _class: obligation-matrix -->
+<!-- @meta{layout=obligation-matrix, footer="Stress test · obligation-matrix — Six regimes by five duties."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · obligation-matrix — Six regimes by five duties."} -->
 
 ## Six regimes by five duties is the grid ceiling.
 

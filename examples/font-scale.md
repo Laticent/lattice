@@ -6,9 +6,9 @@ pagination: true
 header: "Lattice · Global Font Scale"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Bigger when the room is bigger
 
@@ -18,8 +18,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "The three steps · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=The three steps · cards-grid} -->
+
 
 ## Three steps, one knob.
 
@@ -34,8 +34,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Default footprint — no modifier · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="Default footprint — no modifier · cards-grid"} -->
+
 
 ## Default — tuned for desk distance.
 
@@ -50,8 +50,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid scale-l -->
-<!-- _footer: "Same slide, scale-l · cards-grid scale-l" -->
+<!-- @meta{layout=cards-grid, class=scale-l, footer="Same slide, scale-l · cards-grid scale-l"} -->
+
 
 ## scale-l — a gentle lift.
 
@@ -66,8 +66,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid scale-xl -->
-<!-- _footer: "Same slide, scale-xl · cards-grid scale-xl" -->
+<!-- @meta{layout=cards-grid, class=scale-xl, footer="Same slide, scale-xl · cards-grid scale-xl"} -->
+
 
 ## scale-xl — projection size.
 
@@ -82,8 +82,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid scale-2xl -->
-<!-- _footer: "Same slide, scale-2xl · cards-grid scale-2xl" -->
+<!-- @meta{layout=cards-grid, class=scale-2xl, footer="Same slide, scale-2xl · cards-grid scale-2xl"} -->
+
 
 ## scale-2xl — the back row.
 
@@ -98,8 +98,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: big-number scale-xl -->
-<!-- _footer: "The hero scales too · big-number scale-xl" -->
+<!-- @meta{layout=big-number, class=scale-xl, footer=The hero scales too · big-number scale-xl} -->
+
 
 `Across the Board`
 
@@ -108,8 +108,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: table scale-xl -->
-<!-- _footer: "Tables scale — cells and headers · table scale-xl" -->
+<!-- @meta{layout=table, class=scale-xl, footer="Tables scale — cells and headers · table scale-xl"} -->
+
 
 ## Tables scale too.
 
@@ -122,8 +122,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "What moves, what holds, what's independent · cards-grid three" -->
+<!-- @meta{layout=cards-grid, class=three, footer="What moves, what holds, what's independent · cards-grid three"} -->
+
 
 ## What moves when you scale.
 
@@ -136,8 +136,8 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Scope is native Marp class scoping · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Scope is native Marp class scoping · cards-grid} -->
+
 
 ## One slide, or the whole deck.
 
@@ -152,9 +152,9 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Closing · closing" -->
+<!-- @meta{layout=closing, header="", footer=Closing · closing} -->
+
+
 
 `Reach for it when the room demands it`
 

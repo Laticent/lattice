@@ -15,8 +15,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi -->
-<!-- @meta{footer=Default · kpi} -->
+<!-- @meta{layout=kpi, footer=Default · kpi} -->
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -36,8 +35,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi attention -->
-<!-- @meta{footer="attention · kpi attention — Flags the tile that misses."} -->
+<!-- @meta{layout=kpi, class=attention, footer="attention · kpi attention — Flags the tile that misses."} -->
 
 ## attention flags the tile that misses.
 
@@ -57,8 +55,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi ops -->
-<!-- @meta{footer="ops · kpi ops — Reads the tiles against SLOs."} -->
+<!-- @meta{layout=kpi, class=ops, footer="ops · kpi ops — Reads the tiles against SLOs."} -->
 
 `kpi ops`
 
@@ -80,8 +77,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi compliance -->
-<!-- @meta{footer="compliance · kpi compliance — Tallies findings per framework."} -->
+<!-- @meta{layout=kpi, class=compliance, footer="compliance · kpi compliance — Tallies findings per framework."} -->
 
 `kpi compliance`
 
@@ -100,8 +96,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi trajectory -->
-<!-- @meta{footer="trajectory · kpi trajectory — Pairs each tile with its delta."} -->
+<!-- @meta{layout=kpi, class=trajectory, footer="trajectory · kpi trajectory — Pairs each tile with its delta."} -->
 
 `kpi trajectory`
 
@@ -120,8 +115,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi spotlight -->
-<!-- @meta{footer="spotlight · kpi spotlight — One tile earns double width."} -->
+<!-- @meta{layout=kpi, class=spotlight, footer="spotlight · kpi spotlight — One tile earns double width."} -->
 
 ## spotlight gives one tile double width.
 
@@ -138,9 +132,8 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi, footer="Stress test · kpi — Four tiles at full word weight."} -->
 <!-- @meta{stress-slide} -->
-<!-- @meta{footer="Stress test · kpi — Four tiles at full word weight."} -->
 
 ## Four tiles at full word weight.
 

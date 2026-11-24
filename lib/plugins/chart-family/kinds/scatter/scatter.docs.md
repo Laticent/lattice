@@ -98,7 +98,7 @@ Use when the argument is that two measures move together (or against each other)
 A third measure sizes each dot by area.
 
 ```markdown
-<!-- _class: scatter bubble -->
+<!-- @meta{layout=scatter, class=bubble} -->
 
 `[Annual cost, Teams adopting, Seats]`
 
@@ -117,7 +117,7 @@ A third measure sizes each dot by area.
 A least-squares line through the cloud.
 
 ```markdown
-<!-- _class: scatter trend -->
+<!-- @meta{layout=scatter, class=trend} -->
 
 `[Annual cost, Teams adopting]`
 
