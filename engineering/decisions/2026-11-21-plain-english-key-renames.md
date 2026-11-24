@@ -116,6 +116,57 @@ deletes that retired row and rule, makes `chart-finish:` live again with the nar
 only), and adds the new rule that migrates `marks:`. A deck that wrote `chart-finish: <intensity>`
 before the earlier rename gets a lint error that names `color-intensity:`.
 
+#### Q4 implementation map (scoped 2026-11-24 on `e15585e`)
+
+**Classes follow the keys** (owner, 2026-11-24 01:15 UTC, relayed by the command center: "A: rename the classes too").
+The rendered pixels do not change, but the class names inside exported HTML do, so the PR stops at the merge gate
+for the owner's export sign-off on a demo deck rendered dark and light (CLAUDE.md, QUALITY BAR, export changes).
+
+| Today | After |
+|---|---|
+| `marks: pigment\|etch\|tone` | `chart-finish: pigment\|etch\|tone` |
+| `marks: … muted\|vivid` | `color-intensity: muted\|vivid` |
+| `marks: tone ink\|accent` | `chart-finish: tone ink\|accent` (D11) |
+| classes `marks-pigment` `marks-etch` `marks-tone` | `chart-finish-pigment` `chart-finish-etch` `chart-finish-tone` |
+| classes `marks-ink` `marks-accent` | `chart-finish-ink` `chart-finish-accent` |
+| classes `marks-muted` `marks-vivid` | `color-intensity-muted` `color-intensity-vivid` |
+| key `chart-finish:` (retired, honored alias of `marks:`, rule `marks-renamed`) | live again, finish words only |
+| per-slide `chart-finish-<word>` (honored aliases, `RENAMED_CLASSES` in lint-core) | the real class names; `chart-finish-muted` / `-vivid` move to `color-intensity-*` |
+
+Where the work is (`git grep -lE "marks-(pigment|etch|tone|muted|vivid|ink|accent)"`, 30 files, plus about 17 that read
+the key):
+
+- **Engine.** `lib/core/resolve-marks.js` (rename it `resolve-chart-finish.js`, and add a `color-intensity` reader or
+  one resolver for both), `lib/core/surface-registers.js`, `lib/core/front-matter-key.js`,
+  `lib/integrations/markdown-it/plugins.js`, `lib/runtime/index.js`, `lib/export/player-core.mjs`,
+  `lib/transformers/prose-projection.mjs`, `lib/components/index.js`.
+- **CSS.** `tools/build-marks-css.js` (generates the finish rules from each chart manifest's `kernel.marks`; rename the
+  generator and its output classes), `tools/build-css.js` (its ordering comment), `lib/base/base.tokens.css`
+  (§ STATUS reads the intensity class).
+- **Settings and lint.** `lib/core/deck-settings.js`: retire `marks`, make `chart-finish` live with finish words, add
+  `color-intensity`. In `lib/authoring/lint-core.js`, `marks:` cannot be a plain `KEY_RENAMES` row because it splits
+  in two. Add a small `marks:` rule beside the table: it writes `chart-finish:` with the finish and source words and
+  `color-intensity:` with the intensity word. A deck that still writes `chart-finish: <intensity>` (the pre-#2887
+  spelling) gets an error naming `color-intensity:`. Delete the `marks-renamed` rule and the honored
+  `chart-finish-*` entries in `RENAMED_CLASSES`. Old per-slide `marks-*` classes become errors with fixes. Watch the
+  studio `lintCoreGz` ceiling (168.7 of 168.9 KB after #3506): free bytes first.
+- **Studio.** `docs/src/components/studio/marks-catalog.ts`, `marks-value.ts`, `deck-preset.ts`, `slide-provenance.ts`,
+  `SlideContext.tsx`, `docs/src/lib/marks-words.ts`, `docs/src/playground/snapshot-cache.js`. D3 relabels later; here
+  only the key and classes they write.
+- **Decks and docs.** `examples/marks-tone-source.md` (the only deck setting `marks:`), `lib/base/base.registers.docs.md`,
+  `lib/base/base.modifiers.docs.md`, `engineering/chart-styling.md`, and the LFM 1.1 draft row for `marks:`.
+- **Tests.** About 20 files, including `test/unit/parsing/resolve-marks.test.js`,
+  `test/unit/components/marks-css.test.js`, `marks-finish-contrast.test.js`,
+  `test/integration/parity/runtime-marks.test.js` and `test/unit/shard-weights.json` (its file names).
+- **Presets.** None on `main` yet (#3470). If they land first, migrate `lib/presets/*/*.preset.json`.
+
+Verification this rename owes:
+- the adversarial trio, because it revives a retired key with a new meaning (HARD RULE #25);
+- an identity render, old source on `main` against new source on the branch, which must be pixel-identical (the
+  HTML differs only in class names);
+- the dark and light demo for the export sign-off;
+- `lintCoreGz` under its ceiling.
+
 ### Q5. `mode:` → `drawing:`
 
 Values: `boardroom` → `clean`, `sketch` stays, `sketch-clean` → `sketch-headings`. 8 repo decks set
