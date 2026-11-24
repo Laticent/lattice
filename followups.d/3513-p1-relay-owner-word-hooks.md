@@ -20,5 +20,7 @@ done when — (1) a hook accepts `release #N` / `release all` only as the owner'
             in §Relay "The owner's word, relayed" and refuses on any miss;
             (3) the merge gate reads only the end of the transcript, so a 342 MB one (the old
             #2988 session) no longer breaks it.
-evidence  — each with a failing arm (a forged relay, a synthetic turn, a huge transcript).
+evidence  — each with a failing arm: a desk brief tagged command-center, a synthetic turn, a hedge
+            ("don't release #12 yet"), a replayed old release, `release all` with no digest, a
+            huge transcript.
 verify    — node --test on the hook and baton tests; one real relay end to end.
