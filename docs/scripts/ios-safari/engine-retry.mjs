@@ -168,11 +168,16 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		r.cut = proxy.state.cut;
 		// What the card said, so a card that did not come from the fault names its own cause.
 		const said = r.card ? await wd('POST', `/session/${id}/execute/sync`, { script: `return (document.querySelector('${PREVIEW} .nacre-failed__text')?.textContent || '').slice(0, 160);`, args: [] }).catch(() => '') : '';
-		if (r.card && !r.cut) {
-			// Trace a card the fault did not cause: what reached the proxy, and what Safari's own resource timing says it fetched
-			// for the engine (a request served by the service worker or a cache never reaches the proxy).
+		// Trace a card the fault did not cause, AND a page that showed neither a card nor the engine (`first` is 'none'): the
+		// first-render stall, followups.d/3368-p1. Run 45404438471 on PR #2988 stalled there with 0 sub-file requests and
+		// said nothing about why. What reached the proxy, what Safari's own resource timing says it fetched for the engine (a
+		// request served by the service worker or a cache never reaches the proxy), and how far the page got name the gate.
+		const stalled = first !== 'loaded' && !r.card;
+		if ((r.card && !r.cut) || stalled) {
+			const page = await wd('POST', `/session/${id}/execute/sync`, { script: `return 'readyState ' + document.readyState + '; engine ' + (window.LatticePlayground ? 'loaded' : 'absent') + '; preview ' + (document.querySelector('${PREVIEW}') ? 'present' : 'absent') + '; frames ' + document.querySelectorAll('${PREVIEW} iframe').length + '; modulepreload ' + [...document.querySelectorAll('link[rel=modulepreload]')].filter((l) => /\\/playground\\/v\\//.test(l.href)).length;`, args: [] }).catch((e) => `page unreadable: ${String(e).slice(0, 80)}`);
 			const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `return performance.getEntriesByType('resource').filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
-			console.log(`engine retry ${mode}: the card came without a cut. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
+			const what = stalled ? 'neither the card nor the engine came' : 'the card came without a cut';
+			console.log(`engine retry ${mode}: ${what}. Page: ${page}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
 		}
 		step('sub-files cut: the failure card appears', r.card && r.cut > 0, `${first}; ${r.cut} sub-file requests cut${r.card ? `; the card: "${said}"` : ''}${r.card && !r.cut ? ' (NOTHING was cut, so this card did not come from the fault)' : ''}`);
 		if (!r.card || !r.cut) return finish();
