@@ -56,6 +56,12 @@ on:
         default: 'none'
         type: choice
         options: ['none', 'no-session']
+      runner:
+        description: 'The iOS Simulator suites only: standard (the free macos-26, the daily driver) or xlarge (macos-26-xlarge, 5 cores and 14 GB, billed per minute; on demand, #3523)'
+        required: false
+        default: 'standard'
+        type: choice
+        options: ['standard', 'xlarge']
       harness:
         description: 'Warm harness: a pull request number. Instead of the suites, one runner builds once and takes `/harness` commands from that PR (tools/platform-harness.js)'
         required: false
@@ -109,8 +115,10 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           SUITES: ${{ github.event.inputs.suites }}
+          RUNNER: ${{ github.event.inputs.runner }}
         run: |
           args=(--event "$EVENT" --github-output)
+          if [ -n "$RUNNER" ]; then args+=(--runner "$RUNNER"); fi
           if [ "$EVENT" = "pull_request" ]; then args+=(--changed "$RUNNER_TEMP/changed.txt"); fi
           if [ -n "$SUITES" ]; then args+=(--suites "$SUITES"); fi
           node tools/platform-suites-plan.js "${args[@]}"
