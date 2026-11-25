@@ -222,6 +222,19 @@ async function runStudioProbe(id) {
 		}
 		return r;
 	};
+	// REPEATS, for the two failures that come about one run in three (#3523): the first render that never comes and the first
+	// Compose tap the simulator holds. STUDIO_REPEAT extra rounds of just those two probes, each on a fresh page, while
+	// run.sh's diagnostics record the whole run, so one job meets the failure instead of one dispatch in three. They stop
+	// after STUDIO_REPEAT_BUDGET_S seconds (default 480) so the suite keeps the rest of its job; every round counts.
+	const repeats = [];
+	const repeatN = Number(process.env.STUDIO_REPEAT || 0);
+	const repeatUntil = Date.now() + Number(process.env.STUDIO_REPEAT_BUDGET_S || 480) * 1000;
+	for (let i = 1; i <= repeatN && Date.now() < repeatUntil; i++) {
+		const p = await shotIfFailed(`repeat-${i}-preview`, await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
+		const c = await shotIfFailed(`repeat-${i}-compose`, await composeProbePage(id));
+		console.log(`${LABEL}: repeat ${i} of ${repeatN}: preview ${p.ok ? 'ok' : `FAIL (${p.error})`}; compose ${c.ok ? 'ok' : `FAIL (${c.error})`}`);
+		repeats.push({ i, p, c });
+	}
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// A logo wall's first paint in the editing preview (logo-wall-probe.js, #3492): never the unpacked grid, then packed.
@@ -257,8 +270,8 @@ async function runStudioProbe(id) {
 	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
+		ok: repeats.every((r) => r.p.ok && r.c.ok) && !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [...repeats.flatMap((r) => [!r.p.ok && `repeat ${r.i} preview: ${r.p.error}`, !r.c.ok && `repeat ${r.i} compose: ${r.c.error}`]), preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
 		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],

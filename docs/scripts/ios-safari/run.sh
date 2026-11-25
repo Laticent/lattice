@@ -106,7 +106,7 @@ else
     # run.mjs reads the warm arm's origin from WARM_URL, which defaults to the next port.
     (cd docs && node scripts/ios-safari/font-cache-server.mjs $PORT $((PORT + 1)) > "$OUT/preview.log" 2>&1) &
   else
-    (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+    (cd docs && PREVIEW_DIAG="$OUT/server-diag.log" PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
   fi
   server=$!
   ready="http://localhost:$PORT/studio/"
@@ -135,6 +135,45 @@ start_driver() {
 }
 # Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
+
+# DIAGNOSTICS, always on for the Studio suites (#3523). Two iPhone failures were read from the outside, one signal per run:
+# a Studio that never hydrated and a tap the simulator held for seconds. These record the whole run instead, into $OUT,
+# which the workflow already uploads: the host's busiest processes every second (top), the simulator's own log (input
+# delays, jetsam, a WebContent restart), and Safari's Web Inspector (console messages, every request with its status or
+# failure, main-thread timeline: web-inspector-log.mjs). None of them can fail the suite: each writes its own log.
+DIAG=0
+case "$PROBE" in studio|present-narration) DIAG=1 ;; esac
+ARD_DIR="${RUNNER_TEMP:-/tmp}/ios-diag-ard"
+# DIAGNOSTIC BRANCH ONLY (#3523, draft): five extra rounds of the first-render and Compose probes (run.mjs STUDIO_REPEAT).
+# Back to 0 before the PR leaves draft: the macOS minutes are scarce, and main must not pay for a hunt.
+export STUDIO_REPEAT="${STUDIO_REPEAT:-5}"
+if [ "$DIAG" = 1 ]; then
+  npm install --silent --no-save --no-package-lock --prefix "$ARD_DIR" appium-remote-debugger@19.1.28 > "$OUT/diag-install.log" 2>&1 \
+    || echo "diagnostics: the Web Inspector client did not install (see diag-install.log); the probes run without it"
+fi
+diag_pids=
+diag_start() {
+  [ "$DIAG" = 1 ] || return 0
+  top -l 0 -s 1 -o cpu -n 12 -stats pid,command,cpu,mem,state > "$OUT/host-top-$2.log" 2>&1 &
+  diag_pids="$diag_pids $!"
+  xcrun simctl spawn "$1" log stream --style compact --level info \
+    --predicate 'process == "MobileSafari" OR process CONTAINS "WebKit" OR process == "SpringBoard" OR process == "backboardd" OR eventMessage CONTAINS[c] "jetsam"' \
+    > "$OUT/sim-log-$2.log" 2>&1 &
+  diag_pids="$diag_pids $!"
+  ARD_DIR="$ARD_DIR" node docs/scripts/ios-safari/web-inspector-log.mjs "$1" "$OUT/web-inspector-$2.jsonl" > "$OUT/web-inspector-$2.out" 2>&1 &
+  diag_pids="$diag_pids $!"
+}
+diag_stop() {
+  for p in $diag_pids; do kill "$p" 2>/dev/null || true; done
+  diag_pids=
+  [ "$DIAG" = 1 ] || return 0
+  # One line per failed or errored load, and every console error, straight into the job log.
+  for f in "$OUT"/web-inspector-*.jsonl; do
+    [ -f "$f" ] || continue
+    echo "diagnostics: $(wc -l < "$f") inspector events in $(basename "$f"); failures and console errors:"
+    grep -E '"ev":"FAILED"|"status":[45][0-9][0-9]|"level":"error"' "$f" | head -40 || true
+  done
+}
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
 LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
@@ -292,7 +331,9 @@ for family in $families; do
     rc=0
     attempts=3
     [ "$start" = 1 ] && attempts=2
+    diag_start "$udid" "$family"
     SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+    diag_stop
     [ "$rc" = 3 ] || break
     why='no session'
   done
