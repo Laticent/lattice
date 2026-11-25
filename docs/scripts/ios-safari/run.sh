@@ -151,6 +151,13 @@ if [ "$DIAG" = 1 ]; then
   npm install --silent --no-save --no-package-lock --prefix "$ARD_DIR" appium-remote-debugger@19.1.28 > "$OUT/diag-install.log" 2>&1 \
     || echo "diagnostics: the Web Inspector client did not install (see diag-install.log); the probes run without it"
 fi
+# SPOTLIGHT OFF for the Studio suites. On the iPad runner of run 45552549848 (load 360-735, 134 MB of 7 GB free, the docs
+# server's event loop stalled up to 25.6 s) Spotlight's indexer was the third-largest process (mds_stores 318 MB, plus mds),
+# behind only the simulator's own renderer (SimRenderServer 1.8 GB) and Safari's page (1 GB). Indexing a CI disk buys the
+# job nothing. Bounded, and a failure only says so.
+if [ "$DIAG" = 1 ]; then
+  bounded 60 sudo mdutil -a -i off > "$OUT/mdutil.log" 2>&1 || echo "diagnostics: Spotlight indexing could not be turned off (see mdutil.log)"
+fi
 diag_pids=
 diag_udid=
 diag_family=
@@ -170,9 +177,10 @@ diag_stop() {
   for p in $diag_pids; do kill "$p" 2>/dev/null || true; done
   diag_pids=
   [ "$DIAG" = 1 ] || return 0
-  # The simulator's own record of the run, read once: jetsam (memory kills), faults, and WebKit and input errors only.
+  # The simulator's own record of the run, read once: memory kills and WebKit, Safari and input errors only (with every
+  # fault and jetsam line too it ran to 800k lines, run 45552549848).
   bounded 120 xcrun simctl spawn "$diag_udid" log show --last 40m --style compact \
-    --predicate 'eventMessage CONTAINS[c] "jetsam" OR messageType == fault OR ((process CONTAINS "WebKit" OR process == "backboardd" OR process == "MobileSafari") AND messageType == error)' \
+    --predicate 'eventMessage CONTAINS[c] "memorystatus" OR eventMessage CONTAINS[c] "killed" OR ((process CONTAINS "WebKit" OR process == "backboardd" OR process == "MobileSafari") AND messageType == error)' \
     > "$OUT/sim-log-$diag_family.log" 2>&1 || true
   # One line per failed or errored load, and every console error, straight into the job log.
   for f in "$OUT"/web-inspector-*.jsonl; do

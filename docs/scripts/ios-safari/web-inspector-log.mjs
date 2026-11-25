@@ -24,13 +24,20 @@ const t0 = Date.now();
 const write = (kind, data) => out.write(`${JSON.stringify({ t: Date.now() - t0, kind, ...data })}\n`);
 const note = (msg) => console.log(`web-inspector-log: ${msg}`);
 
-/** The simulator's inspector socket, found the way Appium finds it: launchd_sim's open unix sockets. */
+/**
+ * The simulator's inspector socket. First the way appium-ios-simulator asks for it, `simctl getenv <udid> RWI_LISTEN_SOCKET`,
+ * which asks this one simulator; then launchd_sim's open sockets through lsof, which scans every process and timed out at
+ * 15 s three times running on a host at load 300 (run 45552549848).
+ */
 function socketPath() {
-	const all = execFileSync('lsof', ['-aUc', 'launchd_sim'], { encoding: 'utf8', timeout: 15000 });
-	const lines = all.split('\n').filter((l) => l.includes('com.apple.webinspectord_sim.socket'));
-	// More than one simulator can be booted; prefer the socket under this one's launchd_sim (its path names the udid's
-	// launchd domain only indirectly, so fall back to the first when none matches).
-	const pick = lines.find((l) => l.includes(udid)) || lines[0];
+	try {
+		const env = execFileSync('xcrun', ['simctl', 'getenv', udid, 'RWI_LISTEN_SOCKET'], { encoding: 'utf8', timeout: 30000 }).trim();
+		if (env) return env;
+	} catch (e) {
+		note(`simctl getenv: ${e.message}`);
+	}
+	const all = execFileSync('lsof', ['-aUc', 'launchd_sim'], { encoding: 'utf8', timeout: 30000 });
+	const pick = all.split('\n').find((l) => l.includes('com.apple.webinspectord_sim.socket'));
 	const m = pick?.match(/(\/private\/tmp\/\S+webinspectord_sim\.socket)/);
 	return m ? m[1] : null;
 }
