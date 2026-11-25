@@ -9913,7 +9913,9 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
 // an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
 // checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
-const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
+// macos-26-xlarge (5 cores, 14 GB) is the iOS Studio suites' trial runner (#3523): on the 3-core, 7 GB macos-26 they ran
+// at load 300-770 with 130-180 MB free, and the docs server froze 7-25 s.
+const PLATFORM_SUITE_OS = ['macos-26', 'macos-26-xlarge', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
 // A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening

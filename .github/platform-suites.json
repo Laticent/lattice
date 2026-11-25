@@ -98,7 +98,7 @@
     {
       "name": "ios-safari-studio-ipad",
       "os": [
-        "macos-26"
+        "macos-26-xlarge"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -123,7 +123,7 @@
     {
       "name": "ios-safari-studio-iphone",
       "os": [
-        "macos-26"
+        "macos-26-xlarge"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
