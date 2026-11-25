@@ -138,19 +138,12 @@ bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die 
 
 # DIAGNOSTICS, always on for the Studio suites (#3523). Two iPhone failures were read from the outside, one signal per run:
 # a Studio that never hydrated and a tap the simulator held for seconds. These record the whole run instead, into $OUT,
-# which the workflow already uploads: the host's busiest processes every second (top), the simulator's own log (input
-# delays, jetsam, a WebContent restart), and Safari's Web Inspector (console messages, every request with its status or
-# failure, main-thread timeline: web-inspector-log.mjs). None of them can fail the suite: each writes its own log.
+# which the workflow already uploads: the host's busiest processes every 5 s (top), the docs server's own event-loop
+# stalls and slow requests (preview-e2e.mjs, PREVIEW_DIAG), and the simulator's own log, read once afterwards. None of
+# them can fail the suite. (A Safari Web Inspector logger was tried and dropped: on run 45556703226 it reached Safari but
+# could not select the page WebDriver drives, 217 s per try.)
 DIAG=0
 case "$PROBE" in studio|present-narration) DIAG=1 ;; esac
-ARD_DIR="${RUNNER_TEMP:-/tmp}/ios-diag-ard"
-# DIAGNOSTIC BRANCH ONLY (#3523, draft): five extra rounds of the first-render and Compose probes (run.mjs STUDIO_REPEAT).
-# Back to 0 before the PR leaves draft: the macOS minutes are scarce, and main must not pay for a hunt.
-export STUDIO_REPEAT="${STUDIO_REPEAT:-5}"
-if [ "$DIAG" = 1 ]; then
-  npm install --silent --no-save --no-package-lock --prefix "$ARD_DIR" appium-remote-debugger@19.1.28 > "$OUT/diag-install.log" 2>&1 \
-    || echo "diagnostics: the Web Inspector client did not install (see diag-install.log); the probes run without it"
-fi
 # SPOTLIGHT OFF for the Studio suites. On the iPad runner of run 45552549848 (load 360-735, 134 MB of 7 GB free, the docs
 # server's event loop stalled up to 25.6 s) Spotlight's indexer was the third-largest process (mds_stores 318 MB, plus mds),
 # behind only the simulator's own renderer (SimRenderServer 1.8 GB) and Safari's page (1 GB). Indexing a CI disk buys the
@@ -169,8 +162,6 @@ diag_start() {
   # afterwards, in diag_stop.
   top -l 0 -s 5 -o cpu -n 12 -stats pid,command,cpu,mem,state > "$OUT/host-top-$2.log" 2>&1 &
   diag_pids="$diag_pids $!"
-  ARD_DIR="$ARD_DIR" node docs/scripts/ios-safari/web-inspector-log.mjs "$1" "$OUT/web-inspector-$2.jsonl" > "$OUT/web-inspector-$2.out" 2>&1 &
-  diag_pids="$diag_pids $!"
   diag_family=$2
 }
 diag_stop() {
@@ -182,12 +173,6 @@ diag_stop() {
   bounded 120 xcrun simctl spawn "$diag_udid" log show --last 40m --style compact \
     --predicate 'eventMessage CONTAINS[c] "memorystatus" OR eventMessage CONTAINS[c] "killed" OR ((process CONTAINS "WebKit" OR process == "backboardd" OR process == "MobileSafari") AND messageType == error)' \
     > "$OUT/sim-log-$diag_family.log" 2>&1 || true
-  # One line per failed or errored load, and every console error, straight into the job log.
-  for f in "$OUT"/web-inspector-*.jsonl; do
-    [ -f "$f" ] || continue
-    echo "diagnostics: $(wc -l < "$f") inspector events in $(basename "$f"); failures and console errors:"
-    grep -E '"ev":"FAILED"|"status":[45][0-9][0-9]|"level":"error"' "$f" | head -40 || true
-  done
 }
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
 LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
