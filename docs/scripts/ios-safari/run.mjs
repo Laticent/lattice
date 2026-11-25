@@ -229,12 +229,21 @@ async function runStudioProbe(id) {
 	const repeats = [];
 	const repeatN = Number(process.env.STUDIO_REPEAT || 0);
 	const repeatUntil = Date.now() + Number(process.env.STUDIO_REPEAT_BUDGET_S || 480) * 1000;
+	// Each round, and the real probes after them, start as a FIRST VISIT: the preview probe asserts the newcomer bake, which
+	// only a first visit fetches, and a round leaves its deck stored (run 45548302899: rounds 2 to 5 and the real probe then
+	// timed out waiting for the bake). Cleared the way composeProbePage clears it.
+	const firstVisit = async () => {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: "try { for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-')) localStorage.removeItem(k); } catch {}", args: [] });
+	};
 	for (let i = 1; i <= repeatN && Date.now() < repeatUntil; i++) {
+		await firstVisit();
 		const p = await shotIfFailed(`repeat-${i}-preview`, await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 		const c = await shotIfFailed(`repeat-${i}-compose`, await composeProbePage(id));
 		console.log(`${LABEL}: repeat ${i} of ${repeatN}: preview ${p.ok ? 'ok' : `FAIL (${p.error})`}; compose ${c.ok ? 'ok' : `FAIL (${c.error})`}`);
 		repeats.push({ i, p, c });
 	}
+	if (repeats.length) await firstVisit();
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// A logo wall's first paint in the editing preview (logo-wall-probe.js, #3492): never the unpacked grid, then packed.

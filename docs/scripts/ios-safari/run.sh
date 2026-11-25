@@ -152,21 +152,28 @@ if [ "$DIAG" = 1 ]; then
     || echo "diagnostics: the Web Inspector client did not install (see diag-install.log); the probes run without it"
 fi
 diag_pids=
+diag_udid=
+diag_family=
 diag_start() {
   [ "$DIAG" = 1 ] || return 0
-  top -l 0 -s 1 -o cpu -n 12 -stats pid,command,cpu,mem,state > "$OUT/host-top-$2.log" 2>&1 &
-  diag_pids="$diag_pids $!"
-  xcrun simctl spawn "$1" log stream --style compact --level info \
-    --predicate 'process == "MobileSafari" OR process CONTAINS "WebKit" OR process == "SpringBoard" OR process == "backboardd" OR eventMessage CONTAINS[c] "jetsam"' \
-    > "$OUT/sim-log-$2.log" 2>&1 &
+  diag_udid=$1
+  # Every 5 s, not every second: at 1 s, top and a live simulator log stream were themselves among the busiest processes
+  # on a host at load 500 (run 45548302899: `log` 59% CPU, diagnosticd 25%, a 169 MB log). The simulator log is read once,
+  # afterwards, in diag_stop.
+  top -l 0 -s 5 -o cpu -n 12 -stats pid,command,cpu,mem,state > "$OUT/host-top-$2.log" 2>&1 &
   diag_pids="$diag_pids $!"
   ARD_DIR="$ARD_DIR" node docs/scripts/ios-safari/web-inspector-log.mjs "$1" "$OUT/web-inspector-$2.jsonl" > "$OUT/web-inspector-$2.out" 2>&1 &
   diag_pids="$diag_pids $!"
+  diag_family=$2
 }
 diag_stop() {
   for p in $diag_pids; do kill "$p" 2>/dev/null || true; done
   diag_pids=
   [ "$DIAG" = 1 ] || return 0
+  # The simulator's own record of the run, read once: jetsam (memory kills), faults, and WebKit and input errors only.
+  bounded 120 xcrun simctl spawn "$diag_udid" log show --last 40m --style compact \
+    --predicate 'eventMessage CONTAINS[c] "jetsam" OR messageType == fault OR ((process CONTAINS "WebKit" OR process == "backboardd" OR process == "MobileSafari") AND messageType == error)' \
+    > "$OUT/sim-log-$diag_family.log" 2>&1 || true
   # One line per failed or errored load, and every console error, straight into the job log.
   for f in "$OUT"/web-inspector-*.jsonl; do
     [ -f "$f" ] || continue

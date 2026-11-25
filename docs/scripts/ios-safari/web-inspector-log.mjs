@@ -15,8 +15,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const [udid, outFile] = process.argv.slice(2);
 const out = fs.createWriteStream(outFile, { flags: 'a' });
@@ -36,8 +36,9 @@ function socketPath() {
 }
 
 async function main() {
-	const require = createRequire(path.join(process.env.ARD_DIR || '.', 'node_modules', 'x.js'));
-	const { createRemoteDebugger } = require('appium-remote-debugger');
+	// The package is ESM-only (its exports name only an `import` entry), so it is loaded by file URL from run.sh's install.
+	const entry = path.join(process.env.ARD_DIR || '.', 'node_modules', 'appium-remote-debugger', 'build', 'lib', 'index.js');
+	const { createRemoteDebugger } = await import(pathToFileURL(entry).href);
 	let sock = null;
 	for (let i = 0; i < 30 && !sock; i++) {
 		try {
