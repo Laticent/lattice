@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, FileText, Images, KeyRound, LayoutGrid, Palette, PanelLeftClose, Paperclip, Plug, Presentation, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, FileText, Images, KeyRound, LayoutGrid, LifeBuoy, Palette, PanelLeftClose, Paperclip, Plug, Presentation, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -242,6 +242,9 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 				actions={
 					<Inert>
 						{phone ? null : search}
+						<Button variant="outline" size="icon-sm" className="shrink-0" aria-label="Backup and restore">
+							<LifeBuoy className="size-3.5" />
+						</Button>
 						<Button variant="outline" size="sm" className="shrink-0 gap-1.5" aria-label="Import files">
 							<Upload className="size-3.5" />
 							<span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span>

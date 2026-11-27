@@ -188,7 +188,22 @@ test('a deck attached to the chat is kept like a Library import, and opens as a 
  * context, its own empty IndexedDB), brings the deck back on Files, and "Open as deck" opens it as itself, speaker note
  * and all. The deck's file rides in the backup's own binary lane (`refdoc-decks/`), never as base64 in `refdocs.json`.
  */
-async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/test').Browser) {
+/** Where the backup controls are opened from: Workspace settings (Data), or the Library's own Backup and restore dialog
+ *  (design §7, slice 4). Both mount BackupRestore.tsx, so both routes must pack and restore the same workspace. */
+async function openBackup(page: Page, via: 'workspace' | 'library') {
+	if (via === 'library') {
+		// A docked Library stays open through Escape, and its toolbar button would collapse it: open it only if it is shut.
+		if (!(await page.getByRole('tablist', { name: 'Library sections' }).isVisible())) await openLibrary(page);
+		await page.getByRole('button', { name: 'Backup and restore', exact: true }).click();
+		await expect(page.getByRole('dialog', { name: 'Backup and restore' })).toBeVisible();
+		return;
+	}
+	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
+	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
+	await openSection(page, 'Data');
+}
+
+async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/test').Browser, via: 'workspace' | 'library' = 'workspace') {
 	const bytes = await latticeBytes();
 	await gotoStudio(page);
 	await openLibrary(page);
@@ -201,10 +216,8 @@ async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/
 	for (let i = 0; i < 3 && (await page.getByRole('dialog').count()) > 0; i++) await page.keyboard.press('Escape');
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 
-	// Back up through the real sheet, and look inside: the deck's file is its own entry, the text lane stays text.
-	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
-	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
-	await openSection(page, 'Data');
+	// Back up through the real controls, and look inside: the deck's file is its own entry, the text lane stays text.
+	await openBackup(page, via);
 	const pending = page.waitForEvent('download', { timeout: 120_000 });
 	await page.getByRole('button', { name: 'Download backup' }).click();
 	const backupPath = (await (await pending).path()) as string;
@@ -218,9 +231,7 @@ async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/
 	try {
 		const fresh = await ctx.newPage();
 		await gotoStudio(fresh);
-		await fresh.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
-		await expect(fresh.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
-		await openSection(fresh, 'Data');
+		await openBackup(fresh, via);
 		await fresh.getByLabel('Restore a workspace backup').setInputFiles(backupPath);
 		await expect(fresh.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first()).toBeVisible({ timeout: 60_000 });
 		await fresh.waitForLoadState('load');
@@ -242,6 +253,14 @@ test('a deck kept in the Library survives a workspace backup and opens as itself
 
 test('a deck kept in the Library survives a workspace backup, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
 	await backsUpAndRestoresADeck(page, browser);
+});
+
+test('the Library\'s Backup and restore dialog backs up and restores the same workspace as Workspace settings @gecko', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser, 'library');
+});
+
+test('the Library\'s Backup and restore dialog, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser, 'library');
 });
 
 /**

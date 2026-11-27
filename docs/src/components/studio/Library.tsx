@@ -1,6 +1,7 @@
-import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Presentation, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, LifeBuoy, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Presentation, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel-actions';
@@ -14,6 +15,7 @@ import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
+import { type BackupBusy, BackupRestore } from './BackupRestore';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent } from './component-library';
 import { DeleteBtn } from './delete-btn';
 import { downloadBlob, iosNeedsShareSheet } from './download';
@@ -289,6 +291,9 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const [components, setComponents] = React.useState<StudioComponent[]>([]);
 	const [finishes, setFinishes] = React.useState<StudioFinish[]>([]);
 	const [docs, setDocs] = React.useState<RefDocRecord[]>([]);
+	const [backupOpen, setBackupOpen] = React.useState(false);
+	// A pack or a restore in flight holds the dialog open: a restore reloads the page when it is done.
+	const [backupBusy, setBackupBusy] = React.useState<BackupBusy>(null);
 	// The kept files that are decks, listed under Decks rather than Files (library-decks.ts). Set in the same render as `docs`.
 	const [deckIds, setDeckIds] = React.useState<Set<string>>(() => new Set());
 	const [media, setMedia] = React.useState<MediaRecord[]>([]);
@@ -1109,6 +1114,9 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const headerControls = (
 		<>
 			{phone || searchShown ? null : <PanelSearchButton label="Search library" onClick={() => setSearchOpen(true)} />}
+					{/* Backup and Restore, the escape hatch, one tap from where your things are kept (design §7). The same
+					    controls as Workspace settings (BackupRestore.tsx), in a Dialog. */}
+					<Tip label="Back up or restore your whole workspace"><Button variant="outline" size="icon-sm" className="shrink-0" onClick={() => setBackupOpen(true)} aria-label="Backup and restore"><LifeBuoy className="size-3.5" /></Button></Tip>
 					{/* ONE import, the same on every tab. The kind of file decides where it goes; the person only
 					    chooses files. No `accept` (a list grays out a `.lattice` on iOS; see `classifyDropped`) and no
 					    `capture` (a `capture` skips the choice and opens the camera). */}
@@ -1536,6 +1544,15 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
 				onRestored={() => { reload(); onChanged(); }}
 			/>
+			<Dialog open={backupOpen} onOpenChange={(o) => { if (!o && backupBusy) return; setBackupOpen(o); }}>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2"><LifeBuoy className="size-4 text-[var(--accent)]" />Backup and restore</DialogTitle>
+						<DialogDescription className="sr-only">Download your whole workspace as one zip, or restore one.</DialogDescription>
+					</DialogHeader>
+					<BackupRestore open={backupOpen} onBusyChange={setBackupBusy} />
+				</DialogContent>
+			</Dialog>
 			<PhotoFormatDialog
 				files={pendingPhotos}
 				onCancel={() => setPendingPhotos(null)}
