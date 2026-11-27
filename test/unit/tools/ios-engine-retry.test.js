@@ -139,7 +139,7 @@ test('the proxy resolves its upstream once, to the address that accepts a connec
 	}
 });
 
-test('a connect that never answers gives up, so the proxy still starts', async () => {
+test('a connect that never answers gives up, so the proxy still starts', { timeout: 5000 }, async () => {
 	// A loopback connect that neither connects nor errors held startFaultProxy forever, and the probe's .catch never fired.
 	const { reachableAddress } = await load();
 	const lookup = async () => [{ address: '127.0.0.1', family: 4 }];
