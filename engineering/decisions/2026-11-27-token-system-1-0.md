@@ -473,3 +473,55 @@ removed after; nothing committed but this paragraph. Contrast from the real valu
 Mermaid with the strong colors passes and matches the charts; charts with the pale colors fail the 3:1 a chart mark
 needs, worst in light mode, where a line nearly disappears. In dark mode a theme's pale diagram fills are already close
 to its strong chart colors.
+
+## 9. Delivery plan for "do it all before 1.0" (planned, not started)
+
+**Status.** The owner chose "Do it all before 1.0" in the command center's question tool (2026-11-27, about 06:10
+UTC); a typed confirmation is pending, so nothing is built. Dates below are UTC. Known fixed points: the breaking-change
+freeze Saturday 28 November 23:59 (the @meta step E session's date), rc.1 Sunday 29 November, Lattice 1.0 about
+1–2 December.
+
+### 9.1 What is breaking, and what is not
+
+A theme author outside the repo is broken by exactly two things: a token renamed, and a token moved out of the theme
+into a plugin file. Everything else (ramps added, formulas rewired, plugin defaults, the contrast checker) changes
+rendered pixels or adds names, and breaks no outside theme. So the critical path for 1.0 is the renames and the moves;
+the rewiring can land in a 1.0.x without breaking anyone, if it must.
+
+### 9.2 The slices (each its own branch and PR from `main`, HARD RULE #17)
+
+| # | Slice | Changes pixels? | Depends on | Review | Earliest done |
+|---|---|---|---|---|---|
+| T1 | **The rename list and the token registry**: every core and plugin token, its job, its new name, its old name, `since`; the indaco-style hue mismatches listed theme by theme. Data and a doc, no rename | no | nothing | self-review + owner reads the list | Fri 27, evening |
+| T2 | **The plumbing**: `contributes.themes` in the manifest and `plugin.schema.json`, the build step that folds a plugin's per-theme file into the theme's built file, the default-file fallback and its warning, the contrast-pair declaration and checker, `sanitizeStyleText` on a zip plugin's file | no (byte-identical: no plugin uses it yet) | T1's names for the checker | maker-checker | Sat 28, midday |
+| T3 | **Move plugin colors out of the themes**: `--syntax-*` to the code plugin, `--diagram-*` and `--c-*` to Mermaid, one file per theme plus a default, same values | no (same values, new home; proven byte-identical) | T2 | maker-checker | Sat 28, evening |
+| T4 | **Categories and ramps**: strong/pale/ink jobs for 12 categories in all 33 themes (chart solids 9–12 added), the hue mismatches fixed, the two 5-step ramps solved once and committed for review | **yes** | T1 | maker-checker + owner sign-off (round 1) | Sun 29 |
+| T5 | **Rewire the renderers**: the ~167 chart-family formulas, Mermaid's 13, sparks' 12, icons' 3 become reads of core or plugin tokens; the lint warning for series past six (step 1 of the follow-up) | **yes** | T3, T4, and #3510 (it rewrites chart-family CSS for `chart-finish:`) | **adversarial trio** + owner sign-off (round 1) | Mon 30 |
+| T6 | **The rename sweep**: every theme, layout, plugin, test, doc and deck to the T1 names, with the crosswalk updated so `lint:deck --fix` migrates an outside theme | exported HTML class and token names change; pixels identical | T1, T3, and after #3510, #3517 and @meta E merge (each sweeps the same files) | **adversarial trio** + owner sign-off (round 2, export) | Tue 1 |
+| T7 | **THEME 1.0** (the spec): the core of §8.2, the two contrast rules, the registry citation, conformance cases | no | T1, T6 | **adversarial trio** + checker-graded card | Tue 1 |
+
+**Sign-off rounds.** Two, not five: round 1 (T4 and T5 together, the visual change, indaco and cuoio, light and dark,
+on the gallery and the example decks) on Monday 30; round 2 (T6, the export names, with T7's examples) on Tuesday 1.
+
+### 9.3 People and agents
+
+- **Workers:** at most three slice sessions at once, started from `main` by this desk: T2 and T4 Friday night and
+  Saturday; T3 and T5 Saturday and Sunday; T6 and T7 Monday. This desk coordinates and does T1 itself.
+- **Agents:** 0 used so far of the 12. This plan needs: 5 worker sessions (T2–T6; T7 is this desk's); 3 trios (T5,
+  T6, T7) = 9; maker-checker for T2, T3, T4 = 3; a card grader per merge ask, 6 = 6. **Total 23 for the token work.**
+  The spec PRs already planned (EXTENDING, LFM, Diagnostics, LTT, LATTICE-FILE, each with its pre-approved trio and a
+  grader) are 20 more. **New ceiling needed: about 43, against today's 12.**
+
+### 9.4 What slips the release if a slice misses
+
+| If this misses | Then |
+|---|---|
+| T5 (rewiring) | 1.0 ships with the old formulas; they break no outside theme, so T5 can land in 1.0.x. The owner decides whether 1.0 waits |
+| T4 (ramps, categories) | the same: additive, can land in 1.0.x; THEME 1.0 then names the ramps as "reserved, arriving in 1.1" |
+| T3 or T6 (moves, renames) | **1.0 cannot freeze THEME on the new names.** Either the release waits, or THEME stays a draft at 1.0 and the renames become a 2.0 change for theme authors |
+| #3510, #3517 or @meta E slip | T6 and T5 wait for them (they sweep the same files), and the slip passes straight to the release date |
+| The Saturday 23:59 breaking freeze holds for these | T3 and T6 are breaking for outside themes and cannot both be ready by then: the realistic finish is Tuesday 1. This is the owner's call: allow the token renames past the freeze, or ship THEME as a draft |
+
+The honest summary: the renames and moves are three to four days of work behind three other sweeps that have not
+landed, against a breaking freeze tomorrow night. The plan fits 1.0 only if the token renames are allowed past that
+freeze and nothing upstream slips.

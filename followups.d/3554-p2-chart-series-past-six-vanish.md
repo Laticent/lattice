@@ -24,7 +24,9 @@ done when — the owner's chosen fix is built (2026-11-27, in the command center
             pending: "Fold into 'Other' + warn"): series past six fold into ONE "Other" bar or line, the way
             `stacked-bar` already does (`stacked-bar.transform.js:744`), so no data disappears; and `lint:deck` warns
             the author which series were folded (a rule in `lib/authoring/lint-core.js`, HARD RULE #7). Both for the
-            grouped bar and the slope chart.
+            grouped bar and the slope chart. The owner also asked that lint warn NOW, before the fold is built: step 1
+            is the lint rule alone (warn: "series G and H are not drawn; past six series a chart shows only six"),
+            which can land on its own; step 2 builds the fold and changes the message to name the folded series.
 evidence  — Repro deck (indaco, one slide): a `bar` slide with two groups (`Q1`, `Q2`), each with eight nested series
             `A` … `H` with numeric pills. Rendered with `dist/lattice.js` to HTML: the slide draws 12 bars (A–F twice) and
             a key of six; G and H appear nowhere. `npm run lint:deck` on it reports the file clean. (Spec desk scratch:
