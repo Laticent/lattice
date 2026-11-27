@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PENDING_MAX_MS, PooledThumbFace, type PoolReport, PreviewPool, paintedIsCurrent, RELEASE_GRACE, readerQuietFor, showsOther, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -992,5 +992,18 @@ describe('showsOther, the check that hides a frame until it paints its new slide
 	});
 	it('the backstop is short enough that a frame that never reports cannot leave a tile blank for long', () => {
 		expect(PENDING_MAX_MS).toBeLessThanOrEqual(2000);
+	});
+});
+
+describe('paintedIsCurrent, which paint may unhide a slot (#3507)', () => {
+	const p = (sample: string, extraCss?: string) => ({ sample, extraCss }) as unknown as Parameters<typeof paintedIsCurrent>[0];
+	it('a paint of the slide the slot holds unhides it', () => {
+		expect(paintedIsCurrent(p('# B'), { sample: '# B', extraCss: undefined })).toBe(true);
+		expect(paintedIsCurrent(p('# B', 'x{}'), { sample: '# B', extraCss: 'x{}' })).toBe(true);
+	});
+	it('a late paint of the slide it held before does not: that is the old picture', () => {
+		expect(paintedIsCurrent(p('# B'), { sample: '# A', extraCss: undefined })).toBe(false);
+		expect(paintedIsCurrent(p('# B', 'y{}'), { sample: '# B', extraCss: 'x{}' })).toBe(false);
+		expect(paintedIsCurrent(null, { sample: '# B', extraCss: undefined })).toBe(false);
 	});
 });

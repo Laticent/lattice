@@ -700,11 +700,14 @@ describe('DeckPreview — onPaint waits for the frame to show the render', () =>
 		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
 		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(1));
 		expect(onPaint).toHaveBeenCalledTimes(1);
+		// The paint names the source the render was issued with (the preview pool reads it, #3507).
+		expect(onPaint).toHaveBeenLastCalledWith({ sample: '# A', extraCss: undefined });
 		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
 		rerender(<DeckPreview options={opts} sample="# B" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
 		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(2));
 		expect(onPaint).toHaveBeenCalledTimes(1);
 		act(() => f.navigate());
 		expect(onPaint).toHaveBeenCalledTimes(2);
+		expect(onPaint).toHaveBeenLastCalledWith({ sample: '# B', extraCss: undefined });
 	});
 });

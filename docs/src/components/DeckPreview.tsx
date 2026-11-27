@@ -178,8 +178,11 @@ export type DeckPreviewProps = {
 	 * that has navigated), and on the frame's `load` when a full write was still holding the old document at commit.
 	 * `onRender` fires at commit in both cases, so a reader of the frame's DOM that runs on it can still see the old
 	 * slide. The Studio's photo verdict re-reads an unmeasured slide on this (coach/photo-contrast-watch.ts).
+	 * `painted` names the source the frame now shows, which is the source the render was ISSUED with: a render still in
+	 * flight when the props moved on paints the OLD source, and a host waiting for its new slide must not read that
+	 * paint as its own (the preview pool, #3507).
 	 */
-	onPaint?: () => void;
+	onPaint?: (painted: { sample: string; extraCss: string | undefined }) => void;
 	/**
 	 * The step of a stepping slide (`_build`, `_focusSteps`) to show
 	 * (engineering/decisions/2026-11-09-steps-as-a-behavior.md). A number is that step; `null` or
@@ -321,6 +324,9 @@ export function DeckPreview({
 	const issuedRef = React.useRef<{ slide: number; deck: string } | null>(null);
 	// The slide the frame HOLDS, set once a render lands (`issuedRef` is set when one is asked for).
 	const landedSlideRef = React.useRef<number | null>(null);
+	// The source the render in flight was issued with, and the source the frame holds once it lands (`onPaint`'s `painted`).
+	const issuedSourceRef = React.useRef<{ sample: string; extraCss: string | undefined } | null>(null);
+	const landedSourceRef = React.useRef<{ sample: string; extraCss: string | undefined } | null>(null);
 	// The document a full WRITE is replacing. A write sets `srcdoc` and returns before the frame navigates, so until
 	// `load` the frame still holds the old document, and painting it would report the old slide's walk as the new one's.
 	const staleDocRef = React.useRef<Document | null>(null);
@@ -656,6 +662,7 @@ export function DeckPreview({
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
 		const done = engineRef.current?.renderInto(host, sample, drawn, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, ...(paneCounts ? { paneCounts, panePage } : {}), webOrigins: allowWeb });
 		issuedRef.current = slideIndex === undefined ? null : { slide: slideIndex, deck: deckId ?? '' };
+		issuedSourceRef.current = { sample, extraCss };
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -777,7 +784,7 @@ export function DeckPreview({
 	const firePaint = React.useCallback(() => {
 		const doc = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
 		if (!doc || doc === staleDocRef.current) return;
-		onPaintRef.current?.();
+		onPaintRef.current?.(landedSourceRef.current ?? { sample: sampleRef.current, extraCss: undefined });
 	}, []);
 	const bindAnima = React.useCallback(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
@@ -923,6 +930,7 @@ export function DeckPreview({
 		syncAnima();
 		if (status) {
 			landedSlideRef.current = issuedRef.current ? issuedRef.current.slide : null;
+			landedSourceRef.current = issuedSourceRef.current;
 			// A full write whose frame still holds the document from BEFORE this render has not navigated yet: it paints
 			// on the frame's `load` instead (bound in bindAnima). A write that already swapped the document paints now.
 			const docNow = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
