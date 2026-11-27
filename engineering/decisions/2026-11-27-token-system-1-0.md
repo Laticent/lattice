@@ -583,3 +583,12 @@ done by B's trio, not by a separate maker-checker per commit.
 and self-contained so the reviewers can take them one at a time. One PR per line also means one merge: if one commit
 in B is not ready, B waits, or that commit moves out to a later PR. The sign-off rounds stay two (T4 and T5 together,
 then T6 with T7), both on PR B.
+
+### 9.8 The owner's go (2026-11-27, 06:21 UTC)
+
+Event `1564c779`, read at its source: a `user` turn from `ios`, plain text "theme tokens: do it all before 1.0", with
+no origin, no `isSynthetic` and no tool result. It also carries `"text_not_typed": true`, a field the relay check
+(`engineering/workflow.md` §Relay) has not seen before: the command center says the owner pasted the line it asked
+for. Accepted as the owner's own turn, with the field recorded here. What it unlocks now is only T1 (the name list),
+which touches no file the in-flight PRs touch; everything else waits for them (§9.5), within §9.7's two PRs and 12
+agents.
