@@ -206,7 +206,7 @@ reads the same way under every 1.x, and a host may rely on the 1.0 grammar for w
 A change that would alter or refuse a span 1.0 reads is a 2.0, and needs a new major version of this
 spec and the owner's sign-off.
 
-**Dotted names stay refused in 1.0.** `acme.tally=3` is `bad-name` (§4.2), so no 1.0 host can write a
+**Dotted names stay refused in 1.0.** `acme.tally=3` is `bad-name` (§4.2), so a 1.0 reader refuses any
 name with `.` in it. A 1.x MAY admit them under the rule above, because doing so only makes a refused
 span readable. The owner chose this on 2026-11-27.
 
