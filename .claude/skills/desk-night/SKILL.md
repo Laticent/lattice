@@ -20,7 +20,10 @@ this folder. Tag this session `desk:night` and `ui:pinned`.
 **The authority, exactly.** The merge gate (`.claude/hooks/owner-merge-gate.mjs`) allows a
 night merge only when all of these hold:
 - the owner typed `/desk-night` in this session;
-- the owner's latest typed turn here is exactly "good night" or "afk", less than 12 hours ago;
+- the owner's latest typed turn here is exactly "good night" or "afk", less than 12 hours ago.
+  It must be its own turn: typed while a turn is still running, it is only queued, and the gate
+  reads a queued message as the owner being back. If the owner types it mid-turn, tell them
+  once to send it again when this session is idle;
 - the call is not a subagent's;
 - `tools/night-eligible.mjs`, taken from `origin/main`, finds the PR eligible on GitHub.
 

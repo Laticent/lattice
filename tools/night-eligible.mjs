@@ -79,10 +79,14 @@ const MAX_FILES = 300;
  * `major` in its front matter (owner's decision D3, 2026-11-27).
  */
 export function isBreakingRecord(file, text) {
-  if (/\*\*\s*breaking/i.test(text)) return true;
+  const t = String(text).replace(/^\uFEFF/, '');
+  if (/\*\*\s*breaking/i.test(t)) return true;
   if (!file.startsWith('.changeset/')) return false;
-  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-  return Boolean(front && /:\s*["']?major["']?\s*$/im.test(front[1]));
+  // The same opening @changesets/parse accepts: optional leading whitespace, then `---`.
+  const front = /^\s*---([\s\S]*?)\r?\n\s*---/.exec(t);
+  // Fail closed: a file whose front matter cannot be read, yet says major, is breaking.
+  if (!front) return /\bmajor\b/i.test(t);
+  return front[1].split(/\r?\n/).some((line) => /:\s*["']?major["']?\s*(#.*)?$/i.test(line.trim()));
 }
 
 /** Pure: the reason a path may not merge tonight, or '' if it may. */

@@ -171,3 +171,22 @@ test("the main guards are the workflows that test main itself, not the merge que
   assert.deepEqual(Object.keys(MAIN_GUARDS).sort(), ['Golden bless (nightly)', 'Integration nightly (render-regression tier)']);
   for (const q of Object.values(MAIN_GUARDS)) assert.match(q, /branch=main$/, q);
 });
+
+test('the major-bump check agrees with @changesets/parse on the forms it accepts, and fails closed', () => {
+  const parse = require('@changesets/parse').default;
+  const samples = [
+    '\uFEFF---\n"@laticent/lattice": major\n---\n\nA BOM first.\n',
+    '\n---\n"@laticent/lattice": major\n---\n\nA blank line first.\n',
+    '---\n"@laticent/lattice": major # yes\n---\n\nA YAML comment.\n',
+    '---\r\n"@laticent/lattice": major\r\n---\r\n\r\nCRLF.\r\n',
+    '---\n"@laticent/lattice": minor\n"@laticent/ltt": major\n---\n\nTwo packages.\n',
+    '---\n"@laticent/lattice": patch # not major\n---\n\nA comment that says major.\n',
+    '---\n"@laticent/lattice": minor\n---\n\nA minor.\n',
+    '---\n---\n\nNo bump.\n',
+  ];
+  for (const text of samples) {
+    const real = parse(text).releases.some((r) => r.type === 'major');
+    assert.equal(isBreakingRecord('.changeset/a.md', text), real, JSON.stringify(text));
+  }
+  assert.equal(isBreakingRecord('.changeset/a.md', '"@laticent/lattice": major\nno front matter'), true, 'unreadable + major: fail closed');
+});

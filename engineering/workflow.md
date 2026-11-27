@@ -3011,8 +3011,9 @@ deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
 **Night mode** (owner's decisions, 2026-11-21, after a red team, an inversion and a checker
 reviewed the first draft). The owner types `/desk-night` in a session, then exactly "good
-night" or "afk". Until their next typed turn there (a message queued mid-turn and an answer to
-a question count), or 12 hours, the merge gate
+night" or "afk", as its own turn: typed while a turn is still running, it is only queued and
+arms nothing (seen live on 2026-11-27). Until their next typed turn there (a message queued
+mid-turn and an answer to a question count), or 12 hours, the merge gate
 (`.claude/hooks/owner-merge-gate.mjs`) allows that session's merge calls (never a subagent's)
 on a PR only when `tools/night-eligible.mjs`, taken from `origin/main` and run by the gate
 itself, finds on GitHub that:
