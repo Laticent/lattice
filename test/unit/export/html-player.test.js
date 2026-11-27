@@ -234,21 +234,21 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 // the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
 // `background-image` kept light and lost dark with nothing to restore it.
 
-// The `marks:` rules repaint through light-dark(), so every one the deck cannot use would
+// The chart-finish rules repaint through light-dark(), so every one the deck cannot use would
 // be copied into #lattice-dual-mode once per scheme scope. They go first, and nothing else moves.
 test('dropUnusedMarksRules cuts the finish rules the deck cannot use, byte for byte', () => {
 	const css = [
 		'/* c */ .a{x:1}',
-		'section.marks-tone :where(.m), figure.marks-tone :where(.m) { fill: light-dark(red, blue) }',
-		'@supports (color: oklch(from red l c h)) { section.marks-tone .z { color: red } }',
+		'section.chart-finish-tone :where(.m), figure.chart-finish-tone :where(.m) { fill: light-dark(red, blue) }',
+		'@supports (color: oklch(from red l c h)) { section.chart-finish-tone .z { color: red } }',
 		'@media screen { }',
-		'section.marks-pigment :where(:is(.k, .j)) { content: "}" }',
+		'section.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }',
 		'.b{z:2}',
 	].join('\n');
 	// Only the pigment rule matches; the tone rule, and the @supports group it emptied, go.
 	assert.equal(
 		dropUnusedMarksRules(css, (sel) => sel.includes('.k')),
-		'/* c */ .a{x:1}\n@media screen { }\nsection.marks-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
+		'/* c */ .a{x:1}\n@media screen { }\nsection.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
 	);
 	// A selector the host cannot test is kept, and a sheet with no finish rule is returned as is.
 	assert.equal(dropUnusedMarksRules(css, () => { throw new Error('unsupported'); }), css);
@@ -265,9 +265,9 @@ test('dropUnusedMarksRules reads a selector without its comment, and a finish cl
 		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
 		return false;
 	};
-	assert.equal(dropUnusedMarksRules('/* like .marks-tone */ .lp-state{color:red}', noMatch), '/* like .marks-tone */ .lp-state{color:red}');
-	assert.equal(dropUnusedMarksRules('/* a, b */ section.marks-tone .m{fill:red}', noMatch), '');
-	const custom = '.my-marks-tone{a:1}';
+	assert.equal(dropUnusedMarksRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedMarksRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-chart-finish-tone{a:1}';
 	assert.equal(dropUnusedMarksRules(custom, () => false), custom);
 });
 
