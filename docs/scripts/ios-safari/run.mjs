@@ -202,7 +202,7 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
 /**
  * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
  * the logo wall first-paint probe (logo-wall-probe.js, #3492),
- * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
+ * the sheet focus probe (sheet-focus-probe.js, #3108), the Library probe (library-probe.js, #3588) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
  * the Compose page a touch tap on a paragraph and one on an empty deck's start grid (empty-deck-probe.js). One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
@@ -229,6 +229,8 @@ async function runStudioProbe(id) {
 	const wall = await shotIfFailed('logo-wall', await studioPage(id, 'logo-wall-probe.js', 'latticeLogoWallProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
+	// The Library's section strip and Backup and restore dialog (library-probe.js, storage slice 4, #3588).
+	const library = await shotIfFailed('library', await studioPage(id, 'library-probe.js', 'latticeLibraryProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
 	const compose = await shotIfFailed('compose', await composeProbePage(id));
 	// Then a real touch tap on a Compose paragraph, on that page, from a blurred editor. The probe above taps only its first
@@ -258,11 +260,11 @@ async function runStudioProbe(id) {
 	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!library.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, library.error && `library: ${library.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('library', library), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
 	};
 }
 
