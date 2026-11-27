@@ -146,8 +146,21 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   verified identical; the residue is sub-pixel anti-aliasing of fine vectors.
   **This is why `tools/regression-gate.mjs` gives the chart + diagram (mermaid)
   buckets a wider `FAIL_FRACTION_MERMAID` (1%) while flat galleries keep 0.05%.**
-  If a *flat* gallery diffs, it's still a stale golden (diagnose as above); only
-  fine mermaid content has this cross-machine floor.
+  If a *flat* gallery diffs, it's still a stale golden (diagnose as above), unless
+  the next bullet's photo-layer band explains it.
+- **The second exception — the photo layer, on flat decks too (measured 2026-11-27).**
+  The PDF writer lays a raster "photo" of each slide (the camera's Skia raster,
+  `/Photo-*` XObjects) under the vector layer, and some text lands in it. Skia
+  rasterizes through CPU-dispatched code paths, so a sandbox render drifts from a
+  golden blessed on a GitHub runner by about 0.1–0.3% of a page with no source
+  change. On `examples/card-tag-placements`, every content stream and all seven
+  embedded fonts matched the golden byte for byte. Only three photo XObjects
+  differed, as a one-pixel shift of the "STEP 0N" tag text. **It is not the Chrome
+  version:** CI's pinned 157.0.8103.50 and the sandbox's 158.0.8127.36 wrote
+  byte-identical PDFs, and both drifted the same way. Don't triage this by hand:
+  `node tools/regression-gate.mjs --only <golden> --control` re-renders the golden
+  at the commit its nightly bless rendered from, on this machine. It then says
+  "cross-machine band" or "source drift".
 - **Lesson:** a stale artifact is not a broken renderer. Exclude the boring cause
   before relitigating a settled design decision.
 

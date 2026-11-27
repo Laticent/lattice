@@ -319,6 +319,23 @@ WCAG AA — which is deterministic and machine-independent. It runs in the
 `engine-parity` pixel gate was retired with marp in P4 — the owned engine is
 canonical. `npm run regress` survives as a LOCAL golden spot-check.)
 
+**A `regress` drift on a clean checkout is not a regression until `--control` says so.**
+The nightly blesses the goldens on a GitHub runner. A sandbox render differs from them
+by about 0.1–0.3% of a page with no source change, because the PDF's photo layer is
+Skia raster and Skia rasterizes through CPU-dispatched code. It is not the Chrome
+version: measured 2026-11-27, Chrome 157 (CI's pinned build) and 158 wrote
+byte-identical PDFs here. `regress` prints the host's Chrome and CPU on every run.
+`--control` re-renders each drifting golden at the commit its nightly bless rendered
+from (the sha in the bless commit's subject), on this machine, and compares the two
+fresh renders. Same machine, so an unchanged source renders identically. **Cross-machine
+band** means no source change, and the run passes. **Source drift** means the render
+path changed since that bless: on `main` the nightly will bless it, on a branch look at
+it. **Unavailable** means the control could not run and is never a pass. It costs about
+50 s to build each distinct commit's tree (shared with `golden-diff`,
+`tools/lib/base-tree.mjs`) plus two renders per drifting golden, so point it at a few
+goldens with `--only`, not the whole corpus. To find which merged PR moved a golden,
+use `tools/golden-bisect.mjs`.
+
 Each test file wraps its body in `describe('<file-basename>', () => {…})`
 so TAP output groups by file. Source of truth: `package.json` scripts
 plus the directory layout.
