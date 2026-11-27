@@ -831,7 +831,8 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	const FLOW = `${FM}<!-- @meta{layout=flowchart} -->\n\n## Flow\n\n- Storefront => Payments\n- Payments\n- Ledger\n- Risk\n  - KYC check\n`;
 	// [what, doc, a label both editors must offer, a label neither may offer]
 	const PROBES: [string, string, string, string | null][] = [
-		['a slide directive name', `${FM}<!-- _`, '_header', null],
+		// Since the cut the record is the only setting offered after `<!-- `: never an old directive name (slice E).
+		['the record after <!--, never an old directive name', `${FM}<!-- @m`, '@meta{', '_header'],
 		['a _focusStyle value', `${FM}<!-- _focusStyle: `, 'spotlight', null],
 		['a _focus axis, narrowed by the layout', `${FM}<!-- @meta{layout=table} -->\n\n<!-- _focus: `, 'row', 'item'],
 		['a nested backdrop axis, never a deck key', '---\nbackdrop:\n  ', 'strength', 'title'],
@@ -844,7 +845,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
 		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
-		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
+		['a pane key inside a record, and never a retired note key', `${FM}<!-- @meta{pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
 		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],

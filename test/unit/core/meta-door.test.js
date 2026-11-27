@@ -144,7 +144,7 @@ describe('compileMetaSource: the door', () => {
     assert.doesNotMatch(r2.html, /<!--|data-footer/);
     assert.deepEqual((r2.diagnostics ?? []).map((d) => d.id), ['meta/legacy']);
     assert.deepEqual(r.diagnostics.map((d) => [d.code, d.line]), [['meta-legacy', 3]]);
-    assert.match(r.diagnostics[0].message, /^6 setting comments are in the old form/);
+    assert.match(r.diagnostics[0].message, /^the old comment form sets nothing \(6 found\)/);
     assert.match(r.diagnostics[0].message, /lattice migrate meta/);
   });
 

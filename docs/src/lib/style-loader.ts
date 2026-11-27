@@ -20,7 +20,6 @@
 // Pane decks (`<lat-pane>`) are styled by selectors the engine rewrites per deck, so the raw module
 // selectors cannot be asked about that document: the scan falls back to the token filter for them.
 
-import { readSettingEntries } from '../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../lib/core/meta-keys.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { neededModules, scanDocument } from '../../../lib/core/style-needs-scan.mjs';
@@ -310,8 +309,10 @@ export function createStyleLoader(stylesBase: string, opts: { indexName?: string
 	 */
 	function warm(markdown: string): void {
 		if (fetchMode === 'bundle') return; // a prefetched single module would never be part of a later bundle request
-		void loadIndex()
-			.then((n) => {
+		// The record reader loads LAZILY: it holds the engine's whole door (about 20KB gzip), and a static import put it on
+		// the playground's eager path for a prefetch hint (route budget, slice E). The hint waits for the index anyway.
+		void Promise.all([loadIndex(), import('../../../lib/core/comment-directive.mjs')])
+			.then(([n, { readSettingEntries }]) => {
 				const words = new Set<string>();
 				// Line by line, never one regex over the whole text: a directive followed by tens of
 				// thousands of spaces cost seconds with the single pattern (red team, 2026-10-19).
