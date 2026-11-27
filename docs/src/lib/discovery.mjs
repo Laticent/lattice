@@ -129,7 +129,8 @@ export const LLMS_LINKS = Object.freeze({
  * write their own <head> and an Astro integration can inject only scripts; one writer means no
  * route can forget it. `HOME_HEAD_LINKS` are the extra tags only the landing page carries:
  * `help` names the entry. scripts/check-discovery.mjs fails the build when a page lacks the
- * describedby tag, or the homepage loses its anchor or a tag, or a target was not built.
+ * describedby tag, and scripts/home-agent-entry.mjs when the homepage loses its anchor or a
+ * tag, or a target was not built.
  */
 export const AGENT_ENTRY = '/agents/start.md';
 export const DESCRIBEDBY_LINK = Object.freeze({ rel: 'describedby', type: 'text/plain', href: '/llms.txt' });
@@ -146,48 +147,6 @@ export const DESCRIBEDBY_TAG = `<link rel="${DESCRIBEDBY_LINK.rel}" type="${DESC
 export function withDescribedBy(html) {
 	if (!html.includes('</head>')) return html;
 	return html.split(DESCRIBEDBY_TAG).join('').replace('</head>', `${DESCRIBEDBY_TAG}</head>`);
-}
-
-/**
- * The attributes of one start tag, as a map: double-quoted, single-quoted, unquoted or bare
- * (`data-agent-entry`), names lower-cased because HTML attribute names are case-blind.
- */
-const attrsOf = (tag) =>
-	Object.fromEntries(
-		[...tag.matchAll(/([^\s"'=<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g)]
-			.slice(1)
-			.map(([, k, dq, sq, uq]) => [k.toLowerCase(), dq ?? sq ?? uq ?? '']),
-	);
-
-/** Markup a browser never renders as a live tag: comments and the insides of template, noscript, script. */
-const INERT = /<!--[\s\S]*?-->|<(template|noscript|script)\b[\s\S]*?<\/\1\s*>/gi;
-
-/** A site-relative href (an optional base path in front) that ends at `target`; never another origin. */
-const pointsAt = (href, target) => typeof href === 'string' && !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(href) && href.endsWith(target);
-
-/**
- * What the homepage's HTML, as served, is missing of its agent entry: [] when it carries an
- * `<a data-agent-entry>` to AGENT_ENTRY and every HOME_AGENT_LINKS tag. `exists(path)` says
- * whether a site path (no leading slash) was built. An href may carry the site's base in
- * front, so a site-relative href is matched on its end; an absolute URL never matches.
- * Comments and template/noscript/script bodies are dropped first, so a tag a browser would
- * not act on does not count. Pure, so the unit test can feed it a page with a piece cut out.
- */
-export function homeAgentEntryProblems(html, exists) {
-	const live = html.replace(INERT, '');
-	const problems = [];
-	const anchors = [...live.matchAll(/<a\b[^>]*>/gi)].map(([t]) => attrsOf(t)).filter((a) => 'data-agent-entry' in a);
-	if (anchors.length !== 1) problems.push(`expected one <a data-agent-entry> to ${AGENT_ENTRY}, found ${anchors.length}`);
-	for (const a of anchors) if (!pointsAt(a.href, AGENT_ENTRY)) problems.push(`<a data-agent-entry> points at ${a.href || 'nothing'}, not ${AGENT_ENTRY}`);
-	const links = [...live.matchAll(/<link\b[^>]*>/gi)].map(([t]) => attrsOf(t));
-	for (const want of HOME_AGENT_LINKS) {
-		const got = links.filter((l) => (l.rel ?? '').toLowerCase().split(/\s+/).includes(want.rel) && pointsAt(l.href, want.href));
-		if (got.length !== 1) problems.push(`expected one <link rel="${want.rel}" href="…${want.href}">, found ${got.length}`);
-		else if ((got[0].type ?? '').toLowerCase() !== want.type) problems.push(`<link rel="${want.rel}"> has type ${got[0].type || 'none'}, want ${want.type}`);
-	}
-	for (const target of new Set([AGENT_ENTRY, ...HOME_AGENT_LINKS.map((l) => l.href)]))
-		if (!exists(target.slice(1))) problems.push(`${target} is linked from the homepage but was not built`);
-	return problems;
 }
 
 /**

@@ -27,8 +27,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DESCRIBEDBY_TAG, homeAgentEntryProblems, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
+import { DESCRIBEDBY_TAG, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
+import { homeAgentEntryProblems } from './home-agent-entry.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
