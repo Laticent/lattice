@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, PanelLeftClose, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, FileText, Images, KeyRound, LayoutGrid, Palette, PanelLeftClose, Paperclip, Plug, Presentation, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -176,14 +176,21 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 // deck is something you open, not a file you cite, so it no longer hides under Files.
 export type LibraryFilter = 'all' | 'deck' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
 export type LibrarySection = 'all' | 'decks' | 'design' | 'media' | 'files' | 'plugins';
-export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string }> = [
-	{ value: 'all', label: 'All' },
-	{ value: 'decks', label: 'Decks' },
-	{ value: 'design', label: 'Design' },
-	{ value: 'media', label: 'Media' },
-	{ value: 'files', label: 'Files' },
-	{ value: 'plugins', label: 'Plugins' },
+// Each section draws an icon: the dock and the phone show only it (`iconOnly`, six labeled pills wrap at 320px), the
+// sheet shows it beside the label, so the one section reads the same at every width.
+const SECTION_ICON = 'size-3.5 shrink-0';
+export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string; icon: React.ReactNode }> = [
+	{ value: 'all', label: 'All', icon: <LayoutGrid className={SECTION_ICON} aria-hidden /> },
+	{ value: 'decks', label: 'Decks', icon: <Presentation className={SECTION_ICON} aria-hidden /> },
+	{ value: 'design', label: 'Design', icon: <Palette className={SECTION_ICON} aria-hidden /> },
+	{ value: 'media', label: 'Media', icon: <Images className={SECTION_ICON} aria-hidden /> },
+	{ value: 'files', label: 'Files', icon: <FileText className={SECTION_ICON} aria-hidden /> },
+	{ value: 'plugins', label: 'Plugins', icon: <Plug className={SECTION_ICON} aria-hidden /> },
 ];
+/** Which section pills fold into "More" when even the icons do not fit one row, least used first. */
+export const LIBRARY_OVERFLOW = { hideFirst: ['plugins', 'files'] };
+/** The Library's pills are icons where six labels do not fit: the dock (280–480px) and the phone. */
+export const libraryIconOnly = (docked: boolean | undefined, phone: boolean) => !!docked || phone;
 /** The kinds inside a section. The first entry is the whole section. */
 export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: LibraryFilter; label: string }>>> = {
 	design: [
@@ -248,7 +255,7 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 				<Inert className="min-w-0 flex-1">
-					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} />
+					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} iconOnly={libraryIconOnly(docked, phone)} overflow={LIBRARY_OVERFLOW} />
 				</Inert>
 			</div>
 			<div className="min-h-0 min-w-0 flex-1 overflow-hidden p-4">

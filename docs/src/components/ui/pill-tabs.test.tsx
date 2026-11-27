@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { PillTabs } from './pill-tabs';
+import { TooltipProvider } from './tooltip';
 
 const TABS = [
 	{ value: 'a', label: 'Alpha' },
@@ -68,5 +69,49 @@ describe('PillTabs', () => {
 		expect(screen.getByRole('tablist').className).toContain('gap-1');
 		expect(screen.getByRole('tablist').className).not.toContain('gap-1.5');
 		expect(screen.getByRole('tab', { name: 'Alpha' }).className).toContain('px-2.5');
+	});
+
+	describe('iconOnly', () => {
+		const ICON_TABS = [
+			{ value: 'a', label: 'Alpha', icon: <svg data-testid="icon-a" aria-hidden /> },
+			{ value: 'b', label: 'Beta', icon: <svg data-testid="icon-b" aria-hidden /> },
+			{ value: 'c', label: 'Gamma' },
+		];
+		const renderIcons = (value = 'a', onValueChange = () => {}) =>
+			render(
+				<TooltipProvider>
+					<PillTabs tabs={ICON_TABS} value={value} onValueChange={onValueChange} ariaLabel="Sections" iconOnly />
+				</TooltipProvider>,
+			);
+
+		it('draws only the icon, and keeps the label as the tab name', () => {
+			renderIcons();
+			const alpha = screen.getByRole('tab', { name: 'Alpha' });
+			expect(alpha.textContent).toBe('');
+			expect(alpha.querySelector('[data-testid="icon-a"]')).toBeTruthy();
+			expect(alpha.getAttribute('aria-label')).toBe('Alpha');
+		});
+
+		it('keeps the label on a tab with no icon, so no tab is left without a visible name', () => {
+			renderIcons();
+			const gamma = screen.getByRole('tab', { name: 'Gamma' });
+			expect(gamma.textContent).toBe('Gamma');
+			expect(gamma.getAttribute('aria-label')).toBeNull();
+		});
+
+		it('still selects on click and moves with the arrows', () => {
+			const onValueChange = vi.fn();
+			renderIcons('a', onValueChange);
+			fireEvent.click(screen.getByRole('tab', { name: 'Beta' }));
+			expect(onValueChange).toHaveBeenLastCalledWith('b');
+			fireEvent.keyDown(screen.getByRole('tablist', { name: 'Sections' }), { key: 'End' });
+			expect(onValueChange).toHaveBeenLastCalledWith('c');
+			expect(screen.getByRole('tab', { name: 'Alpha' }).getAttribute('tabindex')).toBe('0');
+		});
+
+		it('is off by default: a tab with an icon also shows its label', () => {
+			render(<PillTabs tabs={ICON_TABS} value="a" onValueChange={() => {}} ariaLabel="Sections" />);
+			expect(screen.getByRole('tab', { name: 'Alpha' }).textContent).toBe('Alpha');
+		});
 	});
 });

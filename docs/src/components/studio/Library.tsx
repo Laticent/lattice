@@ -30,7 +30,7 @@ import { importPhotoBatch } from './media-import-batch';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
-import { LIBRARY_HEADER, LIBRARY_KINDS, LIBRARY_SECTIONS, type LibraryFilter, type LibrarySection, sectionFilter, sectionOf } from './panel-shells';
+import { LIBRARY_HEADER, LIBRARY_KINDS, LIBRARY_OVERFLOW, LIBRARY_SECTIONS, type LibraryFilter, type LibrarySection, libraryIconOnly, sectionFilter, sectionOf } from './panel-shells';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { formatBytes, REF_DOC_ACCEPT } from './reference-doc';
 import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, refDocDeckFile, saveRefDoc } from './reference-doc-store';
@@ -1333,6 +1333,10 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 						ariaLabel="Library sections"
 						// Five pills no longer fit one row in the docked panel at the roomy size, and the last one wrapped alone.
 						dense={docked}
+						iconOnly={libraryIconOnly(docked, phone)}
+						// One row, always: beside the kinds button (Design, Media) six pills outgrow a narrow dock or a 320px phone,
+						// and a lone pill wrapping to a second row is the jank the icons exist to remove. Plugins folds first.
+						overflow={LIBRARY_OVERFLOW}
 						value={sectionOf(filter)}
 						onValueChange={(v) => React.startTransition(() => setFilter(sectionFilter(v as LibrarySection)))}
 						tabs={LIBRARY_SECTIONS}
@@ -1340,7 +1344,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 					{/* ONE row. What used to be a second row of kinds (and a third for where new media goes) lives in
 					    this menu, and the menu follows the section: Design offers its four kinds, Media offers photos,
 					    videos and where new media goes, All and Files have nothing to narrow so show no button. */}
-					{kinds && (
+					{kinds ? (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button variant="outline" size="icon-sm" className="relative shrink-0" aria-label="Filter">
@@ -1366,6 +1370,10 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
+					) : (
+						// The button's place, held on every section: a row whose room changed with the section refolded its pills
+						// under the tap that picked one (at 320px, tapping Media folded Media into "More").
+						<span aria-hidden className="size-8 shrink-0" />
 					)}
 					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
 					    here competing with the filters for the same row, which is why it had to

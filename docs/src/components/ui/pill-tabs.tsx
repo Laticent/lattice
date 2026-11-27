@@ -1,6 +1,7 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Ellipsis } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tip } from '@/components/ui/tooltip';
 import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +57,7 @@ export function PillTabs({
 	ariaLabel,
 	className,
 	dense = false,
+	iconOnly = false,
 	overflow,
 }: {
 	tabs: PillTab[];
@@ -65,6 +67,13 @@ export function PillTabs({
 	className?: string;
 	/** Tighter padding and gap, for a narrow pane that holds more pills than the roomy default fits on one row. */
 	dense?: boolean;
+	/**
+	 * ICONS, NOT WORDS, where words do not fit: a tab that carries an `icon` shows only it, and its label becomes the
+	 * tab's accessible name and its hover/focus hint (Tip). For a narrow pane holding more sections than labeled pills
+	 * fit at 320px (the Library dock and phone, design §7 of 2026-11-22-local-first-drive-storage.md). A tab with no
+	 * icon keeps its label, so a caller cannot make a tab with no visible or spoken name.
+	 */
+	iconOnly?: boolean;
 	/**
 	 * Keep the strip to ONE row: tabs that do not fit fold into a "More ▾" pill, `hideFirst`
 	 * (least likely first) deciding who folds. Without it the strip wraps, as it always has.
@@ -108,10 +117,17 @@ export function PillTabs({
 	const shown = overflow ? tabs.filter((t) => !folded.has(t.value)) : tabs;
 	const hidden = overflow ? tabs.filter((t) => folded.has(t.value)) : [];
 	const pickedHidden = hidden.find((t) => t.value === value);
-	const pillClass = (on: boolean) =>
+	// In an icon strip the More pill is an icon too: the folded selection's own icon, else an ellipsis. Its name stays in
+	// the aria-label, so a word never sits alone in a row of icons.
+	const moreIcon = (t?: PillTab) => (t && bare(t) ? t.icon : <Ellipsis className="size-3.5" aria-hidden />);
+	const bare = (t: PillTab) => iconOnly && !!t.icon;
+	const pillClass = (on: boolean, iconPill = false) =>
 		cn(
 			'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border py-1.5 font-semibold transition-colors',
-			dense ? 'px-2.5 text-[12px]' : 'px-3 text-[12.5px]',
+			// An icon pill is exactly as tall as a labeled pill of the same size (its line box is the label's: 12px or 12.5px
+			// type at 1.5 leading, plus padding and border), so switching a strip to icons never shrinks its touch target.
+			// 36px wide, so six fit one row beside a 32px button in a 320px phone's 288px (6 x 36 + 5 gaps of 6 = 246px).
+			iconPill ? cn('justify-center px-2.5', dense ? 'min-h-8 text-[12px]' : 'min-h-[2.125rem] text-[12.5px]') : dense ? 'px-2.5 text-[12px]' : 'px-3 text-[12.5px]',
 			on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]',
 		);
 
@@ -133,21 +149,32 @@ export function PillTabs({
 	};
 	const strip = (
 		<div className={cn('flex', overflow ? 'min-w-0 flex-nowrap' : 'flex-wrap', dense ? 'gap-1' : 'gap-1.5', !overflow && className)} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
-			{shown.map((t) => (
-				<button
-					type="button"
-					key={t.value}
-					role="tab"
-					aria-selected={t.value === value}
-					// The tablist keeps one Tab stop even when the selected tab is folded into the menu.
-					tabIndex={t.value === value || (!shown.some((x) => x.value === value) && t === shown[0]) ? 0 : -1}
-					onClick={() => onValueChange(t.value)}
-					className={pillClass(t.value === value)}
-				>
-					{t.icon}
-					{t.label}
-				</button>
-			))}
+			{shown.map((t) => {
+				const tab = (
+					<button
+						type="button"
+						key={t.value}
+						role="tab"
+						aria-selected={t.value === value}
+						aria-label={bare(t) ? t.label : undefined}
+						data-pill={t.value}
+						// The tablist keeps one Tab stop even when the selected tab is folded into the menu.
+						tabIndex={t.value === value || (!shown.some((x) => x.value === value) && t === shown[0]) ? 0 : -1}
+						onClick={() => onValueChange(t.value)}
+						className={pillClass(t.value === value, bare(t))}
+					>
+						{t.icon}
+						{bare(t) ? null : t.label}
+					</button>
+				);
+				return bare(t) ? (
+					<Tip key={t.value} label={t.label}>
+						{tab}
+					</Tip>
+				) : (
+					tab
+				);
+			})}
 		</div>
 	);
 	if (!overflow) return strip;
@@ -159,15 +186,16 @@ export function PillTabs({
 			{hidden.length > 0 && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<button type="button" aria-label={pickedHidden ? `${ariaLabel}: ${pickedHidden.label}, more` : `More ${ariaLabel.toLowerCase()}`} className={pillClass(!!pickedHidden)}>
-							{pickedHidden ? pickedHidden.label : moreLabel}
+						<button type="button" aria-label={pickedHidden ? `${ariaLabel}: ${pickedHidden.label}, more` : `More ${ariaLabel.toLowerCase()}`} className={pillClass(!!pickedHidden, iconOnly)}>
+							{iconOnly ? moreIcon(pickedHidden) : pickedHidden ? pickedHidden.label : moreLabel}
 							<ChevronDown className="size-3.5" aria-hidden />
 						</button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start">
 						<DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
 							{hidden.map((t) => (
-								<DropdownMenuRadioItem key={t.value} value={t.value}>
+								<DropdownMenuRadioItem key={t.value} value={t.value} className="gap-2">
+									{t.icon}
 									{t.label}
 								</DropdownMenuRadioItem>
 							))}
@@ -182,13 +210,13 @@ export function PillTabs({
 			<div aria-hidden inert className="pointer-events-none invisible absolute inset-0 overflow-hidden">
 			<div ref={measureRef} className={cn('flex w-max', dense ? 'gap-1' : 'gap-1.5')}>
 				{tabs.map((t) => (
-					<span key={t.value} className={pillClass(false)}>
+					<span key={t.value} className={pillClass(false, bare(t))}>
 						{t.icon}
-						{t.label}
+						{bare(t) ? null : t.label}
 					</span>
 				))}
-				<span className={pillClass(false)}>
-					{moreLabel}
+				<span className={pillClass(false, iconOnly)}>
+					{iconOnly ? moreIcon() : moreLabel}
 					<ChevronDown className="size-3.5" />
 				</span>
 			</div>
