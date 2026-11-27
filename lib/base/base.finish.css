@@ -540,6 +540,10 @@ section:is(.title, .closing):not(.print) {
 }
 section.divider:not(.print) {
   --fin-canvas: light-dark(var(--accent), color-mix(in oklab, var(--accent) 40%, var(--bg)));
+  /* The divider is an ACCENT FIELD now, as the split covers below are (#2305): a finish drawn in
+   * the accent on it is accent on accent, 1.00:1 (finish-ink-matrix, 198 rows). It draws in the
+   * field's own primary ink instead, in both modes, as every divider ink does (base.modifiers.css). */
+  --field-accent: light-dark(var(--on-accent), var(--_bk-on-primary));
 }
 
 /* TOPIC IS A SEPARATE BLOCK, and the split is defensive rather than cosmetic.

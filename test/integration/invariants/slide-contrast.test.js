@@ -255,7 +255,13 @@ const EXEMPT_TIER_FLOOR = {
     // divider and closing panels read 3.50:1 in this tier and now read 4.58:1 through
     // --on-inverse-muted, so they left the exempt tier for the measured one and pass there
     // (-14). Lowered as the gate instructs, so the floor holds.
-    'gallery @ indaco': 340,
+    // 341 since #3517 (+1): covers follow the color mode, so a LIGHT cover's footer and page number
+    // are the canvas's muted chrome again, as on every content slide (#3098 had measured them on the
+    // navy panel). Divider chrome rides the accent field's ink and stays measured. Counted with the
+    // test's own PROBE: every added run is title/closing chrome. Measured with the exempt set scoped
+    // per section in tools/check-slide-contrast.js (a deck-wide set let one slide's remap exempt
+    // white body text on every dark slide: 830 runs).
+    'gallery @ indaco': 341,
     'gallery @ indaco-dark': 340,
     // 184 until the kanban de-emphasis stopped being an opacity wash. One `.kanban-size`
     // token ("M"/"L"/"XL") returned to the tier: the wash had been shifting its COMPOSITED
@@ -267,11 +273,14 @@ const EXEMPT_TIER_FLOOR = {
     // of the exempt tier and into the measured one. Lowered as the gate instructed, so the
     // new floor holds.
     // 164 since #3098: the same bookend chrome leaving the tier as above (-17).
-    'gallery-jargon @ indaco': 164,
+    // 169 since #3517 (+5): the light covers' chrome returning to the tier, as above. PROBE lists
+    // 7 exempt runs on title/closing (1 title footer, 6 closing header/footer runs).
+    'gallery-jargon @ indaco': 169,
     // The spectrum deck's exempt tier, pinned like the rest so it cannot grow quietly.
     // 27 until #2206 — one sovereign-frame page number entering measurement, as above.
     // 25 since #3098: the same bookend chrome leaving the tier (-3).
-    'seq-ramp @ indaco': 25,
+    // 26 since #3517 (+1): a light cover's chrome returning to the tier, as above.
+    'seq-ramp @ indaco': 26,
   },
 };
 
