@@ -22,7 +22,7 @@
  * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
  * so run.sh restarts safaridriver, reboots the device and tries once more.
  */
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -222,6 +222,28 @@ async function runStudioProbe(id) {
 		}
 		return r;
 	};
+	// REPEATS, for the two failures that come about one run in three (#3523): the first render that never comes and the first
+	// Compose tap the simulator holds. STUDIO_REPEAT extra rounds of just those two probes, each on a fresh page, while
+	// run.sh's diagnostics record the whole run, so one job meets the failure instead of one dispatch in three. They stop
+	// after STUDIO_REPEAT_BUDGET_S seconds (default 480) so the suite keeps the rest of its job; every round counts.
+	const repeats = [];
+	const repeatN = Number(process.env.STUDIO_REPEAT || 0);
+	const repeatUntil = Date.now() + Number(process.env.STUDIO_REPEAT_BUDGET_S || 480) * 1000;
+	// Each round, and the real probes after them, start as a FIRST VISIT: the preview probe asserts the newcomer bake, which
+	// only a first visit fetches, and a round leaves its deck stored (run 45548302899: rounds 2 to 5 and the real probe then
+	// timed out waiting for the bake). Cleared the way composeProbePage clears it.
+	const firstVisit = async () => {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: "try { for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-')) localStorage.removeItem(k); } catch {}", args: [] });
+	};
+	for (let i = 1; i <= repeatN && Date.now() < repeatUntil; i++) {
+		await firstVisit();
+		const p = await shotIfFailed(`repeat-${i}-preview`, await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
+		const c = await shotIfFailed(`repeat-${i}-compose`, await composeProbePage(id));
+		console.log(`${LABEL}: repeat ${i} of ${repeatN}: preview ${p.ok ? 'ok' : `FAIL (${p.error})`}; compose ${c.ok ? 'ok' : `FAIL (${c.error})`}`);
+		repeats.push({ i, p, c });
+	}
+	if (repeats.length) await firstVisit();
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// A logo wall's first paint in the editing preview (logo-wall-probe.js, #3492): never the unpacked grid, then packed.
@@ -257,8 +279,8 @@ async function runStudioProbe(id) {
 	const engine = { ok: !!drop.ok && !!http503.ok, error: [drop.error && `drop: ${drop.error}`, http503.error && `503: ${http503.error}`].filter(Boolean).join('; ') || undefined, steps: [drop, http503].flatMap((r, i) => (r.steps || []).map((x) => ({ ...x, name: `${i ? '503' : 'drop'} · ${x.name}` }))) };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
+		ok: repeats.every((r) => r.p.ok && r.c.ok) && !!preview.ok && !!panes.ok && !!wall.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok && !!leave.ok && !!engine.ok,
+		error: [...repeats.flatMap((r) => [!r.p.ok && `repeat ${r.i} preview: ${r.p.error}`, !r.c.ok && `repeat ${r.i} compose: ${r.c.error}`]), preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, wall.error && `logo wall: ${wall.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`, leave.error && `deck tap: ${leave.error}`, engine.error && `engine retry: ${engine.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
 		steps: [...named('preview', preview), ...named('panes', panes), ...named('logo wall', wall), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons), ...named('deck tap', leave), ...named('engine retry', engine)],
@@ -375,7 +397,15 @@ async function deckTapLeavesLibrary(id) {
 // Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
 function tapLogInstall() {
 	return `
-	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const log = (window.__tapLog = { t0: performance.now(), events: [], busy: [], renders: [] });
+	// The log with the scripts that finished arriving after it began: a module that arrives runs next, so one landing inside a busy
+	// stretch is a suspect for it.
+	window.__tapLogRead = () => {
+		const L = window.__tapLog;
+		if (!L) return null;
+		const scripts = performance.getEntriesByType('resource').filter((e) => e.initiatorType === 'script' || /\\.m?js(\\?|$)/.test(e.name)).filter((e) => e.responseEnd >= L.t0).map((e) => ({ name: e.name.split('/').pop().slice(0, 48), end: Math.round(e.responseEnd - L.t0) }));
+		return { ...L, scripts };
+	};
 	const inEditorOf = ${inEditorOf.toString()};
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
@@ -401,6 +431,22 @@ function tapLogInstall() {
 				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: inEditorOf(el), doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
 			}, { capture: true, passive: true });
 		}
+		// WHO HELD THE PAGE. A tap whose listeners ran seconds late (\`fail-sim-stall\`) met a busy main thread: run 45487561338's
+		// first Compose tap waited 1931 ms. A timer that fires late marks each busy stretch, and what finished inside it (a render
+		// sample with its engine time, a script that arrived and then ran) names the work, so the stall is fixed where it is.
+		let beat = performance.now();
+		const tick = () => {
+			const now = performance.now();
+			const L = window.__tapLog;
+			if (L && now - beat > 150) L.busy.push({ from: Math.round(beat - L.t0), to: Math.round(now - L.t0) });
+			beat = now;
+			setTimeout(tick, 16);
+		};
+		setTimeout(tick, 16);
+		window.__latticeRenderMetrics?.on?.((r) => {
+			const L = window.__tapLog;
+			if (L) L.renders.push({ t: Math.round(performance.now() - L.t0), engineMs: Math.round(r?.engineMs ?? r?.totalMs ?? -1), slides: r?.slides ?? r?.slideCount ?? '' });
+		});
 		document.addEventListener('selectionchange', () => {
 			const L = window.__tapLog;
 			if (!L) return;
@@ -422,7 +468,17 @@ function summarizeTapLog(log) {
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}`;
+	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}${busyNote(log)}`;
+}
+
+/** The page's busy stretches during the tap and what finished inside them (tapLogInstall's timer, render samples, scripts). */
+function busyNote(log) {
+	const busy = log.busy || [];
+	if (!busy.length) return '';
+	const inside = (t) => busy.some((b) => t >= b.from && t <= b.to + 50);
+	const renders = (log.renders || []).filter((r) => inside(r.t)).map((r) => `render@${r.t} engine ${r.engineMs} ms${r.slides !== '' ? `, ${r.slides} slides` : ''}`);
+	const scripts = (log.scripts || []).filter((x) => inside(x.end)).map((x) => `${x.name}@${x.end}`);
+	return `; BUSY ${busy.map((b) => `${b.from}-${b.to} (${b.to - b.from} ms)`).join(', ')}${renders.length ? `; inside: ${renders.join(', ')}` : ''}${scripts.length ? `; scripts in: ${scripts.slice(0, 12).join(', ')}` : ''}`;
 }
 
 /**
@@ -442,6 +498,27 @@ async function touchAt(id, at, forcedHold = 0) {
 }
 
 /**
+ * WHAT STARVES THE SIMULATOR. A stalled tap is the simulator's, not the page's (run 45497340980: the page busy 3.7 s with no
+ * render or script inside, touchend stamped 9.9 s late by the simulator itself). So the host is sampled while the gesture is
+ * still in flight: load average and the busiest processes, `ms` after the tap went out. Resolves to one line, or why not.
+ */
+function hostLoadAt(ms) {
+	return new Promise((resolve) => {
+		setTimeout(() => {
+			// What the command printed is used even when it exited non-zero (run 45509624486 printed only "Command failed"), and
+			// when it printed nothing the line says how it ended: exit code, signal (the 15 s limit kills it; a host that starved
+			// cannot run ps in that long is itself the answer) and stderr.
+			execFile('sh', ['-c', 'sysctl -n vm.loadavg; ps -Ao pcpu=,rss=,comm= -r | head -8'], { timeout: 15000 }, (err, out, errOut) => {
+				if (!String(out).trim()) return resolve(`host load unreadable (code ${err?.code ?? '?'}, signal ${err?.signal ?? 'none'}, killed ${!!err?.killed}; ${String(errOut).trim().slice(0, 120) || 'no stderr'})`);
+				const [load, ...procs] = String(out).trim().split('\n');
+				const top = procs.map((l) => l.trim().split(/\s+/)).map(([cpu, rss, ...cmd]) => `${cmd.join(' ').split('/').pop()} ${cpu}% ${Math.round(Number(rss) / 1024)}MB`);
+				resolve(`host at +${ms} ms: load ${load.replace(/[{}]/g, '').trim()}; ${top.join(', ')}`);
+			});
+		}, ms);
+	});
+}
+
+/**
  * The tap the Compose probe asks for at the stop that focuses the editor (compose-probe.js `tapInto`, #3291): delivered with
  * the same long-press guard as `composeTouchTap` (tap-guard.mjs), and judged by whether a caret landed in the block the
  * tapped point holds, with the editor focused. Returns the verdict the probe records as a step.
@@ -456,6 +533,7 @@ async function probeTap(id, at) {
 			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
 		}
 		await run(tapLogInstall());
+		const host = hostLoadAt(1500);
 		const tapMs = await touchAt(id, at);
 		const seen = await wd('POST', `/session/${id}/execute/async`, {
 			args: [],
@@ -470,7 +548,7 @@ async function probeTap(id, at) {
 					const inAim = !!(block && node && block.contains(node));
 					const caret = !!(sel && sel.isCollapsed);
 					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
-					if ((inAim && caret && focused) || performance.now() - t0 > 4000) done({ inAim, caret, focused, picked: sel ? String(sel).slice(0, 40) : '', log: window.__tapLog || null });
+					if ((inAim && caret && focused) || performance.now() - t0 > 4000) done({ inAim, caret, focused, picked: sel ? String(sel).slice(0, 40) : '', log: window.__tapLogRead ? window.__tapLogRead() : window.__tapLog || null });
 					else requestAnimationFrame(read);
 				};
 				read();`,
@@ -480,6 +558,7 @@ async function probeTap(id, at) {
 		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n, lag: tapLag(seen.log) });
 		tries.push({ n, tapMs, hold, seen, decision });
 		console.log(`${LABEL}: compose probe tap ${n} at ${at.x},${at.y} (${at.what}): gesture ${tapMs} ms; hold ${hold ?? 'none'} ms; ${decision}; page saw ${summarizeTapLog(seen.log)}`);
+		if (decision !== 'pass') console.log(`${LABEL}: compose probe tap ${n} ${await host}`);
 		if (decision !== 'redeliver') break;
 		console.log(`${LABEL}: compose probe tap ${n} RE-DELIVERED: held ${hold} ms, ${redeliverWhy(seen.log)}`);
 	}
@@ -666,7 +745,7 @@ async function composeTouchTap(id) {
 						const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
 						const marked = !!(p && p.classList.contains('cs-active-line'));
 						const caret = !!(sel && sel.isCollapsed);
-						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
+						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLogRead ? window.__tapLogRead() : window.__tapLog || null });
 						else requestAnimationFrame(read);
 					};
 					read();`,

@@ -106,7 +106,7 @@ else
     # run.mjs reads the warm arm's origin from WARM_URL, which defaults to the next port.
     (cd docs && node scripts/ios-safari/font-cache-server.mjs $PORT $((PORT + 1)) > "$OUT/preview.log" 2>&1) &
   else
-    (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+    (cd docs && PREVIEW_DIAG="$OUT/server-diag.log" PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
   fi
   server=$!
   ready="http://localhost:$PORT/studio/"
@@ -135,6 +135,45 @@ start_driver() {
 }
 # Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
+
+# DIAGNOSTICS, always on for the Studio suites (#3523). Two iPhone failures were read from the outside, one signal per run:
+# a Studio that never hydrated and a tap the simulator held for seconds. These record the whole run instead, into $OUT,
+# which the workflow already uploads: the host's busiest processes every 5 s (top), the docs server's own event-loop
+# stalls and slow requests (preview-e2e.mjs, PREVIEW_DIAG), and the simulator's own log, read once afterwards. None of
+# them can fail the suite. (A Safari Web Inspector logger was tried and dropped: on run 45556703226 it reached Safari but
+# could not select the page WebDriver drives, 217 s per try.)
+DIAG=0
+case "$PROBE" in studio|present-narration) DIAG=1 ;; esac
+# SPOTLIGHT OFF for the Studio suites. On the iPad runner of run 45552549848 (load 360-735, 134 MB of 7 GB free, the docs
+# server's event loop stalled up to 25.6 s) Spotlight's indexer was the third-largest process (mds_stores 318 MB, plus mds),
+# behind only the simulator's own renderer (SimRenderServer 1.8 GB) and Safari's page (1 GB). Indexing a CI disk buys the
+# job nothing. Bounded, and a failure only says so.
+if [ "$DIAG" = 1 ]; then
+  bounded 60 sudo mdutil -a -i off > "$OUT/mdutil.log" 2>&1 || echo "diagnostics: Spotlight indexing could not be turned off (see mdutil.log)"
+fi
+diag_pids=
+diag_udid=
+diag_family=
+diag_start() {
+  [ "$DIAG" = 1 ] || return 0
+  diag_udid=$1
+  # Every 5 s, not every second: at 1 s, top and a live simulator log stream were themselves among the busiest processes
+  # on a host at load 500 (run 45548302899: `log` 59% CPU, diagnosticd 25%, a 169 MB log). The simulator log is read once,
+  # afterwards, in diag_stop.
+  top -l 0 -s 5 -o cpu -n 12 -stats pid,command,cpu,mem,state > "$OUT/host-top-$2.log" 2>&1 &
+  diag_pids="$diag_pids $!"
+  diag_family=$2
+}
+diag_stop() {
+  for p in $diag_pids; do kill "$p" 2>/dev/null || true; done
+  diag_pids=
+  [ "$DIAG" = 1 ] || return 0
+  # The simulator's own record of the run, read once: memory kills and WebKit, Safari and input errors only (with every
+  # fault and jetsam line too it ran to 800k lines, run 45552549848).
+  bounded 120 xcrun simctl spawn "$diag_udid" log show --last 40m --style compact \
+    --predicate 'eventMessage CONTAINS[c] "memorystatus" OR eventMessage CONTAINS[c] "killed" OR ((process CONTAINS "WebKit" OR process == "backboardd" OR process == "MobileSafari") AND messageType == error)' \
+    > "$OUT/sim-log-$diag_family.log" 2>&1 || true
+}
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
 LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
@@ -292,7 +331,9 @@ for family in $families; do
     rc=0
     attempts=3
     [ "$start" = 1 ] && attempts=2
+    diag_start "$udid" "$family"
     SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+    diag_stop
     [ "$rc" = 3 ] || break
     why='no session'
   done

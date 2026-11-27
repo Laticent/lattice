@@ -57,3 +57,19 @@ test('globs: * stays inside a segment, ** crosses them, dots are literal', () =>
   assert.ok(!globToRegExp('a/**/b').test('a/xb'), '**/ is whole directories');
   assert.ok(globToRegExp('a/?.js').test('a/x.js') && !globToRegExp('a/?.js').test('a/xy.js') && !globToRegExp('a/?.js').test('a//.js'), '? is one non-slash character');
 });
+
+test('runner: xlarge moves only the iOS Simulator suites, and only on a manual dispatch', () => {
+	// The bigger runner is billed per minute, so the owner keeps it on demand (2026-11-25, #3523): a dispatch may ask for it, the
+	// nightly and pull requests never get it, and a suite that is not the iOS Simulator stays where the registry puts it.
+	const registry = {
+		suites: [
+			{ name: 'ios-studio', os: ['macos-26'], paths: ['docs/**'], run: 'DEVICES=iPhone bash docs/scripts/ios-safari/run.sh', why: 'w' },
+			{ name: 'export-confine', os: ['macos-26', 'windows-2025'], paths: ['lib/**'], run: 'npm test', why: 'w' },
+		],
+	};
+	const at = (input) => plan(registry, input).include.map((i) => `${i.suite}@${i.os}`);
+	assert.deepEqual(at({ event: 'workflow_dispatch', runner: 'xlarge' }), ['ios-studio@macos-26-xlarge', 'export-confine@macos-26', 'export-confine@windows-2025']);
+	assert.deepEqual(at({ event: 'workflow_dispatch' }), ['ios-studio@macos-26', 'export-confine@macos-26', 'export-confine@windows-2025'], 'standard is the default');
+	assert.deepEqual(at({ event: 'schedule', runner: 'xlarge' }), ['ios-studio@macos-26', 'export-confine@macos-26', 'export-confine@windows-2025'], 'the nightly never pays for it');
+	assert.deepEqual(at({ event: 'pull_request', changed: ['lib/a.js', 'docs/a.ts'], runner: 'xlarge', everySuite: true }), ['ios-studio@macos-26', 'export-confine@macos-26', 'export-confine@windows-2025'], 'nor does a pull request');
+});

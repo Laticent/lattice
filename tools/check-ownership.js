@@ -9913,6 +9913,8 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // `ubuntu-24.04` is the one Linux image allowed, for the Android emulator suite (#3356): GitHub's Linux runners expose KVM, which
 // an x86_64 emulator needs to boot in minutes; macOS and Windows runners do not. Linux checks that need no emulator belong in ci.yml, and
 // checkPlatformSuites holds that: the label is admitted only for a `run` under docs/scripts/android/.
+// No suite NAMES macos-26-xlarge here: it is billed per minute, and a registry entry runs every night. A manual dispatch picks it
+// for the iOS Simulator suites with the workflow's `runner: xlarge` (tools/platform-suites-plan.js XLARGE; owner, 2026-11-25).
 const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025', 'ubuntu-24.04'];
 
 // ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──

@@ -55,8 +55,16 @@ function offPullRequest(s) {
 	return s.on_pull_request === false || IOS_SIMULATOR_RUN.test(String(s.run || ''));
 }
 
+/**
+ * The bigger runner a manual dispatch may ask for (`runner: xlarge`), and only for the iOS Simulator suites: the simulator
+ * is what outgrows the free 3-core, 7 GB macos-26 (#3523 trial: load 300-770 and 7-25 s docs-server freezes there; 5 of 6
+ * jobs green with no swapping on xlarge). It is billed per minute, so the owner keeps it ON DEMAND (2026-11-25): the nightly
+ * and pull requests never use it, whatever is passed.
+ */
+const XLARGE = { 'macos-26': 'macos-26-xlarge' };
+
 /** `everySuite` (for `npm run evidence`): on a pull request, count the off-PR suites too, since a dispatch runs them. */
-function plan(registry, { event, changed = [], suites = [], everySuite = false }) {
+function plan(registry, { event, changed = [], suites = [], everySuite = false, runner = 'standard' }) {
 	let selected = registry.suites;
 	if (event === 'workflow_dispatch') {
 		if (suites.length) selected = selected.filter((s) => suites.includes(s.name));
@@ -67,7 +75,9 @@ function plan(registry, { event, changed = [], suites = [], everySuite = false }
 	} // schedule, and anything else: every suite
 	// `docs_site`: the suite serves the built docs site (the iOS Studio and Playground probes). The workflow's `docs-site` job
 	// builds it once on Linux for every such suite, instead of each macOS job building its own (D1 B on #3034).
-	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why, docs_site: s.docs_site === true })));
+	const bigger = event === 'workflow_dispatch' && runner === 'xlarge';
+	const runOn = (s, os) => (bigger && IOS_SIMULATOR_RUN.test(String(s.run || '')) && XLARGE[os]) || os;
+	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os: runOn(s, os), run: s.run, why: s.why, docs_site: s.docs_site === true })));
 	return { include, count: include.length, docsSite: include.some((i) => i.docs_site) };
 }
 
@@ -86,7 +96,12 @@ if (require.main === module) {
 		console.error(`platform-suites-plan: unknown suite(s): ${unknown.join(', ')}. Known: ${registry.suites.map((s) => s.name).join(', ')}.`);
 		process.exit(1);
 	}
-	const result = plan(registry, { event: arg('event'), changed, suites: names });
+	const runner = arg('runner') || 'standard';
+	if (!['standard', 'xlarge'].includes(runner)) {
+		console.error(`platform-suites-plan: unknown runner "${runner}". Known: standard, xlarge.`);
+		process.exit(1);
+	}
+	const result = plan(registry, { event: arg('event'), changed, suites: names, runner });
 	const matrix = JSON.stringify({ include: result.include });
 	if (argv.includes('--github-output') && process.env.GITHUB_OUTPUT) {
 		fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\ncount=${result.count}\ndocs_site=${result.docsSite}\n`);
@@ -94,4 +109,4 @@ if (require.main === module) {
 	console.log(JSON.stringify(result, null, 2));
 }
 
-module.exports = { plan, globToRegExp, offPullRequest, IOS_SIMULATOR_RUN, PLUMBING };
+module.exports = { plan, globToRegExp, offPullRequest, IOS_SIMULATOR_RUN, PLUMBING, XLARGE };

@@ -578,6 +578,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   **except a suite marked `"on_pull_request": false`, which never runs on a pull request.** The iOS Simulator suites carry it
   (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the simulator, gating nothing. Their
   `paths` still say when a change reaches them, and `npm run evidence` prints the dispatch to run before the merge.
+- **Which machine:** every suite runs on the label its registry `os` names, and the iOS Simulator suites run on the free
+  `macos-26` (3 cores, 7 GB) every day. A manual dispatch can put **only the iOS Simulator suites** on the bigger
+  `macos-26-xlarge` (5 cores, 14 GB) for one run with `-f runner=xlarge` (the Run button's `runner` choice). It is **billed per
+  minute** even on this public repository, and the organization's $0 Actions budget blocks it once the plan's included compute is
+  used, so it is on demand only (owner, 2026-11-25): the nightly and pull requests ignore `runner`, and the build gate refuses
+  `macos-26-xlarge` in the registry, so no suite can name it and pay every night. Why it exists: on `macos-26` the iOS Studio
+  suites ran at load 300 to 770 with heavy swapping and docs-server freezes of 7 to 25 s; on `macos-26-xlarge` 5 of 6 jobs passed
+  with no swapping (#3523). The standard runner stays the daily driver until the Studio is simplified (#3525).
 - **Add one:** an entry in the registry with `name`, `os`, `paths`, `run`, a `why` that names the OS-dependent behavior Linux cannot
   show, and `on_pull_request: false` if it should run only nightly and on dispatch; then `npm run build:check` (`checkPlatformSuites`
   rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite that says `on_pull_request: true`).

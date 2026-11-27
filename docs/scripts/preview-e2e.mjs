@@ -41,6 +41,9 @@
  * `reuseExistingServer` is on outside CI, adopted it and tested a build from another
  * worktree entirely. Measured, not hypothetical.
  */
+import diagnosticsChannel from 'node:diagnostics_channel';
+import fs from 'node:fs';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { preview } from 'astro';
 
 const PORT = Number(process.env.PREVIEW_PORT || 4321);
@@ -57,6 +60,37 @@ const server = await preview({
 	server: { port: PORT, host: process.env.PREVIEW_HOST || undefined, headers: { 'Access-Control-Allow-Origin': '*' } },
 	vite: { preview: { strictPort: true } },
 });
+
+// SERVER-SIDE EVIDENCE, opt-in (PREVIEW_DIAG=<file>; the iOS suites set it, #3523). On a starved macOS runner the iOS probes
+// saw an 8.5 KB file take 11 s and loopback connects time out. These say whether THIS process was the slow part: the event
+// loop's delay every 5 s when it passed 100 ms, and every request that took 1 s or more or ended in an error, with its timing.
+if (process.env.PREVIEW_DIAG) {
+	const log = fs.createWriteStream(process.env.PREVIEW_DIAG, { flags: 'a' });
+	const t0 = Date.now();
+	const line = (s) => log.write(`+${((Date.now() - t0) / 1000).toFixed(1)}s ${s}\n`);
+	const loop = monitorEventLoopDelay({ resolution: 20 });
+	loop.enable();
+	setInterval(() => {
+		const max = loop.max / 1e6;
+		if (max > 100) line(`event loop delay: max ${Math.round(max)} ms, p99 ${Math.round(loop.percentile(99) / 1e6)} ms`);
+		loop.reset();
+	}, 5000).unref();
+	const started = new WeakMap();
+	diagnosticsChannel.subscribe('http.server.request.start', ({ request, response }) => {
+		started.set(response, { at: Date.now(), url: request.url });
+		request.on('error', (e) => line(`request error ${request.url}: ${e.code || e.message}`));
+		response.on('close', () => {
+			const s = started.get(response);
+			if (!response.writableFinished) line(`response closed before finishing: ${s?.url} after ${Date.now() - (s?.at ?? Date.now())} ms`);
+		});
+	});
+	diagnosticsChannel.subscribe('http.server.response.finish', ({ response }) => {
+		const s = started.get(response);
+		const ms = s ? Date.now() - s.at : -1;
+		if (ms >= 1000 || response.statusCode >= 400) line(`${response.statusCode} ${s?.url} ${ms} ms`);
+	});
+	line('server diagnostics on');
+}
 
 const shown = Array.isArray(server.urls?.local) ? server.urls.local[0] : server.urls?.local;
 console.log(`preview-e2e: serving ${shown || `http://localhost:${server.port}`} in the foreground`);
