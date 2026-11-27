@@ -59,7 +59,8 @@ describe('buildLatticePrimer — the authoring dossier', () => {
   test('lists a layout’s variants with a compose example', async () => {
     const { buildLatticePrimer } = await load();
     const p = buildLatticePrimer(SAMPLE);
-    assert.match(p, /Variants: banner-tag \(append to the class, e\.g\. `decision banner-tag`\)\./);
+    // Variants go in the record's `class=` since writers emit `@meta` (#3433); "append to the class" taught the comment form.
+    assert.match(p, /Variants: banner-tag \(add to `class=`, e\.g\. `@meta\{layout=decision, class=banner-tag\}`\)\./);
   });
 
   test('carries real slot contracts but skips generic "Slide heading." slots', async () => {

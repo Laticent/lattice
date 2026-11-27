@@ -124,6 +124,6 @@ export function languageDirective(code: string | null | undefined): string {
 	return (
 		`Write all natural-language prose — slide titles, body copy, speaker notes, and your chat replies — in ${lang.label}.${note} ` +
 		"Match that language's grammar, idiom, punctuation, and number/date conventions. Do not switch languages unless the author explicitly asks. " +
-		'Leave code, Lattice component names, and `_class` directives exactly as given — do not translate them.'
+		'Leave code, Lattice layout names, and `@meta{…}` records exactly as given — do not translate them.'
 	);
 }

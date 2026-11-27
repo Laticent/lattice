@@ -165,7 +165,7 @@ export const EDIT_PROTOCOL =
   'change, propose it as an EDIT BLOCK; the app shows them a diff and an Apply button ' +
   '(nothing changes until they click). Rules:\n' +
   '- Wrap the block in a TILDE fence — NEVER backticks. The slide inside will contain ' +
-  '```mermaid / ```chart fences, and a backtick wrapper collides with them. If the slide ' +
+  '```mermaid / ```math fences, and a backtick wrapper collides with them. If the slide ' +
   'you are editing carries its OWN ~~~ fence, make your wrapper LONGER than it (~~~~):\n' +
   '  ~~~lattice-edit slide=3\n' +
   '  <!-- @meta{layout=cards-grid} -->\n' +
@@ -173,7 +173,7 @@ export const EDIT_PROTOCOL =
   '  - Card title\n' +
   '    - body\n' +
   '  ~~~\n' +
-  '- `slide=N` replaces slide N — give the WHOLE slide (the `_class` line through its ' +
+  '- `slide=N` replaces slide N — give the WHOLE slide (its `@meta{…}` line through its ' +
   'last line). `after=N` inserts new slides after slide N (`after=0` prepends, ' +
   '`after=end` appends). `delete=N` removes slide N.\n' +
   '- An `after=` body MAY carry SEVERAL slides, separated by a `---` line on its own — ' +
