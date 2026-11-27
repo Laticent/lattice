@@ -20,5 +20,9 @@ needs it. Four specs export a deck through the CLI first, and the CLI runs the C
 `player-chart-reveal`, `code-copy-engines`, `collage-player-engines` and `export-subresource-engines`.
 On 2026-11-21, `npx playwright install chromium` (from `docs/`) made all 26 of those runs green.
 
+Re-checked 2026-11-27 on `main` at e0598ab6 (`@playwright/test` 1.65.1, a sandbox with no Chromium 1255):
+`cd docs && npm run test:e2e -- --project=webkit-tablet e2e/code-copy-engines.spec.ts` installed only WebKit,
+then failed with `Browser was not found at the configured executablePath (/opt/pw-browsers/chromium-1255/...)`.
+
 done when — `e2e-ensure-browsers.mjs` installs Chromium whenever a selected spec exports through the CLI,
 and the three-project command above passes in a fresh sandbox without a manual install.
