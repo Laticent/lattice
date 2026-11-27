@@ -3216,6 +3216,16 @@ line (session, PRs, why it qualified) to the owner's morning report. Born on 202
 session woke between the audit and the archive and was archived with `unpushed_work: true`: an
 archive acts only on a read taken just before it.
 
+**The 90% sweep, a fallback for auto-archive (the owner's standing rule, 2026-11-27).** The owner
+asked: "when we hit 90% usage we should archive completed sessions. this way we never have to find
+out and wake them up when we come back." When the usage watch sends its `usage 90` line, it adds one
+request: every session whose work is all finished replies to the command center with `done` and its
+check 4(b) git output. Each session is taking a turn at that moment anyway, so its cache is warm and
+the reply costs little. The command center then archives every replier that passes all six checks
+above, with the same fresh `get_session` right before each `archive_session`, and lists them for the
+owner. A session that does not reply, or whose reply is not clean, stays. A desk, the command center,
+a pinned session, or one with an open PR or a question for the owner, is never archived by the sweep.
+
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the one live session with that tag. If two or more live sessions hold
 it, the desk reports to none of them: it stops and asks the owner which one is the
