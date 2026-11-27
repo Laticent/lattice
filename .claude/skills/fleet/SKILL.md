@@ -54,8 +54,10 @@ stops one by itself. Contract: `engineering/workflow.md` §Relay, the usage watc
 command center). If it is missing, or bound to an archived command center, create it. Each run reads
 notifications, tells a session when its PR lands, nudges an idle session that has work left, and
 archives every session that passes the auto-archive checks in `engineering/workflow.md` §Desks,
-"Auto-archive". It never merges and never asks the owner anything while they are away. It never wakes
-a session only to ask about its git state: a session it cannot clear goes on the owner's list instead.
+"Auto-archive". It never merges and never asks the owner anything while they are away. When a
+session reports it is done, the command center asks it at once, while its cache is warm, for
+`git status -sb`, `git stash list` and its local-only commits; it never wakes a session idle past an
+hour to ask. A session it cannot clear goes on the owner's list instead.
 
 **Links, always.** Outside the board too, every PR this session names to the owner
 (a relay, a digest, an answer, a question) is `[#N](https://github.com/Laticent/lattice/pull/N)`

@@ -3167,19 +3167,25 @@ these hold, read fresh in the same run, with `get_session` called immediately be
 
 1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled task
    names it in `persistent_session_id`.
-2. It is idle, and its `updated_at` is at least 60 minutes old.
+2. It is idle, and its `updated_at` is at least 60 minutes old, or it has answered check 4(b)
+   since it last worked.
 3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its summary
    holds no `needs_action` and no question for the owner. A session with no PR must also say in
    its summary (`post_turn_summary`) that its task is finished; silence is not finished.
-4. `external_metadata.unpushed_work` is present and `false`. This fresh flag stands in for
-   check 3 above, where the session's own `git status -sb` reply would cost a full reload of its
-   context. When the flag is `true` or missing, the session stays, nobody wakes it to ask, and it
-   goes on the owner's list (a line in the command center's next report to the owner, the
-   morning report when the owner is away). A session can say it discarded its work while the flag still reads
-   `true`: the 2026-11-27 Compose session still held a local branch and a stash. The flag is
-   real but undocumented: `get_session` returned `"unpushed_work": true` for that session and
-   `"unpushed_work": false` for the Crash Issue session the same day, and some records leave it
-   out, which is why missing counts as not clear.
+4. Nothing is local, shown two ways. **(a)** `external_metadata.unpushed_work` is present and
+   `false`; `true` or missing means the session stays and goes on the owner's list (a line in
+   the command center's next report, the morning report when the owner is away). **(b)** The
+   session's own reply to `git status -sb`, `git stash list` and
+   `git log --oneline --branches --not --remotes` shows a clean tree, no stash and no local
+   commits. The flag alone is not enough: on 2026-11-27 this command center wrote an untracked
+   file into its own checkout and `get_session` still read `"unpushed_work": false`, so the flag
+   missed an untracked file (at least while that turn was still running; whether it catches up
+   at the turn's end is not known). To keep (b) cheap, the command center asks for it while the
+   session's cache is still warm, right after the session reports it is done (its standup, its
+   "nothing left"), never by waking one that has sat idle past an hour. A session idle past an
+   hour with no such reply on record stays, and goes on the owner's list. A session can also say it
+   discarded its work while it still holds some: the 2026-11-27 Compose session still held a
+   local branch and a stash, and its flag read `true`.
 5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
    `main` (`followups.d/`), in an open issue, or in a comment on one of its PRs. The command
    center reads the summary and checks those places; if a named item cannot be found, or the
