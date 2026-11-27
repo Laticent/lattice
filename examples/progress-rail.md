@@ -43,7 +43,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 <!-- _header: '' -->
 
 ## Where it sits

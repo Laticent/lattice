@@ -42,9 +42,11 @@ section:is(.form, .divider) {
   --_rail-on: var(--text-heading);
   --_rail-off: color-mix(in srgb, var(--muted-mark) 50%, transparent);
 }
-section.divider:not(.light) {
-  --_rail-on: var(--text-display);
-  --_rail-off: color-mix(in srgb, var(--text-display) 35%, transparent);
+section.divider {
+  /* The divider's field follows the mode (base.modifiers.css): its ink is `--on-accent` on the
+   * light accent and the panel's light ink on the dimmed dark one. */
+  --_rail-on: light-dark(var(--on-accent), var(--_bk-on-primary));
+  --_rail-off: color-mix(in srgb, light-dark(var(--on-accent), var(--_bk-on-primary)) 35%, transparent);
 }
 :is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot {
   width: calc(0.85cqi * var(--_mk, 1));

@@ -1,12 +1,12 @@
 # closing
 
-> Final slide. Dark canvas mirror of title.
+> Final slide. The mirror of title, in the same color mode.
 
 **Function** anchor · **Form** bookend · **Substance** prose
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -26,13 +26,13 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 - **`qr`.** The audience should leave with a scannable link (docs URL, contact card) rather than just a text call-to-action.
 - **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence.
 - **`spectrum`.** `title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time.
-- **`cover-masthead`.** A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover: masthead`, so the front cover matches.
-- **`cover-ledger`.** A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover: ledger`, so the front cover matches.
-- **`cover-column`.** An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover: column`, so the front cover matches.
-- **`cover-label`.** A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover: label`, so the front cover matches.
-- **`cover-stage`.** The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover: stage`, so the front cover matches.
-- **`cover-frame`.** The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover: frame`, so the front cover matches.
-- **`cover-poster`.** A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover: poster`, so the front cover matches.
+- **`cover-masthead`.** A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover-layout: masthead`, so the front cover matches.
+- **`cover-ledger`.** A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover-layout: ledger`, so the front cover matches.
+- **`cover-column`.** An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover-layout: column`, so the front cover matches.
+- **`cover-label`.** A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover-layout: label`, so the front cover matches.
+- **`cover-stage`.** The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover-layout: stage`, so the front cover matches.
+- **`cover-frame`.** The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover-layout: frame`, so the front cover matches.
+- **`cover-poster`.** A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover-layout: poster`, so the front cover matches.
 
 ### Common mistakes
 
@@ -42,7 +42,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 
 ## When to use
 
-- **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The dark canvas tells the audience visually that the presentation is over.
+- **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The return of the cover tells the audience visually that the presentation is over.
 - **Single takeaway line.** The h2 is the slide. Keep it to one editorial line that summarizes the whole deck or names the action the audience should take. The eyebrow can carry a sub-line or link.
 - **Accent modifier for emphasis.** Pair with the universal `accent` modifier to recolor the focal heading. Useful when the closing line is a quote or a key decision the deck has been building toward.
 
@@ -214,8 +214,8 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 ## Related components
 
-- [`title`](../../anchor/title/title.docs.md) — opens the deck — same dark-bookend chrome
-- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — same dark canvas
+- [`title`](../../anchor/title/title.docs.md) — opens the deck — the same cover, in the same mode
+- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — the bookend on the accent field
 - [`big-number`](../../statement/big-number/big-number.docs.md) — single emphatic statement mid-deck without the bookend signal
 
 ## Demo deck

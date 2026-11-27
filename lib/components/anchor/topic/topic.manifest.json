@@ -88,7 +88,7 @@
   "antiPatterns": [
     {
       "title": "A section with one topic, or with ten",
-      "body": "Below two the track is suppressed and the slide is a `divider light` with extra chrome — use `divider light`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`."
+      "body": "Below two the track is suppressed and the slide is a `divider subsection` with extra chrome — use `divider subsection`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`."
     },
     {
       "title": "A full sentence as the heading",
@@ -124,7 +124,7 @@
     },
     {
       "mistake": "Expecting a track on a topic slide that sits before the deck's first `divider`.",
-      "fix": "The track is scoped to a section, and a section starts at a `divider` — any divider, `light` included, matching how the section progress rail counts. A topic slide with no divider above it renders as a single dark canvas — the band, the seam and the shelf reserve are all dropped, so it composes rather than reserving room for a track that is not there. It keeps the DEFAULT type hierarchy; it does NOT become `fact`."
+      "fix": "The track is scoped to a section, and a section starts at a `divider` — any divider, `subsection` included, matching how the section progress rail counts. A topic slide with no divider above it renders as a single dark canvas — the band, the seam and the shelf reserve are all dropped, so it composes rather than reserving room for a track that is not there. It keeps the DEFAULT type hierarchy; it does NOT become `fact`."
     },
     {
       "mistake": "Reaching for `fact` and leaving the claim as a fragment or a label.",

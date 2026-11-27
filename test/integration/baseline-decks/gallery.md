@@ -28,9 +28,9 @@ A decision framework for product leaders navigating market uncertainty, quarterl
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 <!-- _header: '' -->
-<!-- _footer: "Centered orientation · divider light" -->
+<!-- _footer: "Centered orientation · divider subsection light" -->
 
 `Module 02`
 
@@ -927,7 +927,7 @@ Somebody renumbered this deck at one in the morning, once. The sections number t
 
 ---
 
-<!-- _class: divider light numbered -->
+<!-- _class: divider subsection light numbered -->
 <!-- _header: '' -->
 <!-- _footer: "Modifier — divider light numbered · divider light numbered" -->
 

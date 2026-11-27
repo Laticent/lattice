@@ -1,12 +1,12 @@
 # title
 
-> Opening slide. Dark canvas, centered, no chrome.
+> Opening slide. Centered, no chrome; follows the color mode, on the brand panel in dark.
 
 **Function** anchor · **Form** bookend · **Substance** prose
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -29,8 +29,8 @@ First slide of every deck. Sets the topic and the visual tone. Drops the running
 
 ## When to use
 
-- **First slide of every deck.** Sets topic, audience, and visual tone in one glance. The dark canvas anchors the deck visually so subsequent slides feel like a continuous document.
-- **Brand or section bookends.** Pair with `divider` (mid-deck section breaks) and `closing` (the final slide) for the full anchor trio. All three share the dark-bookend treatment.
+- **First slide of every deck.** Sets topic, audience, and visual tone in one glance. The cover anchors the deck visually so subsequent slides feel like a continuous document; in dark it paints the theme's brand panel.
+- **Brand or section bookends.** Pair with `divider` (mid-deck section breaks) and `closing` (the final slide) for the full anchor trio. All three follow the color mode: the covers on the canvas or the brand panel, the divider on the accent.
 - **Pitch and proposal openings.** When the audience needs the headline and the framing line before any data. The subtitle paragraph is where the framing line goes.
 
 ## When NOT to use
@@ -185,7 +185,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 ## Related components
 
-- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — same dark-bookend chrome
+- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — the third bookend, on the accent field
 - [`closing`](../../anchor/closing/closing.docs.md) — the final slide — closes the bookend pair
 
 ## Demo deck

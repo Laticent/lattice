@@ -237,20 +237,27 @@ describe('contrast', () => {
     .filter((d) => fs.existsSync(path.join(__dirname, '..', '..', '..', 'themes', d, `${d}.css`)));
   // The token alone is not what renders: the rule in base.modifiers.css points the three chrome inks at it. Without
   // the rule the chrome reads --text-muted again, and the token test above would still pass.
-  test('contrast: the bookend rule points header, footer and page number at --on-inverse-muted', () => {
+  test('contrast: the bookend chrome follows the field: muted ink on a cover, the field\'s ink on a divider', () => {
+    // The bookends follow the color mode (2026-11-23-cover-layout.md). A cover's band takes the canvas's
+    // muted ink in light and the panel's (`--on-inverse-muted`, the loop below measures it) in dark; a
+    // divider's takes `--on-accent` on its light accent field and the panel's primary ink on the dimmed one.
     const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-    // `cover-light` (the light cover, lib/core/resolve-cover.js) is carved out inside the `:where()`, so the rule
-    // still weighs (0,1,1); a light cover keeps the light canvas's own chrome ink.
-    const at = css.indexOf('section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {');
-    assert.ok(at >= 0, 'the bookend chrome rule is missing from base.modifiers.css');
-    const body = css.slice(at, css.indexOf('}', at));
+    const body = (sel) => {
+      const at = css.indexOf(`${sel} {`);
+      assert.ok(at >= 0, `the bookend chrome rule \`${sel}\` is missing from base.modifiers.css`);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    const cover = body('section:where(.title, .closing):not(.print)');
+    const divider = body('section:where(.divider):not(.print)');
     for (const v of ['header', 'footer', 'pagination']) {
-      assert.match(body, new RegExp(`--marp-slide-${v}-color:\\s*var\\(--on-inverse-muted,`), `--marp-slide-${v}-color`);
+      assert.match(cover, new RegExp(`--marp-slide-${v}-color:\\s*light-dark\\(var\\(--text-muted\\), var\\(--_bk-on-muted\\)\\)`), `cover --marp-slide-${v}-color`);
+      assert.match(divider, new RegExp(`--marp-slide-${v}-color:\\s*light-dark\\(var\\(--on-accent\\), var\\(--_bk-on-primary\\)\\)`), `divider --marp-slide-${v}-color`);
     }
+    assert.match(css, /--_bk-on-muted:\s*var\(--on-inverse-muted, var\(--text-muted\)\)/, 'the dark arm is the theme\'s panel chrome ink');
   });
   for (const name of themeNames) {
     for (const mode of ['light', 'dark']) {
-      test(`contrast: ${name} (${mode}) bookend chrome clears AA on --surface-inverse`, () => {
+      test(`contrast: ${name} (${mode}) dark-cover chrome clears AA on --surface-inverse`, () => {
         const vars = loadPaletteWithImports(name, mode);
         const dark = loadPaletteWithImports(name, 'dark');
         const panel = vars['surface-inverse'];

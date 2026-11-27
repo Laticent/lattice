@@ -11,14 +11,14 @@ header: "Lattice · title"
 
 `Anchor · Bookend · Prose`
 
-Opening slide. Dark canvas, centered, no chrome.
+Opening slide. Centered, no chrome; follows the color mode, on the brand panel in dark.
 
 ---
 
 <!-- _class: title silent -->
 <!-- _footer: "Default · title" -->
 
-# The title slide opens on the dark canvas.
+# The title slide opens the deck.
 
 `anchor · title · the deck's first breath`
 
@@ -143,5 +143,5 @@ A poster headline, heavy, tight and set left.
 
 `Related components`
 
-- `divider` — mid-deck section breaks — same dark-bookend chrome
+- `divider` — mid-deck section breaks — the third bookend, on the accent field
 - `closing` — the final slide — closes the bookend pair

@@ -21,7 +21,7 @@ Six anchors. Five variants per anchor. Pick the strongest of each row.
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 <!-- _footer: "Orientation · divider light" -->
 
 `How to read this deck`

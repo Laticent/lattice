@@ -14,7 +14,7 @@ header: "Lattice · slides from headings"
 There's nothing to set — every `##` is a slide by default, so a deck reads like
 a document, with no `---` to remember or forget.
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 ## Headings already mark your slides.
 

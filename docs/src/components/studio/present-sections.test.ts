@@ -51,17 +51,21 @@ test('present-sections: the leading cover run before the first divider is a NAME
 	assert.deepEqual(secs[1], { name: 'Body', start: 2, count: 2 });
 });
 
-test('present-sections: a dark multi-class divider is a boundary; `divider light` is NOT', () => {
-	// A dark `divider` (with any extra modifiers like `numbered`) opens a section…
+test('present-sections: a divider in either mode is a boundary; `divider subsection` is NOT', () => {
+	// A `divider` (with any extra modifiers like `numbered`) opens a section…
 	const dark = sectionsFromSlides([slide('title', 'Deck'), slide('divider numbered', 'The model'), slide('', 'x')]);
 	assert.equal(dark.length, 2);
 	assert.equal(dark[1].name, 'The model');
 	assert.equal(dark[1].start, 1);
-	// …but `divider light` is a within-section waypoint (divider.docs.md), never a section start,
-	// so a deck whose only "divider" is a light one stays ONE flat, nameless section.
-	const light = sectionsFromSlides([slide('title', 'Deck'), slide('divider light', 'Narrowing'), slide('', 'x')]);
-	assert.equal(light.length, 1);
-	assert.deepEqual(light[0], { name: '', start: 0, count: 3 });
+	// …and so does `divider light`: `light` is the color mode since 2026-11-23, not the small layout.
+	const light = sectionsFromSlides([slide('title', 'Deck'), slide('divider light', 'Part two'), slide('', 'x')]);
+	assert.equal(light.length, 2);
+	assert.equal(light[1].name, 'Part two');
+	// …but `divider subsection` is a within-section waypoint (divider.docs.md), never a section start,
+	// so a deck whose only "divider" is a subsection stays ONE flat, nameless section.
+	const sub = sectionsFromSlides([slide('title', 'Deck'), slide('divider subsection light', 'Narrowing'), slide('', 'x')]);
+	assert.equal(sub.length, 1);
+	assert.deepEqual(sub[0], { name: '', start: 0, count: 3 });
 });
 
 test('present-sections: a boundary slide with no heading falls back to Section N', () => {
@@ -98,9 +102,10 @@ test('present-sections: sectionNameOf returns the section name (or empty for fla
 });
 
 describe('a slide record is a section break as its `_class` comment is (meta record step 3)', () => {
-	it('reads `{layout=divider}`, and not `{layout=divider, class=light}`', () => {
+	it('reads `{layout=divider}`, and not `{layout=divider, class=subsection}`', () => {
 		expect(isSectionBoundary('<!-- {layout=divider} -->\n\n## Part two')).toBe(true);
-		expect(isSectionBoundary('<!-- {layout=divider, class=light} -->\n\n## Part two')).toBe(false);
+		expect(isSectionBoundary('<!-- {layout=divider, class=light} -->\n\n## Part two')).toBe(true);
+		expect(isSectionBoundary('<!-- {layout=divider, class=subsection} -->\n\n## Part two')).toBe(false);
 	});
 });
 
@@ -130,5 +135,5 @@ describe('present-sections: a class set twice', () => {
 
 test('present-sections: a quoted divider opens a section, as the engine reads it', () => {
 	expect(isSectionBoundary('<!-- _class: "divider" -->\n\n# A')).toBe(true);
-	expect(isSectionBoundary("<!-- _class: 'divider light' -->\n\n# A")).toBe(false);
+	expect(isSectionBoundary("<!-- _class: 'divider subsection' -->\n\n# A")).toBe(false);
 });

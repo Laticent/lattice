@@ -105,7 +105,7 @@ test('themeDualMode splits a light base + a dark override, FLATTENING var() indi
 	assert.match(attrRule, /--code:var\(--accent\)/, 'a var() pointing at a same-block dark token is KEPT (resolves within the dark block)');
 	// The tokens are set on :root AND directly on the slide sections (belt-and-suspenders
 	// for an engine that repaints :root but doesn't re-propagate to deep section subtrees).
-	assert.match(attrRule, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\):not\(\.print\)\{/, 'the dark tokens are set on :root AND directly on every UNPINNED slide section');
+	assert.match(attrRule, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)\{/, 'the dark tokens are set on :root AND directly on every UNPINNED slide section');
 	// The @media block is the SYSTEM-scheme rule (a deck exported with the author's
 	// 'system' choice follows the receiver's OS). It keys on =system — NOT :not([=light]) —
 	// so a pinned light/dark export is never touched by the receiver's OS. Note the space
@@ -180,13 +180,9 @@ test('themeDualMode flattens against `:root` ONLY — a component-scoped decl ne
 //                               class; reachable with JavaScript switched off.
 // `lint:deck` warns about that spelling, which is a fair reason to call the case rare and no
 // reason at all to describe it wrongly — twice.
-const restoreSel = (pin) => {
-	if (pin === '.print') return `section[data-lattice-slide]${pin}`;
-	const carve = pin === '.light'
-		? ':not(.title):not(.closing)'
-		: ':not(.title):not(.closing):not(.divider)';
-	return `section[data-lattice-slide]${pin}${carve}`;
-};
+// No carve since 2026-11-23: no slide is forced dark, so every pinned slide, a bookend included,
+// is restored (engineering/decisions/2026-11-23-cover-layout.md).
+const restoreSel = (pin) => `section[data-lattice-slide]${pin}`;
 
 test('hoistInlineLightDark collapses an inline style to its light arm and re-applies the dark one', () => {
 	const { JSDOM } = require('jsdom');
@@ -203,7 +199,7 @@ test('hoistInlineLightDark collapses an inline style to its light arm and re-app
 	assert.match(css, /:root\[data-lp-scheme=dark\] \.lp-sd-0\{stop-color:color-mix\(in oklab, var\(--h\) var\(--top-d\), black\)!important\}/);
 	// Every scope the token block carries: the viewer's choice, a pinned-dark slide in ANY
 	// scheme, the no-JS system fallback, and the restore for a slide pinned light or to print.
-	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\) \.lp-sd-0\{/);
+	assert.match(css, /section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\) \.lp-sd-0\{/);
 	assert.match(css, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\] \.lp-sd-0\{/);
 	for (const pin of ['.light', '.color-light', '.print']) {
 		assert.ok(
@@ -406,9 +402,9 @@ test('hoistRuleLightDark splices a slide pin INTO a section-subject selector, no
 		darkBlock,
 		new RegExp(
 			[
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\)\.title\.spectrum::before`,
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title:not\(\.cover-light\)\.title\.spectrum::before`,
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing:not\(\.cover-light\)\.title\.spectrum::before\{`,
+				// One arm since 2026-11-23: the bookend arms left with the force-dark rule. The
+				// splice is still per arm, so an arm added back is held to this too.
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)\.title\.spectrum::before\{`,
 			].join(','),
 		),
 		'the pin is spliced into EVERY arm, not just the last — a comma list carries no suffix',
@@ -421,9 +417,7 @@ test('hoistRuleLightDark splices a slide pin INTO a section-subject selector, no
 		descendant,
 		new RegExp(
 			[
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\) \.card`,
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title:not\(\.cover-light\) \.card`,
-				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing:not\(\.cover-light\) \.card\{`,
+				String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\) \.card\{`,
 			].join(','),
 		),
 		'the descendant form reaches every arm',
@@ -501,7 +495,7 @@ test('themeDualMode flattens a real-property dark arm through the same :root map
 	// `--edge` is scheme-blind, so both arms flatten to the same value: the pair costs no token,
 	// and its declaration is left in the base exactly as the plain light collapse left it.
 	assert.match(base, /box-shadow:0 1px var\(--edge\)/, 'a pair whose arms resolve alike emits no token');
-	assert.equal((darkBlock.match(/--lp-ld-/g) || []).length, 18, 'one token per scheme scope: dark, four light pins (`.light`, `.color-light`, `.cover-light`, `.print`), the dark-slide pin, the first five again under the system media query, and the seven no-JS flip scopes (dark + four pins, light, system light)');
+	assert.equal((darkBlock.match(/--lp-ld-/g) || []).length, 15, 'one token per scheme scope: dark, three light pins (`.light`, `.color-light`, `.print`), the dark-slide pin, the first four again under the system media query, and the six no-JS flip scopes (dark + three pins, light, system light). `.cover-light` left the pins on 2026-11-23 (2026-11-23-cover-layout.md)');
 });
 
 test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
@@ -531,9 +525,11 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	// Follows the OS, so the rules must reach it.
 	assert.ok(reaches(['color-system', 'content']), 'an ordinary system slide follows the receiver');
 	// Permanently dark whatever the OS says — the engine forces color-scheme: dark on these.
-	assert.ok(!reaches(['color-system', 'title']), 'a title bookend is a dark panel, not a system canvas');
-	assert.ok(!reaches(['color-system', 'closing']), 'a closing bookend is a dark panel');
-	assert.ok(!reaches(['color-system', 'divider']), 'a divider is a dark panel');
+	// The bookends follow the scheme now (2026-11-23-cover-layout.md), so their mark follows it
+	// too: a system deck's title, closing and divider take the inverse mark in the dark scheme.
+	assert.ok(reaches(['color-system', 'title']), 'a title follows the system scheme, and so does its mark');
+	assert.ok(reaches(['color-system', 'closing']), 'a closing follows it too');
+	assert.ok(reaches(['color-system', 'divider']), 'and so does a divider');
 	// Permanently LIGHT — a pin, or the bright divider variant that replaces the canvas.
 	assert.ok(!reaches(['color-system', 'light']), 'a pinned-light slide is light whatever the OS says');
 	assert.ok(!reaches(['color-system', 'color-light']), 'a color-light slide is light whatever the OS says');
@@ -550,38 +546,6 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	// ONLY behavior change in the commit that added it and nothing tested it: reverting
 	// `:not(.dark)` alone left 9,509 unit tests and 156 integration tests green.
 	assert.ok(!reaches(['color-system', 'dark']), 'an author-pinned dark slide is dark whatever the OS says');
-});
-
-test('every ALWAYS_DARK `unless` is single-class and space-free', () => {
-	// THE CARVE-OUT FILTER IS A STRING TEST, and it is right for today's data only. It asks
-	// whether an entry's `unless` contains `:not(<pin>)`. The trailing paren defeats the
-	// obvious substring hazard — `:not(.color-light)` is correctly NOT dropped for `.light` —
-	// but two re-spellings CSS would happily accept break it in the unsafe direction:
-	// `:not(.light, .bright)` and `:not( .light )` both fail to match, so `.divider` stays in
-	// the `.light` carve-out and a bright divider takes the dark token block in the player's
-	// dark scheme. Measured, that is a FIDELITY break, not an illegibility one: the player
-	// renders it 17.16:1 white-on-dark where the engine renders 18.13:1 dark-on-white. A draft
-	// of this comment said "over its own white canvas", which is wrong —
-	// `section.divider.light` sets `background: var(--bg)`, so the ground moves with the ink.
-	//
-	// Nothing else pins this, and the failure is silent. So the grammar is the assertion.
-	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
-	// Recover the entries from the emitted unconditional block rather than importing them —
-	// an expectation derived from the code under test follows that code anywhere it goes.
-	// The recovery regex assumes `.title` leads the block. Reordering ALWAYS_DARK is harmless
-	// and would make this return null, so it says so rather than dying on a bare null deref —
-	// a test whose failure names nothing costs the next reader the same hour twice.
-	const found = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/);
-	assert.ok(found,
-		'could not find the unconditional always-dark block by its leading `.title` arm — if '
-		+ 'ALWAYS_DARK was reordered this regex needs updating, not the source');
-	const arms = found[1].split(',');
-	assert.ok(arms.length >= 2, `expected several always-dark arms, got ${arms.length}`);
-	for (const arm of arms) {
-		const unless = arm.replace(/^section\[data-lattice-slide\]\.[a-z-]+/, '').replace(':not(.print)', '');
-		assert.match(unless, /^(:not\(\.[a-zA-Z0-9_-]+\))*$/,
-			`an ALWAYS_DARK \`unless\` must be a chain of single-class, space-free :not() — got '${unless}' in '${arm}'`);
-	}
 });
 
 test('the color-system rules carry a light-scheme RESET, not just a dark arm', () => {
@@ -605,79 +569,39 @@ test('the color-system rules carry a light-scheme RESET, not just a dark arm', (
 		'a viewer who defers follows the OS');
 });
 
-test('the unconditional dark block mirrors the engine force-dark set WHOLE', () => {
-	// The engine forces color-scheme: dark on `section:is(.title, .closing):not(.print)` AND
-	// on `section.divider:not(.light):not(.print)`. The first cut of the unconditional block
-	// copied the two bookends and dropped the divider, so a divider kept the 1.61:1 ink the
-	// block exists to fix — measured on a real --player export, default scheme.
+test('no bookend is forced dark: title, closing and divider take the slide\'s scheme like any slide', () => {
+	// SINCE 2026-11-23 (engineering/decisions/2026-11-23-cover-layout.md) the engine forces no
+	// `color-scheme: dark` on a bookend; it repaints field and inks with `light-dark()` under the
+	// slide's own scheme. The player must model the same set, or it hands a light cover the dark
+	// token block (a dark ground under the light-canvas inks the cover now reads in light). Until
+	// then this file pinned the opposite: an unconditional always-dark block led by `.title`, and a
+	// `title light dark` slide kept dark. Both are asserted gone here, with the browser's matcher.
 	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
-	const sel = darkBlock.match(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/)[1];
+	assert.doesNotMatch(darkBlock, /\}section\[data-lattice-slide\]\.(title|closing|divider)/, 'no unconditional always-dark block');
 	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
 	const el = document.querySelector('section');
-	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
-
-	assert.ok(reaches(['title']), 'a title is a dark panel in every scheme');
-	assert.ok(reaches(['closing']), 'a closing is a dark panel in every scheme');
-	assert.ok(reaches(['divider']), 'a divider is a dark panel in every scheme');
-	assert.ok(!reaches(['divider', 'light']), 'divider.light replaces the canvas and stays light');
-	assert.ok(!reaches(['title', 'print']), 'a printed bookend is paper');
-	assert.ok(!reaches(['content']), 'an ordinary slide is not forced dark');
-});
-
-test('a BOOKEND keeps the dark canvas even when it is also pinned light', () => {
-	// THE REGRESSION THIS PINS, and it shipped a blank slide. The engine has a rule the player
-	// does not model: `section:is(.title, .closing):not(.print)` forces `color-scheme: dark`
-	// and the on-dark panel EVEN WITH `.light` present, because a bookend IS a dark panel.
-	// Subtracting the whole pin set from the dark rule therefore stripped --bg and every ink
-	// from a `title light dark` slide while its ink stayed on-dark: white on white, 1.00:1,
-	// measured by tools/check-player-contrast.js as two NEW below-AA runs in the AS-EXPORTED
-	// view — the one a recipient opens.
-	//
-	// Asserted by MATCHING A REAL ELEMENT, not by reading the selector text. The text was
-	// already asserted above and still shipped the defect; what matters is which slides the
-	// rule reaches, and the browser's own matcher is the only honest judge of that.
-	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
-	const sel = darkBlock.match(/^(section\[data-lattice-slide\][^{]*)\{/)[1];
-	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
-	const el = document.querySelector('section');
-	const reaches = (classes) => { el.className = classes.join(' '); return el.matches(sel); };
-
-	assert.ok(reaches(['dark']), 'a plain .dark slide must get the dark tokens');
-	assert.ok(reaches(['dark', 'light', 'title']), 'a `title light dark` bookend must stay dark');
-	assert.ok(reaches(['dark', 'light', 'closing']), 'a `closing light dark` bookend must stay dark');
-	assert.ok(!reaches(['dark', 'light']), 'an ordinary `dark light` slide must be pinned light');
-	assert.ok(!reaches(['dark', 'color-light']), 'an ordinary `dark color-light` slide must be pinned light');
-	assert.ok(!reaches(['dark', 'print']), 'the print band always wins, bookend or not');
-	assert.ok(!reaches(['dark', 'title', 'print']), 'a PRINTED bookend is paper, not a dark panel');
-});
-
-test('a LIGHT COVER (`cover-light`) is never forced dark, and is restored to light in the dark scheme', () => {
-	// `cover: light` (lib/core/resolve-cover.js) paints title and closing on the light canvas in
-	// every scheme, as `divider light` does. The engine carves `.cover-light` out of its force-dark
-	// bookend rule; the player must too, or a light cover takes the dark token block (dark ground,
-	// on-light ink). Asserted with the browser's matcher, as the bookend test above is.
-	const { darkBlock } = themeDualMode(':root{--bg:light-dark(#FFFFFF,#001D33)}');
-	const { document } = new JSDOM('<section data-lattice-slide="1"></section>').window;
-	const el = document.querySelector('section');
-	const ruleSel = (re) => darkBlock.match(re)[1];
 	const reaches = (sel, classes) => { el.className = classes.join(' '); return el.matches(sel); };
-	// The unconditional always-dark block (light scheme too).
-	const alwaysDark = ruleSel(/\}(section\[data-lattice-slide\]\.title[^{]*)\{/);
-	assert.ok(reaches(alwaysDark, ['title']), 'a plain title is still a dark panel');
-	assert.ok(!reaches(alwaysDark, ['title', 'cover-light']), 'a light title cover is not forced dark');
-	assert.ok(!reaches(alwaysDark, ['closing', 'cover-light']), 'a light closing cover is not forced dark');
-	assert.ok(reaches(alwaysDark, ['title', 'light']), '`title light` keeps its meaning: still a dark panel');
-	// The pinned-dark block (a `.dark` slide, or every slide of a deck-wide dark deck).
-	const darkSlide = ruleSel(/^(section\[data-lattice-slide\][^{]*)\{/);
-	assert.ok(reaches(darkSlide, ['dark', 'title']), 'a dark title stays dark');
-	assert.ok(!reaches(darkSlide, ['dark', 'title', 'cover-light']), 'a dark-deck light cover is not dark');
-	// The dark scheme: the blanket rule skips it and the restore gives it the light values.
+	// The pinned-dark block: a `.dark` slide, or every slide of a dark deck.
+	const darkSlide = darkBlock.match(/^(section\[data-lattice-slide\][^{]*)\{/)[1];
+	for (const b of ['title', 'closing', 'divider']) {
+		assert.ok(reaches(darkSlide, ['dark', b]), `a dark ${b} is dark`);
+		assert.ok(!reaches(darkSlide, [b]), `an unpinned ${b} is not forced dark`);
+		assert.ok(!reaches(darkSlide, ['dark', 'light', b]), `a ${b} pinned light is light, as on a content slide`);
+		assert.ok(!reaches(darkSlide, ['dark', 'print', b]), `a printed ${b} is paper`);
+	}
+	assert.ok(!reaches(darkSlide, ['dark', 'color-light']), 'an ordinary `dark color-light` slide is pinned light');
+	// The dark scheme: the blanket rule reaches an unpinned bookend, and the restore gives a
+	// light-pinned one its light values, exactly as on a content slide.
+	const blanket = darkBlock.match(/:root\[data-lp-scheme=dark\],(:root\[data-lp-scheme=dark\] section\[data-lattice-slide\][^{,]*)\{/)[1]
+		.replace(/^:root\[data-lp-scheme=dark\] /, '');
 	const restore = darkBlock.match(/(:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light[^{]*)\{--bg:#FFFFFF;\}/)[1];
 	const inScheme = (sel, classes) => sel.split(',').some((arm) => reaches(arm.replace(/^:root\[data-lp-scheme=dark\] /, ''), classes));
-	assert.ok(inScheme(restore, ['title', 'cover-light']), 'a light cover is restored to light when the viewer picks dark');
-	assert.ok(inScheme(restore, ['closing', 'cover-light']), 'and so is the closing');
-	assert.ok(!inScheme(restore, ['title']), 'a plain title is not restored to light');
-	assert.ok(!inScheme(restore, ['cover-light', 'print']), 'the print band keeps its own remap');
+	for (const b of ['title', 'closing', 'divider']) {
+		assert.ok(reaches(blanket, [b]), `an unpinned ${b} turns dark with the viewer`);
+		assert.ok(inScheme(restore, [b, 'light']), `a ${b} pinned light stays light when the viewer picks dark`);
+		assert.ok(!inScheme(restore, [b]), `an unpinned ${b} is not restored to light`);
+	}
+	assert.ok(!inScheme(restore, ['title', 'light', 'print']), 'the print band keeps its own remap');
 });
 
 test('themeDualMode honors a slide-level color-scheme PIN in both player schemes', () => {
@@ -696,12 +620,10 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 		new RegExp(
 			'^' +
 				[
-					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\)`,
-					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title:not\(\.cover-light\)`,
-					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing:not\(\.cover-light\)\{--bg:#001D33;`,
+					String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)\{--bg:#001D33;`,
 				].join(','),
 		),
-		'a .dark slide carries the dark values in EVERY player scheme, on all three arms',
+		'a .dark slide carries the dark values in EVERY player scheme (one arm: no bookend is re-admitted since 2026-11-23)',
 	);
 	// THE EXCLUSION SET IS THE WHOLE PIN SET, not just the print band. `:not(.print)` was
 	// never decoration: without it this rule outranks `section.print` (0,1,1), so a
@@ -718,20 +640,14 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// …and the bookends are re-admitted, because the engine keeps a `title`/`closing` panel
 	// dark even when the slide is pinned light. Subtracting the pin set WITHOUT that carve-out
 	// shipped a blank `title light dark` slide — white ink on white, 1.00:1.
-	for (const arm of [
-		String.raw`\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\)`,
-		String.raw`\.dark:not\(\.print\)\.title:not\(\.cover-light\)`,
-		String.raw`\.dark:not\(\.print\)\.closing:not\(\.cover-light\)`,
-	]) {
-		assert.match(darkBlock, new RegExp(arm),
-			'the .dark pin yields to a pinned-light slide and the print band, but not to a bookend');
-	}
+	assert.doesNotMatch(darkBlock, /\.dark:not\(\.print\)\.(title|closing)/,
+		'the .dark pin yields to a pinned-light slide and the print band, bookend or not (2026-11-23-cover-layout.md)');
 	// WHICH SLIDES that reaches is asserted separately, against a real matcher — see
 	// 'a BOOKEND keeps the dark canvas even when it is also pinned light'. This arm only
 	// checks the text, and the text was already right once while the behavior was wrong.
 
 	// The blanket dark rule skips every pinned section, so a pin is never overridden…
-	assert.match(darkBlock, /section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\):not\(\.print\)/, 'the blanket dark rule applies only to UNPINNED sections');
+	assert.match(darkBlock, /section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)/, 'the blanket dark rule applies only to UNPINNED sections');
 	// …and a light-pinned section is restored to the LIGHT literals when the player is dark.
 	// These carry `:not(.print)` for the same reason the `.dark` rule above does: a slide can
 	// hold BOTH classes (a `color-mode: print` deck with a `_class: … light` slide renders
@@ -740,7 +656,7 @@ test('themeDualMode honors a slide-level color-scheme PIN in both player schemes
 	// dark silently replaced the B&W-safe print band with the theme's light colors.
 	assert.match(
 		darkBlock,
-		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:not\(\.title\):not\(\.closing\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:not\(\.title\):not\(\.closing\):not\(\.divider\):not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.cover-light:not\(\.divider\):not\(\.print\)\{--bg:#FFFFFF;\}/,
+		/:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.light:not\(\.print\),:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\.color-light:not\(\.print\)\{--bg:#FFFFFF;\}/,
 		'a light-pinned slide keeps light values while the player is dark, without overriding the print band',
 	);
 	// `.print` gets no restore rule of its own: `section.print` already remaps the whole band
@@ -837,8 +753,9 @@ test('themeDualMode takes the LAST declaration of a derived token, as the cascad
 	for (const b of blocks) {
 		assert.equal((b.match(/--ink:/g) || []).length, 1, `a scope emits --ink once: ${b}`);
 	}
-	assert.equal(blocks.length, 10,
-		'ten scopes carry it: the .dark pin, the bookends, dark-root, dark-root restore, '
+	// It moved again on 2026-11-23, back to nine: no bookend is a dark panel in every scheme any more.
+	assert.equal(blocks.length, 9,
+		'nine scopes carry it: the .dark pin, dark-root, dark-root restore, '
 		+ 'the two inside the system media query, and the four no-JS flip rules '
 		+ '(flip-to-dark, its restore, flip-to-light, and flip-to-light inside the system query)');
 });
@@ -1190,7 +1107,7 @@ test('the export carries NO light-dark() and ships an explicit dark-mode block (
 	// Strip the inlined <script> (its comments legitimately mention the function name).
 	const styleOnly = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
 	assert.doesNotMatch(styleOnly, /light-dark\(/, 'no shipped CSS depends on the light-dark() function');
-	assert.match(html, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\):not\(\.print\)\{--bg:#001D33;--accent:#82C8E5\}/, 'the manual-dark override carries the DARK arm on :root AND every UNPINNED slide section');
+	assert.match(html, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]:not\(\.dark\):not\(\.light\):not\(\.color-light\):not\(\.print\)\{--bg:#001D33;--accent:#82C8E5\}/, 'the manual-dark override carries the DARK arm on :root AND every UNPINNED slide section');
 	assert.match(html, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\],:root\[data-lp-scheme=system\] section\[data-lattice-slide\]:not\(\.dark\)[^{]*\{--bg:#001D33/, 'the system-scheme rule follows the OS (keyed on =system, so a pinned export is never touched), with a space after @media for old parsers');
 	// The light base kept the LIGHT arm (nested var() fallback comma respected).
 	assert.match(html, /:root\{--bg:#FFFFFF;--accent:var\(--brand,#4338ca\)\}/, 'the base resolves each pair to its light arm, splitting on the TOP-LEVEL comma only');
@@ -1884,7 +1801,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// which carries the kernel's own `screenCanvas` as text (lib/core/screen-canvas.mjs): a 4K deck lays out on HD where the slide is shown at 2,560 device px or fewer.
 	// For this HD golden the values are unchanged (1280x720); the no-JS floor's CSS is unchanged byte for byte.
 	// Merged again 2026-11-21 with the four notes (main): the screen canvas (#3304) on top, measured on the merged tree.
-	assert.equal(sha, '110fba8c213d79f53b9946132d4155c3702013b1875635f5a494f690218104e4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// RE-BLESSED for cover-layout (2026-11-23-cover-layout.md): the bookends follow the color mode, so
+	// `cover-light` is gone. Diffed before/after on this fixture: exactly two lines move. `pinsOpposite`
+	// drops its `cover-light` test, and the CSP `script-src` sha256 follows the script text. (The scheme
+	// pins and the always-dark block change too, but this fixture carries no light-dark(), so it has no
+	// dark block; the property tests above pin those.)
+	assert.equal(sha, '0727afd62fbb35f0eb45650fc79ca47338cadf640d94dd50aec8849281ccd535', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

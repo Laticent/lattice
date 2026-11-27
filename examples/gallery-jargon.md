@@ -30,7 +30,7 @@ A 59-slide answer to the question "have you considered writing things down"
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 <!-- _footer: "Section 1 opener, centered · divider light" -->
 
 `Section 01 · Why This Exists`

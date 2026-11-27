@@ -55,7 +55,7 @@ The `dark` modifier declares `color-scheme: dark` and paints the canvas dark, so
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 ## A `divider light` is not
 

@@ -17,7 +17,7 @@ A grayscale watermark in the top-right corner — brightness adapts to dark and 
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 `How it works`
 

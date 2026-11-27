@@ -42,7 +42,7 @@ The two agree only while the type size holds still — and it doesn't. Lattice c
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 <!-- _header: '' -->
 <!-- _footer: "Lede measure · divider light" -->
 

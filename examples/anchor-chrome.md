@@ -44,7 +44,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 `Part two`
 

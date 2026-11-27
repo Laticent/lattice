@@ -49,7 +49,7 @@ stays off the slide — exactly the way Marp has always treated it.
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 ## A slide with no note stays exactly as it was.
 

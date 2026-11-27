@@ -14,10 +14,12 @@ export type DeckSection = { name: string; start: number; count: number };
 
 
 /**
- * A slide starts a section iff it's a DARK `divider` (anchor/divider — dark canvas + heading).
- * `divider light` is deliberately NOT a boundary: its docs define it as a within-section
- * waypoint ("a lighter context switch for narrowing focus WITHIN a section"), so it must not
+ * A slide starts a section iff it's a `divider` (anchor/divider), in either color mode.
+ * `divider subsection` is deliberately NOT a boundary: its docs define it as a within-section
+ * waypoint ("a lighter context switch for narrowing focus within a section"), so it must not
  * open a top-level rail group. (There is no `section` class — an earlier draft assumed one.)
+ * Until 2026-11-23 the waypoint was spelled `divider light`; `light` is the color mode now, so a
+ * `divider light` is a section start on the light accent field (2026-11-23-cover-layout.md).
  */
 export function isSectionBoundary(md: string): boolean {
 	// The class as the engine applies it: a `_class` comment, a comment holding several keys, a slide record
@@ -26,7 +28,7 @@ export function isSectionBoundary(md: string): boolean {
 	// A quoted value (`<!-- _class: "divider" -->`) is unquoted as the engine unquotes it.
 	const value = readMetaField(String(md || ''), 'class').value.trim().replace(/^(["'])(.*)\1$/s, '$2');
 	const tokens = value.trim().split(/\s+/);
-	return tokens[0] === 'divider' && !tokens.includes('light');
+	return tokens[0] === 'divider' && !tokens.includes('subsection');
 }
 
 /** First Markdown heading's text on a slide (stripped of markers/emphasis), or ''. */

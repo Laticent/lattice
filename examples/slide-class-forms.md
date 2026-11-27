@@ -17,7 +17,7 @@ A Mermaid SVG bakes its colors before the page exists. Every diagram here proves
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 ## What this deck shows.
 

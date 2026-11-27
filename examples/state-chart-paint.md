@@ -16,7 +16,7 @@ Status words, a heavy main path, line patterns and palette slots — every one a
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: divider subsection light -->
 
 ## The vocabulary
 
