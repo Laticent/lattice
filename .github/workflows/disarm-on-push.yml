@@ -9,7 +9,10 @@ name: Disarm auto-merge on push
 # check. The owner approved this job on 2026-11-21.
 #
 # Dependabot is left alone: dependabot-auto-merge.yml re-arms its own patch and
-# minor bumps after each rebase, by design. Fork PRs never get here with
+# minor bumps after each rebase, by design. So are the two generated branches that
+# force-push and re-arm themselves (golden-bless.yml, sync-backlog.yml): this job
+# would run after their re-arm and silently turn it off. A release uses a fresh
+# branch each time, so it never gets a `synchronize` while armed. Fork PRs never get here with
 # auto-merge on, and their token cannot change it anyway.
 on:
   pull_request:
@@ -27,6 +30,8 @@ jobs:
     if: >-
       github.event.pull_request.auto_merge != null &&
       github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.head.ref != 'chore/golden-bless' &&
+      github.event.pull_request.head.ref != 'chore/backlog-sync' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     steps:

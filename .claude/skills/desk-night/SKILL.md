@@ -31,10 +31,10 @@ replaces it (HARD RULE #31). Merge only through `enable_pr_auto_merge` (the queu
 --session session_<this session's id>` to see the reasons before you try. Eligible means:
 - the owner's account opened the PR, from this repository;
 - the newest 🚦 card was posted by the owner's account and never edited, reads VERY HIGH on
-  its confidence line, names a checker on its graded-by line, and names the PR's current head
-  sha;
+  its confidence line, picks MERGE, names a checker on its graded-by line, and names the PR's
+  current head sha (in its `ran` line: `npm run card` has no head field);
 - `ci` from GitHub Actions is green on that head, the PR is clean or behind, and no CI,
-  golden-bless or integration-nightly run on `main` is red;
+  golden-bless or integration-nightly run on `main` is red (a guard with no run counts as red);
 - every changed path is under `lib/`, `tools/`, `test/`, `engineering/`, `design/`,
   `followups.d/` or `changelog.d/`, and is not visual, export, security or control-plane;
 - no breaking fragment, no release, no guarded label, no commit from this session.

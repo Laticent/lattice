@@ -10,7 +10,7 @@
  * whatever the desk believes. The owner's choices, 2026-11-21, after a red team, an
  * inversion and a checker reviewed the first draft:
  *   - VERY HIGH only: the newest 🚦 card, posted by the owner's account and never edited,
- *     reads VERY HIGH on its confidence line, names a checker on its graded-by line, and
+ *     reads VERY HIGH on its confidence line, picks MERGE, names a checker on its graded-by line, and
  *     names the PR's current head sha (a card that names an older head graded other code);
  *   - the owner's own work: the PR and the card come from an owner login, from this
  *     repository (no forks), and not from the night session itself;
@@ -124,6 +124,7 @@ export function reasons(f) {
     if (!OWNER_LOGINS.includes(card.author)) out.push(`#${pr}'s newest card was posted by ${card.author}, not the owner's account`);
     if (card.updatedAt !== card.createdAt) out.push(`#${pr}'s newest card was edited after it was posted`);
     if (!/^VERY HIGH\b/.test(cardField(card.body, 'confidence'))) out.push(`#${pr}'s newest card is not VERY HIGH`);
+    if (!/^MERGE\b/.test(cardField(card.body, 'pick'))) out.push(`#${pr}'s newest card does not pick MERGE`);
     if (!/^checker\b/i.test(cardField(card.body, 'graded by'))) out.push(`#${pr}'s newest card was not graded by a checker`);
     if (!short || !card.body.includes(short)) out.push(`#${pr}'s newest card does not name its head ${short}, so it may have graded other code`);
   }
@@ -149,13 +150,19 @@ async function pages(path, token, max = 10) {
   throw new Error(`${path} has more than ${max * 100} items`);
 }
 
-/** The guard workflows whose newest completed run on main failed. */
+/**
+ * The guard workflows whose newest completed run on main failed, or that have no run to
+ * read (fail closed). `CI` has no `push: main` trigger (ci.yml), so its run on main is the
+ * merge queue's: the newest completed `merge_group` run.
+ */
 async function redOnMain(token) {
   const runs = await gh('actions/runs?branch=main&status=completed&per_page=100', token);
+  const queue = await gh('actions/workflows/ci.yml/runs?event=merge_group&status=completed&per_page=1', token);
   const red = [];
   for (const name of MAIN_GUARDS) {
-    const last = runs.workflow_runs.find((r) => r.name === name);
-    if (last && last.conclusion !== 'success' && last.conclusion !== 'skipped') red.push(name);
+    const last = name === 'CI' ? queue.workflow_runs[0] : runs.workflow_runs.find((r) => r.name === name);
+    if (!last) red.push(`${name} (no completed run found)`);
+    else if (last.conclusion !== 'success' && last.conclusion !== 'skipped') red.push(name);
   }
   return red;
 }

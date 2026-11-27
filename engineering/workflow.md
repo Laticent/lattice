@@ -1604,9 +1604,10 @@ The contract, and its limits — be precise about what it does and doesn't cover
   Anything else is denied with the reason: "do not merge #N", "hold all", "yes" or
   "lgtm" do not parse, so a refusal or a hedge can never read as an approval. An
   unreadable transcript denies too. Unlike the repo's warn-only hooks, it blocks: it
-  fires only on a merge tool, and a warning does not stop one. It does not check the
-  PR's head commit; the command center does that before it merges (§Merging, the
-  digest bullet). The owner can always merge from GitHub itself.
+  fires only on a merge tool, and a warning does not stop one. Outside night mode it
+  does not check the PR's head commit; the command center does that before it merges
+  (§Merging, the digest bullet). In night mode `tools/night-eligible.mjs` checks the
+  head against the card (§Desks, "Night mode"). The owner can always merge from GitHub itself.
 - **An approval covers the head it was given on** (owner's decision,
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
@@ -1620,7 +1621,8 @@ The contract, and its limits — be precise about what it does and doesn't cover
   brief as after any merge. With no live
   `desk:merge` session, each session asks as below.
 - **Batch the ask when more than one PR is green.** The authorization itself does
-  not change — a human still authorizes every merge, and one PR's approval is
+  not change — a human still authorizes every merge (night mode is the owner's one
+  standing grant, §Desks), and one PR's approval is
   never license for the next. What changes is the *delivery*: when several PRs
   are green and review-ready, put them in **one** round rather than pinging once
   per PR. List each as `#N — one line — <check state>`, ordered so the answer can
@@ -3016,11 +3018,13 @@ itself, finds on GitHub that:
 - **it is the owner's own work:** an owner login opened it from this repository (no forks), and
   no commit carries the night session's `Claude-Session:` trailer (no self-approval);
 - **the card is real and current:** the newest 🚦 card was posted by an owner login and never
-  edited, reads VERY HIGH on its confidence line, names a checker on its graded-by line, and
-  names the PR's current head sha;
+  edited, reads VERY HIGH on its confidence line, picks MERGE on its pick line (a VERY HIGH
+  HOLD stays put), names a checker on its graded-by line, and names the PR's current head sha.
+  `npm run card` has no head field, so put the short sha in the card's `ran` line;
 - **it is green on a green base:** `ci` from GitHub Actions succeeded on the head; GitHub reports
   the PR clean or only behind `main`; and the latest CI, golden-bless and integration-nightly
-  runs on `main` are not red;
+  runs on `main` are not red. `ci.yml` never runs on a push to `main`, so CI's run there is
+  the newest completed merge-queue run; a guard with no run to read counts as red;
 - **it is non-visual and outside the control plane:** every changed path, old name and new, is
   under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`.
   None may be visual (components, base, plugins, finishes, tokens, any CSS, images), export,
@@ -3034,6 +3038,9 @@ Anything unreadable, missing, or over 300 files is a no. There is no cap on merg
 a morning `🚦 Merge digest` with their artifacts attached. **A new push turns auto-merge off**
 (`.github/workflows/disarm-on-push.yml`, owner-approved): an approval or a night check covers
 the head it saw, and GitHub's auto-merge does not, so the PR is asked about or checked again.
+It skips Dependabot and the two generated branches that re-arm themselves after a force-push
+(`chore/golden-bless`, `chore/backlog-sync`). It disarms a clean rebase too, which is stricter
+than the approval rule above: re-arm after one.
 The desk never regrades or posts a card; the PR's own session raises it. It reads
 `.claude/skills/desk-night/owner.md` only for its own reversible choices.
 

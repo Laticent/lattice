@@ -19,8 +19,8 @@ before(async () => {
 });
 
 const HEAD = 'abcdef1234567890';
-const CARD = (level, graded = 'checker agent (Opus), 2 rounds', head = 'abcdef1') =>
-  `\`\`\`\n🚦 Pre-merge — #42 a fix\nreply: merge | hold\n\nBOTTOM LINE\n  confidence\n    ${level} · limited by: none\n  graded by\n    ${graded}\n\nPROOF\n  ran\n    CI ${head}\n\`\`\``;
+const CARD = (level, graded = 'checker agent (Opus), 2 rounds', head = 'abcdef1', pick = 'MERGE: green and graded') =>
+  `\`\`\`\n🚦 Pre-merge — #42 a fix\nreply: merge | hold\n\nBOTTOM LINE\n  pick\n    ${pick}\n  confidence\n    ${level} · limited by: none\n  graded by\n    ${graded}\n\nPROOF\n  ran\n    CI ${head}\n\`\`\``;
 const comment = (body, over = {}) => ({ body, author: 'saden1', createdAt: '2026-11-21T23:00:00Z', updatedAt: '2026-11-21T23:00:00Z', ...over });
 
 const good = (over = {}) => ({
@@ -129,4 +129,9 @@ test('an incomplete or oversized file list, a breaking fragment, a release, a gu
   for (const label of ['security', 'Type: Security', 'release', 'dependencies', 'Breaking change']) {
     assert.match(why({ labels: [label] }), /is labeled/, label);
   }
+});
+
+test('a VERY HIGH card that picks HOLD, or picks nothing: no', () => {
+  assert.match(why({ comments: [comment(CARD('VERY HIGH', undefined, undefined, 'HOLD: waiting on the owner'))] }), /does not pick MERGE/);
+  assert.match(why({ comments: [comment(CARD('VERY HIGH', undefined, undefined, ''))] }), /does not pick MERGE/);
 });
