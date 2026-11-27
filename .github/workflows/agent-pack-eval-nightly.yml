@@ -56,8 +56,12 @@ on:
 permissions:
   contents: read
 
+# A manual dispatch gets a group of its own, so it never cancels another. GitHub keeps one PENDING
+# run per group and drops older pending ones, so a shared group let one dispatch silently cancel
+# the next (run 46064627987, 2026-11-27). Each dispatch spends up to its own max_usd. Scheduled
+# nights share one group and never overlap.
 concurrency:
-  group: agent-pack-eval-nightly
+  group: agent-pack-eval-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'nightly' }}
   cancel-in-progress: false
 
 jobs:
