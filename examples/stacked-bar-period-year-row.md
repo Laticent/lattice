@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 size: square
 header: "Lattice · stacked-bar period names"
 meta: "stacked-bar period names"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · stacked-bar`
 
@@ -17,8 +17,8 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "Three periods · wide bars set each name on one line" -->
+<!-- @meta{layout=stacked-bar, footer=Three periods · wide bars set each name on one line} -->
+
 
 ## Services grew every quarter of FY24.
 
@@ -37,8 +37,8 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: stacked-bar share -->
-<!-- _footer: "Six periods · a period word wider than its bar moves the names to the key" -->
+<!-- @meta{layout=stacked-bar, class=share, footer=Six periods · a period word wider than its bar moves the names to the key} -->
+
 
 ## Six parts, six periods, one sliver that should have been folded in.
 
@@ -87,8 +87,8 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "One-line names · nothing changes" -->
+<!-- @meta{layout=stacked-bar, footer=One-line names · nothing changes} -->
+
 
 ## Services carries the growth.
 
@@ -107,8 +107,8 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: stacked-bar dark -->
-<!-- _footer: "Dark · two-line names beside the name column, both lines in the category ink" -->
+<!-- @meta{layout=stacked-bar, class=dark, footer="Dark · two-line names beside the name column, both lines in the category ink"} -->
+
 
 ## The mix held steady through FY24.
 
@@ -131,8 +131,8 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: stacked-bar row -->
-<!-- _footer: "row · names take the left column, unchanged" -->
+<!-- @meta{layout=stacked-bar, class=row, footer="row · names take the left column, unchanged"} -->
+
 
 ## Online overtook Wholesale by the fourth quarter.
 
@@ -147,7 +147,7 @@ meta: "stacked-bar period names"
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Measured`
 

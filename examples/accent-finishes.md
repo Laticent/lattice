@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Accent finishes"
 meta: "Accent finishes · spectrum / rule / eyebrow"
 spectrum: duo
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Finish axis · the accent sub-family`
 
@@ -17,7 +17,7 @@ Three baked-in details — the **spectrum** ribbon, the heading **rule**, and th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Spectrum · style`
 
@@ -34,7 +34,7 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ---
 
-<!-- _class: code trim-spectrum-mono -->
+<!-- @meta{layout=code, class=trim-spectrum-mono} -->
 
 `Spectrum · trim`
 
@@ -51,7 +51,7 @@ const styles = ['quiet', 'mono', 'rainbow', 'solid', 'duo'];
 
 ---
 
-<!-- _class: content spectrum-left -->
+<!-- @meta{layout=content, class=spectrum-left} -->
 
 `Spectrum · placement`
 
@@ -61,7 +61,7 @@ The edge word on `spectrum:` places the section-edge ribbon on the top (default)
 
 ---
 
-<!-- _class: content spectrum-bottom -->
+<!-- @meta{layout=content, class=spectrum-bottom} -->
 
 `Spectrum · placement`
 
@@ -71,7 +71,7 @@ The same edge word on the **bottom** edge. Use `spectrum: off` to drop the bar e
 
 ---
 
-<!-- _class: content rule-accent -->
+<!-- @meta{layout=content, class=rule-accent} -->
 
 `Heading rule · accent`
 
@@ -86,7 +86,7 @@ The `rule:` key controls the underline beneath a heading: `full`, `short`, an `a
 
 ---
 
-<!-- _class: content eyebrow-dot -->
+<!-- @meta{layout=content, class=eyebrow-dot} -->
 
 `Eyebrow · dot`
 
@@ -96,7 +96,7 @@ The `eyebrow:` key decorates the mono-caps kicker. This slide leads with a `dot`
 
 ---
 
-<!-- _class: content eyebrow-arrow -->
+<!-- @meta{layout=content, class=eyebrow-arrow} -->
 
 `Eyebrow · arrow`
 
@@ -106,7 +106,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid card-spectrum-duo -->
+<!-- @meta{layout=cards-grid, class=card-spectrum-duo} -->
 
 `Spectrum · cards`
 
@@ -123,7 +123,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid card-spectrum-solid -->
+<!-- @meta{layout=cards-grid, class=card-spectrum-solid} -->
 
 `Spectrum · cards`
 
@@ -140,7 +140,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid with-card-spectrum card-spectrum-top -->
+<!-- @meta{layout=cards-grid, class=with-card-spectrum card-spectrum-top} -->
 
 `Spectrum · cards`
 
@@ -155,7 +155,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Accent finishes`
 

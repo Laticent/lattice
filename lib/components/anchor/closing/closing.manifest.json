@@ -20,7 +20,7 @@
     "board-deck"
   ],
   "description": "Final slide. The mirror of title, in the same color mode.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is a `title dark` slide (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
   "variants": [
     "qr",
     "index",
@@ -76,9 +76,9 @@
       "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }
   },
-  "skeleton": "<!-- _class: closing -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
+  "skeleton": "<!-- @meta{layout=closing} -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
   "anatomyBlock": "closing-bookend",
-  "sample": "<!-- _class: closing silent -->\n\n## The closing mirrors the title, with one last claim.\n\n`anchor · closing`\n",
+  "sample": "<!-- @meta{layout=closing, class=silent} -->\n\n## The closing mirrors the title, with one last claim.\n\n`anchor · closing`\n",
   "whenToUse": [
     {
       "title": "Last slide of every deck",
@@ -185,52 +185,52 @@
     "spectrum": {
       "label": "spectrum",
       "summary": "Mirrors title's generated gradient bar — the deck's color story, one last time.",
-      "sample": "<!-- _class: closing silent spectrum -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent spectrum} -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
     },
     "qr": {
       "label": "qr",
       "summary": "Scan to take the deck with you.",
-      "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://laticent.io/components/closing\n- Scan to open `caption`\n"
+      "sample": "<!-- @meta{layout=closing, class=qr} -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://laticent.io/components/closing\n- Scan to open `caption`\n"
     },
     "index": {
       "label": "index",
       "summary": "Ends on a reference list — see also, next steps.",
-      "sample": "<!-- _class: closing silent index -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
+      "sample": "<!-- @meta{layout=closing, class=silent index} -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
     },
     "cover-masthead": {
       "label": "cover-masthead",
       "summary": "A heavy rule over the title, set left.",
-      "sample": "<!-- _class: closing silent cover-masthead -->\n\n## The back cover composes as a masthead.\n\n`anchor · closing · cover-masthead`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-masthead} -->\n\n## The back cover composes as a masthead.\n\n`anchor · closing · cover-masthead`\n"
     },
     "cover-ledger": {
       "label": "cover-ledger",
       "summary": "A small-caps title over a double rule.",
-      "sample": "<!-- _class: closing silent cover-ledger -->\n\n## The back cover composes as a ledger.\n\n`anchor · closing · cover-ledger`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-ledger} -->\n\n## The back cover composes as a ledger.\n\n`anchor · closing · cover-ledger`\n"
     },
     "cover-column": {
       "label": "cover-column",
       "summary": "An accent column at the right edge, the title set left.",
-      "sample": "<!-- _class: closing silent cover-column -->\n\n## The back cover composes as a column.\n\n`anchor · closing · cover-column`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-column} -->\n\n## The back cover composes as a column.\n\n`anchor · closing · cover-column`\n"
     },
     "cover-label": {
       "label": "cover-label",
       "summary": "A gallery wall label: a smaller title low on the left under a hairline.",
-      "sample": "<!-- _class: closing silent cover-label -->\n\n## The back cover composes as a label.\n\n`anchor · closing · cover-label`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-label} -->\n\n## The back cover composes as a label.\n\n`anchor · closing · cover-label`\n"
     },
     "cover-stage": {
       "label": "cover-stage",
       "summary": "A stage-size centered title.",
-      "sample": "<!-- _class: closing silent cover-stage -->\n\n## Thank you.\n\n`anchor · closing · cover-stage`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-stage} -->\n\n## Thank you.\n\n`anchor · closing · cover-stage`\n"
     },
     "cover-frame": {
       "label": "cover-frame",
       "summary": "The title boxed in a keyline.",
-      "sample": "<!-- _class: closing silent cover-frame -->\n\n## The back cover composes as a frame.\n\n`anchor · closing · cover-frame`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-frame} -->\n\n## The back cover composes as a frame.\n\n`anchor · closing · cover-frame`\n"
     },
     "cover-poster": {
       "label": "cover-poster",
       "summary": "A giant title set left.",
-      "sample": "<!-- _class: closing silent cover-poster -->\n\n## Make it yours.\n\n`anchor · closing · cover-poster`\n"
+      "sample": "<!-- @meta{layout=closing, class=silent cover-poster} -->\n\n## Make it yours.\n\n`anchor · closing · cover-poster`\n"
     }
   },
   "specimenVoice": true,

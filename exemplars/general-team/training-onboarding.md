@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Helpdesk onboarding · Day one"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `New-hire training · Module 1`
@@ -17,7 +17,7 @@ How support works at Beacon — we'll tell you, show you, then you'll do it.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## By the end of this hour, you'll resolve a real ticket on your own.
@@ -26,7 +26,7 @@ Welcome to the Beacon support team. This module follows a simple shape: we tell 
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What this module covers.
@@ -38,7 +38,7 @@ Welcome to the Beacon support team. This module follows a simple shape: we tell 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Tell: every ticket follows the same five-step path.
@@ -50,7 +50,7 @@ A ticket arrives, you triage it, you investigate, you resolve it, and you confir
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: short -->
 
 ## Tell: the five steps of resolving a ticket.
@@ -68,7 +68,7 @@ A ticket arrives, you triage it, you investigate, you resolve it, and you confir
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Show: let's walk one real ticket end to end.
@@ -80,7 +80,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: full -->
 
 `Show · the worked billing ticket`
@@ -98,7 +98,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: standard -->
 
 ## Do: your turn — work this ticket and check off each step.
@@ -111,7 +111,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 <!-- tier: full -->
 
 ## Where to get help when you're stuck.
@@ -127,7 +127,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: full -->
 
 ## What good looks like on every ticket you close.
@@ -143,9 +143,9 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## You've got the path — now go resolve your first one.

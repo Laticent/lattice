@@ -55,7 +55,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 ## Authoring
 
 ```markdown
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## Text leads; the image earns its place.
 
@@ -87,7 +87,7 @@ Swap the picture below for your own photo, and name it — any aspect. The layou
 Drops the caption chrome.
 
 ```markdown
-<!-- _class: image clean -->
+<!-- @meta{layout=image, class=clean} -->
 
 ## clean drops the caption chrome.
 
@@ -101,7 +101,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 A portrait gets its full column.
 
 ```markdown
-<!-- _class: image split -->
+<!-- @meta{layout=image, class=split} -->
 
 ## split gives a portrait its full column.
 
@@ -115,7 +115,7 @@ A portrait photo wants its full height. We give it a column and let the argument
 A panorama owns the frame.
 
 ```markdown
-<!-- _class: image spotlight -->
+<!-- @meta{layout=image, class=spotlight} -->
 
 ## spotlight lets a panorama own the frame.
 
@@ -129,7 +129,7 @@ When the photo already matches the canvas, let it carry the slide — the messag
 The exhibit on a matte with a placard.
 
 ```markdown
-<!-- _class: image gallery -->
+<!-- @meta{layout=image, class=gallery} -->
 
 ## gallery mats the exhibit with a placard.
 
@@ -143,7 +143,7 @@ The whole asset on a matte with a placard. For diagrams and screenshots where th
 The title rides the photo on a scrim.
 
 ```markdown
-<!-- _class: image statement -->
+<!-- @meta{layout=image, class=statement} -->
 
 ## statement rides the title on a scrim.
 
@@ -157,7 +157,7 @@ The title rides the photo on a scrim — a deliberate, editorial choice.
 The image lands on the left.
 
 ```markdown
-<!-- _class: image mirror -->
+<!-- @meta{layout=image, class=mirror} -->
 
 ## mirror lands the image on the left.
 
@@ -171,7 +171,7 @@ Text leads from the right; image anchors from the left.
 The text card sits in the top-left corner.
 
 ```markdown
-<!-- _class: image spotlight image-card-top-left -->
+<!-- @meta{layout=image, class=spotlight image-card-top-left} -->
 
 ## image-card-top-left lifts the card to the top left.
 
@@ -185,7 +185,7 @@ Move the card to wherever the photo is quiet, so the subject keeps the frame.
 The text card sits centered along the top.
 
 ```markdown
-<!-- _class: image statement image-card-top -->
+<!-- @meta{layout=image, class=statement image-card-top} -->
 
 ## Top center lifts the title up high.
 
@@ -199,7 +199,7 @@ The scrim follows the words to the top edge.
 The text card sits in the top-right corner.
 
 ```markdown
-<!-- _class: image spotlight image-card-top-right -->
+<!-- @meta{layout=image, class=spotlight image-card-top-right} -->
 
 ## image-card-top-right parks the card top right.
 
@@ -213,7 +213,7 @@ The subject sits low and left, so the words take the open sky.
 The text card sits in the middle of the slide.
 
 ```markdown
-<!-- _class: image statement image-card-center -->
+<!-- @meta{layout=image, class=statement image-card-center} -->
 
 ## The center placement puts the title dead center.
 
@@ -227,7 +227,7 @@ A radial scrim darkens only the middle.
 The text card sits in the bottom-left corner — the default.
 
 ```markdown
-<!-- _class: image spotlight image-card-bottom-left -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom-left} -->
 
 ## Bottom left is the default corner.
 
@@ -241,7 +241,7 @@ Name it to return a slide to bottom left inside a deck that moved it.
 The text card sits centered along the bottom.
 
 ```markdown
-<!-- _class: image spotlight image-card-bottom -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom} -->
 
 ## image-card-bottom centers the card low.
 
@@ -255,7 +255,7 @@ A caption band under the subject, centered on the slide.
 The text card sits in the bottom-right corner.
 
 ```markdown
-<!-- _class: image statement image-card-bottom-right -->
+<!-- @meta{layout=image, class=statement image-card-bottom-right} -->
 
 ## Bottom right anchors the title in the corner.
 
@@ -269,7 +269,7 @@ The scrim flips to darken the right side.
 The card or scrim at full strength — the default.
 
 ```markdown
-<!-- _class: image spotlight image-card-solid -->
+<!-- @meta{layout=image, class=spotlight image-card-solid} -->
 
 ## image-card-solid keeps the card opaque.
 
@@ -283,7 +283,7 @@ Full legibility over any photo. This is the default.
 The card or scrim at 80%, so the photo glows through.
 
 ```markdown
-<!-- _class: image spotlight image-card-soft -->
+<!-- @meta{layout=image, class=spotlight image-card-soft} -->
 
 ## image-card-soft lets the photo glow through.
 
@@ -297,7 +297,7 @@ The panel drops to 80% and loses its lift shadow.
 The card or scrim at 55%, a tint more than a panel.
 
 ```markdown
-<!-- _class: image spotlight image-card-sheer image-card-light -->
+<!-- @meta{layout=image, class=spotlight image-card-sheer image-card-light} -->
 
 ## image-card-sheer turns the card into a tint.
 
@@ -311,7 +311,7 @@ At 55% the photo reads through; pair it with an ink that suits the photo.
 No card and no scrim: the words ride the photo.
 
 ```markdown
-<!-- _class: image statement image-card-clear -->
+<!-- @meta{layout=image, class=statement image-card-clear} -->
 
 ## image-card-clear drops the scrim.
 
@@ -325,7 +325,7 @@ Only for a photo with a calm, dark patch where the words land.
 White words on a dark backing.
 
 ```markdown
-<!-- _class: image spotlight image-card-light -->
+<!-- @meta{layout=image, class=spotlight image-card-light} -->
 
 ## image-card-light sets white words on a dark card.
 
@@ -339,7 +339,7 @@ The card turns dark to match, whatever the deck palette.
 Near-black words on a light backing.
 
 ```markdown
-<!-- _class: image statement image-card-dark -->
+<!-- @meta{layout=image, class=statement image-card-dark} -->
 
 ## image-card-dark sets dark words on a light scrim.
 
@@ -353,7 +353,7 @@ For a bright photo: the scrim turns light and the title goes dark.
 A narrower card with smaller type, so the photo breathes.
 
 ```markdown
-<!-- _class: image spotlight image-card-sm image-card-top-right -->
+<!-- @meta{layout=image, class=spotlight image-card-sm image-card-top-right} -->
 
 ## image-card-sm keeps the card discreet.
 
@@ -367,7 +367,7 @@ Smaller type and a narrower card leave the photo the slide.
 The default card width and type.
 
 ```markdown
-<!-- _class: image spotlight image-card-md -->
+<!-- @meta{layout=image, class=spotlight image-card-md} -->
 
 ## image-card-md is the default size.
 
@@ -381,7 +381,7 @@ Name it to return a slide to the default inside a deck that resized it.
 A wider card with larger type, for a message that leads.
 
 ```markdown
-<!-- _class: image spotlight image-card-lg -->
+<!-- @meta{layout=image, class=spotlight image-card-lg} -->
 
 ## image-card-lg lets the message lead.
 
@@ -395,7 +395,7 @@ Wider card, bigger heading, room for a longer line.
 The default card spacing, so one slide can step out of a deck-wide compact.
 
 ```markdown
-<!-- _class: image spotlight image-card-regular -->
+<!-- @meta{layout=image, class=spotlight image-card-regular} -->
 
 ## image-card-regular keeps the default spacing.
 
@@ -409,7 +409,7 @@ In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 Tightens the card's padding and pulls it closer to the slide edge, at any size.
 
 ```markdown
-<!-- _class: image spotlight image-card-compact -->
+<!-- @meta{layout=image, class=spotlight image-card-compact} -->
 
 ## image-card-compact tightens the card.
 
@@ -423,7 +423,7 @@ Less padding and a smaller inset from the edge, so the photo keeps more of the f
 Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear.
 
 ```markdown
-<!-- _class: image spotlight image-card-bottom image-card-band -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band} -->
 
 ## image-card-band keeps the middle of the photo clear.
 
@@ -437,7 +437,7 @@ The heading takes the left column and the text the right, in one short strip alo
 The default floating card, so one slide can step out of a deck-wide band.
 
 ```markdown
-<!-- _class: image spotlight image-card-bottom image-card-float -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-float} -->
 
 ## image-card-float keeps the card a card.
 

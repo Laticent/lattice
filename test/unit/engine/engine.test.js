@@ -104,8 +104,8 @@ describe('lattice-engine: contract', () => {
     assert.doesNotMatch(secs[1], /data-lattice-pagination=/);
     assert.doesNotMatch(secs[1], /--paginate:/);
     assert.match(secs[2], /data-lattice-pagination="3"/, 'the retired `_paginate: false` comment must not hide the number');
-    const off = makeEngine().render(`---\npaginate: false\n---\n\n${md}`, 'lattice').html.match(/<section[^>]*>/g);
-    assert.ok(off.every((s) => !/data-lattice-pagination=/.test(s)), 'front matter `paginate: false` numbers nothing');
+    const off = makeEngine().render(`---\npagination: false\n---\n\n${md}`, 'lattice').html.match(/<section[^>]*>/g);
+    assert.ok(off.every((s) => !/data-lattice-pagination=/.test(s)), 'front matter `pagination: false` numbers nothing');
   });
 
   // NB: plain render() is the EXPORT path — it strips data-debug (preview-only). The

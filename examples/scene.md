@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · scene"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The scene layout — motion, frozen for paper
 
@@ -15,9 +15,9 @@ A `scene` puts an Anima motion scene on a slide as its poster still. The PDF sho
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `The premise`
 
@@ -25,8 +25,8 @@ A `scene` puts an Anima motion scene on a slide as its poster still. The PDF sho
 
 ---
 
-<!-- _class: scene -->
-<!-- _footer: "wide poster becomes clean — a card shaped to the scene" -->
+<!-- @meta{layout=scene, footer="wide poster becomes clean — a card shaped to the scene"} -->
+
 
 ## The rotor turns inside its fixed housing.
 
@@ -36,8 +36,8 @@ A moderate-aspect scene gets the **clean** default — a card shaped to the post
 
 ---
 
-<!-- _class: scene -->
-<!-- _footer: "tall poster becomes split — the scene gets its own full-height column" -->
+<!-- @meta{layout=scene, footer="tall poster becomes split — the scene gets its own full-height column"} -->
+
 
 ## The pipeline assembles, stage by stage.
 
@@ -47,8 +47,8 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 
 ---
 
-<!-- _class: scene -->
-<!-- _footer: "panorama poster becomes spotlight — the scene owns the frame" -->
+<!-- @meta{layout=scene, footer="panorama poster becomes spotlight — the scene owns the frame"} -->
+
 
 ## The signal flows left to right, gated at each hop.
 
@@ -58,8 +58,8 @@ When the scene already matches the canvas, **spotlight** lets it own the frame �
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- _footer: "opt-in · gallery — the whole scene matted like an exhibit" -->
+<!-- @meta{layout=scene, class=gallery, footer="opt-in · gallery — the whole scene matted like an exhibit"} -->
+
 
 ## Exhibit 1 — the mechanism, contained.
 
@@ -69,8 +69,8 @@ When the scene already matches the canvas, **spotlight** lets it own the frame �
 
 ---
 
-<!-- _class: scene statement -->
-<!-- _footer: "opt-in · statement — the title rides a themed band" -->
+<!-- @meta{layout=scene, class=statement, footer="opt-in · statement — the title rides a themed band"} -->
+
 
 ## Order is the argument.
 
@@ -80,8 +80,8 @@ When the scene already matches the canvas, **spotlight** lets it own the frame �
 
 ---
 
-<!-- _class: scene mirror -->
-<!-- _footer: "mirror — the scene anchors from the left" -->
+<!-- @meta{layout=scene, class=mirror, footer="mirror — the scene anchors from the left"} -->
+
 
 ## Read the depth before the label.
 
@@ -91,7 +91,7 @@ When the scene already matches the canvas, **spotlight** lets it own the frame �
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One markdown. Six compositions. Recolors to any theme.
 

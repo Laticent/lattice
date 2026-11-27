@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · web images"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · web images`
 
@@ -25,7 +25,7 @@ The drawn box keeps the slide's layout, and its address stays in the file for wh
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `As an image slide's background`
 
@@ -73,7 +73,7 @@ A relative path, a file on your disk and an embedded image load as they always d
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Default: blocked`
 

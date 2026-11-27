@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 pace: natural
 delivery: restrained
 lang: en
@@ -18,9 +18,9 @@ lexicon:
   Northwind: north wind
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 <!-- @say{Good morning. This is the third-quarter review for fiscal twenty-six. The short version: revenue beat plan, margin expanded, and one segment needs a decision from this board today.} -->
 
@@ -32,7 +32,7 @@ Prepared for the Northwind Analytics board of directors.
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## What we will cover in forty minutes.
 
@@ -43,9 +43,9 @@ Prepared for the Northwind Analytics board of directors.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 01`
 
@@ -53,7 +53,7 @@ Prepared for the Northwind Analytics board of directors.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 <!-- @say{ARR closed at $48.6M, up 31% year over year and $1.2M ahead of plan. NDR held at 118%. Gross margin reached 74%, two points better than last quarter. CAC payback stretched to 19 months, and that is the number we will spend most of today on.} -->
 
@@ -77,7 +77,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 <!-- @say{Here is how ARR moved from last quarter. New logos added $5.1M. Expansion added $3.4M. Churn took $2.2M, and contraction another $0.9M. Net, we grew $5.4M in ninety days.} -->
 
@@ -94,7 +94,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Enterprise net dollar retention`
 
@@ -103,9 +103,9 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 02`
 
@@ -113,7 +113,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 <!-- @say{The pipeline tells the same story from the other end. We generated 12,400 qualified leads. 3,100 took a demo. 870 reached a proposal, and 214 signed. The drop between demo and proposal is where SMB deals stall.} -->
 
@@ -127,7 +127,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## Enterprise pays back in 11 months; SMB takes 31.
 
@@ -139,7 +139,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We love the product. We just can't staff someone to run it, and your onboarding assumes we can.
 
@@ -147,9 +147,9 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 03`
 
@@ -157,7 +157,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 <!-- @say{Two serious options are on the table. Fix it: a guided setup, a lighter tier, and pooled support, for about $2.1M next year. Or exit: stop selling to new SMB accounts, migrate the existing 640 to a partner, and put the sales capacity into mid-market. Keeping things as they are is not on the table.} -->
 
@@ -170,7 +170,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 <!-- @say{If the board agrees to exit, this is the plan. First, we announce to customers in November with twelve months' notice. Second, the partner migration runs January through June. Third, the nine sellers move to mid-market on the first of December. Fourth, we report the churn impact at every board meeting until it closes.} -->
 
@@ -187,9 +187,9 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 04`
 
@@ -197,7 +197,7 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 <!-- @say{Our recommendation is to exit SMB. It is the faster path back to a fourteen-month payback. It keeps SOC 2 scope narrow. And it is reversible: the partner contract has a two-year buy-back clause. We did look hard at the fix. **It costs more than the segment earns.**} -->
 
@@ -214,9 +214,9 @@ Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 <!-- @say{We are asking for one vote today: approve the SMB exit plan. Thank you. Questions?} -->
 

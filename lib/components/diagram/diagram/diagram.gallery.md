@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · diagram"
 footer: "Mermaid 12.3 · rendered through the diagram component"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Every Mermaid diagram, one slide each.
 
@@ -19,7 +19,7 @@ footer: "Mermaid 12.3 · rendered through the diagram component"
 
 ---
 
-<!-- _class: split-panel watermark -->
+<!-- @meta{layout=split-panel, class=watermark} -->
 
 ## How this gallery is organized.
 
@@ -41,8 +41,8 @@ Stable diagrams render with full theme control. Experimental ones marked 🔥 ma
 
 ---
 
-<!-- _class: divider -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, footer=""} -->
+
 
 `Group 01 · Stable diagrams`
 
@@ -50,7 +50,7 @@ Stable diagrams render with full theme control. Experimental ones marked 🔥 ma
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Flowchart`
 
@@ -71,7 +71,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Sequence Diagram`
 
@@ -97,7 +97,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · Class Diagram`
 
@@ -131,7 +131,7 @@ classDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · State Diagram`
 
@@ -155,7 +155,7 @@ stateDiagram-v2
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · Entity Relationship Diagram`
 
@@ -190,7 +190,7 @@ erDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `06 · User Journey`
 
@@ -215,7 +215,7 @@ journey
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `07 · Gantt`
 
@@ -240,7 +240,7 @@ gantt
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `08 · Pie Chart`
 
@@ -260,7 +260,7 @@ pie showData
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `09 · Quadrant Chart`
 
@@ -286,7 +286,7 @@ quadrantChart
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `10 · Requirement Diagram`
 
@@ -324,7 +324,7 @@ requirementDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `11 · GitGraph`
 
@@ -352,7 +352,7 @@ gitGraph
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `12 · C4 Diagram`
 
@@ -375,7 +375,7 @@ C4Context
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `13 · Mindmap`
 
@@ -409,7 +409,7 @@ mindmap
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `14 · Timeline`
 
@@ -439,7 +439,7 @@ timeline
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `15 · ZenUML`
 
@@ -464,8 +464,8 @@ zenuml
 
 ---
 
-<!-- _class: divider -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, footer=""} -->
+
 
 `Group 02 · Experimental diagrams`
 
@@ -473,7 +473,7 @@ zenuml
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `16 · Sankey 🔥`
 
@@ -493,7 +493,7 @@ Spending,Other,150
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `17 · XY Chart 🔥`
 
@@ -512,7 +512,7 @@ xychart-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `18 · Block Diagram 🔥`
 
@@ -530,7 +530,7 @@ block-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `19 · Packet 🔥`
 
@@ -550,7 +550,7 @@ title TLS Record header
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `20 · Kanban 🔥`
 
@@ -575,7 +575,7 @@ kanban
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `21 · Architecture 🔥`
 
@@ -597,7 +597,7 @@ architecture-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `22 · Radar 🔥`
 
@@ -615,7 +615,7 @@ radar-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `23 · Treemap 🔥`
 
@@ -641,7 +641,7 @@ treemap-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `24 · Venn 🔥`
 
@@ -660,7 +660,7 @@ venn-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `25 · Ishikawa 🔥`
 
@@ -686,7 +686,7 @@ ishikawa-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `26 · TreeView 🔥`
 
@@ -706,9 +706,9 @@ treeView-beta
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, footer="", header=""} -->
+
+
 
 `Mermaid 12.3 · Lattice Theme`
 

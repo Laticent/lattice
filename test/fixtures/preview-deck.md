@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · Test Fixture"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Test fixture deck
 
@@ -17,8 +17,8 @@ new test needs them — keeping this small keeps the integration tier fast.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "fixture · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=fixture · cards-grid} -->
+
 
 ## Three cards for selector tests.
 
@@ -31,8 +31,8 @@ new test needs them — keeping this small keeps the integration tier fast.
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "fixture · closing" -->
+<!-- @meta{layout=closing, footer=fixture · closing} -->
+
 
 ## Final slide of the fixture deck.
 

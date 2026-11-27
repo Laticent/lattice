@@ -2,7 +2,7 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart labels inside the canvas"
 terms:
   AMER: { expansion: the Americas }
@@ -10,7 +10,7 @@ terms:
   APAC: { expansion: Asia Pacific }
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every chart label stays on the page.
 
@@ -20,8 +20,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "heatmap · capitals in the row column" -->
+<!-- @meta{layout=heatmap, footer=heatmap · capitals in the row column} -->
+
 
 `Gross margin · by region`
 
@@ -35,8 +35,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "heatmap · a long month name" -->
+<!-- @meta{layout=heatmap, footer=heatmap · a long month name} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -51,8 +51,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: bar row -->
-<!-- _footer: "bar row · a capital-led name" -->
+<!-- @meta{layout=bar, class=row, footer=bar row · a capital-led name} -->
+
 
 ## Support load sits with two teams.
 
@@ -64,8 +64,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: stacked-bar row -->
-<!-- _footer: "stacked-bar row · period names" -->
+<!-- @meta{layout=stacked-bar, class=row, footer=stacked-bar row · period names} -->
+
 
 ## Online overtook Wholesale by the fourth quarter.
 
@@ -80,8 +80,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: ep-curve -->
-<!-- _footer: "ep-curve · the last return period" -->
+<!-- @meta{layout=ep-curve, footer=ep-curve · the last return period} -->
+
 
 ## A 1-in-250 year costs $560M.
 
@@ -93,8 +93,8 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: radar quadrant -->
-<!-- _footer: "radar quadrant · sector names" -->
+<!-- @meta{layout=radar, class=quadrant, footer=radar quadrant · sector names} -->
+
 
 ## Risk is the quarter we under-invest in.
 
@@ -116,7 +116,7 @@ On a phone-shaped page, three charts painted a label past their own canvas. A ro
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Measured, not guessed.
 

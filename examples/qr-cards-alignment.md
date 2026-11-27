@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · cards: contact and wifi"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the cards: register`
 
@@ -15,8 +15,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: contact -->
-<!-- _footer: "contact · centered by default" -->
+<!-- @meta{layout=contact, footer=contact · centered by default} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -26,8 +26,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: contact cards-top -->
-<!-- _footer: "contact cards-top · the old placement" -->
+<!-- @meta{layout=contact, class=cards-top, footer=contact cards-top · the old placement} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -37,8 +37,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: contact cards-stretch -->
-<!-- _footer: "contact cards-stretch" -->
+<!-- @meta{layout=contact, class=cards-stretch, footer=contact cards-stretch} -->
+
 
 - Ada Slide `name`
 - Founder `title`
@@ -48,8 +48,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · centered by default" -->
+<!-- @meta{layout=wifi, footer=wifi · centered by default} -->
+
 
 `Room Wi-Fi`
 
@@ -62,8 +62,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: wifi cards-top -->
-<!-- _footer: "wifi cards-top · the old placement" -->
+<!-- @meta{layout=wifi, class=cards-top, footer=wifi cards-top · the old placement} -->
+
 
 `Room Wi-Fi`
 
@@ -76,8 +76,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: wifi -->
-<!-- _footer: "wifi · long copy still centers" -->
+<!-- @meta{layout=wifi, footer=wifi · long copy still centers} -->
+
 
 `Room Wi-Fi`
 

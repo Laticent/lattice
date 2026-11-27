@@ -122,7 +122,7 @@ describe('slice render through a split panes slide', () => {
 	// global to the route gate, so it takes the whole-deck render above. The slice route still has
 	// to be right when it IS taken (a fallback render, or a gate that learns the marker), so these
 	// drive it with a deck that paginates and nothing else, handing the renderer the map directly.
-	const PAGINATED = '---\npaginate: true\n---\n\nOpening\n\n---\n\nsplit\n\n---\n\nAfter';
+	const PAGINATED = '---\npagination: true\n---\n\nOpening\n\n---\n\nsplit\n\n---\n\nAfter';
 	it('keeps the caret’s page of the lone slide, not always the first', async () => {
 		const host = mountHost();
 		const r = createSingleSlideRenderer(opts);

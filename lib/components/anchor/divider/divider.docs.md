@@ -48,7 +48,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 ## Authoring
 
 ```markdown
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -77,7 +77,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 Masthead — the running section number over a hairline, top-left.
 
 ```markdown
-<!-- _class: divider silent numbered -->
+<!-- @meta{layout=divider, class=silent numbered} -->
 
 `divider numbered`
 
@@ -89,7 +89,7 @@ Masthead — the running section number over a hairline, top-left.
 A finer, sentence-length break: centered, a tier smaller, no rail.
 
 ```markdown
-<!-- _class: divider subsection -->
+<!-- @meta{layout=divider, class=subsection} -->
 
 `divider subsection`
 
@@ -101,7 +101,7 @@ A finer, sentence-length break: centered, a tier smaller, no rail.
 The payload bullet becomes a code.
 
 ```markdown
-<!-- _class: divider qr -->
+<!-- @meta{layout=divider, class=qr} -->
 
 `divider qr`
 

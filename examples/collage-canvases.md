@@ -2,12 +2,12 @@
 marp: true
 theme: indaco
 size: standard
-paginate: true
+pagination: true
 header: "Lattice · collage"
 footer: "Sample photographs from lib/samples"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · imagery`
 
@@ -17,7 +17,7 @@ This deck is 4:3. The packer reads the canvas, so edge-to-edge photos keep their
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `bleed · 4:3`
 
@@ -34,7 +34,7 @@ The same four photos crop a third of each picture if the packer assumes a wide s
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `bleed · five photos`
 
@@ -52,7 +52,7 @@ The layout changes with the count, and the grid still reaches all four edges.
 
 ---
 
-<!-- _class: collage bleed -->
+<!-- @meta{layout=collage, class=bleed} -->
 
 `bleed · hero`
 
@@ -69,7 +69,7 @@ A hero keeps the largest tile while the packer closes the slide.
 
 ---
 
-<!-- _class: collage -->
+<!-- @meta{layout=collage} -->
 
 `The default`
 
@@ -86,7 +86,7 @@ The photos pack beside the text with no cropping. Only a bleed collage fills the
 
 ---
 
-<!-- _class: collage bleed ordered -->
+<!-- @meta{layout=collage, class=bleed ordered} -->
 
 `bleed · ordered`
 

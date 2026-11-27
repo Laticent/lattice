@@ -1,1 +1,0 @@
-- Restoring a workspace backup whose `workspace.json` has a wrong type inside (for example `"chats": null`) now refuses with a message that names the file and the field, and says nothing was changed, instead of "Cannot read properties of null (reading 'welcome')".

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · statement list rows"
 ---
 
-<!-- _class: image statement -->
+<!-- @meta{layout=image, class=statement} -->
 
 ## Three things the room should keep.
 
@@ -17,7 +17,7 @@ header: "Lattice · statement list rows"
 
 ---
 
-<!-- _class: image statement -->
+<!-- @meta{layout=image, class=statement} -->
 
 ## A paragraph, then the rows.
 
@@ -30,7 +30,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement image-card-top-right -->
+<!-- @meta{layout=image, class=statement image-card-top-right} -->
 
 ## The rows follow the card.
 
@@ -42,7 +42,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement image-card-dark image-card-top-right -->
+<!-- @meta{layout=image, class=statement image-card-dark image-card-top-right} -->
 
 ## Dark ink on a light scrim.
 
@@ -53,7 +53,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement image-card-sheer image-card-light -->
+<!-- @meta{layout=image, class=statement image-card-sheer image-card-light} -->
 
 ## A sheer scrim keeps the light ink.
 
@@ -64,7 +64,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 
 ---
 
-<!-- _class: image statement image-card-bottom image-card-band -->
+<!-- @meta{layout=image, class=statement image-card-bottom image-card-band} -->
 
 ## A band carries the rows too.
 

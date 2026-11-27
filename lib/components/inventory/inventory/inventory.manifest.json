@@ -123,11 +123,11 @@
       "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
     }
   },
-  "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
-  "sample": "<!-- _class: inventory -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n",
+  "skeleton": "<!-- @meta{layout=inventory} -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
+  "sample": "<!-- @meta{layout=inventory} -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n",
   "stressDoc": {
     "summary": "Five full rows are the 16:9 ceiling; a sixth clips.",
-    "sample": "<!-- _class: inventory compact -->\n\n## The ledger clips past five full rows.\n\n- **Part one.** Bodies stay short when the count is maxed.\n- **Part two.** Matched shapes keep five rows scannable.\n- **Part three.** The middle rows forgive the least.\n- **Part four.** The sweet spot ended here.\n- **Part five.** The last row that seats whole — a sixth would clip its body.\n"
+    "sample": "<!-- @meta{layout=inventory, class=compact} -->\n\n## The ledger clips past five full rows.\n\n- **Part one.** Bodies stay short when the count is maxed.\n- **Part two.** Matched shapes keep five rows scannable.\n- **Part three.** The middle rows forgive the least.\n- **Part four.** The sweet spot ended here.\n- **Part five.** The last row that seats whole — a sixth would clip its body.\n"
   },
   "anatomyBlock": "T7-card-grid-2x2",
   "whenToUse": [
@@ -188,17 +188,17 @@
     "cards": {
       "label": "Cards",
       "summary": "The register as tiles with a pull-quote.",
-      "sample": "<!-- _class: inventory cards -->\n\n`inventory cards`\n\n## cards deals the parts into tiles.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
+      "sample": "<!-- @meta{layout=inventory, class=cards} -->\n\n`inventory cards`\n\n## cards deals the parts into tiles.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
     },
     "timeline": {
       "label": "Timeline",
       "summary": "A numbered run along a line.",
-      "sample": "<!-- _class: inventory timeline -->\n\n`inventory timeline`\n\n## timeline strings the parts along a line.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
+      "sample": "<!-- @meta{layout=inventory, class=timeline} -->\n\n`inventory timeline`\n\n## timeline strings the parts along a line.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
     },
     "editorial": {
       "label": "Editorial",
       "summary": "A magazine split with a sidebar takeaway.",
-      "sample": "<!-- _class: inventory editorial -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
+      "sample": "<!-- @meta{layout=inventory, class=editorial} -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits, and five is the ceiling.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
     }
   },
   "commonMistakes": [

@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Universal table"
 meta: "Universal table · base layer"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Base layer · the default table`
 
@@ -32,7 +32,7 @@ Every table rule in the engine was scoped to a component. A markdown table on an
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Inside a component`
 
@@ -64,7 +64,7 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ---
 
-<!-- _class: table-plain table-fill -->
+<!-- @meta{class=table-plain table-fill} -->
 
 `Two switches`
 
@@ -80,7 +80,7 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `The first column`
 
@@ -98,7 +98,7 @@ one. The engine decides per table from the header cell and the column itself.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `The first column`
 
@@ -117,7 +117,7 @@ no author opt-out needed. It also declines on an index header (`#`, `No.`,
 
 ---
 
-<!-- _class: with-row-label -->
+<!-- @meta{class=with-row-label} -->
 
 `with-row-label`
 
@@ -136,7 +136,7 @@ wins if a slide somehow carries both.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `Riding it`
 
@@ -156,7 +156,7 @@ reshape, and the focus axes. That is why the switches reach it.
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 `Standing off`
 
@@ -170,7 +170,7 @@ reshape, and the focus axes. That is why the switches reach it.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Gated, not remembered`
 

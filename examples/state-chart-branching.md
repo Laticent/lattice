@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · Branching state charts"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,7 +16,7 @@ A chain keeps its reading order. A fan-out gets a real graph layout.
 
 ---
 
-<!-- _class: divider subsection light -->
+<!-- @meta{layout=divider, class=subsection light} -->
 
 ## The rule
 
@@ -24,7 +24,7 @@ A chain reads `1, 2, 3` in order. A machine that branches is re-ranked.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Chain`
 
@@ -45,7 +45,7 @@ One outgoing edge per state — reading order already is the right answer.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Fan-out`
 
@@ -73,7 +73,7 @@ No single column can show this; the states would read as a sequence.
 
 ---
 
-<!-- _class: state-chart tb -->
+<!-- @meta{layout=state-chart, class=tb} -->
 
 `Top to bottom`
 
@@ -93,7 +93,7 @@ Direction is the author's call — `lr`, `tb`, or leave it to fit the stage.
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Self-loops`
 
@@ -113,7 +113,7 @@ The router nests each loop outside its state's corner and keeps every other line
 
 ---
 
-<!-- _class: state-chart lr -->
+<!-- @meta{layout=state-chart, class=lr} -->
 
 `Long labels`
 

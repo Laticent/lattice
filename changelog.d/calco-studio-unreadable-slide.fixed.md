@@ -1,1 +1,0 @@
-- the Studio's editable export tells the author when a slide could not be made editable and is one picture in the file, instead of only logging it to the console.

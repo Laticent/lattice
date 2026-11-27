@@ -1,16 +1,16 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 progress-rail: on
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## One
 
 ---
 
-<!-- _class: content progress-3 -->
+<!-- @meta{layout=content, class=progress-3} -->
 
 ## Body one
 
@@ -18,7 +18,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Two
 
@@ -30,7 +30,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Three
 

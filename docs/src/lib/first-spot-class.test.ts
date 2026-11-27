@@ -9,7 +9,7 @@ const whole = (src: string) => classEntries(src).find((e: { spot: boolean }) => 
 describe('firstSpotClass — the prefix read equals the whole-deck read', () => {
 	it.each([
 		['a comment inside front matter is no slide setting', '---\ntheme: indaco\n<!-- @meta{class=hero} -->\n---\n\n<!-- _class: cards -->\n'],
-		['a class comment inside front matter, then more YAML', '---\ntheme: indaco\n<!-- _class: title -->\npaginate: true\n---\n\n<!-- _class: cards -->\n'],
+		['a class comment inside front matter, then more YAML', '---\ntheme: indaco\n<!-- _class: title -->\npagination: true\n---\n\n<!-- _class: cards -->\n'],
 		['front matter with a comment and no slide class', '---\ntheme: x\n<!-- _class: fake -->\n---\n\n# A\n'],
 		['front matter never closed', '---\ntheme: x\n<!-- _class: fake -->\n'],
 		['a byte-order mark and CRLF', '﻿---\r\ntheme: x\r\n---\r\n\r\n<!-- _class: kpi -->\r\n'],

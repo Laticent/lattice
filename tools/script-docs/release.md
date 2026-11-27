@@ -1,4 +1,4 @@
 ---
 group: Release
 ---
-Deterministic, changelog-driven release orchestrator (manually triggered). Prints the phase menu — pass --prepare or --publish.
+Changesets-driven release orchestrator for the engine and its twelve libraries. Prints the phase menu: pass --prepare, --publish or --plan.

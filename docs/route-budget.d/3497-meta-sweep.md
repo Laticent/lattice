@@ -1,0 +1,3 @@
+studio: +258
+home: +46
+The Studio reads and writes a slide's reader-view (lens) tag in its `@meta` record: docs/src/lib/lente-host.ts installs a carrier over lib/core/meta-edit.mjs `readMetaField` / `writeMeta`, so the shared slide-settings reader and writer join the eager Lente chunk (the build moves about 10 KB between chunks: lente-host +10,401 B, slide-directives −5,609 B, dist −5,203 B), net +258 B after the Coach's 40 B for the retired old-spelling skip (docs/route-budget.d/3429-meta-old-spellings.md, deleted here) are given back. Home's +46 B is `synthesizePrelude` (lib/diagnostics/slice-equivalence-core.mjs) reading a `carry` record, which the single-slide preview's chunks carry. Record note §15, slice D.

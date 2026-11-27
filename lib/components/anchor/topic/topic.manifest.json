@@ -56,7 +56,7 @@
       "selector": "ul.tile-track > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
-      "description": "DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Override it with the `_track` DIRECTIVE, never with a list: `<!-- _track: Cost to win | Lifetime value | [Payback] -->` names the labels outright, pipe-separated, with the topic THIS slide is on in square brackets. Reach for it only where derivation cannot — labels shorter than the headings, or a section whose later topics are not written yet; an overridden slide then contributes no name to its siblings' tracks. Mark nothing and the scale draws with no column lit; mark twice and the first wins. A markdown list on a `topic` slide is NOT a track — it renders as content and the slide still derives its own, which `npm run lint:deck` flags. In the GALLERY every sample names its own track, because a gallery slide has no section around it and derivation needs one — the composition is identical either way. At the nine-topic ceiling a column is about a tenth of the slide and its inset halves, so a word the length of `Postmortems` still fits whole; a single word longer than that BREAKS — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section."
+      "description": "DERIVED, not authored — `lib/transformers/topic-track.js` builds it from the headings of every `topic` slide in this section and lights the current one. Override it with the `track` FIELD, never with a list: `<!-- @meta{track=\"Cost to win | Lifetime value | [Payback]\"} -->` names the labels outright, pipe-separated, with the topic THIS slide is on in square brackets. Reach for it only where derivation cannot — labels shorter than the headings, or a section whose later topics are not written yet; an overridden slide then contributes no name to its siblings' tracks. Mark nothing and the scale draws with no column lit; mark twice and the first wins. A markdown list on a `topic` slide is NOT a track — it renders as content and the slide still derives its own, which `npm run lint:deck` flags. In the GALLERY every sample names its own track, because a gallery slide has no section around it and derivation needs one — the composition is identical either way. At the nine-topic ceiling a column is about a tenth of the slide and its inset halves, so a word the length of `Postmortems` still fits whole; a single word longer than that BREAKS — the track keeps its equal columns rather than letting one word widen them, which is the lesser of the two failures. Keep ceiling-count sections to short labels, or split the section."
     },
     "basis": {
       "selector": "p:last-of-type > code",
@@ -65,11 +65,11 @@
       "description": "What the claim rests on — source, period, method. A trailing inline-code paragraph on a foot rule. Belongs with `fact`, where the slide asserts something; on the default the claim is supporting text and rarely needs provenance."
     }
   },
-  "skeleton": "<!-- _class: topic -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
-  "sample": "<!-- _class: topic -->\n<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
+  "skeleton": "<!-- @meta{layout=topic} -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
+  "sample": "<!-- @meta{layout=topic, track=\"Cost to win | Lifetime value | [Payback] | The assumptions\"} -->\n\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n",
   "stressDoc": {
     "summary": "a nine-topic section — the track at its documented ceiling, labels stepped down two rungs",
-    "sample": "<!-- _class: topic -->\n<!-- _track: Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence -->\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n"
+    "sample": "<!-- @meta{layout=topic, track=\"Intake | Triage | Ownership | Runbooks | On-call | [Escalation paths] | Postmortems | Action tracking | Review cadence\"} -->\n\n\n`Section 04 · Operating review`\n\n## Escalation paths\n\nThree of the nine paths route to a team that no longer owns the service.\n"
   },
   "whenToUse": [
     {
@@ -120,7 +120,7 @@
   "commonMistakes": [
     {
       "mistake": "Authoring the sibling list by hand on every topic slide.",
-      "fix": "Don't — it is derived. `lib/transformers/topic-track.js` reads the `## heading` of every `topic` slide in the section and builds the track, so renaming a topic is a one-slide edit. Where the derived labels genuinely are not what you want, override the whole scale with one directive — `<!-- _track: Cost to win | [Payback] -->` — and that slide then stops contributing its name to its siblings' tracks."
+      "fix": "Don't — it is derived. `lib/transformers/topic-track.js` reads the `## heading` of every `topic` slide in the section and builds the track, so renaming a topic is a one-slide edit. Where the derived labels genuinely are not what you want, override the whole scale with one directive — `<!-- @meta{track=\"Cost to win | [Payback]\"} -->` — and that slide then stops contributing its name to its siblings' tracks."
     },
     {
       "mistake": "Expecting a track on a topic slide that sits before the deck's first `divider`.",
@@ -136,10 +136,10 @@
     },
     {
       "mistake": "Writing the override as a markdown list, the way it used to work.",
-      "fix": "A list on a `topic` slide is content now, not the track: the slide renders your list AND derives its own track below it. Move the labels into `<!-- _track: Cost to win | Lifetime value | [Payback] -->` and delete the list. The bracketed label is the topic this slide is on — bold does nothing, and an override that marks none draws with no column lit. `npm run lint:deck` flags both shapes."
+      "fix": "A list on a `topic` slide is content now, not the track: the slide renders your list AND derives its own track below it. Move the labels into `<!-- @meta{track=\"Cost to win | Lifetime value | [Payback]\"} -->` and delete the list. The bracketed label is the topic this slide is on — bold does nothing, and an override that marks none draws with no column lit. `npm run lint:deck` flags both shapes."
     },
     {
-      "mistake": "Putting `_track` on a `topic fact` slide.",
+      "mistake": "Putting `track` on a `topic fact` slide.",
       "fix": "`fact` is one flat canvas and drops the track, so the directive draws NOTHING there — and it still opts the slide out of derivation, which quietly removes this topic's name from every sibling's scale. Measured: a three-topic section whose `fact` slide carries `_track` leaves its two siblings showing a two-topic track. Drop the directive and the slide goes back to contributing its heading; drop `fact` if what you wanted was the scale. `npm run lint:deck` flags it."
     },
     {
@@ -161,7 +161,7 @@
     "fact": {
       "label": "fact",
       "summary": "One flat canvas. The claim becomes the display line, the name a label on a rule, and a mono basis line states what the claim rests on.",
-      "sample": "<!-- _class: topic fact -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n`CAC ÷ monthly gross margin · 14 cohorts · FY26 actuals`\n"
+      "sample": "<!-- @meta{layout=topic, class=fact} -->\n\n`Section 02 · Unit economics`\n\n## Payback\n\nFourteen months blended, against a nine-month plan.\n\n`CAC ÷ monthly gross margin · 14 cohorts · FY26 actuals`\n"
     }
   },
   "anatomyBlock": "topic-track",

@@ -186,11 +186,11 @@
       "description": "A connection from a shape inside a group, written under that shape (`=> Target`, `-label-> Target`)."
     }
   },
-  "skeleton": "<!-- _class: flowchart -->\n\n## The flow in one line.\n\n- Start `pill` => Check => Decide?\n- Decide? `diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
-  "sample": "<!-- _class: flowchart -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `doc`\n\n`[{\"=>\", Paging path}, {dotted, Waits for business hours}]`\n",
+  "skeleton": "<!-- @meta{layout=flowchart} -->\n\n## The flow in one line.\n\n- Start `pill` => Check => Decide?\n- Decide? `diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",
+  "sample": "<!-- @meta{layout=flowchart} -->\n\n`Incident response`\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - =SEV1=> Page on-call\n  - -SEV2-> Open ticket -> Mitigate\n  - -SEV3-> Backlog `dotted`\n- Page on-call `fail` =ack=> Mitigate => Postmortem\n  > Pages the secondary after 5 minutes.\n- Postmortem `doc`\n\n`[{\"=>\", Paging path}, {dotted, Waits for business hours}]`\n",
   "stressDoc": {
     "summary": "Three groups, a group-to-shape line and a disconnected shape.",
-    "sample": "<!-- _class: flowchart -->\n\n`Platform`\n\n## Payments sit between four parties.\n\n- Customers `c1`\n  - Shopper `circle`\n    - -browses-> Storefront\n  - Merchant `circle`\n    - -lists items-> Storefront\n- Platform `c2`\n  - Storefront\n    - => Payments\n  - Payments\n    - -screens-> Fraud checks\n    - <-> Card networks\n  - Fraud checks `diamond`\n  - -ships via-> Carriers\n- Partners `c3`\n  - Card networks `square`\n  - Carriers `square`\n- Regulators `doc`\n"
+    "sample": "<!-- @meta{layout=flowchart} -->\n\n`Platform`\n\n## Payments sit between four parties.\n\n- Customers `c1`\n  - Shopper `circle`\n    - -browses-> Storefront\n  - Merchant `circle`\n    - -lists items-> Storefront\n- Platform `c2`\n  - Storefront\n    - => Payments\n  - Payments\n    - -screens-> Fraud checks\n    - <-> Card networks\n  - Fraud checks `diamond`\n  - -ships via-> Carriers\n- Partners `c3`\n  - Card networks `square`\n  - Carriers `square`\n- Regulators `doc`\n"
   },
   "whenToUse": [
     {
@@ -278,22 +278,22 @@
     "lr": {
       "label": "Left-to-right",
       "summary": "Pins the flow left to right.",
-      "sample": "<!-- _class: flowchart lr -->\n\n## Events land in the warehouse within a minute.\n\n- Web events `io` => Ingest queue => Stream processor => Warehouse\n- Warehouse `cylinder`\n  - -> BI dashboards\n  - -nightly-> ML training\n- BI dashboards `doc`\n"
+      "sample": "<!-- @meta{layout=flowchart, class=lr} -->\n\n## Events land in the warehouse within a minute.\n\n- Web events `io` => Ingest queue => Stream processor => Warehouse\n- Warehouse `cylinder`\n  - -> BI dashboards\n  - -nightly-> ML training\n- BI dashboards `doc`\n"
     },
     "tb": {
       "label": "Top-to-bottom",
       "summary": "Pins the flow top to bottom.",
-      "sample": "<!-- _class: flowchart tb -->\n\n## The operating model has three lines of reporting.\n\n- Chief executive `c1`\n  - -- Finance & Technology & Operations\n- Finance\n  - -- Controller & Planning\n- Technology\n  - -- Platform & Security\n"
+      "sample": "<!-- @meta{layout=flowchart, class=tb} -->\n\n## The operating model has three lines of reporting.\n\n- Chief executive `c1`\n  - -- Finance & Technology & Operations\n- Finance\n  - -- Controller & Planning\n- Technology\n  - -- Platform & Security\n"
     },
     "curved": {
       "label": "Curved",
       "summary": "Generously rounded corners on the router's lines.",
-      "sample": "<!-- _class: flowchart curved -->\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - -SEV1-> Page on-call\n  - -SEV2-> Open ticket\n- Page on-call `fail`\n  - -ack-> Mitigate\n- Open ticket -> Mitigate\n"
+      "sample": "<!-- @meta{layout=flowchart, class=curved} -->\n\n## Every page reaches a human within 15 minutes.\n\n- Alert fires `pill` => Auto-triage => Severity?\n- Severity? `diamond`\n  - -SEV1-> Page on-call\n  - -SEV2-> Open ticket\n- Page on-call `fail`\n  - -ack-> Mitigate\n- Open ticket -> Mitigate\n"
     },
     "rearrange": {
       "label": "Rearrange",
       "summary": "Shapes may leave their written order when that draws a cleaner chart.",
-      "sample": "<!-- _class: flowchart rearrange -->\n\n## rearrange lets a detour sit beside the step it leaves.\n\n- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew\n- Renew `pill`\n- Negotiate -legal review-> Legal\n- Legal -cleared-> Sign\n- Demo -needs trial-> Trial\n- Trial -converted-> Proposal\n"
+      "sample": "<!-- @meta{layout=flowchart, class=rearrange} -->\n\n## rearrange lets a detour sit beside the step it leaves.\n\n- Lead `pill` => Qualify => Demo => Proposal => Negotiate => Sign => Onboard => Renew\n- Renew `pill`\n- Negotiate -legal review-> Legal\n- Legal -cleared-> Sign\n- Demo -needs trial-> Trial\n- Trial -converted-> Proposal\n"
     }
   },
   "specimenVoice": true,

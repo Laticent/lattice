@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 footer: "Laticent · chart narration parity"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Charts read themselves aloud — the same way live and in the export.
 
@@ -18,7 +18,7 @@ A chart's real insight is a number the render computes — a conversion rate, an
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The insight isn't in the words — it's in the picture.
 
@@ -28,7 +28,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the flow drops off.
 
@@ -38,7 +38,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: journey weighted -->
+<!-- @meta{layout=journey, class=weighted} -->
 
 ## weighted sizes each step by its share of the whole.
 
@@ -54,7 +54,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 ## How we stack up across the buying criteria.
 
@@ -69,7 +69,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 ## Where to put the next dollar.
 
@@ -81,7 +81,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 ## The approval flow, and where it starts and ends.
 
@@ -94,7 +94,7 @@ A funnel slide lists stage counts, but the number that matters — how much of e
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 ## One kernel, two surfaces — no drift.
 

@@ -25,7 +25,7 @@ function loadLayoutCore(): Promise<LayoutCore> {
 /** A saved local component as the Studio uses it. */
 export type StudioComponent = {
 	id: string;
-	name: string; // lowercase slug — the `<!-- _class: name -->` invoked
+	name: string; // lowercase slug — the `<!-- @meta{layout=name} -->` invoked
 	bucket: string | null;
 	css: string;
 	skeleton: string;
@@ -100,7 +100,7 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	const meta = input.meta || {};
 	// A SHIPPED name is reserved: a saved `kpi` would restyle every shipped `kpi` slide
 	// in a deck that also used it. The clash saves as `kpi-custom`, with its selectors
-	// and its skeleton's `_class:` rewritten to match, so the saved record still styles
+	// and its skeleton's layout (`@meta{layout=…}`, or an old `_class:`) rewritten to match, so the saved record still styles
 	// its own slides. The caller compares the returned name with its own and says so.
 	// So is a class the ENGINE owns (`finish`, `print`, `dark`…): a component named `finish`
 	// would restyle every slide carrying a finish. Loaded here, not with the Studio.

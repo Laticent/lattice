@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · content"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # content
 
@@ -15,8 +15,7 @@ Generic prose slide — heading plus paragraphs or a short list.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Default · content" -->
+<!-- @meta{layout=content, footer=Default · content} -->
 
 `statement · content`
 
@@ -27,9 +26,8 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: content -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · content — Two paragraphs and a list — the ceiling." -->
+<!-- @meta{layout=content, footer="Stress test · content — Two paragraphs and a list — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## This is as much text as one slide should ever carry.
 
@@ -46,8 +44,7 @@ The second paragraph stays shorter — because by now the audience is reading, n
 
 ---
 
-<!-- _class: content dark -->
-<!-- _footer: "Composition: dark · content dark" -->
+<!-- @meta{layout=content, class=dark, footer=Composition: dark · content dark} -->
 
 `statement · content`
 
@@ -58,8 +55,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: content compact -->
-<!-- _footer: "Composition: compact · content compact" -->
+<!-- @meta{layout=content, class=compact, footer=Composition: compact · content compact} -->
 
 `statement · content`
 
@@ -70,8 +66,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: content accent -->
-<!-- _footer: "Composition: accent · content accent" -->
+<!-- @meta{layout=content, class=accent, footer=Composition: accent · content accent} -->
 
 `statement · content`
 
@@ -82,8 +77,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · content" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · content} -->
 
 ## When NOT to reach for content.
 
@@ -96,7 +90,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

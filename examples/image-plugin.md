@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Images"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # Pictures you can set like the deck
 
@@ -16,7 +16,7 @@ One record describes the picture; the slide decides where it goes
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Seat · the image slide`
 
@@ -28,7 +28,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Frame · mat`
 
@@ -38,7 +38,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Frame · keyline · duotone`
 
@@ -48,7 +48,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Frame · device`
 
@@ -58,7 +58,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Frame · corners · grayscale`
 
@@ -68,7 +68,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 `Frame · float · halo · dark`
 
@@ -78,7 +78,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content dark bleed -->
+<!-- @meta{layout=content, class=dark bleed} -->
 
 `Seat · bleed · meridian`
 
@@ -88,7 +88,7 @@ An `image` slide makes the picture its panel and reads the photo's shape. The fi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Shared · a clip`
 

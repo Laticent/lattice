@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · closing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # closing
 
@@ -15,8 +15,7 @@ Final slide. The mirror of title, in the same color mode.
 
 ---
 
-<!-- _class: closing silent -->
-<!-- _footer: "Default · closing" -->
+<!-- @meta{layout=closing, class=silent, footer=Default · closing} -->
 
 ## The closing mirrors the title, with one last claim.
 
@@ -25,8 +24,7 @@ Final slide. The mirror of title, in the same color mode.
 
 ---
 
-<!-- _class: closing qr -->
-<!-- _footer: "qr · closing qr — Scan to take the deck with you." -->
+<!-- @meta{layout=closing, class=qr, footer="qr · closing qr — Scan to take the deck with you."} -->
 
 `closing qr`
 
@@ -40,8 +38,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent index -->
-<!-- _footer: "index · closing index — Ends on a reference list — see also, next steps." -->
+<!-- @meta{layout=closing, class=silent index, footer="index · closing index — Ends on a reference list — see also, next steps."} -->
 
 ## Where to go next.
 
@@ -54,8 +51,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent spectrum -->
-<!-- _footer: "spectrum · closing spectrum — Mirrors title's generated gradient bar — the deck's color story, one last time." -->
+<!-- @meta{layout=closing, class=silent spectrum, footer="spectrum · closing spectrum — Mirrors title's generated gradient bar — the deck's color story, one last time."} -->
 
 ## The closing echoes the same six-step spectrum.
 
@@ -64,8 +60,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-masthead -->
-<!-- _footer: "cover-masthead · closing cover-masthead — A heavy rule over the title, set left." -->
+<!-- @meta{layout=closing, class=silent cover-masthead, footer="cover-masthead · closing cover-masthead — A heavy rule over the title, set left."} -->
 
 ## The back cover composes as a masthead.
 
@@ -74,8 +69,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-ledger -->
-<!-- _footer: "cover-ledger · closing cover-ledger — A small-caps title over a double rule." -->
+<!-- @meta{layout=closing, class=silent cover-ledger, footer="cover-ledger · closing cover-ledger — A small-caps title over a double rule."} -->
 
 ## The back cover composes as a ledger.
 
@@ -84,8 +78,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-column -->
-<!-- _footer: "cover-column · closing cover-column — An accent column at the right edge, the title set left." -->
+<!-- @meta{layout=closing, class=silent cover-column, footer="cover-column · closing cover-column — An accent column at the right edge, the title set left."} -->
 
 ## The back cover composes as a column.
 
@@ -94,8 +87,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-label -->
-<!-- _footer: "cover-label · closing cover-label — A gallery wall label: a smaller title low on the left under a hairline." -->
+<!-- @meta{layout=closing, class=silent cover-label, footer="cover-label · closing cover-label — A gallery wall label: a smaller title low on the left under a hairline."} -->
 
 ## The back cover composes as a label.
 
@@ -104,8 +96,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-stage -->
-<!-- _footer: "cover-stage · closing cover-stage — A stage-size centered title." -->
+<!-- @meta{layout=closing, class=silent cover-stage, footer="cover-stage · closing cover-stage — A stage-size centered title."} -->
 
 ## Thank you.
 
@@ -114,8 +105,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-frame -->
-<!-- _footer: "cover-frame · closing cover-frame — The title boxed in a keyline." -->
+<!-- @meta{layout=closing, class=silent cover-frame, footer="cover-frame · closing cover-frame — The title boxed in a keyline."} -->
 
 ## The back cover composes as a frame.
 
@@ -124,8 +114,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent cover-poster -->
-<!-- _footer: "cover-poster · closing cover-poster — A giant title set left." -->
+<!-- @meta{layout=closing, class=silent cover-poster, footer="cover-poster · closing cover-poster — A giant title set left."} -->
 
 ## Make it yours.
 
@@ -134,8 +123,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · closing" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · closing} -->
 
 ## When NOT to reach for closing.
 
@@ -148,7 +136,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

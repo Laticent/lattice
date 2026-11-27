@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 footer: "Laticent · read-along captions"
 acronyms:
@@ -9,7 +9,7 @@ acronyms:
   NDR: net dollar retention
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Every deck can read itself aloud.
 
@@ -21,7 +21,7 @@ Your slides become a timed WebVTT caption track — one `--captions` flag, no au
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The narration is already there — on the slide.
 
@@ -88,7 +88,7 @@ The `.vtt` is a sidecar, not baked into the deck's bytes. Export a PDF, an HTML 
 
 ---
 
-<!-- _class: light -->
+<!-- @meta{class=light} -->
 
 ## One line at the command line.
 

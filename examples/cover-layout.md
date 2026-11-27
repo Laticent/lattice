@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 cover-layout: masthead
-paginate: true
+pagination: true
 footer: "Lattice · cover-layout"
 logo: sample:logo-acme-mark.svg
 ---

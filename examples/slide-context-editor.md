@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · This slide"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the "This slide" drawer`
 
@@ -18,7 +18,7 @@ Every treatment on the slides that follow is a single click in the Studio's
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the drawer edits
 
@@ -34,7 +34,7 @@ teaches the markdown while you click.
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 ## Dark is a click — and honest
 
@@ -45,7 +45,7 @@ classes.
 
 ---
 
-<!-- _class: content tone-fail -->
+<!-- @meta{layout=content, class=tone-fail} -->
 
 ## Tone marks the failure slide
 
@@ -54,7 +54,7 @@ in the drawer; the whole slide reads as the thing that went wrong.
 
 ---
 
-<!-- _class: content confidential -->
+<!-- @meta{layout=content, class=confidential} -->
 
 ## State stamps ride with the slide
 
@@ -64,7 +64,7 @@ with the deck.
 
 ---
 
-<!-- _class: content scale-l tint-edge at-right -->
+<!-- @meta{layout=content, class=scale-l tint-edge at-right} -->
 
 ## Scale and decoration
 
@@ -74,7 +74,7 @@ composes both tokens for you, and never stacks two tints.
 
 ---
 
-<!-- _class: content finish-atrium -->
+<!-- @meta{layout=content, class=finish-atrium} -->
 
 ## A per-slide finish
 
@@ -84,7 +84,7 @@ finish picker — it clears any prior finish so backdrops never stack.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One drawer, the whole slide.
 

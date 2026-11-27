@@ -3,7 +3,7 @@ theme: indaco
 title: Author script deferral
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Author script deferral
 

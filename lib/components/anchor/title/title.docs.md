@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is a `title dark` slide (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -42,7 +42,7 @@ First slide of every deck. Sets the topic and the visual tone. Drops the running
 ## Authoring
 
 ```markdown
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Deck title goes here
 
@@ -72,7 +72,7 @@ One-line subtitle that frames the deck.
 A generated gradient bar below the subtitle, in the theme's own six-step palette.
 
 ```markdown
-<!-- _class: title silent spectrum -->
+<!-- @meta{layout=title, class=silent spectrum} -->
 
 # A deck built on a color-coded spectrum.
 
@@ -86,7 +86,7 @@ The title echoes the same six-step story the deck's own components carry.
 A heavy rule over the title, set left.
 
 ```markdown
-<!-- _class: title silent cover-masthead -->
+<!-- @meta{layout=title, class=silent cover-masthead} -->
 
 # The cover composes as a masthead.
 
@@ -100,7 +100,7 @@ The heading sits under a heavy rule as wide as its measure.
 A small-caps title over a double rule.
 
 ```markdown
-<!-- _class: title silent cover-ledger -->
+<!-- @meta{layout=title, class=silent cover-ledger} -->
 
 # The cover composes as a ledger.
 
@@ -114,7 +114,7 @@ Small capitals over a double rule, centered.
 An accent column at the right edge, the title set left.
 
 ```markdown
-<!-- _class: title silent cover-column -->
+<!-- @meta{layout=title, class=silent cover-column} -->
 
 # The cover composes as a column.
 
@@ -128,7 +128,7 @@ The accent column runs between the header and footer bands.
 A gallery wall label: a smaller title low on the left under a hairline.
 
 ```markdown
-<!-- _class: title silent cover-label -->
+<!-- @meta{layout=title, class=silent cover-label} -->
 
 # The cover composes as a label.
 
@@ -142,7 +142,7 @@ A quiet caption sits under the hairline, the way a museum labels a work.
 A stage-size centered title.
 
 ```markdown
-<!-- _class: title silent cover-stage -->
+<!-- @meta{layout=title, class=silent cover-stage} -->
 
 # Built for the back row.
 
@@ -156,7 +156,7 @@ One short line, sized for the back of the hall.
 The title boxed in a keyline.
 
 ```markdown
-<!-- _class: title silent cover-frame -->
+<!-- @meta{layout=title, class=silent cover-frame} -->
 
 # The cover composes as a frame.
 
@@ -170,7 +170,7 @@ The keyline follows the deck's rule weight.
 A giant title set left.
 
 ```markdown
-<!-- _class: title silent cover-poster -->
+<!-- @meta{layout=title, class=silent cover-poster} -->
 
 # Say it loud.
 

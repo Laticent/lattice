@@ -14,7 +14,7 @@ test.describe.configure({ timeout: 240_000 });
 
 const DECK = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 # Steps

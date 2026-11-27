@@ -1,4 +1,4 @@
-import type { LensBase, LensKind } from '@/lib/lente';
+import type { LensBase, LensKind } from '@/lib/lente-host';
 
 // The reader-view ARCHETYPES — the single source of truth for the built-in reader types, shared by the
 // Lenses panel (the "Add a reader view" menu) AND the workspace default reader views (workspace-lenses).

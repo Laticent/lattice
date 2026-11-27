@@ -39,7 +39,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	test(`slide settings: the Tag rows write \`tag-*\` tokens on a tagged slide${tag}`, async ({ page }, info) => {
 		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
 		await choose(page, 'Tag placement', 'Bottom corner');
-		await expect.poll(() => persistedSource(page)).toContain('decision tag-foot');
+		await expect.poll(() => persistedSource(page)).toContain('layout=decision, class=tag-foot');
 		await choose(page, 'Tag size', 'Large');
 		await expect.poll(() => persistedSource(page)).toContain('tag-large');
 		await page.getByRole('combobox', { name: 'Tag placement' }).filter({ visible: true }).first().scrollIntoViewIfNeeded();

@@ -47,7 +47,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ## Authoring
 
 ```markdown
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## What we are doing.
 
@@ -80,7 +80,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 Headlines each card with its camp.
 
 ```markdown
-<!-- _class: decision tag-band -->
+<!-- @meta{layout=decision, class=tag-band} -->
 
 ## tag-band headlines each card with its camp.
 

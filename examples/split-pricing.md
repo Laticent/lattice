@@ -1,11 +1,11 @@
 ---
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 footer: "Auto-split — pricing, one tier per page"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A price list you can read on a phone
 
@@ -15,7 +15,7 @@ Three tiers side by side need a wide page. On a tall one they used to lose two o
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What this deck shows
 
@@ -28,7 +28,7 @@ page still renders every tier at once.
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## The three renewal structures, as a customer sees them.
 
@@ -47,7 +47,7 @@ page still renders every tier at once.
 
 ---
 
-<!-- _class: pricing two -->
+<!-- @meta{layout=pricing, class=two} -->
 
 ## Two tiers read as a choice, not a ladder.
 
@@ -62,7 +62,7 @@ page still renders every tier at once.
 
 ---
 
-<!-- _class: pricing four -->
+<!-- @meta{layout=pricing, class=four} -->
 
 ## Four is the widest row that still holds.
 
@@ -85,7 +85,7 @@ page still renders every tier at once.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Why a comparison is allowed to page
 
@@ -98,7 +98,7 @@ page — and the forward signal is what holds the run together.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The rule, in one line
 

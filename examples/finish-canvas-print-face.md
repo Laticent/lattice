@@ -3,11 +3,11 @@ marp: true
 theme: indaco
 color-mode: print
 finish: atrium
-paginate: true
+pagination: true
 header: "Finish canvas · print face"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · base.finish.css`
 
@@ -17,7 +17,7 @@ A frame that restates its canvas above the register keeps it — and the finish 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -25,7 +25,7 @@ A frame that restates its canvas above the register keeps it — and the finish 
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Print`
 
@@ -35,7 +35,7 @@ Print resets the surface and remaps the consumed tokens, so a plain topic gives 
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 01 · Print`
 
@@ -47,7 +47,7 @@ A fact slide keeps its panel when the register takes the page.
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 `Section 01 · Print`
 
@@ -57,6 +57,6 @@ The track is what makes the difference measurable: a tracked topic is back at th
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Measured on the exported PDF, not the screen — the two faces disagree here.

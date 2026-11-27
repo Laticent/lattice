@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · numbered bookends"
 meta: "numbered · the divider section mark"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Bookend modifier · numbered`
 
@@ -16,7 +16,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: divider silent numbered -->
+<!-- @meta{layout=divider, class=silent numbered} -->
 
 `divider silent numbered`
 
@@ -24,7 +24,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Defect · the pack`
 
@@ -39,7 +39,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Defect · silent`
 
@@ -54,7 +54,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `divider numbered`
 
@@ -62,7 +62,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: divider subsection light numbered -->
+<!-- @meta{layout=divider, class=subsection light numbered} -->
 
 `divider light numbered`
 
@@ -70,7 +70,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The fix · carrier`
 
@@ -87,7 +87,7 @@ The numeral now rides `section.divider.numbered :is(h1, h2)::after` — a select
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The fix · ink`
 
@@ -104,7 +104,7 @@ Drawing again exposed a second defect: the numeral sat on the 12% decoration run
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The fix · placement`
 
@@ -121,7 +121,7 @@ Three shapes were rendered and stressed against headings of one to five lines. T
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The fix · the band`
 
@@ -138,7 +138,7 @@ A centered block grows both ways, so at four lines the heading climbed into the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The fix · scope`
 
@@ -155,6 +155,6 @@ Three counters used to run in parallel — `divider`, `divider light` and `closi
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## The closing carries no stamp, by design.

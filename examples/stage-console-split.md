@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 footer: "Laticent · Stage & console"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The room gets the deck. You get the cockpit.
 
@@ -19,7 +19,7 @@ Present now opens two surfaces instead of one: a chrome-free Stage window for th
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `What changed`
 
@@ -40,7 +40,7 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## What an audience used to see behind your slide.
 
@@ -58,9 +58,9 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 01`
 
@@ -70,7 +70,7 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: list-steps timeline -->
+<!-- @meta{layout=list-steps, class=timeline} -->
 
 ## Open, place, talk.
 
@@ -85,7 +85,7 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## What came back to the console.
 
@@ -102,7 +102,7 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > Backstage is definitionally the part of the theater the audience cannot see.
 
@@ -112,9 +112,9 @@ The controls did not move because they were untidy. They moved because they were
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Preview it. Rehearse it. Present to drive. Stage for the room.
 

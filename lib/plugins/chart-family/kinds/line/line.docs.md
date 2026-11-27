@@ -69,7 +69,7 @@ Use when the claim is that something MOVED: revenue by quarter, headcount throug
 ## Authoring
 
 ```markdown
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## The number moved, and here is the shape of it.
 
@@ -104,7 +104,7 @@ Use when the claim is that something MOVED: revenue by quarter, headcount throug
 One series with the region under it filled — the fill reads as quantity, so it is honest for a single series only and the axis always reaches zero.
 
 ```markdown
-<!-- _class: line area -->
+<!-- @meta{layout=line, class=area} -->
 
 ## Cash on hand never dipped below one quarter of runway.
 
@@ -121,7 +121,7 @@ One series with the region under it filled — the fill reads as quantity, so it
 Composition over time: the series stack to a total, in the order they were authored, largest and steadiest at the bottom.
 
 ```markdown
-<!-- _class: line stacked-area -->
+<!-- @meta{layout=line, class=stacked-area} -->
 
 ## The mix shifted; the total barely moved.
 
@@ -148,7 +148,7 @@ Composition over time: the series stack to a total, in the order they were autho
 A value that HOLDS and then JUMPS — a headcount, a price tier, a rate — drawn as a plateau per period rather than a slope between periods.
 
 ```markdown
-<!-- _class: line step -->
+<!-- @meta{layout=line, class=step} -->
 
 ## The list price held for three quarters, then moved twice.
 

@@ -80,9 +80,9 @@
       "description": "Optional caption or body text."
     }
   },
-  "skeleton": "<!-- _class: image -->\n\n## Text leads; the image earns its place.\n\nSwap the picture below for your own photo, and name it — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
+  "skeleton": "<!-- @meta{layout=image} -->\n\n## Text leads; the image earns its place.\n\nSwap the picture below for your own photo, and name it — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
   "anatomyBlock": "image-canvas",
-  "sample": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
+  "sample": "<!-- @meta{layout=image} -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
   "whenToUse": [
     {
       "title": "The visual carries meaning",
@@ -133,132 +133,132 @@
     "clean": {
       "label": "clean",
       "summary": "Drops the caption chrome.",
-      "sample": "<!-- _class: image clean -->\n\n## clean drops the caption chrome.\n\nTwo-thirds of trials that reach the first generated report convert; the ones that stall almost never do.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=clean} -->\n\n## clean drops the caption chrome.\n\nTwo-thirds of trials that reach the first generated report convert; the ones that stall almost never do.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "split": {
       "label": "split",
       "summary": "A portrait gets its full column.",
-      "sample": "<!-- _class: image split -->\n\n## split gives a portrait its full column.\n\nA portrait photo wants its full height. We give it a column and let the argument run alongside.\n\n![A figure before violet hills and a pale sun](sample:photo-tall.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=split} -->\n\n## split gives a portrait its full column.\n\nA portrait photo wants its full height. We give it a column and let the argument run alongside.\n\n![A figure before violet hills and a pale sun](sample:photo-tall.svg)\n"
     },
     "spotlight": {
       "label": "spotlight",
       "summary": "A panorama owns the frame.",
-      "sample": "<!-- _class: image spotlight -->\n\n## spotlight lets a panorama own the frame.\n\nWhen the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.\n\n![A lone figure on a wide shore at dusk](sample:photo-pano.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight} -->\n\n## spotlight lets a panorama own the frame.\n\nWhen the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.\n\n![A lone figure on a wide shore at dusk](sample:photo-pano.svg)\n"
     },
     "gallery": {
       "label": "gallery",
       "summary": "The exhibit on a matte with a placard.",
-      "sample": "<!-- _class: image gallery -->\n\n## gallery mats the exhibit with a placard.\n\nThe whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.\n\n![A figure on a green shore under a pale sun](sample:photo-square.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=gallery} -->\n\n## gallery mats the exhibit with a placard.\n\nThe whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.\n\n![A figure on a green shore under a pale sun](sample:photo-square.svg)\n"
     },
     "statement": {
       "label": "statement",
       "summary": "The title rides the photo on a scrim.",
-      "sample": "<!-- _class: image statement -->\n\n## statement rides the title on a scrim.\n\nThe title rides the photo on a scrim — a deliberate, editorial choice.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement} -->\n\n## statement rides the title on a scrim.\n\nThe title rides the photo on a scrim — a deliberate, editorial choice.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "mirror": {
       "label": "mirror",
       "summary": "The image lands on the left.",
-      "sample": "<!-- _class: image mirror -->\n\n## mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=mirror} -->\n\n## mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-top-left": {
       "label": "Top left",
       "summary": "The text card sits in the top-left corner.",
-      "sample": "<!-- _class: image spotlight image-card-top-left -->\n\n## image-card-top-left lifts the card to the top left.\n\nMove the card to wherever the photo is quiet, so the subject keeps the frame.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-top-left} -->\n\n## image-card-top-left lifts the card to the top left.\n\nMove the card to wherever the photo is quiet, so the subject keeps the frame.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-top": {
       "label": "Top center",
       "summary": "The text card sits centered along the top.",
-      "sample": "<!-- _class: image statement image-card-top -->\n\n## Top center lifts the title up high.\n\nThe scrim follows the words to the top edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement image-card-top} -->\n\n## Top center lifts the title up high.\n\nThe scrim follows the words to the top edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-top-right": {
       "label": "Top right",
       "summary": "The text card sits in the top-right corner.",
-      "sample": "<!-- _class: image spotlight image-card-top-right -->\n\n## image-card-top-right parks the card top right.\n\nThe subject sits low and left, so the words take the open sky.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-top-right} -->\n\n## image-card-top-right parks the card top right.\n\nThe subject sits low and left, so the words take the open sky.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-center": {
       "label": "Center",
       "summary": "The text card sits in the middle of the slide.",
-      "sample": "<!-- _class: image statement image-card-center -->\n\n## The center placement puts the title dead center.\n\nA radial scrim darkens only the middle.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement image-card-center} -->\n\n## The center placement puts the title dead center.\n\nA radial scrim darkens only the middle.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-bottom-left": {
       "label": "Bottom left",
       "summary": "The text card sits in the bottom-left corner — the default.",
-      "sample": "<!-- _class: image spotlight image-card-bottom-left -->\n\n## Bottom left is the default corner.\n\nName it to return a slide to bottom left inside a deck that moved it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-bottom-left} -->\n\n## Bottom left is the default corner.\n\nName it to return a slide to bottom left inside a deck that moved it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-bottom": {
       "label": "Bottom center",
       "summary": "The text card sits centered along the bottom.",
-      "sample": "<!-- _class: image spotlight image-card-bottom -->\n\n## image-card-bottom centers the card low.\n\nA caption band under the subject, centered on the slide.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-bottom} -->\n\n## image-card-bottom centers the card low.\n\nA caption band under the subject, centered on the slide.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-bottom-right": {
       "label": "Bottom right",
       "summary": "The text card sits in the bottom-right corner.",
-      "sample": "<!-- _class: image statement image-card-bottom-right -->\n\n## Bottom right anchors the title in the corner.\n\nThe scrim flips to darken the right side.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement image-card-bottom-right} -->\n\n## Bottom right anchors the title in the corner.\n\nThe scrim flips to darken the right side.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-solid": {
       "label": "Solid backing",
       "summary": "The card or scrim at full strength — the default.",
-      "sample": "<!-- _class: image spotlight image-card-solid -->\n\n## image-card-solid keeps the card opaque.\n\nFull legibility over any photo. This is the default.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-solid} -->\n\n## image-card-solid keeps the card opaque.\n\nFull legibility over any photo. This is the default.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-soft": {
       "label": "Soft backing",
       "summary": "The card or scrim at 80%, so the photo glows through.",
-      "sample": "<!-- _class: image spotlight image-card-soft -->\n\n## image-card-soft lets the photo glow through.\n\nThe panel drops to 80% and loses its lift shadow.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-soft} -->\n\n## image-card-soft lets the photo glow through.\n\nThe panel drops to 80% and loses its lift shadow.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-sheer": {
       "label": "Sheer backing",
       "summary": "The card or scrim at 55%, a tint more than a panel.",
-      "sample": "<!-- _class: image spotlight image-card-sheer image-card-light -->\n\n## image-card-sheer turns the card into a tint.\n\nAt 55% the photo reads through; pair it with an ink that suits the photo.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-sheer image-card-light} -->\n\n## image-card-sheer turns the card into a tint.\n\nAt 55% the photo reads through; pair it with an ink that suits the photo.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-clear": {
       "label": "Clear backing",
       "summary": "No card and no scrim: the words ride the photo.",
-      "sample": "<!-- _class: image statement image-card-clear -->\n\n## image-card-clear drops the scrim.\n\nOnly for a photo with a calm, dark patch where the words land.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement image-card-clear} -->\n\n## image-card-clear drops the scrim.\n\nOnly for a photo with a calm, dark patch where the words land.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-light": {
       "label": "Light ink",
       "summary": "White words on a dark backing.",
-      "sample": "<!-- _class: image spotlight image-card-light -->\n\n## image-card-light sets white words on a dark card.\n\nThe card turns dark to match, whatever the deck palette.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-light} -->\n\n## image-card-light sets white words on a dark card.\n\nThe card turns dark to match, whatever the deck palette.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-dark": {
       "label": "Dark ink",
       "summary": "Near-black words on a light backing.",
-      "sample": "<!-- _class: image statement image-card-dark -->\n\n## image-card-dark sets dark words on a light scrim.\n\nFor a bright photo: the scrim turns light and the title goes dark.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=statement image-card-dark} -->\n\n## image-card-dark sets dark words on a light scrim.\n\nFor a bright photo: the scrim turns light and the title goes dark.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-sm": {
       "label": "Small card",
       "summary": "A narrower card with smaller type, so the photo breathes.",
-      "sample": "<!-- _class: image spotlight image-card-sm image-card-top-right -->\n\n## image-card-sm keeps the card discreet.\n\nSmaller type and a narrower card leave the photo the slide.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-sm image-card-top-right} -->\n\n## image-card-sm keeps the card discreet.\n\nSmaller type and a narrower card leave the photo the slide.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-md": {
       "label": "Medium card",
       "summary": "The default card width and type.",
-      "sample": "<!-- _class: image spotlight image-card-md -->\n\n## image-card-md is the default size.\n\nName it to return a slide to the default inside a deck that resized it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-md} -->\n\n## image-card-md is the default size.\n\nName it to return a slide to the default inside a deck that resized it.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-lg": {
       "label": "Large card",
       "summary": "A wider card with larger type, for a message that leads.",
-      "sample": "<!-- _class: image spotlight image-card-lg -->\n\n## image-card-lg lets the message lead.\n\nWider card, bigger heading, room for a longer line.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-lg} -->\n\n## image-card-lg lets the message lead.\n\nWider card, bigger heading, room for a longer line.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-regular": {
       "label": "Regular density",
       "summary": "The default card spacing, so one slide can step out of a deck-wide compact.",
-      "sample": "<!-- _class: image spotlight image-card-regular -->\n\n## image-card-regular keeps the default spacing.\n\nIn a deck that sets `image-card: compact`, this slide keeps the roomier card.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-regular} -->\n\n## image-card-regular keeps the default spacing.\n\nIn a deck that sets `image-card: compact`, this slide keeps the roomier card.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-compact": {
       "label": "Compact card",
       "summary": "Tightens the card's padding and pulls it closer to the slide edge, at any size.",
-      "sample": "<!-- _class: image spotlight image-card-compact -->\n\n## image-card-compact tightens the card.\n\nLess padding and a smaller inset from the edge, so the photo keeps more of the frame.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-compact} -->\n\n## image-card-compact tightens the card.\n\nLess padding and a smaller inset from the edge, so the photo keeps more of the frame.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-band": {
       "label": "Full-width band",
       "summary": "Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear.",
-      "sample": "<!-- _class: image spotlight image-card-bottom image-card-band -->\n\n## image-card-band keeps the middle of the photo clear.\n\nThe heading takes the left column and the text the right, in one short strip along the edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band} -->\n\n## image-card-band keeps the middle of the photo clear.\n\nThe heading takes the left column and the text the right, in one short strip along the edge.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     },
     "image-card-float": {
       "label": "Floating card",
       "summary": "The default floating card, so one slide can step out of a deck-wide band.",
-      "sample": "<!-- _class: image spotlight image-card-bottom image-card-float -->\n\n## image-card-float keeps the card a card.\n\nIn a deck that sets `image-card: bottom band`, this slide keeps the floating card.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
+      "sample": "<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-float} -->\n\n## image-card-float keeps the card a card.\n\nIn a deck that sets `image-card: bottom band`, this slide keeps the floating card.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n"
     }
   },
   "commonMistakes": [
@@ -510,7 +510,7 @@
       ]
     }
   ],
-  "venueProbe": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
+  "venueProbe": "<!-- @meta{layout=image} -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
   "media": {
     "places": "panel",
     "kinds": [

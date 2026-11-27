@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Anchor chrome"
 footer: "Confidential · © 2026 Acme"
 progress-rail: on
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -17,7 +17,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Three parts, one rule
 
@@ -27,7 +27,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part one`
 
@@ -44,7 +44,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: divider subsection light -->
+<!-- @meta{layout=divider, class=subsection light} -->
 
 `Part two`
 
@@ -61,7 +61,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- @meta{layout=divider, class=numbered} -->
 
 `Part three`
 
@@ -69,7 +69,7 @@ The title names the deck, so the running header steps back. The confidential lin
 
 ---
 
-<!-- _class: topic -->
+<!-- @meta{layout=topic} -->
 
 ## One slide at a time
 
@@ -85,7 +85,7 @@ Every band is a switch, so one anchor brings a band back with `with-header`, and
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Thank you
 

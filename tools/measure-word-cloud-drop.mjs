@@ -65,7 +65,7 @@ const ROOTS = ['examples', 'test', 'lib', 'docs/public'];
 function decks(args) {
   if (args.length) return args;
   return execSync(
-    `grep -rl '_class: word-cloud' --include=*.md ${ROOTS.join(' ')} 2>/dev/null || true`,
+    `grep -rlE '_class: word-cloud|layout=word-cloud' --include=*.md ${ROOTS.join(' ')} 2>/dev/null || true`,
     { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname },
   ).trim().split('\n').filter(Boolean);
 }

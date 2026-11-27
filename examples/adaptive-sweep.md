@@ -2,10 +2,10 @@
 marp: true
 theme: indaco
 size: story
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Adaptive by box, not by size.
 
@@ -15,7 +15,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## What you're inspecting.
 
@@ -27,7 +27,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Trusted by`
 
@@ -44,7 +44,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## Children's data — three jurisdictions, three obligations.
 
@@ -63,7 +63,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 ## Buy the platform; build the difference.
 
@@ -76,7 +76,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## What happens in the first hour of an incident.
 
@@ -91,7 +91,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Renew at list price, or hold the discount.
 
@@ -102,7 +102,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 
 ## Who owns each part of the framework.
 
@@ -117,7 +117,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## The five workstreams carrying the transformation.
 
@@ -139,7 +139,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: q-and-a -->
+<!-- @meta{layout=q-and-a} -->
 
 ## What the board will press on.
 
@@ -152,7 +152,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: q-and-a grid -->
+<!-- @meta{layout=q-and-a, class=grid} -->
 
 ## Four questions, one quadrant grid — collapsed to a column.
 
@@ -167,7 +167,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## Privacy and AI motion — Q1 2026.
 
@@ -188,7 +188,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## What counts as "personal information" under CCPA.
 
@@ -202,7 +202,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: citation-card split -->
+<!-- @meta{layout=citation-card, class=split} -->
 
 ## Split variant — two columns, collapsed to bands.
 
@@ -216,7 +216,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: citation-card triptych -->
+<!-- @meta{layout=citation-card, class=triptych} -->
 
 ## Triptych variant — three panels, collapsed to a stream.
 
@@ -230,7 +230,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 
@@ -247,7 +247,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Linear regression · OLS`
 
@@ -262,7 +262,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math compare -->
+<!-- @meta{layout=math, class=compare} -->
 
 ## Two estimators, side by side — collapsed to a column.
 
@@ -276,7 +276,7 @@ Trades a little bias for a large drop in variance.
 
 ---
 
-<!-- _class: math matrix -->
+<!-- @meta{layout=math, class=matrix} -->
 
 ## A matrix and its properties — stacked in portrait.
 
@@ -289,7 +289,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid} -->
 
 ## A rubric grid, where the table has to give ground.
 
@@ -305,7 +305,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 
 `Phase 1 readiness`
 
@@ -318,7 +318,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ---
 
-<!-- _class: quadrant -->
+<!-- @meta{layout=quadrant} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -335,7 +335,7 @@ $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One contract, every frame.
 

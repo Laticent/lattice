@@ -7,7 +7,7 @@
     "scope": "markdown",
     "prefix": "lattice-actors",
     "body": [
-      "<!-- _class: actors -->",
+      "<!-- @meta{layout=actors} -->",
       "",
       "## Who owns each part of the process.",
       "",
@@ -24,7 +24,7 @@
     "scope": "markdown",
     "prefix": "lattice-agenda",
     "body": [
-      "<!-- _class: agenda -->",
+      "<!-- @meta{layout=agenda} -->",
       "",
       "## What this deck covers.",
       "",
@@ -39,7 +39,7 @@
     "scope": "markdown",
     "prefix": "lattice-authority-chain",
     "body": [
-      "<!-- _class: authority-chain -->",
+      "<!-- @meta{layout=authority-chain} -->",
       "",
       "## Rule name — the chain, tier by tier.",
       "",
@@ -62,7 +62,7 @@
     "scope": "markdown",
     "prefix": "lattice-bar",
     "body": [
-      "<!-- _class: bar -->",
+      "<!-- @meta{layout=bar} -->",
       "",
       "## Which category is biggest.",
       "",
@@ -77,7 +77,7 @@
     "scope": "markdown",
     "prefix": "lattice-big-number",
     "body": [
-      "<!-- _class: big-number -->",
+      "<!-- @meta{layout=big-number} -->",
       "",
       "`Optional eyebrow`",
       "",
@@ -90,7 +90,7 @@
     "scope": "markdown",
     "prefix": "lattice-bullet",
     "body": [
-      "<!-- _class: bullet -->",
+      "<!-- @meta{layout=bullet} -->",
       "",
       "## Are we on plan.",
       "",
@@ -104,7 +104,7 @@
     "scope": "markdown",
     "prefix": "lattice-cards-grid",
     "body": [
-      "<!-- _class: cards-grid -->",
+      "<!-- @meta{layout=cards-grid} -->",
       "",
       "## Slide heading.",
       "",
@@ -123,7 +123,7 @@
     "scope": "markdown",
     "prefix": "lattice-cards-stack",
     "body": [
-      "<!-- _class: cards-stack -->",
+      "<!-- @meta{layout=cards-stack} -->",
       "",
       "## Slide heading.",
       "",
@@ -140,7 +140,7 @@
     "scope": "markdown",
     "prefix": "lattice-checklist",
     "body": [
-      "<!-- _class: checklist -->",
+      "<!-- @meta{layout=checklist} -->",
       "",
       "## Pre-launch readiness.",
       "",
@@ -157,7 +157,7 @@
     "scope": "markdown",
     "prefix": "lattice-citation-card",
     "body": [
-      "<!-- _class: citation-card -->",
+      "<!-- @meta{layout=citation-card} -->",
       "",
       "## Headline framing what this citation establishes.",
       "",
@@ -175,7 +175,7 @@
     "scope": "markdown",
     "prefix": "lattice-closing",
     "body": [
-      "<!-- _class: closing -->",
+      "<!-- @meta{layout=closing} -->",
       "",
       "## Closing takeaway or call to action",
       "",
@@ -187,7 +187,7 @@
     "scope": "markdown",
     "prefix": "lattice-code",
     "body": [
-      "<!-- _class: code -->",
+      "<!-- @meta{layout=code} -->",
       "",
       "## What the new endpoint looks like.",
       "",
@@ -204,7 +204,7 @@
     "scope": "markdown",
     "prefix": "lattice-collage",
     "body": [
-      "<!-- _class: collage -->",
+      "<!-- @meta{layout=collage} -->",
       "",
       "`The atelier`",
       "",
@@ -226,7 +226,7 @@
     "scope": "markdown",
     "prefix": "lattice-columns",
     "body": [
-      "<!-- _class: columns -->",
+      "<!-- @meta{layout=columns} -->",
       "",
       "## The slide's point, in one line.",
       "",
@@ -246,7 +246,7 @@
     "scope": "markdown",
     "prefix": "lattice-compare-code",
     "body": [
-      "<!-- _class: compare-code -->",
+      "<!-- @meta{layout=compare-code} -->",
       "",
       "## Heading framing the comparison.",
       "",
@@ -272,7 +272,7 @@
     "scope": "markdown",
     "prefix": "lattice-compare-prose",
     "body": [
-      "<!-- _class: compare-prose -->",
+      "<!-- @meta{layout=compare-prose} -->",
       "",
       "## Heading framing the comparison.",
       "",
@@ -287,7 +287,7 @@
     "scope": "markdown",
     "prefix": "lattice-contact",
     "body": [
-      "<!-- _class: contact -->",
+      "<!-- @meta{layout=contact} -->",
       "",
       "## Add me.",
       "",
@@ -303,7 +303,7 @@
     "scope": "markdown",
     "prefix": "lattice-content",
     "body": [
-      "<!-- _class: content -->",
+      "<!-- @meta{layout=content} -->",
       "",
       "## Slide heading.",
       "",
@@ -318,7 +318,7 @@
     "scope": "markdown",
     "prefix": "lattice-cycle",
     "body": [
-      "<!-- _class: cycle -->",
+      "<!-- @meta{layout=cycle} -->",
       "",
       "## The heading names the loop.",
       "",
@@ -337,7 +337,7 @@
     "scope": "markdown",
     "prefix": "lattice-decision",
     "body": [
-      "<!-- _class: decision -->",
+      "<!-- @meta{layout=decision} -->",
       "",
       "## What we are doing.",
       "",
@@ -352,7 +352,7 @@
     "scope": "markdown",
     "prefix": "lattice-diagram",
     "body": [
-      "<!-- _class: diagram -->",
+      "<!-- @meta{layout=diagram} -->",
       "",
       "## How signals move from input to decision.",
       "",
@@ -370,7 +370,7 @@
     "scope": "markdown",
     "prefix": "lattice-divider",
     "body": [
-      "<!-- _class: divider -->",
+      "<!-- @meta{layout=divider} -->",
       "",
       "`Section 01`",
       "",
@@ -382,7 +382,7 @@
     "scope": "markdown",
     "prefix": "lattice-ep-curve",
     "body": [
-      "<!-- _class: ep-curve -->",
+      "<!-- @meta{layout=ep-curve} -->",
       "",
       "## A 1-in-100 year costs \\$410M.",
       "",
@@ -397,7 +397,7 @@
     "scope": "markdown",
     "prefix": "lattice-flowchart",
     "body": [
-      "<!-- _class: flowchart -->",
+      "<!-- @meta{layout=flowchart} -->",
       "",
       "## The flow in one line.",
       "",
@@ -412,7 +412,7 @@
     "scope": "markdown",
     "prefix": "lattice-funnel",
     "body": [
-      "<!-- _class: funnel -->",
+      "<!-- @meta{layout=funnel} -->",
       "",
       "## Where the flow drops off.",
       "",
@@ -427,7 +427,7 @@
     "scope": "markdown",
     "prefix": "lattice-gantt",
     "body": [
-      "<!-- _class: gantt -->",
+      "<!-- @meta{layout=gantt} -->",
       "",
       "`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`",
       "",
@@ -447,7 +447,7 @@
     "scope": "markdown",
     "prefix": "lattice-gift-card",
     "body": [
-      "<!-- _class: gift-card -->",
+      "<!-- @meta{layout=gift-card} -->",
       "",
       "`A deck on us`",
       "",
@@ -462,7 +462,7 @@
     "scope": "markdown",
     "prefix": "lattice-glossary",
     "body": [
-      "<!-- _class: glossary -->",
+      "<!-- @meta{layout=glossary} -->",
       "",
       "## Glossary",
       "",
@@ -479,7 +479,7 @@
     "scope": "markdown",
     "prefix": "lattice-heatmap",
     "body": [
-      "<!-- _class: heatmap -->",
+      "<!-- @meta{layout=heatmap} -->",
       "",
       "## Where it concentrates.",
       "",
@@ -494,7 +494,7 @@
     "scope": "markdown",
     "prefix": "lattice-histogram",
     "body": [
-      "<!-- _class: histogram -->",
+      "<!-- @meta{layout=histogram} -->",
       "",
       "## Most values sit in the first band.",
       "",
@@ -509,7 +509,7 @@
     "scope": "markdown",
     "prefix": "lattice-hub-spoke",
     "body": [
-      "<!-- _class: hub-spoke -->",
+      "<!-- @meta{layout=hub-spoke} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -527,7 +527,7 @@
     "scope": "markdown",
     "prefix": "lattice-image",
     "body": [
-      "<!-- _class: image -->",
+      "<!-- @meta{layout=image} -->",
       "",
       "## Text leads; the image earns its place.",
       "",
@@ -541,7 +541,7 @@
     "scope": "markdown",
     "prefix": "lattice-inventory",
     "body": [
-      "<!-- _class: inventory -->",
+      "<!-- @meta{layout=inventory} -->",
       "",
       "`Eyebrow`",
       "",
@@ -560,7 +560,7 @@
     "scope": "markdown",
     "prefix": "lattice-journey",
     "body": [
-      "<!-- _class: journey -->",
+      "<!-- @meta{layout=journey} -->",
       "",
       "## Walking through my Tuesday morning.",
       "",
@@ -580,7 +580,7 @@
     "scope": "markdown",
     "prefix": "lattice-kanban",
     "body": [
-      "<!-- _class: kanban -->",
+      "<!-- @meta{layout=kanban} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -604,7 +604,7 @@
     "scope": "markdown",
     "prefix": "lattice-kpi",
     "body": [
-      "<!-- _class: kpi -->",
+      "<!-- @meta{layout=kpi} -->",
       "",
       "## Revenue ahead of plan; margin and cash both expanded.",
       "",
@@ -624,7 +624,7 @@
     "scope": "markdown",
     "prefix": "lattice-line",
     "body": [
-      "<!-- _class: line -->",
+      "<!-- @meta{layout=line} -->",
       "",
       "## The number moved, and here is the shape of it.",
       "",
@@ -639,7 +639,7 @@
     "scope": "markdown",
     "prefix": "lattice-list",
     "body": [
-      "<!-- _class: list -->",
+      "<!-- @meta{layout=list} -->",
       "",
       "## Slide heading.",
       "",
@@ -655,7 +655,7 @@
     "scope": "markdown",
     "prefix": "lattice-list-steps",
     "body": [
-      "<!-- _class: list-steps -->",
+      "<!-- @meta{layout=list-steps} -->",
       "",
       "## How to roll this out.",
       "",
@@ -674,7 +674,7 @@
     "scope": "markdown",
     "prefix": "lattice-list-tabular",
     "body": [
-      "<!-- _class: list-tabular -->",
+      "<!-- @meta{layout=list-tabular} -->",
       "",
       "## Slide heading.",
       "",
@@ -693,7 +693,7 @@
     "scope": "markdown",
     "prefix": "lattice-logo-wall",
     "body": [
-      "<!-- _class: logo-wall -->",
+      "<!-- @meta{layout=logo-wall} -->",
       "",
       "`Trusted by`",
       "",
@@ -715,7 +715,7 @@
     "scope": "markdown",
     "prefix": "lattice-map",
     "body": [
-      "<!-- _class: map -->",
+      "<!-- @meta{layout=map} -->",
       "",
       "## Where the program runs.",
       "",
@@ -730,7 +730,7 @@
     "scope": "markdown",
     "prefix": "lattice-math",
     "body": [
-      "<!-- _class: math -->",
+      "<!-- @meta{layout=math} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -748,7 +748,7 @@
     "scope": "markdown",
     "prefix": "lattice-matrix-2x2",
     "body": [
-      "<!-- _class: matrix-2x2 -->",
+      "<!-- @meta{layout=matrix-2x2} -->",
       "",
       "## Where each option lives.",
       "",
@@ -768,7 +768,7 @@
     "scope": "markdown",
     "prefix": "lattice-matrix-grid",
     "body": [
-      "<!-- _class: matrix-grid -->",
+      "<!-- @meta{layout=matrix-grid} -->",
       "",
       "## Where each level sits on two axes.",
       "",
@@ -788,7 +788,7 @@
     "scope": "markdown",
     "prefix": "lattice-obligation-matrix",
     "body": [
-      "<!-- _class: obligation-matrix -->",
+      "<!-- @meta{layout=obligation-matrix} -->",
       "",
       "## Headline framing what the matrix compares.",
       "",
@@ -805,7 +805,7 @@
     "scope": "markdown",
     "prefix": "lattice-piechart",
     "body": [
-      "<!-- _class: piechart donut -->",
+      "<!-- @meta{layout=piechart, class=donut} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -822,7 +822,7 @@
     "scope": "markdown",
     "prefix": "lattice-policy-recommendation",
     "body": [
-      "<!-- _class: policy-recommendation adopt -->",
+      "<!-- @meta{layout=policy-recommendation, class=adopt} -->",
       "",
       "## The recommendation as a complete sentence.",
       "",
@@ -843,7 +843,7 @@
     "scope": "markdown",
     "prefix": "lattice-premise",
     "body": [
-      "<!-- _class: premise -->",
+      "<!-- @meta{layout=premise} -->",
       "",
       "## The claim the ledger exists to support.",
       "",
@@ -865,7 +865,7 @@
     "scope": "markdown",
     "prefix": "lattice-pricing",
     "body": [
-      "<!-- _class: pricing -->",
+      "<!-- @meta{layout=pricing} -->",
       "",
       "## Pick the plan that fits the team.",
       "",
@@ -888,7 +888,7 @@
     "scope": "markdown",
     "prefix": "lattice-progress",
     "body": [
-      "<!-- _class: progress -->",
+      "<!-- @meta{layout=progress} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -904,7 +904,7 @@
     "scope": "markdown",
     "prefix": "lattice-q-and-a",
     "body": [
-      "<!-- _class: q-and-a -->",
+      "<!-- @meta{layout=q-and-a} -->",
       "",
       "## What we expect to be asked.",
       "",
@@ -921,7 +921,7 @@
     "scope": "markdown",
     "prefix": "lattice-quadrant",
     "body": [
-      "<!-- _class: quadrant -->",
+      "<!-- @meta{layout=quadrant} -->",
       "",
       "`[{Effort, 0..10}, {Reach, 0..100}]`",
       "",
@@ -948,7 +948,7 @@
     "scope": "markdown",
     "prefix": "lattice-quote",
     "body": [
-      "<!-- _class: quote -->",
+      "<!-- @meta{layout=quote} -->",
       "",
       "> The quoted sentence sits here, kept short enough to read in one breath.",
       "",
@@ -960,7 +960,7 @@
     "scope": "markdown",
     "prefix": "lattice-radar",
     "body": [
-      "<!-- _class: radar -->",
+      "<!-- @meta{layout=radar} -->",
       "",
       "`[{Scale, 0..10}]`",
       "",
@@ -991,7 +991,7 @@
     "scope": "markdown",
     "prefix": "lattice-redline",
     "body": [
-      "<!-- _class: redline -->",
+      "<!-- @meta{layout=redline} -->",
       "",
       "## Headline naming the amendment.",
       "",
@@ -1007,7 +1007,7 @@
     "scope": "markdown",
     "prefix": "lattice-regulatory-update",
     "body": [
-      "<!-- _class: regulatory-update -->",
+      "<!-- @meta{layout=regulatory-update} -->",
       "",
       "## Headline naming the period or theme.",
       "",
@@ -1032,7 +1032,7 @@
     "scope": "markdown",
     "prefix": "lattice-risk-matrix",
     "body": [
-      "<!-- _class: risk-matrix -->",
+      "<!-- @meta{layout=risk-matrix} -->",
       "",
       "## Where our top risks sit.",
       "",
@@ -1046,7 +1046,7 @@
     "scope": "markdown",
     "prefix": "lattice-roadmap",
     "body": [
-      "<!-- _class: roadmap -->",
+      "<!-- @meta{layout=roadmap} -->",
       "",
       "## What ships in each phase, by workstream.",
       "",
@@ -1063,7 +1063,7 @@
     "scope": "markdown",
     "prefix": "lattice-rows",
     "body": [
-      "<!-- _class: rows -->",
+      "<!-- @meta{layout=rows} -->",
       "",
       "## The slide's point, in one line.",
       "",
@@ -1083,7 +1083,7 @@
     "scope": "markdown",
     "prefix": "lattice-scatter",
     "body": [
-      "<!-- _class: scatter -->",
+      "<!-- @meta{layout=scatter} -->",
       "",
       "`[Annual cost, Teams adopting]`",
       "",
@@ -1100,7 +1100,7 @@
     "scope": "markdown",
     "prefix": "lattice-scene",
     "body": [
-      "<!-- _class: scene gallery -->",
+      "<!-- @meta{layout=scene, class=gallery} -->",
       "",
       "## What the mechanism does.",
       "",
@@ -1131,7 +1131,7 @@
     "scope": "markdown",
     "prefix": "lattice-slope",
     "body": [
-      "<!-- _class: slope -->",
+      "<!-- @meta{layout=slope} -->",
       "",
       "## Two of them swapped places.",
       "",
@@ -1148,7 +1148,7 @@
     "scope": "markdown",
     "prefix": "lattice-split-compare",
     "body": [
-      "<!-- _class: split-compare -->",
+      "<!-- @meta{layout=split-compare} -->",
       "",
       "`Decision Required`",
       "",
@@ -1171,7 +1171,7 @@
     "scope": "markdown",
     "prefix": "lattice-split-panel",
     "body": [
-      "<!-- _class: split-panel -->",
+      "<!-- @meta{layout=split-panel} -->",
       "",
       "`Eyebrow context`",
       "",
@@ -1192,7 +1192,7 @@
     "scope": "markdown",
     "prefix": "lattice-stacked-bar",
     "body": [
-      "<!-- _class: stacked-bar -->",
+      "<!-- @meta{layout=stacked-bar} -->",
       "",
       "## What the total is made of.",
       "",
@@ -1211,7 +1211,7 @@
     "scope": "markdown",
     "prefix": "lattice-state-chart",
     "body": [
-      "<!-- _class: state-chart -->",
+      "<!-- @meta{layout=state-chart} -->",
       "",
       "`Submission lifecycle`",
       "",
@@ -1242,7 +1242,7 @@
     "scope": "markdown",
     "prefix": "lattice-stats",
     "body": [
-      "<!-- _class: stats -->",
+      "<!-- @meta{layout=stats} -->",
       "",
       "`Impact · Pilot Results`",
       "",
@@ -1265,7 +1265,7 @@
     "scope": "markdown",
     "prefix": "lattice-statute-stack",
     "body": [
-      "<!-- _class: statute-stack -->",
+      "<!-- @meta{layout=statute-stack} -->",
       "",
       "## Jurisdiction comparison framing the three obligations.",
       "",
@@ -1285,7 +1285,7 @@
     "scope": "markdown",
     "prefix": "lattice-table",
     "body": [
-      "<!-- _class: table -->",
+      "<!-- @meta{layout=table} -->",
       "",
       "## Heading framing the comparison.",
       "",
@@ -1301,7 +1301,7 @@
     "scope": "markdown",
     "prefix": "lattice-team-profile",
     "body": [
-      "<!-- _class: team-profile -->",
+      "<!-- @meta{layout=team-profile} -->",
       "",
       "`Your account team`",
       "",
@@ -1325,7 +1325,7 @@
     "scope": "markdown",
     "prefix": "lattice-timeline-list",
     "body": [
-      "<!-- _class: timeline-list -->",
+      "<!-- @meta{layout=timeline-list} -->",
       "",
       "`Eyebrow · context`",
       "",
@@ -1344,7 +1344,7 @@
     "scope": "markdown",
     "prefix": "lattice-title",
     "body": [
-      "<!-- _class: title -->",
+      "<!-- @meta{layout=title} -->",
       "",
       "# Deck title goes here",
       "",
@@ -1358,7 +1358,7 @@
     "scope": "markdown",
     "prefix": "lattice-topic",
     "body": [
-      "<!-- _class: topic -->",
+      "<!-- @meta{layout=topic} -->",
       "",
       "`Section 02 · Unit economics`",
       "",
@@ -1372,7 +1372,7 @@
     "scope": "markdown",
     "prefix": "lattice-tower",
     "body": [
-      "<!-- _class: tower -->",
+      "<!-- @meta{layout=tower} -->",
       "",
       "## Who carries each layer of the program.",
       "",
@@ -1390,7 +1390,7 @@
     "scope": "markdown",
     "prefix": "lattice-verdict-grid",
     "body": [
-      "<!-- _class: verdict-grid -->",
+      "<!-- @meta{layout=verdict-grid} -->",
       "",
       "## Which option meets the criteria.",
       "",
@@ -1416,7 +1416,7 @@
     "scope": "markdown",
     "prefix": "lattice-video",
     "body": [
-      "<!-- _class: video companion -->",
+      "<!-- @meta{layout=video, class=companion} -->",
       "",
       "## Watch the 90-second product tour.",
       "",
@@ -1430,7 +1430,7 @@
     "scope": "markdown",
     "prefix": "lattice-waterfall",
     "body": [
-      "<!-- _class: waterfall -->",
+      "<!-- @meta{layout=waterfall} -->",
       "",
       "## How the number moved.",
       "",
@@ -1446,7 +1446,7 @@
     "scope": "markdown",
     "prefix": "lattice-wifi",
     "body": [
-      "<!-- _class: wifi -->",
+      "<!-- @meta{layout=wifi} -->",
       "",
       "`Room Wi-Fi`",
       "",
@@ -1463,7 +1463,7 @@
     "scope": "markdown",
     "prefix": "lattice-word-cloud",
     "body": [
-      "<!-- _class: word-cloud -->",
+      "<!-- @meta{layout=word-cloud} -->",
       "",
       "## What the team called out this quarter.",
       "",

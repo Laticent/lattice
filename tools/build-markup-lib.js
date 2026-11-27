@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Build the Markup library's consumable dist/: the ESM entry, the CJS entry and type declarations.
+ * Build the Markup library's consumable dist/: the ESM entry and type declarations.
  *
- *   docs/src/lib/markup/*.ts  →  docs/src/lib/markup/dist/index.{mjs,cjs,d.ts}
+ *   docs/src/lib/markup/*.ts  →  docs/src/lib/markup/dist/index.{mjs,d.ts}
  *
  * WHY: root CJS reads it. The engine's `_focus` and `_build` transformers and the code plugin both
  * `require('@laticent/markup')` for the code-line split, so the plugin and the engine agree without the plugin

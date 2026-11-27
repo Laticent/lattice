@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · gantt status key"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · gantt status`
 
@@ -15,8 +15,8 @@ header: "Lattice · gantt status key"
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Dashed bar and dashed diamond are deferred; the solid bar nobody labeled" -->
+<!-- @meta{layout=gantt, footer="Dashed bar and dashed diamond are deferred; the solid bar nobody labeled"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -33,7 +33,7 @@ header: "Lattice · gantt status key"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Read the key, then the bars.
 
@@ -46,8 +46,8 @@ The chip without a hue is `no status` — the bar nobody labeled. It appears onl
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Every status in the ramp, with the neutral named" -->
+<!-- @meta{layout=gantt, footer="Every status in the ramp, with the neutral named"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -66,8 +66,8 @@ Five ramps carry ten status words, so some share. A status and the absence of on
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "The hard case: the two neutrals adjacent, in one lane" -->
+<!-- @meta{layout=gantt, footer="The hard case: the two neutrals adjacent, in one lane"} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -84,7 +84,7 @@ Two bars on the same row, both neutral, one declared and one not. An 18% wash an
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the dash is for, and what it is not for.
 
@@ -97,7 +97,7 @@ Two bars on the same row, both neutral, one declared and one not. An 18% wash an
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `#2255`
 

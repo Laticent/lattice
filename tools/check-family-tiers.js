@@ -232,7 +232,7 @@ function deckSource(size, bodies) {
   // `--no-split` flag at the call site below rather than with a line in the deck. Without
   // it the sweep would paginate, the 1:1 page↔slide mapping would break, and the record
   // would quietly start measuring something else entirely.
-  return `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
+  return `---\nmarp: true\ntheme: indaco\nsize: ${size}\npagination: true\n---\n\n`
     + bodies.join('\n\n---\n\n') + '\n';
 }
 

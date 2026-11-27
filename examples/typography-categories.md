@@ -2,11 +2,11 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · typography categories"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Curated portrait type.
 
@@ -16,7 +16,7 @@ Three curated font scales — landscape, square, portrait — selected per slide
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The body copy should breathe.
 
@@ -28,7 +28,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 ## Quarter in four numbers.
 
@@ -47,7 +47,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 ## Three numbers that matter.
 
@@ -60,7 +60,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three workstreams.
 
@@ -76,7 +76,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## Compliance surface.
 
@@ -95,7 +95,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How the rollout lands.
 
@@ -108,7 +108,7 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Same system, every size.
 

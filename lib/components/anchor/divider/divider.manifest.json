@@ -53,9 +53,9 @@
       "description": "Optional section number or category label above the heading."
     }
   },
-  "skeleton": "<!-- _class: divider -->\n\n`Section 01`\n\n## Section name\n",
+  "skeleton": "<!-- @meta{layout=divider} -->\n\n`Section 01`\n\n## Section name\n",
   "anatomyBlock": "divider-bookend",
-  "sample": "<!-- _class: divider silent -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
+  "sample": "<!-- @meta{layout=divider, class=silent} -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
   "whenToUse": [
     {
       "title": "Major section starts",
@@ -134,17 +134,17 @@
     "numbered": {
       "label": "numbered",
       "summary": "Masthead — the running section number over a hairline, top-left.",
-      "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
+      "sample": "<!-- @meta{layout=divider, class=silent numbered} -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
     },
     "subsection": {
       "label": "subsection",
       "summary": "A finer, sentence-length break: centered, a tier smaller, no rail.",
-      "sample": "<!-- _class: divider subsection -->\n\n`divider subsection`\n\n## A subsection divider marks a finer turn with a full-sentence waypoint.\n"
+      "sample": "<!-- @meta{layout=divider, class=subsection} -->\n\n`divider subsection`\n\n## A subsection divider marks a finer turn with a full-sentence waypoint.\n"
     },
     "qr": {
       "label": "qr",
       "summary": "The payload bullet becomes a code.",
-      "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet becomes a scannable code.\n\n- https://laticent.io/components/divider\n- Scan for the divider's docs `caption`\n"
+      "sample": "<!-- @meta{layout=divider, class=qr} -->\n\n`divider qr`\n\n## The payload bullet becomes a scannable code.\n\n- https://laticent.io/components/divider\n- Scan for the divider's docs `caption`\n"
     }
   },
   "showcase": {

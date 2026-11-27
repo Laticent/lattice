@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · Q3 board review · confidential"
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01 · The frame`
 
@@ -28,7 +28,7 @@ footer band beside the running footer text — content, not decoration.
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Metrics`
 
@@ -43,7 +43,7 @@ footer band beside the running footer text — content, not decoration.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02 · Wayfinding`
 
@@ -66,7 +66,7 @@ right, and nothing the body does can push into that band.
 
 ---
 
-<!-- _class: footer-inset -->
+<!-- @meta{class=footer-inset} -->
 
 ## Lift it with `footer-inset`
 
@@ -79,7 +79,7 @@ This slide carries `footer-inset`; the footer band sits higher, off the edge.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Fin`
 

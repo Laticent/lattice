@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Cobalt Health · QBR Q2 2026"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Quarterly business review · Q2 2026`
@@ -17,7 +17,7 @@ A strong growth quarter, one retention soft spot, and the plan to close it.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Q2 grew fast on new logos, but provider retention is the metric to watch.
@@ -29,7 +29,7 @@ Patient visits and new clinic signups both beat plan this quarter. The single nu
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Growth beat plan; provider retention slipped.
@@ -46,7 +46,7 @@ Patient visits and new clinic signups both beat plan this quarter. The single nu
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Engagement · Q2 2026`
@@ -66,7 +66,7 @@ Patient visits and new clinic signups both beat plan this quarter. The single nu
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The provider churn is concentrated, not broad — and that tells us the cause.
@@ -78,7 +78,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `Where the churn actually lives`
@@ -88,7 +88,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 ## The Q3 plan attacks early-tenure churn on three fronts.
@@ -101,7 +101,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Q2 financials`
@@ -119,7 +119,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: full -->
 
 ## We're prioritizing the early-tenure earnings guarantee first.
@@ -135,7 +135,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: full -->
 
 ## What success looks like next quarter, with the retention fix in flight.
@@ -152,7 +152,7 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We're investing $1.4M in early-tenure retention to protect Q4 growth.
@@ -164,9 +164,9 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Healthy growth — now we protect the supply side.

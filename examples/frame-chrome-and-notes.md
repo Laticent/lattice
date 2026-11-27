@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · frame chrome"
 footer: "Feature deck"
 finish: atrium
@@ -9,8 +9,8 @@ logo: sample:logo-acme-mark.svg
 logo-finish: bottom-center title
 ---
 
-<!-- _class: title no-finish -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, class=no-finish, header=""} -->
+
 
 # Chrome belongs to the frame
 
@@ -20,7 +20,7 @@ A finish no longer drags the running chrome into the content flow.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Every slide here carries a finish, a header, a footer and page numbers.
 
@@ -29,7 +29,7 @@ finish's own backdrop. Neither is in flow, so neither costs the stage a pixel.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The stacking rule wanted a z-index, and took the flow with it.
 
@@ -40,7 +40,7 @@ finish's own backdrop. Neither is in flow, so neither costs the stage a pixel.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Measured, before the fix.
 
@@ -53,7 +53,7 @@ A mark whose y drifts per slide is the tell: an absolute placement cannot depend
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A trailing paragraph is promoted to a note.
 
@@ -66,7 +66,7 @@ This paragraph follows a list, so it renders as a below-note.
 
 ---
 
-<!-- _class: content no-note -->
+<!-- @meta{layout=content, class=no-note} -->
 
 ## The same slide, with `no-note`.
 
@@ -79,8 +79,8 @@ This paragraph follows the same list, and stays body copy.
 
 ---
 
-<!-- _class: closing no-finish -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, class=no-finish, header=""} -->
+
 
 `Where The Fix Lives`
 

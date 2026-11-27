@@ -6,7 +6,7 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is a `title dark` slide (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -55,7 +55,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 ## Authoring
 
 ```markdown
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Closing takeaway or call to action
 
@@ -84,7 +84,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 Scan to take the deck with you.
 
 ```markdown
-<!-- _class: closing qr -->
+<!-- @meta{layout=closing, class=qr} -->
 
 `closing qr`
 
@@ -101,7 +101,7 @@ The payload bullet renders as a QR code sized for the back row.
 Ends on a reference list — see also, next steps.
 
 ```markdown
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## Where to go next.
 
@@ -117,7 +117,7 @@ Ends on a reference list — see also, next steps.
 Mirrors title's generated gradient bar — the deck's color story, one last time.
 
 ```markdown
-<!-- _class: closing silent spectrum -->
+<!-- @meta{layout=closing, class=silent spectrum} -->
 
 ## The closing echoes the same six-step spectrum.
 
@@ -129,7 +129,7 @@ Mirrors title's generated gradient bar — the deck's color story, one last time
 A heavy rule over the title, set left.
 
 ```markdown
-<!-- _class: closing silent cover-masthead -->
+<!-- @meta{layout=closing, class=silent cover-masthead} -->
 
 ## The back cover composes as a masthead.
 
@@ -141,7 +141,7 @@ A heavy rule over the title, set left.
 A small-caps title over a double rule.
 
 ```markdown
-<!-- _class: closing silent cover-ledger -->
+<!-- @meta{layout=closing, class=silent cover-ledger} -->
 
 ## The back cover composes as a ledger.
 
@@ -153,7 +153,7 @@ A small-caps title over a double rule.
 An accent column at the right edge, the title set left.
 
 ```markdown
-<!-- _class: closing silent cover-column -->
+<!-- @meta{layout=closing, class=silent cover-column} -->
 
 ## The back cover composes as a column.
 
@@ -165,7 +165,7 @@ An accent column at the right edge, the title set left.
 A gallery wall label: a smaller title low on the left under a hairline.
 
 ```markdown
-<!-- _class: closing silent cover-label -->
+<!-- @meta{layout=closing, class=silent cover-label} -->
 
 ## The back cover composes as a label.
 
@@ -177,7 +177,7 @@ A gallery wall label: a smaller title low on the left under a hairline.
 A stage-size centered title.
 
 ```markdown
-<!-- _class: closing silent cover-stage -->
+<!-- @meta{layout=closing, class=silent cover-stage} -->
 
 ## Thank you.
 
@@ -189,7 +189,7 @@ A stage-size centered title.
 The title boxed in a keyline.
 
 ```markdown
-<!-- _class: closing silent cover-frame -->
+<!-- @meta{layout=closing, class=silent cover-frame} -->
 
 ## The back cover composes as a frame.
 
@@ -201,7 +201,7 @@ The title boxed in a keyline.
 A giant title set left.
 
 ```markdown
-<!-- _class: closing silent cover-poster -->
+<!-- @meta{layout=closing, class=silent cover-poster} -->
 
 ## Make it yours.
 

@@ -28,6 +28,10 @@ on:
       - 'tools/build-*-lib.js' # each library's prepack runs its builder
       - '.github/actions/puppeteer-chrome/**'
       - 'tools/trial-publish.js'
+      - 'tools/release-trial.sh'
+      - 'tools/release-packages.js'
+      - 'tools/changesets.js'
+      - '.changeset/config.json'
       - '.github/workflows/release.yml'
       - '.github/workflows/release-publish.yml'
       - '.github/workflows/trial-publish.yml'
@@ -70,5 +74,9 @@ jobs:
       # The publish step is swappable: set TRIAL_PUBLISH_COMMAND (a shell command run from the repo root,
       # with NPM_CONFIG_USERCONFIG naming the local registry and its token) to prove a release tool's own
       # publish path; the install and render checks stay the same (tools/trial-publish.js header).
+      # It is set to the release's own path (tools/release.js through Changesets), so the trial proves
+      # what Release (publish) runs, not a stand-in (decision 2026-10-07-first-npm-release §11).
       - name: Publish to a local registry, install, render
+        env:
+          TRIAL_PUBLISH_COMMAND: bash tools/release-trial.sh
         run: node tools/trial-publish.js

@@ -21,7 +21,7 @@
     "kickoff"
   ],
   "description": "Opening slide. Centered, no chrome; follows the color mode, on the brand panel in dark.",
-  "purpose": "First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a \"Confidential\" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is `_class: title dark` (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
+  "purpose": "First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a \"Confidential\" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is a `title dark` slide (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.",
   "variants": [
     "spectrum",
     "cover-masthead",
@@ -67,9 +67,9 @@
       "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
     }
   },
-  "skeleton": "<!-- _class: title -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
+  "skeleton": "<!-- @meta{layout=title} -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
   "anatomyBlock": "T1-title-bookend",
-  "sample": "<!-- _class: title silent -->\n\n# The title slide opens the deck.\n\n`anchor · title · the deck's first breath`\n\nOne heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.\n",
+  "sample": "<!-- @meta{layout=title, class=silent} -->\n\n# The title slide opens the deck.\n\n`anchor · title · the deck's first breath`\n\nOne heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.\n",
   "whenToUse": [
     {
       "title": "First slide of every deck",
@@ -130,42 +130,42 @@
     "spectrum": {
       "label": "spectrum",
       "summary": "A generated gradient bar below the subtitle, in the theme's own six-step palette.",
-      "sample": "<!-- _class: title silent spectrum -->\n\n# A deck built on a color-coded spectrum.\n\n`Six stages, six colors`\n\nThe title echoes the same six-step story the deck's own components carry.\n"
+      "sample": "<!-- @meta{layout=title, class=silent spectrum} -->\n\n# A deck built on a color-coded spectrum.\n\n`Six stages, six colors`\n\nThe title echoes the same six-step story the deck's own components carry.\n"
     },
     "cover-masthead": {
       "label": "cover-masthead",
       "summary": "A heavy rule over the title, set left.",
-      "sample": "<!-- _class: title silent cover-masthead -->\n\n# The cover composes as a masthead.\n\n`anchor · title · cover-masthead`\n\nThe heading sits under a heavy rule as wide as its measure.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-masthead} -->\n\n# The cover composes as a masthead.\n\n`anchor · title · cover-masthead`\n\nThe heading sits under a heavy rule as wide as its measure.\n"
     },
     "cover-ledger": {
       "label": "cover-ledger",
       "summary": "A small-caps title over a double rule.",
-      "sample": "<!-- _class: title silent cover-ledger -->\n\n# The cover composes as a ledger.\n\n`anchor · title · cover-ledger`\n\nSmall capitals over a double rule, centered.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-ledger} -->\n\n# The cover composes as a ledger.\n\n`anchor · title · cover-ledger`\n\nSmall capitals over a double rule, centered.\n"
     },
     "cover-column": {
       "label": "cover-column",
       "summary": "An accent column at the right edge, the title set left.",
-      "sample": "<!-- _class: title silent cover-column -->\n\n# The cover composes as a column.\n\n`anchor · title · cover-column`\n\nThe accent column runs between the header and footer bands.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-column} -->\n\n# The cover composes as a column.\n\n`anchor · title · cover-column`\n\nThe accent column runs between the header and footer bands.\n"
     },
     "cover-label": {
       "label": "cover-label",
       "summary": "A gallery wall label: a smaller title low on the left under a hairline.",
-      "sample": "<!-- _class: title silent cover-label -->\n\n# The cover composes as a label.\n\n`anchor · title · cover-label`\n\nA quiet caption sits under the hairline, the way a museum labels a work.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-label} -->\n\n# The cover composes as a label.\n\n`anchor · title · cover-label`\n\nA quiet caption sits under the hairline, the way a museum labels a work.\n"
     },
     "cover-stage": {
       "label": "cover-stage",
       "summary": "A stage-size centered title.",
-      "sample": "<!-- _class: title silent cover-stage -->\n\n# Built for the back row.\n\n`anchor · title · cover-stage`\n\nOne short line, sized for the back of the hall.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-stage} -->\n\n# Built for the back row.\n\n`anchor · title · cover-stage`\n\nOne short line, sized for the back of the hall.\n"
     },
     "cover-frame": {
       "label": "cover-frame",
       "summary": "The title boxed in a keyline.",
-      "sample": "<!-- _class: title silent cover-frame -->\n\n# The cover composes as a frame.\n\n`anchor · title · cover-frame`\n\nThe keyline follows the deck's rule weight.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-frame} -->\n\n# The cover composes as a frame.\n\n`anchor · title · cover-frame`\n\nThe keyline follows the deck's rule weight.\n"
     },
     "cover-poster": {
       "label": "cover-poster",
       "summary": "A giant title set left.",
-      "sample": "<!-- _class: title silent cover-poster -->\n\n# Say it loud.\n\n`anchor · title · cover-poster`\n\nA poster headline, heavy, tight and set left.\n"
+      "sample": "<!-- @meta{layout=title, class=silent cover-poster} -->\n\n# Say it loud.\n\n`anchor · title · cover-poster`\n\nA poster headline, heavy, tight and set left.\n"
     }
   },
   "specimenVoice": true,

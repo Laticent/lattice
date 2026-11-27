@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind · Board review"
 footer: "Confidential · prepared for the board"
 ---
 
-<!-- _class: title with-header -->
+<!-- @meta{layout=title, class=with-header} -->
 
 `Board review · Q3 2026`
 
@@ -16,7 +16,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part one`
 
@@ -32,7 +32,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
 
 ---
 
-<!-- _class: divider with-pagination -->
+<!-- @meta{layout=divider, class=with-pagination} -->
 
 `Part two`
 
@@ -48,7 +48,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
 
 ---
 
-<!-- _class: divider subsection light -->
+<!-- @meta{layout=divider, class=subsection light} -->
 
 `Part three`
 
@@ -64,7 +64,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Thank you
 

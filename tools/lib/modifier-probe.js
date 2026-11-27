@@ -17,6 +17,20 @@
 const { parseBracketList } = require('@laticent/segno/read');
 const { readMetaField } = require('../../lib/core/meta-edit.mjs');
 const { slideClassValue } = require('../../lib/core/class-entries.mjs');
+const { readRecord, recordParts } = require('../../lib/core/meta-door.mjs');
+
+/** A record comment with its class-shaped fields (`layout`, `variant`, `class`, a register: what composes the class)
+ *  taken out, or '' when nothing else is left. */
+function withoutClassFields(comment) {
+  const t = comment.trim();
+  const parts = t.startsWith('<!--') && t.endsWith('-->') ? recordParts(t.slice(4, -3).trim()) : null;
+  if (!parts) return '';
+  const kept = parts.items.filter((it) => {
+    const d = readRecord(`{${it.text}}`)?.d || {};
+    return !(Object.keys(d).length === 1 && d.class !== undefined);
+  });
+  return kept.length ? `<!-- ${parts.lead}{${kept.map((it) => it.text).join(', ')}} -->` : '';
+}
 
 /** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
 function splitSample(md, name) {
@@ -26,7 +40,9 @@ function splitSample(md, name) {
   const value = slideClassValue(first);
   const cls = value ? readMetaField(first, 'class') : null;
   const tokens = value ? value.split(/\s+/).filter(Boolean) : [name];
-  const body = cls?.commentSpan ? first.slice(0, cls.commentSpan[0]) + first.slice(cls.commentSpan[1]) : first;
+  // A record keeps its other fields (`@meta{layout=topic, track="…"}` keeps `track`): only the class fields leave the
+  // body. Dropping the whole record took topic's track rail out of the venue probe after the meta sweep merged them.
+  const body = cls?.commentSpan ? first.slice(0, cls.commentSpan[0]) + (cls.record ? withoutClassFields(first.slice(...cls.commentSpan)) : '') + first.slice(cls.commentSpan[1]) : first;
   return { tokens: tokens[0] === name ? tokens.slice(1) : tokens, body: body.trim() };
 }
 
