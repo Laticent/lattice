@@ -1,7 +1,7 @@
 ---
 name: desk-flaky
 description: >
-  Run the 🧪 flake desk: own every red or flaky test across all sessions. Take a census,
+  Run the 🧪 flake desk: own every red or flaky test a session did not cause, or that nobody has reported before. Take a census,
   give each flake exactly one owner (an existing session or a new fix session), and drive
   each one to a root-cause fix under HARD RULES #33 and #34. Use when this session is told
   to be the flake desk, when the owner asks to "coordinate flaky tests", or when the
@@ -55,5 +55,6 @@ command center"), except a nightly, golden-bless or platform-suite red and a bre
 dependency bump caused, which stay with the deps desk. Give each one owner, tag the fixing session `claim:blocker:<slug>`, and
 tell the command center the owner and tag so it can tell every affected session. A fix that
 changes a CI job or step, a hook or the environment's settings goes to the owner first
-(CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a bug that
-only one session hits (the command center answers that one).
+(CLAUDE.md, SECOND FILTER). Not yours: merging, labels, another session's branch, a red test a session's own change caused
+(that session fixes it, HARD RULE #33), and a non-test bug that only one session hits (the command
+center answers that one).

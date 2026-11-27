@@ -34,8 +34,8 @@ the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps
    `platform-suites.yml`, and `ci.yml` on `main`. Route by kind: a `perf-nightly`
    regression goes to `/desk-optimize`, a `skillspector-nightly` red to
    `/desk-security`, a red `ci.yml` on `main` that is not a test is yours to fix.
-2. **A red test** goes to `/desk-flaky` (HARD RULE #33 makes the first session after a
-   red nightly its owner; you are that session, and the flake desk assigns the fix).
+2. **A red test** in any nightly, bless or platform-suite run goes to `/desk-flaky`, which owns
+   it (HARD RULE #33): send the 🧱 line with the run link.
    **A held golden** (the bless held a page change its source does not explain) goes to
    the owner, who alone dispatches `bless_held`. **Never re-run a job by
    hand.** `platform-suites-supervisor.yml` already re-runs once when the runner lost

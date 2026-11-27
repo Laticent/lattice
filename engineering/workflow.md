@@ -2991,10 +2991,10 @@ running it:
 
 | Desk | Skill | Owns |
 |---|---|---|
-| 🧪 Flake | `/desk-flaky` | every red or flaky test: one owner each, fixed at the root (HARD RULES #33, #34); fleet-wide blockers the command center routes (a tool missing from the sandbox, a broken runner or hook) |
+| 🧪 Flake | `/desk-flaky` | every red or flaky test a session did not cause, or that nobody has reported before, in any run: one owner each, fixed at the root (HARD RULES #33, #34); fleet-wide blockers the command center routes (a tool missing from the sandbox, a broken runner or hook) |
 | 🚦 Merge | `/desk-merge` | green PRs: the batched merge round, merge order, queue ejections |
 | 🧹 Stale | `/desk-stale` | PRs with no activity for 3+ days: revive, hand over, or propose closing |
-| 📦 Deps + nightly | `/desk-deps-nightly` | Dependabot PRs and patches; nightly, golden-bless and platform-suite reds |
+| 📦 Deps + nightly | `/desk-deps-nightly` | Dependabot PRs and patches; nightly, golden-bless and platform-suite reds that are not a test (a red test in any run is the flake desk's) |
 | 📋 Backlog | `/desk-backlog` | open issues and `followups.d/` as one queue: fold, rank, dispatch `status:ready` work |
 | 🛡️ Security | `/desk-security` | CodeQL, the security dependency group, secret scanning, HARD RULES #22 and #24 |
 | ⚡ Optimization | `/desk-optimize` | measured wins in engine speed and size, CI time, agent spend and code quality |
@@ -3093,8 +3093,8 @@ in 20 s against #3353's 748 MB in 23 s. Five rules follow:
    starting a fix session, a desk (and the command center) checks `list_sessions`
    for that tag. A session about to fix a red test checks the same tags, or asks the
    flake desk. The answer is a pointer, never a stop: if the claiming session is
-   archived, has released its baton, or has not updated in 6 hours, the asker keeps HARD RULE #33's
-   ownership and fixes it. Across the two people's accounts a session tag cannot
+   archived, has released its baton, or has not updated in 6 hours, the asker sends the 🧱 line again and,
+   with no flake desk live, fixes it (#33). Across the two people's accounts a session tag cannot
    be seen, so a claim the other person must see is also a `CLAIMS` line in the
    PR's living handoff comment (§Relay); `npm run relay` lists them. One owner per overlap: a red test is the flake desk's, a
    security bump the security desk's, and the command center never starts a flaky
@@ -3178,20 +3178,23 @@ blocker it did not cause sends the command center one line, without being asked:
 A blocker is a red or flaky test this session's change did not cause, a tool, dependency or browser it
 could not install after trying (CLAUDE.md: "nothing is not installed"), a gate red on `main`, a broken hook,
 runner or sandbox image, or a blocked network host. The session keeps working on whatever the blocker does
-not stop, and it keeps #33's ownership of a red test until the command center names another owner. The
-command center sorts each line in its next turn:
-- **Only this session hits it:** guidance back, in one message.
+not stop. A red test it did not cause belongs to the flake desk once a `desk:flaky` session acknowledges
+it, and stays its own until then (#33). The command center sorts each line in its next turn:
+- **A red test, however many sessions hit it:** the 🧪 flake desk owns it (#33).
+- **Only this session hits it, and it is not a test:** guidance back, in one message.
 - **It hits `main`, two or more sessions, or the shared environment** (the sandbox image, a runner, a
-  hook): the 🧪 flake desk owns it, tests and environment alike. Two exceptions stay with 📦 deps +
-  nightly: a nightly, golden-bless or platform-suite red, and a break a dependency bump caused. The command
+  hook): the 🧪 flake desk owns it, tests and environment alike. Three exceptions stay with 📦 deps +
+  nightly: a nightly, golden-bless or platform-suite red that is not a test, a red `ci.yml` gate on `main`
+  that is not a test, and a break a dependency bump caused. The command
   center sends it there, then tells every session it knows is affected who owns the fix and which `claim:`
   tag to watch, so several sessions never chase one cause. With no `desk:flaky` session live, it asks the
   owner to start one, and the reporting session keeps ownership meanwhile.
 - **It needs the owner** (a secret, a setting, an environment change): it goes on the next ❓ card.
 
 **No red test is ever left without an owner.** Every desk routes red tests to the
-flake desk. If no `desk:flaky` session is live, the desk that met the test fixes
-it itself under HARD RULE #33, or asks the command center to start a flake desk.
+flake desk. If no `desk:flaky` session is live, the desk that met the test starts a
+fix session from `main` (counted in its budget; a desk cannot commit), or asks the command center to start
+a flake desk.
 
 **Where a desk's ❓ card goes.** To the command center, and as a comment on the PR
 it concerns, opening with the desk's name, so the owner sees it in either place.

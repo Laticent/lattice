@@ -653,11 +653,10 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   is. A `docs/e2e` `waitForTimeout` stays with `checkE2ESleeps`. The other shapes are discipline.
   `followups.d/3045-p1-flaky-test-audit.md` drives the baseline to empty. Playwright's `retries` is 0, held by #34.)*
 
-- **#33 — A red or flaky test is fixed at its root by the session that meets it.** Never retried, re-run until green,
-  waited out with a longer timeout, deleted, or filed as a follow-up: for tests, #18's off-path exit is closed. "Red on
-  `main` too" proves you did not cause it, not that someone else will fix it. Fix it on its own branch from `main` (#17,
-  #8) before your own merge ask. You meet a red test by running it, or by starting the first session after a red nightly
-  or platform-suite run. Switching one off (`skip`, `fixme`, deleting it) needs `// disabled: tried …; evidence <run URL,
+- **#33 — A red or flaky test is fixed at its root by its owner: the session whose change made it red, otherwise the
+  🧪 flake desk.** Never retried, re-run until green, waited out with a longer timeout, deleted, or filed as a follow-up:
+  for tests, #18's off-path exit is closed. Your change made it red: fix it before your merge ask (#18). Otherwise send
+  the 🧱 line; the flake desk owns it, or you do, from `main` (#17), while none is live. Switching one off (`skip`, `fixme`, deleting it) needs `// disabled: tried …; evidence <run URL,
   trace or #N>; re-enable when …` right above it (in the commit message for a deletion). A missing tool is installed,
   never skipped (#23). Re-running a job the runner lost before any test reported is not a retry; re-running a red test
   is. `.only` never lands.
@@ -665,7 +664,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   | You meet | Not this | This |
   |---|---|---|
   | green only on `retry #1` | "CI is green" | It is flaky: `--repeat-each=10` until it fails, then fix the race |
-  | red on `main` too | "not my PR", a `followups.d/` note | Fix it now, on its own branch from `main` |
+  | red on `main` too | "not my PR", a `followups.d/` note | Send the 🧱 line; the flake desk owns it (you, from `main`, if none is live) |
   | red only under load, or on one engine | a longer timeout, skipping the engine it fails on | Find what it waits on, or the engine difference, and fix that |
   | Chromium or `pdftoppm` missing | `{ skip: true }`, `test.skip(true, …)` | Install it; `skipUnlessCI(…)` / `skipWithoutChrome(…)` skip on a laptop, fail in CI |
   | no cause after a real investigation | delete it, or leave it red | `test.fixme` with the three-part `// disabled:` reason |

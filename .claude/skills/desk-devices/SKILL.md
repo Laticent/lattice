@@ -40,7 +40,7 @@ whose surface was never reached.
    one line, what to do on the device, and what a pass looks like. Record the owner's answer
    in the follow-up (through a session you start) and tell the backlog desk, which retires it.
 5. **Write back** (through a session you start, counted in the budget). A claim settled on a surface becomes evidence in its follow-up or PR; a
-   new platform trap becomes a gotcha entry; a red suite goes to the flake desk.
+   new platform trap becomes a gotcha entry; a red test in a suite goes to the flake desk; a suite red that is not a test goes to the deps + nightly desk.
 6. **Report** to the command center: open UNVERIFIED claims by surface, runner minutes used,
    the owner's device list if any, and `budget: N/10 today`, with its `meter:` ledger.
 
