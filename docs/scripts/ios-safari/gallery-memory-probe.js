@@ -120,6 +120,32 @@ async function latticeGalleryCycle(cycle) {
 		const el = scroller();
 		if (el) el.scrollTop = y;
 	};
+	// REPORTED, never judged: the most preview tiles partly inside the scroller at one moment, and the scroll offset where
+	// it happened. The pool's ceiling follows this count (preview-pool.tsx, `seen`), so it says which step of a cycle set
+	// the pool's high-water mark.
+	const peak = { n: 0, y: -1 };
+	const peek = () => {
+		const el = scroller();
+		if (!el) return;
+		const box = el.getBoundingClientRect();
+		let n = 0;
+		// A tile is a cell of a grid in the scroller, filled or not: what the pool's `seen` counts, not the frames it holds.
+		const cells = [...el.querySelectorAll('*')].filter((g) => g.children.length > 1 && getComputedStyle(g).display === 'grid').flatMap((g) => [...g.children]);
+		for (const tile of cells) {
+			const r = tile.getBoundingClientRect();
+			if (Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) > 1 && Math.min(r.right, box.right) - Math.max(r.left, box.left) > 1) n++;
+		}
+		if (n > peak.n) {
+			peak.n = n;
+			peak.y = Math.round(el.scrollTop);
+		}
+	};
+	const takePeak = () => {
+		const out = `${peak.n}@${peak.y}`;
+		peak.n = 0;
+		peak.y = -1;
+		return out;
+	};
 	try {
 		const t0 = performance.now();
 		// Open: the door splits into Before | After; After opens the gallery (2026-10-27-slide-structure-strip.md §5).
@@ -146,11 +172,13 @@ async function latticeGalleryCycle(cycle) {
 				jumpTo(y);
 				await frames(2);
 				await quiesced(mounted, 25000, 2, 150);
+				peek();
 			}
 			jumpTo(bottom);
 			jumpTo(0);
 			await quiesced(mounted);
 		}
+		const primeSeen = cycle === 0 ? takePeak() : '';
 		// A flick: a continuous frame-by-frame scroll to the bottom, the way a person flings the grid. It stops
 		// at the bottom, when a step no longer moves the grid (a fractional scrollHeight can leave it 1 px
 		// short for ever), or after 400 steps, whichever comes first.
@@ -161,9 +189,12 @@ async function latticeGalleryCycle(cycle) {
 				el.scrollTop += 260;
 				if (el.scrollTop >= el.scrollHeight - el.clientHeight - 1 || el.scrollTop === before) break;
 				await frame();
+				peek();
 			}
 		}
 		const opened = await quiesced(mounted);
+		peek();
+		const flickSeen = takePeak();
 		// Close: Escape, which the sheet takes from the document; the sheet's Close button if Escape did not close it.
 		const target = document.activeElement || document.body;
 		target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
@@ -185,6 +216,8 @@ async function latticeGalleryCycle(cycle) {
 			opened,
 			closed,
 			closedBy,
+			primeSeen,
+			flickSeen,
 			docs: window.__latticeDocs ?? 0,
 			rewrites: window.__latticeRewrites ?? 0,
 			tier: document.documentElement.dataset.deviceTier || '',

@@ -74,5 +74,7 @@ export function gallerySummary(name, arm) {
 	const last = cycles[cycles.length - 1] || {};
 	const mem = (arm.memoryMB || []).filter((v) => typeof v === 'number');
 	const memory = mem.length >= 2 ? `, WebKit ${mem[0]} MB after close 1, ${mem[mem.length - 1]} MB after close ${mem.length} (${mem[mem.length - 1] - mem[0] >= 0 ? '+' : ''}${mem[mem.length - 1] - mem[0]} MB)` : '';
-	return `${name}: ${cycles.length} cycles at ${arm.tier}, ${(last.docs ?? 0) - (first.docs ?? 0)} documents and ${(last.rewrites ?? 0) - (first.rewrites ?? 0)} rewrites after close 1${memory}`;
+	// Reported, never judged: the most tiles on screen in the prime walk and in each flick, as count@scrollTop.
+	const seen = first.primeSeen ? `; tiles seen: prime ${first.primeSeen}, flicks ${cycles.map((c) => c.flickSeen || '?').join(' ')}` : '';
+	return `${name}: ${cycles.length} cycles at ${arm.tier}, ${(last.docs ?? 0) - (first.docs ?? 0)} documents and ${(last.rewrites ?? 0) - (first.rewrites ?? 0)} rewrites after close 1${memory}${seen}`;
 }
