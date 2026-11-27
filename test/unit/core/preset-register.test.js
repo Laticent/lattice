@@ -47,7 +47,7 @@ const sectionClasses = (html) => [...new JSDOM(html).window.document.querySelect
 // its own register's parser, because two take more than one word and `theme` names a palette file.
 const { COLOR_MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-color-mode.js'));
 const { MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-mode.js'));
-const { parseMarks, MARKS_DEFAULT } = require(path.join(ROOT, 'lib/core/resolve-marks.js'));
+const { parseChartFinish, CHART_FINISH_DEFAULT, COLOR_INTENSITIES, COLOR_INTENSITY_DEFAULT } = require(path.join(ROOT, 'lib/core/resolve-chart-finish.js'));
 const { parseBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
 const fs = require('node:fs');
 const clean = (p) => p.unknown.length === 0 && p.duplicate.length === 0;
@@ -55,7 +55,8 @@ const ACCEPTS = {
   theme: (v) => v === '' || fs.existsSync(path.join(ROOT, 'themes', v, `${v}.css`)),
   'color-mode': (v) => v === '' || COLOR_MODE_NAMES.includes(v),
   mode: (v) => MODE_NAMES.includes(v),
-  marks: (v) => clean(parseMarks(v)),
+  'chart-finish': (v) => { const p = parseChartFinish(v); return clean(p) && !p.intensity; },
+  'color-intensity': (v) => COLOR_INTENSITIES.includes(v),
   backdrop: (v) => v === '' || clean(parseBackdrop(v)),
   // The spectrum keys take one word per axis (lib/core/resolve-spectrum.js).
   spectrum: (v) => v !== '' && clean(SPECTRUM_REGISTER.parse(v)),
@@ -65,7 +66,8 @@ const ACCEPTS = {
 
 test('every value a preset sets is one its register accepts, and every default is too', () => {
   assert.deepEqual([...PRESET_KEYS].sort(), [...Object.keys(VOCAB), ...Object.keys(ACCEPTS)].sort());
-  assert.equal(PRESET_DEFAULTS.marks, MARKS_DEFAULT, 'the marks default is the register\'s own');
+  assert.equal(PRESET_DEFAULTS['chart-finish'], CHART_FINISH_DEFAULT, 'the chart-finish default is the key\'s own');
+  assert.equal(PRESET_DEFAULTS['color-intensity'], COLOR_INTENSITY_DEFAULT, 'the color-intensity default is the key\'s own');
   const accepts = (key, v) => (VOCAB[key] ? VOCAB[key].includes(v) : ACCEPTS[key](v));
   for (const key of PRESET_KEYS) {
     assert.ok(accepts(key, PRESET_DEFAULTS[key]), `default ${key}: ${PRESET_DEFAULTS[key]}`);
@@ -80,7 +82,8 @@ test('every value a preset sets is one its register accepts, and every default i
     }
   }
   // A recommendation key is written by an author too; this pins the vocabulary the arms above read.
-  assert.ok(ACCEPTS.marks('etch vivid') && !ACCEPTS.marks('etch bogus'));
+  assert.ok(ACCEPTS['chart-finish']('tone ink') && !ACCEPTS['chart-finish']('etch bogus') && !ACCEPTS['chart-finish']('etch vivid'));
+  assert.ok(ACCEPTS['color-intensity']('vivid') && !ACCEPTS['color-intensity']('tone'));
   assert.ok(ACCEPTS.backdrop('40 clear') && !ACCEPTS.backdrop('loud'));
   assert.ok(ACCEPTS.theme('cuoio') && !ACCEPTS.theme('nope'));
   assert.ok(ACCEPTS.spectrum('solid left band') && !ACCEPTS.spectrum('on') && !ACCEPTS.spectrum('left right'));

@@ -1,16 +1,16 @@
 /**
- * Unit: the RENDER SEAM for the display-equation reflow (`displayBlock` in lib/plugins/math/math.render.js).
+ * Unit: the RENDER SEAM for display-equation wrapping (`displayBlock` in lib/plugins/math/math.render.js).
  *
- * The rule itself lives in lib/plugins/math/shared/tex-linebreak.js and is tested there. What this file pins is
- * the three things the seam owns, each of which can be wrong without the rule being wrong:
+ * The rule itself lives in lib/plugins/math/shared/tex-linebreak.js (`breakableTex`) and is tested there.
+ * Since 2026-11-06 (owner: one size, wrapped at the real width) an equation off 16:9 is not rewritten
+ * onto `aligned` lines; it is regrouped so the browser may wrap it only at safe points, and
+ * `math.styles.css` lets display math wrap off 16:9. What this file pins is what the seam owns:
  *
- *   1. the reflow is OFF unless the caller asks for it — `lib/engine/index.js` asks only for a
- *      non-`wide` family, which is what keeps every 16:9 render in the repo byte-identical;
- *   2. a broken equation is MARKED (`data-math-reflow`), because `math.styles.css` keys the
- *      multi-line display scale off that attribute and a silent break would leave the equation
- *      set at the single-line hero size;
- *   3. a rewrite KaTeX cannot parse falls back to the author's own source. A `.katex-error` box
- *      where an equation used to be is strictly worse than the overflow the pass was fixing.
+ *   1. it is OFF unless the caller asks for it — `lib/engine/index.js` asks only for a non-`wide`
+ *      family, which is what keeps every 16:9 render in the repo byte-identical;
+ *   2. a regrouped equation is MARKED (`data-math-wrap`) and never an `aligned` rewrite;
+ *   3. a regrouping KaTeX cannot typeset falls back to the author's own source. A `.katex-error` box
+ *      where an equation used to be is strictly worse than the overflow it was fixing.
  */
 
 const { test, describe } = require('node:test');
@@ -32,31 +32,27 @@ function render(tex, opts) {
 describe('engine: the display-equation reflow seam', () => {
   test('OFF by default — a caller that says nothing gets the author\'s own source', () => {
     const html = render(FEATURE, {});
-    assert.doesNotMatch(html, /data-math-reflow/);
-    // The `aligned` environment is what the reflow emits; unreflowed there is none.
+    assert.doesNotMatch(html, /data-math-wrap/);
     assert.doesNotMatch(html, /aligned/);
   });
 
-  test('ON, a long equation is broken AND marked with its line count', () => {
+  test('ON, a long equation is regrouped for wrapping and marked, never rewritten onto aligned lines', () => {
     const html = render(FEATURE, { reflow: true });
-    assert.match(html, /<p data-math-reflow="2">/,
-      'the marker is what math.styles.css keys the multi-line display scale off — without it the '
-      + 'equation is broken but still set at the single-line hero size');
+    assert.match(html, /<p data-math-wrap>/);
+    assert.doesNotMatch(html, /aligned/);
     assert.doesNotMatch(html, /katex-error/);
   });
 
-  test('ON, a SHORT equation is left alone and carries no marker', () => {
+  test('ON, a short equation is regrouped too: it fits, so nothing visible changes', () => {
     const html = render('\\hat\\beta = (X^\\top X)^{-1} X^\\top y', { reflow: true });
-    assert.doesNotMatch(html, /data-math-reflow/,
-      'marking an untouched equation would shrink a hero that fits');
+    assert.match(html, /<p data-math-wrap>/);
+    assert.doesNotMatch(html, /aligned/);
   });
 
-  test('the marker is the ONLY difference — reflow off and on agree on every equation the pass declines', () => {
-    // The whole corpus at `wide` depends on this: the gate in lib/engine/index.js is a family
-    // test, so if `reflow: true` changed anything about a declined equation the two families
-    // would render differently for no reason.
-    const short = '\\sigma(x) = \\dfrac{1}{1 + e^{-x}}';
-    assert.equal(render(short, { reflow: true }), render(short, {}));
+  test('an author\'s own layout is left alone — on and off agree', () => {
+    // A `\\\\` the author wrote is a layout they chose: the seam typesets their source, unmarked.
+    const authored = 'a = b \\\\ c = d';
+    assert.equal(render(authored, { reflow: true }), render(authored, {}));
   });
 
   test('a rewrite KaTeX cannot parse falls back to the author\'s source, not to an error box', () => {
@@ -87,7 +83,7 @@ describe('engine: the display-equation reflow seam', () => {
     // get one: the pass is sound enough that a corpus fuzz over 13 real display equations found
     // zero. `\Bigra` is an undefined control sequence — so it errors in BOTH renders, and what
     // the guard owes is not a clean render (impossible; the author's source is broken) but the
-    // REFUSAL TO CLAIM ONE: no `data-math-reflow`, so `math.styles.css` never applies the
+    // REFUSAL TO CLAIM ONE: no `data-math-wrap`, so `math.styles.css` never applies the
     // multi-line scale to an equation that was not successfully broken.
     const sum = (p) => Array.from({ length: 20 }, (_, i) => `${p}_{${i}}`).join(' + ');
     const bad = (html) => /katex-error/.test(html) || /color:var\(--warn\)/.test(html);
@@ -98,7 +94,7 @@ describe('engine: the display-equation reflow seam', () => {
     const undefOn = render(undef, { reflow: true });
     assert.match(undefOn, /color:var\(--warn\)/, 'the fixture must actually render the red-literal form');
     assert.doesNotMatch(undefOn, /katex-error/, 'and it must NOT carry the class, or it pins nothing');
-    assert.doesNotMatch(undefOn, /data-math-reflow/,
+    assert.doesNotMatch(undefOn, /data-math-wrap/,
       'a reflow that renders an undefined control sequence was marked as a successful break');
     assert.doesNotMatch(undefOn, /aligned/, 'and the aligned rewrite must not ship either');
 
@@ -106,14 +102,14 @@ describe('engine: the display-equation reflow seam', () => {
     const parse = `S = ${sum('a')} + \\label{eq} + ${sum('b')}`;
     const parseOn = render(parse, { reflow: true });
     assert.ok(bad(parseOn), 'the fixture must actually render broken');
-    assert.doesNotMatch(parseOn, /data-math-reflow/,
+    assert.doesNotMatch(parseOn, /data-math-wrap/,
       'a reflow that renders a ParseError was marked as a successful break');
 
     // 3. AND THE GUARD IS NOT JUST "REFUSE EVERYTHING": the same sum with no broken command in it
     //    reflows and IS marked. Without this the two arms above pass on a seam that never breaks
     //    anything at all.
     const good = render(`S = ${sum('a')} + ${sum('b')}`, { reflow: true });
-    assert.match(good, /data-math-reflow="\d+"/);
+    assert.match(good, /data-math-wrap/);
     assert.ok(!bad(good));
 
     // 4. The original surface check, kept: no equation may GAIN an error render.

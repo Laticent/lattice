@@ -42,6 +42,28 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
 // document-root portal.
 
+// (5) PLACE — at the TOP below the desktop layout (1024px, Tailwind's `lg`), at the bottom from there up. A phone or
+//     tablet puts a sheet's or a panel's primary action at the bottom of the screen, and a bottom-center toast covered
+//     it: measured at 390px, a Share failure saying "Try again" overlapped the sheet's Download button and a press on it
+//     missed for the toast's dwell; at 820 it covered the button label's start (PR 3559). The owner chose top-center
+//     for narrow screens (D1 on PR 3559). Desktop keeps the bottom, where the side sheet leaves the center clear.
+//     A STICKY notice (`notifySticky`, one that never leaves on its own) stays at the bottom at every width: at the top
+//     it covered the Playground's whole top bar until dismissed (lib/notify.ts, `notifySticky`).
+//     Read on mount and on each crossing of the breakpoint, so a toast never jumps while the width holds.
+//     It starts at the bottom and moves on mount: no toast is up before the first effect, so nothing jumps, and the
+//     server render and the first client render agree.
+function usePlace(): "top-center" | "bottom-center" {
+  const [top, setTop] = React.useState(false)
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023.98px)")
+    const read = () => setTop(mq.matches)
+    read()
+    mq.addEventListener("change", read)
+    return () => mq.removeEventListener("change", read)
+  }, [])
+  return top ? "top-center" : "bottom-center"
+}
+
 function useMode(): "light" | "dark" {
   const [mode, setMode] = React.useState<"light" | "dark">("light")
   React.useEffect(() => {
@@ -57,12 +79,13 @@ function useMode(): "light" | "dark" {
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const mode = useMode() // (1) data-mode, not next-themes
+  const place = usePlace() // (5) top on narrow screens
 
   return (
     <Sonner
       theme={mode}
       className="toaster group lx-ui"
-      position="bottom-center"
+      position={place}
       // (3) THE STACK IS CAPPED AT ONE PILL PER KIND. Sonner's default is 3
       // (`VISIBLE_TOASTS_AMOUNT`, dist/index.mjs:411) and that three is a STACK — three
       // arbitrary messages, which is what a pile-up looks like. This three is not:

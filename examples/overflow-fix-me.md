@@ -15,7 +15,7 @@ The red "Overflows" ring names the slide. The yellow tag names the element respo
 
 ---
 
-<!-- @meta{layout=split-compare, class=confidential stamp-pin} -->
+<!-- @meta{layout=split-compare, class=confidential stamp-pin venue-laptop} -->
 
 `Decision Required`
 

@@ -33,7 +33,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- @meta{layout=quote, footer="Stress test · quote — Forty words; the type steps down once."} -->
+<!-- @meta{layout=quote, class=venue-laptop, footer="Stress test · quote — Forty words; the type steps down once."} -->
 <!-- @meta{stress-slide} -->
 
 > This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.

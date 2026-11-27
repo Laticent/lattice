@@ -788,9 +788,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   range reads fetch one test's `trace.zip` (4 MB here). `0-trace.trace` is JSON lines; the `before` / `after` pairs
   give each action's timing and every `page.evaluate` result.
 
-## A macOS platform-suite check is red on a pull request, and the job has no steps
+## A macOS platform-suite check is red on a dispatch (or, before 2026-11-27, a pull request), and the job has no steps
 
-- **Symptom:** a `Platform suites (macOS / Windows)` run on a pull request or a dispatch is red. The macOS job in it
+- **Symptom:** a `Platform suites (macOS / Windows)` run on a dispatch (or, before 2026-11-27, a pull request) is red. The macOS job in it
   (`export-confine`, `os-sandbox-measure`, `wait-for-macos`) reads `cancelled` after 15–21 minutes, with 0 steps and no
   runner name. Its annotation says "The job was not acquired by Runner of type hosted even after multiple attempts", and a
   notice names "capacity constraints … macOS arm64".
@@ -802,7 +802,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   that job once, and only once, after the queue drains. Do not dispatch another copy alongside it, and do not debug the
   suite. The platform suites are not a merge gate (`platform-suites.yml` header). On a scheduled or dispatch run you need do
   nothing: since 2026-11-04 the `alert` job files no issue for it, and `platform-suites-supervisor.yml` re-runs the job once.
-  `npm run evidence` no longer lists a suite for dispatch when the PR run already starts it.
+  Since 2026-11-27 no PR run starts these suites, and `npm run evidence` lists them only as an `optional` row.
 - **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5 and §6 (D2, decided A).
 
 ## A spec on `serveDist` draws no diagram, even online

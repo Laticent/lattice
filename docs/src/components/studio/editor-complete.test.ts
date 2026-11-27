@@ -183,7 +183,7 @@ describe('makeStudioCompletion', () => {
 				{ name: 'chrome', label: 'Chrome', tokens: ['silent', 'no-footer'] },
 				{ name: 'rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
 				{ name: 'table', label: 'Table', tokens: ['table-fill'], surface: 'table' },
-				{ name: 'cards', label: 'Card spacing', tokens: ['cards-spread'], surface: 'card-row' },
+				{ name: 'cards', label: 'Card spacing', tokens: ['align-spread'], surface: 'card-row' },
 			],
 			exclusiveAxes: {},
 			modifierUsage: { silent: 200, 'no-footer': 1 },
@@ -199,8 +199,8 @@ describe('makeStudioCompletion', () => {
 			expect(labels('<!-- _class: big-number ')).toContain('silent');
 			expect(labels('<!-- _class: big-number ')).not.toContain('no-heading-rule');
 			expect(labels('<!-- _class: content ')).toContain('no-heading-rule');
-			expect(labels('<!-- _class: content ')).not.toContain('cards-spread');
-			expect(labels('<!-- _class: cards-grid ')).toContain('cards-spread');
+			expect(labels('<!-- _class: content ')).not.toContain('align-spread');
+			expect(labels('<!-- _class: cards-grid ')).toContain('align-spread');
 		});
 
 		it('turns on a content surface when the slide actually contains it', () => {
@@ -240,7 +240,7 @@ describe('makeStudioCompletion', () => {
 		it('offers every group on a component with no surface data (a local component)', () => {
 			const local = makeStudioCompletion([{ name: 'mine', bucket: 'local', description: '' }], [], [], { vocab: VOCAB });
 			const r = local(new CompletionContext(EditorState.create({ doc: '<!-- _class: mine ' }), 18, true));
-			expect(r?.options.map((o) => o.label)).toContain('cards-spread');
+			expect(r?.options.map((o) => o.label)).toContain('align-spread');
 		});
 	});
 
@@ -394,14 +394,16 @@ describe('front-matter registers — keys and values', () => {
 
 	it('offers the keys that had no route but knowing they exist', () => {
 		const keys = done('---\n', 4);
-		for (const k of ['fit', 'cards', 'player-motion', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+		for (const k of ['fit', 'align', 'player-motion', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
 			expect(keys, `${k} missing from key completion`).toContain(k);
 		}
 	});
 
-	it('completes fit: and cards: values from the engine vocabulary', () => {
-		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
-		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
+	it('completes fit: and align: values from the engine vocabulary', () => {
+		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim', 'pack']);
+		expect(done('---\nalign: ')).toEqual(['top', 'middle', 'bottom', 'spread', 'fill', 'left', 'center', 'right', 'full']);
+		// One word per axis: after an up-and-down word, only side-to-side words are offered.
+		expect(done('---\nalign: bottom ')).toEqual(['left', 'center', 'right', 'full']);
 		expect(done('---\nclaim: ')).toContain('bleed');
 		expect(done('---\ntrim-spectrum: ')).toContain('mono');
 	});
@@ -797,13 +799,13 @@ describe('frontMatterKeyAt — the hover over a front-matter key', () => {
 	});
 });
 
-describe('marks: completes one word per axis', () => {
-	it('after a finish word, offers the intensities and not a second finish', async () => {
+describe('chart-finish: completes one word per axis', () => {
+	it('after a finish word, offers the sources and not a second finish', async () => {
 		const { nextAxisWords } = await import('./editor-complete');
-		const words = ['pigment', 'etch', 'tone', 'muted', 'vivid'];
-		expect(nextAxisWords('marks', 'pigment ', words)).toEqual(['muted', 'vivid']);
-		expect(nextAxisWords('marks', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
-		expect(nextAxisWords('marks', 'etch vivid', words)).toEqual([]);
+		const words = ['pigment', 'etch', 'tone', 'ink', 'accent'];
+		expect(nextAxisWords('chart-finish', 'tone ', words)).toEqual(['ink', 'accent']);
+		expect(nextAxisWords('chart-finish', 'ink ', words)).toEqual(['pigment', 'etch', 'tone']);
+		expect(nextAxisWords('chart-finish', 'tone ink', words)).toEqual([]);
 	});
 });
 

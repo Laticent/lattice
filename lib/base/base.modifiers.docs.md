@@ -67,7 +67,7 @@ The room the slide is sized for (`venue:` per slide).
 
 Acts on: the slide. Pick one.
 
-- `venue-huddle` · `venue-conference` · `venue-hall`
+- `venue-laptop` · `venue-huddle` · `venue-conference` · `venue-hall` · `venue-phone` · `venue-tablet`
 
 ### Type set — `type-set`
 
@@ -85,29 +85,29 @@ Acts on: the slide. Not offered. Pick one.
 
 - `sketch` · `sketch-clean-body` · `boardroom`
 
-### Marks — `marks`
+### Chart finish — `chart-finish`
 
 How a chart spends color on its marks.
 
 Acts on: chart-marks. Pick one.
 
-- `marks-pigment` · `marks-etch` · `marks-tone`
+- `chart-finish-pigment` · `chart-finish-etch` · `chart-finish-tone`
 
-### Marks intensity — `marks-intensity`
+### Color intensity — `color-intensity`
 
-How strong the chart marks read.
+How strong the status colors read.
 
 Acts on: chart-marks. Pick one.
 
-- `marks-muted` · `marks-vivid`
+- `color-intensity-muted` · `color-intensity-vivid`
 
-### Marks source — `marks-source`
+### Chart finish source — `chart-finish-source`
 
-The one hue `marks: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `marks:`.
+The one hue `chart-finish: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `chart-finish:`.
 
 Acts on: chart-marks. Not offered. Pick one.
 
-- `marks-ink` · `marks-accent`
+- `chart-finish-ink` · `chart-finish-accent`
 
 ### Headline — `headline`
 
@@ -199,13 +199,14 @@ Acts on: the slide. Pick one.
 
 - `tone-rail` · `tone-edge` · `tone-glow`
 
-### Card spacing — `cards`
+### Align — `align`
 
-What a card row does with spare height.
+Where content sits, up and down and side to side (`align:` per slide). One word per axis.
 
-Acts on: card-row. Pick one.
+Acts on: the slide.
 
-- `cards-center` · `cards-stretch` · `cards-top` · `cards-spread`
+- one of `align-top` · `align-middle` · `align-bottom` · `align-spread` · `align-fill`
+- one of `align-left` · `align-center` · `align-right` · `align-full`
 
 ### Card lift — `lift`
 
@@ -390,14 +391,11 @@ Acts on: the slide. Not offered.
 
 ### Stage frame — `frame`
 
-Where the stage sits in the frame, and the footer band's inset.
+Optical centering for the stage, and the footer band's inset. Where the stage sits is the `align:` register.
 
 Acts on: the slide.
 
-- one of `align-top` · `align-middle` · `align-bottom`
-- one of `align-left` · `align-center` · `align-right`
-- one of `fill-center` · `fill-anchor` · `fill-optical`
-- and `footer-inset`
+- `fill-optical` · `footer-inset`
 
 ### Chrome — `chrome`
 
@@ -469,7 +467,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `typography:` | `type-set` |  |
 | `inline-code:` | `inline-code` |  |
 | `lift:` | `lift` |  |
-| `cards:` | `cards` |  |
+| `align:` | `align` |  |
 | `corners:` | `corners` |  |
 | `claim:` | `claim` |  |
 | `fit:` | `fit` |  |
@@ -487,7 +485,8 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `backdrop:` | `backdrop` |  |
 | `tag:` | `card-tag` |  |
 | `agenda:` | `agenda` |  |
-| `marks:` | `marks`, `marks-intensity`, `marks-source` |  |
+| `chart-finish:` | `chart-finish`, `chart-finish-source` |  |
+| `color-intensity:` | `color-intensity` |  |
 | `logo-finish:` | `logo` |  |
 | `progress-rail:` | `progress-rail` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |

@@ -230,3 +230,26 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** Any caller that hands the camera a subset of the faces, not the whole block.
 - **See:** `docs/src/components/studio/export/deck-export.js` › `rasterizeSlidePreview`,
   `test/unit/core/slide-camera-faces.test.js`.
+
+## On Playwright's Firefox under load, `document.fonts.ready` never settles on the exported webpage
+
+- **Symptom:** A test opens a Share → Webpage export in the `gecko` project, under `--workers=4`, and awaits
+  `document.fonts.ready`. About one load in 25 the promise never resolves and the test hangs at its timeout.
+  `document.fonts.status` reads `loading`, yet every face in `document.fonts` reads `loaded` or `unloaded` and none
+  reads `loading`.
+- **Cause:** Firefox misses the end of the load. In the 4 stuck loads sampled with a `loadingdone` listener it never
+  fired the event (the fifth, from a run without the listener, is not counted); in each of the 76 good loads sampled with
+  the listener it fired, 61 to 914 ms after the `ready` promise was taken. The faces themselves load: both icon glyphs draw in Lattice Icons, and `document.fonts.check`
+  is true for the heading and body faces. Forcing a style and layout flush (`document.body.offsetHeight`, then two
+  frames) does not unstick it. Measured 2026-11-27 (#3463's fix session) with a per-frame sampler of the status, each
+  face's status and every `ready` promise: Playwright's gecko build, 4 workers plus 3 CPU burners, stuck in 5 of 120
+  loads, 3 of them for the full 30 s window. Stock Firefox 161 (BiDi, headless) on the same export and the same load:
+  0 of 88. A reader is not affected: the exported page has no script that reads `document.fonts`, and what it draws is
+  already in the right faces.
+- **Mitigation:** A test asks for the face it is about and reads that face's status, without waiting on the whole set
+  (`icon-font-studio.spec.ts` › `drawnInOurFace`, #3472). The Studio's own export still awaits `doc.fonts.ready` once,
+  after loading each face (`docs/src/playground/font-embed.js` › `ensureFontsLoaded`). No run has seen that wait hang,
+  so if a gecko export ever stalls before its download, look there first.
+- **Triggered by:** Any wait on `document.fonts.ready` (or on `loadingdone`) in the `gecko` project under load.
+- **Removable when:** Playwright's Firefox build settles the set as stock Firefox does. Re-run the sampler to check.
+- **See:** #3472, `docs/e2e/icon-font-studio.spec.ts`.

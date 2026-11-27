@@ -1,5 +1,6 @@
 ---
-status: shipped
+status: superseded
+superseded-by: 2026-11-27-claude-md-index.md
 summary: >
   `CLAUDE.md` was the only surface in the context-tiering system with no budget, and the only
   one every session pays unconditionally. It is now gated at 16,500 o200k_base tokens against

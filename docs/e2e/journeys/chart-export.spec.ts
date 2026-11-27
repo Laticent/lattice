@@ -19,7 +19,7 @@ test.describe.configure({ timeout: 120_000 });
 // human to eyeball through the real Share sheet on any export-pipeline change.
 const FIXTURE = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'test', 'fixtures', 'export-coverage-deck.md');
 const DECK = fs.readFileSync(FIXTURE, 'utf8');
-const SLIDES = (DECK.match(/<!-- _class:/g) || []).length; // every fixture slide declares a class
+const SLIDES = (DECK.match(/<!-- @meta\{layout=/g) || []).length; // every fixture slide declares its layout in a record
 // Each slide's first heading, from the source: what tells one slide in the live preview from another.
 const HEADINGS = DECK.replace(/^---\n[\s\S]*?\n---\n/, '')
 	.split(/\n---\n/)

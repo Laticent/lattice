@@ -8,6 +8,12 @@
       "events"
     ]
   },
+  "split": {
+    "strategy": "timeline-items",
+    "perPage": 4,
+    "intro": "Where the line starts",
+    "note": "A list of milestones in date order. It splits only when it overflows, and a page holds as many milestones as fit: up to 4 without a measured plan, the measured count under `fit: pack`, spread so no page holds a lone milestone. Each page draws its own rail through its own dots, so a page reads as a stretch of the same line. Owner's direction 2026-11-06 (fit-everywhere-model.md \\u00a718); lib/core/carousel.js timeline-items."
+  },
   "function": "evidence",
   "bucket": "chart",
   "form": "timeline",
@@ -43,7 +49,11 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "density": {
     "axis": "item",
     "soft": 16,
