@@ -14,7 +14,7 @@ A card's title, a tag's label and a KPI's value come from the item's own first l
 
 ---
 
-<!-- @meta{layout=decision, footer="decision · the tag is the whole first line; a bold word inside it changes nothing (a leading bold run alone was the tag before)"} -->
+<!-- @meta{layout=decision, footer="decision · the tag is the whole first line (a leading bold run alone was the tag before)"} -->
 
 ## We build in region and keep the vendor as a fallback.
 
