@@ -74,7 +74,7 @@
       "selector": "ul > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets."
+      "description": "Four outer list items (one per cell): the quadrant label, with its items nested under it as inner bullets. The layout sets the label bold, so it needs no `**`."
     },
     "body": {
       "selector": "li > ul > li",
@@ -83,12 +83,12 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- @meta{layout=matrix-2x2} -->\n\n## Where each option lives.\n\n- **High value · Low cost.**\n  - First item in this quadrant\n  - Second item\n- **High value · High cost.**\n  - First item in this quadrant\n- **Low value · Low cost.**\n  - First item in this quadrant\n- **Low value · High cost.**\n  - First item in this quadrant\n",
+  "skeleton": "<!-- @meta{layout=matrix-2x2} -->\n\n## Where each option lives.\n\n- High value · Low cost\n  - First item in this quadrant\n  - Second item\n- High value · High cost\n  - First item in this quadrant\n- Low value · Low cost\n  - First item in this quadrant\n- Low value · High cost\n  - First item in this quadrant\n",
   "anatomyBlock": "matrix-2x2",
-  "sample": "<!-- @meta{layout=matrix-2x2} -->\n\n## The matrix places items on two named axes.\n\n- **High impact · Low effort.**\n  - Quick wins\n  - Two per cell\n- **High impact · High effort.**\n  - Strategic bets\n  - Named plainly\n- **Low impact · Low effort.**\n  - Habit fillers\n  - Prune here\n- **Low impact · High effort.**\n  - Time sinks\n  - One suffices\n",
+  "sample": "<!-- @meta{layout=matrix-2x2} -->\n\n## The matrix places items on two named axes.\n\n- High impact · Low effort\n  - Quick wins\n  - Two per cell\n- High impact · High effort\n  - Strategic bets\n  - Named plainly\n- Low impact · Low effort\n  - Habit fillers\n  - Prune here\n- Low impact · High effort\n  - Time sinks\n  - One suffices\n",
   "stressDoc": {
     "summary": "Three items per cell — the ceiling.",
-    "sample": "<!-- @meta{layout=matrix-2x2} -->\n\n## Three items per cell is the matrix ceiling.\n\n- **High impact · Low effort.**\n  - Three short items\n  - Fit each cell\n  - At the ceiling\n- **High impact · High effort.**\n  - Labels stay short\n  - Sixteen words hard\n  - Per cell entry\n- **Low impact · Low effort.**\n  - Past three items\n  - The quadrants crowd\n  - Split the story\n- **Low impact · High effort.**\n  - A fourth entry\n  - Does not fit\n  - Stop at three\n"
+    "sample": "<!-- @meta{layout=matrix-2x2} -->\n\n## Three items per cell is the matrix ceiling.\n\n- High impact · Low effort\n  - Three short items\n  - Fit each cell\n  - At the ceiling\n- High impact · High effort\n  - Labels stay short\n  - Sixteen words hard\n  - Per cell entry\n- Low impact · Low effort\n  - Past three items\n  - The quadrants crowd\n  - Split the story\n- Low impact · High effort\n  - A fourth entry\n  - Does not fit\n  - Stop at three\n"
   },
   "whenToUse": [
     {
@@ -142,8 +142,8 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.",
-      "fix": "Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes."
+      "mistake": "Quadrant title names only one axis, e.g. `- Priorities` instead of both poles.",
+      "fix": "Lead each quadrant with both axis poles: `- High impact · Low effort`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes."
     },
     {
       "mistake": "The four outer list items authored in an arbitrary order.",

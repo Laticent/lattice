@@ -46,6 +46,17 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
   --inv-ord-w: calc(var(--fs-h3) * 1.2);
   --inv-ord-gap: var(--sp-sm);
 }
+/* THE ENTRY'S DESCRIPTION NESTS UNDER ITS NAME: `- Name` then `  - body` (LFM 1.0, the
+ * card shape every titled list uses). The engine lifts the name into the row's leading
+ * <strong> (lib/core/slot-label-lift.js), and the nested list is the row's body text, so
+ * it drops its marker and indent and takes the row's own type in every look. A bold word
+ * inside the body stays inline: only the leading <strong> is the title. */
+section.inventory > .cell-stage > ul > li > :is(ul, ol) {
+  list-style: none; padding: 0; margin: 0;
+}
+section.inventory > .cell-stage > ul > li > :is(ul, ol) > li {
+  list-style: none; padding: 0; font: inherit; color: inherit;
+}
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li {
   counter-increment: r; position: relative; list-style: none;
   padding: var(--sp-3xs) 0 var(--sp-3xs) calc(var(--inv-ord-w) + var(--inv-ord-gap));
@@ -81,23 +92,16 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
  * (--font-display), so their baselines sit wherever each family's half-leading
  * falls: measured 0.5px apart landscape, 2.2px portrait, growing with the type
  * scale. `align-items: baseline` is the exact, font-metric-proof answer and it
- * needs the numeral and the title to be items in one flex row — which needs the
- * body prose wrapped in an element. It is not: a row is
- * `<li><strong>Lead.</strong> bare text</li>`, and that bare text node is why the
- * gutter has to be the row's `padding-left` and the ordinal has to escape it out
- * of flow. q-and-a could take the flex route because `slotLabelLift` wraps its
- * answer; doing the same here changes the authoring contract for every inventory
- * deck, so it is not folded into an alignment fix.
+ * needs the numeral and the title to be items in one flex row. Since LFM 1.0 the
+ * body is a nested list (`- Name` / `  - body`), so that route is now open; this
+ * migration kept the out-of-flow ordinal so every page renders as it did.
  * The offset below therefore reproduces the row-anchored placement EXACTLY
  * (`--sp-2xs` from the row's padding box, less the `--sp-3xs` the row pads down
  * to the title), so every non-split page renders as it did.
  * `strong:first-child` IS THE LEAD, and the two arms below are exact complements of
- * each other on it. A bare `> strong` is not the lead: `- **Lead.** body with a
- * **bold** word` puts TWO strongs directly under the row, and matching both printed
- * the ordinal twice — measured on a probe deck, `01` beside the lead and `01` again
- * beside the mid-sentence bold. Complementing on the same `:first-child` is what
- * keeps a row from falling through both arms or landing in neither: a row whose only
- * strong is mid-sentence has no lead, so it takes the row-anchored arm. */
+ * each other on it, so a row never falls through both arms or lands in neither. The
+ * engine lifts every row's name into that lead; the second arm is for a row with no
+ * nested body, which the lift leaves as written. */
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before,
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
   content: counter(r, decimal-leading-zero); position: absolute;
@@ -119,16 +123,11 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
  * start and the band was clipped mid-line (the Playground renders the skeleton, the
  * gallery never carried the band). The ordinal lives inside this <strong> and shares
  * its line box, so it moves with the title. Every look's title takes the same value. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
   line-height: var(--lh-tight);
-}
-/* `relative` makes the LEAD the ordinal's containing block (see the ordinal rule
- * above); it adds no offset of its own, so nothing moves. Scoped to the lead rather
- * than folded into the rule above so a mid-sentence bold, which that rule also
- * styles, does not become a positioning context it has no use for. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child {
+  /* `relative` makes the lead the ordinal's containing block; it adds no offset. */
   position: relative;
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blockquote {
@@ -168,7 +167,7 @@ section.inventory.cards > .cell-stage > ul > li {
   border-radius: var(--radius-lg); padding: var(--sp-xs) var(--sp-md);
   font-size: var(--fs-body); color: var(--text-body);
 }
-section.inventory.cards > .cell-stage > ul > li strong {
+section.inventory.cards > .cell-stage > ul > li > strong:first-child {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
   line-height: var(--lh-tight);
@@ -222,7 +221,7 @@ section.inventory.timeline > .cell-stage > ul > li::after {
   height: 2px; background: var(--border);
 }
 section.inventory.timeline > .cell-stage > ul > li:last-child::after { display: none; }
-section.inventory.timeline > .cell-stage > ul > li strong {
+section.inventory.timeline > .cell-stage > ul > li > strong:first-child {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
   line-height: var(--lh-tight);
@@ -266,7 +265,7 @@ section.inventory.editorial > .cell-stage > ul > li {
   list-style: none; padding-left: var(--sp-md); border-left: 2px solid var(--border);
   font-size: var(--fs-body); color: var(--text-body);
 }
-section.inventory.editorial > .cell-stage > ul > li strong {
+section.inventory.editorial > .cell-stage > ul > li > strong:first-child {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
   line-height: var(--lh-tight);
@@ -395,7 +394,7 @@ section.inventory.cards[data-family="tall"] > .cell-stage > ul {
 section.inventory.cards[data-family="tall"] > .cell-stage > ul > li {
   padding: var(--sp-xs) var(--sp-sm); line-height: var(--lh-snug);
 }
-section.inventory.cards[data-family="tall"] > .cell-stage > ul > li strong {
+section.inventory.cards[data-family="tall"] > .cell-stage > ul > li > strong:first-child {
   padding-bottom: var(--sp-3xs);
 }
 
@@ -414,7 +413,7 @@ section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li,
 section.inventory.editorial[data-family="tall"] > .cell-stage > blockquote {
   line-height: var(--lh-snug);
 }
-section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li strong {
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li > strong:first-child {
   font-size: var(--fs-h3);
 }
 

@@ -1790,10 +1790,14 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly structured collection across conversations and market data.
+- Scoring Model
+  - Each signal scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals that informed it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 ---
 
