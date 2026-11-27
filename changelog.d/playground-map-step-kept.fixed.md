@@ -1,5 +1,7 @@
-- **Fixed: a jump on the Playground's slide map is no longer lost on a busy page.** With the map open in Explore,
-  "Map, last slide" followed quickly by "Map, previous slide" could leave the walk bar on the last slide: the first
-  jump's smooth scroll was still traveling when the second asked for a slide the walk already named, so the second
-  never scrolled and the first carried the reader past it. A jump (first, last, a map tile, the Step list) now
-  always aims the preview at its slide, even when the walk already names it.
+- **Fixed: a step on the Playground's slide map is no longer lost on a busy page.** With the map open in Explore, a
+  jump to the last slide followed by "previous" could leave the walk bar on the last slide, or on a slide the reader
+  never picked, and "first" then "next" could stay on slide 1. On a loaded page the first jump's smooth scroll ran past
+  the time the walk waited for it, so the walk renamed itself from wherever the scroll was passing, the next step
+  started from that slide, and the scroll then landed somewhere else. The walk now waits for its own scroll until the
+  scroll arrives, up to four times the usual wait, and a jump always aims the preview at its slide, even when the
+  walk already names it.

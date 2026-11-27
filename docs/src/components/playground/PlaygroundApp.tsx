@@ -151,6 +151,8 @@ const SCROLL_IDLE_MS = 120;
 /** How many times `landWalk` starts over when the scroll it performed did not put the
  *  target slide on screen. Each attempt re-waits for the geometry, so this is a budget in
  *  settle windows, not in frames; two is enough for the late-FIT case that forced it. */
+/** How many guard windows a walk scroll still on its way may hold the observer for (see `walkEnRoute`). */
+const WALK_GUARD_CEILING = 4;
 const LAND_ATTEMPTS = 2;
 /** The reveal's own backstop, and it MUST outlast the land's worst case
  *  (`LAND_SETTLE_MS x (1 + LAND_ATTEMPTS)`) or the frame fades in and then jumps — the
@@ -406,8 +408,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const scrollWalkRef = React.useRef<(smooth: boolean) => void>(() => {});
 	const landWalkRef = React.useRef<(attempt?: number) => void>(() => {});
 	/** The in-flight programmatic scroll: the index it is traveling to, and when the
-	 *  observer stops deferring to it. Cleared the moment the frame actually arrives. */
-	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number } | null>(null);
+	 *  observer stops deferring to it. Cleared the moment the frame actually arrives.
+	 *  `from` and `to` are the offsets it left and is going to, and `hardUntil` is the latest
+	 *  the guard may hold while the scroll is still between the two: see `walkEnRoute`. */
+	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number; from: number; to: number; hardUntil: number } | null>(null);
 	/** Fires when the guard above expires. The guard cannot be released by "the next scroll
 	 *  event" alone: a single jumping scroll inside the window is never followed by one, so
 	 *  the index stays where the step aimed while a different slide fills the pane. */
@@ -1830,6 +1834,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// an index back from a scroll. A smooth scroll emits a scroll event per frame all
 	// the way there, so without the guard a step from slide 2 to 9 would report — and
 	// address-bar — every slide in between.
+	/**
+	 * Whether the walk's own scroll is STILL ON ITS WAY: short of where it is going, and between there and where it
+	 * started, with the reader silent since it began. The guard's window is how long a smooth scroll takes on an idle
+	 * page, and that is a guess a loaded page breaks. Measured on the built Playground at `?c=kpi` with the map open,
+	 * under `--workers=4`: "Map, last slide" scrolled for 1.9s (the main thread was blocked for 1.4s of it), the guard
+	 * let go at 1.2s, the observer renamed the walk to slide 11 from the offset the scroll was passing, and the next
+	 * step started from there while the scroll went on to slide 14 — the bar read "14 / 14" after "Map, previous
+	 * slide", or "1 / 14" after "Next". So the window decides only once the scroll has stopped being ours. The same
+	 * rule as the Edit sync's `enRoute` (lib/playground-sync.ts), for the same failure. `hardUntil` is the ceiling:
+	 * a scroll that never arrives (a clamp, a cancelled animation) does not hold the observer shut for good.
+	 */
+	const walkEnRoute = React.useCallback((p: { armedAt: number; from: number; to: number; hardUntil: number }) => {
+		if (Date.now() >= p.hardUntil || userInputAtRef.current > p.armedAt) return false;
+		const y = frameRef.current?.contentWindow?.scrollY;
+		if (y == null) return false;
+		return Math.abs(y - p.to) >= 1 && y >= Math.min(p.from, p.to) - 1 && y <= Math.max(p.from, p.to) + 1;
+	}, []);
 	const scrollWalk = React.useCallback((smooth: boolean) => {
 		const frame = frameRef.current;
 		const w = walkRef.current;
@@ -1848,7 +1869,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// it back from.
 		bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 		const window_ms = animated ? 1200 : 400;
-		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now };
+		// `to` is filled in below, once the destination is computed; until then nothing reads it.
+		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now, from: win.scrollY, to: win.scrollY, hardUntil: now + window_ms * WALK_GUARD_CEILING };
 		// ARM A TIMER TOO, not just a deadline other code checks when it happens to run. The
 		// deadline alone is only ever read from `onDeckScroll`, so it needs a LATER scroll to
 		// take effect — and the case it exists for is precisely a scroll with no successor
@@ -1856,9 +1878,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// Measured: a step to slide 2 then one jump to slide 10 left the bar on "2 / 13"
 		// forever. Found by an independent checker.
 		if (guardTimerRef.current) clearTimeout(guardTimerRef.current);
-		guardTimerRef.current = setTimeout(() => {
+		const expire = () => {
 			guardTimerRef.current = null;
-			if (!walkScrollRef.current) return; // released normally
+			const p = walkScrollRef.current;
+			if (!p) return; // released normally
+			// STILL ON ITS WAY: the window is a guess at how long the scroll takes, and a loaded page
+			// takes longer. Hold, and look again, until the scroll arrives or the ceiling passes.
+			if (walkEnRoute(p)) {
+				guardTimerRef.current = setTimeout(expire, Math.min(window_ms, Math.max(40, p.hardUntil - Date.now())));
+				return;
+			}
 			walkScrollRef.current = null;
 			// NOT WHILE A LAND OWNS THE POSITION. This timer exists to un-strand a scroll that
 			// no later event will correct; a land in flight IS that later correction, and it is
@@ -1868,7 +1897,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// what the reader asked for.
 			if (landPendingRef.current) return;
 			reconcileRef.current();
-		}, window_ms + 40);
+		};
+		guardTimerRef.current = setTimeout(expire, window_ms + 40);
 		// Where the slide lands. When it nearly fills the pane (Explore's one-slide stage),
 		// CENTER it: one whole slide with an even margin above and below. When the pane is much
 		// taller than a slide (a tablet or phone filmstrip), centering would leave the previous
@@ -1885,8 +1915,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// run, is already where this lands it — pinning it 16px down moved the whole filmstrip
 		// 20px up under the reader the moment the app went live (measured at 390px).
 		const pinnedFirst = w.index === 0 && spare > 40;
-		win.scrollTo({ top: pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset), behavior: animated ? 'smooth' : 'auto' });
-	}, [mountAroundIndex]);
+		const want = pinnedFirst ? 0 : Math.max(0, (band ? band.top : win.scrollY + target.getBoundingClientRect().top) - inset);
+		// Where the scroll will actually stop: the document clamps it, and `walkEnRoute` must know the real end.
+		const se = frame.contentDocument?.scrollingElement;
+		const dest = se?.scrollHeight ? Math.min(want, Math.max(0, se.scrollHeight - se.clientHeight)) : want;
+		if (walkScrollRef.current) walkScrollRef.current.to = dest;
+		win.scrollTo({ top: want, behavior: animated ? 'smooth' : 'auto' });
+	}, [mountAroundIndex, walkEnRoute]);
 	scrollWalkRef.current = scrollWalk;
 
 	/**
@@ -2838,7 +2873,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// target. Measured: a step to slide 2 followed 80ms later by one jump to
 				// slide 10 left the bar reading "2 / 13" with slide 10 filling the pane.
 				// Found by an independent checker.
-				if (Date.now() >= pending.until) walkScrollRef.current = null;
+				//
+				// …UNLESS IT IS STILL ON ITS WAY (`walkEnRoute`): the window is how long a smooth scroll takes
+				// on an idle page, and a loaded one takes longer. Releasing a scroll that is still traveling
+				// renames the walk from wherever it happens to be passing, and it then goes on to arrive
+				// somewhere else.
+				if (Date.now() >= pending.until && !walkEnRoute(pending)) walkScrollRef.current = null;
 			}
 			if (walkScrollRef.current) {
 				const p2 = walkScrollRef.current;
@@ -2863,7 +2903,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setWalk(moved);
 			walkRef.current = moved;
 		});
-	}, []);
+	}, [walkEnRoute]);
 	React.useEffect(
 		() => () => {
 			if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
