@@ -5,7 +5,7 @@ recorded: 2026-11-20
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-11-20-deck-preset-study.md §7
-deferred: large — what remains is a second change to export bytes, with its own dark and light sign-off; #3336 made the first
+deferred: blocked — a second change to export bytes, which needs the owner's dark and light export sign-off (Quality Bar); #3336 made the first
 source: https://github.com/Laticent/lattice/pull/3335
 ---
 
