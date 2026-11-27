@@ -123,10 +123,15 @@ async function latticeGalleryCycle(cycle) {
 	try {
 		const t0 = performance.now();
 		// Open: the door splits into Before | After; After opens the gallery (2026-10-27-slide-structure-strip.md §5).
-		(await until(() => visibleButton('New slide'), 30000, 'the New slide button')).click();
+		// The FIRST open on a page is a cold start: the engine and the gallery's catalog load then, and on a freshly
+		// booted simulator that took longer than 30 s (harness run 45965226985, iPad, LITE, cycle 1). So the first
+		// cycle's waits get the cold-start bound run.mjs gives every probe (150 s, D3 on #3034); later ones stay short.
+		// Each is a deadline on a signal, not a sleep (HARD RULE #32).
+		const cold = cycle === 0 ? 150000 : 30000;
+		(await until(() => visibleButton('New slide'), cold, 'the New slide button')).click();
 		(await until(() => visibleButton('New slide after'), 10000, 'New slide after')).click();
-		await until(shown, 20000, 'the gallery');
-		await until(() => mounted() > 1, 30000, 'the gallery to mount a preview');
+		await until(shown, cold, 'the gallery');
+		await until(() => mounted() > 1, cold, 'the gallery to mount a preview');
 		if (cycle === 0) {
 			// PRIME the pool to its high-water mark, as MR-3 does: a stepped walk rests on every row, so every tile shape
 			// (Mermaid, a local component's CSS) gets its frame before the first close is counted.
