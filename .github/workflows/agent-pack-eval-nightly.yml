@@ -3,7 +3,7 @@ name: Agent pack eval nightly
 # Does the agent pack make a model write a good deck? tools/agent-pack-eval.mjs gives a model the
 # agent kit's start.md, lets it read the kit files start.md links to (the retrieval arm: two turns),
 # and judges every deck with lint:deck and a real render. It holds the ten fixed briefs and the pass bar.
-# engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.9.
+# engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.10.
 #
 # Nightly: the retrieval arm, ten briefs, ONE model a night: Haiku 5.5 and DeepSeek V4.1 Flash
 # alternate by day (`--model nightly`; the owner's call, desk session_015KSkL4AtPNjvKkBShG56Nu,

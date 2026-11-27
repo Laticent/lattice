@@ -2,7 +2,7 @@
 /**
  * agent-pack-eval — does the agent pack make a model write a good deck?
  *
- * engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.9. A model gets ONE pack file as its
+ * engineering/decisions/2026-11-17-agent-pack.md §4.5 and §4.10. A model gets ONE pack file as its
  * system prompt and a fixed brief, writes a deck, and the deck goes through the same machinery a
  * human's would: `lint:deck` and a real render through `dist/lattice.js`. Three arms:
  *
