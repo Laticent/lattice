@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   A measured plan to cut CI load. ci.yml and CodeQL use about 16,900 job-minutes and 3,081 jobs a day. CodeQL is
   42% of the jobs, over half of those for 7 C# and Python files; 38% of PR job-minutes go to runs a newer push
@@ -393,6 +393,39 @@ writes the rule that a session runs the affected render tests before its merge a
 "Maximum pull requests to build" from 5 to 3 → Save changes. Leave every other value as it is (§ "Merge queue —
 the facts" in `workflow.md` lists them). Undo: set it back to 5. Then update the `max_entries_to_build` row in
 that `workflow.md` table in the same week, so the doc matches the live ruleset.
+
+## 7. Measured after the changes (2026-11-27)
+
+Every change the owner chose is live: C6 (#3390, 2026-11-21 18:48), D1's settings change and the weekly scan (#3391,
+2026-11-22 00:24), the queue at 3 / 3 (D4) and D2 (#3407, 2026-11-22 01:42). Same method as §1: the GitHub API, every
+job of every completed `ci.yml` and CodeQL run, all attempts. **Before** is the 3 days up to the first change
+(2026-11-18 18:00 to 2026-11-21 18:00 UTC); **after** is three full weekdays (2026-11-23 00:00 to 2026-11-26 00:00 UTC).
+The mix is close: 63% of finished PR runs touched the `code` paths before, 58% after.
+
+| Measure | Before | After | Change | What moved it |
+|---|---|---|---|---|
+| Job-minutes per finished PR run | 83.6 | 46.3 | −45% | D2 (render legs per PR run 2.5 → 0), C6 |
+| Jobs per finished PR run | 10.8 | 8.1 | −25% | D2 |
+| Unit shard 2, median job time | 8.8 min | 7.9 min | −10% | C6 |
+| Job-minutes per queue run | 104.6 | 103.1 | −1% | none expected: the queue still runs every tier |
+| Queue runs per queued PR | 1.72 | 1.15 | −33% | D4, and fewer ejections |
+| CodeQL jobs per push | 7.0 | 3.0 | −57% | D1 |
+| CodeQL job-minutes per push | 21.2 | 15.1 | −29% | D1 (§2 predicted −34%) |
+| Runner wait, p50 / p90 | 5.3 / 39.9 min | 0.03 / 0.05 min | −99% | the Team plan's 60 jobs, and all of the above |
+| Push to green `ci`, p50 | 42 min | 12 min | −71% | mostly the vanished runner wait |
+| Share of PR job-minutes in cancelled runs | 41% | 16% | −60% | shorter runs finish before the next push |
+| CI and CodeQL job-minutes per merged PR | 965 | 350 | −64% | all of the above |
+| PRs merged a day | 21.7 | 27.0 | +25% | |
+| CI and CodeQL jobs a day | 3,628 | 1,563 | −57% | the per-run cuts, and half as many PR runs a day (226 → 114) |
+
+**How to read it.** The per-run rows are the changes' own effect and do not depend on load. The waits and
+push-to-green times also reflect the Team plan's higher limit, which landed the same day, so they cannot be credited to
+the CI changes alone. The daily totals also fell because PR pushes halved, and that is partly fewer sessions running,
+not only `pr:park`. Per merged PR, which controls for volume, CI now costs about a third of what it did.
+
+The weekly C#/Python scan's first scheduled run (2026-11-23, run 45186444584) went green: 6 Python files and 1 C# file
+scanned, 0 findings, both SARIF artifacts kept. It started about 10 hours after its 03:43 UTC slot, which is GitHub's
+usual delay for scheduled runs.
 
 ## Not measured
 
