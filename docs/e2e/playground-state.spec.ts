@@ -96,6 +96,27 @@ test('@crosswidth a pick survives a reload that beats its plan fetch', async ({ 
 	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
 });
 
+test('@crosswidth a pick whose plan never arrives hands back to the component on screen', async ({ page }) => {
+	// The pick is recorded before its plan fetch (above). When that fetch fails (the designed 404: a deploy rewrote
+	// the staged tree while the tab sat open), the label, the stored pick and the address bar must go back to the
+	// walk still on screen, not keep naming a component the reader never saw.
+	await gotoPlayground(page);
+	await expect(page.locator('#pg-walk')).toBeAttached();
+	let answered = 0;
+	await page.route(/\/kpi\.json($|\?)/, async (route) => {
+		await route.fulfill({ status: 404, body: '' });
+		answered++;
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await expect.poll(() => answered).toBeGreaterThan(0);
+
+	await expect(page.locator('#pg-template-trigger')).toContainText('actors');
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('actors');
+	await expect(page).toHaveURL(/[?&]c=actors(&|$)/);
+});
+
 test('@crosswidth the picker detaches honestly when the draft holds no recognized component', async ({ page }) => {
 	await gotoPlayground(page);
 	await page.locator('#pg-template-trigger').click();
