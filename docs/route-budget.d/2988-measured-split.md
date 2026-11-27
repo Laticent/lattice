@@ -1,6 +1,6 @@
-studio: +1580
+studio: +1640
 playground: +680
-home: +610
+home: +660
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
 every preview surface, so each one carries its eager entry point: a one-line check for a `fit:` line
 (`src/lib/fit-pack-wanted.ts`), the lazy `import()` of `src/lib/measured-split.ts`, and the call that
@@ -56,3 +56,7 @@ layout memory and the export's bounded waits live in the lazy module and the exp
 single-slide-render, +368 progress-rail) and +572 on home (+387 single-slide-render, +104 front-matter-fence); `main`'s
 own chunk changes moved `within-ms` and `theme-fetch` into one another (+1930, -1863). Playground is +652, under its
 +680. Declared +1580 and +610 for gzip variation, inside the 2048 B a PR may declare.
+The second review's fixes (2026-11-27: the retry stands down for a newer render, and carries the failed render's start
+time and coalesce count to the perf overlay) add 49 B to single-slide-render: CI on 492ee4b measured +1588 B gz on studio
+(+436 single-slide-render) and +621 on home. Declared +1640 and +660 for gzip variation, inside the 2048 B a PR may
+declare.
