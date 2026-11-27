@@ -3,7 +3,7 @@
 	"id": "chart_from_data",
 	"title": "Chart from data",
 	"describe": {
-		"chat": "Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. Read the chart guide (read_component) if unsure."
+		"chat": "Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. If unsure, read_guide chart-from-data."
 	},
 	"tier": "draft",
 	"effects": [

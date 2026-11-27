@@ -231,7 +231,7 @@
 "[core, overrides, themeName, themeDesc, rampStrategy]":[null,null,null],
 "[dark]":[null,null,null],
 "[data-anima-role]":[null,null,null],
-"[data-cards]":[null,null,null],
+"[data-align]":[null,null,null],
 "[data-cat=\"0..5\"]":[null,null,null],
 "[data-cat=\"2\"]":[null,null,null],
 "[data-cat=\"2\"]{--cat-ink:…}":[null,null,null],

@@ -124,7 +124,8 @@ describe('the front-matter register family', () => {
         }
       }
     }
-    // 1344 since the five spectrum rows left for the axis-register checker (2026-11-21-spectrum-keys.md).
-    assert.ok(compared > 1300, `compared ${compared}`);
+    // 1344 since the five spectrum rows left for the axis-register checker (2026-11-21-spectrum-keys.md); 1272 since
+    // `cards:` retired for `align:` (whose words the axis-register family checks).
+    assert.ok(compared > 1250, `compared ${compared}`);
   });
 });

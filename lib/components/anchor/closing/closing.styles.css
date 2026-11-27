@@ -148,6 +148,17 @@ section.closing.index :is(ul,ol) li code {
 
 
 
+/* On a square, tall or strip slide (a phone, a tablet, a post) the index rows read at body size.
+ * Five two-line rows at --fs-message ran 98px past the footer on a phone square. A reference row
+ * is body text, and only the 16:9 slide has the width that justifies the lede tier for it. */
+section.closing.index:where([data-family="square"], [data-family="tall"], [data-family="strip"]) :is(ul,ol) li {
+  font-size:var(--fs-body); text-wrap:balance;
+}
+
+/* A closing's lede page (lib/core/carousel.js `lede-page`; owner, 2026-11-16) carries the message, not the
+   bookend's accent: the `spectrum` bar stays on the cover, as it does for a title's lede page. */
+section.closing-lede.spectrum::before { display: none; }
+
 /* ── COVER COMPOSITIONS — mirror of title.styles.css, rule for rule ──────────────────────────
  * The back cover composes the way the front cover does. Why these are variants, why each is
  * surface-blind and why the alignment sits in `:where()`: the note on the title block. The
