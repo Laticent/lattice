@@ -11,3 +11,4 @@ The Studio chat's cost figures now say "unknown" when a provider sends no cache 
 - The hard-stop budget cap and the Stop estimate count the tool definitions each round carries.
 - Show work lists each model call's cost, input with its cached share, and output, and its total keeps cumulative input apart from the largest single call.
 - The chat's system prompt names 14 export, preview and raw-CSS front-matter keys instead of describing each, and folds `lexicon:` and `acronyms:` into the `terms:` row: 412 fewer tokens on every request. The model still reads each one in full on request, and read_front_matter now finds the camelCase keys (`backgroundColor` and four more), which it reported as unknown before.
+- Dialog and sheet titles across the Studio and the docs site read as separate words: the display tracking on headings no longer closes their word space ("Show work" read as "Showwork").

@@ -86,8 +86,18 @@ for (const width of WIDTHS) {
 		await expect(menu.getByText('90%', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 
-		const { rows, total } = await ledger(page);
+		const { dialog, rows, total } = await ledger(page);
 		await expect(rows).toHaveText(['$0.011 · 17K in (16K cached) · 80 out', '$0.006 · 18K in (17K cached) · 60 out']);
+		// The title reads as two words. Its word space, as laid out, is 0.24em with the dialog-title rule in landing.css and was
+		// 0.14 to 0.19em under the display tracking on h2, when "Show work" read as "Showwork".
+		const gap = await dialog.locator('[data-slot="dialog-title"],[data-slot="sheet-title"]').evaluate((el) => {
+			const text = el.firstChild as Text;
+			const range = document.createRange();
+			range.setStart(text, 4);
+			range.setEnd(text, 5);
+			return range.getBoundingClientRect().width / Number.parseFloat(getComputedStyle(el).fontSize);
+		});
+		expect(gap).toBeGreaterThanOrEqual(0.21);
 		await expect(total).toHaveText(/^Total \$0\.017 · 35K input over 2 calls, 18K at most in one$/);
 		await page.screenshot({ path: test.info().outputPath(`ledger-normal-${width}.png`), animations: 'disabled' });
 	});
