@@ -1,6 +1,6 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 
-import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { readSettingEntries } from '../../../../lib/core/comment-directive.mjs';
 import { isRecordOpener, parsePaneMarker, readRecord } from '../../../../lib/core/meta-door.mjs';
 import { commentReadings } from '../../../../lib/core/meta-edit.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
@@ -34,11 +34,10 @@ const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*(?:_[A-Za-z][\w-]*:|\{|@meta\{)(?:[^\n]
 
 /** The `class` slice of the directive vocabulary (lib/core/comment-directive.mjs binds one key). */
 
-/** The class PAYLOAD one directive line carries (`<!-- _class: kpi dark -->` → `kpi dark`), or null
- *  when the line is not a class directive. Read through the engine's own comment grammar
- *  (lib/core/comment-directive.mjs, what lib/engine/slides.js binds), so Compose cannot read a
- *  class the render does not apply: quotes are stripped the engine's way, and a compound comment
- *  is a class directive only when `_class` is its FIRST key. */
+/** The class PAYLOAD one settings comment carries (`<!-- @meta{layout=kpi, class=dark} -->` → `kpi dark`), or null
+ *  when the comment sets no class. Read through the engine's own grammar (lib/core/comment-directive.mjs
+ *  `readSettingEntries`), so Compose cannot read a class the render does not apply: since the cut an old
+ *  `<!-- _class: kpi -->` comment sets nothing (record note §15), so it carries no class here either. */
 export function classPayloadOf(directive: string): string | null {
 	const text = String(directive ?? '').trim();
 	// A record's class is the words its typed fields compose (lib/core/meta-door.mjs `readRecord`), as the engine applies them.
@@ -46,7 +45,7 @@ export function classPayloadOf(directive: string): string | null {
 		const rec = readRecord(text.slice(4, -3));
 		return rec?.ok && rec.d.class !== undefined ? rec.d.class : null;
 	}
-	return readDirectiveComment(text, CLASS_VOCAB)?.value ?? null;
+	return readSettingEntries(text, CLASS_VOCAB).at(-1)?.value ?? null;
 }
 
 /** The component of one directive line: the first token of its class payload, or null. */
@@ -125,7 +124,7 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			line < firstPane &&
 			!betweenLists &&
 			!loosensList;
-		const keys = [...r.keys].map((k) => scopedKey(k, r.kind, chunkLines.slice(line - 1, line + 2).join('\n')));
+		const keys = [...r.keys].map((k) => scopedKey(k, r.kind, text ?? chunkLines.slice(line - 1, line + 2).join('\n')));
 		if (movable && !keys.some((k) => kept.has(k))) hoist.add(line);
 		else for (const k of keys) kept.add(k);
 	}
@@ -253,7 +252,7 @@ function strandsADirective(prose: string): boolean {
 	const kinds = lineKinds(lines);
 	// What the engine applies: its readings, and the pane markers (which commentReadings does not report).
 	const applied = new Set<number>();
-	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'comment') applied.add(line);
+	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'comment' && r.kind !== 'legacy') applied.add(line);
 	lines.forEach((l, i) => {
 		if (l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) applied.add(i + 1);
 	});
@@ -338,11 +337,17 @@ function listBelow(kinds: LineKind[], last: number): boolean {
 	return false;
 }
 
-/** A field's key in the walk's `kept` set. `class` is scoped: a spot `_class` or a record's class beats a bare `class:`
- *  in either order, so a bare one kept in place does not pin a later local one (the checker on #3136). Every other
- *  field is last-comment-wins, whatever its scope. */
+/** A field's key in the walk's `kept` set. `class` is scoped: a slide's own class beats a carried one (`carry` on the
+ *  record, or the old bare `class:` comment) in either order, so a carried one kept in place does not pin a later local
+ *  one (the checker on #3136). Every other field is last-comment-wins, whatever its scope. */
 function scopedKey(key: string, kind: string, source: string): string {
-	return key === 'class' && kind === 'directive' && /^\s*<!--\s*class\s*:/.test(source) ? 'class:global' : key;
+	if (key !== 'class') return key;
+	if (kind === 'directive') return /^\s*<!--\s*class\s*:/.test(source) ? 'class:global' : key;
+	if (kind !== 'record') return key;
+	// Since the cut a carried class is a record with `carry` (record note §15); read the record the line opens.
+	const open = source.indexOf('<!--');
+	const close = source.indexOf('-->', open);
+	return open !== -1 && close !== -1 && readRecord(source.slice(open + 4, close))?.carry ? 'class:global' : key;
 }
 
 /** A list item's first line: a bullet or a number, then a space or the end of the line. */

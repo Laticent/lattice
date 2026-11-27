@@ -14,7 +14,7 @@ import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './stu
 const F = String.fromCharCode(96, 96, 96);
 const DECK = [
 	'---', 'theme: cuoio', '---', '',
-	'<!-- _class: diagram -->', '', '## A quote passes one check', '',
+	'<!-- @meta{layout=diagram} -->', '', '## A quote passes one check', '',
 	`${F}mermaid`, 'flowchart LR', '  A[Quote] --> B{Above floor?}', '  B -->|yes| C[Send]', '  B -->|no| D[Review]', F, '',
 ].join('\n');
 

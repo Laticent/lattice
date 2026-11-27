@@ -280,7 +280,7 @@ describe('rough-ink — shiftPath', () => {
 describe('rough ink reaches a pane', () => {
   const { JSDOM } = require('jsdom');
   const { render } = require('../../../lib/engine/index.js');
-  const md = '---\nmode: sketch\n---\n\n## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| x | y |\n|---|---|\n| 1 | 2 |\n';
+  const md = '---\nmode: sketch\n---\n\n## T\n\n<!-- @meta{pane=list} -->\n\n- a\n\n<!-- @meta{pane=table} -->\n\n| x | y |\n|---|---|\n| 1 | 2 |\n';
   const doc = new JSDOM(render(md, 'lattice').html).window.document;
   const sel = (id) => ROUGH_INK_STRUCTURES.find((s) => s.id === id).sel;
   test('the table entry selects the table pane\'s table, and the painter positions against the host', () => {

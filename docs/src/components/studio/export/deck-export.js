@@ -298,7 +298,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// value holding `-->`) is left out, never truncated, and said in the export's report (`recordWarnings`).
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
 	const recordReport = [];
-	source = recordsToComments(source, recordReport);
+	// An old setting comment sets nothing in Lattice since the cut, so it reaches Marp as nothing either.
+	const { withoutLegacySettings } = await import('../../../../../lib/core/comment-directive.mjs');
+	source = recordsToComments(withoutLegacySettings(source), recordReport);
 	// The four notes as Marp reads them (engineering/decisions/2026-11-20-four-notes.md): `@note` becomes Marp's plain
 	// speaker note, `@handout` a note labeled `Handout:`, and `@say`, `@alt` and every plain comment are dropped, because
 	// Marp shows any comment as a speaker note and has no channel for the voice or the alt text. The kernel the CLI's
@@ -366,8 +368,10 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// run last (as it was), an image slide with two headings had its `_class` and its `![bg]` in different parts, and Marp's
 	// own background took the photo (record note §7).
 	const embedded = embedComponentsInMarkdown(localized, components);
-	const agendaFilled = fillAutoAgendaOrSame(embedded);
-	const glossed = appendAutoGlossary(agendaFilled);
+	// Both run on the deck in Marp's comments: the agenda reads Marp's `_class:`, and the glossary slide is written
+	// in Marp's comment like every other (the cut, record note §15 slice E).
+	const agendaFilled = fillAutoAgendaOrSame(embedded, { marp: true });
+	const glossed = appendAutoGlossary(agendaFilled, { marp: true });
 	const lifted = liftImageBgImages(glossed, undefined);
 	const split = bakeSplits(lifted);
 	// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot

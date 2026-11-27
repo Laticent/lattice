@@ -61,7 +61,7 @@ test('@smoke a Library photo paints in the live preview, and deleting it falls b
 	await page.screenshot({ path: testInfo.outputPath('asset-renders.png') });
 
 	// An image slide's photo panel paints too.
-	await setEditorContent(page, '<!-- _class: image -->\n\n## Cover\n\n![Probe photo](asset:probe-photo)\n');
+	await setEditorContent(page, '<!-- @meta{layout=image} -->\n\n## Cover\n\n![Probe photo](asset:probe-photo)\n');
 	await expect
 		.poll(async () => livePreview(page).locator('.lattice-bg').first().evaluate((el) => getComputedStyle(el).backgroundImage), { timeout: 30_000 })
 		.toMatch(/blob:/);
@@ -163,7 +163,7 @@ test('@smoke a collage of Library photos paints every tile and fills its frame @
 		await addPng(page, `${s.n}.png`, s);
 		await expect(page.locator(`[data-media-card="${s.n}"]`)).toBeVisible();
 	}
-	await setEditorContent(page, `<!-- _class: collage -->\n\n## Library photos\n\n${shapes.map((s) => `- ![${s.n}](asset:${s.n})`).join('\n')}\n`);
+	await setEditorContent(page, `<!-- @meta{layout=collage} -->\n\n## Library photos\n\n${shapes.map((s) => `- ![${s.n}](asset:${s.n})`).join('\n')}\n`);
 	const imgs = livePreview(page).locator('img[src^="blob:"]');
 	await expect(imgs).toHaveCount(4, { timeout: 30_000 });
 	// Four `<img>` elements in the DOM is not four pictures painted: each loads its object URL and the collage packs

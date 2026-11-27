@@ -36,12 +36,9 @@ const NOT_DECKS = Object.freeze([
  */
 const KEEP = Object.freeze({
   'kit/Sample-Deck.md': "Marp's own sample deck, shipped in the Marp kit; Marp reads only directive comments.",
-  // Until the cut the engine reads every spelling, and these two are where each comment form is rendered end to end.
-  'test/fixtures/mermaid-slide-class-forms.md': 'Pins every comment form of a class (spot, running global, quoted) through the Mermaid bake (mermaid-slide-class-forms.test.js).',
-  'examples/slide-class-forms.md': 'The demo deck of the comment forms of a class; its eyebrows name each form.',
   'tools/vscode-harness/decks/mermaid-click.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
-  // LFM 1.x defines the directive comment; these are its conformance cases, run by tools/lfm-conformance.js. The cut
-  // (slice E) marks them `until: LFM-2.0` and the LFM 2.0 draft gets record cases.
+  // LFM 1.x defines the directive comment; these are its conformance cases, marked `until: LFM-2.0` by the cut (slice E),
+  // so tools/lfm-conformance.js no longer runs them. Each has a twin in records (`<name>-record.md`) that it does run.
   'spec/conformance/lfm/appendix-a.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',
   'spec/conformance/lfm/card-grammar-inline-title.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',
   'spec/conformance/lfm/card-grammar-ordered.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',

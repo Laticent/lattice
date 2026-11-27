@@ -10,7 +10,7 @@ const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const { lintText } = require('../../../lib/authoring/lint.js');
 const { bootRuntime } = require('../../helpers/runtime-boot');
 
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 
 function rng(seed) {
   let a = seed >>> 0;

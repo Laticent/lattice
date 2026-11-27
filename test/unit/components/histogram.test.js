@@ -27,7 +27,7 @@ function parity(md) {
   const refs = narrateChartScript(md).refs.filter((x) => x.id && 'mark' in x.id).map((x) => `${x.id.mark}:${x.label}`);
   return { marks, refs, html };
 }
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}\n`;
 
 const li = (rows) => rows.map(([label, ...pills]) => `<li>${label} ${pills.map((p) => `<code>${p}</code>`).join(' ')}</li>`).join('');
 
@@ -177,7 +177,7 @@ describe('histogram kernel', () => {
 });
 
 describe('histogram narration and lint', () => {
-  const slide = ['<!-- _class: histogram -->', '', '`[{Annual loss, log}]`', '', '## Most years stay small.', '',
+  const slide = ['<!-- @meta{layout=histogram} -->', '', '`[{Annual loss, log}]`', '', '## Most years stay small.', '',
     '- Attritional `$1M..$5M` `61%`', '- `$5M..$25M` `27%`', '- `$25M-$100M` `9%`', ''].join('\n');
 
   test('says the frame once, then each band by its name and range, as the kernel keeps them', () => {
@@ -188,7 +188,7 @@ describe('histogram narration and lint', () => {
   });
 
   test('lint names a dash, a gap or overlap, and `log` over zero', () => {
-    const md = (rows, axis = '') => `---\nmarp: true\n---\n\n<!-- _class: histogram -->\n\n${axis}\n\n## T.\n\n${rows.join('\n')}\n`;
+    const md = (rows, axis = '') => `---\nmarp: true\n---\n\n<!-- @meta{layout=histogram} -->\n\n${axis}\n\n## T.\n\n${rows.join('\n')}\n`;
     const rules = (src) => findHistogramIssues(src).map((f) => f.rule);
     assert.deepEqual(rules(md(['- `$1M-$5M` `61%`'])), ['histogram-dash-range']);
     assert.deepEqual(rules(md(['- `0..10` `5%`', '- `20..30` `5%`'])), ['histogram-bands-join']);

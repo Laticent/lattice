@@ -34,11 +34,11 @@ const TIMEOUT = 180000;
 
 const DECK = [
   '---', 'theme: indaco', '---', '',
-  '<!-- _class: diagram -->', '',
+  '<!-- @meta{layout=diagram} -->', '',
   '## First', '',
   '```mermaid', 'flowchart LR', '  A["Web App"] -->|calls| B["API"]', '```', '',
   '---', '',
-  '<!-- _class: diagram -->', '',
+  '<!-- @meta{layout=diagram} -->', '',
   '## Second', '',
   '```mermaid', 'flowchart TB', '  C["core"] --> D["runtime"]', '```', '',
 ].join('\n');

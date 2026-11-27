@@ -12,7 +12,7 @@ import { displayTexOf, displayTextFor, editInlineMath, editRawBlock, inlineTexPr
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Math',
 	'',
@@ -28,7 +28,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Locked',
 	'',
@@ -119,7 +119,7 @@ describe('editing', () => {
 		const at = find(view, 'raw_block', 'html')[0].pos;
 		expect(editRawBlock(view, at, '<div class="y">\n  <i>ho</i>\n</div>')).toBe(true);
 		expect(docToDeck(view.state.doc)).toContain('<i>ho</i>');
-		for (const bad of ['<div>\n\n</div>', '<div>\n---\n</div>', 'no tag', '<div><!-- _backgroundImage: url(x) --></div>']) {
+		for (const bad of ['<div>\n\n</div>', '<div>\n---\n</div>', 'no tag', '<div><!-- @meta{background-image="url(x)"} --></div>']) {
 			expect(editRawBlock(view, find(view, 'raw_block', 'html')[0].pos, bad)).toBe(false);
 		}
 	});
@@ -139,7 +139,7 @@ describe('editing', () => {
 		expect(first(view)).toBe(FIRST);
 	});
 	it('Remove takes the span out and the paragraph with it when it held nothing else', () => {
-		const view = mount('<!-- _class: content -->\n\n## T\n\n$x$\n\nAfter.');
+		const view = mount('<!-- @meta{layout=content} -->\n\n## T\n\n$x$\n\nAfter.');
 		expect(removeRaw(view, find(view, 'inline_math')[0].pos)).toBe(true);
 		expect(docToDeck(view.state.doc)).not.toContain('$x$');
 		expect(docToDeck(view.state.doc)).toContain('After.');

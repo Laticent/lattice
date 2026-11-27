@@ -6,7 +6,7 @@ import { CHROME, expect, gotoStudio, livePreview, openSection, persistedSource, 
 // preview draws that slide's bar back on top. The engine half is test/unit/core/restore-tokens-paths.test.js;
 // this pins the surface an author uses.
 
-const DECK = '---\ntitle: Restore\nspectrum: left\nheadline: center\n---\n\n<!-- _class: content -->\n\n## One slide\n\nBody.\n';
+const DECK = '---\ntitle: Restore\nspectrum: left\nheadline: center\n---\n\n<!-- @meta{layout=content} -->\n\n## One slide\n\nBody.\n';
 
 async function choose(page: Page, label: string, option: string): Promise<void> {
 	await page.getByRole('combobox', { name: label }).filter({ visible: true }).first().click();

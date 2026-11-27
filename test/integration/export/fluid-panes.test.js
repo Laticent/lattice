@@ -23,7 +23,7 @@ describe('export: the --fluid viewer lays out a panes slide', () => {
 	const EMULATOR = path.join(ROOT, 'lattice.js');
 	const TIMEOUT = 180000;
 	const rows = Array.from({ length: 24 }, (_, i) => `| Region ${i + 1} | ${(i + 1) * 3} |`).join('\n');
-	const DECK = `---\ntheme: indaco\n---\n\n## A table pane that overflows.\n\n<!-- panes: 35/65 -->\n<!-- pane: list -->\n\n- One point\n\n<!-- pane: table -->\n\n| Region | Value |\n|---|---|\n${rows}\n`;
+	const DECK = `---\ntheme: indaco\n---\n\n## A table pane that overflows.\n\n<!-- @meta{panes=35/65} -->\n<!-- @meta{pane=list} -->\n\n- One point\n\n<!-- @meta{pane=table} -->\n\n| Region | Value |\n|---|---|\n${rows}\n`;
 
 	let dir;
 	let browser;

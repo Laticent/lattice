@@ -23,7 +23,7 @@ import { deckPluginsOff } from '@/lib/plugin-admission';
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
 import { slideClassValue } from '../../../../lib/core/class-entries.mjs';
-import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
+import { isRecordOpener, readRecord } from '../../../../lib/core/meta-door.mjs';
 import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { dispatch } from '../../../../lib/use-cases/dispatch.mjs';
@@ -69,10 +69,14 @@ export type AgentComponent = { name: string; bucket?: string; summary?: string; 
 /** A finding from the deterministic review — same shape the Coach shows. */
 export type AgentFinding = { slide?: number; rule?: string; severity?: string; message: string };
 
-/** A bare (no leading underscore) local directive in an HTML comment: `<!-- class: x -->`. It holds for
- *  every slide after it, where the underscore form (`_class`) holds for its own slide only; a deck-wide
- *  key (`theme`, `size`) in a slide comment reaches every slide too. The keys are the registry's (lib/core/meta-keys.mjs), never a list kept here. */
-const CARRY_FORWARD_DIRECTIVE = new RegExp(`<!--\\s*(?:${[...LOCAL_KEYS, ...GLOBAL_ONLY_KEYS].join('|')})\\s*:`, 'i');
+/** Does this slide text hold a record that carries (`<!-- @meta{class=x, carry} -->`)? It holds for every slide after
+ *  it, where a record without `carry` holds for its own slide only. Read through the engine's own record grammar
+ *  (lib/core/meta-door.mjs): since the cut an old `<!-- class: x -->` comment sets nothing (record note §15), so it
+ *  carries nothing either. Any `carry` counts, a deck-wide key's included: over-triggering is the safe direction. */
+function carriesForward(text: string): boolean {
+	for (const m of text.matchAll(/<!--([\s\S]*?)-->/g)) if (isRecordOpener(m[1]) && readRecord(m[1])?.carry) return true;
+	return false;
+}
 
 /** What `check_deck` gets back from the host: the lint + review findings for a source,
  *  Mermaid's own parse errors, and each slide's fit from a real render of the source
@@ -873,13 +877,13 @@ export function createToolbox(opts: {
 		// The check that rides an edit measures fit on the slides the turn changed only: the verdict
 		// below already charges nothing else to the turn, and a real render costs the page ~2 s on a
 		// 40-slide deck (decisions/2026-10-19-studio-main-thread-jank.md). `check_deck` measures all.
-		// Not when a slide the turn wrote or removed holds a bare directive comment: `<!-- class: x -->`
-		// and the rest carry forward to every later slide, so the edit can change slides whose text it
-		// never touched (checker). `header:`, `footer:` and `paginate:` no longer carry (audit §11r), so
-		// the probe over-triggers on them, the safe direction. An empty deck has nothing to scope.
+		// Not when a slide the turn wrote or removed holds a record that carries (`<!-- @meta{class=x, carry} -->`): it
+		// reaches every later slide, so the edit can change slides whose text it never touched (checker). A header, footer
+		// or paginate record with `carry` no longer carries (audit §11r), so the probe over-triggers on them, the safe
+		// direction. An empty deck has nothing to scope.
 		const nowText = new Set(now);
 		const touchedText = [...now.filter((t) => !originalSlides.has(t)), ...[...originalSlides].filter((t) => !nowText.has(t))];
-		const fitScope = scoped && fmTouched.size === 0 && now.length > 0 && !touchedText.some((t) => CARRY_FORWARD_DIRECTIVE.test(t)) ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;
+		const fitScope = scoped && fmTouched.size === 0 && now.length > 0 && !touchedText.some(carriesForward) ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;
 		let res: DeckCheck;
 		try {
 			res = await (fitScope ? opts.check(draft, fitScope) : opts.check(draft));

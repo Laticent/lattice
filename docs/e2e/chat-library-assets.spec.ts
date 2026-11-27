@@ -17,7 +17,7 @@ import { CHROME, expect, gotoStudio, openChat, setEditorContent, test } from './
 //
 // NOT covered, and marked UNVERIFIED in the PR: how a real model chooses between photos.
 
-const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# Our work', '', '---', '', '<!-- _class: content -->', '## Photos', '', '- Coming'].join('\n');
+const DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '# Our work', '', '---', '', '<!-- @meta{layout=content} -->', '## Photos', '', '- Coming'].join('\n');
 const MODEL = '~anthropic/claude-sonnet-latest';
 
 type Body = { messages: { role: string; content: unknown }[]; tools?: { function: { name: string } }[] };

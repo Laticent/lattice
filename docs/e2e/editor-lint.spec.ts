@@ -12,7 +12,7 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 // disabled over it. This constant used to be `zzznotacomponent`, which pinned the older gate
 // (`unknownComponents`), where the button was offered and then did nothing. `kpii` is one
 // character off `kpi`, so it carries a Quick fix and Fix-all has something to do.
-const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
+const UNKNOWN_SLIDE = '\n\n---\n\n<!-- @meta{class=kpii} -->\n\n# Stray slide\n';
 // The exact name: the issue-count button beside it now reads "1 issue: … Fix all swaps it for …",
 // so a /Fix all/ pattern matches both and fails strict mode.
 const fixAll = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Fix all issues', exact: true });
@@ -83,7 +83,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 const FIX_ALL_DECK = [
 	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
-	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
+	'---', '', '<!-- @meta{class=kpii} -->', '', '## Numbers', '',
 ].join('\n');
 
 test('@webkit-tablet @gecko Fix all fixes every live line in one click and leaves a fenced example as written', async ({ page }) => {
@@ -127,9 +127,9 @@ test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plai
 // `<!-- {…} -->` record as `@meta`. One press of "Fix all" converts the deck, the same text
 // `lattice migrate meta` writes, and the slides render as before.
 const LEGACY_DECK = [
-	'---', 'theme: indaco', '---', '', '<!-- _class: title -->', '', '# Q3 review', '', '---', '',
-	'<!-- _class: cards-grid -->', '<!-- _footer: Board, Q3 -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
-	'---', '', '<!-- {layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
+	'---', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->', '', '# Q3 review', '', '---', '',
+	'<!-- @meta{layout=cards-grid} -->', '<!-- @meta{footer="Board, Q3"} -->', '', '## Three bets', '', '- Reach', '  - two markets', '- Margin', '  - four points', '- Speed', '  - half the cycle', '',
+	'---', '', '<!-- @meta{layout=kpi} -->', '', '## Revenue', '', '- $4.2M', '  - up 12%', '',
 ].join('\n');
 
 test('@webkit-tablet @gecko Fix all converts an old directive-comment deck to @meta records', async ({ page }, info) => {

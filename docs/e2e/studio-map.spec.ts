@@ -177,7 +177,7 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 // centered with room either side, and the caption keeps its number, name and ⋯, so nothing is laid over the slide.
 test('@parity a story deck keeps 16:9 tiles: the picture is centered and the caption keeps its name and ⋯', async ({ page }) => {
 	await gotoStudio(page);
-	await typeDeck(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
+	await typeDeck(page, ['---\nsize: story\n---\n\n<!-- @meta{layout=title} -->\n\n# One', '<!-- @meta{layout=cards-grid} -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
 	await mapOn(page);
 	await page.locator(`${RAIL} button[data-unit="1"]`).click();
 	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '1');

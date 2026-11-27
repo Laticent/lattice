@@ -10,7 +10,7 @@ beforeAll(async () => {
 });
 
 const LIB: AgentLibrary = { componentDoc: async () => null, guide: async () => null, registersDoc: async () => null, universalsDoc: async () => null };
-const DECK = '---\ntheme: indaco\n---\n\n<!-- _class: title -->\n# Hi';
+const DECK = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n# Hi';
 
 const info = (name: string, over: Partial<AssetInfo> = {}): AssetInfo => ({ name, kind: 'image', width: 3000, height: 2000, bytes: 1000, scope: 'library', ...over });
 

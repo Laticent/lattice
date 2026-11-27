@@ -200,7 +200,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-slot-'));
 		const deck = path.join(tmp, 'd.md');
 		// `#` where agenda reads `##`: a slot-contract error. (A `-` list was the fixture until W2 made either marker valid.)
-		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '# What we cover', '', '1. Pipeline', '2. Hiring', ''].join('\n'));
+		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- @meta{layout=agenda} -->', '', '# What we cover', '', '1. Pipeline', '2. Hiring', ''].join('\n'));
 		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], { encoding: 'utf8' });
 		fs.rmSync(tmp, { recursive: true, force: true });
 		const rules = JSON.parse(out).files[0].findings.map((f) => f.rule);
@@ -492,7 +492,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const deck = path.join(tmp, 'bad.md');
 		fs.writeFileSync(
 			deck,
-			['---', 'marp: true', '---', '', '<!-- _class: totally-not-a-component -->', '', '## A claim.', '', '- one', ''].join('\n'),
+			['---', 'marp: true', '---', '', '<!-- @meta{class=totally-not-a-component} -->', '', '## A claim.', '', '- one', ''].join('\n'),
 		);
 		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], {
 			encoding: 'utf8',
@@ -500,7 +500,7 @@ test('agent kit structure', { skip }, async (t) => {
 		fs.rmSync(tmp, { recursive: true, force: true });
 		const [{ findings }] = JSON.parse(out).files;
 		const unknown = findings.find((f) => f.rule === 'unknown-class');
-		assert.ok(unknown, 'an invented _class passed the checker clean');
+		assert.ok(unknown, 'an invented class passed the checker clean');
 		// lint-core writes for a repo reader; its fix strings name two paths a kit
 		// consumer does not have, and the CLI rewrites them to the kit's own.
 		assert.doesNotMatch(unknown.fix, /dist\/docs|design\/design-system/, 'the fix routes outside the kit');
@@ -740,7 +740,7 @@ test('agent kit structure', { skip }, async (t) => {
 	await t.test('the solo paste text carries a multi-slide worked deck', () => {
 		const text = readKit('paste/lattice-instructions-solo.md');
 		const blocks = [...text.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map((m) => m[1]);
-		const best = Math.max(0, ...blocks.map((b) => (b.match(/^<!--\s*_class:/gm) || []).length));
+		const best = Math.max(0, ...blocks.map((b) => (b.match(/^<!--\s*@meta\{layout=/gm) || []).length));
 		assert.ok(
 			best >= 3,
 			`the largest fenced block in solo holds ${best} slide(s). A model that has never seen ` +

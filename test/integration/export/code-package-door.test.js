@@ -107,7 +107,7 @@ export { dateline as default };
 const pkgFiles = (code) => ({
   'tally.manifest.json': JSON.stringify({ name: 'tally', type: 'component', format: 1, facts: 1 }),
   'tally.styles.css': 'section.tally .tally-marks { display: flex; gap: 0.5em; color: var(--accent); }\n',
-  'tally.gallery.md': '<!-- _class: tally -->\n\n## Tally\n\n- 3\n',
+  'tally.gallery.md': '<!-- @meta{class=tally} -->\n\n## Tally\n\n- 3\n',
   'tally.transform.js': code,
 });
 
@@ -142,7 +142,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
   // connection it made has been read: a signal (test/helpers/request-log.js), not a sleep.
   let log;
   const settle = () => log.drained();
-  const deck = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n<!-- @note{the speaker note} -->\n';
+  const deck = '---\ntheme: indaco\n---\n\n<!-- @meta{class=tally} -->\n\n## Three wins\n\n- 3\n\n<!-- @note{the speaker note} -->\n';
 
   test.before(async () => {
     hits = [];
@@ -234,13 +234,13 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const files = {
       'dateline.manifest.json': JSON.stringify({ name: 'dateline', type: 'component', format: 1, facts: 1 }),
       'dateline.styles.css': 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n',
-      'dateline.gallery.md': '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n',
+      'dateline.gallery.md': '<!-- @meta{class=dateline} -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n',
       'dateline.transform.js': factsTransform(H),
     };
     for (const [f, b] of Object.entries(files)) fs.writeFileSync(path.join(src, 'dateline', f), b);
     assert.equal((await cli(['add', path.join(src, 'dateline')])).status, 0);
     assert.equal((await cli(['trust', 'component/dateline', '--yes'])).status, 0);
-    const factsDeck = '---\ntheme: indaco\n---\n\n<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n';
+    const factsDeck = '---\ntheme: indaco\n---\n\n<!-- @meta{class=dateline} -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n';
     const dir = tmp('facts-html');
     fs.writeFileSync(path.join(dir, 'deck.md'), factsDeck);
     hits.length = 0;

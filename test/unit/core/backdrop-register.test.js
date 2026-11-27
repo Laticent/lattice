@@ -78,7 +78,7 @@ test('engine: stamps both tokens on every slide, and nothing without the key', (
 });
 
 test('engine: a slide\'s token evicts the deck\'s on its own axis only', () => {
-  const body = '# Deck\n\nSome prose.\n\n---\n\n<!-- _class: backdrop-spot-tr -->\n\n## Two\n\nMore prose.\n\n---\n\n<!-- _class: backdrop-full -->\n\n## Three\n\nProse.';
+  const body = '# Deck\n\nSome prose.\n\n---\n\n<!-- @meta{class=backdrop-spot-tr} -->\n\n## Two\n\nMore prose.\n\n---\n\n<!-- @meta{class=backdrop-full} -->\n\n## Three\n\nProse.';
   const [one, two, three] = classesOf(['finish: halo', 'backdrop: 40 clear'], body);
   assert.ok(one.includes('backdrop-40') && one.includes('backdrop-clear'));
   // mask replaced, strength kept
@@ -173,7 +173,7 @@ test('css: the veil steps clear of the overflow QA ring', () => {
 });
 
 test('lint: `backdrop-*` classes are a closed vocabulary; `no-backdrop` stays valid', () => {
-  const unknown = (cls) => lintText(`---\ntheme: indaco\nfinish: atrium\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\nBody.\n`)
+  const unknown = (cls) => lintText(`---\ntheme: indaco\nfinish: atrium\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\nBody.\n`)
     .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
   assert.deepEqual(unknown('backdrop-50 backdrop-spot-x'), ['backdrop-50', 'backdrop-spot-x']);
   assert.deepEqual(unknown('backdrop-40 backdrop-clear'), []);

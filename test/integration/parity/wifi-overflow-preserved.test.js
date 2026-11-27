@@ -40,7 +40,7 @@ function formDeck(sample) {
 // A fitting card (short title, three fields) and an overstuffed one (a long
 // wrapping title + long field values + a long CTA push the card well past the
 // stage).
-const FITTING = `<!-- _class: wifi -->
+const FITTING = `<!-- @meta{layout=wifi} -->
 
 \`connect · wifi\`
 
@@ -51,7 +51,7 @@ const FITTING = `<!-- _class: wifi -->
 - WPA2 \`security\`
 `;
 
-const OVERSTUFFED = `<!-- _class: wifi -->
+const OVERSTUFFED = `<!-- @meta{layout=wifi} -->
 
 \`connect · wifi\`
 

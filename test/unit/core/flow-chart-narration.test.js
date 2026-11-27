@@ -16,7 +16,7 @@ const {
 const { spokenStatus, chartStatus } = require('../../../lib/core/chart-status.js');
 const { chartStatus: kernelStatus, CHART_STATUS } = require('../../../lib/plugins/chart-family/shared/transform-utils.js');
 
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n${body}`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n${body}`;
 
 test('chart-status: the kernels and the narrators share one vocabulary', () => {
 	assert.equal(kernelStatus, chartStatus, 'transform-utils re-exports the lib/core fold, not a copy');

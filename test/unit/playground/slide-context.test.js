@@ -5,7 +5,7 @@
  * Proves the backward-walk to the active `_class:` directive, the open-directive
  * completion parse (component name vs modifier position), the option builders,
  * and the map basemap selection — including the regression for the bug where a
- * bare `<!-- _class: map -->` (a WORLD map) resolved to the US basemap, hiding
+ * bare `<!-- @meta{layout=map} -->` (a WORLD map) resolved to the US basemap, hiding
  * every country + group (Global South, blocs) behind a redundant `world` token.
  *
  * Import-free module → tested directly with a plain line accessor, no
@@ -26,7 +26,7 @@ const getter = (lines) => (n) => lines[n - 1];
 describe('slideClassAt', () => {
 	test('finds the directive governing the cursor, parsing name + modifiers', async () => {
 		const { slideClassAt } = await load();
-		const lines = ['<!-- _class: map us -->', '', '- California `4`', '- Texas `7`'];
+		const lines = ['<!-- @meta{layout=map, class=us} -->', '', '- California `4`', '- Texas `7`'];
 		const info = slideClassAt(getter(lines), 3);
 		assert.equal(info.name, 'map');
 		assert.deepEqual(info.modifiers, ['us']);
@@ -36,7 +36,7 @@ describe('slideClassAt', () => {
 
 	test('reads the directive on the cursor line itself', async () => {
 		const { slideClassAt } = await load();
-		const lines = ['<!-- _class: cards-grid four -->'];
+		const lines = ['<!-- @meta{layout=cards-grid, class=four} -->'];
 		const info = slideClassAt(getter(lines), 1);
 		assert.equal(info.name, 'cards-grid');
 		assert.deepEqual(info.modifiers, ['four']);
@@ -44,7 +44,7 @@ describe('slideClassAt', () => {
 
 	test('returns null when a slide boundary sits between cursor and directive', async () => {
 		const { slideClassAt } = await load();
-		const lines = ['<!-- _class: map -->', '- Brazil `4`', '', '---', '', '# next slide'];
+		const lines = ['<!-- @meta{layout=map} -->', '- Brazil `4`', '', '---', '', '# next slide'];
 		assert.equal(slideClassAt(getter(lines), 6), null);
 	});
 
@@ -96,7 +96,7 @@ describe('classDirectiveCompletion', () => {
 
 	test('stays quiet once the directive is closed (cursor past `-->`)', async () => {
 		const { classDirectiveCompletion } = await load();
-		assert.equal(classDirectiveCompletion('<!-- _class: map --> '), null);
+		assert.equal(classDirectiveCompletion('<!-- @meta{layout=map} --> '), null);
 		assert.equal(classDirectiveCompletion('## A heading'), null);
 		assert.equal(classDirectiveCompletion('- a bullet'), null);
 	});
@@ -156,25 +156,25 @@ describe('classOptions / modifierOptions', () => {
 describe('slideBodyEmpty — gate for skeleton insertion (surface C)', () => {
 	test('true when only blank + directive lines follow the class directive', async () => {
 		const { slideBodyEmpty } = await load();
-		const lines = ['<!-- _class: cards-grid -->', '<!-- _paginate: false -->', '', '   '];
+		const lines = ['<!-- @meta{layout=cards-grid} -->', '<!-- @meta{paginate=false} -->', '', '   '];
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), true);
 	});
 
 	test('false once real content is present', async () => {
 		const { slideBodyEmpty } = await load();
-		const lines = ['<!-- _class: cards-grid -->', '', '## A heading', ''];
+		const lines = ['<!-- @meta{layout=cards-grid} -->', '', '## A heading', ''];
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), false);
 	});
 
 	test('stops at the next slide break (content on the following slide does not count)', async () => {
 		const { slideBodyEmpty } = await load();
-		const lines = ['<!-- _class: title -->', '', '---', '## next slide body'];
+		const lines = ['<!-- @meta{layout=title} -->', '', '---', '## next slide body'];
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), true);
 	});
 
 	test('skipLine excludes the cursor line so a typed trigger word still counts as empty', async () => {
 		const { slideBodyEmpty } = await load();
-		const lines = ['<!-- _class: cards-grid -->', '', 'ske'];
+		const lines = ['<!-- @meta{layout=cards-grid} -->', '', 'ske'];
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), false); // without skip: "ske" is content
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1, 3), true); // skipping line 3: empty
 	});
@@ -191,8 +191,8 @@ describe('isCommentLine — the directive-line test behind surface C', () => {
 	const ZWSP = String.fromCharCode(0x200b);
 	const rows = [
 		['<!---->', true],
-		['  <!-- _class: kpi -->  ', true],
-		['<!-- {layout=cards} -->', true],
+		['  <!-- @meta{layout=kpi} -->  ', true],
+		['<!-- @meta{layout=cards} -->', true],
 		[`${NBSP}<!-- x -->${IDEO}`, true],
 		['\n<!-- x -->\n', true],
 		['<!-- a --!>', false],
@@ -208,7 +208,7 @@ describe('isCommentLine — the directive-line test behind surface C', () => {
 	});
 	test('a `--!>` line is slide content, not a directive line', async () => {
 		const { slideBodyEmpty } = await load();
-		const lines = ['<!-- _class: kpi -->', '<!-- note --!>'];
+		const lines = ['<!-- @meta{layout=kpi} -->', '<!-- note --!>'];
 		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), false);
 	});
 });
@@ -216,13 +216,13 @@ describe('isCommentLine — the directive-line test behind surface C', () => {
 describe('skeletonBody — strips the directive block (surface C)', () => {
 	test('drops leading comment + blank lines, keeps the slot scaffold', async () => {
 		const { skeletonBody } = await load();
-		const skel = '<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First\n  - Body.\n';
+		const skel = '<!-- @meta{layout=cards-grid} -->\n\n## Slide heading.\n\n- First\n  - Body.\n';
 		assert.equal(skeletonBody(skel), '## Slide heading.\n\n- First\n  - Body.');
 	});
 
 	test('strips a multi-directive header (title) down to the first content line', async () => {
 		const { skeletonBody } = await load();
-		const skel = "<!-- _class: title -->\n<!-- _paginate: false -->\n\n# Deck title\n\n`Eyebrow`\n";
+		const skel = "<!-- @meta{layout=title} -->\n<!-- @meta{paginate=false} -->\n\n# Deck title\n\n`Eyebrow`\n";
 		assert.equal(skeletonBody(skel), '# Deck title\n\n`Eyebrow`');
 	});
 
@@ -272,7 +272,7 @@ describe('makeDataSource — per-component gate (surface D)', () => {
 			calls.push(info.name);
 			return { from: 0, options: [{ label: 'Brazil' }] };
 		});
-		const onMap = src(ctx(['<!-- _class: map -->', '- Braz'], 2));
+		const onMap = src(ctx(['<!-- @meta{layout=map} -->', '- Braz'], 2));
 		assert.deepEqual(onMap.options.map((o) => o.label), ['Brazil']);
 		assert.deepEqual(calls, ['map']);
 	});
@@ -284,7 +284,7 @@ describe('makeDataSource — per-component gate (surface D)', () => {
 			called = true;
 			return { from: 0, options: [] };
 		});
-		assert.equal(src(ctx(['<!-- _class: kpi -->', '1. $2'], 2)), null);
+		assert.equal(src(ctx(['<!-- @meta{layout=kpi} -->', '1. $2'], 2)), null);
 		assert.equal(called, false);
 	});
 
@@ -298,7 +298,7 @@ describe('makeDataSource — per-component gate (surface D)', () => {
 describe('inFrontMatter — front-matter detection (Tier 1)', () => {
 	test('true inside the opening YAML block, false past the closing fence', async () => {
 		const { inFrontMatter } = await load();
-		const lines = ['---', 'marp: true', 'theme: indaco', '---', '', '<!-- _class: title -->'];
+		const lines = ['---', 'marp: true', 'theme: indaco', '---', '', '<!-- @meta{layout=title} -->'];
 		assert.equal(inFrontMatter(getter(lines), 1), false); // the opening fence line itself
 		assert.equal(inFrontMatter(getter(lines), 3), true); // the theme: line
 		assert.equal(inFrontMatter(getter(lines), 6), false); // body, past the close
@@ -489,7 +489,7 @@ describe('typeaheadContext — proactive popup entry classification', () => {
 
 	test('past a closed directive (-->), there is no context', async () => {
 		const { typeaheadContext } = await load();
-		const before = '<!-- _class: bigfact --> body text';
+		const before = '<!-- @meta{class=bigfact} --> body text';
 		assert.equal(typeaheadContext(getter([before]), 1, before), null);
 	});
 

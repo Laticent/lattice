@@ -63,7 +63,7 @@ describe('lint-core: message accuracy (2026-10-06 checker findings)', () => {
   const one = (src, rule) => lintText(src).find((f) => f.rule === rule);
 
   test('label-set-unbound names the components that have a key as one sentence', () => {
-    const f = one('---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## U\n\n`[{[x], Met}]`\n', 'label-set-unbound');
+    const f = one('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content} -->\n\n## U\n\n`[{[x], Met}]`\n', 'label-set-unbound');
     assert.ok(f);
     assert.match(f.fix, /^Delete it\. (No component has a key\.|Only \S+ has a key\.|Only .+ and \S+ have a key\.)$/);
     assert.doesNotMatch(f.fix, /those are|that is|no component does/);
@@ -76,10 +76,10 @@ describe('lint-core: message accuracy (2026-10-06 checker findings)', () => {
   });
 
   test('an unknown class or pane modifier is not claimed to do nothing — deck CSS may style it', () => {
-    const cls = one('---\ntheme: indaco\n---\n\n<!-- _class: content heroic -->\n\n## H\n', 'unknown-class');
+    const cls = one('---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=heroic} -->\n\n## H\n', 'unknown-class');
     assert.ok(cls);
     assert.doesNotMatch(cls.message, /does nothing/);
-    const pane = lintText('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list zzz -->\n### A\n\n- a\n\n<!-- _pane: content -->\n### B\n\ny\n')
+    const pane = lintText('<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=list zzz} -->\n### A\n\n- a\n\n<!-- @meta{pane=content} -->\n### B\n\ny\n')
       .find((f) => f.rule === 'pane-layout' && /modifier/.test(f.message));
     assert.ok(pane);
     assert.doesNotMatch(pane.message, /does nothing/);
@@ -123,8 +123,8 @@ describe('lint-core: unknown-debug-facet', () => {
     assert.deepEqual(facetTokens('---\ndebug: on-hover full\n---\n\n# A\n'), ['full']);
   });
 
-  test('a per-slide `<!-- _debug: … -->` typo warns too', () => {
-    assert.deepEqual(facetTokens('# A\n\n<!-- _debug: bogus -->\n'), ['bogus']);
+  test('a per-slide `<!-- @meta{debug="…"} -->` typo warns too', () => {
+    assert.deepEqual(facetTokens('# A\n\n<!-- @meta{debug=bogus} -->\n'), ['bogus']);
   });
 });
 
@@ -135,7 +135,7 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
     capacity: { checklist: { axis: 'item', sweet: 6, soft: 8, hard: 9 } },
   };
   const overflowDeck = (fmExtra = '') =>
-    `---\nmarp: true\ntheme: indaco\n${fmExtra}---\n\n<!-- _class: checklist -->\n\n## H\n\n` +
+    `---\nmarp: true\ntheme: indaco\n${fmExtra}---\n\n<!-- @meta{layout=checklist} -->\n\n## H\n\n` +
     `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
 
   // WHICH terminal an over-`hard` slide gets is a question about the BOX, because the SPLIT
@@ -267,7 +267,7 @@ describe('lint-core: note-key-retired', () => {
   });
 
   test('a retired record field is reported by the record rule, naming its note', () => {
-    const f = core.lintTextWith('# One\n\n<!-- {layout=cards, describe="A chart."} -->\n', vocab).filter((x) => x.classToken === 'meta-note-field');
+    const f = core.lintTextWith('# One\n\n<!-- @meta{layout=cards, describe="A chart."} -->\n', vocab).filter((x) => x.classToken === 'meta-note-field');
     assert.equal(f.length, 1);
     assert.equal(f[0].severity, 'error');
     assert.match(f[0].message, /<!-- @alt\{…\} -->/);
@@ -310,25 +310,25 @@ describe('lint-core: lintTextWith rules', () => {
   });
 
   test('rule 1 — unknown class token is flagged (warning)', () => {
-    const f = ruleFor(`${FM}<!-- _class: cards-gridd -->\n\n## H\n\n- A\n  - b\n`, 'unknown-class');
+    const f = ruleFor(`${FM}<!-- @meta{class=cards-gridd} -->\n\n## H\n\n- A\n  - b\n`, 'unknown-class');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
     assert.equal(f.classToken, 'cards-gridd');
   });
 
   test('rule 1 — known name + known modifier produce no unknown-class', () => {
-    assert.equal(ruleFor(`${FM}<!-- _class: cards-grid dark compact -->\n\n## H\n\n- A\n  - b\n`, 'unknown-class'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=cards-grid, class=dark compact} -->\n\n## H\n\n- A\n  - b\n`, 'unknown-class'), undefined);
   });
 
   test('rule 2 — card-style inline title+body is an error', () => {
-    const f = ruleFor(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- **First.** inline body\n`, 'card-style-inline-title');
+    const f = ruleFor(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- **First.** inline body\n`, 'card-style-inline-title');
     assert.ok(f);
     assert.equal(f.severity, 'error');
     assert.equal(f.classToken, 'cards-grid');
   });
 
   test('rule 2 — card-style ORDERED inline title+body is also an error', () => {
-    const f = ruleFor(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n1. **Claim.** inline body\n`, 'card-style-inline-title');
+    const f = ruleFor(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n1. **Claim.** inline body\n`, 'card-style-inline-title');
     assert.ok(f, 'ordered `1. **Title.** body` on a card-style layout must be flagged');
     assert.equal(f.severity, 'error');
   });
@@ -337,7 +337,7 @@ describe('lint-core: lintTextWith rules', () => {
     // `ledger-inline-title` demanded `1.`; the list contract makes the marker irrelevant on these
     // layouts, so the inline bold title is the card-style finding, with the marker-keeping autofix.
     for (const marker of ['-', '1.']) {
-      const f = ruleFor(`${FM}<!-- _class: kpi -->\n\n## H\n\n${marker} **Platform licensing.** $1.2M — 3-year commitment.\n`, 'card-style-inline-title');
+      const f = ruleFor(`${FM}<!-- @meta{layout=kpi} -->\n\n## H\n\n${marker} **Platform licensing.** $1.2M — 3-year commitment.\n`, 'card-style-inline-title');
       assert.ok(f, `\`${marker} **Title.** body\` on a ledger layout must be flagged`);
       assert.equal(f.severity, 'error');
       assert.equal(f.classToken, 'kpi');
@@ -346,7 +346,7 @@ describe('lint-core: lintTextWith rules', () => {
 
   test('rule 2 — a nested ledger slide is clean with either marker, and the retired rule never fires', () => {
     for (const md of ['1. 94%\n   - label\n', '- 94%\n  - label\n']) {
-      const all = core.lintTextWith(`${FM}<!-- _class: kpi -->\n\n## H\n\n${md}`, vocab);
+      const all = core.lintTextWith(`${FM}<!-- @meta{layout=kpi} -->\n\n## H\n\n${md}`, vocab);
       assert.equal(all.some((x) => x.rule === 'card-style-inline-title' || x.rule === 'ledger-inline-title'), false, md);
     }
   });
@@ -354,7 +354,7 @@ describe('lint-core: lintTextWith rules', () => {
   // The list-steps manifest skeleton taught `1. Title — body` until 2026-11-17, and every copy of
   // it rendered the whole sentence as the bold step title (2026-11-17-agent-pack.md).
   test('rule 2c — a list-steps step with its title and body on one line is a warning, and fixes', () => {
-    const src = `${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze new integrations — two weeks before cutover.\n2. Rehearse — a full dry run.\n`;
+    const src = `${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n1. Freeze new integrations — two weeks before cutover.\n2. Rehearse — a full dry run.\n`;
     const f = ruleFor(src, 'list-steps-inline-body');
     assert.ok(f, '`1. Title — body` on list-steps must be flagged');
     assert.equal(f.severity, 'warning');
@@ -364,32 +364,32 @@ describe('lint-core: lintTextWith rules', () => {
   });
 
   test('rule 2c — a `-` step reads the same (W2: either marker is a step card) and fixes to its own marker', () => {
-    const src = `${FM}<!-- _class: list-steps -->\n\n## H\n\n- Freeze new integrations — two weeks before cutover.\n- Rehearse — a full dry run.\n`;
+    const src = `${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n- Freeze new integrations — two weeks before cutover.\n- Rehearse — a full dry run.\n`;
     const f = ruleFor(src, 'list-steps-inline-body');
     assert.ok(f, '`- Title — body` on list-steps must be flagged');
     assert.match(core.applyFix(src, f), /^- Freeze new integrations\n {2}- Two weeks before cutover\.$/m);
-    assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n- Freeze — the window\n  - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n- Freeze — the window\n  - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
   });
 
   test('rule 2c — a tab-indented body nests (CommonMark), a CRLF source stays CRLF, and `+` / `1)` steps are read', () => {
-    assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n- Freeze — w\n\t- tab nested\n`, 'list-steps-inline-body'), undefined);
-    const crlf = `${FM}<!-- _class: list-steps -->\r\n\r\n## H\r\n\r\n1. Freeze — the window\r\n`;
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n- Freeze — w\n\t- tab nested\n`, 'list-steps-inline-body'), undefined);
+    const crlf = `${FM}<!-- @meta{layout=list-steps} -->\r\n\r\n## H\r\n\r\n1. Freeze — the window\r\n`;
     const fixed = core.applyFix(crlf, ruleFor(crlf, 'list-steps-inline-body'));
     assert.match(fixed, /1\. Freeze\r\n {3}- The window\r\n/);
     assert.ok(fixed.endsWith('1. Freeze\r\n   - The window\r\n'), 'both written lines end CRLF, as the source does');
-    for (const m of ['+', '1)']) assert.ok(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n${m} Plan — scope it\n`, 'list-steps-inline-body'), m);
+    for (const m of ['+', '1)']) assert.ok(ruleFor(`${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n${m} Plan — scope it\n`, 'list-steps-inline-body'), m);
   });
 
   test('rule 2c — a step that already has a body, the timeline variant and other layouts are left alone', () => {
-    assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze — the window\n   - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
-    assert.equal(ruleFor(`${FM}<!-- _class: list-steps timeline -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
-    assert.equal(ruleFor(`${FM}<!-- _class: list -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n1. Freeze — the window\n   - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=list-steps, class=timeline} -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- @meta{layout=list} -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
   });
 
   // examples/meta.md shipped steps written as one sentence each (PR 3351): no dash to split on, so the rule missed them,
   // and every card rendered as one bold block with no body.
   test('rule 2c — a whole sentence on the `1.` line with no body is flagged too, with no autofix', () => {
-    const steps = (body) => `${FM}<!-- {layout=list-steps} -->\n\n## H\n\n${body}`;
+    const steps = (body) => `${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n${body}`;
     const f = ruleFor(steps('1. The door finds each own-line record before anything reads the deck.\n2. It checks every field.\n'), 'list-steps-inline-body');
     assert.ok(f, 'a sentence standing in for title and body must be flagged');
     assert.equal(f.autofixable, false, 'there is no split point, so no fix is offered');
@@ -418,7 +418,7 @@ describe('lint-core: lintTextWith rules', () => {
     const f = ruleFor(src, 'plain-comment-notes');
     assert.equal(await core.applyFixWhenReady(src, f), core.applyFix(src, f));
     assert.match(await core.applyFixWhenReady(src, f), /<!-- @note\{Land it\.\} -->/);
-    const steps = `${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze — the window closes\n`;
+    const steps = `${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n1. Freeze — the window closes\n`;
     const line = ruleFor(steps, 'list-steps-inline-body');
     assert.ok(line?.autofixable && !line.rewrite, 'a one-line autofixable finding to compare');
     assert.equal(await core.applyFixWhenReady(steps, line), core.applyFix(steps, line));
@@ -426,7 +426,7 @@ describe('lint-core: lintTextWith rules', () => {
 
   // The maker-checker review of #3305 (2026-11-19) drove each of these through the rule.
   test('rule 2c — speaker notes, code spans, mixed case and a shallow indent', () => {
-    const steps = (body) => `${FM}<!-- _class: list-steps -->\n\n## H\n\n${body}`;
+    const steps = (body) => `${FM}<!-- @meta{layout=list-steps} -->\n\n## H\n\n${body}`;
     assert.equal(ruleFor(steps('1. Open\n   - Wide.\n\n<!--\n1. Open — then pause.\n-->\n'), 'list-steps-inline-body'), undefined, 'a note is not a step');
     const span = ruleFor(steps('1. Run `a — b` — then wait.\n'), 'list-steps-inline-body');
     assert.match(core.applyFix(steps('1. Run `a — b` — then wait.\n'), span), /^1\. Run `a — b`\n {3}- Then wait\.$/m, 'splits after the code span');
@@ -436,37 +436,37 @@ describe('lint-core: lintTextWith rules', () => {
   });
 
   test('rule 3 — bold in an ordered statement (principles) is an error', () => {
-    const f = ruleFor(`${FM}<!-- _class: principles -->\n\n1. a **bold** span\n`, 'statement-ol-bold');
+    const f = ruleFor(`${FM}<!-- @meta{class=principles} -->\n\n1. a **bold** span\n`, 'statement-ol-bold');
     assert.ok(f);
     assert.equal(f.severity, 'error');
   });
 
   test('rule 4 — split right-panel item with no nested body is an error', () => {
-    const f = ruleFor(`${FM}<!-- _class: split-panel -->\n\n## Head\n\n- Title. body\n`, 'split-bodyless-item');
+    const f = ruleFor(`${FM}<!-- @meta{layout=split-panel} -->\n\n## Head\n\n- Title. body\n`, 'split-bodyless-item');
     assert.ok(f);
     assert.equal(f.severity, 'error');
   });
 
   test('rule 5 — h2-anchored split slide with no "## " headline is a warning', () => {
-    const f = ruleFor(`${FM}<!-- _class: split-panel -->\n\n- Title\n  - body\n`, 'split-missing-headline');
+    const f = ruleFor(`${FM}<!-- @meta{layout=split-panel} -->\n\n- Title\n  - body\n`, 'split-missing-headline');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
   });
 
   test('rule 6 — split-statement with no blockquote is a warning', () => {
-    const f = ruleFor(`${FM}<!-- _class: split-panel pullquote -->\n\n## Head\n\n- Title\n  - body\n`, 'split-statement-missing-quote');
+    const f = ruleFor(`${FM}<!-- @meta{layout=split-panel, class=pullquote} -->\n\n## Head\n\n- Title\n  - body\n`, 'split-statement-missing-quote');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
   });
 
   test('rule 7 — split-compare without exactly two options is a warning', () => {
-    const f = ruleFor(`${FM}<!-- _class: split-compare -->\n\n## Head\n\n- A\n  - x\n- B\n  - y\n- C\n  - z\n`, 'split-compare-option-count');
+    const f = ruleFor(`${FM}<!-- @meta{layout=split-compare} -->\n\n## Head\n\n- A\n  - x\n- B\n  - y\n- C\n  - z\n`, 'split-compare-option-count');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
   });
 
   test('rule 8 — kpi number item with no nested label is a warning', () => {
-    const f = ruleFor(`${FM}<!-- _class: kpi -->\n\n1. 73%\n`, 'number-slot-bodyless-item');
+    const f = ruleFor(`${FM}<!-- @meta{layout=kpi} -->\n\n1. 73%\n`, 'number-slot-bodyless-item');
     assert.ok(f);
     assert.equal(f.severity, 'warning');
   });
@@ -485,12 +485,12 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('card-style inline-title findings are flagged autofixable', () => {
-    const f = ruleFor(`${FM}<!-- _class: cards-grid -->\n\n## H\n\n- **First.** inline body\n`, 'card-style-inline-title');
+    const f = ruleFor(`${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- **First.** inline body\n`, 'card-style-inline-title');
     assert.equal(f.autofixable, true);
   });
 
   test('applyFix rewrites the offending line in place, and the result re-lints clean', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- **First.** inline body\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- **First.** inline body\n`;
     const f = ruleFor(src, 'card-style-inline-title');
     const fixed = core.applyFix(src, f);
     assert.ok(fixed.includes('- First\n  - inline body'));
@@ -498,7 +498,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('applyFix targets the finding\'s own slide, not an identical line elsewhere', () => {
-    const bad = '<!-- _class: cards-grid -->\n\n- **Dup.** body\n';
+    const bad = '<!-- @meta{layout=cards-grid} -->\n\n- **Dup.** body\n';
     const src = `${FM}${bad}---\n${bad}`;
     const findings = core.lintTextWith(src, vocab).filter((x) => x.rule === 'card-style-inline-title');
     assert.equal(findings.length, 2);
@@ -507,12 +507,12 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('applyFix returns null for a non-autofixable finding', () => {
-    const f = ruleFor(`${FM}<!-- _class: split-panel pullquote -->\n\n## Head\n\n- Title\n  - body\n`, 'split-statement-missing-quote');
+    const f = ruleFor(`${FM}<!-- @meta{layout=split-panel, class=pullquote} -->\n\n## Head\n\n- Title\n  - body\n`, 'split-statement-missing-quote');
     assert.equal(core.applyFix('x', f), null);
   });
 
   test('a ledger inline-title autofixes to the nested shape and keeps the marker; re-lints clean', () => {
-    const src = `${FM}<!-- _class: kpi -->\n\n## H\n\n- **Build.** in-house\n`;
+    const src = `${FM}<!-- @meta{layout=kpi} -->\n\n## H\n\n- **Build.** in-house\n`;
     const f = ruleFor(src, 'card-style-inline-title');
     assert.equal(f.autofixable, true);
     const fixed = core.applyFix(src, f);
@@ -530,7 +530,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('gantt retired-delimiter is autofixable; applyFix swaps it and re-lints clean', () => {
-    const src = `${FM}<!-- _class: gantt -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1→Q2\`\n`;
+    const src = `${FM}<!-- @meta{layout=gantt} -->\n\n## Plan\n\n- Phase 1\n  - Design \`Q1→Q2\`\n`;
     const f = ruleFor(src, 'gantt-retired-delimiter');
     assert.equal(f.autofixable, true);
     const fixed = core.applyFix(src, f);
@@ -539,7 +539,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('a journey actor in the retired `@` shortcut warns, autofixes to a who record, and re-lints clean', () => {
-    const src = `${FM}<!-- _class: journey -->\n\n## Path\n\n- Evaluate\n  - Demo \`{who=prospect, mood=4}\` \`@sales\`\n`;
+    const src = `${FM}<!-- @meta{layout=journey} -->\n\n## Path\n\n- Evaluate\n  - Demo \`{who=prospect, mood=4}\` \`@sales\`\n`;
     const f = ruleFor(src, 'journey-actor-shortcut');
     assert.equal(f.severity, 'warning');
     assert.equal(f.autofixable, true);
@@ -547,7 +547,7 @@ describe('lint-core: auto-fix', () => {
     assert.ok(fixed.includes('  - Demo `{who=prospect, mood=4}` `{who=sales}`'));
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
     // An `@` span off a journey slide, or in a fence on one, is someone's npm scope, not an actor.
-    const elsewhere = `${FM}## Install\n\n- Run \`@laticent\`\n\n---\n\n<!-- _class: journey -->\n\n## Path\n\n\`\`\`\n- Demo \`@sales\`\n\`\`\`\n`;
+    const elsewhere = `${FM}## Install\n\n- Run \`@laticent\`\n\n---\n\n<!-- @meta{layout=journey} -->\n\n## Path\n\n\`\`\`\n- Demo \`@sales\`\n\`\`\`\n`;
     assert.equal(core.lintTextWith(elsewhere, vocab).some((x) => x.rule === 'journey-actor-shortcut'), false);
     // The fixed `{who=sales}` is the journey's own record, not a broken pill; off a journey it still is one.
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'pill-literal'), false);
@@ -604,7 +604,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('quadrant retired axis is an autofixable error; applyFix rewrites it and re-lints clean', () => {
-    const src = `${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## H\n\n- Bets\n  - A \`3, 70\`\n`;
+    const src = `${FM}<!-- @meta{layout=quadrant} -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## H\n\n- Bets\n  - A \`3, 70\`\n`;
     const f = ruleFor(src, 'quadrant-retired-axis');
     assert.equal(f.severity, 'error');
     assert.equal(f.autofixable, true);
@@ -618,9 +618,9 @@ describe('lint-core: auto-fix', () => {
 
   test('quadrant axis rules are scoped: radar quadrant, a gantt, and a line BELOW the list are left alone', () => {
     const retired = '`Effort 0–10 → Reach 0–100`';
-    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: radar quadrant -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
-    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: gantt -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
-    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- _class: quadrant -->\n\n## H\n\n- a\n  - b \`1, 2\`\n\n${retired}\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- @meta{layout=radar, class=quadrant} -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- @meta{layout=gantt} -->\n\n${retired}\n\n## H\n\n- a\n`).length, 0);
+    assert.equal(core.findQuadrantAxisIssues(`${FM}<!-- @meta{layout=quadrant} -->\n\n## H\n\n- a\n  - b \`1, 2\`\n\n${retired}\n`).length, 0);
   });
 
   test('retiredQuadrantAxis keeps what the old parser kept', () => {
@@ -633,17 +633,17 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('quadrant axis rules skip a line inside an HTML comment, like the render', () => {
-    const src = `${FM}<!-- _class: quadrant -->\n\n<!--\n\`Effort 0–10 → Reach 0–100\`\n-->\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const src = `${FM}<!-- @meta{layout=quadrant} -->\n\n<!--\n\`Effort 0–10 → Reach 0–100\`\n-->\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
     assert.equal(core.findQuadrantAxisIssues(src).length, 0);
   });
 
   test('a list with more members than axes is named: it prints as text, not as the axis', () => {
-    const src = `${FM}<!-- _class: quadrant -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const src = `${FM}<!-- @meta{layout=quadrant} -->\n\n\`[Effort, Reach, Spend]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
     assert.match(ruleFor(src, 'quadrant-axis-part').message, /3 items, but a quadrant has two axes, so it shows as text/);
   });
 
   test('quadrant-axis-part names a part the chart ignores', () => {
-    const src = `${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 10..0}, {Reach, 0..100, soon}]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
+    const src = `${FM}<!-- @meta{layout=quadrant} -->\n\n\`[{Effort, 10..0}, {Reach, 0..100, soon}]\`\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
     const f = ruleFor(src, 'quadrant-axis-part');
     assert.match(f.message, /`10\.\.0`, `soon`/);
     assert.equal(ruleFor(src.replace('10..0', '0..10').replace(', soon', ', 50'), 'quadrant-axis-part'), undefined);
@@ -652,7 +652,7 @@ describe('lint-core: auto-fix', () => {
   test('applyAllFixes clears every autofixable finding across passes', () => {
     // Two inline-bold items on one slide: the rule flags the first per pass, so
     // applyAllFixes must loop (re-lint after each fix) to clear both.
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- **A.** one\n- **B.** two\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- **A.** one\n- **B.** two\n`;
     const fixed = core.applyAllFixes(src, vocab);
     assert.ok(fixed.includes('- A\n  - one'));
     assert.ok(fixed.includes('- B\n  - two'));
@@ -660,7 +660,7 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('replaceToken swaps a whole token, never a substring, and reports a miss', () => {
-    assert.equal(core.replaceToken('<!-- _class: kpu dark -->', 'kpu', 'kpi'), '<!-- _class: kpi dark -->');
+    assert.equal(core.replaceToken('<!-- @meta{class=kpu dark} -->', 'kpu', 'kpi'), '<!-- @meta{class=kpi dark} -->');
     assert.equal(core.replaceToken('finish: atrum', 'atrum', 'atrium'), 'finish: atrium');
     // The token is a WORD. A substring replace would rewrite the `text` inside
     // `pretext` and leave the author's prose quietly edited.
@@ -686,16 +686,16 @@ describe('lint-core: auto-fix', () => {
   });
 
   test('a typo\'d `_class` token is one-click fixable, and applyAllFixes lands it', () => {
-    const src = `${FM}<!-- _class: kpu -->\n\n# 42%\n`;
+    const src = `${FM}<!-- @meta{class=kpu} -->\n\n# 42%\n`;
     const f = ruleFor(src, 'unknown-class');
     assert.equal(f.autofixable, true, 'a near-miss component name offers a machine fix');
     assert.equal(f.didYouMean, 'kpi');
     const fixed = core.applyFix(src, f);
-    assert.ok(fixed.includes('<!-- _class: kpi -->'));
+    assert.ok(fixed.includes('<!-- @meta{class=kpi} -->'));
     assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'unknown-class'), false);
-    // Fix all also migrates the old comment (`legacy-directive-comment`). The migration runs after every line fix, so
-    // the typo is fixed first and `kpi`, now a component, is written as the typed `layout`.
-    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- @meta{layout=kpi} -->'));
+    assert.ok(core.applyAllFixes(src, vocab).includes('<!-- @meta{class=kpi} -->'));
+    // On the old comment, which sets nothing, Fix all migrates it (`legacy-directive-comment`) and then fixes the typo.
+    assert.ok(core.applyAllFixes(`${FM}<!-- _class: kpu -->\n\n# 42%\n`, vocab).includes('<!-- @meta{class=kpi} -->'));
   });
 
   test('a typo\'d front-matter REGISTER value is one-click fixable too', () => {
@@ -749,8 +749,8 @@ describe('lint-core: auto-fix', () => {
     // Slide 1 DEMONSTRATES markdown (a `---` inside a code fence); slide 2 has an
     // autofixable inline-title. The fix must still target slide 2 — a fence-blind chunk
     // walk would mis-scope, return null, and (via applyAllFixes' break) halt the pass.
-    const code = '<!-- _class: code -->\n\n```md\ntitle: X\n---\nbody\n```\n';
-    const bad = '<!-- _class: cards-grid -->\n\n## H\n\n- **First.** inline body\n';
+    const code = '<!-- @meta{layout=code} -->\n\n```md\ntitle: X\n---\nbody\n```\n';
+    const bad = '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- **First.** inline body\n';
     const src = `${FM}${code}---\n${bad}`;
     const f = ruleFor(src, 'card-style-inline-title');
     assert.equal(f.slide, 2, 'the finding is numbered fence-aware (slide 2, not 3)');
@@ -764,23 +764,23 @@ describe('lint-core: auto-fix', () => {
 });
 
 describe('lint-core: focus directive grammar (rule 11)', () => {
-  const slide = (dirs) => `${FM}<!-- _class: cards-grid -->\n${dirs}\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`;
+  const slide = (dirs) => `${FM}<!-- @meta{layout=cards-grid} -->\n${dirs}\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`;
   test('valid _focus specs pass clean', () => {
     for (const spec of ['row 4', 'item 3', 'col 5', 'cell 4,5', 'line 3-4', 'row 2, row 5', 'item 2-4']) {
       assert.equal(ruleFor(slide(`<!-- _focus: ${spec} -->`), 'focus-spec'), undefined, spec);
     }
   });
   test('unknown axis is flagged', () => {
-    assert.match(ruleFor(slide('<!-- _focus: rows 4 -->'), 'focus-spec').message, /not a focus axis/);
+    assert.match(ruleFor(slide('<!-- @meta{focus=rows 4} -->'), 'focus-spec').message, /not a focus axis/);
   });
   test('malformed cell is flagged', () => {
-    assert.match(ruleFor(slide('<!-- _focus: cell 4 -->'), 'focus-spec').message, /R,C/);
+    assert.match(ruleFor(slide('<!-- @meta{focus=cell 4} -->'), 'focus-spec').message, /R,C/);
   });
   test('non-numeric ordinal is flagged', () => {
-    assert.match(ruleFor(slide('<!-- _focus: row abc -->'), 'focus-spec').message, /ordinal/);
+    assert.match(ruleFor(slide('<!-- @meta{focus=row abc} -->'), 'focus-spec').message, /ordinal/);
   });
   test('unknown _focusStyle is flagged, valid ones pass', () => {
-    const f = ruleFor(slide('<!-- _focusStyle: glow -->'), 'focus-style');
+    const f = ruleFor(slide('<!-- @meta{focus-style=glow} -->'), 'focus-style');
     // The message and the fix are built from FOCUS_STYLES, so neither can fall behind it.
     for (const s of core.FOCUS_STYLES) {
       assert.match(f.message, new RegExp(`\\b${s}\\b`), `message names ${s}`);
@@ -791,29 +791,29 @@ describe('lint-core: focus directive grammar (rule 11)', () => {
     }
   });
   test('malformed _focusSteps step is flagged', () => {
-    assert.match(ruleFor(slide('<!-- _focusSteps: item 1 | rows 2 -->'), 'focus-steps').message, /not a focus axis/);
-    assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'focus-steps'), undefined);
+    assert.match(ruleFor(slide('<!-- @meta{focus-steps="item 1 | rows 2"} -->'), 'focus-steps').message, /not a focus axis/);
+    assert.equal(ruleFor(slide('<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'focus-steps'), undefined);
   });
   test('a static _focus on a stepping slide is flagged as ignored', () => {
-    assert.ok(ruleFor(slide('<!-- _focus: item 1 -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'focus-with-steps'));
-    assert.equal(ruleFor(slide('<!-- _focus: item 1 -->'), 'focus-with-steps'), undefined);
+    assert.ok(ruleFor(slide('<!-- @meta{focus=item 1} -->\n<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'focus-with-steps'));
+    assert.equal(ruleFor(slide('<!-- @meta{focus=item 1} -->'), 'focus-with-steps'), undefined);
   });
   test('a slide takes one stepping directive: _build with _focusSteps is an error', () => {
-    const both = ruleFor(slide('<!-- _build -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive');
+    const both = ruleFor(slide('<!-- @meta{build} -->\n<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'one-stepping-directive');
     assert.ok(both);
     assert.equal(both.severity, 'error');
-    assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
-    assert.equal(ruleFor(slide('<!-- _build -->'), 'one-stepping-directive'), undefined);
-    assert.equal(ruleFor(slide('<!-- _build: none -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- @meta{build} -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- @meta{build=none} -->\n<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'one-stepping-directive'), undefined);
     // The bare spelling sets its own slide too (a slide-only key), and a deck-wide `build:` counts (red team #2).
-    assert.ok(ruleFor(slide('<!-- _build -->\n<!-- focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'));
-    assert.ok(ruleFor(`---\ntheme: indaco\nbuild: rows\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 -->\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`, 'one-stepping-directive'));
+    assert.ok(ruleFor(slide('<!-- @meta{build} -->\n<!-- @meta{focus-steps="item 1 | item 2"} -->'), 'one-stepping-directive'));
+    assert.ok(ruleFor(`---\ntheme: indaco\nbuild: rows\n---\n\n<!-- @meta{layout=cards-grid} -->\n<!-- @meta{focus-steps="item 1 | item 2"} -->\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`, 'one-stepping-directive'));
   });
 });
 
 describe('lint-core: countPrimaryCollection', () => {
   test('item axis counts top-level list markers, ignores nested bodies', () => {
-    const s = '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - body a\n- B\n  - body b\n- C\n';
+    const s = '<!-- @meta{layout=cards-grid} -->\n\n## H\n\n- A\n  - body a\n- B\n  - body b\n- C\n';
     assert.equal(core.countPrimaryCollection(s, 'item'), 3);
   });
   test('item axis counts ordered markers too', () => {
@@ -866,7 +866,7 @@ describe('lint-core: capacity rule', () => {
     },
   };
   const capRule = (src, rule) => core.lintTextWith(src, capVocab).find((f) => f.rule === rule);
-  const itemsSlide = (n) => `${FM}<!-- _class: cards-grid -->\n\n## H\n\n` + Array.from({ length: n }, (_, i) => `- Item ${i + 1}\n  - body ${i + 1}\n`).join('');
+  const itemsSlide = (n) => `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H\n\n` + Array.from({ length: n }, (_, i) => `- Item ${i + 1}\n  - body ${i + 1}\n`).join('');
 
   test('within soft → no capacity finding', () => {
     const out = core.lintTextWith(itemsSlide(4), capVocab);
@@ -894,7 +894,7 @@ describe('lint-core: capacity rule', () => {
     assert.equal(core.lintTextWith(portrait, capVocab).filter((f) => f.rule.startsWith('capacity')).length, 0);
   });
   test('table layout counts the row axis', () => {
-    const rows = (n) => `${FM}<!-- _class: table -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
+    const rows = (n) => `${FM}<!-- @meta{layout=table} -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
     assert.equal(capRule(rows(6), 'capacity-crowd'), undefined); // 6 == soft, not past
     assert.ok(capRule(rows(7), 'capacity-crowd'), 'expected crowd at 7 rows');
     assert.ok(capRule(rows(9), 'capacity-overflow'), 'expected the overflow warning at 9 rows');
@@ -920,7 +920,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
       claim: ['claim-framed', 'claim-quiet', 'claim-hero', 'claim-bleed'],
     },
   };
-  const conflict = (cls) => core.lintTextWith(`${FM}<!-- _class: ${cls} -->\n\n## H`, axVocab).find((f) => f.rule === 'conflicting-variants');
+  const conflict = (cls) => core.lintTextWith(`${FM}<!-- @meta{class=${cls}} -->\n\n## H`, axVocab).find((f) => f.rule === 'conflicting-variants');
 
   test('two tones conflict', () => {
     const f = conflict('kpi tone-warn tone-fail');
@@ -941,7 +941,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
   test('a single finish is clean', () => assert.equal(conflict('kpi finish-atrium'), undefined));
   test('finish-preview is not a real finish (no conflict with a preset)', () => assert.equal(conflict('kpi finish-preview finish-atrium'), undefined));
   test('no exclusiveAxes vocab → rule inert (except finish prefix)', () => {
-    const out = core.lintTextWith(`${FM}<!-- _class: kpi tone-warn tone-fail -->\n\n## H`, { names: new Set(['kpi']), modifiers: new Set(['tone-warn', 'tone-fail']) });
+    const out = core.lintTextWith(`${FM}<!-- @meta{layout=kpi, class=tone-warn tone-fail} -->\n\n## H`, { names: new Set(['kpi']), modifiers: new Set(['tone-warn', 'tone-fail']) });
     assert.equal(out.filter((f) => f.rule === 'conflicting-variants').length, 0);
   });
 });
@@ -953,26 +953,26 @@ describe('lint-core: claim safety (2026-07-03 claim decision §8)', () => {
     claimExcludes: { 'table': ['claim-bleed'] },
     claimNames: ['framed', 'quiet', 'hero', 'bleed'],
   };
-  const table = (cls) => `${FM}<!-- _class: ${cls} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n`;
+  const table = (cls) => `${FM}<!-- @meta{class=${cls}} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n`;
   const has = (src, rule) => core.lintTextWith(src, cvocab).some((f) => f.rule === rule);
 
   test('per-slide claim-bleed on an excluding component warns', () => {
     assert.ok(has(table('table claim-bleed'), 'claim-bleed-unsafe'));
   });
   test('claim-bleed on a non-excluding component is silent', () => {
-    assert.equal(has(`${FM}<!-- _class: big-number claim-bleed -->\n\n- 42\n  - x\n`, 'claim-bleed-unsafe'), false);
+    assert.equal(has(`${FM}<!-- @meta{layout=big-number, class=claim-bleed} -->\n\n- 42\n  - x\n`, 'claim-bleed-unsafe'), false);
   });
   test('deck-wide claim: bleed warns on an excluding component (no per-slide token)', () => {
-    assert.ok(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: table -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'));
+    assert.ok(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- @meta{layout=table} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'));
   });
   test('a per-slide claim-framed opts a slide out of a deck-wide bleed → no warning', () => {
-    assert.equal(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: table claim-framed -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'), false);
+    assert.equal(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- @meta{layout=table, class=claim-framed} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'), false);
   });
   test('an unknown claim: value warns (typo → silent framed baseline)', () => {
-    assert.ok(has('---\nmarp: true\nclaim: heo\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'));
+    assert.ok(has('---\nmarp: true\nclaim: heo\n---\n\n<!-- @meta{layout=big-number} -->\n\n- 42\n  - x\n', 'unknown-claim'));
   });
   test('a known claim: value is silent', () => {
-    assert.equal(has('---\nmarp: true\nclaim: hero\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'), false);
+    assert.equal(has('---\nmarp: true\nclaim: hero\n---\n\n<!-- @meta{layout=big-number} -->\n\n- 42\n  - x\n', 'unknown-claim'), false);
   });
 });
 
@@ -1005,22 +1005,22 @@ describe('lint-core: big-number-hero-heading', () => {
   });
 
   test('warns when the hero is authored as a heading', () => {
-    const f = hero('<!-- _class: big-number -->\n\n## eudaimonia\n');
+    const f = hero('<!-- @meta{layout=big-number} -->\n\n## eudaimonia\n');
     assert.ok(f, 'a heading hero should warn');
     assert.equal(f.severity, 'warning');
     assert.equal(f.classToken, 'big-number');
   });
 
   test('clean when the hero is the first list item', () => {
-    assert.equal(hero('<!-- _class: big-number -->\n\n- 92%\n  - of the audience\n'), undefined);
+    assert.equal(hero('<!-- @meta{layout=big-number} -->\n\n- 92%\n  - of the audience\n'), undefined);
   });
 
   test('clean for an empty stub (no heading) — a different, non-hero problem', () => {
-    assert.equal(hero('<!-- _class: big-number -->\n\n`just an eyebrow`\n'), undefined);
+    assert.equal(hero('<!-- @meta{layout=big-number} -->\n\n`just an eyebrow`\n'), undefined);
   });
 
   test('does not fire on non big-number slides', () => {
-    assert.equal(hero('<!-- _class: content -->\n\n## A normal heading\n'), undefined);
+    assert.equal(hero('<!-- @meta{layout=content} -->\n\n## A normal heading\n'), undefined);
   });
 });
 
@@ -1030,7 +1030,7 @@ describe('lint-core: a deck finish on a bookend is not a finding', () => {
   // own presets, which put a finish behind the title slide on purpose.
   test('a title under a deck-wide finish lints clean', () => {
     const vocab = { names: new Set(['title']), modifiers: new Set(['silent']), finishNames: ['none', 'nimbus'] };
-    const src = '---\nmarp: true\ntheme: indaco\nfinish: nimbus\n---\n\n<!-- _class: title silent -->\n\n# H\n';
+    const src = '---\nmarp: true\ntheme: indaco\nfinish: nimbus\n---\n\n<!-- @meta{layout=title, class=silent} -->\n\n# H\n';
     assert.equal(core.lintTextWith(src, vocab).find((f) => /bookend/.test(f.rule)), undefined);
   });
 });
@@ -1062,7 +1062,7 @@ describe('pagination: skip / hold in front matter are flagged rather than silent
   });
 
   test('a slide comment is not this rule: it is the retired-comment rule', () => {
-    const src = '---\npagination: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n';
+    const src = '---\npagination: true\n---\n\n# A\n\n---\n\n<!-- @meta{paginate=skip} -->\n\n## B.\n';
     assert.equal(find(src), undefined);
     assert.equal(ruleFor(src, 'pagination-comment-retired')?.slide, 2);
   });
@@ -1075,6 +1075,7 @@ describe('pagination-comment-retired', () => {
   const deck = (body) => `---\nmarp: true\n---\n\n# A\n\n---\n\n${body}\n\n## B.\n`;
 
   test('`_paginate: true` is autofixable: on is the default', () => {
+    // The rule's machine fix deletes an old comment's line; the record form is the next test file's (`meta-record`).
     const f = find(deck('<!-- _paginate: true -->'));
     assert.equal(f.severity, 'warning');
     assert.equal(f.slide, 2);
@@ -1082,31 +1083,31 @@ describe('pagination-comment-retired', () => {
   });
 
   test('`_paginate: false` on a bookend is autofixable: its manifest already hides the number', () => {
-    const f = find(deck('<!-- _class: closing -->\n<!-- _paginate: false -->'));
+    const f = find(deck('<!-- @meta{layout=closing} -->\n<!-- _paginate: false -->'));
     assert.equal(f.autofixable, true);
     assert.match(f.fix, /already shows no page number/);
   });
 
   test('`_paginate: false` on a content slide is NOT autofixable: the class must be added', () => {
-    const f = find(deck('<!-- _class: content -->\n<!-- _paginate: false -->'));
+    const f = find(deck('<!-- @meta{layout=content} -->\n<!-- @meta{paginate=false} -->'));
     assert.equal(f.autofixable, undefined);
     assert.match(f.fix, /no-pagination/);
   });
 
   test('a copy quoted in a code sample on the same slide blocks the autofix, which would delete the copy', () => {
-    const f = find(deck('<!-- _paginate: true -->\n\n```md\n<!-- _paginate: true -->\n```'));
+    const f = find(deck('<!-- @meta{paginate=true} -->\n\n```md\n<!-- @meta{paginate=true} -->\n```'));
     assert.ok(f);
     assert.equal(f.autofixable, undefined);
   });
 
   test('on a deck numbered off, `_paginate: true` is the author asking for a number: add the class, no autofix', () => {
-    const f = find('---\nmarp: true\npagination: false\n---\n\n# A\n\n---\n\n<!-- _paginate: true -->\n\n## B.\n');
+    const f = find('---\nmarp: true\npagination: false\n---\n\n# A\n\n---\n\n<!-- @meta{paginate=true} -->\n\n## B.\n');
     assert.equal(f.autofixable, undefined);
     assert.match(f.fix, /with-pagination/);
   });
 
   test('`_paginate: true` on a bookend asks for the number its manifest drops: add with-pagination, no autofix', () => {
-    const f = find(deck('<!-- _class: closing -->\n<!-- _paginate: true -->'));
+    const f = find(deck('<!-- @meta{layout=closing} -->\n<!-- @meta{paginate=true} -->'));
     assert.equal(f.autofixable, undefined);
     assert.match(f.fix, /with-pagination/);
     assert.match(f.message, /drops its number/);
@@ -1115,14 +1116,14 @@ describe('pagination-comment-retired', () => {
   // The rename hint was retired on 2026-11-23 to give back lint-core bytes (changelog.d/retire-old-rename-hints.removed.md):
   // the old class is still reported, as an unknown class, rather than accepted as a `no-*` switch.
   test('the retired `no-paginate` class is still reported, as an unknown class', () => {
-    const f = core.lintTextWith(deck('<!-- _class: big-number no-paginate -->'), vocab).find((x) => x.classToken === 'no-paginate');
+    const f = core.lintTextWith(deck('<!-- @meta{layout=big-number, class=no-paginate} -->'), vocab).find((x) => x.classToken === 'no-paginate');
     assert.ok(f, 'the old class is reported');
     assert.equal(f.rule, 'unknown-class');
   });
 
   test('a plain `paginate:` comment is caught too, and a fenced one is not', () => {
-    assert.ok(find(deck('<!-- paginate: false -->')));
-    assert.equal(find(deck('```\n<!-- _paginate: false -->\n```')), undefined);
+    assert.ok(find(deck('<!-- @meta{paginate=false, carry} -->')));
+    assert.equal(find(deck('```\n<!-- @meta{paginate=false} -->\n```')), undefined);
   });
 });
 
@@ -1248,7 +1249,7 @@ describe('lint-core: block-unsupported', () => {
     modifiers: new Set(['insight-key', 'insight-verdict', 'no-note', 'bare']),
   };
   const bu = (cls, body = '# H\n') =>
-    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}`, bVocab).filter((f) => f.rule === 'block-unsupported');
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n${body}`, bVocab).filter((f) => f.rule === 'block-unsupported');
 
   test('flags insight-* on a quote — the case that opened the issue', () => {
     const f = bu('quote insight-key');
@@ -1409,7 +1410,7 @@ describe('lint-core: author-script-defers (#1792)', () => {
 describe('lint-core: a bracketed list closed early (bracket-list-closed-early)', () => {
   const qvocab = { ...vocab, names: new Set([...vocab.names, 'quadrant']) };
   const closed = (src) => core.lintTextWith(src, qvocab).filter((f) => f.rule === 'bracket-list-closed-early');
-  const deck = (body) => `${FM}<!-- _class: quadrant -->\n\n## Heading\n\n${body}\n\n- Top right\n  - a\n`;
+  const deck = (body) => `${FM}<!-- @meta{layout=quadrant} -->\n\n## Heading\n\n${body}\n\n- Top right\n  - a\n`;
 
   test('the two red-team typos warn, and the fix is the list the author meant', () => {
     const mid = closed(deck('`["Cost, excluding tax"]], Value]`'));
@@ -1497,13 +1498,13 @@ describe('lint-core: crowded circle / diamond pills (pill-shape-crowded)', () =>
   });
 
   test('a slide or deck that switches the grammar off by CLASS gets no finding', () => {
-    assert.equal(crowded(`${FM}## A\n\n---\n\n<!-- _class: inline-code-literal -->\n\n## B \`{WM, circle}\`\n`).length, 0);
+    assert.equal(crowded(`${FM}## A\n\n---\n\n<!-- @meta{class=inline-code-literal} -->\n\n## B \`{WM, circle}\`\n`).length, 0);
     assert.equal(crowded('---\nmarp: true\nclass: inline-code-literal\n---\n\n## B `{WM, circle}`\n').length, 0);
   });
 
   test('a hidden comment draws nothing; a header/footer directive comment does', () => {
     assert.equal(crowded(deck('<!-- note: speaker `{OK, circle}` -->')).length, 0);
-    assert.equal(crowded(deck('<!-- _footer: "F `{OK, circle}`" -->')).length, 1);
+    assert.equal(crowded(deck('<!-- @meta{footer="F `{OK, circle}`"} -->')).length, 1);
   });
 
   test('a front-matter footer pill reports as slide 0, where the editor finds the line', () => {
@@ -1608,7 +1609,7 @@ describe('lint-core: a pill whose label needs quoting renders as code (pill-lite
 
 describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   const glyphs = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'typed-shape-glyph');
-  const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+  const slide = (cls, body) => `${FM}<!-- @meta{class=${cls}} -->\n\n## Heading\n\n${body}\n`;
 
   test('it WARNS and never errors — coaching is the policy, not a soft touch', () => {
     const found = glyphs(slide('cards-grid', '- Ship it ✓'));
@@ -1641,12 +1642,12 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
     // bracketed list (`[{Effort, 0..10}, {Reach, 0..100}]`), which has no glyph
     // in it, so the arrow is a typed glyph like any other — and the retired
     // eyebrow gets its own `quadrant-retired-axis` error with the rewrite.
-    const [found] = glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
+    const [found] = glyphs(`${FM}<!-- @meta{layout=quadrant} -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
     assert.ok(found);
   });
 
   test('the bracketed quadrant axis carries no glyph to flag', () => {
-    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`[{Effort, 0..10}, {Reach, 0..100}]\`\n\n## Heading\n`), []);
+    assert.deepEqual(glyphs(`${FM}<!-- @meta{layout=quadrant} -->\n\n\`[{Effort, 0..10}, {Reach, 0..100}]\`\n\n## Heading\n`), []);
   });
 
   test('prose falls back to the table\'s own per-glyph coaching', () => {
@@ -1665,7 +1666,7 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
     // examples/content-capacity.md quotes the CLI's own overflow warning
     // verbatim, and the CLI really does print `⚠`. "Fixing" it would make the
     // deck lie about what the tool prints.
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## Heading\n\n\`\`\`text\n⚠ deck.md · slide 4 · capacity-overflow\n\`\`\`\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## Heading\n\n\`\`\`text\n⚠ deck.md · slide 4 · capacity-overflow\n\`\`\`\n`;
     assert.deepEqual(glyphs(src), []);
   });
 
@@ -1728,10 +1729,10 @@ describe('lint-core: web-image (rule 12d, security spine S1)', () => {
   });
 
   test('flags a web image in the chrome: front-matter header or footer, or a slide\'s directive comment', () => {
-    const src = `---\nmarp: true\ntheme: indaco\nfooter: "![f](https://foot.example/a.png)"\n---\n\n# A\n\n---\n\n<!-- _header: ![h](//head.example/b.png) -->\n\n# B\n`;
+    const src = `---\nmarp: true\ntheme: indaco\nfooter: "![f](https://foot.example/a.png)"\n---\n\n# A\n\n---\n\n<!-- @meta{header=\"![h](//head.example/b.png)\"} -->\n\n# B\n`;
     assert.deepEqual(all(src).map((f) => [f.slide, f.line]), [
       [0, 'footer: "![f](https://foot.example/a.png)"'],
-      [2, '<!-- _header: ![h](//head.example/b.png) -->'],
+      [2, '<!-- @meta{header="![h](//head.example/b.png)"} -->'],
     ]);
     assert.match(all(src)[0].message, /^This image in the deck's footer loads/);
   });
@@ -1741,7 +1742,7 @@ describe('lint-core: web-image (rule 12d, security spine S1)', () => {
     const { blockWebImages } = require('../../../lib/core/remote-ref.js');
     // The chrome cases are the engine's own rules: a reference never resolves in a header (chrome renders with no
     // references), and a directive comment inside a paragraph sets nothing.
-    const src = `---\nmarp: true\ntheme: indaco\nheader: "![h](https://g.example/5.png)"\n---\n\n## A\n\n![a](https://a.example/1.png) ![b](//b.example/2.png) [link](https://c.example/)\n\n![rel](x.png) ![d](data:image/gif;base64,R0lGOD)\n\n---\n\n![bg](https://e.example/3.jpg)\n\n![r][ref]\n\n<!-- footer: ![x][ref] -->\n\nText <!-- _footer: ![y](https://i.example/7.png) --> here.\n\n[ref]: HTTP://F.example/4.png\n`;
+    const src = `---\nmarp: true\ntheme: indaco\nheader: "![h](https://g.example/5.png)"\n---\n\n## A\n\n![a](https://a.example/1.png) ![b](//b.example/2.png) [link](https://c.example/)\n\n![rel](x.png) ![d](data:image/gif;base64,R0lGOD)\n\n---\n\n![bg](https://e.example/3.jpg)\n\n![r][ref]\n\n<!-- @meta{footer=\"![x][ref]\"} -->\n\nText <!-- @meta{footer=\"![y](https://i.example/7.png)\"} --> here.\n\n[ref]: HTTP://F.example/4.png\n`;
     const { blocked } = blockWebImages(engine.render(src, 'indaco').html, []);
     // Compared as ADDRESSES, each once: the render draws the front-matter header on each slide, and lint reports its one
     // line once. The address is read back from the finding's own line (or, for a reference, from its definition).
@@ -1774,7 +1775,7 @@ describe('lint-core: shell-fence-is-script (rule 12b)', () => {
   // grammar; the same eleven-line script measured 15 highlight spans as ```sh
   // and 2 as ```shell on every render path.
   const F = '```';
-  const slide = (tag, ...body) => `${FM}<!-- _class: code -->\n\n## A block.\n\n${F}${tag}\n${body.join('\n')}\n${F}\n`;
+  const slide = (tag, ...body) => `${FM}<!-- @meta{layout=code} -->\n\n## A block.\n\n${F}${tag}\n${body.join('\n')}\n${F}\n`;
 
   test('flags a script tagged with a session grammar', () => {
     const f = ruleFor(slide('shell', '#!/bin/sh', 'set -eu'), 'shell-fence-is-script');
@@ -1810,22 +1811,22 @@ describe('lint-core: focus and track rules run on a slide with no class', () => 
   // gets them too. A bare deck-wide `track:` is the case track-directive exists for.
   const bare = (dir) => `${FM}${dir}\n\n## Head\n\nA claim.\n`;
   test('a bare `track:` is flagged', () => {
-    assert.ok(ruleFor(bare('<!-- track: A | [B] -->'), 'track-directive'));
+    assert.ok(ruleFor(bare('<!-- @meta{track="A | [B]", carry} -->'), 'track-directive'));
   });
   test('`_track` off a topic slide is flagged', () => {
-    assert.match(ruleFor(bare('<!-- _track: A | [B] -->'), 'track-directive').message, /not `topic`/);
+    assert.match(ruleFor(bare('<!-- @meta{track="A | [B]"} -->'), 'track-directive').message, /not `topic`/);
   });
   test('a malformed `_focus` is flagged', () => {
-    assert.ok(ruleFor(bare('<!-- _focus: rows 4 -->'), 'focus-spec'));
+    assert.ok(ruleFor(bare('<!-- @meta{focus=rows 4} -->'), 'focus-spec'));
   });
   test('an unknown `_focusStyle` is flagged', () => {
-    assert.ok(ruleFor(bare('<!-- _focusStyle: glow -->'), 'focus-style'));
+    assert.ok(ruleFor(bare('<!-- @meta{focus-style=glow} -->'), 'focus-style'));
   });
   test('a malformed `_focusSteps` is flagged', () => {
-    assert.ok(ruleFor(bare('<!-- _focusSteps: row 1 | rows 2 -->'), 'focus-steps'));
+    assert.ok(ruleFor(bare('<!-- @meta{focus-steps="row 1 | rows 2"} -->'), 'focus-steps'));
   });
   test('a well-formed class-less slide stays silent', () => {
-    const rules = core.lintTextWith(bare('<!-- _focus: row 2 -->'), vocab).map((f) => f.rule);
+    const rules = core.lintTextWith(bare('<!-- @meta{focus=row 2} -->'), vocab).map((f) => f.rule);
     for (const r of ['track-directive', 'focus-spec', 'focus-style', 'focus-steps']) assert.ok(!rules.includes(r), r);
   });
 });
@@ -1837,10 +1838,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   // is why they are caught in the linter rather than left to a reviewer's eye.
   const tv = { names: new Set(['topic', 'content']), modifiers: new Set(['dark', 'fact']) };
   const rule = (src, name) => core.lintTextWith(src, tv).find((f) => f.rule === name);
-  const topic = (...lines) => `${FM}<!-- _class: topic -->\n${lines.join('\n')}\n\n## Payback\n\nA claim.\n`;
+  const topic = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n${lines.join('\n')}\n\n## Payback\n\nA claim.\n`;
 
   test('silent on a well-formed override', () => {
-    const src = topic('<!-- _track: Cost to win | Lifetime value | [Payback] -->');
+    const src = topic('<!-- @meta{track="Cost to win | Lifetime value | [Payback]"} -->');
     assert.equal(rule(src, 'track-directive'), undefined);
     assert.equal(rule(src, 'track-list'), undefined);
   });
@@ -1850,7 +1851,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('flags an override that marks no current topic', () => {
-    const f = rule(topic('<!-- _track: Cost to win | Lifetime value -->'), 'track-directive');
+    const f = rule(topic('<!-- @meta{track="Cost to win | Lifetime value"} -->'), 'track-directive');
     assert.ok(f, 'expected a finding');
     assert.equal(f.severity, 'warning');
     assert.match(f.message, /no current topic/);
@@ -1858,7 +1859,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('flags a scale of one — it draws no track at all', () => {
-    const f = rule(topic('<!-- _track: [Payback] -->'), 'track-directive');
+    const f = rule(topic('<!-- @meta{track="[Payback]"} -->'), 'track-directive');
     assert.ok(f, 'expected a finding');
     assert.match(f.message, /one label/);
   });
@@ -1867,7 +1868,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // `fact` is one flat canvas and its CSS drops the track, so the directive
     // renders nothing — while still opting the slide out of derivation, which
     // removes this topic's name from every sibling's scale. Silent both ways.
-    const src = `${FM}<!-- _class: topic fact -->\n<!-- _track: A | [B] -->\n\n## Alpha\n\nA claim.\n`;
+    const src = `${FM}<!-- @meta{layout=topic, class=fact} -->\n<!-- @meta{track="A | [B]"} -->\n\n## Alpha\n\nA claim.\n`;
     const f = rule(src, 'track-directive');
     assert.ok(f, 'expected a finding');
     assert.match(f.message, /shows nothing on `topic fact`/);
@@ -1875,7 +1876,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('flags `_track` on a slide that is not a topic anchor', () => {
-    const src = `${FM}<!-- _class: content -->\n<!-- _track: A | [B] -->\n\n## A heading.\n\nText.\n`;
+    const src = `${FM}<!-- @meta{layout=content} -->\n<!-- @meta{track="A | [B]"} -->\n\n## A heading.\n\nText.\n`;
     const f = rule(src, 'track-directive');
     assert.ok(f, 'expected a finding');
     assert.match(f.message, /not `topic`/);
@@ -1892,7 +1893,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   });
 
   test('a fenced list is not a list — the rule reads past code blocks', () => {
-    const src = `${FM}<!-- _class: topic -->\n\n## Payback\n\n\`\`\`text\n- Cost to win\n\`\`\`\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## Payback\n\n\`\`\`text\n- Cost to win\n\`\`\`\n`;
     assert.equal(rule(src, 'track-list'), undefined);
   });
 
@@ -1904,12 +1905,12 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   test('the LIVE directive is the last one — the engine resolves last-wins', () => {
     // Measured: `render()` stamps data-track="B | [C]" here. Reading the first
     // warned "a scale of one … NO track is drawn" about a slide that drew one.
-    const src = topic('<!-- _track: A -->', '<!-- _track: B | [C] -->');
+    const src = topic('<!-- @meta{track=A} -->', '<!-- @meta{track="B | [C]"} -->');
     assert.equal(rule(src, 'track-directive'), undefined);
   });
 
   test('a directive inside a FENCE is an example, not a directive', () => {
-    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n\`\`\`\n<!-- _track: A -->\n\`\`\`\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## B\n\n\`\`\`\n<!-- @meta{track=A} -->\n\`\`\`\n`;
     assert.equal(rule(src, 'track-directive'), undefined);
   });
 
@@ -1917,10 +1918,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // `[^>]*?` could not cross a `>`, so the rule simply did not match, and the
     // two arms it exists to catch went unreported on exactly the labels most
     // likely to be malformed.
-    assert.match(rule(topic('<!-- _track: a > b -->'), 'track-directive').message, /one label/);
-    assert.match(rule(topic('<!-- _track: a > b | c -->'), 'track-directive').message,
+    assert.match(rule(topic('<!-- @meta{track="a > b"} -->'), 'track-directive').message, /one label/);
+    assert.match(rule(topic('<!-- @meta{track="a > b | c"} -->'), 'track-directive').message,
       /no current topic/);
-    assert.equal(rule(topic('<!-- _track: a > b | [C] -->'), 'track-directive'), undefined);
+    assert.equal(rule(topic('<!-- @meta{track="a > b | [C]"} -->'), 'track-directive'), undefined);
   });
 
   /* ── THE SUBSET TABLE ────────────────────────────────────────────────────────
@@ -1942,83 +1943,83 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   test('the linter never warns about a directive the ENGINE did not apply', () => {
     const { render } = require('../../../lib/engine');
     const { parseTrackSpec, MIN_TRACK_LABELS: MIN } = require('../../../lib/core/track-spec');
-    const D = '<!-- _class: topic -->\n';
+    const D = '<!-- @meta{layout=topic} -->\n';
     const H = '\n## T\n\n';
     // Every row measured through the real engine. Four review rounds each found a
     // shape this rule got wrong — in BOTH directions — so the contract is data:
     // the linter must warn exactly when the engine applies a DEGENERATE `_track`.
     const SHAPES = {
-      'line start': `${D}<!-- _track: A -->\n\n## T\n`,
-      'three-space indent': `${D}${H}   <!-- _track: A -->\n`,
-      'four-space indent (code)': `${D}${H}    <!-- _track: A -->\n`,
+      'line start': `${D}<!-- @meta{track=A} -->\n\n## T\n`,
+      'three-space indent': `${D}${H}   <!-- @meta{track=A} -->\n`,
+      'four-space indent (code)': `${D}${H}    <!-- @meta{track=A} -->\n`,
       // A comment in a blockquote or list item is still its own `html_block`.
-      blockquote: `${D}${H}> <!-- _track: A -->\n`,
-      'blockquote, four spaces': `${D}${H}>    <!-- _track: A -->\n`,
-      'blockquote, five spaces (code)': `${D}${H}>     <!-- _track: A -->\n`,
-      'nested blockquote': `${D}${H}> > <!-- _track: A -->\n`,
-      'nested blockquote, wide': `${D}${H}> >    <!-- _track: A -->\n`,
-      bullet: `${D}${H}- <!-- _track: A -->\n`,
-      'bullet, four spaces': `${D}${H}-    <!-- _track: A -->\n`,
-      'bullet, five spaces (code)': `${D}${H}-     <!-- _track: A -->\n`,
-      'star bullet': `${D}${H}* <!-- _track: A -->\n`,
-      'plus bullet': `${D}${H}+ <!-- _track: A -->\n`,
-      'ordered item': `${D}${H}1. <!-- _track: A -->\n`,
-      'blockquote then bullet': `${D}${H}> - <!-- _track: A -->\n`,
-      'bare tab (code)': `${D}${H}\t<!-- _track: A -->\n`,
-      'bullet then tab': `${D}${H}-\t<!-- _track: A -->\n`,
+      blockquote: `${D}${H}> <!-- @meta{track=A} -->\n`,
+      'blockquote, four spaces': `${D}${H}>    <!-- @meta{track=A} -->\n`,
+      'blockquote, five spaces (code)': `${D}${H}>     <!-- @meta{track=A} -->\n`,
+      'nested blockquote': `${D}${H}> > <!-- @meta{track=A} -->\n`,
+      'nested blockquote, wide': `${D}${H}> >    <!-- @meta{track=A} -->\n`,
+      bullet: `${D}${H}- <!-- @meta{track=A} -->\n`,
+      'bullet, four spaces': `${D}${H}-    <!-- @meta{track=A} -->\n`,
+      'bullet, five spaces (code)': `${D}${H}-     <!-- @meta{track=A} -->\n`,
+      'star bullet': `${D}${H}* <!-- @meta{track=A} -->\n`,
+      'plus bullet': `${D}${H}+ <!-- @meta{track=A} -->\n`,
+      'ordered item': `${D}${H}1. <!-- @meta{track=A} -->\n`,
+      'blockquote then bullet': `${D}${H}> - <!-- @meta{track=A} -->\n`,
+      'bare tab (code)': `${D}${H}\t<!-- @meta{track=A} -->\n`,
+      'bullet then tab': `${D}${H}-\t<!-- @meta{track=A} -->\n`,
       // An `html_block` runs to the END OF ITS LINE, so trailing prose makes the
       // token something `readDirectiveComment` rejects.
-      'trailing text': `${D}${H}<!-- _track: A --> tail\n`,
-      'trailing text, two labels': `${D}${H}<!-- _track: A | B --> tail\n`,
-      'an arrow inside a label': `${D}${H}<!-- _track: a --> b | [C] -->\n`,
+      'trailing text': `${D}${H}<!-- @meta{track=A} --> tail\n`,
+      'trailing text, two labels': `${D}${H}<!-- @meta{track="A | B"} --> tail\n`,
+      'an arrow inside a label': `${D}${H}<!-- @meta{track=a} --> b | [C] -->\n`,
       // A type-6 block runs to a blank line; the comment inside is its content.
-      'inside a div block': `${D}${H}<div>\n<!-- _track: A -->\n</div>\n`,
-      'after a p block': `${D}${H}<p>x</p>\n<!-- _track: A -->\n`,
+      'inside a div block': `${D}${H}<div>\n<!-- @meta{track=A} -->\n</div>\n`,
+      'after a p block': `${D}${H}<p>x</p>\n<!-- @meta{track=A} -->\n`,
       // An empty value is skipped by the engine, so the DERIVED track still draws.
-      'empty value': `${D}${H}<!-- _track: -->\n`,
-      'in a paragraph': `${D}${H}Some text <!-- _track: A -->\n`,
-      'inline code': `${D}${H}\`<!-- _track: A -->\`\n`,
+      'empty value': `${D}${H}<!-- @meta{track=""} -->\n`,
+      'in a paragraph': `${D}${H}Some text <!-- @meta{track=A} -->\n`,
+      'inline code': `${D}${H}\`<!-- @meta{track=A} -->\`\n`,
       'nested in another comment': `${D}<!-- outer <!-- _track: A --> tail -->\n\n## T\n`,
       'after an unclosed comment': `${D}${H}<!-- oops\n\n<!-- _track: A -->\n`,
-      'fenced example': `${D}${H}\`\`\`\n<!-- _track: A -->\n\`\`\`\n`,
-      'fence inside a comment': `${D}${H}<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`,
+      'fenced example': `${D}${H}\`\`\`\n<!-- @meta{track=A} -->\n\`\`\`\n`,
+      'fence inside a comment': `${D}${H}<!--\n\`\`\`\nnote\n-->\n\n<!-- @meta{track=A} -->\n`,
       'uppercase _TRACK': `${D}<!-- _TRACK: A -->\n\n## T\n`,
-      'no spaces at all': `${D}<!--_track:A-->\n\n## T\n`,
-      'two directives, last wins': `${D}<!-- _track: A -->\n<!-- _track: B | [C] -->\n\n## T\n`,
+      'no spaces at all': `${D}<!-- @meta{track=A} -->\n\n## T\n`,
+      'two directives, last wins': `${D}<!-- @meta{track=A} -->\n<!-- @meta{track="B | [C]"} -->\n\n## T\n`,
       // Consecutive comment lines each open their own token — this must NOT be
       // mistaken for "inside an open HTML block".
-      'after another directive': `${D}<!-- _footer: "x" -->\n<!-- _track: A -->\n\n## T\n`,
-      'CRLF throughout': `${D.replace(/\n/g, '\r\n')}<!-- _track: A -->\r\n\r\n## T\r\n`,
+      'after another directive': `${D}<!-- @meta{footer=x} -->\n<!-- @meta{track=A} -->\n\n## T\n`,
+      'CRLF throughout': `${D.replace(/\n/g, '\r\n')}<!-- @meta{track=A} -->\r\n\r\n## T\r\n`,
       // A MARKER NEEDS ITS SEPARATOR. `-<!--` is not a list item, so the engine
       // reads nothing; an earlier scanner defaulted the character after the
       // marker to a space and warned about 174 prefixes like these.
-      'bullet, no separator': `${D}${H}-<!-- _track: A -->\n`,
-      'star, no separator': `${D}${H}*<!-- _track: A -->\n`,
-      'plus, no separator': `${D}${H}+<!-- _track: A -->\n`,
-      'ordered, no separator': `${D}${H}1.<!-- _track: A -->\n`,
-      'indent then bullet, no separator': `${D}${H} -<!-- _track: A -->\n`,
-      'blockquote then bullet, no separator': `${D}${H}> -<!-- _track: A -->\n`,
+      'bullet, no separator': `${D}${H}-<!-- @meta{track=A} -->\n`,
+      'star, no separator': `${D}${H}*<!-- @meta{track=A} -->\n`,
+      'plus, no separator': `${D}${H}+<!-- @meta{track=A} -->\n`,
+      'ordered, no separator': `${D}${H}1.<!-- @meta{track=A} -->\n`,
+      'indent then bullet, no separator': `${D}${H} -<!-- @meta{track=A} -->\n`,
+      'blockquote then bullet, no separator': `${D}${H}> -<!-- @meta{track=A} -->\n`,
       // A type-1 raw-text block runs to its CLOSING TAG, straight through blank
       // lines — which the blank-line back-scan this replaced could not see.
-      'inside <pre>': `${D}${H}<pre>\n\n<!-- _track: A -->\n\n</pre>\n`,
-      'inside <script>': `${D}${H}<script>\n<!-- _track: A -->\n</script>\n`,
-      'inside <style>': `${D}${H}<style>\n<!-- _track: A -->\n</style>\n`,
-      'after a closed <pre>': `${D}${H}<pre>x</pre>\n\n<!-- _track: A -->\n`,
+      'inside <pre>': `${D}${H}<pre>\n\n<!-- @meta{track=A} -->\n\n</pre>\n`,
+      'inside <script>': `${D}${H}<script>\n<!-- @meta{track=A} -->\n</script>\n`,
+      'inside <style>': `${D}${H}<style>\n<!-- @meta{track=A} -->\n</style>\n`,
+      'after a closed <pre>': `${D}${H}<pre>x</pre>\n\n<!-- @meta{track=A} -->\n`,
       // A type-2 block ends at its own `-->`, so a MULTI-LINE speaker note — the
       // commonest multi-line comment in a deck — does not swallow what follows.
-      'after a multi-line note': `${D}${H}<!--\nnote\n-->\n<!-- _track: A -->\n`,
+      'after a multi-line note': `${D}${H}<!--\nnote\n-->\n<!-- @meta{track=A} -->\n`,
       // A whitespace-only line is a blank line, so it closes a type-6 block.
-      'after a div, spaces-only line between': `${D}${H}<div>x</div>\n   \n<!-- _track: A -->\n`,
+      'after a div, spaces-only line between': `${D}${H}<div>x</div>\n   \n<!-- @meta{track=A} -->\n`,
       // `<3` is not a tag, so the line is a paragraph — and a comment interrupts
       // a paragraph.
-      'after `<3 you`': `${D}${H}<3 you\n<!-- _track: A -->\n`,
+      'after `<3 you`': `${D}${H}<3 you\n<!-- @meta{track=A} -->\n`,
       // FOUR COLUMNS, not four characters. A space then a tab is four columns of
       // indent — indented code — but it does not match `withoutCodeBlocks`'s
       // `^(?: {4}|\t)`, so these are the only rows that reach the scanner's own
       // leading bound. Without them, widening that bound to four passes.
-      'space then tab (code)': `${D}${H} \t<!-- _track: A -->\n`,
-      'two spaces then tab (code)': `${D}${H}  \t<!-- _track: A -->\n`,
-      'three spaces then tab (code)': `${D}${H}   \t<!-- _track: A -->\n`,
+      'space then tab (code)': `${D}${H} \t<!-- @meta{track=A} -->\n`,
+      'two spaces then tab (code)': `${D}${H}  \t<!-- @meta{track=A} -->\n`,
+      'three spaces then tab (code)': `${D}${H}   \t<!-- @meta{track=A} -->\n`,
     };
     // The rule reads the deck model's comment blocks (Segno P3), so it is no longer a subset: every shape the
     // engine applies degenerately warns. The two families this list used to carry (a directive inside a
@@ -2050,15 +2051,15 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     assert.deepEqual(quiet.sort(), [...EXPECTED_QUIET].sort());
   });
 
-  test('a directive in list continuation is seen (it was a known residual of the line model)', () => {
-    // The line model this rule kept required the comment to open its own line at most three spaces in, and a
-    // list continuation is indented four, so it was silent. The deck model's comment blocks are the engine's.
+  test('a record in list continuation applies nothing, and the rule agrees', () => {
+    // A record inside a list item is not read (D1), where the old comment there was; the deck model's comment blocks are
+    // the engine's, so the rule is silent exactly where the engine draws no track.
     const { render } = require('../../../lib/engine');
-    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n- item\n\n    <!-- _track: A -->\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n- item\n\n    <!-- @meta{track=A} -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
-    assert.match(html, /data-track="A"/, 'the engine really does apply it');
-    assert.ok(rule(src, 'track-directive'), 'and the rule warns, as the engine applies it');
+    assert.doesNotMatch(html, /data-track=/, 'the engine applies nothing');
+    assert.equal(rule(src, 'track-directive'), undefined, 'so the rule is silent');
   });
 
   /* A GENERATED fuzz, not a curated list — the curated table is what six rounds of
@@ -2078,7 +2079,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       '<script>', '</script>', 'var s = "</scriptx";', '<style>', '</style>', '<textarea>',
       '<?php', '?>', '<![CDATA[', ']]>', '<!A', '<!DOCTYPE html>',
       '<!--->', '<!-- n -->', '<!--', '-->', '--> trailing', '<!-- a --> b',
-      '`code`', '    indented', '```', '~~~', '<!-- _footer: "x" -->',
+      '`code`', '    indented', '```', '~~~', '<!-- @meta{footer=x} -->',
       // The nine shapes round seven used to refute the previous fence handling.
       // A curated alphabet is still curation; these are here because their
       // absence is what let a fence bug through a 5,808-shape cross.
@@ -2095,6 +2096,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       '   <!--', '1. x\n   <!--', '- <!--', '\t<!--',
     ];
     const warned = [];
+    const silentElsewhere = [];
     let degenerate = 0;
     let deg1 = 0;
     let sil1 = 0;
@@ -2123,13 +2125,13 @@ describe("lint-core: the topic anchor's `_track` override", () => {
         // MULTI-LINE directives are an axis of their own: the engine reads a
         // comment block, this rule reads lines, and a directive split across two
         // lines missed 91 times out of 91 before round ten.
-        for (const first of ['', '<!-- _track: A | B -->\n', '<!--\n_track: A | B -->\n',
-          '<!-- track: A | B -->\n', '<!-- track: -->\n']) {
+        for (const first of ['', '<!-- @meta{track="A | B"} -->\n', '<!--\n_track: A | B -->\n',
+          '<!-- @meta{track="A | B", carry} -->\n', '<!-- @meta{track="", carry} -->\n']) {
         // And the VALUE axis: the directive under test is degenerate half the time,
         // so the single-directive arm still exercises a real warning. Adding the
         // `first` axis without this silently emptied that arm — `deg1` went to 0.
         for (const value of ['A | B', 'A | [B]', '']) {
-        const src = `${FM}<!-- _class: topic -->\n\n## T\n\n${first}${a}\n${pre}<!-- _track: ${value} -->\n${below}\n`;
+        const src = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${first}${a}\n${pre}<!-- @meta{track="${value}"} -->\n${below}\n`;
         const out = render(src, {});
         const html = typeof out === 'string' ? out : out.html;
         const attr = (html.match(/data-track="([^"]*)"/) || [])[1];
@@ -2147,7 +2149,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
           warned.push(`${JSON.stringify(a)} + ${JSON.stringify(pre)} + ${JSON.stringify(below)}`
             + ` + first=${JSON.stringify(first)} value=${JSON.stringify(value)}: engine applied nothing degenerate, linter WARNED`);
         }
-        if (should) { degenerate += 1; if (!fired) silent += 1; if (!first) { deg1 += 1; if (!fired) sil1 += 1; } }
+        if (should) { degenerate += 1; if (!fired) { silent += 1; if (a !== '## H') silentElsewhere.push(src); } if (!first) { deg1 += 1; if (!fired) sil1 += 1; } }
         }
         }
         }
@@ -2156,13 +2158,15 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // The arm that bites.
     assert.deepEqual(warned, []);
     // And the other direction. A rule that went quiet everywhere would also pass "no false warnings"; it would not
-    // pass this. The line model this rule kept declined 21,523 of these (677 of the one-directive 1,077). On the deck
-    // model it declines 221, and every one carries the `## H` line: the engine opens a second slide there, the
-    // directive lands on it, and that slide is not a `topic`, so the rule rightly passes (`.scratch` replay).
-    assert.equal(degenerate, 23955, 'shapes the engine applies degenerately');
-    assert.equal(silent, 221, 'of those, the ones the rule passes: all on the class-less second slide');
-    assert.equal(deg1, 1077, 'one-directive shapes the engine applies degenerately');
-    assert.equal(sil1, 29, 'of those, the ones the rule passes: all on the class-less second slide');
+    // pass this. Every shape the rule passes carries the `## H` line: the engine opens a second slide there, the record
+    // lands on it, and that slide is not a `topic`, so the rule rightly passes. The directive under test is a record
+    // since the cut (slice E); an old `_track` comment applies nothing, so it could not be degenerate. Counts measured
+    // on this change: a record in a list item or quote applies nothing (D1), where the comment it replaced did.
+    assert.deepEqual(silentElsewhere, [], 'a degenerate record the rule passes off the class-less second slide');
+    assert.equal(degenerate, 20076, 'shapes the engine applies degenerately');
+    assert.equal(silent, 198, 'of those, the ones the rule passes: all on the class-less second slide');
+    assert.equal(deg1, 816, 'one-directive shapes the engine applies degenerately');
+    assert.equal(sil1, 24, 'of those, the ones the rule passes: all on the class-less second slide');
   });
 
   /* The delimiter scanner's own pins. A checker mutated it to `/-/` and to a form
@@ -2177,24 +2181,24 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       const html = typeof out === 'string' ? out : out.html;
       return (html.match(/data-track="([^"]*)"/) || [])[1];
     };
-    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const T = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${lines.join('\n')}\n`;
 
     // A `- item` line is NOT a delimiter row. Reading it as one silences a real
     // warning — the mutant that replaced the whole scanner with `/-/`.
-    const bullet = T('<!-- _track: A | B -->', '- item');
+    const bullet = T('<!-- @meta{track="A | B"} -->', '- item');
     assert.match(applied(bullet), /A \| B/, 'the engine applies it');
     assert.ok(rule(bullet, 'track-directive'), 'so the rule must still warn');
 
     // An INDENTED delimiter row under an indented directive really does make a
     // table, so declining is right — this is the shape the space-indent axis
     // exists for, and the mutant that drops the leading-indent class warns here.
-    const indented = T('- item', '  <!-- _track: A | B -->', '  | --- | --- |');
+    const indented = T('- item', '  <!-- @meta{track="A | B"} -->', '  | --- | --- |');
     assert.equal(applied(indented), undefined, 'the engine reads no directive');
     assert.equal(rule(indented, 'track-directive'), undefined, 'so the rule is silent');
 
     // A single-label `_track` has no pipe, so markdown-it refuses it as a header
     // and the engine applies it. Dropping the `|` guard would silence this.
-    const single = T('<!-- _track: A -->', '| --- |');
+    const single = T('<!-- @meta{track=A} -->', '| --- |');
     assert.match(applied(single), /^A$/, 'the engine applies it');
     assert.ok(rule(single, 'track-directive'), 'so the rule must still warn');
 
@@ -2202,26 +2206,26 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // a no-op — `String(undefined)` is `'undefined'`, which the scanner rejects
     // exactly as it rejects `''` — so this row does NOT pin that expression. It
     // pins the outcome: a deck whose last line is the directive still warns.
-    const last = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- _track: A | B -->`;
+    const last = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n<!-- @meta{track="A | B"} -->`;
     assert.match(applied(last), /A \| B/, 'the engine applies it');
     assert.ok(rule(last, 'track-directive'), 'so the rule must still warn');
 
     // ALIGNMENT COLONS were entirely unpinned — two mutants that dropped them
     // survived the whole file, and each turns a real table into a false warning.
-    const aligned = T('<!-- _track: A | B -->', '| :--- | ---: |', '| a | b |');
+    const aligned = T('<!-- @meta{track="A | B"} -->', '| :--- | ---: |', '| a | b |');
     assert.equal(applied(aligned), undefined, 'the engine reads no directive');
     assert.equal(rule(aligned, 'track-directive'), undefined, 'so the rule is silent');
 
     // A CLOSING PIPE MAY BE FOLLOWED BY BLANKS. markdown-it splits the row on `|`
     // and skips an empty last cell, so this is a real table; rejecting it was 532
     // false positives over 11,610 generated rows, and invisible in any editor.
-    const trailing = T('<!-- _track: A | B -->', '| --- | --- | ', '| a | b |');
+    const trailing = T('<!-- @meta{track="A | B"} -->', '| --- | --- | ', '| a | b |');
     assert.equal(applied(trailing), undefined, 'the engine reads no directive');
     assert.equal(rule(trailing, 'track-directive'), undefined, 'so the rule is silent');
 
     // A BLOCKQUOTED delimiter row is a blockquote, not a table — the engine
     // applies the directive, so accepting `>` here silenced a real warning.
-    const quoted = T('<!-- _track: A | B -->', '> | --- | --- |');
+    const quoted = T('<!-- @meta{track="A | B"} -->', '> | --- | --- |');
     assert.match(applied(quoted), /A \| B/, 'the engine applies it');
     assert.ok(rule(quoted, 'track-directive'), 'so the rule must still warn');
   });
@@ -2238,7 +2242,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // this stays a hang guard sized as F4 sizes one (engineering/decisions/2026-11-06-flaky-tests.md). The work
     // count beside it catches a rescan across calls: about 270 characters per input character today, most of
     // it markdown-it's anchored tag test, which work-count.js says it overcounts.
-    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- note: revenue | margin -->\n${' '.repeat(200000)}x\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n<!-- note: revenue | margin -->\n${' '.repeat(200000)}x\n`;
     const started = Date.now();
     const { scanned } = scanWork(() => core.lintTextWith(src, { names: new Set(['topic']), modifiers: new Set() }));
     const ms = Date.now() - started;
@@ -2259,13 +2263,13 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       const html = typeof out === 'string' ? out : out.html;
       return (html.match(/data-track="([^"]*)"/) || [])[1];
     };
-    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const T = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${lines.join('\n')}\n`;
     const shapes = {
-      'plain, after a degenerate one': T('<!-- _track: A | B -->', '<!-- _track: -->'),
-      'across a markup line': T('<!-- _track: A | B -->', '<b>n</b>', '<!-- _track: -->'),
-      'clearing a MULTI-LINE one': T('<!--', '_track: A | B -->', '<!-- _track: -->'),
-      'itself multi-line': T('<!-- _track: A | B -->', '<!--', '_track: -->'),
-      'quoted empty value': T('<!-- _track: A | B -->', '<!-- _track: "" -->'),
+      'plain, after a degenerate one': T('<!-- @meta{track="A | B"} -->', '<!-- @meta{track=""} -->'),
+      'across a markup line': T('<!-- @meta{track="A | B"} -->', '<b>n</b>', '<!-- @meta{track=""} -->'),
+      'clearing a MULTI-LINE one': T('<!-- @meta{track="A | B"', '} -->', '<!-- @meta{track=""} -->'),
+      'itself multi-line': T('<!-- @meta{track="A | B"} -->', '<!-- @meta{track=""', '} -->'),
+      'quoted empty value': T('<!-- @meta{track="A | B"} -->', '<!-- @meta{track=""} -->'),
     };
     for (const [what, src] of Object.entries(shapes)) {
       assert.equal(applied(src), undefined, `${what}: the engine draws no track`);
@@ -2284,17 +2288,17 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       const html = typeof out === 'string' ? out : out.html;
       return (html.match(/data-track="([^"]*)"/) || [])[1];
     };
-    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const T = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${lines.join('\n')}\n`;
 
     // NO markup above: the block is READ, and a well-formed one supersedes the
     // degenerate directive before it. Dropping the read warns about the first.
-    const read = T('<!-- _track: A | B -->', '<!--', '_track: C | [D] -->');
+    const read = T('<!-- @meta{track="A | B"} -->', '<!-- @meta{track="C | [D]"', '} -->');
     assert.match(applied(read), /C \| \[D\]/, 'the engine applies the later block');
     assert.equal(rule(read, 'track-directive'), undefined, 'so there is nothing to warn about');
 
     // MARKUP above: the block is not this rule's to read, so it VOIDS rather than
     // letting the earlier directive answer. Dropping the void warns about the first.
-    const voided = T('<!-- _track: A | B -->', '<b>x</b>', '', '<!--', '_track: C | [D] -->');
+    const voided = T('<!-- @meta{track="A | B"} -->', '<b>x</b>', '', '<!-- @meta{track="C | [D]"', '} -->');
     assert.match(applied(voided), /C \| \[D\]/, 'the engine still applies the later block');
     assert.equal(rule(voided, 'track-directive'), undefined, 'so the rule must not warn');
 
@@ -2304,9 +2308,9 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // out of a code sample — collapsing the fork to always-read passes every other
     // row in this file, so these three are the only thing holding it.
     for (const inside of [
-      T('<div>', '<!--', '_track: A | B -->', '</div>'),
-      T('<pre>', '<!--', '_track: A | B -->', '</pre>'),
-      T('- <div>', '  <!--', '  _track: A | B -->'),
+      T('<div>', '<!-- @meta{track="A | B"', '} -->', '</div>'),
+      T('<pre>', '<!-- @meta{track="A | B"', '} -->', '</pre>'),
+      T('- <div>', '  <!-- @meta{track="A | B"', '  } -->'),
     ]) {
       assert.equal(applied(inside), undefined, 'the engine reads no directive');
       assert.equal(rule(inside, 'track-directive'), undefined, 'so the rule is silent');
@@ -2325,18 +2329,18 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       const html = typeof out === 'string' ? out : out.html;
       return (html.match(/data-track="([^"]*)"/) || [])[1];
     };
-    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const T = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${lines.join('\n')}\n`;
 
     // An empty BARE directive clears only the deck-wide channel, so the spot
     // directive above it still answers — and it is degenerate, so it still warns.
-    const bareEmpty = T('<!-- _track: A -->', '<!-- track: -->');
+    const bareEmpty = T('<!-- @meta{track=A} -->', '<!-- @meta{track="", carry} -->');
     assert.match(applied(bareEmpty), /^A$/, 'the engine still applies the spot directive');
     assert.ok(rule(bareEmpty, 'track-directive'), 'so the rule must still warn');
 
     // And the deck-wide finding must NOT fire where a spot directive on the same
     // slide already overrides it — both halves of "it overrides this slide and
     // every one after it" are false there.
-    const bothOnOne = T('<!-- _track: A | [B] -->', '<!-- track: C | [D] -->');
+    const bothOnOne = T('<!-- @meta{track="A | [B]"} -->', '<!-- @meta{track="C | [D]", carry} -->');
     assert.match(applied(bothOnOne), /A \| \[B\]/, 'the spot directive wins');
     assert.equal(rule(bothOnOne, 'track-directive'), undefined, 'so nothing is wrong here');
   });
@@ -2355,17 +2359,17 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       return (html.match(/data-track="([^"]*)"/) || [])[1];
     };
     // Fabricated from nothing: no directive is applied anywhere on this slide.
-    const fabricated = `${FM}<!-- _class: topic -->\n\n## Cost to win\n\n1. Pipeline\n   <!--\n_track: Cost to win -->\n\nA claim.\n`;
+    const fabricated = `${FM}<!-- @meta{layout=topic} -->\n\n## Cost to win\n\n1. Pipeline\n   <!--\n_track: Cost to win -->\n\nA claim.\n`;
     assert.equal(applied(fabricated), undefined, 'the engine reads no directive');
     assert.equal(rule(fabricated, 'track-directive'), undefined, 'so the rule must be silent');
 
     // And the promote direction: a phantom block under a fence or raw text
     // swallowed the well-formed directive after it, leaving the degenerate one.
-    const T = (...lines) => `${FM}<!-- _class: topic -->\n\n## T\n\n${lines.join('\n')}\n`;
+    const T = (...lines) => `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n${lines.join('\n')}\n`;
     for (const poisoned of [
-      T('<!-- _track: A -->', '```', '<!--', '```', '<!-- _track: X | [Y] -->'),
-      T('<!-- _track: A -->', '<pre>', '<!--', '</pre>', '<!-- _track: X | [Y] -->'),
-      T('<!-- _track: A -->', '<script>', '<!--', '</script>', '<!-- _track: X | [Y] -->'),
+      T('<!-- @meta{track=A} -->', '```', '<!--', '```', '<!-- @meta{track="X | [Y]"} -->'),
+      T('<!-- @meta{track=A} -->', '<pre>', '<!--', '</pre>', '<!-- @meta{track="X | [Y]"} -->'),
+      T('<!-- @meta{track=A} -->', '<script>', '<!--', '</script>', '<!-- @meta{track="X | [Y]"} -->'),
     ]) {
       assert.match(applied(poisoned), /X \| \[Y\]/, 'the engine applies the later directive');
       assert.equal(rule(poisoned, 'track-directive'), undefined, 'so the rule must not warn');
@@ -2376,7 +2380,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // CommonMark ends a type-1 block on `</pre>`, `</script>`, `</style>` OR `</textarea>`, whichever comes first,
     // so the engine reads the directive here. The line model never worked out whether a block closed.
     const { render } = require('../../../lib/engine');
-    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<script>\n</style>\n<!-- _track: A -->\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n<script>\n</style>\n<!-- @meta{track=A} -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');
@@ -2387,7 +2391,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // `<b>bold</b> text` is a PARAGRAPH to markdown-it (type 7 wants the tag alone on the line), so the comment under
     // it is its own token and is applied. The line model declined after any markup line; the deck model does not.
     const { render } = require('../../../lib/engine');
-    const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<b>bold</b> text\n<!-- _track: A -->\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n<b>bold</b> text\n<!-- @meta{track=A} -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');
@@ -2397,7 +2401,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
   test('a BOM and lone-CR line ends: the lint reads the engine\'s geometry, so rule 12 reads the right slide', () => {
     // The scan the rule reads normalizes; the chunk split did not, so on these sources the two numbered slides apart
     // (and a BOM hid the front matter). Every shape gives the LF answer.
-    const s = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- _track: A | B -->\n`;
+    const s = `${FM}<!-- @meta{layout=topic} -->\n\n## T\n\n<!-- @meta{track="A | B"} -->\n`;
     const of = (src) => core.lintTextWith(src, tv).filter((f) => f.rule === 'track-directive').map((f) => [f.slide, f.message]);
     const lf = of(s);
     assert.equal(lf.length, 1);
@@ -2408,7 +2412,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // One missing underscore overrides every slide after this one; the rule used
     // to say "_track does nothing on a slide that is not `topic`", which is the
     // opposite of what happens.
-    const src = `${FM}<!-- _class: divider -->\n<!-- track: Alpha | [Beta] -->\n\n## S\n`;
+    const src = `${FM}<!-- @meta{layout=divider} -->\n<!-- @meta{track="Alpha | [Beta]", carry} -->\n\n## S\n`;
     const f = rule(src, 'track-directive');
     assert.ok(f, 'expected a finding');
     assert.match(f.message, /every slide after it/);
@@ -2420,17 +2424,17 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // measured through `require('lib/engine').render` — only a comment that OPENS
     // A LINE becomes a directive, which is markdown-it's `html_block` rule.
     const inert = [
-      ['inline in a paragraph', '## T\n\nSome text <!-- _track: A -->\n'],
-      ['indented four spaces', '## T\n\n    <!-- _track: A -->\n'],
-      ['inline code', '## T\n\n`<!-- _track: A -->`\n'],
+      ['inline in a paragraph', '## T\n\nSome text <!-- @meta{track=A} -->\n'],
+      ['indented four spaces', '## T\n\n    <!-- @meta{track=A} -->\n'],
+      ['inline code', '## T\n\n`<!-- @meta{track=A} -->`\n'],
       ['nested in another comment', '<!-- outer <!-- _track: A --> tail -->\n\n## T\n'],
     ];
     for (const [what, body] of inert) {
-      const src = `${FM}<!-- _class: topic -->\n${body}`;
+      const src = `${FM}<!-- @meta{layout=topic} -->\n${body}`;
       assert.equal(rule(src, 'track-directive'), undefined, `${what} is inert to the engine`);
     }
     // …and it is NOT silent where the engine does apply one.
-    const live = `${FM}<!-- _class: topic -->\n<!-- _track: A -->\n\n## T\n`;
+    const live = `${FM}<!-- @meta{layout=topic} -->\n<!-- @meta{track=A} -->\n\n## T\n`;
     assert.match(rule(live, 'track-directive').message, /one label/);
   });
 
@@ -2438,7 +2442,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // `stripFencedCode` blanks from an UNCLOSED fence to the end of the slide, so
     // a ``` in a speaker note hid a `_track` the engine really applies — the file
     // linted clean on a slide whose track the renderer then declined to draw.
-    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n<!--\n\`\`\`\nnote\n-->\n\n<!-- _track: A -->\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## B\n\n<!--\n\`\`\`\nnote\n-->\n\n<!-- @meta{track=A} -->\n`;
     assert.match(rule(src, 'track-directive').message, /one label/);
   });
 
@@ -2446,14 +2450,14 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // A browser swallows the rest of the slide, and the engine emits no `<ul>` at
     // all — so `track-list` told the author to delete prose no reader ever sees,
     // contradicting the `unterminated-comment` finding on the same slide.
-    const src = `${FM}<!-- _class: topic -->\n\n## B\n\n<!-- oops\n\n- bullet one\n- bullet two\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## B\n\n<!-- oops\n\n- bullet one\n- bullet two\n`;
     assert.equal(rule(src, 'track-list'), undefined);
   });
 
   test('bullets inside a speaker-note comment are not a list', () => {
     // markdown-it emits no list for them, so "it renders as content" was false
     // and the fix told the author to delete prose no reader ever sees.
-    const src = `${FM}<!-- _class: topic -->\n\n## A\n\nx\n\n<!--\n- speaker point one\n- speaker point two\n-->\n`;
+    const src = `${FM}<!-- @meta{layout=topic} -->\n\n## A\n\nx\n\n<!--\n- speaker point one\n- speaker point two\n-->\n`;
     assert.equal(rule(src, 'track-list'), undefined);
   });
 });
@@ -2461,7 +2465,7 @@ describe("lint-core: the topic anchor's `_track` override", () => {
 describe('label-set-above-body — coaching, never refusal', () => {
   const vocab = { names: new Set(['matrix-grid']), modifiers: new Set() };
   const grid = (spanAbove) => [
-    '<!-- _class: matrix-grid -->', '',
+    '<!-- @meta{layout=matrix-grid} -->', '',
     '`[Wider reach, Deeper cognition]`', '',
     ...(spanAbove ? ['`[{[-], within reach}]`', ''] : []),
     '## Rubric', '',
@@ -2498,14 +2502,14 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // Without the comment blanking the note's bullet set the boundary, so the
     // key BELOW it read as below the body and the above-body coaching was lost.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
-    const src = ['<!-- _class: scatter -->', '', '<!--', '- speaker note', '-->', '',
+    const src = ['<!-- @meta{layout=scatter} -->', '', '<!--', '- speaker note', '-->', '',
       '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-above-body']);
   });
 
   test('a literal `<!--` quoted in inline code is text, not a comment', () => {
     // It used to blank the rest of the slide from the lint rules' view.
-    const src = ['<!-- _class: matrix-grid -->', '', 'Use `<!--` for notes.', '', '## Rubric', '',
+    const src = ['<!-- @meta{layout=matrix-grid} -->', '', 'Use `<!--` for notes.', '', '## Rubric', '',
       '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
@@ -2513,7 +2517,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
   test('an inline `<!--` closes only inside its paragraph, as markdown-it reads it', () => {
     // A speaker note at the end of the slide used to close a `<!--` quoted in prose
     // above the table, blanking everything between — the key below went unlinted.
-    const src = ['<!-- _class: matrix-grid -->', '', 'Type <!-- to open a note.', '', '## Rubric', '',
+    const src = ['<!-- @meta{layout=matrix-grid} -->', '', 'Type <!-- to open a note.', '', '## Rubric', '',
       '| Verb | Self |', '| --- | :--: |', '| Notice | [x] |', '', '`[{[q], met}]`', '', '<!-- n -->'].join('\n');
     assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
@@ -2525,10 +2529,10 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // The quadratic shape covers about n / 2 per character, tens of thousands here.
     const tail = '\n## H\n\n- a\n  - b `1, 2`\n';
     const decks = [
-      `<!-- _class: quadrant -->\n\n${'a <!--\n'.repeat(100000)}${tail}`,
-      `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n${tail}`,
+      `<!-- @meta{layout=quadrant} -->\n\n${'a <!--\n'.repeat(100000)}${tail}`,
+      `<!-- @meta{layout=quadrant} -->\n\n${'<!--'.repeat(100000)}\n${tail}`,
       // Many CLOSED comments on one line — the shape the second quadratic path hid in.
-      `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n${tail}`,
+      `<!-- @meta{layout=quadrant} -->\n\n${'<!-- x -->'.repeat(100000)}\n${tail}`,
     ];
     for (const deck of decks) {
       const { scanned } = scanWork(() => assertLinearRegexes(() => core.findQuadrantAxisIssues(deck)));
@@ -2560,7 +2564,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
   });
 
   test('a key with more members than axes is not called the axis — it prints as text', () => {
-    const src = ['<!-- _class: matrix-grid -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
+    const src = ['<!-- @meta{layout=matrix-grid} -->', '', '`[{[-], within reach}, {[x], met}, {[ ], out}]`', '', '## R', '',
       '| Verb | Self |', '| --- | :--: |', '| N | [x] |'].join('\n');
     const [hit] = core.lintTextWith(src, vocab).filter((f) => f.rule === 'label-set-above-body');
     assert.match(hit.message, /too many items for axes, so it shows as text/);
@@ -2570,7 +2574,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // The render's boundary is that <ul>, so the span after it is BELOW the body
     // and stays on the slide — lint must not call it an axis above the body.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
-    const src = ['<!-- _class: scatter -->', '', '> - quoted point', '',
+    const src = ['<!-- @meta{layout=scatter} -->', '', '> - quoted point', '',
       '`[{[x], Enacted}]`', '', '## H', '', '- A `{1, 2}`'].join('\n');
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule)).map((f) => f.rule), ['label-set-unbound']);
   });
@@ -2578,7 +2582,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
   test('a state-marker key above a keyless chart is still a misplaced key', () => {
     // scatter declares no key vocabulary, so the state markers stand in for it.
     const all = { names: new Set(['scatter']), modifiers: new Set() };
-    const src = '<!-- _class: scatter -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `{1, 2}`\n';
+    const src = '<!-- @meta{layout=scatter} -->\n\n`[{[x], Enacted}]`\n\n## H\n\n- A `{1, 2}`\n';
     assert.deepEqual(core.lintTextWith(src, all).filter((f) => f.rule === 'label-set-above-body').length, 1);
   });
 
@@ -2590,7 +2594,7 @@ describe('label-set-above-body — coaching, never refusal', () => {
       ['quadrant', '`[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`', '- Bets\n  - A `3, 70`'],
     ];
     for (const [cls, axis, body] of decks) {
-      const src = `<!-- _class: ${cls} -->\n\n${axis}\n\n## H\n\n${body}\n`;
+      const src = `<!-- @meta{class=${cls}} -->\n\n${axis}\n\n## H\n\n${body}\n`;
       const hits = core.lintTextWith(src, all).filter((f) => /^label-set-/.test(f.rule));
       assert.deepEqual(hits.map((h) => h.rule), [], cls);
     }
@@ -2662,7 +2666,7 @@ describe('lint-core: the CLI `--fix` writes the file in its own encoding', () =>
 
 describe('lint-core: typed crosses point at `[!]`, not the open box', () => {
   test('a typed ✗ in a state-cells table is coached toward `[!]` and the six markers', () => {
-    const src = `${FM}<!-- _class: table state-cells -->\n\n## H\n\n| A | B |\n| --- | --- |\n| x | ✗ |\n`;
+    const src = `${FM}<!-- @meta{layout=table, class=state-cells} -->\n\n## H\n\n| A | B |\n| --- | --- |\n| x | ✗ |\n`;
     const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'typed-shape-glyph');
     assert.ok(f);
     assert.match(f.fix, /`\[!\]` no/);
@@ -2707,8 +2711,8 @@ describe('lint-core: rules read the slides the engine cuts, findings keep the au
   // every finding still names the `---` chunk, because `applyFix`, the Studio rail and the
   // per-finding AI edit all index chunks.
   const TWO = (fm = '') => `---\ntheme: indaco\n${fm}---\n\n## A\n\n- **One.** body text\n\n`
-    + '## B\n\n<!-- _class: cards-grid -->\n\n- **Two.** body text\n\n---\n\n'
-    + '## C\n\n<!-- _class: cards-grid -->\n\n- **Three.** body text\n';
+    + '## B\n\n<!-- @meta{layout=cards-grid} -->\n\n- **Two.** body text\n\n---\n\n'
+    + '## C\n\n<!-- @meta{layout=cards-grid} -->\n\n- **Three.** body text\n';
   const inline = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'card-style-inline-title')
     .map((f) => [f.slide, f.line]);
 
@@ -2736,7 +2740,7 @@ describe('lint-core: rules read the slides the engine cuts, findings keep the au
   test('two slides of one chunk carrying the SAME line: the fix and the finding stay on the right one', () => {
     // The checker's case: a plain slide and a cards-grid slide share a line verbatim. The
     // finding says where its slide starts (`chunkLine`), and `applyFix` looks from there.
-    const dup = '---\ntheme: indaco\n---\n\n## A\n\n- **Same.** body\n\n<!-- _class: cards-grid -->\n\n## B\n\n- **Same.** body\n';
+    const dup = '---\ntheme: indaco\n---\n\n## A\n\n- **Same.** body\n\n<!-- @meta{layout=cards-grid} -->\n\n## B\n\n- **Same.** body\n';
     const [f] = core.lintTextWith(dup, vocab).filter((x) => x.rule === 'card-style-inline-title');
     assert.equal(f.slide, 1);
     assert.equal(f.chunkLine, 5, 'the lead-in `_class` line, where the engine opens slide B');
@@ -2749,11 +2753,11 @@ describe('lint-core: rules read the slides the engine cuts, findings keep the au
     const FMI = '---\ntheme: indaco\n---\n\n';
     const lines = (src) => inline(src).map(([, line]) => line);
     // A heading inside an HTML block is not a heading: one slide, and its class governs it.
-    assert.deepEqual(lines(`${FMI}<!-- _class: cards-grid -->\n\n# A\n\n<div>\n## B\n</div>\n\n- **One.** body\n`), ['- **One.** body']);
+    assert.deepEqual(lines(`${FMI}<!-- @meta{layout=cards-grid} -->\n\n# A\n\n<div>\n## B\n</div>\n\n- **One.** body\n`), ['- **One.** body']);
     // A setext heading opens a slide as an ATX one does.
-    assert.deepEqual(lines(`${FMI}## A\n\n- **One.** body\n\n<!-- _class: cards-grid -->\n\nB\n===\n\n- **Two.** body\n`), ['- **Two.** body']);
+    assert.deepEqual(lines(`${FMI}## A\n\n- **One.** body\n\n<!-- @meta{layout=cards-grid} -->\n\nB\n===\n\n- **Two.** body\n`), ['- **Two.** body']);
     // CRLF: the eyebrow and the `_class` still travel with the heading.
-    const crlf = `${FMI}## A\n\n- **One.** body\n\n\`eyebrow\`\n<!-- _class: cards-grid -->\n## B\n\n- **Two.** body\n`.replace(/\n/g, '\r\n');
+    const crlf = `${FMI}## A\n\n- **One.** body\n\n\`eyebrow\`\n<!-- @meta{layout=cards-grid} -->\n## B\n\n- **Two.** body\n`.replace(/\n/g, '\r\n');
     assert.deepEqual(lines(crlf), ['- **Two.** body']);
   });
 
@@ -2771,7 +2775,7 @@ describe('lint-core: list-modifier-inert', () => {
     modifiers: new Set(['takeaway', 'principles', 'numbered', 'lettered', 'roman', 'bullet']),
   };
   const li = (cls, body) =>
-    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, lVocab)
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## H\n\n${body}\n`, lVocab)
       .filter((f) => f.rule === 'list-modifier-inert');
   const UL = '- One.\n- Two.\n- Three.';
   const OL = '1. One.\n2. Two.\n3. Three.';
@@ -2807,7 +2811,7 @@ describe('lint-core: list-modifier-inert', () => {
 describe('lint-core: list-modifier-inert reads the list the renderer reads', () => {
   const lVocab = { names: new Set(['list']), modifiers: new Set(['principles', 'takeaway', 'numbered']) };
   const li = (cls, body) =>
-    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, lVocab)
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## H\n\n${body}\n`, lVocab)
       .filter((f) => f.rule === 'list-modifier-inert');
   const isUl = (f) => /this one is `-`/.test(f.message);
 
@@ -2855,7 +2859,7 @@ describe('--fix on a deck whose body opens with a separator', () => {
 
 describe('lint-core: check-label-code', () => {
   const v = { names: new Set(['verdict-grid', 'pricing', 'checklist']), modifiers: new Set() };
-  const grid = (cls, item) => `${FM}<!-- _class: ${cls} -->\n\n## Grid\n\n- Acme\n  ${item}\n  - Body.\n`;
+  const grid = (cls, item) => `${FM}<!-- @meta{class=${cls}} -->\n\n## Grid\n\n- Acme\n  ${item}\n  - Body.\n`;
   const hit = (src) => core.lintTextWith(src, v).find((f) => f.rule === 'check-label-code');
   test('inline code in a check-led criterion prints its source, so it warns', () => {
     const f = hit(grid('verdict-grid', '- [x] Residency `@check{fail}` text'));
@@ -2875,7 +2879,7 @@ describe('lint-core: list-depth-unsupported', () => {
   // the levels its manifest declares, or a second list after a line of prose. Prose layouts take any list.
   const vocab = { names: new Set(['agenda', 'cards-grid', 'list-steps', 'regulatory-update', 'content', 'kanban']), modifiers: new Set() };
   const shapes = (cls, body) =>
-    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, vocab)
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## H\n\n${body}\n`, vocab)
       .filter((f) => f.rule === 'list-depth-unsupported')
       .map((f) => `${f.severity}:${f.line}`);
 
@@ -2913,7 +2917,7 @@ describe('lint-core: list-depth-unsupported', () => {
   });
   test('a pane answers to its own layout', () => {
     const vocabP = { names: new Set(['columns', 'agenda', 'content']), modifiers: new Set() };
-    const found = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: columns -->\n\n## T\n\n<!-- _pane: agenda -->\n\n- One\n  - sub\n\n<!-- _pane: content -->\n\n- a\n  - b\n', vocabP)
+    const found = core.lintTextWith('---\nmarp: true\n---\n\n<!-- @meta{layout=columns} -->\n\n## T\n\n<!-- @meta{pane=agenda} -->\n\n- One\n  - sub\n\n<!-- @meta{pane=content} -->\n\n- a\n  - b\n', vocabP)
       .filter((f) => f.rule === 'list-depth-unsupported').map((f) => `${f.classToken}:${f.line}`);
     assert.deepEqual(found, ['agenda:- sub']);
   });

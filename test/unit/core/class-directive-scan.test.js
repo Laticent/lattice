@@ -73,30 +73,30 @@ const at = (src, lineNo) => {
 
 describe('class-directive scan — both forms, resolved as the engine resolves them', () => {
   test('a spot `_class:` governs its own slide only', () => {
-    const src = '---\nmarp: true\n---\n\n<!-- _class: kpi -->\n\n## A\n\n---\n\n## B\n';
+    const src = '---\nmarp: true\n---\n\n<!-- @meta{layout=kpi} -->\n\n## A\n\n---\n\n## B\n';
     assert.deepEqual(payloads(src), ['', '', 'kpi', '']);
   });
 
   test('a GLOBAL `class:` carries forward from its own slide to the end', () => {
     const src = ['---', 'marp: true', '---', '', '## A', '', '---', '',
-      '<!-- class: diagram dark -->', '', '## B', '', '---', '', '## C', ''].join('\n');
+      '<!-- @meta{layout=diagram, class=dark, carry} -->', '', '## B', '', '---', '', '## C', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', '', 'diagram dark', 'diagram dark']);
   });
 
   test('a spot REPLACES the running global — the whole key, not the tokens it names', () => {
-    const src = ['---', 'marp: true', '---', '', '<!-- class: diagram dark -->', '', '## A', '',
-      '---', '', '<!-- _class: closing -->', '', '## B', '', '---', '', '## C', ''].join('\n');
+    const src = ['---', 'marp: true', '---', '', '<!-- @meta{layout=diagram, class=dark, carry} -->', '', '## A', '',
+      '---', '', '<!-- @meta{layout=closing} -->', '', '## B', '', '---', '', '## C', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', 'diagram dark', 'closing', 'diagram dark']);
   });
 
   test('a later global replaces an earlier one from its own slide onward', () => {
-    const src = ['---', 'marp: true', '---', '', '<!-- class: diagram -->', '', '## A', '',
-      '---', '', '<!-- class: content -->', '', '## B', '', '---', '', '## C', ''].join('\n');
+    const src = ['---', 'marp: true', '---', '', '<!-- @meta{layout=diagram, carry} -->', '', '## A', '',
+      '---', '', '<!-- @meta{layout=content, carry} -->', '', '## B', '', '---', '', '## C', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', 'diagram', 'content', 'content']);
   });
 
   test('the LAST spot on a slide wins, matching the engine overlaying two on one slide', () => {
-    const src = '---\nmarp: true\n---\n\n<!-- _class: kpi -->\n<!-- _class: stats -->\n\n## A\n';
+    const src = '---\nmarp: true\n---\n\n<!-- @meta{layout=kpi} -->\n<!-- @meta{layout=stats} -->\n\n## A\n';
     assert.deepEqual(payloads(src), ['', '', 'stats']);
   });
 });
@@ -105,20 +105,20 @@ describe('class-directive scan — what is PROSE and not a directive', () => {
   test('a directive quoted mid-sentence does not count', () => {
     // The exact shape from #1383: the real directive is the GLOBAL form, so the
     // old `_class:`-only, first-match regex took the quoted one instead.
-    const src = ['---', 'marp: true', '---', '', '<!-- class: content -->', '', '## A', '',
-      'The docs write `<!-- _class: zzzz-not-a-component -->` when they mean "name a layout".', ''].join('\n');
+    const src = ['---', 'marp: true', '---', '', '<!-- @meta{layout=content, carry} -->', '', '## A', '',
+      'The docs write `<!-- @meta{class=zzzz-not-a-component} -->` when they mean "name a layout".', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', 'content']);
   });
 
   test('a directive inside a fenced code block does not count, and its `---` is not a boundary', () => {
-    const src = ['---', 'marp: true', '---', '', '<!-- _class: content -->', '', '## A', '',
-      '```markdown', '<!-- _class: kpi -->', '---', '```', '', 'Still slide one.', ''].join('\n');
+    const src = ['---', 'marp: true', '---', '', '<!-- @meta{layout=content} -->', '', '## A', '',
+      '```markdown', '<!-- @meta{layout=kpi} -->', '---', '```', '', 'Still slide one.', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', 'content']);
   });
 
   test('a tilde fence works too, and a shorter inner fence does not close a longer one', () => {
-    const src = ['---', 'marp: true', '---', '', '<!-- _class: content -->', '', '~~~~text',
-      '~~~', '<!-- _class: kpi -->', '~~~~', '', 'Body.', ''].join('\n');
+    const src = ['---', 'marp: true', '---', '', '<!-- @meta{layout=content} -->', '', '~~~~text',
+      '~~~', '<!-- @meta{layout=kpi} -->', '~~~~', '', 'Body.', ''].join('\n');
     assert.deepEqual(payloads(src), ['', '', 'content']);
   });
 
@@ -128,27 +128,27 @@ describe('class-directive scan — what is PROSE and not a directive', () => {
   });
 
   test('a quoted value is unquoted the way the engine unquotes it', () => {
-    const src = '---\nmarp: true\n---\n\n<!-- _class: "kpi dark" -->\n\n## A\n';
+    const src = '---\nmarp: true\n---\n\n<!-- @meta{layout=kpi, class=dark} -->\n\n## A\n';
     assert.deepEqual(payloads(src), ['', '', 'kpi dark']);
   });
 
   test('CRLF sources split and resolve identically', () => {
-    const lf = '---\nmarp: true\n---\n\n<!-- _class: kpi -->\n\n## A\n\n---\n\n## B\n';
+    const lf = '---\nmarp: true\n---\n\n<!-- @meta{layout=kpi} -->\n\n## A\n\n---\n\n## B\n';
     assert.deepEqual(payloads(lf.replace(/\n/g, '\r\n')), payloads(lf));
   });
 });
 
 describe('classDirectiveAt — the editor entry point', () => {
-  const SRC = ['---', 'marp: true', '---', '', '<!-- _class: kpi -->', '', '## A', '',
-    '---', '', '<!-- class: diagram -->', '', '## B', '', '---', '', '## C', ''].join('\n');
+  const SRC = ['---', 'marp: true', '---', '', '<!-- @meta{layout=kpi} -->', '', '## A', '',
+    '---', '', '<!-- @meta{layout=diagram, carry} -->', '', '## B', '', '---', '', '## C', ''].join('\n');
 
   test('reports the payload AND the line the winning directive sits on', () => {
-    assert.deepEqual(at(SRC, 7), { payload: 'kpi', text: '<!-- _class: kpi -->', line: 5 });
+    assert.deepEqual(at(SRC, 7), { payload: 'kpi', text: '<!-- @meta{layout=kpi} -->', line: 5 });
   });
 
   test('a slide governed by a running global points at the GLOBAL\'s line', () => {
     // Where the author has to go to change it — not at their own slide.
-    assert.deepEqual(at(SRC, 17), { payload: 'diagram', text: '<!-- class: diagram -->', line: 11 });
+    assert.deepEqual(at(SRC, 17), { payload: 'diagram', text: '<!-- @meta{layout=diagram, carry} -->', line: 11 });
   });
 
   test('null when nothing governs the cursor', () => {
@@ -157,7 +157,7 @@ describe('classDirectiveAt — the editor entry point', () => {
 
   test('a directive BELOW the cursor does not govern it', () => {
     // The contract completion has always had: "the directive above the cursor".
-    const src = '---\nmarp: true\n---\n\n## A\n\n<!-- _class: kpi -->\n';
+    const src = '---\nmarp: true\n---\n\n## A\n\n<!-- @meta{layout=kpi} -->\n';
     assert.equal(at(src, 5), null);
   });
 });
@@ -282,11 +282,15 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
     // Over each deck's directive-comment form: the corpus is written in records since the meta sweep (slice D), and the
     // historical reader read only comments.
     const wrong = [];
-    for (const { rel, legacy: src } of decks) {
-      const spans = slideClassSpans(src).spans.map((s) => s.slideClass);
+    // The new reader runs on the deck as written (records, the only form the engine reads since the cut, slice E); the
+    // historical one on the same deck in comments, the only form it could read. Same slides, so the chunks line up.
+    for (const { rel, src: records, legacy: src } of decks) {
+      const spans = slideClassSpans(records).spans.map((s) => s.slideClass);
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
       for (let i = 2; i < chunks.length; i++) {
+        // A deck still written in old comments (one outside the sweep) is read as the engine reads it: as nothing.
+        if (/<!--\s*_?class\s*:/.test(splitTopLevel(records)[i] ?? '')) continue;
         if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1, chunk: chunks[i] });
       }
     }
@@ -305,8 +309,9 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
 });
 
 describe('what counts as the START of a line, against the real engine', () => {
-  // A directive nested in a container is still a directive: markdown-it opens the
-  // `html_block` INSIDE a blockquote or a list item, and the engine reads it. The
+  // A RECORD nested in a container is not read (record note D1): markdown-it opens the `html_block` inside a blockquote
+  // or a list item, and the door reads only a top-level one. (The old comment there was read; since the cut, slice E,
+  // no comment is.) The
   // reader this module replaced matched those (it ran unanchored over a chunk), so
   // requiring column 0 was narrower than what shipped — and silently, because a
   // slide with no resolved class is skipped by every lint rule.
@@ -317,18 +322,18 @@ describe('what counts as the START of a line, against the real engine', () => {
   // asserted here rather than assumed.
   const engine = require('../../../lib/engine');
   const CASES = [
-    ['> <!-- _class: kpi -->', true, 'blockquote'],
-    ['>> <!-- _class: kpi -->', true, 'nested blockquote, no inner space'],
-    ['> > <!-- _class: kpi -->', true, 'spaced nested blockquote'],
-    ['<!-- _class: kpi -->', true, 'plain'],
-    ['- <!-- _class: kpi -->', true, 'list item'],
-    ['* <!-- _class: kpi -->', true, 'star list item'],
-    ['1. <!-- _class: kpi -->', true, 'ordered list item'],
-    ['prose <!-- _class: kpi -->', false, 'mid-sentence is prose'],
-    ['- `<!-- _class: kpi -->`', false, 'quoted in inline code is prose'],
-    ['\t<!-- _class: kpi -->', false, 'tab indent is a code block'],
-    ['    <!-- _class: kpi -->', false, 'four-space indent is a code block'],
-    ['-<!-- _class: kpi -->', false, 'no space after the dash is not a list item'],
+    ['> <!-- @meta{layout=kpi} -->', false, 'blockquote'],
+    ['>> <!-- @meta{layout=kpi} -->', false, 'nested blockquote, no inner space'],
+    ['> > <!-- @meta{layout=kpi} -->', false, 'spaced nested blockquote'],
+    ['<!-- @meta{layout=kpi} -->', true, 'plain'],
+    ['- <!-- @meta{layout=kpi} -->', false, 'list item'],
+    ['* <!-- @meta{layout=kpi} -->', false, 'star list item'],
+    ['1. <!-- @meta{layout=kpi} -->', false, 'ordered list item'],
+    ['prose <!-- @meta{layout=kpi} -->', false, 'mid-sentence is prose'],
+    ['- `<!-- @meta{layout=kpi} -->`', false, 'quoted in inline code is prose'],
+    ['\t<!-- @meta{layout=kpi} -->', false, 'tab indent is a code block'],
+    ['    <!-- @meta{layout=kpi} -->', false, 'four-space indent is a code block'],
+    ['-<!-- @meta{layout=kpi} -->', false, 'no space after the dash is not a list item'],
   ];
 
   for (const [line, isDirective, label] of CASES) {
@@ -365,9 +370,9 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
   // agreed that it DID, which was two copies of the same mistake.
   test('a `---` inside a multi-line comment is not a boundary, on either side', () => {
     const src = [
-      '# One', '', '---', '', '<!-- _class: kpi -->', '', '## Two', '', '---', '',
+      '# One', '', '---', '', '<!-- @meta{layout=kpi} -->', '', '## Two', '', '---', '',
       '<!--', 'commented out for now:', '', '---', '', '## Dropped', '', '-->', '',
-      '<!-- _class: quote -->', '', '## Four', '',
+      '<!-- @meta{layout=quote} -->', '', '## Four', '',
     ].join('\n');
     const dirs = slideClassDirectives(src);
     const chunks = splitTopLevel(src);
@@ -399,8 +404,8 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
   ];
   for (const [sep, label] of SEPARATORS) {
     test(`a separator written as ${label} pairs the class with its own slide`, () => {
-      const src = ['<!-- _class: kpi -->', '', '# One', '', sep, '',
-        '<!-- _class: quote -->', '', '# Two', ''].join('\n');
+      const src = ['<!-- @meta{layout=kpi} -->', '', '# One', '', sep, '',
+        '<!-- @meta{layout=quote} -->', '', '# Two', ''].join('\n');
       const dirs = slideClassDirectives(src);
       const chunks = splitTopLevel(src);
       assert.equal(sectionCount(src), 2, `the engine must break on ${JSON.stringify(sep)}`);
@@ -412,7 +417,7 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
 
   test('a setext underline is a heading, so both readers keep one slide', () => {
     // The divergence of opposite sign: `/^---$/m` split here and the engine does not.
-    const src = ['<!-- _class: kpi -->', '', 'Interlude', '---', '', 'body', ''].join('\n');
+    const src = ['<!-- @meta{layout=kpi} -->', '', 'Interlude', '---', '', 'body', ''].join('\n');
     assert.equal(sectionCount(src), 1, 'a `---` under a paragraph line is a setext underline');
     assert.equal(splitTopLevel(src).length, 1);
     assert.deepEqual(slideClassDirectives(src).map((d) => d.payload), ['kpi']);
@@ -448,7 +453,9 @@ describe('the comment END mirrors markdown-it, not the HTML spec', () => {
   // So the agreement is pinned here against the REAL engine rather than asserted
   // in a comment: whatever markdown-it does with `--!>`, this reader does too.
   const engine = require('../../../lib/engine');
-  const deck = (close) => `---\nmarp: true\ntheme: indaco\n---\n\n<!--\n_class: kpi\n${close}\n\n## Head\n\ntext\n`;
+  // A record wrapped before its brace closes, so the comment's END sits on a line of its own (the cut, slice E: a
+  // record is the only form either reader reads).
+  const deck = (close) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- @meta{layout=kpi\n}\n${close}\n\n## Head\n\ntext\n`;
   const sectionClass = (src) => (engine.render(src).html.match(/<section[^>]*\sclass="([^"]*)"/) || [])[1] || '';
 
   for (const close of ['-->', '--!>']) {
@@ -539,9 +546,9 @@ describe('cost — this runs on every keystroke', () => {
 describe('classEntries — every class setting, comment or record', () => {
   const { classEntries } = require('../../../lib/core/class-entries.mjs');
   test('a comment deck and its record twin give the same entries, fences skipped', () => {
-    const deck = (a, b) => `---\nmarp: true\n---\n\n${a}\n# A\n\n---\n\n${b}\n# B\n\n\`\`\`\n<!-- _class: fenced -->\n\`\`\`\n`;
+    const deck = (a, b) => `---\nmarp: true\n---\n\n${a}\n# A\n\n---\n\n${b}\n# B\n\n\`\`\`\n<!-- @meta{class=fenced} -->\n\`\`\`\n`;
     const pick = (es) => es.map(({ slide, value, spot }) => ({ slide, value, spot }));
-    const comments = classEntries(deck('<!-- _class: cards dark -->', '<!-- class: lead -->'));
+    const comments = classEntries(deck('<!-- @meta{class=cards dark} -->', '<!-- @meta{class=lead, carry} -->'));
     const records = classEntries(deck('<!-- @meta{layout=cards, class=dark} -->', '<!-- @meta{class=lead, carry} -->'));
     assert.deepEqual(pick(comments), [{ slide: 2, value: 'cards dark', spot: true }, { slide: 3, value: 'lead', spot: false }]);
     assert.deepEqual(pick(records), pick(comments));
@@ -558,11 +565,11 @@ describe('classEntries — every class setting, comment or record', () => {
 describe('slideClassValue — one slide, as the engine resolves it', () => {
   const { slideClassValue } = require('../../../lib/core/class-entries.mjs');
   test('a comment, a record, the bare record and last-wins all read as the engine does', () => {
-    assert.equal(slideClassValue('<!-- _class: kpi wide -->\n# X'), 'kpi wide');
+    assert.equal(slideClassValue('<!-- @meta{layout=kpi, class=wide} -->\n# X'), 'kpi wide');
     assert.equal(slideClassValue('<!-- @meta{layout=kpi, footer=Q3} -->\n# X'), 'kpi');
-    assert.equal(slideClassValue('<!-- {layout=kpi} -->\n# X'), 'kpi');
-    assert.equal(slideClassValue('<!-- class: a -->\n<!-- _class: b -->\n# X'), 'b');
-    assert.equal(slideClassValue('<!-- _class: b -->\n<!-- @meta{layout=a} -->\n# X'), 'a');
+    assert.equal(slideClassValue('<!-- @meta{layout=kpi} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- @meta{class=a, carry} -->\n<!-- @meta{class=b} -->\n# X'), 'b');
+    assert.equal(slideClassValue('<!-- @meta{class=b} -->\n<!-- @meta{layout=a} -->\n# X'), 'a');
     assert.equal(slideClassValue('# no class'), '');
   });
   test('a comment that sets two directives: the engine gives the footer the rest, so there is no class', () => {

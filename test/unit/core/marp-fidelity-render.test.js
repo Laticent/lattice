@@ -679,7 +679,7 @@ const PROBES = {
     // this probe supplies that fetch, which is the plumbing that made the row look
     // un-probeable. It is the only reason it sat in AWAITING_PROBE.
     body: '## Title\n\nBody.',
-    deck: ['---', 'theme: indaco', 'class: dark', '---', '', '<!-- _class: content -->', '', '## Title', '', 'Body.'].join('\n'),
+    deck: ['---', 'theme: indaco', 'class: dark', '---', '', '<!-- @meta{layout=content} -->', '', '## Title', '', 'Body.'].join('\n'),
     frontMatter: ['---', 'theme: indaco', 'class: dark', '---', '', '## Title', '', 'Body.', ''].join('\n'),
     // SORTED, and that is load-bearing. Measured, the engine emits `content dark
     // form` and the runtime `content form dark` — the same set applied in a different
@@ -694,7 +694,7 @@ const PROBES = {
     min: 3,
     section: 'content with-progress silent',
     body: '## Title\n\nBody.',
-    deck: ['---', 'theme: indaco', 'class: no-progress no-pagination', '---', '', '<!-- _class: content with-progress silent -->', '', '## Title', '', 'Body.'].join('\n'),
+    deck: ['---', 'theme: indaco', 'class: no-progress no-pagination', '---', '', '<!-- @meta{layout=content, class=with-progress silent} -->', '', '## Title', '', 'Body.'].join('\n'),
     frontMatter: ['---', 'theme: indaco', 'class: no-progress no-pagination', '---', '', '## Title', '', 'Body.', ''].join('\n'),
     probe: (doc) => [...doc.querySelectorAll('section')].flatMap((sec) =>
       [...sec.classList].filter((c) => /^(no|with)-|^silent$/.test(c)).sort()),
@@ -706,8 +706,8 @@ const PROBES = {
     min: 2,
     section: 'content',
     body: '## Stripped.',
-    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- _class: content -->', '', '## Stripped.', '', '### Sub *head.*', '',
-      '---', '', '<!-- _class: content with-period -->', '', '## Added'].join('\n'),
+    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- @meta{layout=content} -->', '', '## Stripped.', '', '### Sub *head.*', '',
+      '---', '', '<!-- @meta{layout=content, class=with-period} -->', '', '## Added'].join('\n'),
     frontMatter: ['---', 'theme: indaco', 'class: no-period', '---', '', '## Stripped.', ''].join('\n'),
     markup: [
       `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${marpShaped('content', '## Stripped.\n\n### Sub *head.*')}</foreignObject></svg>`,
@@ -720,7 +720,7 @@ const PROBES = {
     min: 1,
     section: 'content with-period',
     body: '## Added',
-    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- _class: content with-period -->', '', '## Added', '', '## Asked?'].join('\n'),
+    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- @meta{layout=content, class=with-period} -->', '', '## Added', '', '## Asked?'].join('\n'),
     frontMatter: ['---', 'theme: indaco', 'class: no-period', '---', '', '## Added', ''].join('\n'),
     markup: `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${marpShaped('content with-period', '## Added\n\n## Asked?')}</foreignObject></svg>`,
     probe: (doc) => [...doc.querySelectorAll('h2')].map((h) => h.textContent.trim()),
@@ -838,7 +838,7 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
       // ONE body, two renderings. `deck` and `markup` are derived unless a probe
       // overrides them — `deck` when the claim needs front matter, `markup` when the
       // runtime legitimately receives something different from what the author wrote.
-      const deck = spec.deck || `<!-- _class: ${spec.section} -->\n\n${spec.body}`;
+      const deck = spec.deck || `<!-- @meta{class=${spec.section}} -->\n\n${spec.body}`;
       const markup = spec.markup || marpShaped(spec.section, spec.body);
       const engineOut = spec.probe(renderEngine(deck));
       // THE FLOOR MUST COUNT THE THING THE ROW IS ABOUT, not the probe's whole output.

@@ -54,7 +54,7 @@ const CENSUS = [
   ['lib/authoring/prose-budgets.js', S, 'a strip that removes a class comment from the word count; needs a character span the scan does not report'],
   ['lib/authoring/review-core.js', S, 'class read is the shared slideClassDirectives; the rest strips or skips comments'],
   // ── Core, engine, render path ───────────────────────────────────────────
-  ['lib/conformance/kinds/component.contract.js', M, 'galleryRealizes reads _class and _footer through readDirectiveComment'],
+  ['lib/conformance/kinds/component.contract.js', M, 'galleryRealizes reads a record\'s class and footer through readSettingEntries (§15, slice E)'],
   ['lib/core/auto-split.js', S, 'deckChromeFrom reads front matter only since 2026-10-20: a plain header: or footer: comment is the slide\'s own (SLIDE_ONLY_KEYS), so no comment directive is deck chrome'],
   ['lib/core/bg-image-lift.js', M, 'parses each comment with readDirectiveComment (the Marp export\'s lift, moved out of bg-image.js)'],
   ['lib/core/chart-narration.js', M, 'spot class read through commentBodies and readDirectiveComment'],

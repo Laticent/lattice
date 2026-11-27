@@ -9,7 +9,7 @@ const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
 
 const vocab = buildVocab(loadAll(path.join(__dirname, '../../../lib/components')));
-const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
+const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A\n\n${body}\n`;
 const found = (src) => lintCore.lintTextWith(src, vocab).filter((f) => f.rule === 'chart-series-name-inconsistent');
 
 const CHARTS = ['bar', 'line', 'stacked-bar', 'slope', 'radar'];
@@ -88,7 +88,7 @@ describe('review findings (checker, 2026-10-22)', () => {
     }
   });
   test('Fix all does not stall: a second slide still gets fixed', () => {
-    const slide2 = (cls, body) => `<!-- _class: ${cls} -->\n\n## B\n\n${body}\n`;
+    const slide2 = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n## B\n\n${body}\n`;
     const two = `${deck('bar', '- A\n  - Net Revenue `{1}`\n  - Cost `{9}`\n- B\n  - net  revenue `{2}`\n  - Cost `{8}`')}\n---\n\n${slide2('bar', '- A\n  - Licenses `{1}`\n  - Cost `{9}`\n- B\n  - Licences `{2}`\n  - Cost `{8}`')}`;
     assert.equal(found(two).length, 2, 'both slides are flagged');
     assert.equal(found(fixes(two)).length, 0);

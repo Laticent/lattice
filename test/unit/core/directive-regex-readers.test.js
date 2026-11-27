@@ -108,7 +108,6 @@ function readersIn(file, rawText) {
 
 // [file, count, kind, reason]. Keep it sorted by file.
 const ALLOWED = [
-  ['docs/src/components/studio/Editor.tsx', 1, 'guard', "the editor's FALLBACK underline for an unknown `_class` name, used only when the lint core has not loaded; the real lint (lint-core.js `meta-record`, slice B) reports an unknown layout in a record"],
   ['docs/src/components/studio/StudioMap.tsx', 1, 'guard', "a poster cache key: every carried (running-global) comment text before a slide; over-matching only retires a poster early, and `CARRIED_RECORD` beside it adds a record's `carry`"],
   ['docs/src/components/studio/architect-agent.ts', 1, 'guard', "normalizes a component name the model passes to a tool, which may arrive as a pasted directive; it strips a `_class:` or an `@meta{layout=` prefix, and reads no slide"],
   ['docs/src/components/studio/pane-probe.ts', 1, 'guard', "a cheap over-matching pane probe with its record arm, held to meta-door `parsePaneMarker` by pane-probe.test.ts (design \u00a75.4.1)"],
@@ -116,13 +115,13 @@ const ALLOWED = [
   ['docs/src/lib/compose/comment-block.ts', 2, 'guard', "Compose's security guard: refuses any pasted `_name`, `{` or `@meta{` comment, a strict pane marker excepted; slice C owns Compose and its pane marker form"],
   ['docs/src/lib/compose/deck-doc.ts', 1, 'guard', "a shape check that a directive line joined into the source cannot open a boundary or a front-matter fence; it reads no value"],
   ['docs/src/lib/compose/deck-source.ts', 2, 'grammar', "Compose's directive-line finder (records included) and the global-scope test of a comment the walk already parsed through meta-edit `commentReadings`"],
-  ['docs/src/lib/compose/image-objects.ts', 2, 'writer', "Compose rewrites a slide's class comment when a picture is placed (only when the comment holds the class alone), and skips `_` comments when it reads a running global class; slice C moves Compose's writers to the record"],
+  ['docs/src/lib/compose/image-objects.ts', 1, 'writer', "Compose rewrites a slide's class comment when a picture is placed (only when the comment holds the class alone), and skips `_` comments when it reads a running global class; slice C moves Compose's writers to the record"],
   ['docs/src/lib/compose/markdown-clipboard.ts', 1, 'guard', "a paste heuristic, 'does this text look like Markdown': a directive or an `@name{` comment is one signal among many; it reads no value"],
   ['docs/src/lib/compose/pane-model.ts', 1, 'writer', "tells a directive line from a pane pill in a component skeleton when Compose builds a pane; slice C writes the skeletons and decides their record form"],
   ['docs/src/lib/compose/raw-block.ts', 1, 'guard', "a security guard: a foreign page's raw block may not set slide attributes with a `_` directive comment (comment-block.ts refuses records)"],
   ['docs/src/pages/index.astro', 1, 'guard', "a syntax-highlight hint on the home page's hero source: it colors the class line, a `_class` comment or a `@meta{` record; the hero's class itself is read through class-entries `slideClassValue`"],
   ['docs/src/playground/context-sources.js', 1, 'cursor', "value completion for the directive key typed on the cursor's line, inside an unclosed comment; slice B owns completion (record values: `recordCompletion`)"],
-  ['docs/src/playground/single-slide-render.ts', 4, 'guard', "raw, over-matching probes that decide whether a preview needs the whole deck; each has its record arm (`recordHasWord`, the `carry` probe), pinned by single-slide-render.deck-context.test.ts"],
+  ['docs/src/playground/single-slide-render.ts', 2, 'guard', "raw, over-matching probes that decide whether a preview needs the whole deck; each has its record arm (`recordHasWord`, the `carry` probe), pinned by single-slide-render.deck-context.test.ts"],
   ['docs/src/playground/slide-context.js', 4, 'cursor', "completion triggers on the line before the cursor, inside an unclosed `_class:`, `_focusStyle:` or `_focus:` comment; slice B owns completion (records: `recordCompletion`)"],
   ['engineering/decisions/2026-10-17-meta-syntax-bakeoff/slides.mjs', 1, 'research', "the syntax bake-off's frozen sampler, the companion of a dated decision note; it reproduces a measurement on the corpus as it stood and ships nothing"],
   ['kit/vscode/extension.js', 1, 'cursor', "the VS Code extension's class-name completion on the line being typed, inside an unclosed comment; slice B owns completion"],
@@ -132,7 +131,7 @@ const ALLOWED = [
   ['lib/core/agenda-autofill.js', 1, 'internal', "the engine's agenda fill adds class words to the slide's comment after the door; a record arrives as `lat-meta` and is handled by `readInternal` beside it"],
   ['lib/core/bake-splits.js', 1, 'internal', "de-duplicates the `<!-- _hide: \u2026 -->` line the split bake itself writes; it reads its own output"],
   ['lib/core/meta-class-line.mjs', 1, 'writer', "finds an old `<!-- _class: … -->` line to rewrite it as a record; a regex, because this module reaches the engine bundle through the image plugin's `ctx.meta` and the shared scan would pull the lint core's boundary parser in with it; the corpus sweep (slice D) retires the old form"],
-  ['lib/core/meta-door.mjs', 1, 'grammar', "the shared door: `recordsToComments` writes a record back as the directive comments Marp reads, and reads its own output to quote a YAML value"],
+  ['lib/core/meta-door.mjs', 2, 'grammar', "the shared door: `recordsToComments` writes a record back as the directive comments Marp reads, and reads its own output to quote a YAML value; `MAY_NEED_DOOR` is the door's fast path, which since the cut (slice E) also matches an old setting comment so the door can blank it (a guard: a miss only skips the door on a deck with nothing for it)"],
   ['lib/core/pane-spec.js', 6, 'grammar', "the shared pane marker and layout grammar (`parseMarker`, `classOf`, which reads a record through meta-door `readRecord`) and the engine's internal `lat-pane` forms"],
   ['lib/core/panes.js', 2, 'internal', "the pane carve runs on tokens after `lattice_meta_expand`, so a record is already the `_class` directive block it reads (design \u00a75.4.1)"],
   ['lib/core/style-markdown-scan.mjs', 1, 'guard', "a style-needs HINT read from source; a miss costs one second render. Its record arm reads `@meta{\u2026}` values beside it (style-needs-markdown.test.js)"],

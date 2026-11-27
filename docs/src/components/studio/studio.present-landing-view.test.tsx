@@ -22,10 +22,10 @@ vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () =>
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 // A 4-slide deck whose 2nd and 4th slides are the members of `brief`.
 const slides = [
-	'<!-- _class: title -->\n\n# Cover',
-	'<!-- _class: kpi -->\n<!-- _lens: brief -->\n\n# The number',
-	'<!-- _class: quote -->\n\n# Appendix',
-	'<!-- _class: closing -->\n<!-- _lens: brief -->\n\n# The ask',
+	'<!-- @meta{layout=title} -->\n\n# Cover',
+	'<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n\n# The number',
+	'<!-- @meta{layout=quote} -->\n\n# Appendix',
+	'<!-- @meta{layout=closing} -->\n<!-- @meta{lens=brief} -->\n\n# The ask',
 ];
 
 /** Front matter with `brief` defined, optionally approved, and an optional `lens-default:` scalar. */

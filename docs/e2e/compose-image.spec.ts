@@ -13,7 +13,7 @@ import { CHROME, expect, gotoStudio, livePreview, studioUndo, test } from './stu
  */
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Photos',
 	'',
@@ -67,7 +67,7 @@ test.describe('compose images', () => {
 	// served from the Studio's own folder, so drawing it reaches no other site (owner, 2026-11-17).
 	test('@crosswidth @webkit-phone sample art is drawn as the picture, not a box that names it', async ({ page }) => {
 		await gotoStudio(page);
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A face', '', '![](sample:portrait-ada.svg)'].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## A face', '', '![](sample:portrait-ada.svg)'].join('\n'));
 		const face = page.locator('.cs-img-btn img').first();
 		await expect(face).toBeVisible();
 		await expect.poll(() => face.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBeGreaterThan(0);
@@ -78,13 +78,13 @@ test.describe('compose images', () => {
 		await gotoStudio(page);
 		// Built, not written whole: test/unit/core/sample-images.test.js fails on any literal `sample:` name with no file.
 		const typo = ['sample:', 'portrait-nobody.svg'].join('');
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', `![](${typo})`].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## A typo', '', `![](${typo})`].join('\n'));
 		await expect(page.locator('.cs-img-stand')).toContainText('portrait-nobody.svg');
 		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
 	});
 
 	test('a photo the Library does not hold is a stand-in that names it, not a broken image', async ({ page }) => {
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## Lost', '', '![Gone](asset:never-added)'].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## Lost', '', '![Gone](asset:never-added)'].join('\n'));
 		await expect(page.locator('.cs-img-missing')).toContainText('never-added');
 		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
 	});
@@ -122,7 +122,7 @@ test.describe('compose images', () => {
 
 	test('@smoke Add a photo in the picker imports through the Library flow and picks the new photo', async ({ page }) => {
 		// A new author: the Library is empty, so the picker offers the upload itself.
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## New', '', 'Words.'].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## New', '', 'Words.'].join('\n'));
 		await insertVia(page, 'Image');
 		await expect(picker(page)).toBeVisible();
 		await expect(picker(page)).toContainText('Your Library has no photos yet');
@@ -146,14 +146,14 @@ test.describe('compose images', () => {
 	});
 
 	test('Placement sets the SLIDE\'s class and never writes `![bg]`; an old `![bg]` picture loses its keywords @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
-		const ONE = ['<!-- _class: content -->', '', '## A forest', '', 'Words beside it.', '', '![bg right:40% blur](asset:forest "Pines at dusk")'].join('\n');
+		const ONE = ['<!-- @meta{layout=content} -->', '', '## A forest', '', 'Words beside it.', '', '![bg right:40% blur](asset:forest "Pines at dusk")'].join('\n');
 		await openWithPhotos(page, ONE);
 		await page.getByRole('button', { name: 'Edit image written with Marp\'s retired bg keyword' }).click();
 		await expect(panel(page).getByRole('textbox', { name: 'Description' })).toHaveCount(0);
 		// The engine draws it in the text now, and the control says so; a placement turns it into the slide's photo.
 		await expect(panel(page).getByRole('radio', { name: 'Placement: In the text' })).toHaveAttribute('aria-checked', 'true');
 		await panel(page).getByRole('radio', { name: 'Placement: Left side' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- @meta{layout=image, class=mirror} -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
+		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- @meta{layout=content} -->', '<!-- @meta{layout=image, class=mirror} -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
 		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Left$/);
 		// The preview draws it as the slide's photo panel, on the left.
 		await expect(livePreview(page).locator('section.image .lattice-bg-left[data-lattice-media="image"]').first()).toBeAttached({ timeout: 30_000 });
@@ -169,7 +169,7 @@ test.describe('compose images', () => {
 	// mid-flow at 390 px). Same steps and assertions at every width, each on its own budget.
 	for (const width of [1440, 820, 390]) {
 		test(`the Placement control at ${width}px: ${width === 390 ? 'a phone opens Compose its own way, and ' : ''}the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }) => {
-			const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
+			const ONE = ['<!-- @meta{layout=image} -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
 			await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
 			await openDeckInCompose(page, ONE);
 			await page.getByRole('button', { name: 'Edit image: A lake' }).click();
@@ -191,12 +191,12 @@ test.describe('compose images', () => {
 	});
 
 	test('@smoke the Image door picks from the Library and puts the photo on the slide in a paragraph of its own', async ({ page }) => {
-		await openWithPhotos(page, ['<!-- _class: content -->', '', '## Photos', '', 'Some words here.'].join('\n'));
+		await openWithPhotos(page, ['<!-- @meta{layout=content} -->', '', '## Photos', '', 'Some words here.'].join('\n'));
 		await page.locator('.cs-slide-content p').first().click();
 		await insertVia(page, 'Image');
 		await expect(picker(page)).toBeVisible();
 		await picker(page).getByRole('button', { name: 'Photo harbor' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(['<!-- _class: content -->', '', '## Photos', '', 'Some words here.', '', '![Harbor](asset:harbor)'].join('\n'));
+		await expect.poll(() => savedDeck(page)).toBe(['<!-- @meta{layout=content} -->', '', '## Photos', '', 'Some words here.', '', '![Harbor](asset:harbor)'].join('\n'));
 		// The panel is open on the new image, so the description is one tap away.
 		await expect(panel(page)).toBeVisible();
 		await expect(panel(page).getByRole('textbox', { name: 'Description' })).toHaveValue('Harbor');
@@ -219,7 +219,7 @@ test.describe('compose images', () => {
 	});
 
 	test('an empty Library says so and offers the Library', async ({ page }) => {
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## Photos', '', 'Some words here.'].join('\n'));
+		await openDeckInCompose(page, ['<!-- @meta{layout=content} -->', '', '## Photos', '', 'Some words here.'].join('\n'));
 		await page.locator('.cs-slide-content p').first().click();
 		await insertVia(page, 'Image');
 		await expect(picker(page).getByText('Your Library has no photos yet')).toBeVisible();
@@ -229,7 +229,7 @@ test.describe('compose images', () => {
 	});
 
 	test('a locked slide takes no image: the door says so', async ({ page }) => {
-		await openWithPhotos(page, ['<!-- _class: content -->', '', '## Locked', '', 'Has ~~old~~ words.'].join('\n'));
+		await openWithPhotos(page, ['<!-- @meta{layout=content} -->', '', '## Locked', '', 'Has ~~old~~ words.'].join('\n'));
 		await page.locator('.cs-slide-content p').first().click();
 		await page.locator('.cs-slide-active').getByRole('button', { name: 'Insert', exact: true }).click();
 		await expect(page.getByRole('menuitem', { name: /^Image/ })).toHaveAttribute('data-disabled', '');

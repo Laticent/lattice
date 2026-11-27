@@ -169,7 +169,7 @@ const CASES = [
     what: 'matrix-2x2 · the quadrant list',
     note: '448.78px list in a 438.22px stage, both bottom quadrants 10.56px out, ink 18.11px inside',
     mode: 'full',
-    dense: `<!-- _class: matrix-2x2 -->
+    dense: `<!-- @meta{layout=matrix-2x2} -->
 
 ## Dense: three items a cell.
 
@@ -189,7 +189,7 @@ const CASES = [
   - Rewrite the console
   - Custom reporting
   - Migrate the wiki`,
-    overstuffed: `<!-- _class: matrix-2x2 -->
+    overstuffed: `<!-- @meta{layout=matrix-2x2} -->
 
 ## Overstuffed: four quadrants at three times the ceiling.
 
@@ -227,7 +227,7 @@ const CASES = [
     what: 'statute-stack · the three rails',
     note: '446.63px row in a 438.22px stage, ALL THREE rails 8.41px out, ink 21.66px inside',
     mode: 'full',
-    dense: `<!-- _class: statute-stack -->
+    dense: `<!-- @meta{layout=statute-stack} -->
 
 ## Dense rail: three jurisdictions.
 
@@ -240,7 +240,7 @@ const CASES = [
 - Local \`NYC §22-1201\`
   - Annual bias audit of any automated employment decision tool, published before the tool is used on a candidate in the city.
   - \`Effective 2023\``,
-    overstuffed: `<!-- _class: statute-stack -->
+    overstuffed: `<!-- @meta{layout=statute-stack} -->
 
 ## Overstuffed rail: three jurisdictions at four times the ceiling.
 
@@ -265,7 +265,7 @@ const CASES = [
     what: 'policy-recommendation · the rationale list',
     note: 'the list held 282.56px against a 276.12px share and pushed the ask bar 6.44px out, ink 14.56px inside',
     mode: 'full',
-    dense: `<!-- _class: policy-recommendation adopt -->
+    dense: `<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 ## Three reasons, one-line impact — the brief fits.
 
@@ -279,7 +279,7 @@ Fifty state regimes bind the same scoring model.
   - The state duties retire without lowering the bar \`Title III\`.
 
 > Co-sponsor the deployer-duties title in § 4.`,
-    overstuffed: `<!-- _class: policy-recommendation oppose -->
+    overstuffed: `<!-- @meta{layout=policy-recommendation, class=oppose} -->
 
 ## Ten reasons — genuinely cannot fit.
 
@@ -313,7 +313,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
     what: 'citation-card pull-quote · the hero quote',
     note: 'a 294px quote where the stage could give it 249.50px pushed the gloss 44.50px out, with 15.17px of the gloss text outside the clip',
     mode: 'full',
-    dense: `<!-- _class: citation-card pull-quote -->
+    dense: `<!-- @meta{layout=citation-card, class=pull-quote} -->
 
 ## pull-quote, long clause, long action.
 
@@ -323,7 +323,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
 
 - **What we must do.**
   - Audit pixel inventory; treat household identifiers as personal information in every DSAR workflow we run, and treat every derived score as an inference inside the same store.`,
-    overstuffed: `<!-- _class: citation-card pull-quote -->
+    overstuffed: `<!-- @meta{layout=citation-card, class=pull-quote} -->
 
 ## pull-quote, overstuffed — genuinely cannot fit.
 
@@ -339,7 +339,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
     what: 'citation-card split · the centered gloss',
     note: 'head loss: the gloss sat 25.02px above the stage top with 21.02px of text gone',
     mode: 'head',
-    dense: `<!-- _class: citation-card split -->
+    dense: `<!-- @meta{layout=citation-card, class=split} -->
 
 ## split, two glosses plus two lines.
 
@@ -351,7 +351,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
   - Data-for-service swaps and ad-tech cookie syncs can qualify as sales even when no money changes hands at all.
 - The verb list is deliberately exhaustive.
   - "Making available" reaches a read-only API key and a shared bucket, so an integration that never sends a byte can still be a sale.`,
-    overstuffed: `<!-- _class: citation-card split -->
+    overstuffed: `<!-- @meta{layout=citation-card, class=split} -->
 
 ## split, gloss-heavy — genuinely cannot fit.
 
@@ -373,7 +373,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
     what: 'cycle · the ring',
     note: 'head loss: a 471.94px ring in a 400.44px stage centered, 35.75px off EACH edge, 16.75px of text gone off the top',
     mode: 'head',
-    dense: `<!-- _class: cycle -->
+    dense: `<!-- @meta{layout=cycle} -->
 
 \`Framework · Rung D\`
 
@@ -389,7 +389,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
   - Write the rationale in one sentence that survives being read aloud, and capture the dissent by name.
 - Calibrate
   - Feed the observed outcome back as the next weight, log the delta, then sense again next cycle.`,
-    overstuffed: `<!-- _class: cycle -->
+    overstuffed: `<!-- @meta{layout=cycle} -->
 
 \`Framework · Overstuffed control\`
 
@@ -424,7 +424,7 @@ const HEAD_CASES = [
     key: 'policy-recommendation-head',
     what: 'policy-recommendation · six reasons',
     note: 'reverted to bare `center`, 103.50px of real text sits above the stage top',
-    sample: `<!-- _class: policy-recommendation adopt -->
+    sample: `<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 ## Six reasons, one-line impact.
 
@@ -449,7 +449,7 @@ Fifty state regimes bind the same scoring model.
     key: 'citation-card-pull-quote-head',
     what: 'citation-card pull-quote · a quote at the ceiling',
     note: 'reverted to bare `center`, 30.14px of real text sits above the stage top',
-    sample: `<!-- _class: citation-card pull-quote -->
+    sample: `<!-- @meta{layout=citation-card, class=pull-quote} -->
 
 ## pull-quote at the ceiling.
 
@@ -465,7 +465,7 @@ Fifty state regimes bind the same scoring model.
     what: 'statute-stack preemption · four cards',
     note: 'reverted to bare `center`, 53.53px of real text sits above the stage top; '
       + 'the same deck unclamped put all 125.97px of its loss out the BOTTOM, where it is visible',
-    sample: `<!-- _class: statute-stack preemption -->
+    sample: `<!-- @meta{layout=statute-stack, class=preemption} -->
 
 ## preemption marks which law yields, at density.
 

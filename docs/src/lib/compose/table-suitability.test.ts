@@ -16,7 +16,7 @@ import { slideTakesTable, TABLE_UNSUITED_NAMES } from './registers';
 // Hand-written also means it can rot — a component gets renamed or retired and its entry
 // silently stops matching anything. The census at the bottom is the guard against that.
 
-const d = (cls: string) => [`<!-- _class: ${cls} -->`];
+const d = (cls: string) => [`<!-- @meta{class=${cls}} -->`];
 
 describe('slideTakesTable', () => {
 	it('withholds the door on a layout whose anatomy is one statement or one picture', () => {
@@ -79,8 +79,8 @@ describe('slideTakesTable', () => {
 	it('reads every token of the class payload, not just the first', () => {
 		// `<!-- _class: dark quote -->` is ordinary authoring and the component name does not
 		// have to lead. Matching only the first token resolved this to `dark` and fell through.
-		expect(slideTakesTable(['<!-- _class: dark quote -->'])).toBe(false);
-		expect(slideTakesTable(['<!-- _class: quote dark -->'])).toBe(false);
+		expect(slideTakesTable(['<!-- @meta{class=dark quote} -->'])).toBe(false);
+		expect(slideTakesTable(['<!-- @meta{layout=quote, class=dark} -->'])).toBe(false);
 	});
 
 	it('cannot be tricked into a prototype-chain hit', () => {
@@ -91,7 +91,7 @@ describe('slideTakesTable', () => {
 	});
 
 	it('honors the LAST matching directive, as the engine does', () => {
-		expect(slideTakesTable(['<!-- _class: content -->', '<!-- _class: quote -->'])).toBe(false);
+		expect(slideTakesTable(['<!-- @meta{layout=content} -->', '<!-- @meta{layout=quote} -->'])).toBe(false);
 	});
 });
 

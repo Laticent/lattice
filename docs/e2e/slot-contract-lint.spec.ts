@@ -11,14 +11,14 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 const deck = (slides: string[]) => ['---', 'theme: indaco', '---', '', slides.join('\n\n---\n\n'), ''].join('\n');
 
 // An agenda with no `##` heading is wrong; either list marker is right (W2's list contract).
-const AGENDA_NO_HEADING = '<!-- _class: agenda -->\n\n- Pipeline\n- Hiring';
-const AGENDA_DASH = '<!-- _class: agenda -->\n\n## What we cover\n\n- Pipeline\n- Hiring';
-const CARDS_H1 = '<!-- _class: cards-grid -->\n\n# Three outputs\n\n- Briefs\n  - one page\n- Logs\n  - every call';
-const CARDS_H2 = '<!-- _class: cards-grid -->\n\n## Three outputs\n\n- Briefs\n  - one page\n- Logs\n  - every call';
-const KPI_FOREIGN = '<!-- _class: kpi gallery -->\n\n## Revenue held\n\n1. 4%\n   - growth';
-const KPI_OWN = '<!-- _class: kpi spotlight -->\n\n## Revenue held\n\n1. 4%\n   - growth';
+const AGENDA_NO_HEADING = '<!-- @meta{layout=agenda} -->\n\n- Pipeline\n- Hiring';
+const AGENDA_DASH = '<!-- @meta{layout=agenda} -->\n\n## What we cover\n\n- Pipeline\n- Hiring';
+const CARDS_H1 = '<!-- @meta{layout=cards-grid} -->\n\n# Three outputs\n\n- Briefs\n  - one page\n- Logs\n  - every call';
+const CARDS_H2 = '<!-- @meta{layout=cards-grid} -->\n\n## Three outputs\n\n- Briefs\n  - one page\n- Logs\n  - every call';
+const KPI_FOREIGN = '<!-- @meta{layout=kpi, class=gallery} -->\n\n## Revenue held\n\n1. 4%\n   - growth';
+const KPI_OWN = '<!-- @meta{layout=kpi, class=spotlight} -->\n\n## Revenue held\n\n1. 4%\n   - growth';
 // A sublist under an agenda row is not part of agenda's design (list-depth-unsupported, a warning).
-const AGENDA_SUBLIST = '<!-- _class: agenda -->\n\n## What we cover\n\n- Pipeline\n  - Two new entrants\n- Hiring';
+const AGENDA_SUBLIST = '<!-- @meta{layout=agenda} -->\n\n## What we cover\n\n- Pipeline\n  - Two new entrants\n- Hiring';
 
 test('@crosswidth @webkit-phone @gecko the slot contract marks the wrong forms in the editor, and the right forms stay clean', async ({ page }, info) => {
 	await gotoStudio(page);

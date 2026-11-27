@@ -166,7 +166,7 @@ function matrixCorpus(count = 60) {
 }
 
 /** The deck source for a corpus slide. */
-const deckOf = (s) => `---\nmarp: true\n---\n\n<!-- _class: ${s.chart} -->\n\n## A\n\n${s.body}\n`;
+const deckOf = (s) => `---\nmarp: true\n---\n\n<!-- @meta{class=${s.chart}} -->\n\n## A\n\n${s.body}\n`;
 
 /** `count` seeded slides per chart. */
 function corpus(count = 30) {

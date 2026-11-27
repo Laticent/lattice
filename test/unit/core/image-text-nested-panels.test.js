@@ -19,7 +19,7 @@ const bg = require('../../../lib/core/bg-image');
 
 const e = engine.createEngine();
 const firstSection = (html) => html.match(/<section\b[\s\S]*?<\/section>/)[0];
-const render = (body) => firstSection(e.render(`---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## Title\n\n${body}\n`).html);
+const render = (body) => firstSection(e.render(`---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n## Title\n\n${body}\n`).html);
 const RAW = `<div class="lattice-bg" style="background-image:url('https://x.test/quoted.jpg')"></div>`;
 // The slide's photo as a record: the shortcut stands down on a slide that already holds a raw `.lattice-bg` (lib/core/placed-picture.mjs rule 5).
 const PHOTO = '`@image{https://x.test/photo.jpg, title="Photo"}`';
@@ -71,7 +71,7 @@ describe('wrapImageText lifts only the slide\'s own panels', () => {
   // A slide the pane carve splits keeps its pictures where they stood, as on main: a hoisted panel landed in the pane host
   // beside the panes as an unstyled box that took height (the card grader on #3132 measured the list pane 16px off).
   test('a pane slide hoists no panel into its host', () => {
-    const html = e.render('---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## Image slide\n\n<!-- _pane: content -->\n![A](https://x.test/a.jpg)\n\n<!-- _pane: list -->\n- a point\n![B](https://x.test/b.jpg)\n').html;
+    const html = e.render('---\ntheme: indaco\n---\n\n<!-- @meta{layout=image} -->\n\n## Image slide\n\n<!-- @meta{pane=content} -->\n![A](https://x.test/a.jpg)\n\n<!-- @meta{pane=list} -->\n- a point\n![B](https://x.test/b.jpg)\n').html;
     const section = children(firstSection(html));
     assert.ok(section.classList.contains('lat-pane-host'), 'the slide is a pane host');
     assert.equal(section.querySelectorAll(':scope > .cell-stage > .lattice-bg, :scope > .lattice-bg').length, 0, 'no panel beside the panes');

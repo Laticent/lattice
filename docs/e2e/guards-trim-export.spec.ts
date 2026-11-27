@@ -46,7 +46,7 @@ const BODY = Array.from(
 ).join(' ');
 
 const deck = (fit: 'trim' | 'heal') =>
-	`---\nmarp: true\ntheme: indaco\nfit: ${fit}\n---\n\n<!-- _class: content -->\n\n## Live preview trims\n\n${BODY}\n`;
+	`---\nmarp: true\ntheme: indaco\nfit: ${fit}\n---\n\n<!-- @meta{layout=content} -->\n\n## Live preview trims\n\n${BODY}\n`;
 
 /**
  * `pdftotext` (poppler-utils) is the oracle, and the nightly that runs this suite does

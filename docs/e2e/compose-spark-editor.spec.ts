@@ -25,7 +25,7 @@ async function savedDeck(page: Page): Promise<string> {
 const COMPOSE = 'Compose — rich editor';
 
 const DECK = [
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## KPIs',
 	'',
@@ -33,7 +33,7 @@ const DECK = [
 	'',
 	'---',
 	'',
-	'<!-- _class: content -->',
+	'<!-- @meta{layout=content} -->',
 	'',
 	'## Plain slide',
 	'',

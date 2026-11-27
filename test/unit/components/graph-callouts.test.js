@@ -15,7 +15,7 @@ const { flowchartAdapter, browserJs: flowchartBrowserJs, htmlHasCallouts: fcHas 
 const { stateChartAdapter, browserJs: stateBrowserJs, htmlHasCallouts: scHas } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.layout');
 const { placeCallouts } = require('../../../lib/plugins/chart-family/shared/callout-browser');
 
-const render = (cls, body) => String(engine.render(`<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`).html);
+const render = (cls, body) => String(engine.render(`<!-- @meta{class=${cls}} -->\n\n## A flow.\n\n${body}\n`).html);
 const modelOf = (html, attr) => {
   const m = new RegExp(`data-${attr}-model="([^"]*)"`).exec(html);
   assert.ok(m, 'the figure carries its model');
@@ -137,7 +137,7 @@ describe('the browser half: sanitize, extent, paint', () => {
 
 describe('on a phone page the notes leave the drawing (callout-place.js `numberNotes`, `notesHtml`)', () => {
   const { createEngine } = engine;
-  const renderAt = (size, cls, body) => String(createEngine().render(`---\nsize: ${size}\n---\n\n<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`).html);
+  const renderAt = (size, cls, body) => String(createEngine().render(`---\nsize: ${size}\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A flow.\n\n${body}\n`).html);
   for (const [cls, attr, body, targets] of [
     ['flowchart', 'fc', FLOW, ['Close', 'Triage']],
     ['state-chart', 'sc', '- Idle => Running => Done\n- Running => Failed\n', ['Failed', 'Running']],
@@ -213,7 +213,7 @@ describe('the export embeds the placer once, for a deck with notes on both chart
     const { execFileSync } = require('node:child_process');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-'));
     const deck = path.join(dir, 'd.md');
-    fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: flowchart -->\n\n## A\n\n- One => Two\n\n\`@callout{[{n, for=Two}]}\`\n\n---\n\n<!-- _class: state-chart -->\n\n## B\n\n- Idle => Done\n\n\`@callout{[{n, for=Done}]}\`\n`);
+    fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n<!-- @meta{layout=flowchart} -->\n\n## A\n\n- One => Two\n\n\`@callout{[{n, for=Two}]}\`\n\n---\n\n<!-- @meta{layout=state-chart} -->\n\n## B\n\n- Idle => Done\n\n\`@callout{[{n, for=Done}]}\`\n`);
     execFileSync('node', [path.join(__dirname, '..', '..', '..', 'lattice.js'), deck, path.join(dir, 'd.html')], { stdio: 'pipe' });
     const html = fs.readFileSync(path.join(dir, 'd.html'), 'utf8');
     assert.equal((html.match(/globalThis\.__latticeCalloutPlace=/g) || []).length, 1, 'the placer bundle is in the page once');
@@ -255,7 +255,7 @@ describe('the notes follow the chart\'s own type size', () => {
 
 describe('lint:deck judges a callout on these charts against their shapes', () => {
   const { lintText, buildVocab } = require('../../../lib/authoring/lint');
-  const legendFindings = (cls, body) => lintText(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`, { vocab: buildVocab() })
+  const legendFindings = (cls, body) => lintText(`---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## A flow.\n\n${body}\n`, { vocab: buildVocab() })
     .filter((f) => f.rule === 'legend-span');
 
   test('a note naming a shape of a row that holds three shapes is not reported', () => {

@@ -77,7 +77,7 @@ describe('marks: the intensity axis', () => {
     assert.ok(isMarksIntensityToken('marks-muted') && !isMarksToken('marks-muted'));
   });
   test('both render paths stamp it: a vivid deck, and a slide that asks for muted', () => {
-    const md = '---\nmarp: true\nmarks: vivid\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- _class: bar marks-muted -->\n\n## B\n\n- A `3`\n';
+    const md = '---\nmarp: true\nmarks: vivid\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- @meta{layout=bar, class=marks-muted} -->\n\n## B\n\n- A `3`\n';
     const [a, b] = classesOf(md);
     assert.deepEqual(a.filter(isMarksIntensityToken), ['marks-vivid']);
     assert.deepEqual(b.filter(isMarksIntensityToken), ['marks-muted']);
@@ -102,12 +102,12 @@ describe('marks: tone\'s source axis', () => {
     assert.ok(isMarksSourceToken('marks-ink') && !isMarksToken('marks-ink') && !isMarksSourceToken('marks-tone'));
   });
   test('the engine stamps it on every slide, and a slide may name the other', () => {
-    const md = '---\nmarp: true\nmarks: tone ink\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- _class: bar marks-accent -->\n\n## B\n\n- A `3`\n';
+    const md = '---\nmarp: true\nmarks: tone ink\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- @meta{layout=bar, class=marks-accent} -->\n\n## B\n\n- A `3`\n';
     const [a, b] = classesOf(md);
     assert.deepEqual(a.filter(isMarksSourceToken), ['marks-ink']);
     assert.deepEqual(b.filter(isMarksSourceToken), ['marks-accent']);
     assert.deepEqual(finishesOn(a), ['marks-tone']);
-    const [plain] = classesOf('---\nmarp: true\nmarks: tone\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    const [plain] = classesOf('---\nmarp: true\nmarks: tone\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(plain.filter(isMarksSourceToken), []);
   });
   test('the runtime stamps the source too, per axis', () => {
@@ -122,8 +122,11 @@ describe('marks: tone\'s source axis', () => {
     assert.match(etch.message, /'ink' picks the one hue `tone` draws in.*'etch'/);
     assert.match(rules('accent')[0].message, /the default, pigment/);
     // A slide that asks for tone takes the deck's source, so the word is not dead and the warning stays quiet.
-    const withToneSlide = lint('---\nmarks: ink\n---\n\n<!-- _class: bar marks-tone -->\n\n## A\n\n- A `3`\n').findings;
+    const withToneSlide = lint('---\nmarks: ink\n---\n\n<!-- @meta{layout=bar, class=marks-tone} -->\n\n## A\n\n- A `3`\n').findings;
     assert.equal(withToneSlide.filter((f) => f.rule === 'marks-source-needs-tone').length, 0);
+    // An old `_class:` comment sets nothing since the cut (meta-record §15), so it asks for no tone and the warning stays.
+    const oldComment = lint('---\nmarks: ink\n---\n\n<!-- _class: bar marks-tone -->\n\n## A\n\n- A `3`\n').findings;
+    assert.equal(oldComment.filter((f) => f.rule === 'marks-source-needs-tone').length, 1);
   });
 });
 
@@ -145,8 +148,8 @@ describe('marks: both render paths', () => {
     }
   });
 
-  const deck = (fm) => `---\nmarp: true\n${fm}---\n\n<!-- _class: bar -->\n\n## A\n\n- A \`3\`\n\n---\n\n` +
-    '<!-- _class: bar marks-etch -->\n\n## B\n\n- A `3`\n\n---\n\n<!-- _class: bar marks-pigment -->\n\n## C\n\n- A `3`\n';
+  const deck = (fm) => `---\nmarp: true\n${fm}---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A \`3\`\n\n---\n\n` +
+    '<!-- @meta{layout=bar, class=marks-etch} -->\n\n## B\n\n- A `3`\n\n---\n\n<!-- @meta{layout=bar, class=marks-pigment} -->\n\n## C\n\n- A `3`\n';
 
   test('the deck stamps every slide; a slide token overrides, and may ask for the default', () => {
     const [a, b, c] = classesOf(deck('marks: tone\n'));
@@ -160,7 +163,7 @@ describe('marks: both render paths', () => {
       for (const s of classesOf(deck(fm))) assert.ok(finishesOn(s).length === 1, `${JSON.stringify(fm)}: ${s.join(' ')}`);
       assert.deepEqual(finishesOn(classesOf(deck(fm))[0]), ['marks-pigment']);
     }
-    const noFrontMatter = '<!-- _class: bar -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- _class: bar -->\n\n## B\n\n- A `3`\n';
+    const noFrontMatter = '<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- @meta{layout=bar} -->\n\n## B\n\n- A `3`\n';
     for (const s of classesOf(noFrontMatter)) assert.deepEqual(finishesOn(s), ['marks-pigment']);
   });
 
@@ -174,13 +177,13 @@ describe('marks: both render paths', () => {
   test('a chart in a pane of a layout slide is finished like a full-slide one: the SECTION carries the finish', () => {
     // The section of a `columns` slide never names the chart inside its pane, so a stamp that waited
     // for a chart class on the section would miss it.
-    const md = '---\nmarp: true\nmarks: etch\n---\n\n<!-- _class: columns -->\n\n## Split\n\n- Left `1`\n\n<!-- _pane: bar -->\n\n- A `3`\n- B `4`\n';
+    const md = '---\nmarp: true\nmarks: etch\n---\n\n<!-- @meta{layout=columns} -->\n\n## Split\n\n- Left `1`\n\n<!-- @meta{pane=bar} -->\n\n- A `3`\n- B `4`\n';
     const [s] = classesOf(md);
     assert.deepEqual(finishesOn(s), ['marks-etch'], s.join(' '));
   });
 
   test('`chart-finish-off` is just an unknown class now: it lints, and the deck finish still lands', () => {
-    const md = `---\nmarp: true\nmarks: tone\n---\n\n<!-- _class: bar chart-finish-off -->\n\n## A\n\n- A \`3\`\n`;
+    const md = `---\nmarp: true\nmarks: tone\n---\n\n<!-- @meta{layout=bar, class=chart-finish-off} -->\n\n## A\n\n- A \`3\`\n`;
     const [s] = classesOf(md);
     assert.deepEqual(finishesOn(s), ['marks-tone'], 'exactly one real finish: the deck\'s');
     assert.ok(s.includes('chart-finish-off'), 'the author\'s own class is left in place');
@@ -199,24 +202,24 @@ describe('marks: both render paths', () => {
 // lint names the new one at info. Rendered through the same engine path as above.
 describe('marks: the old `chart-finish` spelling still works', () => {
   test('the old key renders its value', () => {
-    const [s] = classesOf('---\nmarp: true\nchart-finish: tone vivid\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    const [s] = classesOf('---\nmarp: true\nchart-finish: tone vivid\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(finishesOn(s), ['marks-tone'], s.join(' '));
     assert.ok(s.includes('marks-vivid'), s.join(' '));
   });
 
   test('an old slide class is renamed in place and keeps its axis', () => {
-    const [s] = classesOf('---\nmarp: true\nmarks: etch\n---\n\n<!-- _class: bar chart-finish-tone chart-finish-vivid -->\n\n## A\n\n- A `3`\n');
+    const [s] = classesOf('---\nmarp: true\nmarks: etch\n---\n\n<!-- @meta{layout=bar, class=chart-finish-tone chart-finish-vivid} -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(finishesOn(s), ['marks-tone'], s.join(' '));
     assert.ok(s.includes('marks-vivid') && !s.some((c) => c.startsWith('chart-finish-')), s.join(' '));
   });
 
   test('a blank `marks:` is no value, so the old key still decides', () => {
-    const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks:\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks:\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(finishesOn(s), ['marks-tone'], s.join(' '));
   });
 
   test('with both keys, `marks:` wins', () => {
-    const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks: etch\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks: etch\n---\n\n<!-- @meta{layout=bar} -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(finishesOn(s), ['marks-etch'], s.join(' '));
   });
 
@@ -227,7 +230,7 @@ describe('marks: the old `chart-finish` spelling still works', () => {
     assert.match(key[0].fix, /marks: tone/);
     const both = lint('---\nmarp: true\nchart-finish: tone\nmarks: etch\n---\n\n## A\n').findings.find((f) => f.rule === 'marks-renamed');
     assert.match(both.message, /`marks:` wins/);
-    const cls = lint('---\nmarp: true\n---\n\n<!-- _class: bar chart-finish-vivid -->\n\n## A\n\n- A `3`\n').findings;
+    const cls = lint('---\nmarp: true\n---\n\n<!-- @meta{layout=bar, class=chart-finish-vivid} -->\n\n## A\n\n- A `3`\n').findings;
     const hit = cls.find((f) => f.rule === 'marks-renamed');
     assert.ok(hit && hit.severity === 'info' && /marks-vivid/.test(hit.fix), JSON.stringify(cls));
     assert.equal(cls.filter((f) => f.rule === 'unknown-class').length, 0, 'not reported as broken');

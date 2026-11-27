@@ -45,7 +45,7 @@ describe('export: the --fluid viewer holds and releases narrow layouts as the bo
 	// columns still switch to cards there (below 24em), and a list this long overflows as cards.
 	const longTeam = `${team}\n${team}`;
 	const shortTeam = team.split('\n').slice(0, 2).join('\n');
-	const pane = (rows) => `<!-- _class: columns ratio-30-70 -->\n\n### The team\n\n| Name | Role | City | Team | Since |\n| --- | --- | --- | --- | --- |\n${rows}\n\n### What changed\n\nEach row is one person.\n`;
+	const pane = (rows) => `<!-- @meta{layout=columns, class=ratio-30-70} -->\n\n### The team\n\n| Name | Role | City | Team | Since |\n| --- | --- | --- | --- | --- |\n${rows}\n\n### What changed\n\nEach row is one person.\n`;
 	const DECK = `---\ntheme: indaco\n---\n\n## A long record list in a narrow pane.\n\n${pane(longTeam)}\n---\n\n## A short one.\n\n${pane(shortTeam)}`;
 	const NESTED = `---\ntheme: indaco\n---\n\n## One slide.\n\nText.\n\n---\n\n## A slide with a nested section.\n\n<section style="display:block;width:300px;height:60px">inner box</section>\n`;
 

@@ -275,7 +275,7 @@ test('the shipped detector keeps its bake-off result', () => {
 // ── panes, raw HTML and row headers (the checker's findings) ────────────────
 
 const PANE_DECK = (hostClass, marker = '') => [
-  '---', 'theme: indaco', '---', '', `<!-- _class: columns ratio-30-70 ${hostClass} -->`, '', '## Two panes', '',
+  '---', 'theme: indaco', '---', '', `<!-- @meta{class=columns ratio-30-70 ${hostClass}} -->`, '', '## Two panes', '',
   marker, '### The team', '', '| Name | Role | City |', '|---|---|---|', '| Ada | Lead | Lagos |', '| Priya | Director | Pune |', '',
   '### Notes', '', 'A paragraph.',
 ].join('\n');
@@ -287,7 +287,7 @@ test('a slide-level override reaches the tables in its panes', () => {
   assert.equal(verdict(PANE_DECK('no-table-reflow')), 'none');
   assert.equal(verdict(PANE_DECK('table-pairs')), 'pairs');
   // A pane marker that names its own override keeps it over the host's.
-  assert.equal(verdict(PANE_DECK('no-table-reflow', '<!-- _pane: content table-cards -->')), 'cards');
+  assert.equal(verdict(PANE_DECK('no-table-reflow', '<!-- @meta{pane=content table-cards} -->')), 'cards');
 });
 
 test('the DOM mirror judges a pane table by the pane, and by the host override, as the engine does', () => {
@@ -331,7 +331,7 @@ test('the mirror judges only the tables reflow can apply to, never a figure\'s o
 
 test('glossary declares its own narrow layout on both paths, and its range pill still reads the table', () => {
   const { createEngine } = require('../../../lib/engine');
-  const deck = ['---', 'theme: indaco', '---', '', '<!-- _class: glossary -->', '', '## Terms', '',
+  const deck = ['---', 'theme: indaco', '---', '', '<!-- @meta{layout=glossary} -->', '', '## Terms', '',
     '- **Alpha**', '  - The first letter.', '- **Omega**', '  - The last letter.'].join('\n');
   const doc = new JSDOM(createEngine().render(deck).html).window.document;
   const t = doc.querySelector('table.glossary-terms');
@@ -416,7 +416,7 @@ test('a card table carries its label column and data-lat-align instead of an inl
 
 test('a table that keeps its shape keeps markdown\'s inline alignment untouched', () => {
   const { createEngine } = require('../../../lib/engine');
-  const deck = ALIGNED.replace('## T', '<!-- _class: no-table-reflow -->\n\n## T');
+  const deck = ALIGNED.replace('## T', '<!-- @meta{class=no-table-reflow} -->\n\n## T');
   const doc = new JSDOM(createEngine().render(deck).html).window.document;
   const td = doc.querySelectorAll('tbody tr:first-child td')[1];
   assert.match(td.getAttribute('style') || '', /text-align:\s*center/);

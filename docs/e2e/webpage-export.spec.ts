@@ -187,7 +187,7 @@ test('the Studio webpage export honors Strip speaker notes, including on a slide
 			// catch a scrub that stops at the blank line.
 			'<!-- @note{', 'Board only, do not share.', '', SECRET, '} -->',
 			'<!-- @alt{A cover slide.} -->', '',
-			'---', '', '<!-- _class: diagram -->', '', '## Diagram', '',
+			'---', '', '<!-- @meta{layout=diagram} -->', '', '## Diagram', '',
 			`${F}mermaid`, 'flowchart LR', '  A["Bake me"] --> B["Or fail loudly"]', F, '',
 			// A plain comment is the author's own (four notes, N5): `--strip-notes` removes it too.
 			'<!-- An ordinary note. -->', '',
@@ -374,7 +374,7 @@ test('the Studio webpage export keeps an author <section> inside its slide, and 
 	//    1280x720 box, `overflow:hidden` and, in a `dark` slide, the light tokens. It now runs the CLI's
 	//    `unwrapFlatSheet` (lib/export/unwrap-flat-sheet.mjs). No author can nest one any more (1.), so
 	//    the section is placed in the exported page's DOM directly, under the shipped sheet.
-	const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: dark -->', '', '# Dark slide', '', '<section class="note">', 'A nested panel.', '</section>', ''];
+	const DECK = ['---', 'theme: indaco', '---', '', '<!-- @meta{class=dark} -->', '', '# Dark slide', '', '<section class="note">', 'A nested panel.', '</section>', ''];
 	const file = await exportWebpage(page, testInfo, DECK.join('\n'), { as: 'nested-section.html' });
 	const viewer = await page.context().newPage();
 	await viewer.goto(`file://${file}`);
@@ -411,7 +411,7 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		'theme: indaco',
 		'---',
 		'',
-		'<!-- _class: image mirror -->',
+		'<!-- @meta{layout=image, class=mirror} -->',
 		'',
 		'![The roadmap](/showcase/roadmap.light.webp)',
 		'',
@@ -425,7 +425,7 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		'',
 		'---',
 		'',
-		'<!-- _class: video -->',
+		'<!-- @meta{layout=video} -->',
 		'',
 		'## Watch the tour.',
 		'',

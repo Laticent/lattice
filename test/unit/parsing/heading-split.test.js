@@ -126,7 +126,7 @@ describe('headingSplit', () => {
     // title); the break must go before it, not before the bare heading, or it
     // orphans onto the previous slide.
     const md = fm('headings',
-      '# Lead\n\nintro\n\n<!-- _class: cards-grid -->\n\n`Kicker`\n\n## Two\n\nbody\n');
+      '# Lead\n\nintro\n\n<!-- @meta{layout=cards-grid} -->\n\n`Kicker`\n\n## Two\n\nbody\n');
     for (const [label, render] of [['engine', engineHtml]]) {
       const secs = splitSections(render(md));
       assert.equal(secs.length, 2, `${label}: 2 slides`);

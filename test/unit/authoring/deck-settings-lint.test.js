@@ -8,7 +8,7 @@ const { lintText, buildVocab } = require('../../../lib/authoring/lint');
 const { DECK_SETTINGS, withPluginRegisters } = require('../../../lib/core/deck-settings');
 
 const vocab = buildVocab();
-const deck = (fm, cls = '') => `---\n${fm}\n---\n\n${cls ? `<!-- _class: ${cls} -->\n\n` : ''}## A\n\nText.\n`;
+const deck = (fm, cls = '') => `---\n${fm}\n---\n\n${cls ? `<!-- @meta{class=${cls}} -->\n\n` : ''}## A\n\nText.\n`;
 const rules = (src) => lintText(src, { vocab }).map((f) => `${f.rule} ${f.classToken}`);
 
 describe('the six probes warn, and their twins do not', () => {

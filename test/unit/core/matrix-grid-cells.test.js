@@ -131,7 +131,7 @@ describe('matrix-grid cells — applyToDom', () => {
 describe('matrix-grid cells — the two render paths agree', () => {
   test("the engine's plugin output matches the DOM adapter's, cell for cell", () => {
     const deck = [
-      '<!-- _class: matrix-grid -->', '',
+      '<!-- @meta{layout=matrix-grid} -->', '',
       '## Levels', '',
       '| Verb | Self | Team |', '|---|---|---|',
       '| Create | [ ] | [x] Distinguished |', '| Apply | [-] | [ ] |', '',

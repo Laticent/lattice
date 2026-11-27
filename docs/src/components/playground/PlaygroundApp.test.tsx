@@ -71,17 +71,17 @@ vi.mock('@/playground/chart-interact.js', () => ({
 import { PlaygroundApp, type PlaygroundData } from './PlaygroundApp';
 
 // ── A realistic-enough fixture ──────────────────────────────────────────────
-const STARTER = '<!-- _class: verdict-grid -->\n\n# Starter\n';
+const STARTER = '<!-- @meta{layout=verdict-grid} -->\n\n# Starter\n';
 
 const catalog = {
 	'verdict-grid': {
-		skeleton: '<!-- _class: verdict-grid -->\n\n# skeleton\n',
-		sample: '<!-- _class: verdict-grid -->\n\n# sample\n',
-		variants: [{ key: 'compact', label: 'compact', caption: 'tighter rows', sample: '<!-- _class: verdict-grid compact -->\n' }],
+		skeleton: '<!-- @meta{layout=verdict-grid} -->\n\n# skeleton\n',
+		sample: '<!-- @meta{layout=verdict-grid} -->\n\n# sample\n',
+		variants: [{ key: 'compact', label: 'compact', caption: 'tighter rows', sample: '<!-- @meta{layout=verdict-grid, class=compact} -->\n' }],
 	},
 	'big-number': {
-		skeleton: '<!-- _class: big-number -->\n',
-		sample: '<!-- _class: big-number -->\n\n# 42\n',
+		skeleton: '<!-- @meta{layout=big-number} -->\n',
+		sample: '<!-- @meta{layout=big-number} -->\n\n# 42\n',
 		variants: [],
 	},
 } as unknown as PlaygroundData['catalog'];
@@ -95,8 +95,8 @@ const lenses = [{ id: 'function', label: 'Function', field: 'function', order: n
 
 // "jargon" is the deck in the reported repro ("select gallery → jargon").
 const gallerySources: Record<string, string> = {
-	jargon: '<!-- _class: verdict-grid -->\n\n# Jargon gallery\n',
-	survey: '<!-- _class: big-number -->\n\n# Survey gallery\n',
+	jargon: '<!-- @meta{layout=verdict-grid} -->\n\n# Jargon gallery\n',
+	survey: '<!-- @meta{layout=big-number} -->\n\n# Survey gallery\n',
 };
 const galleryGroups = [
 	{
@@ -138,8 +138,8 @@ beforeEach(() => {
 					: JSON.stringify({
 					name: 'verdict-grid',
 					slides: [
-						{ kind: 'title', caption: 'c', md: '<!-- _class: title -->\n# t' },
-						{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# d' },
+						{ kind: 'title', caption: 'c', md: '<!-- @meta{layout=title} -->\n# t' },
+						{ kind: 'default', caption: 'c', md: '<!-- @meta{layout=verdict-grid} -->\n# d' },
 					],
 				}),
 		})),
@@ -230,7 +230,7 @@ describe('PlaygroundApp — Explore shows the draft however fast the plan fetch 
 		const renders: string[] = [];
 		(globalThis as { __pgRenders?: string[] }).__pgRenders = renders;
 		const held: Array<() => void> = [];
-		const plan = JSON.stringify({ name: 'verdict-grid', slides: [{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# PLAN SLIDE' }] });
+		const plan = JSON.stringify({ name: 'verdict-grid', slides: [{ kind: 'default', caption: 'c', md: '<!-- @meta{layout=verdict-grid} -->\n# PLAN SLIDE' }] });
 		vi.stubGlobal(
 			'fetch',
 			vi.fn((url: string) => {
@@ -341,8 +341,8 @@ describe('PlaygroundApp — every tour step is reachable in its declared mode', 
 					JSON.stringify({
 						name: 'verdict-grid',
 						slides: [
-							{ kind: 'title', caption: 'c', md: '<!-- _class: title -->\n# t' },
-							{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# d' },
+							{ kind: 'title', caption: 'c', md: '<!-- @meta{layout=title} -->\n# t' },
+							{ kind: 'default', caption: 'c', md: '<!-- @meta{layout=verdict-grid} -->\n# d' },
 						],
 					}),
 			})),

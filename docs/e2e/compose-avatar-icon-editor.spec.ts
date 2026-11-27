@@ -12,7 +12,7 @@ import { expect, studioUndo, test } from './studio-fixture';
  * Design: engineering/decisions/2026-10-21-compose-point-and-click.md §3.
  */
 
-const DECK = ['<!-- _class: content -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` works with `^{database, lg}` on the `{LIVE, c2}` store.', '', 'Plain line here.'].join('\n');
+const DECK = ['<!-- @meta{layout=content} -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` works with `^{database, lg}` on the `{LIVE, c2}` store.', '', 'Plain line here.'].join('\n');
 
 const editor = (page: Page) => page.locator('[data-slot="popover-content"]');
 const avatarButton = (page: Page) => page.getByRole('button', { name: 'Edit avatar Ada Okafor' });

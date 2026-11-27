@@ -1,6 +1,7 @@
 {
   "title": "Ledger and numbered layouts use the ordered form of the card grammar",
   "spec": "LFM-1.0",
+  "until": "LFM-2.0",
   "section": "3.1",
   "L1": {
     "slides": [

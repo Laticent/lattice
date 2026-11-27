@@ -52,7 +52,7 @@ function png(w, h, base) {
 function slide(placement) {
 	return [
 		'---\ntheme: indaco\n---',
-		`<!-- _class: collage bleed ${placement === 'off' ? 'no-spectrum' : `spectrum-${placement}`} -->\n\n## Hand-lasted\n\n![](a.png)\n![](b.png)\n`,
+		`<!-- @meta{class=collage bleed ${placement === 'off' ? 'no-spectrum' : `spectrum-${placement}`}} -->\n\n## Hand-lasted\n\n![](a.png)\n![](b.png)\n`,
 	].join('\n\n---\n\n');
 }
 
@@ -104,7 +104,7 @@ describe('export: the full-bleed bar reaches the PDF', { skip }, () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-bar-pdf-hair-'));
 		fs.writeFileSync(path.join(dir, 'deck.md'), [
 			'---\ntheme: indaco\nspectrum: left\nheader: HEADER\npagination: true\n---',
-			'<!-- _class: bar claim-bleed -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `80`\n- Third `40`\n',
+			'<!-- @meta{layout=bar, class=claim-bleed} -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `80`\n- Third `40`\n',
 		].join('\n\n---\n\n'));
 		const g = ppm(dir, 'deck');
 		let gray = 0;

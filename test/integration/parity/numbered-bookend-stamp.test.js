@@ -297,7 +297,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
   // rule measured the h2 alone and read a line late as a result.
   const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'pagination: true', '---'].join('\n') +
     [3, 6, 9, 12, 15, 18, 24, 30]
-      .map((n) => `\n\n<!-- _class: divider numbered -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
+      .map((n) => `\n\n<!-- @meta{layout=divider, class=numbered} -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
       .join('')
       .replace(/\n---$/, '');
 

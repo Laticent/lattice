@@ -16,7 +16,7 @@ const DECK = [
 	'',
 	'- **EMEA.** Three late deals closed.',
 	'',
-	'<!-- _class: cards-grid -->',
+	'<!-- @meta{layout=cards-grid} -->',
 	'',
 	'## Where the quarter came from',
 	'',

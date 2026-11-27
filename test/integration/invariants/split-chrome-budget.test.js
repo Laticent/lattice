@@ -70,9 +70,9 @@ footer: "Confidential · Laticent · a running footer long enough to run past an
 pagination: true
 ---
 
-${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
-  `<!-- _class: split-panel no-footer -->\n\n${PANEL_BODY}`,
-  `<!-- _class: split-panel silent -->\n\n${PANEL_BODY}`].join('\n\n---\n\n')}
+${[...SLIDES.map(([cls, body]) => `<!-- @meta{class=${cls}} -->\n\n${body}`),
+  `<!-- @meta{layout=split-panel, class=no-footer} -->\n\n${PANEL_BODY}`,
+  `<!-- @meta{layout=split-panel, class=silent} -->\n\n${PANEL_BODY}`].join('\n\n---\n\n')}
 `;
 
 describe('split chrome budget (real render)', () => {
@@ -157,7 +157,7 @@ theme: indaco
 pagination: true
 ---
 
-${[1, 3, 14].map((n) => `<!-- _class: split-panel pullquote -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}
+${[1, 3, 14].map((n) => `<!-- @meta{layout=split-panel, class=pullquote} -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}
 `;
 
 describe('portrait split-panel footer budget (real render)', () => {

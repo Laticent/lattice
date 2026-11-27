@@ -68,7 +68,7 @@ describe('lattice-engine: contract', () => {
   });
 
   test('applies `_class:` to the section and `class:` deck-wide (deckClassPropagate)', () => {
-    const md = '---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- _class: title -->\n\n# B\n';
+    const md = '---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- @meta{layout=title} -->\n\n# B\n';
     const secs = profile(makeEngine().render(md, 'lattice').html);
     // `form` is the CHROME-HOSTING Frame's CSS hook, so the `title` bookend — a
     // SOVEREIGN Frame, one Cell and no chrome Cells — does not carry it. That both
@@ -88,16 +88,16 @@ describe('lattice-engine: contract', () => {
     // deckClassPropagate drops the deck-wide color-mode token when the slide pins its
     // own. Mirror case: `class: light` deck with a `_class: dark` slide.
     const toks = (s) => new Set(s.cls.split(/\s+/).filter(Boolean));
-    const darkDeck = profile(makeEngine().render('---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- _class: light -->\n\n# B\n', 'lattice').html);
+    const darkDeck = profile(makeEngine().render('---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- @meta{class=light} -->\n\n# B\n', 'lattice').html);
     assert.ok(toks(darkDeck[0]).has('dark'));
     assert.ok(toks(darkDeck[1]).has('light') && !toks(darkDeck[1]).has('dark')); // per-slide wins, no "dark light"
-    const lightDeck = profile(makeEngine().render('---\nclass: light\n---\n\n# A\n\n---\n\n<!-- _class: dark -->\n\n# B\n', 'lattice').html);
+    const lightDeck = profile(makeEngine().render('---\nclass: light\n---\n\n# A\n\n---\n\n<!-- @meta{class=dark} -->\n\n# B\n', 'lattice').html);
     assert.ok(toks(lightDeck[0]).has('light'));
     assert.ok(toks(lightDeck[1]).has('dark') && !toks(lightDeck[1]).has('light')); // per-slide wins, no "light dark"
   });
 
   test('pagination is on by default, a class opts a slide out, and a paginate comment is ignored', () => {
-    const md = '# A\n\n---\n\n<!-- _class: content no-pagination -->\n\n# B\n\n---\n\n<!-- _paginate: false -->\n\n# C\n';
+    const md = '# A\n\n---\n\n<!-- @meta{layout=content, class=no-pagination} -->\n\n# B\n\n---\n\n<!-- @meta{paginate=false} -->\n\n# C\n';
     const { html } = makeEngine().render(md, 'lattice');
     const secs = html.match(/<section[^>]*>/g);
     assert.match(secs[0], /data-lattice-pagination="1"/);
@@ -123,14 +123,14 @@ describe('lattice-engine: contract', () => {
   });
 
   test('debug: bare `_debug` flag stamps data-debug=""; `_debug: off` overrides deck-wide on', () => {
-    const md = '---\ndebug: on\n---\n\n<!-- _debug -->\n\n# A\n\n---\n\n<!-- _debug: off -->\n\n# B\n';
+    const md = '---\ndebug: on\n---\n\n<!-- @meta{debug} -->\n\n# A\n\n---\n\n<!-- @meta{debug=off} -->\n\n# B\n';
     const secs = previewRender(makeEngine(), md).match(/<section[^>]*>/g);
     assert.match(secs[0], /data-debug=""/); // bare flag → default profile
     assert.match(secs[1], /data-debug="off"/); // spot mutes this slide
   });
 
   test('debug: a facet list passes through verbatim; a deck without debug has none', () => {
-    const on = previewRender(makeEngine(), '<!-- _debug: identity size -->\n\n# A\n');
+    const on = previewRender(makeEngine(), '<!-- @meta{debug=identity size} -->\n\n# A\n');
     assert.match(on, /data-debug="identity size"/);
     const off = previewRender(makeEngine(), '# A\n');
     assert.doesNotMatch(off, /data-debug/);
@@ -138,7 +138,7 @@ describe('lattice-engine: contract', () => {
 
   test('debug: EXPORT render (no preview flag) strips data-debug → bytes identical to no-debug', () => {
     const eng = makeEngine();
-    const withDebug = eng.render('---\ndebug: on\n---\n\n# A\n\n---\n\n<!-- _debug: size -->\n\n# B\n', 'lattice').html;
+    const withDebug = eng.render('---\ndebug: on\n---\n\n# A\n\n---\n\n<!-- @meta{debug=size} -->\n\n# B\n', 'lattice').html;
     const without = eng.render('# A\n\n---\n\n# B\n', 'lattice').html;
     assert.doesNotMatch(withDebug, /data-debug/); // preview-only flag never exported
     assert.equal(withDebug, without); // section tags byte-identical
@@ -149,7 +149,7 @@ describe('lattice-engine: contract', () => {
   // export — so internal lens membership can't leak into shared HTML.
   test('lens: `_lens` tag is stripped from the export and is not a section attribute', () => {
     const eng = makeEngine();
-    const html = eng.render('<!-- _class: kpi -->\n<!-- _lens: brief ask -->\n\n# Revenue\n', 'lattice').html;
+    const html = eng.render('<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief ask} -->\n\n# Revenue\n', 'lattice').html;
     assert.doesNotMatch(html, /_lens/); // the tag never reaches the output
     assert.doesNotMatch(html, /data-lens/); // NOT applied — no section attribute
     assert.match(html, /Revenue/); // the slide itself renders normally
@@ -157,24 +157,24 @@ describe('lattice-engine: contract', () => {
 
   test('lens: a deck WITH `_lens` tags exports byte-identical to the same deck without them', () => {
     const eng = makeEngine();
-    const tagged = eng.render('<!-- _class: kpi -->\n<!-- _lens: brief -->\n\n# A\n\n---\n\n<!-- _lens: -evidence -->\n\n# B\n', 'lattice').html;
-    const plain = eng.render('<!-- _class: kpi -->\n\n# A\n\n---\n\n# B\n', 'lattice').html;
+    const tagged = eng.render('<!-- @meta{layout=kpi} -->\n<!-- @meta{lens=brief} -->\n\n# A\n\n---\n\n<!-- @meta{lens="-evidence"} -->\n\n# B\n', 'lattice').html;
+    const plain = eng.render('<!-- @meta{layout=kpi} -->\n\n# A\n\n---\n\n# B\n', 'lattice').html;
     assert.equal(tagged, plain); // zero-delta: the only difference in source is the stripped tag
   });
 
-  test('lens: the degenerate BARE `<!-- _lens -->` strips too (flag directive), never leaks', () => {
-    const html = makeEngine().render('<!-- _lens -->\n\n# A\n', 'lattice').html;
+  test('lens: the degenerate BARE `<!-- @meta{lens} -->` strips too (flag directive), never leaks', () => {
+    const html = makeEngine().render('<!-- @meta{lens} -->\n\n# A\n', 'lattice').html;
     assert.doesNotMatch(html, /_lens/);
   });
 
   test('composes the real plugins: verdict-grid check → a pill holding the check', () => {
-    const md = '<!-- _class: verdict-grid -->\n\n# V\n\n- Tier\n  - [x] included\n';
+    const md = '<!-- @meta{layout=verdict-grid} -->\n\n# V\n\n- Tier\n  - [x] included\n';
     const { html } = makeEngine().render(md, 'lattice');
     assert.match(html, /<span class="lat-pill" data-shape="pill"><span class="lat-pill-lead"><span class="state pass state-full lat-state"[^>]*><\/span><\/span>included<\/span>/);
   });
 
   test('does NOT double-wrap an already-bold slot label (clean inline tokens)', () => {
-    const md = '<!-- _class: actors -->\n\n## H\n\n- **Speed**\n  - body\n';
+    const md = '<!-- @meta{layout=actors} -->\n\n## H\n\n- **Speed**\n  - body\n';
     const { html } = makeEngine().render(md, 'lattice');
     assert.match(html, /<strong>Speed<\/strong>/);
     assert.doesNotMatch(html, /<strong><strong>/);
@@ -210,7 +210,7 @@ describe('lattice-engine: contract', () => {
     eng.addThemes(['/* @theme indaco */\nsection{}']);
     assert.equal(eng.hasTheme('indaco'), true);
     // Unregistered theme is not applied as a section attr (marp-core parity).
-    const { html } = eng.render('<!-- theme: ghost -->\n\n# A\n', 'ghost');
+    const { html } = eng.render('<!-- @meta{theme=ghost, carry} -->\n\n# A\n', 'ghost');
     assert.doesNotMatch(html, /--theme:ghost/);
   });
 
@@ -647,7 +647,7 @@ describe('backdrop layer', () => {
     // Finding 1 regression guard: applyBackdropToHtml must run AFTER
     // applyImageStructure, else wrapImageText folds .backdrop into .image-text and
     // `section.finish > .backdrop` stops matching → the finish drops in export.
-    const md = '---\nfinish: atrium\n---\n\n<!-- _class: image -->\n\n![alt](pic.png)\n\n## Caption text here\n';
+    const md = '---\nfinish: atrium\n---\n\n<!-- @meta{layout=image} -->\n\n![alt](pic.png)\n\n## Caption text here\n';
     const { html } = makeEngine().render(md, 'lattice');
     const bd = html.indexOf('class="backdrop"');
     const it = html.indexOf('class="image-text"');
@@ -666,16 +666,16 @@ describe('backdrop layer', () => {
   });
 
   test('a PER-SLIDE finish class renders on its own — implies `finish` + injects .backdrop (no deck-wide finish:)', () => {
-    // The reported gap: `<!-- _class: title finish-atrium -->` with NO deck-wide
+    // The reported gap: `<!-- @meta{layout=title, class=finish-atrium} -->` with NO deck-wide
     // `finish:` must activate the backdrop on that slide by itself.
-    const { html } = makeEngine().render('<!-- _class: title finish-atrium -->\n\n# A\n', 'lattice');
+    const { html } = makeEngine().render('<!-- @meta{layout=title, class=finish-atrium} -->\n\n# A\n', 'lattice');
     assert.match(html, /class="[^"]*\bfinish-atrium\b[^"]*"/, 'the variant class is present');
     assert.match(html, /class="[^"]*\bfinish\b[^"]*"/, 'the bare `finish` compositor class is implied');
     assert.match(html, /<section\b[^>]*\bfinish\b[^>]*>\s*<div class="backdrop"/, 'a .backdrop wrapper is injected');
   });
 
   test('applyBackdropToHtml is idempotent — re-processing rendered HTML (the emulator) does not double-inject', () => {
-    const once = makeEngine().render('<!-- _class: title finish-atrium -->\n\n# A\n', 'lattice').html;
+    const once = makeEngine().render('<!-- @meta{layout=title, class=finish-atrium} -->\n\n# A\n', 'lattice').html;
     const twice = applyBackdropToHtml(once, '');
     const count = (s) => (s.match(/class="backdrop"/g) || []).length;
     assert.equal(count(twice), count(once), 'no second .backdrop on re-processing');

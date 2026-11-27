@@ -59,11 +59,11 @@ describe('every manifest sample satisfies its own slot contract', () => {
     }
   });
   test('a source variant and a lone requires variant each warn, and the right form does not', () => {
-    assert.equal(inertFindings('<!-- _class: cards-grid numbered -->\n\n## A\n\n1. x\n   - y\n').length, 1);
-    assert.equal(inertFindings('<!-- _class: cards-stack numbered -->\n\n## A\n\n1. x\n   - y\n').length, 1);
-    assert.equal(inertFindings('<!-- _class: cards-grid -->\n\n## A\n\n1. x\n   - y\n').length, 0);
+    assert.equal(inertFindings('<!-- @meta{layout=cards-grid, class=numbered} -->\n\n## A\n\n1. x\n   - y\n').length, 1);
+    assert.equal(inertFindings('<!-- @meta{layout=cards-stack, class=numbered} -->\n\n## A\n\n1. x\n   - y\n').length, 1);
+    assert.equal(inertFindings('<!-- @meta{layout=cards-grid} -->\n\n## A\n\n1. x\n   - y\n').length, 0);
     // `list numbered` alone is the older `list-modifier-inert` rule's, so this one stays quiet on it.
-    assert.equal(inertFindings('<!-- _class: list numbered -->\n\n## A\n\n- x\n- y\n').length, 0);
+    assert.equal(inertFindings('<!-- @meta{layout=list, class=numbered} -->\n\n## A\n\n- x\n- y\n').length, 0);
   });
 });
 
@@ -179,10 +179,10 @@ describe('the strict markers match the audit measurement', () => {
 
 describe('raw HTML fills the slot its element names', () => {
   const lint = (md) => contractFindings(md).map((f) => f.message);
-  test('a raw <h2> is the heading', () => assert.deepEqual(lint('<!-- _class: agenda -->\n\n<h2>Agenda</h2>\n\n1. One\n2. Two\n'), []));
-  test('a raw <blockquote> is the quotation', () => assert.deepEqual(lint('<!-- _class: quote -->\n\n<blockquote>Raw words.</blockquote>\n'), []));
+  test('a raw <h2> is the heading', () => assert.deepEqual(lint('<!-- @meta{layout=agenda} -->\n\n<h2>Agenda</h2>\n\n1. One\n2. Two\n'), []));
+  test('a raw <blockquote> is the quotation', () => assert.deepEqual(lint('<!-- @meta{layout=quote} -->\n\n<blockquote>Raw words.</blockquote>\n'), []));
   test('a pane head `###` is not called the wrong heading level', () => {
-    const msgs = lint('<!-- _class: columns -->\n\n### Left\n\nText.\n\n### Right\n\nText.\n');
+    const msgs = lint('<!-- @meta{layout=columns} -->\n\n### Left\n\nText.\n\n### Right\n\nText.\n');
     assert.ok(!msgs.some((x) => /writes `### `/.test(x)), msgs.join('\n'));
   });
 });

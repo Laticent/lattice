@@ -67,7 +67,7 @@ const deckWithFooter = (body) => `---\nmarp: true\ntheme: indaco\nfooter: "${FOO
 // An ellipsed label. The section fits, the cell fits; only the <strong> loses text —
 // and it has no element children, which is the shape that made this case unreachable
 // until the clipSuspect test moved above the childless skip.
-const ELLIPSIS = `<!-- _class: content -->
+const ELLIPSIS = `<!-- @meta{layout=content} -->
 
 ## A slide that cuts content without overflowing its frame.
 
@@ -77,7 +77,7 @@ const ELLIPSIS = `<!-- _class: content -->
 // The #1299 shape: split-panel's left panel over-stuffed. With `safe` alignment the
 // loss moves to the TAIL and grows scrollHeight; the point of the assertion is that
 // the slide is reported at all, on the surface a reader looks at.
-const SHEAR = `<!-- _class: split-panel -->
+const SHEAR = `<!-- @meta{layout=split-panel} -->
 
 \`Program review\`
 
@@ -91,7 +91,7 @@ The program has been running for eleven quarters and now covers a materially wid
   - Unit handling cost is down 12% year over year.
 `;
 
-const CLEAN = `<!-- _class: content -->
+const CLEAN = `<!-- @meta{layout=content} -->
 
 ## A slide that fits.
 
@@ -330,7 +330,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   //
   // The capsule ended the whole class: two segments in one container cannot collide with
   // each other, and one centered box has one neighbor set to clear instead of four.
-  const CORNER = (cls) => `<!-- _class: ${cls} -->
+  const CORNER = (cls) => `<!-- @meta{class=${cls}} -->
 
 ## A slide that cuts content and shrinks its figure.
 

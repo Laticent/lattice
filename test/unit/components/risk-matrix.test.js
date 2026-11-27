@@ -109,7 +109,7 @@ describe('risk-matrix', () => {
 
   describe('narration', () => {
     const { narrateChart } = require('../../../lib/core/chart-narration');
-    const slide = ['<!-- _class: risk-matrix -->', '', '`Register · Q4`', '', '## Two risks in the red.', '',
+    const slide = ['<!-- @meta{layout=risk-matrix} -->', '', '`Register · Q4`', '', '## Two risks in the red.', '',
       '- FX swing `{4, 2}`', '- Cyber outage `{4, 5}` `{2, 4}`', '- Off the grid `{6, 1}`', ''].join('\n');
     const said = narrateChart(slide);
 
@@ -128,7 +128,7 @@ describe('risk-matrix', () => {
   // The independent checker's repros on #2714, each pinned so it cannot come back.
   describe('the checker repros', () => {
     const { narrateChart } = require('../../../lib/core/chart-narration');
-    const say = (rows) => narrateChart(['<!-- _class: risk-matrix -->', '', '## T.', '', ...rows, ''].join('\n'));
+    const say = (rows) => narrateChart(['<!-- @meta{layout=risk-matrix} -->', '', '## T.', '', ...rows, ''].join('\n'));
 
     test('a pane draws inside its own viewBox, grid and key', () => {
       const out = buildRiskMatrix(parseRiskMatrix(ul(REGISTER)), { paneView: { w: 140, h: 72 } });
@@ -176,7 +176,7 @@ describe('risk-matrix', () => {
       // A pill wrapped onto the next line: the engine renders `breaks: true`, so it
       // arrives after a `<br>`, and the kernel must still read it (found by the histogram PR's checker).
       const engine = require('../../../lib/engine');
-      const html = engine.render('---\nmarp: true\n---\n\n<!-- _class: risk-matrix -->\n\n## T.\n\n- A\n  `{4, 5}`\n- B `{2, 2}`\n');
+      const html = engine.render('---\nmarp: true\n---\n\n<!-- @meta{layout=risk-matrix} -->\n\n## T.\n\n- A\n  `{4, 5}`\n- B `{2, 2}`\n');
       assert.equal(((typeof html === 'string' ? html : html.html).match(/class="risk-marker"/g) || []).length, 2);
       // A tag or comment spliced from what one strip leaves is stripped too (CodeQL).
       assert.doesNotMatch(say(['- A<scr<b></b>ipt> `{4, 5}`']), /</);

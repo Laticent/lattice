@@ -14,9 +14,9 @@ const NOTE = 'Close on the ask and pause for questions.';
 // The PUBLIC register — the last slide's own prose, which is what read-aloud speaks instead.
 const SPOKEN = 'Approve the Atlas budget and we ship Q1.';
 const DECK = [
-	'<!-- _class: title -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
-	'<!-- _class: big-number -->\n\n`The headline`\n\n- 3\n  - new markets entered with the same core platform.',
-	`<!-- _class: closing -->\n\n## ${SPOKEN}\n\n\`The ask\`\n\n<!-- @note{${NOTE}} -->`,
+	'<!-- @meta{layout=title} -->\n\n# Atlas expansion plan\n\n`Growth · FY27`\n\nThree markets, one playbook.',
+	'<!-- @meta{layout=big-number} -->\n\n`The headline`\n\n- 3\n  - new markets entered with the same core platform.',
+	`<!-- @meta{layout=closing} -->\n\n## ${SPOKEN}\n\n\`The ask\`\n\n<!-- @note{${NOTE}} -->`,
 ].join('\n\n---\n\n');
 
 test('draft a deck, present it, and the last slide speaks its prose — never its note', async ({ page }) => {

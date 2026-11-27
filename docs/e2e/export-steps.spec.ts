@@ -122,7 +122,7 @@ test('with a separate SVG look, a chart after a stepping slide keeps its image\'
 	// The SVG look renders the deck a second time; that render must expand its step pages too, or the chart is filed
 	// under the page number it had before the expansion (3 here) instead of its image's (5).
 	await gotoStudio(page);
-	await setEditorContent(page, `---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- _build -->\n\n## Built\n\n- First\n- Second\n- Third\n\n---\n\n<!-- _class: piechart -->\n\n## A pie\n\n- Alpha \`40%\`\n- Beta \`35%\`\n- Gamma \`25%\`\n`);
+	await setEditorContent(page, `---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- @meta{build} -->\n\n## Built\n\n- First\n- Second\n- Third\n\n---\n\n<!-- @meta{layout=piechart} -->\n\n## A pie\n\n- Alpha \`40%\`\n- Beta \`35%\`\n- Gamma \`25%\`\n`);
 	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(3);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');

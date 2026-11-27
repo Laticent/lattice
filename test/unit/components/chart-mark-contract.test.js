@@ -123,7 +123,7 @@ describe('marks the gallery does not render', () => {
   // Checker finding: stamping a slotted GROUP made a finish paint it as a saturated 82% body
   // with its title unreadable on it. A group is a container; a finish leaves it alone.
   test('a slotted flowchart group carries no contract; its shapes and tile key do', () => {
-    const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `c2`\n  - Pull `c3` -> Parse `c3`\n\n`[{c2, Ingest}, {c3, Step}]`\n';
+    const md = '<!-- @meta{layout=flowchart} -->\n\n## F\n\n- Ingest `c2`\n  - Pull `c3` -> Parse `c3`\n\n`[{c2, Ingest}, {c3, Step}]`\n';
     const html = render(md);
     const { browserJs } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
     // The group is drawn by the browser pass; its template must not stamp the contract.
@@ -176,7 +176,7 @@ describe('marks the gallery does not render', () => {
 
   // Checker finding: the band key kept the shipped ramp while its cells moved.
   test('a heatmap band key carries the ramp contract of the cells it keys', () => {
-    const html = render('<!-- _class: heatmap scale -->\n\n## H\n\n|  | A | B |\n| --- | --: | --: |\n| X | 1 | 5 |\n| Y | 9 | 3 |\n');
+    const html = render('<!-- @meta{layout=heatmap, class=scale} -->\n\n## H\n\n|  | A | B |\n| --- | --: | --: |\n| X | 1 | 5 |\n| Y | 9 | 3 |\n');
     const keys = tagsOf(html, 'rect', 'chart-key-swatch heatmap-cell');
     assert.ok(keys.length >= 2);
     for (const k of keys) assert.match(k, /data-encodes="ramp" data-paint="fill"/);

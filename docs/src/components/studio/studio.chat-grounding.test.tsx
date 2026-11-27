@@ -66,7 +66,7 @@ vi.mock('./architect', () => ({
 }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const COMPONENTS = [{ name: 'headline', bucket: 'anchor', description: 'A cover statement.', skeleton: '<!-- _class: headline -->\n\n# Title' }];
+const COMPONENTS = [{ name: 'headline', bucket: 'anchor', description: 'A cover statement.', skeleton: '<!-- @meta{class=headline} -->\n\n# Title' }];
 
 beforeEach(() => {
 	localStorage.clear();

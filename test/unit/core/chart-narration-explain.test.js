@@ -13,7 +13,7 @@ const { narrateBullet, narrateWordCloud, narrateStateChart, narrateChart } = req
 // proves only that the code agrees with itself.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n${body}`;
+const slide = (cls, body) => `<!-- @meta{class=${cls}} -->\n\n${body}`;
 
 // ── bullet ───────────────────────────────────────────────────────────────────
 

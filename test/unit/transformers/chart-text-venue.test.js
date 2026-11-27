@@ -111,7 +111,7 @@ test('viewFor draws on the venue canvas and returns the shared view untouched at
 test('a bar chart at hall draws on the venue canvas with its labels the same size in it, and keeps every category', () => {
   const deck = (venue) => [
     '---', 'theme: indaco', venue ? `venue: ${venue}` : '', '---', '',
-    '<!-- _class: bar -->', '', '`Revenue · FY26`', '', '## Growth is concentrated in two regions.', '',
+    '<!-- @meta{layout=bar} -->', '', '`Revenue · FY26`', '', '## Growth is concentrated in two regions.', '',
     '- North America `$4.2M`', '- EMEA `$3.1M`', '- APAC `$1.8M`', '- LATAM `$0.6M`', '',
   ].join('\n');
   const viewBox = (html) => html.match(/class="cart-svg bar-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
@@ -152,7 +152,7 @@ test('the guard holds "nothing smaller" in a box TALLER than modeled, not only a
 });
 
 test('a slide that is not landscape 16:9 takes no venue factor: its chart text prints at the same size at every venue', () => {
-  const slide = ['<!-- _class: bar -->', '', '## Growth is concentrated in two regions.', '',
+  const slide = ['<!-- @meta{layout=bar} -->', '', '## Growth is concentrated in two regions.', '',
     '- North America `$4.2M`', '- EMEA `$3.1M`', '- APAC `$1.8M`', ''];
   const deck = (size, venue) => ['---', 'theme: indaco', `size: ${size}`, venue ? `venue: ${venue}` : '', '---', '', ...slide].join('\n');
   // A 4:3 slide keeps today's drawing.

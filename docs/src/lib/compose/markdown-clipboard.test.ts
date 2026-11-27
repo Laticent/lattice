@@ -7,7 +7,7 @@ import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { isSettingsBlock, looksLikeMarkdown, markdownClipboardPlugin, markdownToSlice, pasteAsMarkdown, pasteNotice, placeSlides, rawBlocksOk, sliceToMarkdown } from './markdown-clipboard';
 
 // The paste the owner reported: Markdown from a text editor, two slides, one with a layout.
-const TWO = '# Quarterly plan\n\n- **Revenue** up 12%\n- Hiring *paused*\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross margin\n';
+const TWO = '# Quarterly plan\n\n- **Revenue** up 12%\n- Hiring *paused*\n\n---\n\n<!-- @meta{layout=big-number} -->\n\n# 42%\n\nGross margin\n';
 
 describe('looksLikeMarkdown', () => {
 	it.each([
@@ -16,7 +16,7 @@ describe('looksLikeMarkdown', () => {
 		['1. one'],
 		['> quote'],
 		['a\n\n---\n\nb'],
-		['<!-- _class: big-number -->'],
+		['<!-- @meta{layout=big-number} -->'],
 		['some **bold** words'],
 		['a `code` span'],
 		['a [link](https://x.test)'],
@@ -48,7 +48,7 @@ describe('pasteAsMarkdown', () => {
 	});
 	it('takes the HTML when a page put different words on text/plain than it showed', () => {
 		const shown = '<meta charset="utf-8"><span>Quarterly results</span>';
-		expect(pasteAsMarkdown({ text: '**Quarterly results**\n\n<!-- {footer="x"} -->', html: shown, plain: false, inCode: false })).toBe(false);
+		expect(pasteAsMarkdown({ text: '**Quarterly results**\n\n<!-- @meta{footer="x"} -->', html: shown, plain: false, inCode: false })).toBe(false);
 		expect(pasteAsMarkdown({ text: '**Quarterly results**', html: shown, plain: false, inCode: false })).toBe(true);
 	});
 	it('never parses ⌘⇧V, a paste inside a code block, or prose with no Markdown in it', () => {
@@ -82,7 +82,7 @@ describe('markdownToSlice', () => {
 		const p = markdownToSlice(TWO);
 		expect(p.slides).toBe(2);
 		expect(p.slice.content.child(0).type.name).toBe('slide');
-		expect(p.slice.content.child(1).attrs.directives).toEqual(['<!-- _class: big-number -->']);
+		expect(p.slice.content.child(1).attrs.directives).toEqual(['<!-- @meta{layout=big-number} -->']);
 		expect(p.slice.content.child(0).firstChild?.type.name).toBe('heading');
 	});
 
@@ -195,7 +195,7 @@ describe('markdownToSlice', () => {
 });
 
 describe('sliceToMarkdown', () => {
-	const DECK = `---\ntheme: indaco\n---\n\n<!-- _class: title -->\n\n# Hello **world**\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross margin\n\n---\n\n\`\`\`js\nconst x = 1;\n\`\`\`\n`;
+	const DECK = `---\ntheme: indaco\n---\n\n<!-- @meta{layout=title} -->\n\n# Hello **world**\n\n---\n\n<!-- @meta{layout=big-number} -->\n\n# 42%\n\nGross margin\n\n---\n\n\`\`\`js\nconst x = 1;\n\`\`\`\n`;
 	const state = (from: number, to: number) => {
 		const doc = deckToDoc(DECK);
 		return EditorState.create({ doc, selection: TextSelection.create(doc, from, to) });
@@ -225,7 +225,7 @@ describe('sliceToMarkdown', () => {
 	it('copies across slides as slides, with their layouts and the break between them', () => {
 		const s0 = state(1, 1);
 		const md = copy(state(textPos(s0, 'Hello'), textPos(s0, 'Gross') + 5));
-		expect(md).toContain('<!-- _class: big-number -->');
+		expect(md).toContain('<!-- @meta{layout=big-number} -->');
 		expect(md).toMatch(/\n---\n/);
 		expect(md).toContain('# 42%');
 	});
@@ -249,14 +249,14 @@ describe('sliceToMarkdown', () => {
 		const md = copy(state(textPos(s0, 'Hello'), textPos(s0, 'Gross') + 'Gross margin'.length));
 		const back = markdownToSlice(md);
 		expect(back.slides).toBe(2);
-		expect(back.slice.content.child(1).attrs.directives).toEqual(['<!-- _class: big-number -->']);
+		expect(back.slice.content.child(1).attrs.directives).toEqual(['<!-- @meta{layout=big-number} -->']);
 		expect(back.slice.content.child(1).textContent).toContain('Gross margin');
 	});
 });
 
 // The inversion review's repros (2026-11-15): each was measured wrong before its fix.
 describe('where a paste lands', () => {
-	const BIG = '<!-- _class: big-number -->\n\n# 42%\n\nGross margin is up. More here.\n';
+	const BIG = '<!-- @meta{layout=big-number} -->\n\n# 42%\n\nGross margin is up. More here.\n';
 	const at = (src: string, needle: string, offset = 0) => {
 		const doc = deckToDoc(src);
 		let pos = -1;
@@ -274,7 +274,7 @@ describe('where a paste lands', () => {
 	it('puts pasted slides after the caret\'s slide and never splits it', () => {
 		const out = pasted(at(BIG, 'More here.'), '## Summary\n\nWe grew.\n\n---\n\n## Risks\n\nChurn.');
 		expect(out).toContain('Gross margin is up. More here.');
-		expect(out.match(/_class: big-number/g)).toHaveLength(1);
+		expect(out.match(/layout=big-number/g)).toHaveLength(1);
 		expect(out.indexOf('More here.')).toBeLessThan(out.indexOf('## Summary'));
 	});
 
@@ -357,7 +357,7 @@ describe('markdownClipboardPlugin', () => {
 	it('refuses, with a message, a paste that would load from another site, and inserts nothing', async () => {
 		const { view, notices, paste } = setup(['https://evil.test/a.png']);
 		const before = view.state.doc;
-		await paste('# Two\n\n<!-- _backgroundImage: url(https://evil.test/a.png) -->');
+		await paste('# Two\n\n<!-- @meta{background-image="url(https://evil.test/a.png)"} -->');
 		expect(view.state.doc).toBe(before);
 		expect(notices.join(' ')).toMatch(/loads something from another site/);
 	});

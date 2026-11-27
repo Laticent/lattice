@@ -5,7 +5,7 @@ import { CHROME, expect, gotoStudio, openInspectorTab, openSection, openSlideSet
 // per-slide Image tab in Slide settings on an image slide. Asserted on the persisted source,
 // which is what the engine reads. Modeled on card-tag-register.spec.ts.
 
-const SLIDE = '<!-- _class: image spotlight -->\n\n## A photo.\n\nThe words.\n\n![A lake](sample:photo-wide.svg)\n';
+const SLIDE = '<!-- @meta{layout=image, class=spotlight} -->\n\n## A photo.\n\nThe words.\n\n![A lake](sample:photo-wide.svg)\n';
 const DECK = `---\ntitle: Photos\n---\n\n${SLIDE}`;
 
 test.beforeEach(async ({ page }) => {
@@ -169,7 +169,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	});
 
 	test(`slide settings: no Image tab on a slide that is not an image slide${tag}`, async ({ page }) => {
-		await setEditorContent(page, '---\ntitle: Plain\n---\n\n<!-- _class: content -->\n\n## Prose\n\nBody.\n');
+		await setEditorContent(page, '---\ntitle: Plain\n---\n\n<!-- @meta{layout=content} -->\n\n## Prose\n\nBody.\n');
 		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
 		await expect(page.getByRole('combobox', { name: 'Slide card placement' }).filter({ visible: true })).toHaveCount(0);
 		await expect(page.getByRole('tab', { name: 'Image', exact: true })).toHaveCount(0);

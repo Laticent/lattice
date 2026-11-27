@@ -21,10 +21,10 @@ const REPO = path.join(__dirname, '..', '..', '..');
 const FLOW = '```mermaid\nflowchart LR\n  A[Intake] --> B[Triage] --> C[Build]\n```';
 const DECK = [
   '---', 'theme: indaco', '---', '',
-  '## A tall pane.', '', '<!-- panes: 35/65 -->', '<!-- pane: diagram -->', '', FLOW, '',
-  '<!-- pane: list -->', '', '- One', '- Two', '',
-  '---', '', '## A wide pane.', '', '<!-- panes: 65/35 -->', '<!-- pane: diagram -->', '', FLOW, '',
-  '<!-- pane: list -->', '', '- One', '',
+  '## A tall pane.', '', '<!-- @meta{panes=35/65} -->', '<!-- @meta{pane=diagram} -->', '', FLOW, '',
+  '<!-- @meta{pane=list} -->', '', '- One', '- Two', '',
+  '---', '', '## A wide pane.', '', '<!-- @meta{panes=65/35} -->', '<!-- @meta{pane=diagram} -->', '', FLOW, '',
+  '<!-- @meta{pane=list} -->', '', '- One', '',
 ].join('\n');
 
 /** The orientation `render` stamps on each `<lat-pane>`, in document order (absent = landscape). */
@@ -54,16 +54,16 @@ describe('engine.paneOrientations — the CLI\'s answer before it bakes a fence'
   test('keyed on source lines, so slides the engine adds or text that looks like a marker cannot shift it', () => {
     // The checker's cases. A `_focusSteps` slide rendered three sections from one (until 2026-11-09;
     // it is one slide now, and the case stays as a guard), and a join on slide index gave the wide
-    // pane below it the tall pane's orientation; a `<!-- pane: -->`
+    // pane below it the tall pane's orientation; a `<!-- @meta{pane=""} -->`
     // quoted in a code sample or a list item is no marker to the carve, and a marker count read it.
-    const focus = ['---', 'theme: indaco', '---', '', '<!-- _focusSteps: a | b | c -->', '', '## Steps', '', '- a', '- b', '- c', '',
-      '---', '', '## Tall.', '', '<!-- panes: 35/65 -->', '<!-- pane: list -->', '', '- x', '', '<!-- pane: list -->', '', '- y', '',
-      '---', '', '## Wide.', '', '<!-- panes: 65/35 -->', '<!-- pane: diagram -->', '', '```mermaid', 'flowchart LR', '  WIDE --> B', '```', '',
-      '<!-- pane: list -->', '', '- z', ''].join('\n');
+    const focus = ['---', 'theme: indaco', '---', '', '<!-- @meta{focus-steps="a | b | c"} -->', '', '## Steps', '', '- a', '- b', '- c', '',
+      '---', '', '## Tall.', '', '<!-- @meta{panes=35/65} -->', '<!-- @meta{pane=list} -->', '', '- x', '', '<!-- @meta{pane=list} -->', '', '- y', '',
+      '---', '', '## Wide.', '', '<!-- @meta{panes=65/35} -->', '<!-- @meta{pane=diagram} -->', '', '```mermaid', 'flowchart LR', '  WIDE --> B', '```', '',
+      '<!-- @meta{pane=list} -->', '', '- z', ''].join('\n');
     assert.equal(fenceOrientation(focus, 'WIDE'), 'landscape');
-    const quoted = ['---', 'theme: indaco', '---', '', '## Wide.', '', '<!-- panes: 65/35 -->', '<!-- pane: diagram -->', '',
-      '```md', '<!-- pane: list -->', '```', '', '- <!-- pane: list -->', '', '```mermaid', 'flowchart LR', '  QUOTED --> B', '```', '',
-      '<!-- pane: list -->', '', '- z', ''].join('\n');
+    const quoted = ['---', 'theme: indaco', '---', '', '## Wide.', '', '<!-- @meta{panes=65/35} -->', '<!-- @meta{pane=diagram} -->', '',
+      '```md', '<!-- @meta{pane=list} -->', '```', '', '- <!-- @meta{pane=list} -->', '', '```mermaid', 'flowchart LR', '  QUOTED --> B', '```', '',
+      '<!-- @meta{pane=list} -->', '', '- z', ''].join('\n');
     assert.equal(fenceOrientation(quoted, 'QUOTED'), stamped(quoted)[0]);
   });
 

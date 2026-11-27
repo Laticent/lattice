@@ -534,7 +534,7 @@ test('@parity resizing the pane while zoomed never blanks the slide', async ({ p
 // `<!-- class: … -->` (a later heading part, or a later `---` slide) used to read `text` (PR #3239).
 test('the strip names a slide that inherits a running class by that class', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntitle: Strip\n---\n\n<!-- class: image -->\n## One\n\n![A](sample:photo-wide.svg)\n\n## Two\n\n![B](sample:photo-wide.svg)\n\n---\n\n## Three\n\n![C](sample:photo-wide.svg)\n\n---\n\n<!-- _class: quote -->\n> Four\n');
+	await setEditorContent(page, '---\ntitle: Strip\n---\n\n<!-- @meta{layout=image, carry} -->\n## One\n\n![A](sample:photo-wide.svg)\n\n## Two\n\n![B](sample:photo-wide.svg)\n\n---\n\n## Three\n\n![C](sample:photo-wide.svg)\n\n---\n\n<!-- @meta{layout=quote} -->\n> Four\n');
 	const rail = page.locator('nav[aria-label="Slide navigator"]');
 	// The slide pills, not the strip's "Slide actions" menu.
 	const pills = () => rail.locator('button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label') ?? '').filter((l) => /^Slide \d/.test(l)));

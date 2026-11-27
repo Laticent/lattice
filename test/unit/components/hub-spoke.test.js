@@ -95,7 +95,7 @@ describe('hub-spoke parser', () => {
     for (const raw of ['$18M+', '1.2e6', '~40%?']) {
       assert.deepEqual(model('Hub', [['A', [raw]], ['B']]).spokes[0].issues.map((i) => i.kind), ['numeric-group'], raw);
     }
-    const slide = '<!-- _class: hub-spoke -->\n\n## T.\n\n- Hub\n  - A `Wave 1`\n  - B `Wave 2`\n  - C `Q3`\n';
+    const slide = '<!-- @meta{layout=hub-spoke} -->\n\n## T.\n\n- Hub\n  - A `Wave 1`\n  - B `Wave 2`\n  - C `Q3`\n';
     assert.ok(!rules(slide).includes('hub-spoke-numeric-group'), 'the linter refused a named group');
   });
 
@@ -188,7 +188,7 @@ describe('hub-spoke channel rule', () => {
 
 // ── 3 · lint ─────────────────────────────────────────────────────────────────
 describe('hub-spoke lint (through lint-core)', () => {
-  const slide = (cls, list) => `<!-- _class: hub-spoke${cls ? ` ${cls}` : ''} -->\n\n## T.\n\n${list}\n`;
+  const slide = (cls, list) => `<!-- @meta{class=hub-spoke${cls ? ` ${cls}` : ''}} -->\n\n## T.\n\n${list}\n`;
   test('rule ids are flat kebab-case', () => {
     const f = lint(slide('sized', '- Hub `$10M` `at-risk`\n  - A `$6M` `$7M`\n  - B `$18M+`\n  - C `live` `pilot`\n- Extra'));
     assert.ok(f.length >= 5);
@@ -217,7 +217,7 @@ describe('hub-spoke lint (through lint-core)', () => {
   });
   test('an ordered-list hub, content-column nesting and snake_case names read as the kernel reads them', () => {
     // The linter reads the list through the SAME reader as the narrator (first-list-tree.js).
-    const ordered = '<!-- _class: hub-spoke -->\n\n## T.\n\n1. Hub\n   - Alpha\n   - Beta\n   - Gamma\n';
+    const ordered = '<!-- @meta{layout=hub-spoke} -->\n\n## T.\n\n1. Hub\n   - Alpha\n   - Beta\n   - Gamma\n';
     assert.ok(!rules(ordered).includes('hub-spoke-empty'), rules(ordered).join(', '));
     const tree = HS.markdownTree('## T.\n\n- Hub\n  - core_platform_v2 `$4M`\n  - **Ops** & [IT](x)\n');
     assert.deepEqual(tree[0].children.map((c) => [c.label, c.pills]), [['core_platform_v2', ['$4M']], ['Ops & IT', []]]);
@@ -227,7 +227,7 @@ describe('hub-spoke lint (through lint-core)', () => {
     // Capitals and the wide letters paint far wider in the hand face (M is 1.04em against
     // the mono 0.6). A mostly lowercase name no longer works here: the hand face's
     // lowercase paints about as wide as the mono face, and the estimate now knows it.
-    const body = `<!-- _class: hub-spoke -->\n\n## T.\n\n- MOMENTUM WORKFLOW MANAGEMENT OFFICE \`$48M\`\n${six}\n`;
+    const body = `<!-- @meta{layout=hub-spoke} -->\n\n## T.\n\n- MOMENTUM WORKFLOW MANAGEMENT OFFICE \`$48M\`\n${six}\n`;
     assert.ok(!findHubSpokeIssues(`---\nmarp: true\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'fits in the mono face');
     assert.ok(findHubSpokeIssues(`---\nmarp: true\nmode: sketch\n---\n\n${body}`).some((f) => f.rule === 'hub-spoke-hub-overflow'), 'mode: sketch was ignored');
   });
@@ -560,7 +560,7 @@ describe('hub-spoke seeded fuzz', () => {
 // ── narration ─────────────────────────────────────────────────────────────────
 describe('hub-spoke narration', () => {
   test('the hub and every drawn spoke lead a sentence; class-level flow is said', () => {
-    const md = '<!-- _class: hub-spoke flow-out -->\n\n## Where the pallets go.\n\n- Memphis DC `12,000`\n  - Northeast `3,600`\n  - Returns center `400` `flow:in`\n  - West `1,200` `at-risk`\n';
+    const md = '<!-- @meta{layout=hub-spoke, class=flow-out} -->\n\n## Where the pallets go.\n\n- Memphis DC `12,000`\n  - Northeast `3,600`\n  - Returns center `400` `flow:in`\n  - West `1,200` `at-risk`\n';
     const said = narrateChart(md);
     for (const lead of ['Memphis DC,', 'Northeast,', 'Returns center,', 'West,']) assert.ok(said.includes(`. ${lead}`), `${lead} does not lead a sentence: ${said}`);
     assert.match(said, /Flow runs out from the hub\./);
@@ -568,7 +568,7 @@ describe('hub-spoke narration', () => {
     assert.match(said, /West, one thousand two hundred, at risk, flowing out\./);
   });
   test('tiered: leaves (with their status) are said after their branch', () => {
-    const md = '<!-- _class: hub-spoke tiered -->\n\n## T.\n\n- Org\n  - Payments\n    - Fraud `blocked`\n    - Acquiring\n  - Data\n    - Warehouse\n';
+    const md = '<!-- @meta{layout=hub-spoke, class=tiered} -->\n\n## T.\n\n- Org\n  - Payments\n    - Fraud `blocked`\n    - Acquiring\n  - Data\n    - Warehouse\n';
     assert.match(narrateChart(md), /Payments, with two leaves\. Fraud, blocked\. Acquiring\. Data, with one leaf\. Warehouse\./);
   });
   test('the desc narrates hub, spokes, values, statuses, flow and leaves', () => {
@@ -688,7 +688,7 @@ describe('hub-spoke — icons', () => {
   });
 
   test('every refusal is coached, and the item keeps its name', () => {
-    const md = '<!-- _class: hub-spoke -->\n\n## T\n\n- `{icon=building, icon-only}`\n  - Fn `{icon=lambda}`\n  - Store `{icon-only}`\n'
+    const md = '<!-- @meta{layout=hub-spoke} -->\n\n## T\n\n- `{icon=building, icon-only}`\n  - Fn `{icon=lambda}`\n  - Store `{icon-only}`\n'
       + '  - Risky `{icon=bucket, at-risk}`\n  - Two `{icon=bucket}` `{icon=cloud}`\n';
     const r = rules(md);
     for (const want of ['hub-spoke-icon-only-empty-name', 'hub-spoke-unknown-icon', 'hub-spoke-icon-only-without-icon', 'hub-spoke-bad-record', 'hub-spoke-extra-record']) {
@@ -760,7 +760,7 @@ describe('hub-spoke — icons', () => {
 describe('hub-spoke — the rows it owns, and nothing past them', () => {
   require('../../../lib/engine');
   const { render } = require('../../../lib/engine');
-  const deck = (body, cls = 'hub-spoke') => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+  const deck = (body, cls = 'hub-spoke') => `---\nmarp: true\n---\n\n<!-- @meta{class=${cls}} -->\n\n## T\n\n${body}`;
   const findings = (md) => require('../../../lib/authoring/lint-core').findLiteralPluginKinds(md).length;
 
   test('a second list after a paragraph is prose: its pills, marks and icons render', () => {
