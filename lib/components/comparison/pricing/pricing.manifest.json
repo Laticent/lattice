@@ -220,5 +220,12 @@
   },
   "gesture": {
     "archetype": "grid"
-  }
+  },
+  "inlineReads": [
+    {
+      "selector": "ul > li > em",
+      "effect": "meaning",
+      "reads": "The tier's ribbon: its text is drawn as the corner tab, and the tier is raised as the recommended one."
+    }
+  ]
 }

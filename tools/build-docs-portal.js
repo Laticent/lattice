@@ -59,6 +59,8 @@ const {
   FAMILY_MODIFIERS, familyModifiersFor, MODIFIER_GROUPS, excludedModifiers,
 } = require('../lib/components');
 const { blocksFor, readsInsightLabel } = require('../lib/core/authoring-blocks');
+const { CARD_STYLE_LAYOUTS, LEDGER_LAYOUTS } = require('../lib/core/list-shapes');
+const { SLOT_LAYOUTS, LIST_STEPS_LIFT_VARIANTS } = require('../lib/core/slot-label-lift');
 const { classEntries } = require('../lib/core/class-entries.mjs');
 
 const { componentSurfaces, publishedSurfaces } = require('../lib/components/surfaces');
@@ -1167,6 +1169,22 @@ function dataSlotsOf(m) {
 }
 
 /**
+ * The TITLED-ITEMS rule (LFM 1.0 §3.1): a layout whose top-level list items are each a
+ * title with a body nested under it. `liftsTitle` says the engine wraps the title in
+ * <strong> itself (lib/core/slot-label-lift.js), and `liftVariants` names the variants
+ * that lift when only they do. Either way an author's `**` around the whole title is
+ * redundant, and `- **Title.** body` on one line is the `card-style-inline-title` error.
+ * Read from the same lists the engine and the lint use, so the three cannot disagree.
+ */
+function titledItemsOf(name) {
+  const lifts = SLOT_LAYOUTS.includes(name);
+  const liftVariants = name === 'list-steps' ? [...LIST_STEPS_LIFT_VARIANTS] : [];
+  const titled = lifts || liftVariants.length > 0 || CARD_STYLE_LAYOUTS.includes(name) || LEDGER_LAYOUTS.includes(name);
+  if (!titled) return null;
+  return liftVariants.length ? { liftsTitle: false, liftVariants } : { liftsTitle: lifts };
+}
+
+/**
  * Project the component manifests into dist/docs/grammar.json — the
  * machine-readable per-component grammar for LFM (Lattice-Flavored Markdown).
  * A third projection of the same manifest source that backs components.json
@@ -1195,6 +1213,14 @@ function renderGrammarJson(manifests) {
       familyModifiers: familyModifiersFor(m),
       readsStateMarkers: stateSet.has(m.name),
       dataSlots: dataSlotsOf(m),
+      // The structural reads of ordinary Markdown (LFM 1.0 §3.4): the list contract
+      // (`1.` vs `-`), the titled items, the trailing beats this layout renders, and
+      // where it reads bold or italic as structure.
+      lists: m.lists || null,
+      ...(m.variantLists ? { variantLists: m.variantLists } : {}),
+      titledItems: titledItemsOf(m.name),
+      beats: blocksFor(m.name),
+      inlineReads: m.inlineReads || [],
     };
   });
   const doc = {

@@ -125,5 +125,13 @@
         "select": "blockquote"
       }
     }
-  }
+  },
+  "inlineReads": [
+    {
+      "selector": "blockquote + p em",
+      "variant": "bare",
+      "effect": "ignored",
+      "reads": "Italic in the attribution is drawn upright."
+    }
+  ]
 }

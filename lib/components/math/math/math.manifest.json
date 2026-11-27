@@ -314,5 +314,19 @@
       }
     }
   },
-  "venueProbe": "<!-- @meta{layout=math} -->\n\n`Linear regression · OLS`\n\n## One equation, displayed; its symbols named below.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n"
+  "venueProbe": "<!-- @meta{layout=math} -->\n\n`Linear regression · OLS`\n\n## One equation, displayed; its symbols named below.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n",
+  "inlineReads": [
+    {
+      "selector": "blockquote > p > strong:first-child",
+      "variant": "theorem",
+      "effect": "meaning",
+      "reads": "The statement's kind (Theorem, Lemma, Proof), set as a label."
+    },
+    {
+      "selector": "ul > li > strong",
+      "variant": "matrix",
+      "effect": "meaning",
+      "reads": "The symbol a row defines, set in a fixed label column."
+    }
+  ]
 }

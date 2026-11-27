@@ -86,12 +86,23 @@ registry's `patternProperties` and is otherwise unlisted. This document states t
 
 ### 2.2 Slides
 
-Slides are separated by a thematic break on its own line (`---`). This is
-CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
+Slides are separated by a thematic break at the top level of the document. `---` is the usual
+spelling; `***` and `___` are the same CommonMark thematic break and separate slides too. A
+thematic break inside a list or a blockquote is an ordinary rule, not a slide break. An unaware
+renderer shows horizontal rules between sections.
+
+LFM reads the Markdown inside a slide as CommonMark with two GFM extensions (tables and `~~`
+strikethrough) and two differences a second reader MUST copy:
+
+- **A line break inside a paragraph is a line break.** A single newline renders as `<br>`, not as
+  a space, so a multi-line paragraph or blockquote keeps its lines.
+- **A bare URL is not a link.** Only `[text](url)` and `<url>` make links.
+
+Raw HTML is allowed and reaches the rendered slide only through the sanitizer (§11).
 
 A renderer also starts a slide at a heading unless the deck sets `split: rule` (§2.1): within
 each `---`-separated section, every `#` or `##` after the section's first heading starts a new
-slide; `###` and deeper never do. A `---` still divides with headings on. So a deck whose every
+slide; `###` and deeper never do (on `columns` and `rows`, a `###` starts a pane within the slide, §3.4). A `---` still divides with headings on. So a deck whose every
 `---`-separated section holds at most one `#` or `##` has the same slides either way, and a deck
 with more does not. A slide's lead-in (its record, and an eyebrow written above the
 heading) belongs to the heading's slide, not the one before.
@@ -218,13 +229,16 @@ canonical shape is:
 
 The inline form `- **Title.** body` is **not** valid LFM on a card-style
 layout: the body inherits the title's weight. This is enforced as a diagnostic
-(`card-style-inline-title`, with an autofix). Ledger/numbered layouts use the
-ordered form:
+(`card-style-inline-title`, with an autofix). Whether an author writes `-` or `1.` is
+the layout's **list contract** (`lists` in `grammar.json`): on a `neutral` layout both
+render the same, on a `numbered-tags` layout `1.` turns on the number tags, and on a
+`prose` layout they are an ordinary bulleted or numbered list.
 
-```markdown
-1. Name
-   - body text
-```
+The title is the item's own text, and a renderer MUST NOT need `**` to recognize it.
+`grammar.json` publishes each layout's `titledItems`. Where `liftsTitle` is true, the
+engine sets an item's title in `<strong>` itself whenever a body is nested under it, so an
+author's `**` around the whole title changes nothing. Elsewhere the layout's stylesheet
+sets the title's weight, and an author's `**` keeps its ordinary meaning: it adds stress.
 
 - **Degrades to:** a nested bullet list — exactly what it reads as. **L0-clean.**
 
@@ -291,13 +305,50 @@ with that library, so this prose spec stays stable as those options evolve.
 A fence whose language this spec and its registries do not name stays a code block: an unknown fence is never an
 error. The list of fences is published in `dist/docs/grammar.json`.
 
-### 3.4 Other inline conventions
+### 3.4 Structural reads of ordinary Markdown
 
-- **Eyebrow / subtitle / hero number** and similar slot conventions are
-  ordinary Markdown (a leading inline-code span, an `<em>`-wrapped unit, an
-  `<h2>` lifted into a panel). They are structural reads over standard Markdown,
-  documented per component in `grammar.json`, and are **L0-clean** by
-  construction.
+A layout reads some ordinary Markdown as structure: a leading inline-code line is an
+eyebrow, a trailing blockquote is a key insight. Every such read is **declared** in
+`grammar.json`, and the rule for everything else is simple:
+
+> **An ordinary Markdown construct keeps its ordinary meaning unless the component's grammar
+> declares that it reads it.** `**bold**` is strong importance and `*italic*` is stress, on
+> every slide, except where a declaration below says otherwise.
+
+So a second renderer that draws plain CommonMark gets every slide right except at the
+declared points, and a linter can tell an author exactly where their emphasis carries
+meaning. The declarations, all published per component in `grammar.json`:
+
+| Read | Where it is declared | Example |
+|---|---|---|
+| A slot: a heading, paragraph, list, table, image or code span in a named position | `slots` (selector and match) | `p > code` before the heading is the eyebrow; on `quote`, the paragraph after the blockquote is the attribution |
+| The titled items of a card or ledger layout | `titledItems` (§3.1) | `- Title` / `  - body`; the title is set bold |
+| The list marker | `lists` (§3.1) | `1.` turns on the number tags on `cards-grid` |
+| Inline code on list rows read as data | `dataSlots` (§5.1, rule 4) | a `slope` row's `` `$4.2M` `` |
+| The trailing beats | `beats` | see below |
+| Bold or italic read as structure | `inlineReads` | on `pricing`, `*Recommended*` in a tier is its ribbon |
+
+**The trailing beats.** A slide may end with editorial beats that belong to no component.
+A layout renders a beat unless it claims that trailing element for its own anatomy, and
+`beats` lists the ones it renders:
+
+- **`key-insight`**: a blockquote that ends the slide is drawn as the key-insight panel, and
+  the `insight-*` modifiers rename its eyebrow.
+- **`below-note`**: a paragraph that ends the slide after a list, table, blockquote or code
+  block is drawn as a muted footnote under a hairline rule. A note that is italic and nothing
+  else is drawn as an annotation. The `no-note` modifier turns this beat off.
+
+**Inline reads.** Each `inlineReads` entry names a selector, the variant it applies to (if
+only one), and its effect: `meaning` (the construct changes what the slide shows) or
+`ignored` (the component draws it upright or plain, so the author's emphasis has no visible
+effect there). A component that restyles emphasis while it stays emphasis (a muted italic
+tail) does not declare it: its meaning has not changed.
+
+**Adding a read** is adding a declaration, which is a registry change (EXTENDING §3), never a
+spec change. A read that is not declared is a defect in the component, not a convention.
+
+- **Degrades to:** the ordinary Markdown it is written in: an eyebrow is inline code, a key
+  insight is a blockquote, a ribbon is italic text. **L0-clean** by construction.
 
 ## 4. The Presentation profile
 
