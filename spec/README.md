@@ -17,6 +17,10 @@ the Lattice Timing Track (LTT):
   reader refuses. A **draft** for the owner's sign-off; its cases are in `conformance/theme/`.
 - `LATTICE-FILE-1.0.md` — the `.lattice` project file. A **draft** for the owner's sign-off; its
   cases are in `conformance/lattice-file/`.
+- `EXTENDING-1.0.md` — the seven rules every spec here follows: a closed core, profiles, registries, prefixed
+  names, ignoring what a reader does not know, the version line, and what each version may change. A **draft**
+  for the owner's sign-off (`engineering/decisions/2026-11-27-specs-1-0.md`); not projected into the docs site
+  until it is ratified.
 - `LPM.md` — the Lattice Plugin Model, a **draft** (0.x) until Mermaid and the chart family run on
   it. Not projected into the docs site while it is a draft.
 
