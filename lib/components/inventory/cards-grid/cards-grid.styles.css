@@ -24,7 +24,7 @@ section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > o
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
-  /* badge right-anchors via space-between (the title strong/text takes the left end,
+  /* badge right-anchors via space-between (the title text takes the left end,
      the pill the right) — replaces the pill's auto inline-start anchor, which
      sits outside the flex box and broke the virtual-list scrollHeight measure. */
   justify-content:space-between;
@@ -32,8 +32,6 @@ section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > o
 }
 section.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
 section.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
-/* — strong: backwards-compat shim (**Title** in existing slides renders identically) — */
-section.cards-grid > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
 /* — a pill pinned right on the title row. The author writes it with the pills plugin's notation
  *   (`` `{status}` ``) and the plugin draws it; the card only keeps it from stretching. — */
 section.cards-grid > .cell-stage > ul > li > .lat-pill,
@@ -59,7 +57,6 @@ section.cards-grid .card {
   font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
 }
 section.cards-grid .cards-grid-inner > .card:last-child:nth-child(odd) { width:var(--cards-last); }
-section.cards-grid .card > strong { flex:1 1 auto; min-width:0; }
 section.cards-grid .card > .lat-pill { flex:0 0 auto; }
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
 section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
@@ -102,7 +99,6 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li:last-child:nth-child(odd),
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > .lat-pill,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ul,
@@ -158,12 +154,6 @@ section.cards-grid.four .cards-grid-inner--ordered {
 }
 
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
- * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
- * target text nodes); the manifest validator catches that case at
- * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide keeps
    the 2-col grid; square and narrower go single-column, content-height rows

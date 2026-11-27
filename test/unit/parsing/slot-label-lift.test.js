@@ -1,5 +1,6 @@
 /**
- * Unit: lib/slot-label-lift.js — auto-wrap slot label in <strong>.
+ * Unit: lib/slot-label-lift.js — wrap the slot label in the engine's label, `<span class="lat-label">`.
+ * Never `<strong>`: bold is emphasis, never structure (R4, W3), so an author's bold stays inside it.
  *
  * Used by named-slot layouts (decision, compare-prose) so
  * authors can write `- Build` instead of `- **Build**` and still get
@@ -15,10 +16,10 @@ const { liftSlotLabel } = require('../../../lib/core/slot-label-lift');
 describe('slot-label-lift', () => {
   // ── happy path ──────────────────────────────────────────────────────────
 
-  test('lift: wraps plain p-wrapped lead in <strong>', () => {
+  test('lift: wraps plain p-wrapped lead in the label', () => {
     const input  = '<p>Build</p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build</span><ul><li>body</li></ul>');
   });
 
   test('lift: wraps lead text without <p> wrapper', () => {
@@ -27,29 +28,39 @@ describe('slot-label-lift', () => {
     // to keep them inline). Lift should still fire.
     const input  = 'Build<ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build</span><ul><li>body</li></ul>');
   });
 
   test('lift: works with <ol> body just like <ul>', () => {
     const input  = '<p>Step</p><ol><li>one</li></ol>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Step</strong><ol><li>one</li></ol>');
+    assert.equal(output, '<span class="lat-label">Step</span><ol><li>one</li></ol>');
   });
 
   // ── idempotency ─────────────────────────────────────────────────────────
 
-  test('lift: leaves already-wrapped <strong> lead alone (idempotent)', () => {
-    // Author wrote `- **Build**` already → markdown emits <strong>Build</strong>
-    // wrapped in <p>. Lift should NOT double-wrap.
+  test('lift: an author\'s bold lead is emphasis INSIDE the label, never the label (W3)', () => {
+    // Author wrote `- **Build**` → markdown emits <strong>Build</strong> in a <p>. The label
+    // wraps it: the whole lead is the label, and the bold is emphasis inside it.
     const input  = '<p><strong>Build</strong></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label"><strong>Build</strong></span><ul><li>body</li></ul>');
   });
 
-  test('lift: idempotent when already-wrapped without <p>', () => {
-    const input  = '<strong>Build</strong><ul><li>body</li></ul>';
+  test('lift: a bold FIRST WORD does not split the label (`- **A** rest`, W3)', () => {
+    const input  = '<strong>Build</strong> in region<ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label"><strong>Build</strong> in region</span><ul><li>body</li></ul>');
+  });
+
+  test('lift: idempotent on an already-lifted label', () => {
+    const input  = '<span class="lat-label">Build</span><ul><li>body</li></ul>';
+    assert.equal(liftSlotLabel(input), input);
+  });
+
+  test('lift: a label followed by more inline content is not "already lifted"', () => {
+    const input  = '<span class="lat-label">A</span> b<ul><li>body</li></ul>';
+    assert.equal(liftSlotLabel(input), '<span class="lat-label"><span class="lat-label">A</span> b</span><ul><li>body</li></ul>');
   });
 
   test('lift: running twice yields the same result', () => {
@@ -82,28 +93,28 @@ describe('slot-label-lift', () => {
   test('lift: preserves inline <em> inside the lead', () => {
     const input  = '<p>Why <em>not</em> buy</p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Why <em>not</em> buy</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Why <em>not</em> buy</span><ul><li>body</li></ul>');
   });
 
   test('lift: preserves inline <code> inside the lead', () => {
     const input  = '<p>Build <code>v2</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build <code>v2</code></strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build <code>v2</code></span><ul><li>body</li></ul>');
   });
 
   // ── chipTail (actors actor-name pill) ───────────────────────────────────
 
-  test('lift: chipTail keeps a trailing <code> chip outside the <strong>', () => {
+  test('lift: chipTail keeps a trailing <code> chip outside the label', () => {
     const input  = '<p>Owns the model <code>Head of Product</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Owns the model</strong> <code>Head of Product</code><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Owns the model</span> <code>Head of Product</code><ul><li>body</li></ul>');
   });
 
-  test('lift: chipTail leaves mid-lead <code> nested in the <strong>', () => {
+  test('lift: chipTail leaves mid-lead <code> nested in the label', () => {
     // Only a TRAILING code run is split off; code followed by text stays in.
     const input  = '<p>Build <code>v2</code> now</p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Build <code>v2</code> now</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build <code>v2</code> now</span><ul><li>body</li></ul>');
   });
 
   test('lift: chipTail with no trailing code behaves like the default', () => {
@@ -114,16 +125,16 @@ describe('slot-label-lift', () => {
     );
   });
 
-  test('lift: chipTail is idempotent on already-authored `**label** `code``', () => {
+  test('lift: chipTail keeps an authored `**label** `code`` bold inside the label, chip outside', () => {
     const input  = '<p><strong>Owns the model</strong> <code>Head of Product</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Owns the model</strong> <code>Head of Product</code><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label"><strong>Owns the model</strong></span> <code>Head of Product</code><ul><li>body</li></ul>');
   });
 
-  test('lift: chipTail off (default) keeps a trailing chip inside the <strong>', () => {
+  test('lift: chipTail off (default) keeps a trailing chip inside the label', () => {
     const input  = '<p>Owns the model <code>Head of Product</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Owns the model <code>Head of Product</code></strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Owns the model <code>Head of Product</code></span><ul><li>body</li></ul>');
   });
 
   test('lift: chipTail splits a RUN of trailing <code> chips (unrolled inner still matches)', () => {
@@ -131,7 +142,7 @@ describe('slot-label-lift', () => {
     // each `<code>…</code>` unit is delimited unambiguously up to its own closing tag.
     const input  = '<p>Owns the model <code>PM</code> <code>Design</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Owns the model</strong> <code>PM</code> <code>Design</code><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Owns the model</span> <code>PM</code> <code>Design</code><ul><li>body</li></ul>');
   });
 
   test('lift: chipTail handles a chip whose text contains an escaped angle bracket', () => {
@@ -139,7 +150,7 @@ describe('slot-label-lift', () => {
     // the entity form must ride along inside the split-off chip untouched.
     const input  = '<p>Range <code>a &lt; b</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Range</strong> <code>a &lt; b</code><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Range</span> <code>a &lt; b</code><ul><li>body</li></ul>');
   });
 
   test('lift: chipTail chip body with a LITERAL nested `<` tag is kept whole (unrolled `<(?!/code>)` fires)', () => {
@@ -148,7 +159,7 @@ describe('slot-label-lift', () => {
     // chip content, so the split runs to the FIRST real `</code>`, not an inner `<`.
     const input  = '<p>Owns <code>a <b>x</b> z</code></p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, '<strong>Owns</strong> <code>a <b>x</b> z</code><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Owns</span> <code>a <b>x</b> z</code><ul><li>body</li></ul>');
   });
 
   test('lift: chipTail on a long chip-free lead falls through to a plain wrap, fast', () => {
@@ -159,13 +170,13 @@ describe('slot-label-lift', () => {
     const lead   = 'word '.repeat(4000).trim(); // internal spaces only; no leading/trailing run
     const input  = `<p>${lead}</p><ul><li>body</li></ul>`;
     const output = liftSlotLabel(input, { chipTail: true });
-    assert.equal(output, `<strong>${lead}</strong><ul><li>body</li></ul>`);
+    assert.equal(output, `<span class="lat-label">${lead}</span><ul><li>body</li></ul>`);
   });
 
   test('lift: multi-word lead with punctuation', () => {
     const input  = '<p>Why not delay?</p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Why not delay?</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Why not delay?</span><ul><li>body</li></ul>');
   });
 
   // ── edge cases ──────────────────────────────────────────────────────────
@@ -173,13 +184,13 @@ describe('slot-label-lift', () => {
   test('lift: trims leading/trailing whitespace inside the <p> wrapper', () => {
     const input  = '<p>  Build  </p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>body</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build</span><ul><li>body</li></ul>');
   });
 
   test('lift: handles <ol> with start attribute (counter-style cards)', () => {
     const input  = '<p>Step</p><ol start="2"><li>x</li></ol>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Step</strong><ol start="2"><li>x</li></ol>');
+    assert.equal(output, '<span class="lat-label">Step</span><ol start="2"><li>x</li></ol>');
   });
 
   test('lift: only the FIRST nested ul/ol triggers the split (greedy matters)', () => {
@@ -188,7 +199,7 @@ describe('slot-label-lift', () => {
     // the body chunk, untouched.
     const input  = '<p>Build</p><ul><li>a</li></ul><ul><li>b</li></ul>';
     const output = liftSlotLabel(input);
-    assert.equal(output, '<strong>Build</strong><ul><li>a</li></ul><ul><li>b</li></ul>');
+    assert.equal(output, '<span class="lat-label">Build</span><ul><li>a</li></ul><ul><li>b</li></ul>');
   });
 
   test('lift: empty string input', () => {

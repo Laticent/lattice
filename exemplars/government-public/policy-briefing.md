@@ -52,17 +52,17 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ## Three policy paths, scored against what the standard must achieve.
 
-- **Keep voluntary guidance.**
+- Keep voluntary guidance
   - [x] Low cost
   - [!] Compliance gain
   - [!] Equity reach
   - Cheapest to administer, but eight years of flat compliance show it does not change behavior at scale.
-- **Mandate with no support.**
+- Mandate with no support
   - [!] Low cost
   - [x] Compliance gain
   - [!] Equity reach
   - Drives compliance but lands hardest on owners who cannot afford clearance, inviting non-compliance and appeals.
-- **Mandate with hardship grants.**
+- Mandate with hardship grants
   - [-] Low cost
   - [x] Compliance gain
   - [x] Equity reach
@@ -111,13 +111,13 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ## Where each path sits on enforceability against equity.
 
-- **Hard to enforce · Inequitable.**
+- Hard to enforce · Inequitable
   - Status quo voluntary guidance
-- **Hard to enforce · Equitable.**
+- Hard to enforce · Equitable
   - Incentive-only tax rebates
-- **Enforceable · Inequitable.**
+- Enforceable · Inequitable
   - Flat mandate, no support
-- **Enforceable · Equitable.**
+- Enforceable · Equitable
   - Mandate with hardship grants
 
 ---

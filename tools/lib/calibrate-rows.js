@@ -202,9 +202,9 @@ async function main() {
               const rg = document.createRange();
               rg.setStart(li, 0);
               if (sub) rg.setEndBefore(sub); else rg.setEnd(li, li.childNodes.length);
-              // A lead the transform wraps in <strong> is drawn as a corner tag (compare-prose,
+              // A lead the lift wraps in `.lat-label` is drawn as a corner tag (compare-prose,
               // base.card-tag.css): its font, not the item's, sets its lines.
-              const tag = li.firstChild === li.firstElementChild && li.firstElementChild?.tagName === 'STRONG' && getComputedStyle(li.firstElementChild).textTransform === 'uppercase' ? li.firstElementChild : null;
+              const tag = li.firstChild === li.firstElementChild && li.firstElementChild?.classList.contains('lat-label') && getComputedStyle(li.firstElementChild).textTransform === 'uppercase' ? li.firstElementChild : null;
               roles.title.push([rg, tag || li, k]);
               if (tag) roles.tagged = true;
               if (sub) for (const b of sub.children) roles.body.push([whole(b), b, k]);

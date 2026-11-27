@@ -79,7 +79,7 @@
         "match": {
           "kind": "blockquote"
         },
-        "description": "The statement, proof or definition: one `>` blockquote each, led by its label (`**Theorem.**`)."
+        "description": "The statement, proof or definition: one `>` blockquote each, led by its label as a heading (`> ### Theorem.`)."
       }
     }
   },
@@ -139,6 +139,12 @@
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "'where:' legend. Each li introduces an `$x$` symbol followed by its definition."
+    },
+    "legendValue": {
+      "selector": "ul > li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "`math matrix`: a legend row's value, nested under its label (`- shape` then `  - $n \\times p$`). It runs beside the label in the value column."
     }
   },
   "skeleton": "<!-- @meta{layout=math} -->\n\n`Eyebrow · context`\n\n## One-sentence framing of what the equation establishes.\n\n$$ y = f(x) $$\n\n- $y$ — what we predict\n- $x$ — input variable\n- $f$ — the relation under study\n",
@@ -208,7 +214,7 @@
     "theorem": {
       "label": "theorem",
       "summary": "Definition, Theorem and Proof as stacked color-coded cards.",
-      "sample": "<!-- @meta{layout=math, class=theorem} -->\n\n## theorem boxes the statement and its proof.\n\n> **Definition.** A function $f : [a,b] \\to \\mathbb{R}$ is *continuous* on $[a,b]$ if $\\lim_{x\\to c} f(x) = f(c)$ for every $c \\in [a,b]$.\n\n> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \\in (a,b)$ with $f(c) = y$.\n\n> **Proof.** Set $S = \\{x \\in [a,b] : f(x) < y\\}$. $S$ is non-empty and bounded; let $c = \\sup S$. Continuity at $c$ forces $f(c) = y$. $\\square$\n"
+      "sample": "<!-- @meta{layout=math, class=theorem} -->\n\n## theorem boxes the statement and its proof.\n\n> ### Definition.\n>\n> A function $f : [a,b] \\to \\mathbb{R}$ is *continuous* on $[a,b]$ if $\\lim_{x\\to c} f(x) = f(c)$ for every $c \\in [a,b]$.\n\n> ### Theorem.\n>\n> Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \\in (a,b)$ with $f(c) = y$.\n\n> ### Proof.\n>\n> Set $S = \\{x \\in [a,b] : f(x) < y\\}$. $S$ is non-empty and bounded; let $c = \\sup S$. Continuity at $c$ forces $f(c) = y$. $\\square$\n"
     },
     "compare": {
       "label": "compare",
@@ -223,7 +229,7 @@
     "matrix": {
       "label": "matrix",
       "summary": "A matrix beside a legend of its shape, rank and what rows mean.",
-      "sample": "<!-- @meta{layout=math, class=matrix} -->\n\n## matrix typesets the block structures.\n\n$$\nX = \\begin{pmatrix}\n1 & x_{11} & \\cdots & x_{1p} \\\\\n1 & x_{21} & \\cdots & x_{2p} \\\\\n\\vdots & \\vdots & \\ddots & \\vdots \\\\\n1 & x_{n1} & \\cdots & x_{np}\n\\end{pmatrix}\n$$\n\n- **shape** — $n \\times (p+1)$\n- **rows** — observations\n- **cols** — intercept + $p$ features\n- **rank** — full-rank for OLS to have a unique solution\n- **column 0** — all-ones, absorbs the intercept\n"
+      "sample": "<!-- @meta{layout=math, class=matrix} -->\n\n## matrix typesets the block structures.\n\n$$\nX = \\begin{pmatrix}\n1 & x_{11} & \\cdots & x_{1p} \\\\\n1 & x_{21} & \\cdots & x_{2p} \\\\\n\\vdots & \\vdots & \\ddots & \\vdots \\\\\n1 & x_{n1} & \\cdots & x_{np}\n\\end{pmatrix}\n$$\n\n- shape\n  - $n \\times (p+1)$\n- rows\n  - observations\n- cols\n  - intercept + $p$ features\n- rank\n  - full-rank for OLS to have a unique solution\n- column 0\n  - all-ones, absorbs the intercept\n"
     },
     "stats": {
       "label": "stats",
@@ -233,7 +239,7 @@
     "decompose": {
       "label": "decompose",
       "summary": "A factorization as a sequence of matrices, each term named.",
-      "sample": "<!-- @meta{layout=math, class=matrix decompose} -->\n\n## decompose colors the terms it names.\n\n$$\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n$$\n\n- **$A$** — the original matrix being factorized\n- **$L$** — lower-triangular, unit diagonal\n- **$U$** — upper-triangular\n- **use** — solve $Ax = b$ by forward then back substitution\n"
+      "sample": "<!-- @meta{layout=math, class=matrix decompose} -->\n\n## decompose colors the terms it names.\n\n$$\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n$$\n\n- $A$\n  - the original matrix being factorized\n- $L$\n  - lower-triangular, unit diagonal\n- $U$\n  - upper-triangular\n- use\n  - solve $Ax = b$ by forward then back substitution\n"
     }
   },
   "commonMistakes": [

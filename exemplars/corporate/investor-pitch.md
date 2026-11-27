@@ -146,13 +146,13 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ## Saffron is the only autonomous option built for the mid-market.
 
-- **Manual · Enterprise-only.**
+- Manual · Enterprise-only
   - Generic ERP modules
-- **Manual · Mid-market fit.**
+- Manual · Mid-market fit
   - Spreadsheets and bank portals
-- **Autonomous · Enterprise-only.**
+- Autonomous · Enterprise-only
   - Legacy AP suites — six-month implementations
-- **Autonomous · Mid-market fit.**
+- Autonomous · Mid-market fit
   - Saffron
 
 ---

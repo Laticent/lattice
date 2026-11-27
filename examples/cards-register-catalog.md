@@ -101,16 +101,16 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 

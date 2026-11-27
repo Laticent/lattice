@@ -22,7 +22,7 @@ section.glossary thead th { padding:0.46875cqi var(--sp-sm) 0.78125cqi; text-ali
 section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); vertical-align:top; font-size:var(--fs-body); word-wrap:break-word; overflow-wrap:break-word; border-bottom:none; }
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }
 section.glossary td:first-child,
-section.glossary td:first-child strong { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
+section.glossary td:first-child .lat-label { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
 /* The heading is a justified row (title left · auto-derived range pill right), so it must span the
  * full lede width. The masthead-lede is a flex column with `align-items:flex-start` (masthead-lede.css),
  * which would otherwise shrink this h2 to its content and collapse the pill against the title —

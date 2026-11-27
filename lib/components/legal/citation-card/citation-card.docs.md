@@ -19,7 +19,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 | `heading` | a `## ` heading | yes | Slide heading framing what the citation establishes. |
 | `citation` | a line of `inline code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
 | `quotation` | a `>` blockquote | yes | Verbatim quote of the cited language. |
-| `gloss` | a list | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
+| `gloss` | a list | no | Optional plain-English interpretation. End with the action, `- What we must do` with it nested underneath: the last item with a nested body is the action callout. |
 | `body` | a list nested 1 level under an item | no | Body lines under a gloss item, such as what the citation obliges you to do. |
 
 ### Variant decision rule
@@ -45,7 +45,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 - **Multiple citations on one slide.** Stacking two or three statutes? Use statute-stack — citation-card gives canvas weight to a single authority.
 - **Paraphrased 'quote'.** Rewriting the source? Drop the citation framing for content or a split-panel pullquote — citation-card is for verbatim language with attribution.
 - **Gloss longer than the quote.** When the gloss runs three paragraphs, the citation is no longer the focus. Trim it to one sentence plus a `What we must do` action, or use content.
-- **Plain gloss under the pull-quote variant.** The `pull-quote` variant shows only a **bold**-led `**What we must do**` action — a plain 'In plain English …' line silently vanishes. Lead with a bold label, or use the default variant.
+- **Plain gloss under the pull-quote variant.** The `pull-quote` variant shows only the action callout, the last item with a nested body — a one-line 'In plain English …' item does not show. Nest the action under its label, or use the default variant.
 
 ## Authoring
 
@@ -59,7 +59,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 > Verbatim quotation of the cited language.
 
 - Plain-English interpretation of what the language covers.
-- **What we must do.**
+- What we must do
   - The concrete action this citation argues for.
 ```
 
@@ -94,7 +94,7 @@ The operative phrase, lifted.
 
 > Information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
-- **What we must do.**
+- What we must do
   - Audit pixel inventory; treat household IDs as PI in DSAR workflows.
 ```
 
@@ -147,7 +147,7 @@ Three authorities abreast.
 
 - In plain English.
   - Any online identifier that can single out a person — IP address, cookie ID, device fingerprint.
-- **What we must do.**
+- What we must do
   - Scope notice and retention to cover online identifiers, not just named-person records.
 ```
 

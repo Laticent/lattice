@@ -36,10 +36,10 @@
  * reserved question row), which need to SIZE the question. Flex sizes items you can select,
  * and the question is a list item's lead text — so q-and-a opts into `slotLabelLift` (the
  * shared markdown-it kernel rule, same as decision / statute-stack / actors): the question is
- * wrapped in `<strong>`, giving flex a selectable hook (`> li > strong`). The wrapper is
+ * wrapped in `.lat-label`, giving flex a selectable hook (`> li > .lat-label`). The wrapper is
  * visually TRANSPARENT (font:inherit) for the stream looks; rail/grid use it for layout.
  * A bare renderer that skips the kernel (raw VS Code preview) leaves the question unwrapped —
- * rail/grid then fall back to the single-column ledger via `:not(:has(> strong))`. */
+ * rail/grid then fall back to the single-column ledger via `:not(:has(> .lat-label))`. */
 
 /* The private tokens are declared on the SECTION, not on `> .cell-stage`. A modifier
  * class lands on the section, so a stage-scoped declaration WINS over anything
@@ -133,10 +133,10 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li::before {
   line-height: var(--lh-snug);
   color: var(--accent);
 }
-/* The question is lifted into <strong> by slotLabelLift so flex can size it (rail/grid).
+/* The question is lifted into `.lat-label` by slotLabelLift so flex can size it (rail/grid).
  * Transparent by default — it inherits the question's own type so the stream looks
  * (ledger / spine / tab / solo / compact) read exactly as a bare text node would. */
-section.q-and-a > .cell-stage > :is(ul, ol) > li > strong {
+section.q-and-a > .cell-stage > :is(ul, ol) > li > .lat-label {
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
@@ -236,7 +236,7 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol) {
   gap: var(--sp-lg);
 }
 /* flex mirror of `grid-template-columns:auto minmax(0,0.46fr) minmax(0,0.54fr)`: the index is
- * the ledger's fixed first column; the question (<strong>) and answer (ul) split the rest
+ * the ledger's fixed first column; the question (`.lat-label`) and answer (ul) split the rest
  * 46:54 via matching flex-grow on a zero basis — exactly what the two fr tracks did.
  *
  * The row keeps the ledger's `align-items: baseline`. It was `start`, which aligns the three
@@ -261,7 +261,7 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol) > li:last-child {
 section.q-and-a.rail > .cell-stage > :is(ul, ol) > li::before {
   font-weight: 700;
 }
-section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > strong {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > .lat-label {
   flex: 0.46 1 0;
   min-width: 0;
   padding-right: var(--sp-lg);   /* widens the question↔answer gutter without widening the
@@ -384,7 +384,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) > li::before {
   flex: 0 0 auto;   /* in a column the ledger's `0 0 <gutter>` would be a HEIGHT */
   line-height: var(--lh-tight);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > strong {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > .lat-label {
   flex: 0 0 auto;
   padding-top: var(--sp-2xs);
 }
@@ -394,16 +394,16 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
 }
 
 /* ── bare-renderer fallback ────────────────────────────────────────────────
- * rail + grid size the question via the lifted <strong>. A renderer that skips the kernel
+ * rail + grid size the question via the lifted `.lat-label`. A renderer that skips the kernel
  * (raw VS Code preview) leaves the question unwrapped, so there's no hook to proportion —
  * fall back to a single-column stack rather than mis-size an unselectable text node. */
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label)) {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   gap: var(--qa-gap);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label)) > li {
   /* back to the ledger's wrapping row: index beside the question, answer under both. */
   flex-direction: row;
   flex-wrap: wrap;
@@ -416,15 +416,15 @@ section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > str
   max-height: none;
   padding-left: var(--sp-xs);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li::before {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label)) > li::before {
   flex: 0 0 var(--qa-index-col);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li > :is(ul, ol) {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label)) > li > :is(ul, ol) {
   flex: 1 1 100%;
   padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::before,
-section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after {
+section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label))::before,
+section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > .lat-label))::after {
   display: none;
 }
 
@@ -500,7 +500,7 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
   border-left: 2px solid var(--accent);
 }
 /* The numeral is the ledger's already — the columns are what this arm undoes. */
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong {
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > .lat-label {
   flex: 1 1 0;
   padding-right: 0;
 }
@@ -527,6 +527,6 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
     flex-wrap: wrap; column-gap: var(--qa-col-gap); padding-inline-start: var(--sp-xs);
     padding-bottom: var(--sp-lg); border-inline-start: 2px solid var(--accent);
   }
-  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > strong { flex: 1 1 0; padding-inline-end: 0; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > .lat-label { flex: 1 1 0; padding-inline-end: 0; }
   section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > :is(ul, ol) { flex: 1 1 100%; }
 }

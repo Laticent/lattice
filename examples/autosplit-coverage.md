@@ -130,16 +130,16 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ## Effort against impact.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Ship these first
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Fund deliberately
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 

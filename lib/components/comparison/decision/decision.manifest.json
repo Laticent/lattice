@@ -141,7 +141,7 @@
     },
     {
       "mistake": "Manually bolding the option name with `**…**`.",
-      "fix": "The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it), and the lift step already skips an already-bolded lead — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight."
+      "fix": "The lead auto-lifts to the engine's label (the corner-tag CSS keys off it). A bolded lead is emphasis inside that label, so it changes nothing you can see, and a bold first word never becomes the tag on its own (`- **Build** in region` tags “Build in region”). Write plain text and let the lift do the work."
     }
   ],
   "variantDecisionRule": [

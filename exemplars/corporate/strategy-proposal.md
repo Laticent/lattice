@@ -68,17 +68,17 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ## A joint venture is the only route that's fast, capital-light, and de-risked.
 
-- **Build own plant.**
+- Build own plant
   - [x] Full control
   - [!] Fast to market
   - [!] Capital-light
   - 30-month build, €40M outlay — too slow for the open window.
-- **Acquire a converter.**
+- Acquire a converter
   - [x] Full control
   - [-] Fast to market
   - [!] Capital-light
   - €28M and a year of integration risk on aging assets.
-- **Joint venture.**
+- Joint venture
   - [-] Full control
   - [x] Fast to market
   - [x] Capital-light
@@ -91,13 +91,13 @@ Each route trades capital and control differently. We can build our own plant, a
 
 ## The joint venture sits where speed and capital efficiency meet.
 
-- **Fast · Capital-heavy.**
+- Fast · Capital-heavy
   - Acquire an existing converter outright
-- **Slow · Capital-heavy.**
+- Slow · Capital-heavy
   - Build a greenfield plant from scratch
-- **Slow · Capital-light.**
+- Slow · Capital-light
   - Continue exporting and absorb the margin hit
-- **Fast · Capital-light.**
+- Fast · Capital-light
   - Form a JV with a certified regional manufacturer
 
 ---

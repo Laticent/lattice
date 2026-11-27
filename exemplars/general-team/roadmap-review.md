@@ -100,13 +100,13 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 ## What to keep doing and what to change, going into H2.
 
-- **Worked · Keep.**
+- Worked · Keep
   - Tight sprint commitments held velocity steady
-- **Worked · Keep.**
+- Worked · Keep
   - Shipping search and mobile in small increments
-- **Struggled · Change.**
+- Struggled · Change
   - Estimating compliance-heavy work too lightly
-- **Struggled · Fix first.**
+- Struggled · Fix first
   - Taking hard dependencies on unproven vendors
 
 ---

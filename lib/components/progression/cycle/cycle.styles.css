@@ -183,8 +183,6 @@ section.cycle > .cell-stage > ul > li > ol > li {
   line-height: var(--lh-base);
 }
 /* backwards-compat: an explicit `**Name**` shim shouldn't bold its siblings. */
-section.cycle > .cell-stage > ul > li > strong { font-weight: 700; }
-section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the

@@ -88,8 +88,15 @@ section.citation-card > .cell-stage > :is(ul, ol) > li {
   color:var(--text-body);
 }
 section.citation-card > .cell-stage > :is(ul, ol) > li::marker { content:''; }
-/* The "what we must do" item carries a strong label as the eyebrow. */
-section.citation-card > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+/* Every other item's lead is plain reading text: the lift labels it too (one mechanism for the
+ * layout), so it gives the label's heading weight and ink back to the item. */
+section.citation-card > .cell-stage > :is(ul, ol) > li:not(li:last-child:has(> :is(ul, ol))) > .lat-label { color:inherit; font-weight:inherit; }
+/* THE ACTION CALLOUT ("What we must do.") IS THE LAST ITEM WITH A NESTED BODY. Its lead is the
+ * eyebrow (the slot-label lift wraps it in `.lat-label`) and the nested list is what to do. It was
+ * the item whose lead was `**bold**` until bold stopped carrying structure (R4, W3 of
+ * engineering/decisions/2026-11-19-deterministic-authoring-audit.md); position is the signal now,
+ * so it survives an author who bolds nothing, or bolds a plain-reading line. */
+section.citation-card > .cell-stage > :is(ul, ol) > li:last-child:has(> :is(ul, ol)) {
   padding:var(--sp-md) var(--sp-lg);
   background:var(--accent-soft);
   border-radius:var(--radius-md);
@@ -97,7 +104,7 @@ section.citation-card > .cell-stage > :is(ul, ol) > li:has(> strong:first-child)
   color:var(--text-heading);
   font-weight:500;
 }
-section.citation-card > .cell-stage > :is(ul, ol) > li > strong:first-child {
+section.citation-card > .cell-stage > :is(ul, ol) > li:last-child:has(> :is(ul, ol)) > .lat-label:first-child {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -181,7 +188,7 @@ section.citation-card.pull-quote.pull-quote > .cell-stage > blockquote::before {
   z-index:0;
 }
 section.citation-card.pull-quote.pull-quote > .cell-stage > blockquote > p { position:relative; z-index:1; }
-section.citation-card.pull-quote > .cell-stage > :is(ul, ol) > li:not(:has(> strong:first-child)) { display:none; }
+section.citation-card.pull-quote > .cell-stage > :is(ul, ol) > li:not(li:last-child:has(> :is(ul, ol))) { display:none; }
 
 /* .margin — quote center, citation in left margin, "what" in right margin. */
 section.citation-card.margin > .cell-stage {
@@ -224,7 +231,7 @@ section.citation-card.margin > .cell-stage > :is(ul, ol) > li {
   padding-left:var(--sp-md);
   font-size:var(--fs-meta);
 }
-section.citation-card.margin > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+section.citation-card.margin > .cell-stage > :is(ul, ol) > li:last-child:has(> :is(ul, ol)) {
   background:none; padding-left:var(--sp-md);
   border-left:3px solid var(--accent);
 }
@@ -259,18 +266,12 @@ section.citation-card.triptych > .cell-stage > :is(ul, ol) > li {
   border-radius:var(--radius-card, var(--radius-md));
   padding:var(--sp-md);
 }
-section.citation-card.triptych > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+section.citation-card.triptych > .cell-stage > :is(ul, ol) > li:last-child:has(> :is(ul, ol)) {
   background:var(--accent-soft);
   border-color:var(--accent);
 }
 
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
- * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
- * target text nodes); the manifest validator catches that case at
- * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* ── Orientation reflow (2026-06-20-native-to-reflow-feasibility.md, Batch A1).
    The DEFAULT canvas is already a single vertical stack (citation → quote →

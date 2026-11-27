@@ -138,7 +138,7 @@ section.redline > .cell-stage > :is(ol, ul) > li {
   border-left:2px solid var(--accent);
 }
 section.redline > .cell-stage > :is(ol, ul) > li::marker { content:''; }
-section.redline > .cell-stage > :is(ol, ul) > li > strong {
+section.redline > .cell-stage > :is(ol, ul) > li > .lat-label {
   display:inline-block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -147,6 +147,12 @@ section.redline > .cell-stage > :is(ol, ul) > li > strong {
   color:var(--accent);
   padding-right:var(--sp-xs);
 }
+/* The read is nested under its label (`- Why this matters` then `  - what changes`) and runs
+ * inline after it, as the text after a `**bold**` label did before W3 (bold is emphasis, never
+ * structure). */
+section.redline > .cell-stage > :is(ol, ul) > li > :is(ul, ol) { display:inline; list-style:none; padding:0; margin:0; }
+section.redline > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li { display:inline; padding:0; margin:0; }
+section.redline > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::before { content:none; }
 
 /* .split — two blockquotes side-by-side: old left, new right. The masthead band is
  * a flex sibling ABOVE the stage now, so the grid is just the two cards (row 1) +

@@ -20,6 +20,7 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 | `heading` | a `## ` heading | yes | One-sentence framing of what the math establishes. |
 | `equation` | a `$$` equation or a fenced code block tagged `math` | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
 | `legend` | a list | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
+| `legendValue` | a list nested 1 level under an item | no | `math matrix`: a legend row's value, nested under its label (`- shape` then `  - $n \times p$`). It runs beside the label in the value column. |
 
 Under a variant, a slot changes shape:
 
@@ -134,11 +135,17 @@ Definition, Theorem and Proof as stacked color-coded cards.
 
 ## theorem boxes the statement and its proof.
 
-> **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
+> ### Definition.
+>
+> A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
-> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
+> ### Theorem.
+>
+> Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
 
-> **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
+> ### Proof.
+>
+> Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 ```
 
 ### `compare` — compare
@@ -207,11 +214,16 @@ X = \begin{pmatrix}
 \end{pmatrix}
 $$
 
-- **shape** — $n \times (p+1)$
-- **rows** — observations
-- **cols** — intercept + $p$ features
-- **rank** — full-rank for OLS to have a unique solution
-- **column 0** — all-ones, absorbs the intercept
+- shape
+  - $n \times (p+1)$
+- rows
+  - observations
+- cols
+  - intercept + $p$ features
+- rank
+  - full-rank for OLS to have a unique solution
+- column 0
+  - all-ones, absorbs the intercept
 ```
 
 ### `stats` — stats
@@ -247,10 +259,14 @@ $$
 \begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}
 $$
 
-- **$A$** — the original matrix being factorized
-- **$L$** — lower-triangular, unit diagonal
-- **$U$** — upper-triangular
-- **use** — solve $Ax = b$ by forward then back substitution
+- $A$
+  - the original matrix being factorized
+- $L$
+  - lower-triangular, unit diagonal
+- $U$
+  - upper-triangular
+- use
+  - solve $Ax = b$ by forward then back substitution
 ```
 
 ## Universal modifiers

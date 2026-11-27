@@ -17,7 +17,7 @@
         "select": "li:not(li li):not(svg *)"
       },
       "title": {
-        "select": "li:not(li li):not(svg *) > strong:first-child"
+        "select": "li:not(li li):not(svg *) > .lat-label:first-child"
       },
       "heading": {
         "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"
@@ -31,7 +31,7 @@
         "select": "li:not(li li):not(svg *)"
       },
       "title": {
-        "select": "li:not(li li):not(svg *) > strong:first-child"
+        "select": "li:not(li li):not(svg *) > .lat-label:first-child"
       },
       "heading": {
         "select": ":is(h1, h2):not(header *):not(footer *):not(svg *)"

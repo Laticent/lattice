@@ -19,7 +19,7 @@ section.compare-prose .compare-prose-inner .card {
   --card-tag-rest:var(--sp-sm);   /* the card's own top padding, for a tag off the top (base.card-tag.css) */
   font-weight:700; color:var(--text-heading);
 }
-section.compare-prose .compare-prose-inner .card > strong { display:block; }
+section.compare-prose .compare-prose-inner .card > .lat-label { display:block; }
 section.compare-prose .compare-prose-inner .card > ul,
 section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; margin:0; }
 section.compare-prose .compare-prose-inner .card > ul > li,
@@ -100,8 +100,8 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol
 /* Cards bracket the connector slot: first before it, second after it. */
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:first-child { order:1; }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child { order:3; }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > strong,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > strong { display:block; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > .lat-label,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > .lat-label { display:block; }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ul,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ol,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > ul,
@@ -149,7 +149,7 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:last-child {
 section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) > strong:first-child {
+section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) > .lat-label:first-child {
   text-decoration: line-through;
 }
 
@@ -166,7 +166,7 @@ section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:
 section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) > strong:first-child {
+section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) > .lat-label:first-child {
   text-decoration: line-through;
 }
 section.compare-prose.decision > .cell-stage > :is(ul, ol)::before {
@@ -209,12 +209,12 @@ section.compare-prose.vertical > .cell-stage > :is(ul, ol)::before {
 }
 
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
+/* Hardening: element siblings of the label in a card li don't inherit
+ * the parent's font-weight:700. Covers cases like `<span class="lat-label">Title.</span>
  * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
  * target text nodes); the manifest validator catches that case at
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
+section.compare-prose :is(ul,ol) > li > .lat-label ~ * { font-weight: 400; }
 
 /* ── corner tag + banner tag — relocated from the retired before-after
  * component on 2026-06-07. Shared by compare-prose (incl. its `transition`
@@ -227,7 +227,7 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * but the content is editorial label text instead of a counter. Frees
  * the title line so the body fills the card from the top.
  *
- * The leading <strong> wrapper is produced automatically by the build
+ * The leading `.lat-label` wrapper is produced automatically by the build
  * pipeline (slotLabelLift in the engine, mirrored in
  * lattice.js) — authors write plain `- Label` and the structural
  * lift happens in the Marpit token layer. Wrapping `**Label**` in source
@@ -371,7 +371,7 @@ section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):no
   font-size: var(--fs-h2);
 }
 /* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
- * leading <strong> into a flush top-left chip and reserves top padding for it —
+ * leading `.lat-label` into a flush top-left chip and reserves top padding for it —
  * right for a labeled comparison card, wrong here, where the facet title belongs
  * UNDER the numeral as part of the centered stack. This is the rule the old
  * blank-lead contract was dodging; opting out explicitly is what lets the item
@@ -380,10 +380,10 @@ section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):no
  * --sp-lg of top space for a flush corner tag this variant does not render, so
  * on an opted-out card that reserve is dead space — and it was 16px of the 39px
  * this stage overran at design size. */
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> .lat-label:first-child) {
   padding-top: var(--sp-xs);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> .lat-label:first-child) > .lat-label:first-child {
   position: static;
   background: none;
   padding: 0 0 var(--sp-xs);
@@ -401,7 +401,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   line-height: 1;   /* the tag kernel sets --card-tag-lh; a title keeps its own */
   text-align: center;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > strong {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > .lat-label {
   display: block;
   font-size: var(--fs-h3);
   font-weight: 700;

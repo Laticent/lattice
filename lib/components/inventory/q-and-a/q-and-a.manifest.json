@@ -204,7 +204,7 @@
   "commonMistakes": [
     {
       "mistake": "Bolding or otherwise emphasizing the question text.",
-      "fix": "Author the question as plain interrogative text. The layout supplies its own numbered-index and prompt-weight styling — bolding the question doesn't fight it (the lift step already no-ops on an already-bolded lead) but italicizing or otherwise marking it up can nest inside that styling in ways that look inconsistent across questions, so keep it plain."
+      "fix": "Author the question as plain interrogative text. The layout supplies its own numbered-index and prompt-weight styling — bolding the question doesn't fight it (bold is emphasis inside the lifted label, never the label itself) but italicizing or otherwise marking it up can nest inside that styling in ways that look inconsistent across questions, so keep it plain."
     },
     {
       "mistake": "Assuming `ul` vs `ol` changes which marker or numbering renders.",

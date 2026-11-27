@@ -77,17 +77,17 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ## Only Northwind closes the loop from signal to forecast to coaching.
 
-- **CRM forecast fields.**
+- CRM forecast fields
   - [x] In the workflow
   - [!] Reads real signals
   - [!] Learns from outcomes
   - Manual rollups; only as honest as the reps filling them in.
-- **BI dashboards.**
+- BI dashboards
   - [x] In the workflow
   - [-] Reads real signals
   - [!] Learns from outcomes
   - Shows you the past; predicts nothing forward.
-- **Northwind.**
+- Northwind
   - [x] In the workflow
   - [x] Reads real signals
   - [x] Learns from outcomes

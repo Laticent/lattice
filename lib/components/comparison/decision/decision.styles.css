@@ -104,8 +104,8 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
   --card-tag-fill: var(--decision-accent-deep, var(--accent));
   --card-tag-ink: var(--cat-on-mark);
 }
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > strong,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > strong {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > .lat-label,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > .lat-label {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -127,12 +127,12 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > ul {
   padding:0;
 }
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
+/* Hardening: element siblings of the label in a card li don't inherit
+ * the parent's font-weight:700. Covers cases like `<span class="lat-label">Title.</span>
  * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
  * target text nodes); the manifest validator catches that case at
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.decision:where(:not(.compare-prose)) :is(ul,ol) > li > strong ~ * { font-weight: 400; }
+section.decision:where(:not(.compare-prose)) :is(ul,ol) > li > .lat-label ~ * { font-weight: 400; }
 
 /* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The cards are a horizontal strip; in a square-or-narrower box four side-by-side

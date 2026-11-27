@@ -105,13 +105,13 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ## The pre-buy is the only option that protects both service and margin.
 
-- **Protects service · Hurts margin.**
+- Protects service · Hurts margin
   - Cover peak entirely on the spot market
-- **Hurts service · Hurts margin.**
+- Hurts service · Hurts margin
   - Cap volume to contracted capacity, turn away demand
-- **Hurts service · Protects margin.**
+- Hurts service · Protects margin
   - Defer the decision to Q3 and renegotiate
-- **Protects service · Protects margin.**
+- Protects service · Protects margin
   - Pre-buy Q4 capacity now at locked rates
 
 ---

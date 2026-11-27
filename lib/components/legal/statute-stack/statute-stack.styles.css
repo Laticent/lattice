@@ -98,7 +98,7 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-a
 section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink, var(--cat-6-mark)); }
 section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
- * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
+ * `.lat-label` is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE:
  *   · ROW cards (hierarchy/bands/preemption — full-width): citation pill LEFT (right after
  *     the label), status pill RIGHT — both on the header line when they fit.
@@ -130,8 +130,8 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-a
  * because `--lat-pill-cap:1` below sets the pill to the label's size. A floated pill sits at the top of its line, so a shorter line put the label
  * 1.5px above the pill's center (measured on a 16:9 default card; flex had it at 0.23px). With
  * one height, label and pill share a center, and a wrapped header spaces its lines by a pill. */
-section.statute-stack > .cell-stage > ul > li > strong:first-child,
-section.statute-stack > .cell-stage > ol > li > strong:first-child {
+section.statute-stack > .cell-stage > ul > li > .lat-label:first-child,
+section.statute-stack > .cell-stage > ol > li > .lat-label:first-child {
   display:flow-root; line-height:var(--lh-base);
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -142,14 +142,14 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
 }
 /* Only a header that holds a pill takes the pill-tall line: a header without one (the citation
  * written as its own line) has nothing to align, and the extra 2px per line only grew its card. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child:has(> .lat-pill) {
+section.statute-stack > .cell-stage > :is(ul, ol) > li > .lat-label:first-child:has(> .lat-pill) {
   line-height:calc(1em + 2 * var(--pill-pad-y) + 2px);
 }
 /* Header pills (shared) — written `{15 U.S.C. §6501}` in inline code and drawn by the pills
  * plugin, neutral outline by default: the citation reads identical across cards (an identifier,
  * not a signal). The label above is uppercase and meta-sized; a pill keeps its own case and fills
  * the label's size rather than 0.85 of it. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill {
+section.statute-stack > .cell-stage > :is(ul, ol) > li > .lat-label:first-child > .lat-pill {
   --lat-pill-case:none;
   --lat-pill-cap:1;
   /* The plugin's `middle` centers an inline pill on the lowercase x-height, and this label is
@@ -166,11 +166,11 @@ section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .l
  * trailing pill keeps its leading margin as its gap from the citation, and ends flush right. */
 /* Pills are matched against pills only (`~ .lat-pill`), never by element position, so another
  * element in the header (an icon, a styled run) cannot shift which pill is the citation. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:has(~ .lat-pill) {
+section.statute-stack > .cell-stage > :is(ul, ol) > li > .lat-label:first-child > .lat-pill:has(~ .lat-pill) {
   margin-inline:0;
 }
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not(:has(~ .lat-pill)),
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill ~ .lat-pill:not(:has(~ .lat-pill)) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > .lat-label:first-child > .lat-pill:not(:has(~ .lat-pill)),
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > .lat-label:first-child > .lat-pill ~ .lat-pill:not(:has(~ .lat-pill)) {
   float:inline-end; margin-inline-end:0;
 }
 /* The status pill takes the jurisdiction hue (the signal color).
@@ -180,7 +180,7 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
  * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
  * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
  * exists to retire. (#1263) */
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill ~ .lat-pill:not([data-c]):not(:has(~ .lat-pill)) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > .lat-label:first-child > .lat-pill ~ .lat-pill:not([data-c]):not(:has(~ .lat-pill)) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
 }

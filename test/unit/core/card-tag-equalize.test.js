@@ -25,7 +25,7 @@ const { JSDOM } = require('jsdom');
 const { equalizeCardTags, EQUALIZE_CARD_TAGS_SRC } = require(path.join(__dirname, '..', '..', '..', 'lib/core/card-tag-equalize.js'));
 
 const decision = (cls, labels) => `<section class="decision ${cls}"><div class="cell-stage"><ul>${
-  labels.map((l) => `<li><strong>${l}</strong><ul><li>body</li></ul></li>`).join('')}</ul></div></section>`;
+  labels.map((l) => `<li><span class="lat-label">${l}</span><ul><li>body</li></ul></li>`).join('')}</ul></div></section>`;
 
 /**
  * A document whose computed styles come from `metrics(el, pseudo, shims)`. The shims the kernel

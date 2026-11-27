@@ -12,6 +12,7 @@
  *   node tools/lint-deck.js --strict examples/a.md    # warnings fail too
  *   node tools/lint-deck.js --json examples/a.md      # machine-readable
  *   node tools/lint-deck.js --fix examples/a.md       # apply every machine fix, in place
+ *   node tools/lint-deck.js --fix --rule bold-lead a.md  # apply only that rule's fixes (a comma list works)
  *
  * Exit codes:
  *   0  clean (no errors; no warnings under --strict)
@@ -136,7 +137,9 @@ function expandArgs(patterns) {
 
 async function main(argv) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')));
-  const patterns = argv.filter((a) => !a.startsWith('--'));
+  // `--rule` takes a value, which is not a file pattern.
+  const ruleValueAt = argv.indexOf('--rule') + 1;
+  const patterns = argv.filter((a, i) => !a.startsWith('--') && !(ruleValueAt > 0 && i === ruleValueAt));
   const strict = flags.has('--strict');
   const asJson = flags.has('--json');
   // --fix: apply every machine-appliable finding in place, then lint what is left. The
@@ -145,6 +148,8 @@ async function main(argv) {
   // grammar change migrates in one command — e.g. rule 16 rewriting an old verdict-grid
   // `[ ]` ("not met") to `[!]`.
   const fix = flags.has('--fix');
+  // --rule <id[,id]>: with --fix, apply only those rules' fixes — a codemod for one grammar change.
+  const onlyRules = ruleValueAt > 0 && argv[ruleValueAt] ? argv[ruleValueAt].split(',').map((r) => r.trim()).filter(Boolean) : null;
 
   const files = (flags.has('--all') ? discoverDecks() : expandArgs(patterns)).filter((f) => fs.existsSync(f));
   if (!files.length) {
@@ -217,7 +222,7 @@ async function main(argv) {
       // 16's, and the author should see each one — and every fix the driver refused, with why
       // (a fix inside a code fence, one that would change the slide count, one that did not
       // resolve its finding), so a refusal never reads as "nothing to fix".
-      const { text: fixed, applied, skipped } = fixAllDetailed(source, vocab);
+      const { text: fixed, applied, skipped } = fixAllDetailed(source, vocab, undefined, onlyRules);
       for (const s of skipped) process.stderr.write(`lint:deck --fix — ${relFromRoot(file)} · slide ${s.slide} · ${s.rule} — not applied: ${s.reason}${s.detail ? ` (${s.detail})` : ''}\n`);
       if (fixed !== source) {
         // Write back in the file's own encoding: its BOM and EACH LINE'S OWN ending, so a

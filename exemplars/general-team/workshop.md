@@ -97,13 +97,13 @@ Each of you gets five dots to place across the twenty ideas on the wall. We tall
 
 ## Activity two: place each cluster by impact and effort.
 
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Polish fixes — fill spare capacity
-- **Low impact · High effort.**
+- Low impact · High effort
   - Legacy migrations — defer
-- **High impact · Low effort.**
+- High impact · Low effort
   - Performance wins — admin controls
-- **High impact · High effort.**
+- High impact · High effort
   - Real-time collaboration — the flagship bet
 
 ---

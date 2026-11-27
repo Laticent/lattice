@@ -189,7 +189,7 @@ describe('split-compare: an author block the layout does not claim', () => {
   // to the dark panel on the string path when the slide had no context paragraph of its own. The
   // input is the engine's shape after slotLabelLift (a real render of that markdown).
   test('a loose option with a nested list and a trailing paragraph: both paths agree', () => {
-    const html = '<section class="split-compare"><h2>H</h2><ul><li><strong>A</strong><ul><li>x</li></ul><p>A tail.</p></li><li><p><strong>B</strong></p></li></ul><blockquote><p>V.</p></blockquote></section>';
+    const html = '<section class="split-compare"><h2>H</h2><ul><li><span class="lat-label">A</span><ul><li>x</li></ul><p>A tail.</p></li><li><p><span class="lat-label">B</span></p></li></ul><blockquote><p>V.</p></blockquote></section>';
     const str = new JSDOM(kernel.applyToRenderedHtml(html)).window.document.querySelector('section');
     const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
     splitPanels.applyToDom(doc);

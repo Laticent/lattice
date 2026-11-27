@@ -22,10 +22,14 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ## The ledger holds four rows and a band.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 
@@ -38,10 +42,14 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ## The cards close on one pull-quote.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 
@@ -54,10 +62,14 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ## The timeline wraps long titles cleanly.
 
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** Same content, new form.
-- **Insight rides above.** The run reads left to right.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - Same content, new form.
+- Insight rides above
+  - The run reads left to right.
 
 > Optional trailing insight.
 
@@ -70,10 +82,14 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ## The editorial splits insight from items.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 
@@ -86,10 +102,14 @@ Four rows plus the trailing takeaway now fit every look, with the pull-quote mar
 
 ## The band holds in dark mode.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 

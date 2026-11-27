@@ -340,9 +340,9 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
     assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- one\n- two\n* three\n'), ['ol', 'ol']);
     assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n\n<!-- note -->\n\n1. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ol data-ordered="true"', 'ul']);
   });
-  test('the slot-label lift bolds the layout\'s items only: a quoted list keeps its weight', () => {
+  test('the slot-label lift labels the layout\'s items only: a quoted list keeps its weight', () => {
     const html = String(engine.render('<!-- _class: decision -->\n\n## H\n\n- Build\n  - why\n- Buy\n  - why\n\n> - quoted item\n').html);
-    assert.match(html, /<li><strong>Build<\/strong>/, 'the layout\'s own items are lifted');
+    assert.match(html, /<li><span class="lat-label">Build<\/span>/, 'the layout\'s own items are lifted');
     assert.match(html, /<li>quoted item<\/li>/, 'a quoted item is not');
   });
   test('the runtime walks the same lists: not an aside, not raw HTML', () => {

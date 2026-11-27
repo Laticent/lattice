@@ -24,7 +24,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.
 
 
@@ -38,7 +38,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 > Information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
-- **What we must do.**
+- What we must do
   - Audit pixel inventory; treat household IDs as PI in DSAR workflows.
 
 
@@ -82,7 +82,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 - In plain English.
   - Any online identifier that can single out a person — IP address, cookie ID, device fingerprint.
-- **What we must do.**
+- What we must do
   - Scope notice and retention to cover online identifiers, not just named-person records.
 
 
@@ -111,7 +111,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.
 
 
@@ -126,7 +126,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.
 
 
@@ -141,7 +141,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.
 
 
@@ -165,7 +165,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 - Gloss longer than the quote
   - When the gloss runs three paragraphs, the citation is no longer the focus. Trim it to one sentence plus a `What we must do` action, or use content.
 - Plain gloss under the pull-quote variant
-  - The `pull-quote` variant shows only a **bold**-led `**What we must do**` action — a plain 'In plain English …' line silently vanishes. Lead with a bold label, or use the default variant.
+  - The `pull-quote` variant shows only the action callout, the last item with a nested body — a one-line 'In plain English …' item does not show. Nest the action under its label, or use the default variant.
 
 ---
 

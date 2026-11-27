@@ -21,12 +21,12 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the framework. |
-| `axes` | a list | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+| `axes` | a list | yes | Four outer list items (one per cell). Lead each with its quadrant label (`- High impact · Low effort`), then the items as inner bullets. |
 | `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 ### Common mistakes
 
-- **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
+- **Quadrant title names only one axis, e.g. `- Priorities` instead of both poles.** Lead each quadrant with both axis poles: `- High impact · Low effort`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
 - **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
 
 ### Data shape
@@ -53,14 +53,14 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 ## Where each option lives.
 
-- **High value · Low cost.**
+- High value · Low cost
   - First item in this quadrant
   - Second item
-- **High value · High cost.**
+- High value · High cost
   - First item in this quadrant
-- **Low value · Low cost.**
+- Low value · Low cost
   - First item in this quadrant
-- **Low value · High cost.**
+- Low value · High cost
   - First item in this quadrant
 ```
 

@@ -75,7 +75,7 @@ const signalOf = (html) => {
   return m && { mark: m[1], label: textOf(m[2]) };
 };
 
-const li = (title, body) => `<li><strong>${title}</strong><ul><li>${body}</li></ul></li>`;
+const li = (title, body) => `<li><span class="lat-label">${title}</span><ul><li>${body}</li></ul></li>`;
 const steps = (titles) => titles.map((t, k) => li(t, `body for ${t} ${k}`));
 /** Each step on its own page — the `perPage: 1` pacing §0b gives a connected member. */
 const oneEach = (titles) => steps(titles).map((m) => [m]);
@@ -130,7 +130,7 @@ describe('core: relationship — the four kinds', () => {
 
   test('comparison: Option N of M, with the shared criteria read from the first member', () => {
     const withBadges = (t, badges) =>
-      `<li><strong>${t}</strong><ul>${badges.map((b) => `<li>${composeHtml('x', b, 'pill')}</li>`).join('')}<li>the verdict line</li></ul></li>`;
+      `<li><span class="lat-label">${t}</span><ul>${badges.map((b) => `<li>${composeHtml('x', b, 'pill')}</li>`).join('')}<li>the verdict line</li></ul></li>`;
     const pages = [
       [withBadges('Build', ['Residency', 'Self-serve', 'SOC 2'])],
       [withBadges('Buy', ['Residency', 'Self-serve', 'SOC 2'])],
@@ -240,23 +240,23 @@ describe('core: relationship — refusals and reading', () => {
     // the leading `<strong>` pointed a whole run at its own numbers: measured on
     // `examples/adaptive-sizing.pdf`, every page read "$0.9M" and the cover lead-in was
     // "$48.2M". The reader was told which figure came next, never which metric.
-    assert.equal(labelOf('<li><strong>119%</strong><ul><li>Net revenue retention</li></ul></li>'),
+    assert.equal(labelOf('<li><span class="lat-label">119%</span><ul><li>Net revenue retention</li></ul></li>'),
       'Net revenue retention');
-    assert.equal(labelOf('<li><strong>4.2x</strong> Pipeline coverage</li>'), 'Pipeline coverage');
+    assert.equal(labelOf('<li><span class="lat-label">4.2x</span> Pipeline coverage</li>'), 'Pipeline coverage');
   });
 
   test('a figure with NOTHING after it keeps the figure; one with an unusable follow declines', () => {
     // A roadmap horizon authored as `2026` alone still points at 2026 — there the numeral IS the
     // name, which is why this is not a blanket ban on numeric labels.
-    assert.equal(labelOf('<li><strong>2026</strong></li>'), '2026');
+    assert.equal(labelOf('<li><span class="lat-label">2026</span></li>'), '2026');
     // But a bullet led by a bolded COUNT falls through to its own sentence, which is not a name,
     // and declines rather than claiming a number is the next page's subject. This is the
     // "31" case the decision record carries.
-    assert.equal(labelOf('<li><strong>31</strong> keep whole and ring on overflow, each for a recorded reason</li>'), '');
+    assert.equal(labelOf('<li><span class="lat-label">31</span> keep whole and ring on overflow, each for a recorded reason</li>'), '');
   });
 
   test('an ordinary named card is untouched by the figure rule', () => {
-    assert.equal(labelOf('<li><strong>Draft the policy.</strong><ul><li>body</li></ul></li>'), 'Draft the policy');
+    assert.equal(labelOf('<li><span class="lat-label">Draft the policy.</span><ul><li>body</li></ul></li>'), 'Draft the policy');
   });
 
   // The criteria are the labels beside the checks a member's items LEAD with, as the composer
@@ -264,13 +264,13 @@ describe('core: relationship — refusals and reading', () => {
   // the composed grid no longer draws, and the signal fell silently to the bare count.
   test('a header\'s pills are tags, not part of the name (statute-stack)', () => {
     // Was "State Cal. Civ. §1798.120 Enforced 2023": the jurisdiction run into both header pills.
-    const card = '<li><strong>State <span class="lat-pill" data-shape="pill">Cal. Civ. §1798.120</span> '
-      + '<span class="lat-pill" data-shape="pill">Enforced 2023</span></strong><ul><li>Opt-in for sale.</li></ul></li>';
+    const card = '<li><span class="lat-label">State <span class="lat-pill" data-shape="pill">Cal. Civ. §1798.120</span> '
+      + '<span class="lat-pill" data-shape="pill">Enforced 2023</span></span><ul><li>Opt-in for sale.</li></ul></li>';
     assert.equal(labelOf(card), 'State');
     // A strong that is nothing but a pill keeps it: there the pill is the only name.
-    assert.equal(labelOf('<li><strong><span class="lat-pill">Board review</span></strong></li>'), 'Board review');
+    assert.equal(labelOf('<li><span class="lat-label"><span class="lat-pill">Board review</span></span></li>'), 'Board review');
     // A pill that leaves a bare figure behind is part of the name: `**2024 {Launch}**`.
-    assert.equal(labelOf('<li><strong>2024 <span class="lat-pill">Launch</span></strong><ul><li>a</li></ul></li>'), '2024 Launch');
+    assert.equal(labelOf('<li><span class="lat-label">2024 <span class="lat-pill">Launch</span></span><ul><li>a</li></ul></li>'), '2024 Launch');
   });
 
   test('a role="heading" head names its member by its data-label (roadmap)', () => {
@@ -287,7 +287,7 @@ describe('core: relationship — refusals and reading', () => {
 
   test('criteriaOf reads the labels beside the checks a verdict/pricing member leads with', () => {
     for (const container of ['pill', 'row']) {
-      const m = `<li><strong>Build</strong><ul><li>${composeHtml('x', 'Residency', container)}</li>` +
+      const m = `<li><span class="lat-label">Build</span><ul><li>${composeHtml('x', 'Residency', container)}</li>` +
         `<li>${composeHtml('-', 'Self-serve', container)}</li><li>rationale</li></ul></li>`;
       assert.deepEqual(criteriaOf(m), ['Residency', 'Self-serve'], container);
     }
@@ -307,7 +307,7 @@ describe('core: relationship — refusals and reading', () => {
   test('membersIn reads the page\'s real members on the item axis and the row axis', () => {
     const page = `<h2>T</h2><ul>${steps(['A', 'B']).join('')}</ul>`;
     assert.equal(membersIn(page, 'item').length, 2);
-    assert.match(membersIn(page, 'item')[0], /<strong>A<\/strong>/);
+    assert.match(membersIn(page, 'item')[0], /<span class="lat-label">A<\/span>/);
     const table = '<table><thead><tr><th>h</th></tr></thead><tbody><tr><td>1</td></tr><tr><td>2</td></tr></tbody></table>';
     assert.equal(membersIn(table, 'row').length, 2, 'the header row is not a member');
     assert.equal(membersIn('<h2>no collection</h2>', 'item').length, 0);
@@ -493,7 +493,7 @@ describe('core: relationship — degenerate inputs say nothing rather than lie',
   });
 
   test('labelOf reads a LEADING <strong>, not a bolded phrase in the body', () => {
-    const leading = '<li><strong>Sign off</strong><ul><li>The chair signs the policy hash.</li></ul></li>';
+    const leading = '<li><span class="lat-label">Sign off</span><ul><li>The chair signs the policy hash.</li></ul></li>';
     assert.equal(labelOf(leading), 'Sign off');
     // A flat member whose emphasis sits mid-sentence must fall through to the clause reader.
     const buried = '<li>Sign off — the chair signs the <strong>policy hash</strong>.</li>';
@@ -501,7 +501,7 @@ describe('core: relationship — degenerate inputs say nothing rather than lie',
   });
 
   test('labelOf handles the LOOSE list form markdown-it wraps in a <p>', () => {
-    assert.equal(labelOf('<li><p><strong>Build in region</strong></p><p>body</p></li>'), 'Build in region');
+    assert.equal(labelOf('<li><p><span class="lat-label">Build in region</span></p><p>body</p></li>'), 'Build in region');
   });
 });
 
@@ -871,11 +871,11 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // `Research & development & ops & tools` is 36 characters to a reader and 48 here, and it
     // declined. The stamp path used to decode before measuring; that decode was an XSS sink and
     // removing it was right, but the budget accounting went with it.
-    const amp = '<li><strong>Research &amp; development &amp; ops &amp; tools</strong> body</li>';
+    const amp = '<li><span class="lat-label">Research &amp; development &amp; ops &amp; tools</span> body</li>';
     assert.equal(labelOf(amp), 'Research &amp; development &amp; ops &amp; tools');
     // …and the budget still BITES on a genuinely long name, so this is an accounting fix and not
     // a hole: 44 visible characters, no entities, declines.
-    const long = `<li><strong>${'x'.repeat(44)}</strong> body</li>`;
+    const long = `<li><span class="lat-label">${'x'.repeat(44)}</span> body</li>`;
     assert.equal(labelOf(long), '');
   });
 
@@ -885,10 +885,10 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // in the title declined whenever an `\alpha` happened to appear in the body — the identical
     // member with `alpha` spelled out kept its name. That is a guard deciding on markup the label
     // does not contain, which is the defect `safeName`'s own docblock says it removed.
-    const gate = (tail) => `<li><strong>α-release gate</strong> the cutover, where ${tail}</li>`;
+    const gate = (tail) => `<li><span class="lat-label">α-release gate</span> the cutover, where ${tail}</li>`;
     assert.equal(labelOf(gate(`${typeset('\\alpha')} is the shrink factor`)), 'α-release gate');
     assert.equal(labelOf(gate('alpha is the shrink factor')), 'α-release gate');
-    assert.equal(labelOf(`<li><strong>Cost × volume</strong> the driver, see ${typeset('c \\times v')}</li>`),
+    assert.equal(labelOf(`<li><span class="lat-label">Cost × volume</span> the driver, see ${typeset('c \\times v')}</li>`),
       'Cost × volume');
     // The rule it must NOT weaken: a character that came out of THIS label's own math still
     // declines, because that is the one the chip cannot set.
@@ -918,7 +918,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // toward $A \to B$` kept its name and `- Recency — decays toward $A \to B$` declined, for
     // content that renders the same chip either way.
     const tail = `— decays toward ${typeset('A \\to B')}`;
-    assert.equal(labelOf(`<li><strong>Recency</strong> ${tail}</li>`), 'Recency');
+    assert.equal(labelOf(`<li><span class="lat-label">Recency</span> ${tail}</li>`), 'Recency');
     assert.equal(labelOf(`<li>Recency ${tail}</li>`), 'Recency');
     assert.equal(labelOf(`<li><h3>Recency</h3> ${tail}</li>`), 'Recency');
   });
@@ -927,7 +927,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // `mathSafe` ran before the clause break, so an arrow in the description — which the chip
     // never carries — killed a perfectly good name. Zero corpus members hit it, which is exactly
     // why it needed a reader rather than a render.
-    assert.equal(labelOf(`<li><strong>Recency — decays ${typeset('A \\to B')}</strong></li>`), 'Recency');
+    assert.equal(labelOf(`<li><span class="lat-label">Recency — decays ${typeset('A \\to B')}</span></li>`), 'Recency');
     assert.equal(labelOf(`<li>Recency: maps ${typeset('A \\to B')} onto the unit interval</li>`), 'Recency');
   });
 
@@ -1109,13 +1109,13 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // must agree. (HARD RULE #25 checker, twelfth pass, each rendered.)
     const pairs = [
       ['a heading', '<div><h3 A>Ridge regression</h3><p>body</p></div>', 'Ridge regression'],
-      ['a nested list item', '<li><strong>31</strong><ul><li A>Keep whole</li></ul></li>', 'Keep whole'],
-      ['the nested list itself', '<li><strong>31</strong><ul A><li>Keep whole</li></ul></li>', 'Keep whole'],
-      ['a leading tag before <strong>', '<li><p A><strong>Ridge.</strong> a description</p></li>', 'Ridge'],
+      ['a nested list item', '<li><span class="lat-label">31</span><ul><li A>Keep whole</li></ul></li>', 'Keep whole'],
+      ['the nested list itself', '<li><span class="lat-label">31</span><ul A><li>Keep whole</li></ul></li>', 'Keep whole'],
+      ['a leading tag before <strong>', '<li><p A><span class="lat-label">Ridge.</span> a description</p></li>', 'Ridge'],
       ['a figure, named by its nested item',
-        '<li><p A><strong>31</strong><ul><li>Keep whole and ring</li></ul></p></li>', 'Keep whole and ring'],
+        '<li><p A><span class="lat-label">31</span><ul><li>Keep whole and ring</li></ul></p></li>', 'Keep whole and ring'],
       ['a figure, named by the run after it',
-        '<li><p A><strong>31</strong> deals closed this quarter</li>', 'deals closed this quarter'],
+        '<li><p A><span class="lat-label">31</span> deals closed this quarter</li>', 'deals closed this quarter'],
       ['the labeled title slot', '<li><span class="split-pt-t" A>Named by the splitter</span> rest</li>',
         'Named by the splitter'],
     ];
@@ -1161,7 +1161,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     //       - measured yearly
     //
     //       across cohorts
-    const deep = '<li><strong>119%</strong>\n<ul>\n<li>\n<p>Net revenue retention</p>\n<ul>\n'
+    const deep = '<li><span class="lat-label">119%</span>\n<ul>\n<li>\n<p>Net revenue retention</p>\n<ul>\n'
       + '<li>measured yearly</li>\n</ul>\n<p>across cohorts</p>\n</li>\n</ul>\n</li>';
     assert.equal(labelOf(deep), 'Net revenue retention measured yearly');
     // …and `findMatchingClose` PREFIX-matches its tag name, so `<li` counts `<line>`, `<link>` and
@@ -1178,7 +1178,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // `</li` stops at a `</line>` or `</listing>`. Two fixtures, and the second needs a TAIL after
     // the offending close or both readings give the same answer — a first draft asserted a shape
     // where they agreed and the boundary test's mutation SURVIVED it twice.
-    const nested = (mark) => `<li><strong>31</strong><ul><li>Keep whole ${mark}and more text</li>`
+    const nested = (mark) => `<li><span class="lat-label">31</span><ul><li>Keep whole ${mark}and more text</li>`
       + '<li>Second item entirely</li></ul></li>';
     assert.equal(labelOf(nested('<svg width="10"><line x1="0" y1="0" x2="9" y2="9"/></svg> ')),
       'Keep whole and more text', 'a self-closing <line/> was counted as a nested <li>');
@@ -1214,16 +1214,16 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     assert.equal(textOf(mirror(null)), 's');
   });
 
-  test('the leading-tag run before <strong> is {1,3} — at least ONE, at most three', () => {
+  test('the leading-tag run before the label is {1,3} — at least ONE, at most three', () => {
     // The `1,` half has no arm otherwise: re-widening the run to allow ZERO leading tags survives
     // the whole suite, because every real caller hands `labelOf` a member wrapped in its own
     // `<li>`/`<td>`. This is the one input that tells the two apart — with the widening,
-    // `leadingStrong` matches, the FIGURE rule fires, and the label becomes `deals closed this
+    // `leadingLabel` matches, the FIGURE rule fires, and the label becomes `deals closed this
     // quarter`. (HARD RULE #25 checker, thirteenth pass, which found the hole by mutating it.)
-    assert.equal(labelOf('<strong>31</strong> deals closed this quarter'),
+    assert.equal(labelOf('<span class="lat-label">31</span> deals closed this quarter'),
       '31 deals closed this quarter');
     // …and at most three: a fourth wrapper is not a leading run.
-    const wrap = (n) => `${'<div>'.repeat(n)}<strong>31</strong> deals closed${'</div>'.repeat(n)}`;
+    const wrap = (n) => `${'<div>'.repeat(n)}<span class="lat-label">31</span> deals closed${'</div>'.repeat(n)}`;
     assert.equal(labelOf(wrap(3)), 'deals closed');
     assert.equal(labelOf(wrap(4)), '31 deals closed');
   });
@@ -1248,7 +1248,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
     // subheading-shaped math member still labeled its neighbor page with an equation.
     assert.equal(labelOf(`<li><h3>${typeset('a = b')} the identity</h3></li>`), 'the identity');
     // Only an equation and nothing else still keeps the equation, on this path as on the flat one.
-    assert.equal(labelOf(`<li><strong>${typeset('a = b')}</strong> body</li>`), 'a=b');
+    assert.equal(labelOf(`<li><span class="lat-label">${typeset('a = b')}</span> body</li>`), 'a=b');
   });
 
   test('dropping the equation does not exempt the prose from the budget', () => {
@@ -1257,7 +1257,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
   });
 
   test('prose with no math is untouched', () => {
-    assert.equal(textOf('<li><strong>Plain</strong> body</li>'), 'Plain body');
+    assert.equal(textOf('<li><span class="lat-label">Plain</span> body</li>'), 'Plain body');
     assert.equal(textOf('a paragraph mentioning katex-mathml in prose'), 'a paragraph mentioning katex-mathml in prose');
   });
 

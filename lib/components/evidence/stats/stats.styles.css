@@ -2,7 +2,7 @@
  *
  * Row of 3–5 stat tiles. Each tile = big number + uppercase label.
  * Authored as a plain nested list — the number is the parent list item
- * (lifted to <strong> by the shared slot-label lift; typing `**…**` is an
+ * (lifted to `.lat-label` by the shared slot-label lift; typing `**…**` is an
  * idempotent no-op), the label is its nested sublist:
  *
  *   1. 73%
@@ -81,7 +81,7 @@ section.stats:where(:not(.math)) > .cell-stage > ol > li {
   box-shadow:var(--elevation-card);
 }
 /* The number — the lifted parent-li lead. */
-section.stats:where(:not(.math)) > .cell-stage > ol > li > strong {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > .lat-label {
   font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700;
   color:var(--accent); line-height:1; display:block;
   letter-spacing:0; text-transform:none; font-variant-numeric:tabular-nums;
@@ -109,8 +109,8 @@ section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol
 section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol { display:flex; flex-direction:column;
   flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
 }
-section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > strong,
-section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > strong {
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > .lat-label,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > .lat-label {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
 section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
@@ -150,7 +150,7 @@ section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-sta
   flex: 0 1 calc(50% - var(--sp-sm) / 2);
   box-sizing: border-box;
 }
-section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
+section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > .lat-label {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
 section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {

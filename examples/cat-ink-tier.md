@@ -26,11 +26,17 @@ Rendered in atelier rather than indaco, deliberately: indaco is one of the palet
 
 ## The Definition and Theorem labels were 3.49:1 on this very palette.
 
-> **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
+> ### Definition.
+>
+> A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
-> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
+> ### Theorem.
+>
+> Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \in (a,b)$ with $f(c) = y$.
 
-> **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
+> ### Proof.
+>
+> Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 
 The labels took the raw `--cat-4-mark` / `--cat-7-mark` as `color:` on the card's `--bg-alt`. They now take `--cat-N-ink` — the same hue and chroma as the stripe beside them, lightness solved until it clears AA. The stripe keeps the mark, which is a stroke and correctly gated at 3:1.
 

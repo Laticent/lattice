@@ -117,13 +117,13 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ## Where the open program risks sit on likelihood against impact.
 
-- **Likely · Low impact.**
+- Likely · Low impact
   - Minor UI rework after appeals launch
-- **Likely · High impact.**
+- Likely · High impact
   - Mainframe retirement slips past Q4
-- **Unlikely · Low impact.**
+- Unlikely · Low impact
   - Vendor staffing churn
-- **Unlikely · High impact.**
+- Unlikely · High impact
   - Federal reporting spec changes mid-build
 
 ---

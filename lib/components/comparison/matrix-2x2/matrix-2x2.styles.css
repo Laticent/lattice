@@ -100,12 +100,6 @@ section.matrix-2x2 li > ol > li {
   line-height:var(--lh-base);
 }
 
-/* Hardening: element siblings of <strong> in a card li don't inherit
- * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
- * <em>italic body</em>`. Text-node siblings still inherit (CSS can't
- * target text nodes); the manifest validator catches that case at
- * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
-section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide and
  * square keep the 2×2 (a square box reads the quadrants fine); tall and strip

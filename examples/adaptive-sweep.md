@@ -197,7 +197,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 > "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows.
 
 ---
@@ -211,7 +211,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 > "Personal information" means information that could reasonably be linked, directly or indirectly, with a particular consumer or household.
 
 - In plain English: device IDs and cookies are in scope, not just named people.
-- **What we must do.**
+- What we must do
   - Treat household-level identifiers as PI across notice, retention, and DSAR.
 
 ---
@@ -225,7 +225,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 > "Personal information" means information that could reasonably be linked with a particular consumer or household.
 
 - In plain English: device IDs and cookies count as personal information.
-- **What we must do.**
+- What we must do
   - Audit pixel and tag inventory; treat household identifiers as PI.
 
 ---
@@ -282,10 +282,14 @@ Trades a little bias for a large drop in variance.
 
 $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
 
-- **shape** — $2 \times 3$
-- **rank** — $2$
-- **rows** — observations
-- **cols** — features
+- shape
+  - $2 \times 3$
+- rank
+  - $2$
+- rows
+  - observations
+- cols
+  - features
 
 ---
 

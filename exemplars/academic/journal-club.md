@@ -102,13 +102,13 @@ Eleven percent of screened participants got an alert that turned out to be noise
 
 ## Whether screening helps depends on who you screen.
 
-- **High AF risk · Low bleeding risk.**
+- High AF risk · Low bleeding risk
   - Screening likely net-beneficial — treat what you find.
-- **Low AF risk · Low bleeding risk.**
+- Low AF risk · Low bleeding risk
   - Detection without benefit — incidentalomas.
-- **High AF risk · High bleeding risk.**
+- High AF risk · High bleeding risk
   - Diagnosis useful, but treatment is a hard call.
-- **High AF risk · Low bleeding risk · clinically indicated.**
+- High AF risk · Low bleeding risk · clinically indicated
   - The population the trial should have enriched for.
 
 ---

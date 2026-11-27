@@ -38,11 +38,11 @@ test('per-slide TOC granularity: every slide contributes an entry (not just divi
 	assert.deepEqual(toc.map((t) => t.text), ['Cover', 'First point', 'Second point']);
 });
 
-test('evidence (kpi/stats): strong+label list → a <dl> of value → label, not bullets', () => {
+test('evidence (kpi/stats): label+detail list → a <dl> of value → label, not bullets', () => {
 	const secs = sections(
 		`<section data-lattice-slide class="stats form"><div class="cell-stage">
-			<ol><li><strong>73%</strong><ul><li>faster close</li></ul></li>
-			    <li><strong>$1.2M</strong><ul><li>prevented losses</li></ul></li></ol>
+			<ol><li><span class="lat-label">73%</span><ul><li>faster close</li></ul></li>
+			    <li><span class="lat-label">$1.2M</span><ul><li>prevented losses</li></ul></li></ol>
 		</div></section>`,
 	);
 	const { articleHtml } = project(secs);
@@ -745,8 +745,8 @@ test('a slide with no heading still gets a stable TOC entry (never blank)', () =
 test('speech kpi/stats: value-lead tiles REORDER to "label: value" (the motivating example)', () => {
 	const secs = sections(
 		`<section data-lattice-slide data-class="kpi" class="kpi form"><div class="cell-stage"><div class="masthead-lede"><p>Financial</p><h2>Q4 in review</h2></div>
-			<ol><li><strong>$2.4B</strong><ul><li>Total revenue</li></ul></li>
-			    <li><strong>42%</strong><ul><li>Gross margin</li></ul></li></ol>
+			<ol><li><span class="lat-label">$2.4B</span><ul><li>Total revenue</li></ul></li>
+			    <li><span class="lat-label">42%</span><ul><li>Gross margin</li></ul></li></ol>
 		</div></section>`,
 	);
 	const [text] = speak(secs);
@@ -842,7 +842,7 @@ test('speech is 1:1 with sections; an empty slide projects to ""', () => {
 
 test('speech kpi: a delta-first tile fronts the NAME, not the delta', () => {
 	const [t] = speak(sections(
-		`<section data-lattice-slide data-class="kpi" class="kpi"><div class="cell-stage"><ol><li><strong>$2.4B</strong><ul><li>+9%</li><li>Total revenue</li></ul></li></ol></div></section>`,
+		`<section data-lattice-slide data-class="kpi" class="kpi"><div class="cell-stage"><ol><li><span class="lat-label">$2.4B</span><ul><li>+9%</li><li>Total revenue</li></ul></li></ol></div></section>`,
 	));
 	assert.match(t, /Total revenue: \$2\.4B/, 'name fronted');
 	assert.doesNotMatch(t, /\+9%: \$2\.4B/, 'never binds the value to the delta');
@@ -850,7 +850,7 @@ test('speech kpi: a delta-first tile fronts the NAME, not the delta', () => {
 
 test('speech kpi: value wrapped in a div still reorders label-first (not value-first)', () => {
 	const [t] = speak(sections(
-		`<section data-lattice-slide data-class="kpi" class="kpi"><div class="cell-stage"><ol><li><div><strong>$5M</strong></div><ul><li>ARR</li></ul></li></ol></div></section>`,
+		`<section data-lattice-slide data-class="kpi" class="kpi"><div class="cell-stage"><ol><li><div><span class="lat-label">$5M</span></div><ul><li>ARR</li></ul></li></ol></div></section>`,
 	));
 	assert.match(t, /ARR: \$5M/);
 	assert.doesNotMatch(t, /\$5M: ARR/, 'never value-first');
@@ -858,7 +858,7 @@ test('speech kpi: value wrapped in a div still reorders label-first (not value-f
 
 test('speech kpi/stats: intro prose before the tiles is kept, not dropped', () => {
 	const [t] = speak(sections(
-		`<section data-lattice-slide data-class="stats" class="stats"><div class="cell-stage"><div class="masthead-lede"><h2>Metrics</h2></div><p>Our headline numbers this quarter.</p><ol><li><strong>73%</strong><ul><li>faster close</li></ul></li><li><strong>4.2×</strong><ul><li>recall</li></ul></li></ol></div></section>`,
+		`<section data-lattice-slide data-class="stats" class="stats"><div class="cell-stage"><div class="masthead-lede"><h2>Metrics</h2></div><p>Our headline numbers this quarter.</p><ol><li><span class="lat-label">73%</span><ul><li>faster close</li></ul></li><li><span class="lat-label">4.2×</span><ul><li>recall</li></ul></li></ol></div></section>`,
 	));
 	assert.match(t, /Our headline numbers this quarter\./, 'intro sentence kept');
 	assert.match(t, /faster close: 73%/);

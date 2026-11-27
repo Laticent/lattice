@@ -71,13 +71,13 @@ Good people made reasonable decisions with the information they had. The outage 
 
 ## What went well, and what went poorly.
 
-- **Went well · Detection.**
+- Went well · Detection
   - Customer reports reached us within two minutes
-- **Went well · Response.**
+- Went well · Response
   - War room and rollback ran cleanly once declared
-- **Went poorly · Prevention.**
+- Went poorly · Prevention
   - The change skipped staging entirely
-- **Went poorly · Alerting.**
+- Went poorly · Alerting
   - We learned from customers before our own monitors
 
 ---

@@ -386,14 +386,15 @@ describe('inline-run — the manifest-driven transformer', () => {
   });
 
   test('a section carrying two served names is wrapped under ONE of them, the same one on both paths', () => {
-    // `cards-grid` declares `strong` a slot; `list` does not. Wrapping once per name on the DOM path
-    // would take the title out from under cards-grid's `li > strong` rules.
-    const html = `<section class="cards-grid list form"><ul><li><strong>T</strong> body <b>x</b> more</li></ul></section>`;
+    // `kpi` declares `.lat-spark` a slot; `list` does not. Wrapping once per name on the DOM path
+    // would take the spark out from under kpi's `li > .lat-spark` rules. (This pair was
+    // `cards-grid` + a leading `strong` until bold stopped being a slot anywhere, W3.)
+    const html = `<section class="kpi list form"><ul><li><span class="lat-spark">s</span> body <b>x</b> more</li></ul></section>`;
     const viaHtml = transformer.applyToHtml(html);
     const dom = new JSDOM(`<body>${html}</body>`);
     transformer.applyToDom(dom.window.document.body);
     assert.equal(dom.window.document.body.innerHTML, viaHtml);
-    assert.doesNotMatch(viaHtml, /lat-run/, 'cards-grid is first in catalog order and treats a leading strong as a slot');
+    assert.doesNotMatch(viaHtml, /lat-run/, 'kpi is first in catalog order and treats a leading spark as a slot');
   });
 
   test('the data-class trap: the RESOLVED class decides, not the raw _class payload', () => {

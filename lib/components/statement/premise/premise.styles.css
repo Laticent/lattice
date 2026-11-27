@@ -22,7 +22,7 @@
  * two nested items are, in order, the description and the framing question.
  *
  * The section-level restructure (grouping <h2> + lede into one .premise-claim
- * wrapper) happens in lib/core/premise.js. The term is lifted to <strong> by
+ * wrapper) happens in lib/core/premise.js. The term is lifted to `.lat-label` by
  * the shared slotLabelLift (premise is in its SLOT_LAYOUTS); no premise-only
  * markdown plugin is involved.
  *
@@ -155,7 +155,7 @@ section.premise > ol > li::before {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
 }
-section.premise > ol > li > strong {
+section.premise > ol > li > .lat-label {
   font-size: var(--fs-body);
   /* `--row-ink`, not `--row-mark`. The mark tier is guaranteed 3:1 against the
    * background — the WCAG NON-TEXT bar a stroke token is scoped to, right for the
@@ -365,7 +365,7 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
   padding: var(--sp-xs) var(--sp-md);
   gap: var(--sp-2xs) var(--sp-sm);
 }
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > strong {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > .lat-label {
   overflow: visible;
   text-overflow: clip;
 }

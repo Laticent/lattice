@@ -181,7 +181,7 @@ describe('core: carousel — feature-cover (split-panel)', () => {
     // and move the lede <p> into panel-left — not the <code>/right-panel shape of watermark.
     const inner =
       '<div class="panel-left"><span class="panel-eyebrow">Q2 board review</span><h2>Renewals held.</h2><p>The quarter closed on plan.</p></div>' +
-      '<div class="panel-right"><ul><li><strong>One</strong><ul><li>Body one.</li></ul></li><li><strong>Two</strong><ul><li>Body two.</li></ul></li></ul></div>';
+      '<div class="panel-right"><ul><li><span class="lat-label">One</span><ul><li>Body one.</li></ul></li><li><span class="lat-label">Two</span><ul><li>Body two.</li></ul></li></ul></div>';
     const f = readFeature(inner);
     assert.equal(f.eyebrow, 'Q2 board review');
     assert.equal(f.lede, 'The quarter closed on plan.');
@@ -192,13 +192,13 @@ describe('core: carousel — feature-cover (split-panel)', () => {
   });
 
   test('a point title with its own bold run emits BALANCED markup (followup 2953-p2)', () => {
-    // split-panel's transform wraps each label in a <strong>, so `- **6** again` arrives nested.
-    // A lazy regex read the title as `<strong>6`, and the unclosed <strong> swallowed every
-    // later slide in the browser.
+    // split-panel's transform wraps each label in the engine's label, so `- **6** again` arrives
+    // with the author's bold inside it. A lazy regex once read the title as `<strong>6`, and the
+    // unclosed <strong> swallowed every later slide in the browser.
     const inner =
       '<div class="panel-left"><h2>Three groups.</h2></div>' +
-      '<div class="panel-right"><ul><li><strong><strong>15</strong> first</strong><ul><li><strong>Stable</strong></li><li>Body one.</li></ul></li>' +
-      '<li><strong><strong>6</strong> again</strong><ul><li><strong>Themeable</strong></li><li>Body two.</li></ul></li></ul></div>';
+      '<div class="panel-right"><ul><li><span class="lat-label"><strong>15</strong> first</span><ul><li><strong>Stable</strong></li><li>Body one.</li></ul></li>' +
+      '<li><span class="lat-label"><strong>6</strong> again</span><ul><li><strong>Themeable</strong></li><li>Body two.</li></ul></li></ul></div>';
     const f = readFeature(inner);
     assert.equal(f.points[1].title, '<strong>6</strong> again');
     const parts = carouselize('<section data-lattice-slide="1" class="split-panel form">', inner, cvRecipe);
@@ -991,9 +991,9 @@ const mtTag = '<section data-lattice-slide="1" id="s1" class="math theorem form"
 const mtInner = '<div class="cell-masthead"><div class="masthead-lede">' +
   '<p><code>Continuity · IVT</code></p><h2>The intermediate value theorem</h2></div></div>' +
   '<div class="cell-stage">' +
-  '<blockquote><p><strong>Definition.</strong> A continuous function on a closed interval.</p></blockquote>' +
-  '<blockquote><p><strong>Theorem.</strong> Every intermediate value is attained.</p></blockquote>' +
-  '<blockquote><p><strong>Proof.</strong> Take the supremum of the sublevel set.</p></blockquote>' +
+  '<blockquote><h3>Definition.</h3><p>A continuous function on a closed interval.</p></blockquote>' +
+  '<blockquote><h3>Theorem.</h3><p>Every intermediate value is attained.</p></blockquote>' +
+  '<blockquote><h3>Proof.</h3><p>Take the supremum of the sublevel set.</p></blockquote>' +
   '</div><div class="cell-footer"><footer>math</footer></div>';
 // `code-cards`'s case is the LINE-RUN seam, not the block seam: the block seam is a plain source
 // slice (the same shape `redline-blocks` already contributes), while the line cut is the one that
@@ -1090,11 +1090,11 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
   test('a `theorem` card that CONTAINS a list still splits by CARD, and loses no card', () => {
     // Run paginate-first this emitted three pages that had dropped the Definition and Theorem
     // cards entirely and repeated one list item across two of them.
-    const card = (label, body) => `<blockquote><p><strong>${label}</strong> ${body}</p></blockquote>`;
+    const card = (label, body) => `<blockquote><h3>${label}</h3><p>${body}</p></blockquote>`;
     const inner = mathInner(
       card('Definition.', 'A function is continuous.')
       + card('Theorem.', 'Every intermediate value is attained.')
-      + '<blockquote><p><strong>Proof.</strong> Three moves:</p>'
+      + '<blockquote><h3>Proof.</h3><p>Three moves:</p>'
       + '<ul><li>take the supremum</li><li>continuity forces equality</li><li>conclude</li></ul></blockquote>',
     );
     const parts = split(mathTag('theorem'), inner);
@@ -1213,7 +1213,7 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // printed it after the Proof, so an authored "that definition is the only one we need for what
     // follows below" followed nothing. Token conservation reports 0 lost, which is why no gate saw
     // it: the material is REORDERED, not dropped. (HARD RULE #25 checker, on the fold that fixed it.)
-    const card = (label) => `<blockquote><p><strong>${label}</strong> body of the card.</p></blockquote>`;
+    const card = (label) => `<blockquote><h3>${label}</h3><p>body of the card.</p></blockquote>`;
     // MIDBEAT sits after the SECOND card, deliberately. It was after the first for one commit,
     // where "the page of the member it follows" and "always member 0" are the same page — so
     // `trailsMember = () => 0` passed the arm AND the whole 9,329-test suite while printing the
@@ -1258,7 +1258,7 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
   test('a trailing note lands ONCE, on a closing page — on the card-stack arm too', () => {
     // …and the three CARDS must not be mistaken for that note: they are a contiguous trailing run
     // of blockquotes, which is exactly what a class-blind trailing scan reads as a coda.
-    const card = (label) => `<blockquote><p><strong>${label}</strong> body.</p></blockquote>`;
+    const card = (label) => `<blockquote><h3>${label}</h3><p>body.</p></blockquote>`;
     const inner = mathInner(card('Definition.') + card('Theorem.') + card('Proof.')
       + '<p>SENTINELNOTE the note the author wrote last.</p>');
     const parts = split(mathTag('theorem'), inner);
@@ -1281,9 +1281,9 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // Verified on a real portrait render, not only here.
     const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
     const inner = mathInner(
-      `<blockquote><p><strong>Definition.</strong> A map from A to B, at some length.</p></blockquote>`
-      + `<blockquote><p><strong>${K('A \\to B')} Theorem.</strong> For every continuous f the image is closed.</p></blockquote>`
-      + `<blockquote><p><strong>${K('f(x) = y')} Theorem.</strong> The intermediate value theorem, restated.</p></blockquote>`,
+      `<blockquote><h3>Definition.</h3><p>A map from A to B, at some length.</p></blockquote>`
+      + `<blockquote><h3>${K('A \\to B')} Theorem.</h3><p>For every continuous f the image is closed.</p></blockquote>`
+      + `<blockquote><h3>${K('f(x) = y')} Theorem.</h3><p>The intermediate value theorem, restated.</p></blockquote>`,
     );
     const parts = split(mathTag('theorem'), inner);
     assert.ok(Array.isArray(parts) && parts.length >= 3);
@@ -1305,9 +1305,9 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // the first row inside it, not the card). A title that is only untypeable math is the case.
     const K = (tex) => katex.renderToString(tex, { output: 'htmlAndMathml', throwOnError: false });
     const inner = mathInner(
-      `<blockquote><p><strong>${K('F: A \\to B')}</strong> A card whose whole title is math.</p></blockquote>`
-      + `<blockquote><p><strong>${K('\\sigma')}</strong> And another, at some length to match.</p></blockquote>`
-      + `<blockquote><p><strong>Proof.</strong> A third card so the run has three members.</p></blockquote>`,
+      `<blockquote><h3>${K('F: A \\to B')}</h3><p>A card whose whole title is math.</p></blockquote>`
+      + `<blockquote><h3>${K('\\sigma')}</h3><p>And another, at some length to match.</p></blockquote>`
+      + `<blockquote><h3>Proof.</h3><p>A third card so the run has three members.</p></blockquote>`,
     );
     const parts = split(mathTag('theorem'), inner);
     assert.ok(Array.isArray(parts) && parts.length >= 3);
@@ -1321,8 +1321,8 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // The stamp was spliced in with a string replacement, which reads `$&` as "the match"
     // (`<section`) and `$'` as "everything after it".
     const inner = mathInner(
-      "<blockquote><p><strong>Cost $& more.</strong> A first card.</p></blockquote>"
-      + "<blockquote><p><strong>Rate $' plan.</strong> A second card.</p></blockquote>",
+      "<blockquote><h3>Cost $& more.</h3><p>A first card.</p></blockquote>"
+      + "<blockquote><h3>Rate $' plan.</h3><p>A second card.</p></blockquote>",
     );
     const parts = split(mathTag('theorem'), inner);
     assert.ok(Array.isArray(parts) && parts.length >= 2);
@@ -1330,12 +1330,12 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     assert.deepEqual(labels, ['Cost $&amp; more', "Rate $' plan"]);
   });
 
-  test('a card is labeled by its LEADING strong, not by a bold word in its body', () => {
-    // An unanchored `tag:strong` took the first `<strong>` anywhere in the member, so a card
+  test('a card is labeled by its LEADING heading, not by a bold word in its body', () => {
+    // An unanchored tag read took the first `<strong>` anywhere in the member, so a card
     // written `> A theorem about **compactness**.` labeled its page — and the previous page's
-    // forward pointer — "compactness".
+    // forward pointer — "compactness". The label is the card's `### heading` since W3.
     const inner = mathInner(
-      '<blockquote><p><strong>Definition.</strong> A function is continuous.</p></blockquote>'
+      '<blockquote><h3>Definition.</h3><p>A function is continuous.</p></blockquote>'
       + '<blockquote><p>A theorem about <strong>compactness</strong>.</p></blockquote>',
     );
     const parts = split(mathTag('theorem'), inner);
@@ -1344,7 +1344,7 @@ describe('core: carousel — math-structures dispatches on the STRUCTURE, not on
     // `Definition`, not `Definition.` — the stamp goes through `safeName` now, which trims the
     // sentence punctuation a card title is authored with. The CHIP always read `Definition →`
     // (`labelOf` trimmed it on the way out); the attribute now says the same thing.
-    assert.ok(labels.includes('Definition'), `expected the leading strong, got ${JSON.stringify(labels)}`);
+    assert.ok(labels.includes('Definition'), `expected the leading heading, got ${JSON.stringify(labels)}`);
     assert.ok(!labels.includes('compactness'), 'a mid-sentence bold word is not a title');
   });
 
