@@ -1,5 +1,5 @@
 /**
- * Unit: tools/lib/fit-harness/page.js `fits` — the readable-prose rule (2026-10-28-fit-everywhere-model.md §12),
+ * Unit: the fit harness's `fits` (lib/core/fit-measure.js `fitVerdict`, installed by tools/lib/fit-harness/page.js) — the readable-prose rule (2026-10-28-fit-everywhere-model.md §12),
  * run in a real Chromium against a hand-built slide.
  *
  * A split cover's lead-in is the last line of its masthead: a few words at `--fs-emphasis`, a title's own measure.
@@ -13,10 +13,12 @@ const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const { PAGE_SRC } = require('../../../tools/lib/fit-harness/page.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, FRAME_TOLERANCE } = require('../../../lib/core/overflow-probe');
 const { DECK_SLIDES_SRC } = require('../../../lib/core/deck-slides');
+// The verdict lives in the shared kernel, injected as source the way the harness injects it (tools/fit-harness.js).
+const { FIT_VERDICT_SRC } = require('../../../lib/core/fit-measure');
 
 const chrome = resolveChrome();
 const skip = skipWithoutChrome(chrome);
-const cfg = { noCompact: [], probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+const cfg = { noCompact: [], verdictSrc: FIT_VERDICT_SRC, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
 // Story box at hall: 1080 wide, body 70px, the lead-in at 1.45× body at the ten-character measure that 972px gives it there, set in `ch` so the test does not lean on a font (#32).
 const slide = (cls, inner) => `<section class="${cls}" style="width:1080px;height:1920px;font-size:70px;padding:0 54px;box-sizing:border-box;overflow:hidden;font-family:sans-serif">${inner}</section>`;
 const LEAD = '<div class="split-cover-lead" style="font-size:102px;width:10ch">What each jurisdiction requires</div>';

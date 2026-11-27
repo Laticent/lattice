@@ -1,0 +1,1 @@
+- On a phone, a `split-compare` option's own page gives the question banner above it a compact padding, so a long option fits its page instead of running past the bottom.

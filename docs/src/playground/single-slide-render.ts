@@ -57,6 +57,7 @@ import { samplesBaseFor } from '../lib/samples-base';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from '../lib/within-ms';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, previewDiagramsAttr } from '../playground/deck-preview.js';
@@ -1012,6 +1013,9 @@ function sanitizeOnce(html: string): string {
 	}
 	return safe;
 }
+/** The measured-split module once a slide the structural split cuts has loaded it (lazy; a 16:9 deck never loads it).
+ *  Measuring is the default (`fit:` absent or `pack`, resolve-fit.js `fitPacks`); `fit: heal` and the other names decline. */
+let measuredSplitModule: typeof import('../lib/measured-split') | null = null;
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
@@ -1866,10 +1870,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			 *  11). Every other web image renders as a placeholder, and the frame's policy refuses
 			 *  it. Absent = none allowed, the default for every surface. */
 			webOrigins?: string[];
+			/** Internal: this render is the retry after the measured split FAILED for this slide. It draws each
+			 *  chart for the room its key insight takes (`measured: false`), as Present does, and runs only the
+			 *  structural split. It carries the failed render's start time and coalesce count, so the perf overlay
+			 *  reports the whole wait. Set by renderInto itself, never by a host. */
+			unmeasured?: { tStart: number; coalesced: number };
 		},
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
+		// The arguments as the host passed them, before the 4K canvas below rewrites `markdown` and `opts`: the
+		// unmeasured retry re-enters with these, so it takes the same canvas route as this call did.
+		const entryMarkdown = markdown;
+		const entryOpts = opts;
 		// A render on an ALREADY-DISPOSED renderer is a no-op that returns the same sentinel the
 		// mid-flight bails use. Bail BEFORE `countIn()`: otherwise a `dispose()`-then-`renderInto()`
 		// order joins the refcount permanently — `counted` flips true, and dispose() will not
@@ -1899,7 +1912,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					canvas,
 					pending: false,
 					rerender: () => {
-						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown });
+						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown, unmeasured: undefined });
 					},
 				};
 				if (prev?.pending) prev.pending = false;
@@ -1927,7 +1940,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const mode = modeOverride ?? docMode;
 		// Perf-overlay timing: whole edit→paint span starts here (includes the
 		// usually-warm theme ensure below); per-stage deltas are taken inline.
-		const tStart = performance.now();
+		// An unmeasured retry keeps the failed render's start, so the overlay counts the measuring wait too.
+		const tStart = opts?.unmeasured?.tStart ?? performance.now();
 		// Consume the coalesce count DeckPreview stamped on the host for this render
 		// (edits collapsed by the debounce), synchronously here so it's bound to THIS
 		// render. Reset to 1 so a follow-up palette/rising-edge render (which doesn't
@@ -1947,7 +1961,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const claim = () => {
 			liveHost.__latticeOwnerGen = Math.max(liveHost.__latticeOwnerGen ?? 0, renderGen);
 		};
-		const coalesced = liveHost.__latticeCoalesce ?? 1;
+		const coalesced = opts?.unmeasured?.coalesced ?? liveHost.__latticeCoalesce ?? 1;
 		liveHost.__latticeCoalesce = 1;
 		// The perf overlay's SOURCE-BYTES figure means "how much markdown produced the slide on
 		// screen". Under deck context `markdown` is the whole deck, so reporting its length would
@@ -2067,8 +2081,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// bundle's own default set, so a change of either never serves a stale render.
 					const slicePlugins = renderSource !== markdown ? (PG.pluginAdmission?.(markdown) ?? undefined) : undefined;
 					const pluginKey = `${PG.pluginDefaultsKey?.() ?? '*'}:${slicePlugins ? slicePlugins.join(',') : ''}`;
+					// A render that will not be split (no caret: Present, the slide overview) draws a phone chart with its key
+					// insight beside it (`measured: false`, render-engine.ts), so it never shares a cached render with the
+					// editor preview of the same slide, which is drawn for the page the insight leaves.
+					// The unmeasured retry (a failed measured split) draws as Present does, so it shares Present's cache entry.
+					const measuredKey = typeof opts?.caretText === 'string' && !opts?.unmeasured ? 'm' : 'u';
 					const key = typeof opts?.slideIndex === 'number'
-						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${pluginKey}|${measuredKey}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
 					// Two caches, because the two paths cache different things: the whole-deck memo
 					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
@@ -2087,7 +2106,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}), ...(measuredKey === 'm' ? {} : { measured: false }) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -2290,7 +2309,72 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				} else if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					// `firstSlide` is the shown slide's RENDERED number: after a split panes slide it is
 					// one past the source index, and the run's stamps must read as the PDF does.
-					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: renderedBase + 1 });
+					const splitOpts = { firstSlide: renderedBase + 1 };
+					const slideSource = opts.slideMarkdown;
+					// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
+					// Bounded: a load that never settles shows this slide unsplit, never a preview held on its placeholder.
+					const splitLoad = PG.splitReady?.(out.width, out.height);
+					if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
+					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
+					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
+					// measure, plan and verify the CLI runs, in a hidden frame built as this one is, with the
+					// §11 memory so a slide does not re-split as the author types. Only a slide the
+					// structural split cuts can need it; the module loads on the first such slide. A failed
+					// load, or a frame that cannot be measured, keeps today's split.
+					// A slide the structural split does not cut calls off the host's pending pause measurement
+					// for the slide shown before it, once the lazy module has loaded; `previewPlan` (§17) does
+					// both, and builds the layout key, the frame size and the callbacks from these raw values.
+					// A chart or diagram slide the structural split leaves whole can still give its key insight a page of its own
+					// under the measured split (fit-measure.js `insightCrowds`), as the PDF does; measure it too (checker,
+					// 2026-11-22: the preview kept the insight on the slide while the export moved it).
+					// The unmeasured retry never measures: it is what this slide shows when measuring failed.
+					const mayMeasure = !opts.unmeasured && (r.changed > 0 || (r.applies === true && PG.codaMayMove?.(r.html) === true));
+					const ms = mayMeasure
+						? ((await withinMs(import('../lib/measured-split'), LAZY_LOAD_MS).catch((e) => {
+								console.warn('lattice: the measured split did not load; keeping the structural split', e);
+								return null;
+							})) ?? null)
+						: opts.unmeasured
+							? null
+							: measuredSplitModule;
+					// A slide that wanted the measured split and did not get it (the module did not load, or the measure
+					// failed or timed out) was drawn for the measured pages: each chart sized for the room its key insight
+					// would leave (`data-coda-moves`), while the structural split keeps the insight on the slide. Draw it
+					// again for the room the insight takes, as the Playground does (playground-engine.ts) and the CLI
+					// never needs to (checker, 2026-11-27). A module that did not load cannot say whether the deck
+					// wanted it, so it counts as wanted, as the Playground counts it.
+					let measuredFailed = mayMeasure && !ms;
+					if (ms) {
+						measuredSplitModule = ms;
+						const measured = await ms.previewPlan({
+							host,
+							opts,
+							changed: mayMeasure ? Math.max(1, r.changed) : 0,
+							out,
+							pg: PG,
+							first: splitOpts.firstSlide,
+							mode,
+							drawn,
+							extraCss,
+							hash: hashString,
+							box: [DEFAULT_W, DEFAULT_H],
+							doc: srcdoc,
+							runtimeUrl,
+							scriptNonce: PREVIEW_SCRIPT_NONCE,
+							alive: () => !disposed && host.isConnected,
+						});
+						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						if (measured) r = measured;
+						else if (mayMeasure && ms.measuredSplitWanted(slideSource)) measuredFailed = true;
+					}
+					if (measuredFailed) {
+						// The retry re-enters with a fresh turn, so `newerOwns` alone would let it paint over a newer render of
+						// this host (checker, 2026-11-27): stand down if one has started. DeckPreview never overlaps two renders on
+						// one host (its scheduler awaits each render), so there this never fires: a slow slide paints, then the
+						// queued render of the slide the author moved to follows. It guards a host that calls renderInto unqueued.
+						if (newerOwns() || liveHost.__latticeRenderGen !== renderGen) return { ok: false, slides: 0, error: 'renderer disposed' };
+						return renderInto(host, entryMarkdown, drawn, paletteOverride, extra, modeOverride, extraCss, { ...entryOpts, unmeasured: { tStart, coalesced } });
+					}
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);
