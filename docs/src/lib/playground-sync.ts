@@ -435,6 +435,22 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 
 	/** Pay what the preview is owed: the focus slide after a re-opened pane, else the editor's slide. False until it can be measured. */
 	function settleOwed(): boolean {
+		// A PICK OWNS THE PREVIEW: a tile tapped since the debt was run up has already sent the preview to its slide, and
+		// the editor follows the preview from there (`drivenByPreview`). Paying the old debt would write the preview back
+		// to where the editor was and throw the pick away: a tile tapped while a fresh document loaded left the preview on
+		// slide 1 (`playground-map.spec.ts`, "a tile lands on the right page"). So the pick settles the debt, and is SENT
+		// AGAIN, because the load that calls this has re-fit the deck: the pick's scroll was aimed in the old geometry and
+		// goes on to the same pixel, which is another slide now (measured: aimed at 741px with 720px slides, the fit made
+		// them 313px and the tile for slide 2 landed on slide 4, "the tiles after it land on their own slides").
+		//
+		// Paid only once the pick is actually sent: a host that cannot place it yet keeps the debt, and the next call
+		// tries again. The focus debt goes with it: the re-sent pick is the slide the reader is on.
+		if (ports.now() < ownUntil) {
+			if (!showPage()) return false;
+			owedFocus = false;
+			keptScroll = -1;
+			return true;
+		}
 		if (!owedFocus) return realign();
 		const flat = hub.get().flat;
 		if (flat < 0) {
@@ -509,14 +525,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		{ equals: (a, b) => a.seq === b.seq },
 	);
 
-	function showPage(f = hub.get()) {
+	/** Send the preview to the focus's page. False when it could not yet (no index, or the host said "not yet"). */
+	function showPage(f = hub.get()): boolean {
 		const ix = usable();
 		const page = ix && f.unitIndex >= 0 ? pageOfFlat(ix, f.flat) : -1;
-		if (page < 0) return;
+		if (page < 0) return false;
 		ownUntil = ports.now() + MAX_OWN_MS;
 		const from = ports.previewScroll();
 		const to = ports.show(page, { instant: false });
 		ownTrip = typeof to === 'number' ? { from, to } : null;
+		return to !== false;
 	}
 
 	return {
@@ -593,6 +611,15 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		},
 		previewScrolled() {
 			landEcho(echo.preview, ports.previewScroll());
+			// The reader took the preview from a pick: it is past where the pick was going, or back past where it began.
+			// The pick no longer owns the preview, and a load in the next moments must not send it back there. Not for our
+			// own write (its echo). A load's re-fit can also clamp the scroll out of the trip, but `onFrameLoad` re-fits and
+			// pays the debt (`loaded`) in one task, so the pick has been re-sent before that scroll event arrives.
+			if (ownUntil && ownTrip && !isEcho(echo.preview)) {
+				const y = ports.previewScroll();
+				const { from, to } = ownTrip;
+				if (y < Math.min(from, to) - 1 || y > Math.max(from, to) + 1) ownUntil = 0;
+			}
 			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
 			if (!isEcho(echo.preview)) noteScroll();
 			lastPreviewScroll = ports.now();
