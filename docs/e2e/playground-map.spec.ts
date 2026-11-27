@@ -328,29 +328,31 @@ test('a blank slide in a deck with a front matter header and page numbers is a t
 	await expect.poll(() => slideInView(page)).toBe('4');
 });
 
-test('a key that scrolls the preview mid-jump hands the walk to the reader, not to the jump', async ({ page }) => {
-	// THE READER OUTRANKS A JUMP STILL ON ITS WAY. The walk's guard holds while its own smooth scroll is between where
-	// it started and where it is going (`walkEnRoute`, PlaygroundApp.tsx), so a loaded page cannot rename the walk from
-	// the slide the scroll is passing. Space is the one key the shell leaves to the browser: it scrolls the frame by
-	// itself, cancels the jump, and leaves the frame between the two. Only the input clock can tell the guard the reader
-	// took over, so `Date.now()` is FROZEN just after Space: the guard's ceiling can then never pass, and the bar follows
-	// the reader's slide only if Space stamped it. Without the stamp it stays on the last slide for good.
-	await openExplore(page);
-	await mapOn(page);
+/**
+ * Start the walk's jump to the last slide and leave the frame RESTING between where it started and where it was going,
+ * in one task, so nothing that follows races the jump's smooth scroll. The frame's own End keydown is the jump (the shell
+ * key, `onDeckKey`); an instant `scrollTo` straight after it cancels that scroll, as a scroll that stamps no input does.
+ * Then the clock freezes a little past the jump's own stamp (`armedAt`): the guard's ceiling can never pass, so only a
+ * reader's input can release it.
+ */
+async function jumpAndRest(page: Page): Promise<number> {
 	const total = Number((await walkPos(page)).split('/')[1]);
-	// End inside the frame is the jump (a shell key: the walk's smooth scroll to the last slide), and Space just after
-	// it lands while that scroll has barely begun, so the frame comes to rest between the two. The clock is frozen
-	// BETWEEN them, a little past the jump's own stamp: both clocks are this machine's, so the value is later than the
-	// jump's `armedAt` and earlier than its ceiling, and Space's stamp can never tie the jump's (a tie does not release).
-	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
-	await page.keyboard.press('End');
+	await page.evaluate(() => {
+		const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window;
+		w.document.dispatchEvent(new (w as unknown as typeof globalThis).KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+		w.scrollTo({ top: w.scrollY + 300, behavior: 'instant' });
+	});
+	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
 	await page.clock.setFixedTime(Date.now() + 50);
-	await page.keyboard.press(' ');
-	// The bar left the jump's slide for one the reader can see. ON screen, not the MOST on screen: the walk keeps its
-	// slide while any of it shows (the hysteresis in `readingSlideIndex`), which `slideInView` does not.
+	return total;
+}
+
+/** The bar left the jump's slide for one the reader can see. ON screen, not the MOST on screen: the walk keeps its slide
+ *  while any of it shows (the hysteresis in `readingSlideIndex`), which `slideInView` does not. */
+async function barFollowsReader(page: Page, total: number) {
 	await expect
 		.poll(async () => {
-			const bar = (await walkPos(page)).split('/')[0].trim();
+			const at = (await walkPos(page)).split('/')[0].trim();
 			const shown = await page.evaluate(() => {
 				const f = document.getElementById('preview') as HTMLIFrameElement;
 				const h = (f.contentWindow as Window).innerHeight;
@@ -361,9 +363,23 @@ test('a key that scrolls the preview mid-jump hands the walk to the reader, not 
 					})
 					.map((el) => el.getAttribute('data-lattice-slide') ?? '');
 			});
-			return bar !== String(total) && shown.includes(bar) ? 'follows' : `bar ${bar}, on screen ${shown.join(',')}`;
+			return at !== String(total) && shown.includes(at) ? 'follows' : `bar ${at}, on screen ${shown.join(',')}`;
 		})
 		.toBe('follows');
+}
+
+test('a key that scrolls the preview mid-jump hands the walk to the reader, not to the jump', async ({ page }) => {
+	// THE READER OUTRANKS A JUMP STILL ON ITS WAY. The walk's guard holds while its own smooth scroll is between where
+	// it started and where it is going (`walkEnRoute`, PlaygroundApp.tsx), so a loaded page cannot rename the walk from
+	// the slide the scroll is passing. Space is the one key the shell leaves to the browser: it scrolls the frame by
+	// itself. Only the input clock can tell the guard the reader took over (`NATIVE_SCROLL_KEYS` in `onDeckKey`), and
+	// with the clock frozen (`jumpAndRest`), without that stamp the bar stays on the last slide for good.
+	await openExplore(page);
+	await mapOn(page);
+	const total = await jumpAndRest(page);
+	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
+	await page.keyboard.press(' ');
+	await barFollowsReader(page, total);
 });
 
 test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not to the jump', async ({ playwright }, testInfo) => {
@@ -378,39 +394,27 @@ test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not
 		const page = await context.newPage();
 		await openExplore(page);
 		await mapOn(page);
-		const total = Number((await walkPos(page)).split('/')[1]);
-		// Where the frame's scrollbar is, in page coordinates: right of the document's client width, near the top.
-		const bar = await page.evaluate(() => {
+		const total = await jumpAndRest(page);
+		// The scrollbar's thumb, in page coordinates: right of the document's client width, at the frame's offset.
+		const thumb = await page.evaluate(() => {
 			const f = document.getElementById('preview') as HTMLIFrameElement;
 			const r = f.getBoundingClientRect();
+			const w = f.contentWindow as Window;
 			const root = (f.contentDocument as Document).documentElement;
-			return { x: r.left + root.clientWidth + (f.clientWidth - root.clientWidth) / 2, y: r.top + 20, width: f.clientWidth - root.clientWidth };
+			const se = f.contentDocument?.scrollingElement as Element;
+			const track = f.clientHeight;
+			return {
+				x: r.left + root.clientWidth + (f.clientWidth - root.clientWidth) / 2,
+				y: r.top + ((w.scrollY + w.innerHeight / 2) / se.scrollHeight) * track,
+				width: f.clientWidth - root.clientWidth,
+			};
 		});
-		expect(bar.width, 'this browser draws a classic scrollbar').toBeGreaterThan(0);
-		await page.mouse.move(bar.x, bar.y);
-		// End inside the frame is the jump; the clock freezes between the two (see the key test for why), then the drag.
-		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
-		await page.keyboard.press('End');
-		await page.clock.setFixedTime(Date.now() + 50);
+		expect(thumb.width, 'this browser draws a classic scrollbar').toBeGreaterThan(0);
+		await page.mouse.move(thumb.x, thumb.y);
 		await page.mouse.down();
-		await page.mouse.move(bar.x, bar.y + 120, { steps: 4 });
+		await page.mouse.move(thumb.x, thumb.y + 60, { steps: 4 });
 		await page.mouse.up();
-		await expect
-			.poll(async () => {
-				const at = (await walkPos(page)).split('/')[0].trim();
-				const shown = await page.evaluate(() => {
-					const f = document.getElementById('preview') as HTMLIFrameElement;
-					const h = (f.contentWindow as Window).innerHeight;
-					return Array.from(f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [])
-						.filter((el) => {
-							const r = el.getBoundingClientRect();
-							return r.bottom > 0 && r.top < h;
-						})
-						.map((el) => el.getAttribute('data-lattice-slide') ?? '');
-				});
-				return at !== String(total) && shown.includes(at) ? 'follows' : `bar ${at}, on screen ${shown.join(',')}`;
-			})
-			.toBe('follows');
+		await barFollowsReader(page, total);
 	} finally {
 		await browser.close();
 	}
