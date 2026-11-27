@@ -3160,9 +3160,10 @@ passed. The audit is read-only and can run as one subagent; it never archives.
 center, for an "auto archive feature managed by you to ensure sessions that have completed all work
 and nothing pending are archived. we should strive to minimize token usage", then said "make auto
 archive a standing rule". So the command center archives finished sessions on its own, without a
-board or a `go`, and idle sessions stop holding machines without anyone paying to wake them. Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a
-session only when all of these hold, read fresh in the same run, with `get_session` called
-immediately before `archive_session`:
+board or a `go`, and idle sessions stop holding machines without anyone paying to wake them.
+Its recurring check-in (`.claude/skills/fleet/SKILL.md`) archives a session only when all of
+these hold, read fresh in the same run, with `get_session` called immediately before
+`archive_session`:
 
 1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled task
    names it in `persistent_session_id`.
@@ -3173,7 +3174,8 @@ immediately before `archive_session`:
 4. `external_metadata.unpushed_work` is present and `false`. This fresh flag stands in for
    check 3 above, where the session's own `git status -sb` reply would cost a full reload of its
    context. When the flag is `true` or missing, the session stays, nobody wakes it to ask, and it
-   goes on the owner's list. A session can say it discarded its work while the flag still reads
+   goes on the owner's list (a line in the command center's next report to the owner, the
+   morning report when the owner is away). A session can say it discarded its work while the flag still reads
    `true`: the 2026-11-27 Compose session still held a local branch and a stash. The flag is
    real but undocumented: `get_session` returned `"unpushed_work": true` for that session and
    `"unpushed_work": false` for the Crash Issue session the same day, and some records leave it
@@ -3181,7 +3183,8 @@ immediately before `archive_session`:
 5. Its leftovers are durable (check 2 above): every follow-up its summary names is found on
    `main` (`followups.d/`), in an open issue, or in a comment on one of its PRs. The command
    center reads the summary and checks those places; if a named item cannot be found, or the
-   summary cannot be read, the session stays.
+   summary cannot be read, the session stays. A summary that names no leftovers must say so
+   ("nothing left", "no follow-ups"); one that is silent on them fails this check.
 6. No child session of it is still live.
 
 If anything changed between the reads, the session waits for the next run. Each archive adds one
