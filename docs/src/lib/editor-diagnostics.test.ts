@@ -68,8 +68,9 @@ describe('buildVocabSets', () => {
 		const lists = Object.keys(live).filter((k) => k.endsWith('Names'));
 		expect(lists.length).toBeGreaterThanOrEqual(21);
 		// The front-matter key each list validates: camelCase → kebab-case, with the two
-		// SHAPE registers named for the key rather than the style.
-		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone', pluginNames: 'plugins' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+		// SHAPE registers named for the key rather than the style, and `coverNames`, whose
+		// key became `cover-layout:` on 2026-11-23 (the composition axis kept its vocab name).
+		const keyFor = (list: string) => ({ stampStyleNames: 'stamp', toneStyleNames: 'tone', pluginNames: 'plugins', coverNames: 'cover-layout' })[list] ?? list.replace(/Names$/, '').replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 		// `plugins:` predates the `unknown-<key>` convention: its rule is the singular `unknown-plugin`.
 		const ruleFor = (key: string) => ({ plugins: 'unknown-plugin' })[key] ?? `unknown-${key}`;
 		const silent = lists.filter((list) => {
