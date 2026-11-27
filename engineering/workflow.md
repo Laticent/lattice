@@ -3027,12 +3027,14 @@ itself, finds on GitHub that:
   runs on `main` are not red. `ci.yml` never runs on a push to `main`, so CI's run there is
   the newest completed merge-queue run; a guard with no run to read counts as red;
 - **it is non-visual and outside the control plane:** every changed path, old name and new, is
-  under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`.
+  under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`,
+  or is a changeset file directly in `.changeset/` (owner's decision, 2026-11-27).
   None may be visual (components, base, plugins, finishes, tokens, any CSS, images), export,
   fonts, a sanitizer, a `package.json`, or a gate the next night depends on (the card builder,
   the ownership check, the lint core, the flaky baseline, this file, `orchestration.md`,
-  `house-style.md`, the gate and its tests). It also carries no breaking fragment, no release,
-  and no `security`, `release`, `dependencies` or `breaking` label.
+  `house-style.md`, the gate and its tests, `.changeset/README.md`). It also carries no breaking
+  record (a `**Breaking:**` line, or a changeset that bumps a package `major`), no release, and
+  no `security`, `release`, `dependencies` or `breaking` label.
 
 Anything unreadable, missing, or over 300 files is a no. There is no cap on merges a night
 (owner's choice). **Visual PRs wait for the owner's eyes**: the desk puts the VERY HIGH ones in
@@ -3055,7 +3057,8 @@ What no machine checks, stated plainly:
   ref or edits the hook: reading the tool from `origin/main` stops an accidental edit, not a
   hostile one;
 - who wrote a card or a PR: every session posts through the owner's GitHub account, so "an owner
-  login" rules out strangers and forks, not another session's self-graded card.
+  login" rules out strangers and forks, not another session's self-graded card. The owner
+  accepted this for now (2026-11-27); a signed card would close it.
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

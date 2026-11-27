@@ -18,8 +18,8 @@
  *     PR clean or merely behind `main`, and no nightly or golden-bless run on `main` is red;
  *   - non-visual and outside the control plane: every changed path, old and new, sits under
  *     an allowed root and matches no never-merge pattern (visual surfaces wait for the
- *     morning digest); no `**Breaking:**` fragment; no security, release or dependency
- *     label; not a release; no bot.
+ *     morning digest); no breaking record (a `**Breaking:**` line or a `major` changeset
+ *     bump); no security, release or dependency label; not a release; no bot.
  * Anything unreadable, missing or over a size limit is a no.
  *
  * Usage: node tools/night-eligible.mjs <pr> --session <session_…> [--json]
@@ -33,7 +33,7 @@ const REPO = 'Laticent/lattice';
 export const OWNER_LOGINS = ['saden1'];
 
 /** A night merge may only touch files under these roots. */
-export const ALLOWED_ROOTS = [/^lib\//, /^tools\//, /^test\//, /^engineering\//, /^design\//, /^followups\.d\//, /^changelog\.d\//];
+export const ALLOWED_ROOTS = [/^lib\//, /^tools\//, /^test\//, /^engineering\//, /^design\//, /^followups\.d\//, /^changelog\.d\//, /^\.changeset\/[^/]+\.md$/];
 
 /** ...and never these, even under an allowed root: control plane, gates, export, visual. */
 export const NEVER_PATHS = [
@@ -47,6 +47,7 @@ export const NEVER_PATHS = [
   /^lib\/authoring\/lint-core\.js$/,
   /^test\/unit\/tools\/(owner-merge-gate|night-eligible)\.test\.js$/,
   /^engineering\/(workflow|orchestration|house-style)\.md$/,
+  /^\.changeset\/README\.md$/,
   // security code (HARD RULE #22)
   /sanitize/i,
   // export and fonts
@@ -71,6 +72,18 @@ export const MAIN_GUARDS = {
   'Integration nightly (render-regression tier)': 'integration-nightly.yml/runs?branch=main',
 };
 const MAX_FILES = 300;
+
+/**
+ * Pure: does this changelog record break a deck or a caller? A `changelog.d/` fragment says
+ * so with a `**Breaking:**` line; a `.changeset/` file also says so by bumping a package
+ * `major` in its front matter (owner's decision D3, 2026-11-27).
+ */
+export function isBreakingRecord(file, text) {
+  if (/\*\*\s*breaking/i.test(text)) return true;
+  if (!file.startsWith('.changeset/')) return false;
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  return Boolean(front && /:\s*["']?major["']?\s*$/im.test(front[1]));
+}
 
 /** Pure: the reason a path may not merge tonight, or '' if it may. */
 export function pathReason(file) {
@@ -129,7 +142,7 @@ export function reasons(f) {
       if (why) out.push(why);
     }
   }
-  for (const frag of f.breakingFragments || []) out.push(`#${pr} carries a breaking-change changelog fragment (${frag})`);
+  for (const frag of f.breakingFragments || []) out.push(`#${pr} carries a breaking-change changelog record (${frag})`);
   const cards = (f.comments || []).filter((c) => new RegExp(`🚦 Pre-merge — #${pr}\\b`).test(c.body || ''));
   const card = cards[cards.length - 1];
   if (!card) out.push(`#${pr} has no 🚦 pre-merge card`);
@@ -192,9 +205,10 @@ export async function facts(pr, session, token) {
     redOnMain(token),
   ]);
   const breakingFragments = [];
-  for (const f of files.filter((x) => /^changelog\.d\/.+\.md$/.test(x.filename) && x.status !== 'removed')) {
+  const records = files.filter((x) => /^(changelog\.d\/.+|\.changeset\/[^/]+)\.md$/.test(x.filename) && x.status !== 'removed');
+  for (const f of records) {
     const text = await gh(`contents/${f.filename.split('/').map(encodeURIComponent).join('/')}?ref=${sha}`, token, 'application/vnd.github.raw');
-    if (/\*\*\s*breaking/i.test(text)) breakingFragments.push(f.filename);
+    if (isBreakingRecord(f.filename, text)) breakingFragments.push(f.filename);
   }
   return {
     pr,

@@ -36,8 +36,10 @@ replaces it (HARD RULE #31). Merge only through `enable_pr_auto_merge` (the queu
 - `ci` from GitHub Actions is green on that head, the PR is clean or behind, and no CI,
   golden-bless or integration-nightly run on `main` is red (a guard with no run counts as red);
 - every changed path is under `lib/`, `tools/`, `test/`, `engineering/`, `design/`,
-  `followups.d/` or `changelog.d/`, and is not visual, export, security or control-plane;
-- no breaking fragment, no release, no guarded label, no commit from this session.
+  `followups.d/` or `changelog.d/`, or is a changeset file in `.changeset/`, and is not
+  visual, export, security or control-plane;
+- no breaking record (a `**Breaking:**` line or a `major` changeset bump), no release, no
+  guarded label, no commit from this session.
 
 **After you arm one, a new push turns auto-merge off** (`.github/workflows/disarm-on-push.yml`).
 That is by design: the new head has no card. It goes back on the list for its session to

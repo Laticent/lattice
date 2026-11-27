@@ -14,8 +14,9 @@ const path = require('node:path');
 const TOOL = path.join(__dirname, '..', '..', '..', 'tools', 'night-eligible.mjs');
 let reasons;
 let pathReason;
+let isBreakingRecord;
 before(async () => {
-  ({ reasons, pathReason } = await import(TOOL));
+  ({ reasons, pathReason, isBreakingRecord } = await import(TOOL));
 });
 
 const HEAD = 'abcdef1234567890';
@@ -147,4 +148,20 @@ test('with several `ci` runs on the head, the newest decides, whatever order Git
   assert.match(why({ checks: [ok, bad] }), /`ci` on head abcdef1 is failure/);
   assert.match(why({ checks: [bad, ok] }), /`ci` on head abcdef1 is failure/);
   assert.deepEqual(reasons(good({ checks: [{ ...bad, startedAt: '2026-11-21T21:00:00Z' }, ok] })), []);
+});
+
+test('a .changeset file may merge at night, unless it bumps a package major (D3)', () => {
+  assert.equal(pathReason('.changeset/night-fix.md'), '');
+  assert.notEqual(pathReason('.changeset/README.md'), '', 'the contract file waits for the owner');
+  assert.notEqual(pathReason('.changeset/config.json'), '', 'the release config waits for the owner');
+  assert.notEqual(pathReason('.changeset/sub/x.md'), '');
+  const cs = (bump) => `---\n"@laticent/lattice": ${bump}\n---\n\nA fix.\n`;
+  assert.equal(isBreakingRecord('.changeset/a.md', cs('patch')), false);
+  assert.equal(isBreakingRecord('.changeset/a.md', cs('minor')), false);
+  assert.equal(isBreakingRecord('.changeset/a.md', cs('major')), true);
+  assert.equal(isBreakingRecord('.changeset/a.md', cs('"major"')), true);
+  assert.equal(isBreakingRecord('.changeset/a.md', '---\n---\n\nNo bump.\n'), false);
+  assert.equal(isBreakingRecord('.changeset/a.md', `${cs('patch')}\n**Breaking:** x\n`), true);
+  assert.equal(isBreakingRecord('changelog.d/a.changed.md', '"x": major'), false, 'a fragment has no front matter');
+  assert.match(why({ files: [{ filename: '.changeset/a.md' }], changedFiles: 1, breakingFragments: ['.changeset/a.md'] }), /breaking-change changelog record/);
 });
