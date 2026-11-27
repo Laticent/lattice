@@ -3,7 +3,7 @@
   "name": "checklist",
   "inlineRun": { "depths": [1] },
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "title",
       "items"

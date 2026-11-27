@@ -105,6 +105,20 @@ export function stripPseudo(sel) {
 			}
 		}
 		if (!element && !STRIP_NAMES.has(name)) { out += sel.slice(i, end); i = end; continue; }
+		// `:is()` `:where()` `:has()` the engine evaluates itself, so only what is INSIDE them is stripped:
+		// widening each argument widens the whole, and the probe stays a superset. Stripping the wrapper
+		// whole made `section:where([data-family="square"])` probe as `section`, which every slide matches,
+		// so venue rules for a shape the slide is not rode into every snapshot (#2988 took the default Edit
+		// deck past half MAX_UNITS that way). `:not()` is still stripped whole: widening its argument would
+		// NARROW the selector, and the probe must never match less than the rule. A wrapper whose argument
+		// still nests a function after stripping (`:where(:is(.a, .b)[x])`) is stripped whole as before:
+		// jsdom's engine answers that shape wrongly (no match where Chromium finds one), so keeping it
+		// would make the unit tests a different engine from the page.
+		const open = i + 1 + name.length;
+		if (!element && (name === 'is' || name === 'where' || name === 'has') && sel[open] === '(') {
+			const inner = stripPseudo(sel.slice(open + 1, end - 1)).trim();
+			if (inner && !inner.includes('(')) { out += `:${name}(${inner})`; i = end; continue; }
+		}
 		// Strip it. An emptied compound becomes `*` so `a > :is(b) c` probes as `a > * c`.
 		const before = out.length ? out[out.length - 1] : ' ';
 		const after = end < sel.length ? sel[end] : ' ';

@@ -484,13 +484,16 @@ export function persistedCheckpoints(page: Page): Promise<Record<string, number>
 }
 
 /**
- * The app toast text — Sonner's bottom-center pill region (`ui/sonner.tsx`).
+ * The app toast text — Sonner's toast region (`ui/sonner.tsx`).
  *
- * Targets the TOASTER (the single `<ol data-sonner-toaster>`), not an individual
- * `[data-sonner-toast]`: Sonner stacks up to three at once, so a per-toast locator
- * would trip Playwright strict mode exactly when a spec chains two actions. The
- * container is always present and always exactly one, and `toContainText` against
- * it means "some visible toast said this" — which is what every call site wants.
+ * Targets the REGION (Sonner's one wrapping `<section aria-label="Notifications …">`),
+ * not an individual `[data-sonner-toast]`: Sonner stacks up to three at once, so a
+ * per-toast locator would trip Playwright strict mode exactly when a spec chains two
+ * actions. Not the `<ol data-sonner-toaster>` either: Sonner draws one list per place
+ * in use, so a message raised at its own place (the Share sheet's failures stand at
+ * the top, PR 3559) puts a second list beside the toaster's own. The section is always
+ * present and always exactly one, and `toContainText` against it means "some visible
+ * toast said this" — which is what every call site wants.
  *
  * Do NOT reach for `[role="status"]` here. Sonner's toast carries neither `role`
  * nor `aria-live` on the `<li>` (its live region is the wrapping
@@ -499,7 +502,7 @@ export function persistedCheckpoints(page: Page): Promise<Record<string, number>
  * PresentCaption) that a broad match would collide with.
  */
 export function toastText(page: Page): Locator {
-	return page.locator('[data-sonner-toaster]');
+	return page.locator('section[aria-label^="Notifications"]');
 }
 
 /** What the New slide door says after an add, in the door itself (2026-10-27-slide-structure-strip.md §5). */

@@ -91,7 +91,7 @@ about Form directly — the component already selected it.
    ---
    size: 4k
    theme: indaco
-   paginate: true
+   pagination: true
    header: "Meridian Freight · Board update"
    ---
    ```

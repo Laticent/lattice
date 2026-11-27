@@ -468,3 +468,954 @@ adapt to a narrow box at a large venue. A split policy cannot fix a layout that 
 that is the Fluid family-reflow work (2026-10-27-fluid-layout-library.md), and the ratchet now
 counts it per component (§10).
 
+
+## 13. Responsive by text room: the shared rule and tier 1 (2026-10-29)
+
+**The rule.** A component reflows by the characters a line holds, not by the box's shape (owner,
+2026-10-29). The slide is the `lattice` size container, its font size is `--fs-body`, and `em` in a
+container query resolves against the container's own font size, which already carries the
+venue's `--fs-scale`. So `@container lattice (width < Nem)` reads "under about 2N characters of body
+text a line" at any box and venue (body text averages about 0.49em a character). Measured content
+boxes, in `em` of the section's font:
+
+| Box | laptop | conference | hall |
+|---|---|---|---|
+| hd, standard, 4K (any landscape) | 53.9 | 41.5 | 35.9 |
+| square | 32.1 | 24.7 | 21.4 |
+| portrait, story, mobile | 20.7 | 15.9 | 13.8 |
+
+Three shared thresholds, and no others (pinned by `test/unit/css/text-room-thresholds.test.js`):
+
+- **medium, `width < 34em`** (~70 characters): square at laptop and conference. Only a row of four
+  or more fields side by side reflows here (regulatory-update's changelog row, statute-stack's
+  four-column lane table, statute-stack's three rails).
+- **narrow, `width < 23em`** (~47 characters): square@hall and portrait or story at laptop. A row
+  of three fields stacks, a fixed-width tab becomes a band (list-steps chevron), a two-column
+  form goes to one (authority-chain's side rail, list-steps' horizontal row).
+- **tight, `width < 17em`** (~35 characters): portrait and story at conference and hall. A row's
+  marker gutter (an ordinal, a check, a label column, a page reference, the split cover's arrow)
+  moves above, below or inline with its text, so the text keeps the full width.
+
+No threshold reaches a landscape box: hd measures 35.9em even at hall, so every 16:9 deck renders
+as it did. `--col-min` (19ch, 24 characters), `--col-max` and `--fluid-cols` are the shared grid
+half of the rule (`base.tokens.css`, `base.elements.css`): as many columns as keep 24 characters
+each, never more than designed. `--fluid-cols` is declared on every element under a slide, because
+an unregistered custom property substitutes its `var()`s where it is declared.
+
+**What each tier-1 layout does below its threshold.** agenda (tight): the ordinal or "you are here"
+arrow heads the title and the page reference drops under it; `rail` stacks too and drops its
+journey line, since a smaller ring in its row still left four lines of eleven characters.
+checklist (tight): the mark heads its row and a trailing pill drops under the text. list and
+inventory (tight): the ordinal runs in at the start of the text; stacking it above was measured
+first and clipped a lettered page at portrait@hall that fit before. premise (tight): ordinal and
+label share the first line, the gloss takes the row. list-steps (narrow): the chevron tab becomes
+a full-width band over its card ("PROBLEM" was cut to "ROBLE"), and the horizontal row stacks.
+statute-stack: the status pill returns to the label's flow and wraps (narrow; it printed over
+"FEDERAL", the p5 follow-up), the label's pills trim their side padding at tight so the citation
+still shares the label's line, the `lane` table's rows become cards under one line of column names
+(medium), and the three rails go to one column (medium). regulatory-update (medium): the
+five-field row stacks beside its counter, `priority` and `cards` included, and at tight the
+counter heads the column; `cards` takes `--fluid-cols` with at most two. authority-chain (narrow):
+the side-rail grid gives way to the wrapping row and the tier label takes the first line; the
+label sizes to its content, since a tracked "STATUTE" at hall outgrew its fixed 14cqi basis and
+ran into the citation on `bracket`. glossary (narrow): each entry stacks, the term over its
+definition, with the header kept as one line of column names (hidden text would count as lost).
+list-tabular (narrow, then tight): the row's block flow, and at tight the meta on its own line.
+math `matrix` (narrow, then tight): the legend's 5em hanging indent goes, and at tight a formula
+label takes its own line. video (narrow): poster over copy. topic `fact` (narrow, then tight):
+the eyebrow joins the flow at the position it was pinned to, so a second line pushes the name down
+instead of printing over it. The split cover's lead-in (tight) sets its arrow inline after the
+last word. (Superseded by §18: this PR first also stepped the `fact` claim and the lead-in down a
+type size at tight, and kept a lone split member at body size there; §18 removes every type-size
+step outside the venue, and the tall venues' smaller steps make them unneeded.)
+
+**Family rules retired.** As the owner's conditions ask, a component that moved to text room
+no longer keys a column rule on `data-family`: regulatory-update (medium), statute-stack's three
+rails (medium; every square and tall preset measures under 34em, so the presets render as
+before), authority-chain, list-steps, video, list-tabular and math `decompose` (narrow), glossary
+(narrow; it keyed on `strip` alone, and `mobile` has exactly `portrait`'s room). Text room adds
+square@hall (21.4em) to the narrow ones, which has the room of a portrait box at laptop. Two
+exceptions stay on the stamp: premise's section-level block, because a container query cannot
+style its own container, and list's strip-only `gap`, which is spacing, not a column rule.
+math's other variants keep theirs (followups.d/2962-p3-…). The adaptive-manifest gate
+(`checkAdaptDeclarations`) and the family-tier roster (`check-family-tiers.js`) now count a
+text-room rule as reflow, and agenda, checklist and topic declare `adapt.mode: reflow`.
+
+**The probe, corrected.** The readability probe measured each TEXT NODE against its own lines. A
+paragraph broken up by inline `code` became fragments that start and end mid-line, so "with
+Mermaid); work across dates is" read as three lines of twelve in a paragraph thirty characters
+wide (flowchart's and pricing's "When NOT to" cards at story@hall). It now measures each BLOCK
+against its own lines, with lines clustered by vertical center so an inline chip's taller box is
+not a line of its own. The checker found two holes in the first version, and the full corpus run
+found three more; each is closed and each has a case:
+
+- an `inline-block` or `inline-flex` chip is its own block (a crammed chip is still caught), and
+  its characters also count on its parent's lines ("`list` — declared statements — the
+  `principles` variant" read as short lines when the chips' characters were dropped);
+- a block is body text when most of its characters are body size, so a code chip in a paragraph
+  counts and an eyebrow set as inline code does not (a divider's "GROUP 02 · EXPERIMENTAL
+  DIAGRAMS");
+- a block broken by `<br>` (the engine sets `breaks: true`) or holding KaTeX is measured a node at
+  a time, by its interior lines, which are whole; that fallback passes formula prose of 17
+  characters a line that the old probe failed;
+- code in a `<pre>` gets no cram check, since its line breaks are the author's; it is still
+  checked for cuts and overprints.
+
+Checked against the original crams (agenda, checklist and list pages still fail) and against
+synthetic pages (an 80px inline-flex chip and a 70px inline-block chip fail; `<br>`-separated stat
+lines pass).
+
+**Measured** (`--edits none`, 94 galleries at square, portrait and story, laptop and hall, the
+nightly's own command; `main`'s stylesheet scored again with this probe to split the two causes):
+
+| Stylesheet + probe | Unreadable | Clipped | Lost |
+|---|---|---|---|
+| `main` + the old probe (the committed baseline) | 108 | 1,161 | 246 |
+| `main` + this probe | 101 | 1,160 | 246 |
+| **this branch + this probe** | **0** | **1,084** | **246** |
+
+The probe correction accounts for 7 of the 108 (the false positives above) and 1 clip; the
+layouts account for the other 101, every tier-1 gallery to 0, and 76 fewer clipped slide-cells.
+No count rose except compare-prose at portrait@hall (clip 9 to 10), and that is the cross-machine
+flap §10 describes: scored in this sandbox, `main` and this branch give the same verdict on every
+compare-prose page at that cell. A landscape box is untouched: 444 slides of the touched galleries
+rendered at hd, at laptop and at hall, with `main`'s stylesheet and this one, are pixel-identical.
+
+**Not yet.** On a live surface, Fluid's bucket watcher (2026-10-27-fluid-layout-library.md §4.4) is
+not built, so the opt-in fluid viewer, whose slide follows the window, can cross a threshold on a
+raw resize. Every export and every preset box is fixed and cannot. Tier 2 (text components that
+clip) and the general table form (label/value cards from a column-label stamp, which tables
+outside statute-stack need) are the next tier; charts are tier 3 (§15).
+
+
+## 14. The carousel template: the presentation half (2026-10-30)
+
+The owner's rulings for a split run (followups.d/2962-p6-carousel-template.md) come in two halves.
+The PRESENTATION half is built: the title and eyebrow appear on the cover only; a content page
+carries no running header, repeated heading, "(cont.)", pointer pill, progress rail or page number;
+the ending page drops the title; and every content page starts on one line at the top of its stage,
+its member at natural height, where the lone-member rules had centered it in a page-tall box. It is
+CSS on the role stamp every split page carries (`data-split-role`, split-envelope.js `withRole`),
+so the envelope's markup and its conservation are unchanged, and a 16:9 deck, which never splits,
+is untouched. A deck's `meta:` line (a date, an owner, a "Confidential" marking) stays on every
+page: it docks in the masthead's bay, which the cover does not carry, so only the masthead's
+heading half is hidden.
+
+**Checked.** An independent checker found the first cut covering only the shared envelope's pages:
+on the read-across strategies (compare-prose, split-panel, list-tabular, decision) the heading
+repeated as a `.split-runhead`, the pointer pill sat straight under the section where a descendant
+selector could not reach it, the page centered its content, and the k-of-N rail survived at section
+level on a deck with `paginate: false`; a lone table row (glossary) stayed centered by a heavier
+rule; and hiding the whole masthead dropped the `meta:` line from the run. Each is fixed and
+checked on a real render (glossary, compare-prose and checklist at story with `meta:` and
+`paginate: false`). compare-code's runhead is kept: it is the code block's own label.
+`test/unit/css/split-signal-scope.test.js` now pins that every page shape hides the signal, and
+still pins its chrome styling on a cover-stamped copy of each shape.
+
+The DENSITY half is not: a slide that fits whole stays a normal slide, no member is left alone on a
+page, pages are 60 to 85% full, a paired unit never splits, one type scale runs through a carousel.
+Each needs a measured decision, and today's split is structural, one member a page (`planSlide`,
+docs/src/lib/fluido/plan.ts). A measured cut in the CLI alone would make the CLI and the Studio split
+one deck differently (HARD RULE #1); the measured plan is Fluid's P2.
+
+**Measured** (the nightly's six cells, 94 galleries, against the §13 baseline): clipped
+slide-cells 1,084 to 848, unreadable 0 to 0, lost 246 to 246, and no count rose. The space the
+repeated heading took is what most of the 236 recovered. Getting there took four fixes the corpus
+run found and no unit test would have: a lone card in a row collection held at its max-content width
+(its text ran off every narrow page), a lone matrix-2x2 quadrant cut to its title (`overflow:
+hidden` drops a flex item's minimum height to 0), a lone kpi tile one track wide in its grid, and
+pages that used to clip and now fit but read crammed (regulatory-update `diff-bands` rows, pricing's
+"MOST POPULAR" ribbon printing over a long tier name), each fixed in its component at the narrow
+threshold.
+
+**Judged.** An independent judge scored contact sheets of two decks (a six-slide demo,
+`examples/carousel-split.md`, and `examples/auto-split.md`) in indaco, indaco-dark and cuoio, at
+portrait and story, against today's split: 3.5 to 4.5 and 2.5 to 3.5 out of 10, "better by about one
+point", a modest net gain to ship. Its three costs: pages mostly empty (one member a page, unchanged),
+a start line that moved with each member's length (fixed since: the top-anchored start), and
+`examples/auto-split.md` describing the old split (corrected). It put the ceiling without packing at
+5 to 5.5, and with packing and fit-whole at 8 to 8.5; 9 needs a judgment of real packed pages. It also
+named one real loss: the page counter is gone, which a 14-member run feels.
+
+**Blessed on a runner** (2026-10-30). The counts above were scored in a sandbox. At the owner's
+call, `fit-nightly.yml` ran on this branch (run 41045849942, ubuntu-latest, the nightly's own
+flags): no count rose, and one fell, the mixed baseline gallery at square@hall from 30 clipped
+slides to 29. A second runner run after #2997 landed (run 41547352127) read that cell as 30 again
+and matched the first on every other cell. Three local runs of the cell read 30 with the same 30
+slides each time, so the flap is between runner runs, not between machines alone. A ratchet only
+fails on a rise, so the baseline keeps the higher reading: `test/fit/baseline.json` equals run
+41547352127's `baseline.json`, and the clipped total the nightly starts from is 848. The first run on
+`main` (run 40996342102, before this branch) rose by one in two cells of the same kind and filed
+#2989; a runner-blessed baseline is the remedy §10 names.
+
+**The phone venue joins the baseline** (2026-11-06). At the owner's call the nightly scores
+`--venues laptop,hall,phone`. Run 42226567991 on this branch (commit 26c2286, after the measured
+split became the default) added 846 phone cells, raised no existing cell, and lowered 190 of them;
+`test/fit/baseline.json` is now that run's `baseline.json`. Later commits on this branch only
+lower counts (the math fixes of 2026-11-06), which a ratchet accepts.
+
+## 15. Charts and diagrams: the design round (2026-10-30)
+
+The chart and diagram galleries clip 272 slide-cells after §13, and 129 of them are text slides in
+those galleries (the shared "See also" closing slide alone is 79), which belong to tier 2. The rest
+fall into five families that reflow differently: list-shaped charts, grids, time axes, Mermaid
+diagrams, and plotted charts, which clip almost nothing but shrink their labels below reading size, a
+failure the fit probe does not yet measure. Options per family, mockups and a recommended order:
+`2026-10-30-chart-reflow-narrow-boxes.md`, waiting on the owner's pick.
+
+## 16. The packing bake-off: measure, then pack (2026-11-03)
+
+**The question (owner, 2026-11-03).** Stop splitting at one member a page. Measure what fits,
+keep a slide whole when it fits, and pack an overflowing slide by measured height. Bake off the
+packers from the owner's catalog, remembering that a split run always has a cover and may have a
+closing page.
+
+**What is built.** It is one path, shared by every packer:
+
+1. **Measure.** The CLI renders the deck whole at its box and venue. `lib/core/fit-measure.js`
+   then reads, for each authored slide that does not fit, its members' natural heights and the
+   room a body page leaves for them. The members are the first list's items or the first table
+   body's rows.
+2. **Pack.** The pure packer `@laticent/fluido` `pack` (`docs/src/lib/fluido/pack.ts`) turns the
+   heights into page sizes.
+3. **Build.** `splitDoc` builds those pages through today's builders (`{ plan }`, keyed by slide
+   number). Cover, closing page and carousel chrome stay as they are. A plan that does not place
+   every member exactly once is refused, and that slide falls back to today's split.
+4. **Verify.** A body page that still does not fit tightens its slide's room and plans again, for
+   at most three rounds. After that the slide falls back to today's split, so the measured path
+   is never worse than today's on any slide.
+
+The CLI exposes it as `--fit-pack greedy|balanced|knuth-plass`. The harness scores it as the
+`measured-<packer>` arms (`--fit-packs`), through the same CLI.
+
+**One fit verdict.** The first full run (6,948 slide-cells) found 35 new clipped slides and 115
+new unreadable ones. The cause: the measured split decided "fits whole" with the overflow probe
+alone, while the harness also fails a page whose content is clipped inside the frame or whose
+prose is crammed (§12). The harness's verdict moved into `lib/core/fit-measure.js`, and the
+harness and the measured split now both call it (#1). With it, the counts against today's split
+are 0 new clipped, 0 new unreadable and 0 new lost slides, under every packer.
+
+**Results.** The 94 galleries at square, portrait and story, laptop and hall, authored slides
+only (6,948 slide-cells):
+
+| Arm | Pages | Clipped | Unreadable | Lost | Body pages under 40% full |
+|---|---|---|---|---|---|
+| today's split | 18,066 | 848 | 6 | 246 | 8,806 of 11,118 (79%) |
+| measured greedy | 12,610 | 840 | 6 | 153 | 2,889 of 5,662 (51%) |
+| measured balanced | 12,589 | 841 | 6 | 153 | 2,791 of 5,641 (49%) |
+| measured Knuth–Plass | 12,581 | 840 | 6 | 153 | 2,777 of 5,633 (49%) |
+
+Per cell, the measured split cuts pages by 12% (portrait@hall) to 50% (square@laptop). It fixes
+7 to 8 clipped slides and 93 that lose content today, and makes nothing worse on any hard rule.
+Today's split reproduces the earlier run to the slide, except for the square@hall cell that
+flaps by one (848 against 847, see "Blessed on a runner" above).
+
+**Jank, without memory.** These arms are stateless: each render packs from scratch. A sample
+with ±10% text edits (agenda, list-steps, cards-grid, checklist; portrait and story; laptop and
+hall) reads:
+
+| Arm | Jank | Pair flips | Pages |
+|---|---|---|---|
+| today's split | 0.0% | 0.0% | 1,136 |
+| hysteresis-0-30 (the owner's pick, §11) | 3.5% | 7.0% | 787 |
+| measured greedy | 11.0% | 5.8% | 509 |
+| measured balanced | 11.0% | 12.5% | 509 |
+| measured Knuth–Plass | 12.0% | 13.2% | 510 |
+
+An export is rendered once, so jank is an editing-surface property: it is what the Studio would
+show if it packed with no memory. A live surface owes the §11 memory on top of whichever packer
+ships: the split decision on the undo stack, rejoin at 30% spare, and members-per-page kept while
+they still fit. Knuth–Plass rebalances the whole run on every edit, so it flips member pairs
+across pages more than twice as often as greedy.
+
+**Timing.** For 250 members, a pack takes 0.04 ms (greedy), 0.32 ms (Knuth–Plass) and 0.62 ms
+(balanced): all far inside a live edit's budget. The cost of the measured path is the render: a
+whole render plus one re-split, and one more re-split per verify round that tightens. Measured on
+one sandbox, one run each, while another suite ran (about ±10%): measuring a deck takes 25 to
+200 ms on a component gallery and 0.5 s on the 98-slide mixed gallery, and planning every slide
+takes under 4 ms. A whole export with Knuth–Plass runs as fast as today's split or faster on a
+component gallery, because it renders fewer pages (agenda at portrait@laptop: 7.0 s and 109 pages
+against 4.9 s and 22). On the mixed gallery it costs 22 s against 29 s (+32%), from a second split
+round and four slides that go back on today's split. A slide whose tighter room packs the same
+pages now falls back at once instead of using the remaining rounds, which took the mixed gallery
+from three split rounds to two. The CLI prints the measure time, plan time, split rounds and
+fallbacks on every measured render. Re-rendering only the slides a round changed would remove
+most of what is left.
+
+**Not in this round.** Guillotine/BSP belongs to the component CSS layer. Skyline, Cassowary,
+FM/KL, spectral and SMAWK were excluded in the catalog itself.
+
+**The judge's read.** An independent judge scored contact sheets: agenda, cards-grid and
+list-steps at story@laptop and portrait@hall in indaco, plus cards-grid and list-steps at story in
+indaco-dark and cuoio. Today's split scored 3 everywhere, the measured split 5 to 8. Greedy and
+Knuth–Plass rendered byte-identical sheets in 3 of 6 cells. Where they differed, Knuth–Plass won
+on runs greedy ends with a lone member (2 + 2 against 3 + 1, 2 + 3 against 4 + 1). It lost where it
+put the lone member first (1 + 2) or in the middle (2 + 1 + 2). The judge saw no theme-specific
+defect. It found three things to fix:
+
+1. **Knuth–Plass's lone member.** A lone member now costs twice as much on any page but the last,
+   so three members that cannot share a page pack as 2 + 1 and five as 2 + 2 + 1
+   (`pack.ts`, `ORPHAN`).
+2. **cards-grid `three` and `four` crammed at narrow boxes.** The N-up card widths applied on every
+   box, so two cards on a story page sat side by side at about 230 px and read as crammed. The
+   verdict rightly failed those pages, and the slide fell back to one card a page; every gallery's
+   anti-pattern slide (`cards-grid three`) did the same. The N-up widths now step down at the
+   shared text-room thresholds: 2-up under 34em (one column where the box's family already
+   stacks), one column under 23em. At story, cards-grid goes from 20 pages to 13, with `three`,
+   `four` and the anti-pattern slide whole and readable. A 16:9 box never reaches either
+   threshold.
+3. **"See also." clips at portrait** in today's split too. It has no members to pack, and §15
+   already tracks it as tier 2.
+
+Timeline variants still split one dot a page, because a horizontal axis overflows sideways and
+packing cannot fix that. They belong to the chart-reflow note (§15, "time axes").
+
+**The pick: Knuth–Plass.** With the lone-member fix it reads at least as well as greedy wherever
+the two differ, and it ties on every hard rule and on page count. Its one cost, twice greedy's
+pair flips, applies to a live surface without memory, and the §11 memory removes it there. The
+export path renders once and is unaffected.
+
+**Shipped opt-in (superseded 2026-11-06: measuring is now the default, the owner's ruling; see the
+handheld-ladder paragraph at the end of this note).** The measured split changes the bytes of an exported deck, so making it the
+default (`heal` gaining packing) waits on the owner's sign-off of dark and light renders
+(CLAUDE.md, export changes). Until then a deck asks for it with `fit: pack`, on every surface at
+once (below).
+
+**Every surface, one switch: `fit: pack` (2026-11-03).** A measured split in the CLI alone would make
+the Studio and the PDF disagree about one deck (HARD RULE #1), so the measured split became a value
+of the `fit:` register rather than a CLI flag. `fit: pack` is `heal` with a measured split. The CLI
+reads it (`lib/core/resolve-guards.js` `fitPacks`; `--fit-pack` still picks the packer for any
+deck), and so do the three browser surfaces: the Studio's live preview, the Playground and the
+Studio's webpage export. Each one renders as before, then `docs/src/lib/measured-split.ts` writes
+the deck, stamped but unsplit (`splitForPreview`'s `plan: 'whole'`), into a hidden frame built and
+sanitized exactly as its own frame is. It measures with the shared `measureFit`, and plans and
+verifies with the shared `measuredSplit` loop (`lib/core/fit-measure.js`), so all four surfaces
+make the same decision from the same code. The module loads only for a `fit: pack` deck, because
+the eager bundles sit at their byte ceilings. Two findings from driving the real Studio: the
+export's slide finder reads only the export's document (`main#deck`, `body`), so the preview frame
+passes its own (top-level stamped sections); and an unsplit browser render carries no slide
+numbers until the split pass stamps them, hence `plan: 'whole'`. Verified on the real Studio,
+Playground and webpage export, on Chromium, WebKit and Firefox (`docs/e2e/measured-split.spec.ts`):
+a fitting slide stays whole, and an 18-item square slide packs as 9 + 9 on every surface, as in
+the CLI.
+
+**The memory (§11), and headroom.** A live surface keeps what it decided last time
+(`nextMemory`): a slide that stops fitting splits at once (no entry margin); a split slide rejoins
+only when the whole slide fits with 30% of its content area spare (fix C); its items stay on their
+pages while they still fit; when they no longer do, it keeps its page count if any packing still
+can (`packInto`); and the Studio also records each slide's decision against its exact text, so undo
+restores the split a slide had for that text (fix B). The CLI takes the same memory through
+`--fit-memory FILE`, which is how it was measured. On agenda, list-steps, cards-grid and checklist
+at portrait and story, laptop and hall, with every slide rendered alone and edited ±10% (`nudgeUp`
+and `nudgeDown`, the harness's own edits):
+
+| Run | Jank, all slides | Jank, slides that split | Pages |
+|---|---|---|---|
+| stateless (the export renders once) | 12.7% | 14.6% | 926 |
+| memory | 8.4% | 7.3% | 933 |
+| memory, fresh pages packed to 90% | 4.4% | 0.4% | 980 |
+
+Every change left in the last row but one is a slide that fitted and, 10% longer, no longer fits: it
+must split or clip, and the owner chose no entry margin (§11). Memory alone left 18 runs gaining a
+page, because Knuth–Plass packs pages close to full and a full page has no room for a longer item.
+So a fresh pack now fills a page to 90% of its room (`HEADROOM`), and a page the memory keeps may
+fill to all of it. That costs about 6% more pages on this sample, and it applies to the CLI too, so
+every surface keeps splitting a deck the same way.
+
+**The corpus again, as shipped (2026-11-03).** With the cards-grid step-down and the 90% fresh pack,
+`fit: pack` on the 94 galleries (6,948 slide-cells): 12,405 pages against today's 18,066; slides that
+lose content 153 against 246 (93 fixed, none new); clipped 841 against 847 and unreadable 6 against
+6, with no slide newly unreadable. One slide reads newly clipped: the baseline gallery's state chart
+at square@hall, whose first cut lands 1px from both the footer line and the content, and which reads
+"footer" or "content" from run to run under every arm, the measured ones included (the cell that
+flaps between 847 and 848 in "Blessed on a runner" above). Body pages under 40% full: 46% against 79%.
+The 90% fresh pack cost nothing in pages here, because the cards-grid step-down removed more.
+
+**The jank numbers are the CLI's.** They were measured through `--fit-memory`, which keys memory by
+slide number. The Studio keys it by deck and slide index, plus each slide's text for undo, and
+applies it only to the same members (an item added or removed packs afresh). That is checked on the
+real Studio for one deck (an edit that wraps a line keeps the run's pages; undo restores them) on
+Chromium, WebKit and Firefox, not measured across a corpus.
+
+**Open: what the preview shows after edits.** Memory keeps a live slide's pages while the author
+types; the PDF and the webpage export render once without it. After a run of edits the preview can
+therefore show a split the export would not make (three pages kept for items that now fit on two).
+Three ways to close it were put to the owner: settle to the stateless plan when the author pauses,
+let the Studio's exports reuse the preview's decisions, or record the decision in the deck file.
+
+**Tested on two of the owner's own decks (2026-11-04).** "Remembering Sir Patrick Stewart" (7 slides,
+portrait@hall) needs no split either way: 6 pages under both. "Yearn already has the hard parts"
+(53 slides, 18 photographs, a 16:9 deck) rendered at portrait and story, laptop, light and dark,
+found three things the galleries had not:
+
+1. **`cards-stack horizontal` crammed at narrow boxes**, as cards-grid's N-up did: the row rule ran
+   at every box, so three cards sat side by side on a portrait page, the verdict failed the page,
+   and the slide fell back to one card a page. It now stacks under the 34em threshold.
+2. **`cover-paginate` ignored the plan** (premise, pricing and the dense legal lists): it paced its
+   own pages. It now takes a plan that places every member, as the other recipes do. The premise
+   slide went from 7 pages to 3.
+3. **Runs ended on a page holding one key insight.** The trailing beats (the key insight and the
+   below-note) now close the last body page when they fit there: the plan decides it for a packed
+   list (`withFold`, from the beats' measured height), and for every other builder a pass after
+   the split measures the closing page against the free room under the last body page's drawn
+   content (`foldableBySlide`), folds it, verifies, and undoes a fold that overflows. The recipe
+   dispatcher (`carouselize`) and `splitEnvelope` both honor `foldCoda`.
+
+Yearn at portrait went from 144 pages to 94, and at story from 144 to 72, with no slide back on
+today's split. The Playground's plan for the deck (fit: pack, portrait) matches the CLI's on all 51
+measured slides. What stays: the comparison slides keep one side a page at portrait, because at that
+type size two sides do not fit one page (measured: about 1,250 px against 1,175); one title
+("What I need before I order is straightforward") clips at portrait and story under both splits, a
+long word wider than the box; and premise's body pages repeat its title with "(cont.)", as they do
+under today's split. A calibration pass (repacking from the ink a body page really used) was tried
+and removed: on these decks it found no page to save and cost two renders.
+
+**Card alignment on split pages (owner, 2026-11-04).** The carousel template (§14) started every content
+page at the top so a run read on one line. With packed pages that overrode the author: a deck's
+`cards:` setting never reached a split page, and a lone card or a short last page rode high over an
+empty page. The owner ruled that cards center by default and that the author's setting is respected.
+A content page now follows the slide's `cards:` (deck or `_class: cards-*`), and centers when none is
+set: `centerUnchosenCards` (lib/core/auto-split.js) stamps `data-cards="center"` on a content page with
+no `cards-*` class, and base.modifiers.css places the member group by it (`--split-place`), filling the
+page only under `stretch`. Members keep their natural height. The cost the owner accepted: a short
+last page sits lower than a full one, so the start line can shift between pages; `cards: top` brings
+the single start line back. Pinned by test/unit/core/measured-plan.test.js and
+test/integration/parity/list-row-fit.test.js.
+
+## 17. One box for every narrow rule, after PR 3021 (2026-11-04)
+
+PR 3021 (responsive tables) landed on `main` while this PR was open. It taught tables and fourteen
+card components to reflow in their **content area** (`.cell-stage`, the `lat-cards` container),
+only on wide and square decks. This PR's text-room rules (§13) queried the **slide** (the `lattice`
+container) on every deck shape. Six components carried both, and the rebase conflicted in all six.
+The owner's direction: components should be responsive natively, by their own box, so the split
+only has to measure what they already did.
+
+**One container.** `base.elements.css` now makes every content area a width container carrying
+both names: `section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }`.
+A query from inside the content area answers with the nearest container, the content area itself.
+On a slide with no panes that box is as wide as the slide's content box, so nothing moves, unless
+the content area pads or borders itself; in a pane, the text-room rules now reflow as they would
+on a narrow slide. The declaration replaces
+PR 3021's own, which named only `lat-cards` and only wide and square decks (`container` names an
+element's whole list, so two rules would drop one name). Breakpoints stay in `em`: a query's `em` is
+the container's own text size, so a width in `em` counts characters a line at any venue, which a
+`cqi` or `px` breakpoint cannot.
+
+**What the one box cost, measured** (79 galleries plus `examples/panes`, at hd, square, portrait and
+mobile, 320 renders hashed before and after):
+
+| Change | Verdict |
+|---|---|
+| `collage` lost its grid width: its content area is sized by the photo grid inside it, and a width container ignores its contents when it sizes | left out of the rule (`:not(.collage)`) |
+| `list-steps` chevron took PR 3021's narrow-pane row on tall decks, over the tall deck's designed stacked tab | that rule keeps off tall and strip decks |
+| `pricing`'s stacked tiers shrank to their text and sat left (square decks on `main` too): the list wraps, and the `cards:` register centers the line | the stacked column sets `flex-wrap: nowrap`, as statute-stack's already did |
+| `kpi`, `q-and-a`, `inventory` on portrait and mobile take PR 3021's narrow forms | kept: each reads at least as well |
+| `list` principles set the number above its line below 24em, so at square@hall (about 21em) a row whose text read beside its number at hd stacked (owner, 2026-11-04) | PR 3021's rule went: the number keeps its column until the 17em run-in rule, where the column starves the line |
+| The same audit over every gallery (each slide rendered with every named query off; a hit is a slide whose wide form passes the fit verdict and still reads 24 characters a line): `agenda` set its ordinal above the title at portrait@conference, `checklist` its mark above the text, `glossary` and `list-tabular` `def` and `fit-name` dropped their table at square@hall | `agenda` keeps its row (only `rail` stacks: beside its ring a title reads about 17 characters a line), its current-stop arrow no longer shrinks (the stacked form had hidden a row that crushed it to a sliver at story@hall) and that stop drops its indent under 17em; `checklist` runs its mark in, as `list` does; `glossary` loses its 23em step; `def` and `fit-name` take list-tabular's block flow at 17em, the other variants at 23em (`spec` breaks a key mid-word in its grid there) |
+| charts under `claim-bleed` pad their content area, so a raw `cqi` inside measured a narrower box: progress and kanban labels moved at hd (found by the checker; no gallery uses `claim-bleed`) | charts left out (`:not(.chart-frame)`); a claim-bleed progress and kanban deck is pixel-identical to no container |
+| `policy-recommendation` pads and borders its content area: 117 to 140 pixels of corner anti-aliasing a slide, at every size | kept: invisible |
+
+`collage` slide 6 also differed, but it differs between two screenshots of the same file, so it is
+not this change. The fit ratchet over the 94 galleries at square, portrait and story, laptop and
+hall: no count rose and 30 fell.
+
+**One rule per component.** Where PR 3021's rule now covers the same box, this PR's went:
+cards-grid's 34em and 23em step-downs, cards-stack's `horizontal` at 34em and inventory `cards` at
+23em (each gallery pixel-identical at four sizes after the removal), and statute-stack's status-pill
+rule (this PR's at 23em; PR 3021's, with the same declarations, at 24em, so it now applies a little
+sooner). What stays is what PR 3021 does not do: pricing's
+ribbon, the ordinal run-in under 17em, glossary on tall decks, and statute-stack's 17em pill padding.
+The statute-stack `lane` table keeps its own cards (from 34em) and leaves PR 3021's generic table
+cards, the same way glossary and math derivation do. PR 3031 (2026-11-04) let the lane take the
+shared table layouts instead; rendered side by side at square@laptop, square@hall, portrait@conference
+and story@hall, the shared cards (which switch below 20em) left the lane's obligation column cut to
+"HEAD… OBLI…" with the clip badge at square@hall, while its own 34em cards read at every size. So on
+the rebase the lane stays out of every shared layout, PR 3031's new ones included, and keeps one rule.
+
+**A card's text past its own border fails the verdict (2026-11-04).** `actors` and `checklist` let a row
+shrink below its content (`min-height: 0`, so a dense roster compresses rather than clips). Under
+`fit: pack` that let the measured split put four actors rows on a square@hall page and six checklist
+rows on a portrait@conference one: each row's last line ran across its border into the next, and
+the frame probe saw nothing cut, so the page "fit". `readable()` now fails a text line whose bottom
+passes the bottom edge of its nearest block ancestor with a border or a fill (a card), stopping at a
+positioned box, whose label may hang outside on purpose. Text only, so a connector drawn below a card
+does not count. Scored old against new over 237 renders (79 galleries at square@hall,
+portrait@conference and story@hall): 7 slides flip, the 3 actors and 4 checklist pages, all real; the
+two decks then split to 19 and 21 pages with no failing page.
+
+**The checker's findings on the narrow rules and the Studio (2026-11-05).** An independent checker read
+`af95fecf5..f1ebd54c8` and confirmed, in rendered output:
+
+| Finding | Fix |
+|---|---|
+| list-tabular's meta stayed inline under 17em: the `def`/`fit-name` split raised the narrow blocks to (0,4,4), past the TIGHT rule's (0,2,4) | the TIGHT rule repeats the class to (0,5,4); every variant's meta takes its own line at story@hall |
+| the chevron's shared tab column was `max-content`, so a long label widened every row's tab (a 44-character label left each description 85px wide) | `fit-content(40%)`: a label wraps between words at 40% of the row |
+| a LOOSE checklist (a blank line between items) wraps its text in a `<p>`, which the run-in's reset zeroed, so the text ran under the mark | the reset skips the first paragraph; text starts clear of the mark |
+| the card-spill check measured lines a `line-clamp` box hides, and failed `line-height: 1` text by the glyph's own overshoot | the walk stops at any box that clips; the tolerance is 15% of the font size, 2px at least |
+| "keep the first plan" kept it whenever today's split failed too, without comparing | kept only when it failed no worse: an overflow by its depth, a cram or clip ranked worse than any overflow |
+| the Studio's plan cache keyed the stylesheets by LENGTH, so `1.40rem` to `1.60rem` reused a stale plan; it left out the slide's rendered number | keyed by hash, as the render memo is, and by the rendered number |
+| a measurement taken with a fallback face was cached for good | used for that render, not cached |
+| a pause measurement ran after a newer keystroke when its idle callback fired, warned on every cancel, and kept running after the author moved to a slide without the split | re-checked at idle, quiet on a cancel, called off on such a slide |
+| column packing skipped the §11 memory, and its fold summed a page's members as a stack | one row-aware page load (`pageLoad`) for the fold and the memory |
+
+New tests: `docs/src/lib/measured-split.test.ts` (reuse, pause, cancel, fonts), the e2e now proves the
+ready event re-renders the preview, and `fit-plan.test.js` covers the first-plan comparison and column
+packing. The idle re-check has no unit test: jsdom has no `requestIdleCallback`, so that path runs at once.
+
+**Split before hold.** PR 3021 holds a table or card row in its wide form when the narrow one would
+overflow its slide. The CLI runs the measured split before that hold, so a narrow form that
+overflows is split onto pages it fits, and the hold acts only where nothing can split the slide.
+
+**Bytes.** This PR's split code sits in the ESM engine every surface loads: +1.8 KB of `engineJsGz`
+over `main`, 1.0 KB past its ceiling. The owner raised the ceiling 2 KB in its own PR (#3028).
+
+
+**The live preview measures at rest, not per keystroke (2026-11-04).** A measurement lays the slide out
+in a hidden frame on the main thread, and layout cannot move to a worker (a worker has no DOM). The
+Studio measured every render: on the owner's phone each page step re-measured (0.85 to 2.3 s on an
+emulated iPhone), and typing measured per keystroke. Now (docs/src/lib/measured-split.ts `studioPlan`,
+in the lazy chunk): a plan is cached by the slide's text, box, mode and stylesheet, so stepping pages
+reuses it (155 to 238 ms a step); the first render of a slide measures at once; an edit redraws with
+the slide's last plan and measures once, 0.7 s after the author pauses, in idle time, cancelled by the
+next keystroke. On WebKit at tablet size, twelve keystrokes ran no measurement (three before) and the
+preview showed the text 12 to 17 ms after the last key (713 to 743 ms before). Pinned by
+docs/e2e/measured-split.spec.ts ("does not measure while the author types").
+
+**Packing efficiency, measured (2026-11-04).** The owner asked whether the packing was efficient; it was
+not, and nothing measured it. A fill probe over the 79 galleries at square@hall with `fit: pack`
+(each split run's pages, the members' height over a body page's room, and whether fewer pages would
+hold them) found 55 of 168 runs using more pages than their members need, 83 extra pages. Three
+planner defects, fixed: (1) the 90% headroom was applied twice, as the page limit and again in the
+fill score, so six agenda rows filling 88% of a page read as crowded and packed 3 + 3 (`pack` now
+takes a separate `limit`); (2) members were measured in the UNSPLIT slide's layout, where a 2 x 2
+matrix or a squeezed chevron tab wraps them taller than a body page will (members are now measured on
+a probe body page holding all of them, `measuredSplit({ remeasure })`); (3) members a page lays out
+side by side were summed as if stacked (a 2 x 2 matrix took two pages for one page's rows: the planner
+now packs ROWS when the probe page shows columns, and falls back to packing a column before today's
+split when the row count changes with the page). After: 41 runs, 64 extra pages. What remains is
+mostly slides the measured plan does not drive: strategies that cut by their own recipe (cycle,
+`cards-grid three`, regulatory-update, the timelines) and members that are not list or table rows
+(math, policy-recommendation). Probe: .scratch/fill.js (to become a gate).
+
+## 18. Venue is the only thing that sizes type, and the shape sets the step (2026-11-05)
+
+**The owner's rule.** Fonts change only through the venue (laptop, huddle, conference, hall), never
+by a narrow box or by what is on the page. An audit of this PR's CSS found four places that broke
+it: the split cover's lead-in and the `topic fact` claim stepped DOWN a size under ~35 characters a
+line (this PR), a lone member on a split page stepped UP to `--fs-emphasis` (main), and math's lead
+equation scales to 1.55em in a tall box (main).
+
+**Why they existed: the venue step was tuned for 16:9.** Measured (body size, characters a line):
+
+| Shape | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| hd | 21px, 111 | 25px, 97 | 28px, 85 | 32px, 74 |
+| square | 30px, 66 | 35px, 58 | 39px, 51 | 45px, 44 |
+| portrait / story / mobile | 47px, 43 | 54px, 37 | 61px, **33** | 70px, **28** |
+
+A tall shape starts from a larger curated size, and the same x1.5 put a story at hall under the
+~35-character tight line. On a phone (390pt wide; the phone's own body text is 17pt) a square
+post at laptop read at about 11pt and a tall one at 17pt.
+
+**The decision (owner, 2026-11-05, option 1 of four put to them): handheld venues, and a step per
+shape.** `phone` and `tablet` join the rooms; `phone` is the default on square, tall and strip
+decks, `laptop` on wide ones; each shape has its own row (`VENUE_SCALE_BY_FAMILY`,
+lib/core/resolve-venue.js):
+
+| Shape | phone | tablet | laptop | huddle | conference | hall |
+|---|---|---|---|---|---|---|
+| wide | 1 | 1 | **1** | 1.15 | 1.3 | 1.5 |
+| square | **1.5** | 0.75 | 1 | 1.15 | 1.3 | 1.5 |
+| tall | **1** | 0.6 | 1 | 1.1 | 1.17 | 1.22 |
+| strip | **1** | 0.72 | 1 | 1.1 | 1.17 | 1.22 |
+
+Square's phone step is x1.5, about 16pt on a phone, and lands on the measured hall rung so every
+capacity budget measured there applies exactly. The stylesheet applies the default off the
+section's `data-family` stamp, so it follows the box a slide renders at; `venue: laptop` stamps
+`venue-laptop` to opt out. Lint reads a venue at the smallest measured rung at or above its step
+(`venueRung`), so a budget never promises room the slide does not have. The lead-in, fact-claim and
+lone-member steps are removed. Math's equation scale stayed at first as the one named exception: the
+factorization is one expression that could not wrap, and without the scale it overflowed on 4 slides
+per shape even at the default size, which no venue can fix. **Superseded the same day (owner: "we
+should split. sizing down diminishes readability"):** `lib/plugins/math/shared/tex-linebreak.js`
+now treats a matrix environment as one term and breaks the factorization at its `=` and between
+its matrices, so it keeps 2.1em on two lines and fits portrait, square, story and mobile; the
+1.55em step is gone and no exception is left.
+
+**Shown to the owner before it was built** (examples/kaizen-craftsmanship.md, fit: pack, hall):
+story 4 failing pages to 1 (40 pages to 36), portrait 8 to 5 (54 to 42), mobile 2 to 0 (39 to 34),
+laptop identical on every shape. **Measured after, every gallery** (structural split, clipped
+slide-cells): portrait@hall 364 to 196, story@hall 218 to 81, square@hall 174 to 172, laptop
+unchanged. **The cost, put to the owner:** square at the new phone default clips 150 slide-cells
+across the galleries against 9 at laptop. The cause, measured: 120 of the 150 never split, and the
+measured split does not rescue them (149), because each holds one piece that cannot split at x1.5.
+About 70 are the HTML/SVG hybrid charts, which keep their desktop columns at any width and declare
+no split strategy (roadmap, progress, timeline-list, matrix-grid); about 35 are single prose blocks
+(legal, citation-card, redline, split-panel). Pure-SVG charts never fail. The owner's direction:
+hybrids that are lists split like lists, hybrids that are tables split like tables, and a new
+pattern where none exists (matrix-grid by column); built in this PR.
+
+**Long words break with a dash** on square, tall and strip slides (base.elements.css): `hyphens:
+auto` for words of 10+ letters with 4 kept each side, code and math opted out. A word the
+dictionary cannot split stays whole: an `overflow-wrap: break-word` last resort shipped first and broke
+a square roadmap's "Connector" into "Conne / ctor" with no dash, where main had read it whole (the fit
+ratchet, roadmap square@laptop clip 0 -> 1), so it was taken out. The exporter's Chrome hyphenates (Chrome 131, measured), so the
+old note that headless Chrome cannot was stale. **The PDF writer could not read a hyphenated break**
+(lib/core/pdf-compose/read-slide.mjs `linePieces`), a defect latent until this rule turned
+hyphenation on: at a hyphenated break the next line's first letter reports the dash's box on the
+line above as well as its own, so the bounding box drew it at the end of the line before
+("straightfor-" printed as "straightforw" / "   ard."), and the dash, not being text, was never
+written. A forced break reports no extra box and was always read right. Each letter now takes its
+own box, and the writer draws the dash where the browser drew one
+(test/integration/export/read-slide-word-break.test.js; HYPHENATED fails on the old reader).
+
+**Two regressions found and fixed on the way.** big-number at story@hall went from 5 clipped
+slides to 1, which uncovered its caption measure, a fixed 43.75% of the slide, 12 characters a line
+at tall sizes: under ~47 characters it now takes the full width (adapt mode `reflow`). A glossary
+with a long term ("Predicted outcome") left its definition 14 characters a line at story@laptop
+after this PR dropped glossary's 23em step: under ~47 the term may now wrap between its words.
+
+**Hybrid charts split by what they are (2026-11-06, owner: "a chart that is a list splits like a
+list, a chart that is a table splits like a table, and where no pattern exists we make one").**
+progress first: `progress-rows` (lib/core/carousel.js) slices its `.progress-row` bars through the
+native-slice kernel, which now takes `perPage` (a ceiling or a measured plan) so a page holds
+several members, spread so none is a runt. split-facts moves progress atomic -> read-across: its
+recorded reason was one bar a page losing the shared-baseline comparison, and packed pages keep it.
+The measured split reads a `role="list"` of `role="listitem"` divs as members, so `fit: pack` plans
+it. Progress gallery at square, phone venue: 5 bars 3 + 2, the eight-bar stress slide 4 + 4
+(measured plan 5 + 3), every page passing the fit verdict; it rang on 6 slides before.
+
+timeline-list second, a list of milestones. Two moves. Its vertical spine, keyed on `data-family`
+tall and strip since 2026-06-19, now keys on every shape but 16:9 (owner, 2026-11-06: "we want
+timelines to run horizontally at hd and 4k. for portrait, square, mobile, story they should be
+responsive and go vertically"). The shape decides and the venue never does, so square at laptop,
+where four milestones across left each about ten characters a line, goes vertical too. The list
+timeline (`inventory timeline`) moves onto the same rule: its family rule gains square and strip,
+and its narrow-box net drops from a one-off 36em, which caught a 16:9 slide at hall (35.9em), to
+the shared 34em, which no full-width 16:9 slide reaches at any venue and which still turns a
+timeline in a narrow pane. Measured on one deck at hd, 4K, square, portrait, story and mobile
+across all six venues: the two timelines agree in every cell. A 16:9 slide that overflows at hall
+is an authoring matter (owner, same day): 16:9 never splits, and lint warns. Then `timeline-items` splits it the way
+`progress-rows` splits bars, and split-facts moves it atomic -> read-across: the dot spectrum its
+atomic reason named is gone (one accent), and each page draws its own rail through its own dots.
+
+Two measured-split defects surfaced on the way, both in lib/core/fit-measure.js:
+- On a built body page the room now starts at the member container's top. The masthead-free
+  estimate assumed a body page drops the heading, which a chart's native slice does not. It planned
+  four square milestones into 886px that held 745.
+- A `role="list"` laid out on ONE row (the horizontal spine) gives the plan no members. Its columns
+  share the width, so fewer a page means wider and shorter, and the row-packing plan, which assumes
+  a member keeps its width, drove a square timeline at laptop to one milestone a page. The recipe's
+  `perPage` cuts it instead (6 milestones: 3 + 3).
+And a native slice given a measured plan of ONE page now builds a cover and that page, as an
+envelope does, so the host's measuring pass can build the body page it measures.
+Timeline gallery at square, phone: 0 of 15 chart pages failing (6 of 10 before); at square laptop
+and portrait tablet the stress slide is 3 + 3 horizontally; hd unchanged.
+
+**The handheld ladder (2026-11-06, owner: "our font size ladder for phone and tablet are not
+readable. we need to curate these font sizes better").** Measured on the device in points (a
+393pt phone, an 820 x 1180pt tablet), body read at about 17pt on every shape, but meta read at
+about 11pt on a tall or strip slide. Each handheld venue keeps its step and now sets the meta,
+compact and chrome lifts the rooms use: meta 13pt, body-compact 15pt, body 17pt (square 16.5pt,
+its step kept at the measured hall rung). The owner first chose larger targets (19 / 17 / 15pt);
+built and measured across every gallery at the phone venue they clipped 90 to 236 more slides per
+shape even under `fit: pack`, so the middle targets were measured next: +25 square, +53 portrait,
++49 story under `fit: pack` (128 slides in all, out of about 3,500), pages +6 to +23 per shape.
+Those 128 sit in components with no narrow form (legal, the grids, the comparisons), and the
+owner ruled they are fixed in this PR before the merge ask, component by component. The same
+round set two more rulings: measuring becomes the default way slides split, for every deck, and
+the nightly fit check gains the phone venue with today's clip count as its baseline.
+
+**Display math wraps at the real width, at one size (2026-11-06).** The owner asked whether the math
+library could help. KaTeX does not break display math, but its line breaking after top-level relations
+and binary operators works in display mode once its `white-space: nowrap` is lifted. A prototype set
+every gallery equation at 1.4 x body and let KaTeX wrap it in a square and a portrait box: nothing
+overflowed. `breakableTex` (tex-linebreak.js) now regroups each display equation off 16:9 so the only
+top-level operators left are the safe ones the old reflow trusted, and math.styles.css lifts the nowrap
+and routes every variant's display size through `--math-display`, `1.4 x --fs-body` off 16:9. It replaced
+the `aligned` reflow and its smaller sizes. Math gallery at square, phone: the long logistic equation and
+the compare columns fit; the stats hero still clips (a layout bug, fixed separately).
+
+
+**The stats hero, and two more math layouts, fixed (2026-11-06).** At square the stats reading line
+lost its 60cqi cap (as tall and strip had), compare stacks to one column, and the function plot on
+canvas draws at 1/k size and scales up, so its axis numbers stay whole (`function-plot.hydrate.js`).
+
+## 19. A split cover that cannot hold its subtitle moves it to page 1 (owner, 2026-11-06)
+
+The owner saw a split cover's lead-in run into its footer on a phone and ruled: "Subtitle moves to page
+1". A cover's type is never shrunk (§18), so `lib/core/cover-lift.js` measures each cover's content
+bottom against its footer's top and, while it runs past, moves the subtitle and then the lede to the
+top of the run's first body page, where base.modifiers.css sets them at body size above the members.
+The export runs the pass before each verify round, so the measured split re-plans a first page the
+moved text makes too full; the runtime runs the same kernel. On the export check deck at square, the
+slide 9 cover ran 57px into its footer and now fits; its first page carries the subtitle. The running
+footer keeps cutting off with an ellipsis, also by the owner's ruling. A plain `.html` export has no
+script, so its covers stay as they were.
+
+## 20. Code wraps on handheld; layouts that never split will split at their seam (owner, 2026-11-06)
+
+The phone run of every gallery (square, portrait, story) after the middle ladder found 227 slides
+whose content the export clipped (footer-only cuts aside). Three groups had one cause each:
+
+- **The `closing` `index` slide** ("See also", in 40 galleries) set five two-line rows at lede size.
+  Its rows now read at body size on a square, tall or strip slide. 227 → 194.
+- **Code** was cut at the panel's right edge. The `code` layout never wrapped unless asked, and
+  lint's column table measures the designed size and the rooms, not a phone. The owner chose "Wrap on
+  handheld": a square, tall or strip slide with no room venue wraps every block. The continuation hangs
+  two columns in, via `text-indent: 2ch hanging each-line` on a plain block (no line spans needed,
+  Chromium 153) and the `wrap` rule on a block that has line spans. A first cut gave every block line
+  spans; that changed the markup the Present Guide and the plugin conformance fixtures read, so it went.
+  Lint's `code-line-clipped` is silent there. Wrapped code is taller, so a code slide can now overflow
+  at the bottom, which the next item handles.
+- **`redline`** released its clause's height floor, so on a phone square the amendment painted 160px
+  over the "Why this matters" gloss. The floor is released now only when the clause is the stage's last
+  child.
+
+The rest are layouts that never split (citation-card, redline, quote, legal stress slides) and some
+grids. The owner chose "Split at the seam": a slide that does not fit moves its gloss to the next
+page, and a quote longer than a page continues at a sentence break.
+
+**How the passage split works.** `quote` and `citation-card` moved from `atomic` to `read-across` with
+a new `passage` strategy (lib/core/carousel.js), and `redline-blocks` falls back to it for a one-clause
+redline. The members are the passage's sentences, then the gloss list's items. One rule finds the
+sentences (lib/core/passage-sentences.js: a stop, then whitespace and a capital, but not after an
+abbreviation such as `Cal.` or `U.S.C.`). The measured split reads each sentence's height in the page
+as a Range, so `measureFit` carries the rule in as source. The strategy cuts the HTML only where a page
+begins, so the sentences a page holds stay in the author's paragraphs. It closes and reopens any inline
+element the cut falls inside. The cite rides every page that carries the quote. With no measured plan
+(`fit: heal`), the slide stays whole: a sentence has no count to cut by.
+
+Measured at the phone venue, the citation-card gallery went from 13 clipped slides to its stress
+specimen alone, and the quote gallery to its stress specimen alone. The redline gallery's 7 remain:
+its sample clause is one 60-word sentence (with its deletions, 772px against 711px of room), and the
+ruling does not allow a cut inside a sentence. A stress specimen (`<!-- stress-slide -->`) rings by
+design and is never split.
+
+## 21. Phone against laptop, slide by slide: what this PR must fix, and three rulings (owner, 2026-11-13)
+
+The fit harness ran every gallery and example at square, portrait and story, once at the phone
+venue and once at `laptop` (`node tools/fit-harness.js --venues phone|laptop --edits none`, the
+`packed-fit` arm, which is the measured split this PR ships). A slide that clips at phone but fits at
+laptop clips **because** this PR made phone the default, so it is this PR's to fix (HARD RULE #18).
+111 slides did: 94 at square, 10 at portrait, 7 at story. 56 more clip at both venues and were
+already broken on `main`; 12 that clip at laptop fit at phone.
+
+Of the 111, 40 are charts (matrix-grid 15, roadmap 9, kanban 6, state-chart 5, histogram 3,
+flowchart and timeline-list 1 each), 13 are split-panel, 7 are `closing index`, and about 51 spread
+over redline, authority-chain, logo-wall, code, legal and others. The owner ruled, in one round:
+
+- **Charts keep `laptop`.** A chart section (`chart-frame`) takes no handheld default
+  (`base.modifiers.css`, pinned by `test/unit/parsing/resolve-venue.test.js`), so those 40 slides
+  render exactly as on `main`. The chart text kernel already read an unstamped slide as laptop
+  (`venueOfTokens`), so the stylesheet and the kernel now agree. Charts move to phone in their own
+  change, together with the narrow-box reflow (`2026-10-30-chart-reflow-narrow-boxes.md` §2C, §2E,
+  §4). A `venue:` the author writes still applies to a chart. Lint is unchanged: roadmap is the only
+  chart kind with a venue capacity row, and its hard cap (5 columns) equals the phone row.
+- **`closing index` splits.** Only the `index` variant (a see-also list) may split, into a cover
+  and its rows; a one-line closing still never splits. This amends the §0c placement of `closing`.
+- **split-panel's lede gets its own page.** When a split-panel's cover still overflows after the
+  cover lift (§19), the lede moves to a page of its own between the cover and the points, chosen by
+  the measured split so the page is in the split's HTML (and so in every surface's page count).
+  Built as: the verify probe (`overflowBySlide`) now checks a split's COVER too, which it never did,
+  and reports it as `N:cover`; `measuredSplit` answers that with one more split of that slide whose
+  plan entry carries `ledePage` (a tighter room cannot help a cover); `coverWindow` then emits the
+  lede on a `split-panel-lede` page. It costs a round only for a slide whose cover overflows. On the
+  split-panel gallery at a phone square, slides 2, 7 and 8 take a lede page and every page fits.
+  The `qr` variant (slide 10) has no points list, so it never split, and at the phone venue its title
+  set one word a line and clipped 387px. Two layouts were rendered and rejected: stacking its panels
+  left the code too small to scan, and a wider title panel cut the text at the slide's edge. It now
+  splits AT ITS SEAM (§20's ruling): `planFromFacts` marks an overflowing slide with no members
+  `{ atSeam: true }`, and split-panel's strategy answers with the feature on the cover and the code,
+  with its caption, on the page after it (`splitFeatureAtSeam`). Every other strategy ignores the mark,
+  so its slides get today's split as before. Only the measured plan sets it, so under `fit: heal` a
+  `qr` slide that fits never splits. At a phone square the split-panel gallery now has no page past
+  its frame.
+
+The owner's bar for the merge ask is HIGH or VERY HIGH, with no slide this PR breaks left behind.
+
+## 22. A square slide at phone stacks its masthead, and the export diff that found it (2026-11-13)
+
+**What broke.** The masthead band is a grid, `[masthead-lede] 1fr [masthead-bay] auto`: the
+eyebrow and title on the left, the deck's `meta:` line (and a split page's counter) docked in an
+`auto` bay on the right. At phone type on a square slide (x1.5, §18) a long meta asked its `auto`
+track for most of the 972px band, and the lede's `1fr` resolved to **0px**: the title broke one
+word a line under the bay and ran off the slide, and the eyebrow ran into the meta. Measured on
+the 27 example decks that set `meta:`: at square phone, 22 decks had a masthead slide whose lede
+column was under half the band, almost all of them at 0px. At `venue: laptop` none did.
+
+**Why §21's harness missed it.** The fit harness counts overflow. A lede squeezed to 0px spills
+mostly sideways into the bay, so many of these slides never reported an overflow at all, and the
+ones that did were filed under their component. The real-export diff that found it
+(`.scratch/export-diff.mjs`: each gallery and example exported through the CLI at the phone
+default and again at `venue: laptop`, listing slides that overflow only at phone) is the ground
+truth for this PR from here on. Its first version read only the CLI's stdout, and the CLI prints
+its OVERFLOW warning on stderr, so it reported every deck clean; it now reads both.
+
+**The fix.** A square slide at the phone default stacks the lede over the bay, the layout the
+`standard` Frame's `slicing` already gives `tall` and `strip` (`lib/forms/cell/masthead/masthead.css`).
+It is not a family slice, because a square deck at `venue: laptop` keeps the side-by-side band it
+was designed with: the rule keys on the phone default's own selector, with its exclusions, the
+chart one included, and `test/unit/parsing/resolve-venue.test.js` holds the two lists equal. After
+it, no example deck has a visible lede under half the band at square phone. The stacked meta now
+breaks into balanced lines (`text-wrap: balance` on `.tile-meta`), not a full line and one
+stranded word, on every narrow band.
+
+**Rejected.** A 50% floor on the lede (`minmax(50%, 1fr)`): it fixes every venue at once, but at
+phone type a long meta wraps three or four lines deep in half the band, spending the height a
+phone slide is shortest of. Adding `square` to the Frame's `slicing`: it stacks laptop squares too.
+
+**Not this PR's.** Three 16:9 examples at laptop (`mermaid-engine-fences`, `mermaid-motion`,
+`mermaid-tilde-fences`) give the lede 29% to 40% of the band beside a long meta. That is the same
+`auto` bay on `main`, untouched by this PR's venues; it is logged in
+`followups.d/2988-p3-masthead-lede-floor-wide.md`.
+
+## 23. The square phone step is x1.4, and prose splits at its seams (owner, 2026-11-13)
+
+**The measurement.** The real-export diff (§22) found what §21's harness under-counted: at the
+phone default, **291 square slides, 28 portrait and 16 story** overflow in the CLI export and fit at
+`venue: laptop`. Most are prose that no strategy split: `content` paragraphs (80), code (69) and
+title slides (30), then about 150 spread over other components. The square step decides most of
+it, measured with everything else held:
+
+| Square phone step | Body on a 390pt phone | Square slides that clip only at phone |
+|---|---|---|
+| x1.5 (§18) | 16.5pt | 291 |
+| x1.4 | 15.4pt | 166 |
+| x1.3 | 14.3pt | 85 |
+
+Of the flagged prose, 71 of 80 `content` slides hold two or more paragraphs or items, and 53 of 69
+code blocks run six lines or more, so a split between blocks, or between code lines, would clear
+most of what any step leaves.
+
+**The rulings.** The owner chose **x1.4 plus splitting at the seams**: a `content` slide splits
+between its paragraphs and items, a code block between its lines, and the rest are fixed one
+component at a time. At x1.4 the meta, compact and chrome lifts rise to 1.16 / 1.14 / 1.13, so
+labels stay at 13pt and support lines at 15pt and only body steps down (`base.modifiers.css`,
+`VENUE_SCALE_BY_FAMILY`). For `redline`, whose sample clause is one 60-word sentence, the owner
+allowed **a cut inside a sentence at a clause break** (a semicolon, or a comma before *and*, *or*,
+*but*), never mid-clause, with the deletion marks kept whole. This amends §20's "never inside a
+sentence" for redline only.
+
+Rejected: x1.3 (the fewest splits, but the furthest from the 17pt reading target); keeping x1.5
+and splitting all 291 (title slides never split and would need a ruling of their own); keeping
+prose at `laptop` the way charts do (type would jump between slides of one deck).
+
+**Code, built.** A `code` slide whose single block overflows reads its lines as the measured split's
+members (`codeOf` in lib/core/fit-measure.js): each line a Range from its start to its newline, measured
+as a passage's sentences are, so a wrapped line counts every row. `splitCodeCards` (lib/core/carousel.js)
+follows the plan's line counts when they place every line once, and takes a one-page plan when the
+slide has a heading (the heading on a cover, the block on the page after it). Both sides drop blank
+lines at the block's ends by their text, so a numbered or diff block's empty `<span class="ln">` lines
+count the same on both. The maker-checker review found two defects before the commit: a range ending at
+the next text node's start counted the next line's first row (highlighted code, `[39, 20, 0]` for three
+one-row lines), and markup-blank edge lines made the counts disagree, so the plan was refused. A `code`
+slide with several blocks still splits one block a page, and a block that overflows its own page is
+not cut again.
+
+**Redline clauses, built.** `clauseStarts` (lib/core/passage-sentences.js) finds where a clause begins
+inside a sentence: after a semicolon, or after a comma when the next word is `and`, `or` or `but`. A plain
+scan, self-contained, so it travels into the measuring page beside `sentenceStarts`. For a `redline`
+only, the measured split (`passageOf`) and the `passage` strategy (`passageCuts(…, { clauses: true })`)
+merge those starts with the sentence starts, and `passageBreaks` still refuses any cut inside an edit or
+between a deletion and its insertion. On the redline gallery at a phone square, the slides whose one
+60-word clause clipped now split between its clauses; the one page still past its frame is the old/new
+split's NEW page, whose why list rides with the clause, a layout fix of its own.
+
+**Prose, built.** A layout that declares the `item` axis but renders no list or table (a `content` slide
+of paragraphs, or paragraphs around one code block) now derives the `block` axis (`deriveAxis`,
+lib/core/split-envelope.js). Its members are the stage's top-level elements less a trailing run of beats
+(a key-insight blockquote, a `.below-note`, a coda cell), the same rule on both sides: `blockSpans` in
+the envelope, the `section.content` branch of `members()` in lib/core/fit-measure.js. `block` splits
+only on a measured plan (`fit: heal` keeps prose whole: paragraphs have no count). One block is a member
+too when a beat rides the slide, so the beat can leave the page (§20's seam): Fluido's `planSlide` now
+paginates one member when the plan was measured (`SlideFacts.measured`), and still keeps it whole
+otherwise. Only `content` reads block members in the page, so a layout with no members keeps the
+`{ atSeam: true }` mark its own strategy reads (split-panel `qr`). A single paragraph with no beat has no
+seam and still clips; a content slide that is only a code block has one block and is not cut by line.
+
+The maker-checker review of the prose seam found five defects before the commit, each fixed and tested:
+a page boundary dropped loose text between two blocks (a page now runs to the next page's first member);
+a subheading could end a page (headings are `keepWithNext` for Fluido's `pack`, which also keeps an
+`# H1` title with its first paragraph); a prose run carried no forward pointer (`membersIn` reads `block`
+pages through `blockSpans`); an inline `<svg viewBox>` (KaTeX's root sign) made a math paragraph a
+`figure` slide, and a one-item list derived `item` while the page measured blocks, so both stayed
+clipped (`deriveAxis` now takes the page's own test: no table and no list of two or more items); and
+the Fluido docs still said a single member always stays whole.
+
+**One long paragraph, built (owner, 2026-11-15).** A content slide whose prose is ONE paragraph of two
+or more sentences splits at its sentence breaks, §20's passage rule applied to a content paragraph:
+`proseMembers` (lib/core/split-envelope.js) counts the sentences by `passageCuts` and `partitionBlocks`
+cuts the paragraph with `splitHtmlAtText`, each page one paragraph; the page reads the same sentences
+(`sentenceRanges`, lib/core/fit-measure.js). Several blocks keep their paragraph seams, so an over-tall
+paragraph among others is not cut. `sentenceRanges` is now shared with the passage split and ends each
+Range in the node holding its last character, the code-lines measurement fix applied to sentences.
+
+## 24. A slide read in a hand drops its running header and footer (owner, 2026-11-15)
+
+After §23's step and seams, the export diff still found 103 square slides that clip at the phone default
+and fit at laptop. The owner asked whether the chrome should go. Measured at a phone square, with
+everything else held:
+
+| Chrome on a handheld slide | Square slides that clip only at phone |
+|---|---|
+| Header, footer text, page number (today) | 103 |
+| A: no header, no footer text, page number kept; top margin closes to the side margin | 92 |
+| B: no header, no footer band at all (page number and split rail gone too) | 79 |
+
+**The ruling: A.** A square, tall or strip slide at the phone default, `venue: phone` or `venue:
+tablet` drops the deck's running header and its footer text, and its top margin (`--frame-y`, which
+cleared the header) closes to the side margin. The page number and the split rail keep their band, so a
+reader still knows where they are in a run (lib/forms/cell/stage/stage.css). Laptop and the room venues
+keep both lines, a chart keeps laptop as its type does (§21), and `with-header` / `with-footer` bring
+either back. `test/unit/parsing/resolve-venue.test.js` holds the rule's venue list to the type table's.
+B bought 13 more slides for the reader's place in the deck; the adaptive form (chrome only where a slide
+fits with it) was not measured, and would make the chrome come and go within one deck. Neither alone
+clears the list: most remaining slides need their component fixed.
+
+
+## 25. The remaining phone-only clips, component by component (2026-11-15)
+
+With §23's seams and §24's chrome in, the export diff (`.scratch/export-diff.mjs square`, every gallery
+and example at the phone default against laptop) still finds 88 square slides that clip only at phone.
+None of the 88 is a seam the measured split misses for want of a rule shared across layouts; each is one
+component's own shape at x1.4, so each is fixed in its component, one commit apiece, re-measured after.
+
+| Group | Slides | Cause | Fix |
+|---|---|---|---|
+| `decision` cover | 6 | Its title is `--fs-hero`; every other cover sets `--fs-h1` (split-panel's note: a cover title can be a full sentence, and hero overflows past ~10 words). A two-line verdict ran five lines at x1.4 and pushed past the top of the frame. | On a slide read in a hand (§24's selector), the cover title is `--fs-h1`. Laptop and the rooms keep hero. `resolve-venue.test.js` holds the venue list to the type table's. |
+| `compare-prose` split pages | 5 | Each subject's page set its text at `--fs-emphasis` / `--lh-relaxed`, where every other split points page (decision, list-tabular, split-panel) sets `--fs-body` / `--lh-base`. At x1.4 a fifty-word subject ran past its page. `drawn-not-typed.md` also hand-wrapped its list items, which the engine renders as hard breaks (Markdown line breaks are on), mid-sentence at every size. | On a slide read in a hand (§24's selector) the subject is set at body size, as the other points pages are; laptop and the rooms keep emphasis. `resolve-venue.test.js` holds the venue list. The deck's wrapped items are joined. Sixteen other decks hand-wrap list items; a lint warning for that is in `followups.d`. |
+| `authority-chain bracket` | 2 | At x1.4 a square slide has under 23em of text room, so the chain takes its narrow-room rules. There the citation chip stayed on one line, and beside a `bracket` tier label a long citation ("Charter of Fundamental Rights, Art. 8") ran past its card. The rows also left the min-content rail for flex rows, so each label sized to itself and the citations zig-zagged. | In narrow room the chip wraps at its spaces, and `bracket` keeps the grid rail, so a page's rows share one text x. Fixed at portrait and story too; no slide clips that did not before (gallery, legal gallery and two examples, at square, portrait and story, against HEAD). Each page of a split run takes its own widest label, so the text x can differ between pages. `authority-chain-bracket-phone.test.js`. |
+| `title` | 9 | A title is the deck's cover, and a lede of sixty to ninety words under it ran off a phone page at x1.4. `title` was an anchor that never splits. | **Owner ruling, 2026-11-15: the lede gets its own page**, the split-panel ruling of 2026-11-13 applied to the deck's cover. A new strategy, `title-lede` (lib/core/carousel.js), acts only on the measured plan's `atSeam`: the cover keeps the eyebrow and title (`title-cover`), and every lede paragraph moves, in order, to one page after it on the same canvas (`title-lede`). A title that fits never splits. `split-facts.js` moves title from anchor to read-across, as closing moved on 2026-11-13; the oracle's verified deck is `examples/title-lede-page.md`. Everything authored after the title moves in order (a list after the lede comes too), the eyebrow and notes stay, and the slide's beats close the run on the shared closing page. The cover keeps the deck footer, as every anchor does (2026-11-08-anchor-chrome.md); `stripDeckChrome` exempts `title-cover`. A lede longer than one page still clips on its page, with the export's OVERFLOW warning: the ruling gives the lede one page. Two lede paragraphs touched (0 px apart) on a whole title too; the second now keeps `--sp-md` above it. `title-lede.test.js`, and the shared gates in `carousel.test.js`. |
+| `logo-wall`, captioned | 6 | At four columns a pill ("Enterprise") is wider than its cell at x1.4 and ran off the slide, and the rows ran below the stage. A first fix (always three columns, the packer's estimates scaled by the step) was withdrawn: the checker showed it regressed walls that fit (`examples/logo-wall.md`'s four-across wall), moved room-venue walls, and tipped some into the fallback grid; caption width also grows 1.94x from laptop to hall, so no width estimate holds. | **Owner ruling, 2026-11-15: measured columns.** The page measures every captioned wall it drew (`lib/core/logo-wall-pack.js` `measureWall`: the widest caption line, the tallest caption, the room under the headline). Only a wall whose caption runs into its neighbor (past its own half of the column gap, or past the list's edge at a row's end) or whose rows run past the stage is re-planned (`planWall`'s `measured`), and only when the measured plan packs, so a re-plan never trades a clipped wall for a fallback grid that clips too: the most columns whose cell holds the caption, the dense column gap and an `--sp-lg` row gap, packed against the measured room. At the default row gap the eight-mark gallery wall packed to 0.335 of a band, under the legibility floor; at `--sp-lg` its marks take the full band. The CLI measures in the export's page and re-stamps the string (`restampWall`, one reload, only when a wall overflowed); the live preview re-plans in place once its fonts are ready, and a wall on a slide not yet laid out (a hidden Studio slide) once it is (`logo-marks.js`). A wall that fits keeps its plan byte for byte: the checker compared about 160 renders against HEAD across sizes and venues, and every wall that changed had overflowed. `examples/logo-wall-measured.md`; `test/integration/parity/logo-wall-measured.test.js` (every PR), `logo-wall-pack.test.js`. |
+| tables (3 or 4 columns) | 2 | A card table of up to four columns switched to cards below 20em; a phone square reads about 23em, so a three-column table kept its grid and its last column ran past the slide (193px on `video-plugin.md`, 683px on `media/README.md`). | **Owner rulings, 2026-11-15.** Raising the switch to 24em fixed them and turned about 140 grids that fit into cards, so it was reverted. Now a table also switches when its grid is MEASURED running past the slide's edge (lib/core/table-reflow-fit.js `forceOverflowingReflow`, a `style()` condition on each layout's container query). On the 87 table decks: the same pages fixed, none worse; grids that fit stay grids. Limits (recorded in 2026-11-03-responsive-tables.md): a stage with two narrow-layout tables is not forced, a three-column `runs` table has no narrow layout (`per-slide-diagram-band.md` still clips), pane tables are not reached, and Firefox ignores the mark. `test/integration/parity/table-measured-switch.test.js`. |
+| `image`, stacked (square and portrait) | 4 | On a square or portrait slide each composition stacks its photo over its text and held the photo at a fixed share: a `split` band at 44%, a `clean` card up to 50%, a `gallery` frame at 52%. At x1.4 the text beneath ran 8 to 105px past the slide; at laptop, several portrait gallery slides already ran past (31 to 202px). | Each photo keeps its share where the text fits and gives way when it does not: the split band (`minmax(28%, 44%)` row) and the clean card (a `minmax(28%, auto)` row the card fills) down to 28% of the slide, the gallery frame (height leads, width follows the aspect, `flex-shrink` on) down to 36%. On every image slide of the galleries at square laptop and 16:9, no box moved; every box that moved was one that overflowed before. `test/integration/parity/image-gives-way.test.js`. |
+| `team-profile sides` | 3 | Two of the three (`avatars.md` 6, the gallery's 5) export clean on re-measure, fixed by the seam work. The third, `team-profile.md` 8, clipped "SOLUTION ARCHITEC": each roster's `1fr` column has an `auto` floor, so it grew to its longest word and pushed the pair past the stage, which clips, and a 14cqi portrait left the text about 220px at x1.4. | On a square slide read in a hand (§24's selector): a 10cqi portrait (`bench`'s square size), each roster held to half (`minmax(0, 1fr)`), and `--sp-lg` gutters instead of `--sp-xl`, so every role keeps at least 21px inside its own roster. Laptop and the rooms are untouched: across the three decks only the `sides` slides moved, and only at phone. `test/integration/parity/team-profile-sides-phone.test.js`; `resolve-venue.test.js` holds the venue list. |
+| A lifted split cover's clip tag | 1 | `examples/team-profile.md` 2: a `content` cover ran into its footer, `liftCoverText` moved its lede to the run's first page, and the cover fit, but the PDF still printed "Content clipped". The in-page overflow watcher stamps the tag before the lift and re-checks only on `resize`. | The export (`lattice.js` `equalizeCardTagsInPage`) dispatches `resize` whenever the card-tag, cover-lift or run-placement pass wrote, as it already did after the reflow hold. A settled page writes nothing and dispatches nothing. `test/integration/parity/cover-lift-clip-tag.test.js` reads the PDF's text. |
+| `code`, `compare-code`, `math` | 8 | At x1.4 a code block wrapped nearly every line ("const beats =" / "trailingBeats(section); //" / "blockquote") and ran past its panel; a long equation ran off the slide's side. A line of code is read as a unit, so a wrapped line costs more than smaller type does. | **Owner ruling, 2026-11-16: code and math keep laptop**, the chart ruling of 2026-11-13 extended. A `code`, `compare-code` or `math` slide that names no venue, after the deck's `venue:` merges in, takes the class `keeps-laptop` from both class mergers (`lib/core/resolve-venue.js` `laptopKeepingToken`, called from `plugins.js` and `lib/runtime/index.js`, including each one's path for a deck with no deck register), and the ten handheld default rules skip it beside `.chart-frame` (the type-size gate's `RUNG_RULE` admits it there and nowhere else). A first cut stamped `venue-laptop` instead. The checker found that a room venue also turns off the narrow-canvas code wrap (`lib/plugins/code/code.styles.css`), so code that wrapped on main clipped (6 code slides at portrait, 4 at square), and lint's `code-line-clipped` stayed silent about it. The marker is not a venue: the slide renders exactly as on main, wrap included, and nothing that reads a venue sees it. A venue the author writes still applies. The marker rides a split page's class swap (`surface-registers.js`); the runtime derives it from the page's authored `data-class`, stamps it on a deck with no settings, and takes it off and derives it again on every merge, so a live `venue: phone` in VS Code drops it (the checker's second pass found it outliving that edit). On a tall or strip slide phone type is already x1, so the marker's only effect there is the running header and footer, which come back as on main and as on a chart slide. A `content` slide that merely holds a code fence is not in the ruling and keeps phone. `code-math-keep-laptop.test.js` (unit and integration; the integration test's portrait case fails on the first cut), `keeps-laptop-live.test.js` (the runtime), and a one-list pin in `resolve-venue.test.js`. |
+| Split covers too full for their lede (`table`, `stats`, `premise`, …) | 5 | A split run's cover holds the slide's display title, subtitle and lede. At x1.4 a long one ran 120px past the frame (`universal-table.md` 9, `table-component.md` 9, `form.md` 7). The measured loop saw it (`N:cover`) and marked the slide `ledePage`, but only split-panel's builder read the mark, and `liftCoverText` declined for want of room on page one. The fold pass after the loop also rebuilt each entry as bare `{ sizes, foldCoda }`, dropping `ledePage` (and `atSeam`), so even a builder that read it would have lost it. | **Owner ruling, 2026-11-16: lede page, all.** `ledeOwnPage` (`split-envelope.js`) moves the cover's subtitle and lede, in order and each with its own element, to a body page right after the cover; `carouselize` and the envelope call it when the plan says `ledePage`, so every cover kind honors the mark. A run that already has a lede page (split-panel's) is left alone. Like every content page of a run it carries no heading or page number (the carousel ruling). The loop keeps the lede page on every path that rewrites a slide's entry: the fold (which keeps the entry's flags, and is undone only when it makes the cover's overflow new or deeper), a slide sent back to today's split, and a slide that gets its first plan back (the checker found the last two dropping it). A lede page that overflows is its own verify key (`n:lede`), so the loop never tightens rows that cannot help it. A lede longer than one page still clips on its page, and a title too tall even alone still clips its cover, each with the export's OVERFLOW line, as the title ruling says. `lede-own-page.test.js`, `fit-plan.test.js` (the fold), `cover-lede-page.test.js` (the export). |
+| Anchors too long for a phone (`closing`, `topic`, `divider`) | 7 | A closing's message, a topic fact's claim and source line, or a divider's paragraph ran past a phone page at x1.4 (`contrast-floor-dimming.md` 8, `marker-corner.md` 7, `topic.md` 8, `dark-canvas-ownership.md` 6, `state-chart.md` 2, …). These never split: closing split only its `index` variant, and topic and divider were anchors. | **Owner ruling, 2026-11-16: lede page, all**, the title ruling of 2026-11-15 applied to every anchor. `title-lede` became `lede-page` (`carousel.js`; `title-lede` stays registered, and a title splits as before, except that its cover no longer gets a second set of berths): on a measured overflow the cover keeps the eyebrow and the heading (`h1`, else `h2`), and everything after the heading moves, in order, to one page on the same canvas, straight in the section so the component's own rules style it. Only a code-only paragraph before the heading is an eyebrow (a topic's source line after it is content). `closing` takes it through a new `split.otherwise` (its `index` variant keeps `cover-paginate`); `topic` and `divider` take it directly and move to read-across, which empties and retires the `anchor` treatment. An anchor's cover keeps the deck footer (`lede-cover`), and a topic's derived track (`ul.tile-track`) stays on the cover. The checker found three defects, all fixed here: the measure counted a topic's track as the slide's members, so the normal shape (a divider, then topics) never reached its lede page (`fit-measure.js` `members` now skips the track); a topic lede page fell back to dark body ink on the dark field (it now takes the claim's size and ink); and the engine's berths stayed on the cover, where the split rail no longer let them end the page, so the berth pass added a second set (the split now drops them, and the pass gives each page one). A `closing spectrum` lede page drops the bar, as a title's does. Topic's claim style reaches a fact's lede page. Measured: `topic.md`, `contrast-floor-dimming.md` and the galleries' closings export clean. Two still clip, each a lede longer than a whole page at its own size, as the title ruling allows: `dark-canvas-ownership.md` 6 (a 36-word claim at claim size) and `state-chart.md` 2 (122 words at the light divider's message size). Demo deck `examples/lede-page-anchors.md`; `lede-page-anchors.test.js`. |
+| `authority-chain branching` | 3 | A branching chain writes one tier ("Statute") whose branches are a nested list. The measure found one member and the split found nothing to page, so five branches clipped at x1.4 (`authority-chain.gallery.md` 3, `legal.gallery.md` 36, `one-reading-size-per-venue.md` 9). | When a slide's list has exactly one item and that item holds a nested list of two or more, the nested list is the seam: `collections.js` `firstList` pages it with the item's label and wrapper around every page, and `fit-measure.js` `members` measures its items, so the plan packs the branches (two pages for five) rather than the manifest's one a page. Only that shape changes: two or more outer items page as before, and a lone item with no nested list is one member as before. The split oracle and the split suites pass unchanged. `collections-partition.test.js` (LONE, TWO, BARE), `authority-chain-branching-split.test.js` (the export). |
+| `redline`, after passage and why list | 3 | `redline-blocks` pages a redline by its own seams: the before passage, then the after passage with the why list riding. At x1.4 the after page ran 61px over (`redline.gallery.md` 4, `legal.gallery.md` 29 and 32). The strategy reads no plan sizes, so the measured loop had no room to tighten, and gave the slide up. | A body overflow on a slide whose split read no plan sizes is split once more with `noteOwn` (`fit-measure.js`); `redline-blocks` reads it and gives the why list a page of its own after the after page, under the heading and citation; every other strategy ignores it, the split is unchanged, and the loop ends as before. A slide whose plan the loop does tighten is untouched. On that page the citation is the stage's first paragraph, which the engine's eyebrow rule set large and italic; redline's citation rule now sets its size and style, so it reads alike on every page. `fit-plan.test.js`, `redline-note-own.test.js` (unit and export). |
+| `obligation-matrix asymmetric` cards | 1 | Split into cards at x1.4, each card laid its fields out as `max-content max-content`, so a heat matrix's discs line up in one column. An asymmetric matrix's values are prose, and a `max-content` track never wraps: every value ran 150 to 285px past the slide (`legal.gallery.md` 20). | The value track is `minmax(0, 1fr)`; the label track is unchanged, so the second column starts where it did and every disc keeps its x (measured identical on every card page of the obligation-matrix gallery at portrait). `obligation-matrix-prose-cards.test.js`. |
+| `regulatory-update diff-bands` | 2 | `diff-bands` writes a `###` heading per kind of change, each over its own numbered list, so no one list holds the slide's members. With one entry per group the item axis found one member and nothing split (`regulatory-update.gallery.md` 6); with two entries under Added, the split paged that list and repeated Amended and Enforced on both pages, which then clipped (`legal.gallery.md` 25). A first cut of the branching fix above also descended into the first entry's sub-bullets here; it now descends only when the slide has one outer list. | Two or more top-level `h3`s, each followed by a list, are groups (`split-envelope.js` `headedListGroups`). `cover-paginate` splits them on the `block` axis with the measured plan, before any one list is read, and `fit-measure.js` `members` measures the same blocks with each heading kept with its list, so a page never ends on a heading. The band colors were `h3:nth-of-type`, so a page opening on Repealed would take Added's green: the split stamps each heading's ordinal (`withGroupOrdinals`, `data-split-nth`), and each color rule also matches it. A slide that stays whole is unchanged. Both sides read one list of layouts (`fit-measure.js` `HEADED_GROUP_LAYOUTS`, today `regulatory-update`, each pinned to `cover-paginate`): the checker found that measuring every layout's groups gave `team-profile sides` (two `###` rosters, no recipe) a block plan its item split could not place, so it fell back to one person a page with the other roster on every page. A page of groups takes no running counter offset, so a default `regulatory-update` with `###` groups restarts each group's count as the whole slide does (it read 03 04). The checker also found a key insight printed twice when the measured plan folds it: `splitEnvelope` folds it into the last page, and the dispatcher folded it again (on the item axis too, before this change); a `cover-paginate` run whose last page already holds every beat is now returned as built. Without a measured plan nothing changes. A group taller than a page still clips on its page. `headed-list-groups.test.js`, `diff-bands-group-split.test.js` (the export). |
+| `checklist`, long status pill | 1 | A row's pill (`{"order the cap, rotate it, or say it out loud"}`) never wraps, and the text before it is an anonymous flex item with no floor, so the pill held its full width and squeezed the text to one word a line: the row ran 1252px tall at x1.4 and the slide clipped at square and portrait (`system-design-foundations.md` 199). | On a slide read in a hand (§24's selector) a pill keeps its own width up to 45% of the row and wraps inside itself past that, never shrinking and never hyphenating. A short pill is narrower than the cap and renders as before. A first cut let every pill drop under its text; on the four decks with pilled checklists it split `inline-run-labels.md` 3, which fit, into three pages, and a second cut that let the pill wrap also let it shrink, one word a line. Measured on those four decks at square and portrait: only slide 199 changed (seven pages to four, nothing clipped). `checklist-long-pill-phone.test.js`. |
+| `split-compare` option pages | 2 | `compare-options` gives each option its own page under a banner that repeats the cover's question. On a stacked shape the banner keeps the slide's `--sp-xl` padding above and below and `--sp-md` under the heading, so at x1.4 a 45-word option ran 43px past its page (`system-design-foundations.md` 180, `split-panels-jank.md` 2). | On a slide read in a hand (§24's selector), an option page's banner takes `--sp-md` above and below and no gap under the heading: there it is the page's running head, not its subject. The cover keeps its own padding. Measured on all 19 decks with a `split-compare` slide at square and portrait against HEAD: the two slides stop clipping, and no slide gains a page or a clip. `split-compare-option-page-phone.test.js`. |
+| `table` cards, long labels | 3 | A table split into cards lays each card out as `max-content 1fr`. A label as long as "PREFER THIS NATIVE COMPONENT" took most of the card, and the value's `1fr` track floors at its content, so its words ran past the slide (`diagram.gallery.md` 21, three card pages, at square and portrait). | On a slide read in a hand (§24's selector) the label takes `fit-content(40%)`, its own width up to 40% of the card and wrapping past that, and the value `minmax(0, 1fr)`. A short label is narrower than the cap and sits where it did. Measured on all 30 decks with a `table` slide at square and portrait against HEAD: those three pages stop clipping, and no slide gains a page or a clip. `table-card-label-cap-phone.test.js`. |
+| A `content` slide that is one code block | 2 | Two causes, one each. `code-plugin.md` 4, a diff block with a note: on a phone the wrap hangs a line's continuation with `text-indent: -2ch`, and each `+`/`-` mark, an inline-block, inherited it and sat half outside the panel, so every page the split tried read as clipped and the slide fell back whole. `deck-class-register.md` 7: one block taller than the room under its heading measured as ONE block, and the block path could not cut it. | The diff mark sets `text-indent: 0`, as do highlight.js's `.hljs-addition` / `.hljs-deletion`, which overprinted a numbered block's line numbers the same way (checker). A `content` slide whose stage's only block, beats aside, is a `pre` TALLER than the room under its heading has its lines read by `codeOf` (`fit-measure.js`), and auto-split hands it to the `code-cards` strategy with the measured plan (`split-envelope.js` `soleCodeBlock`): the heading takes the cover and the code is cut between lines. A block that fits there keeps the block path, which pages it whole: the first cut read every overflowing slide's lines and split `code-plugin.md` 8's four-line block that fit (checker). The loop now also undoes a fold whose body overflowed, before anything else, and keeps the slide unfolded: a one-member plan cannot be tightened, so a fold 23px too tall sent a short code block back whole and clipped. A slide counts as planned only when the plan changed its pages. Measured on the 14 decks with such a slide and the two `code` galleries, square and portrait: those two slides stop clipping, no slide gains a page or a clip. `content-code-seam-phone.test.js` (DIFF, TALL, SHORT, each with its failing arm), `sole-code-block.test.js`, `fit-plan.test.js` (the unfold). |
+| `scene`, stacked (square and portrait) | 2 | A stacked scene held its picture at a fixed share: a `split` band at 46% of the slide, a `clean` card at its own full height. At x1.4 the paragraph under them ran past the slide (`scene.md` 4 at square, `anima-scene.md` 5 at square and portrait). | As the stacked `image` does, the picture gives way to the text down to 28% of the slide: the split band is `minmax(28%, 46%)` over a `minmax(min-content, 1fr)` text row, and the clean card's row is `minmax(28%, auto)` with the card filling it at its old width. A first cut capped the card's row by a computed height and changed the card or the text's place on slides that fit, so the row is the card's own height instead. Pixel-compared on the eight decks with a scene slide, square and portrait, against HEAD: the three clipping pages change, plus one (`scene.md` 3 at square) whose stack ran up into the slide's top padding and now fits inside its box; every other page is identical. `scene-gives-way.test.js`. |
+| A three-column `runs` table | 1 | A before/after table (a row label and two values) is a `runs` table, whose narrow layout the responsive-tables rule defines as blocks of two value columns, and one at the narrowest. The measured switch refused three columns and the narrowest step read only its width query, so the grid kept its third column off the slide (`per-slide-diagram-band.md` 6, square and portrait). | **Owner, 2026-11-17: "we already defined what happens to tables".** The switch now marks a three-column `runs` table, and a forced one takes the narrowest step (`base.table-reflow.css`, "runs, three columns, forced"); four or more columns keep their blocks of two. A reflowed row has no box (`display: contents`), so the measure read no members and the split fell back to one row a page: `fit-measure.js` now measures such a row by its cells, and reads its rows as one column. On the seven decks whose tables the switch forces, square and portrait, against HEAD: this slide stops clipping (a cover, two pages of two rows, a closing page), and every other page is identical. `runs-three-columns-phone.test.js` (a failing arm for each half). |
+| A lede longer than its page | 3 | The lede-page ruling gave a lede one page, so a lede longer than a whole phone page clipped on it: a title's two long paragraphs (`cat-ink-tier.md` 1, 139px over), a topic fact's one-sentence claim with its source line (`dark-canvas-ownership.md` 6, 123px over), and a split panel's lede, a bare text run in its own lede page (`system-design-foundations.md` 38, 131px over). `state-chart.md` 2, listed with them, no longer clips at square after the changes above. A first pass recorded slide 38 as fixed too: that export had crashed (below), and a crashed export prints no OVERFLOW line. | **Owner, 2026-11-17, D1 A: "continue at a sentence break".** Verify reports every kind of lede page under `n:lede` (the envelope's, a title's and an anchor's), and the loop answers it with one more lede page (`ledeCont`), up to three, never by tightening rows. `splitTitleLede` and `ledeOwnPage` cut the lede with `ledeGroups` (`split-envelope.js`): pages balanced by text length, breaking between paragraphs or at a sentence break inside one (`passageCuts`, the passage rule of §20), and a paragraph is cut only where a page breaks. Split-panel's own lede page (`carousel.js` `coverWindow`) does the same, its bare text run cut at a sentence break, and verify finds a lede page by its `split-lede-page` / `title-lede-page` element as well as by class. A one-sentence claim has no break inside it, so its source line takes the next page alone. **A crash, found here and fixed in the same change:** the three-column `runs` fix above read a computed style from every member to find boxless rows, and a paragraph cut at its sentences has text ranges for members, so any such slide at square stopped the whole export (`state-chart.md`, `system-design-foundations.md`); the checks now read elements only. The sweep that missed it counted a crashed export as clean, and now reports every failed export. The full square sweep after this change: three decks still clip at phone, all named above (`marker-corner` 3 and 4, `overflow-guards` 3 and 5, `sequence-narration` 5). `lede-continues-phone.test.js`, `lede-groups.test.js`, `fit-plan.test.js` (the cap). |
+| The final checker's pass on the lede and fold changes | 4 | An independent checker read the lede change against its own repro decks. **A blocker:** a split panel's lede that opens with inline markup (`**quantity**`, `*distribution*`) lost its whole text on the lede page, because `ledeGroups` read any run starting with a tag as a block it could not cut, and `coverWindow` passed the lede in pieces. **Three lows, all in this PR's code:** (1) a fold whose beats landed on a title's or anchor's lede page and overflowed it (`n:lede`) was never undone, because the undo read only `n` and `n:cover`; (2) unfolding a slide spent a whole loop round, so every other slide in the deck lost a round to tighten; (3) a reflowed `runs` row (`display: contents`) was measured as all its cells stacked, so a five-column table of 14 rows read three times its height and took 7 body pages. | **Fixed in the same PR.** `ledeGroups` treats a run as cuttable unless it opens with a block tag, and `coverWindow` passes the lede whole; the fold undo tests `n:lede` as it tests a cover; the unfold rides the round's replan with every other slide's move, a slide being unfolded is not tightened in the same round, and its lede page gets no extra page for an overflow the fold caused; the first-plan restore keeps an unfolded slide unfolded; a boxless row counts each line once, at its tallest cell. The five-column table now takes 3 body pages (5, 4 and 5 rows). `lede-continues-phone.test.js` INLINE, `lede-groups.test.js` INLINE, `fit-plan.test.js` (three cases), `runs-three-columns-phone.test.js` FIVE, each with a failing arm against the code before the fix. |
+| A code slide the loop gave up on | 2 | The portrait sweep after the checker's fixes: `one-reading-size-per-venue.md` 7, a `code` slide whose lines pad out to an end-of-line comment, ran past the frame under its key insight; on the merge base it lost the same lines inside its code box. `finish-override.md` 5, a heading-less `code` slide with a note under it, did the same (listed since 2026-11-13). | **Fixed, three causes.** (1) The readable rule (`fit-measure.js` `fitVerdict`) read the spaces after `FS_BODY;` as text cut off past the code box's right edge, so every page the split built failed and the loop sent the slide back whole; it now measures a text run's ink, its first to its last drawn character. (2) `splitCodeCards` refused a one-page plan unless the slide had a heading for a cover; a slide with trailing beats takes it too, and the dispatcher closes a one-page `code-cards` run that a measured plan drove, so the code keeps one page and the note closes the run. (3) That one-page run's cover read "1 parts": a layout's `{n}` intro (`split-envelope.js` `introOf`) applies from two parts up, and with one the cover carries its title alone. Both slides now fit at portrait. `code-padded-comment-phone.test.js` (FITS, COVER, NOTE), `intro-count.test.js`, each with a failing arm. **Left for the owner (decision card):** the same sweep's `key-insight-gap-spacing.md` 4 (a code slide keeps laptop type, so the handheld chrome rule keeps its own long `_footer:`, which truncates) and `system-design-foundations.md` 173 and 225 (two `text` blocks laid out as columns of ASCII, whose lines wrap on a phone). |
+| A key insight that crowds its figure | — | A chart or diagram scales to its box rather than overflow, so a long key insight under it never clipped: it shrank the figure. At a phone square a sequence diagram under a 76-word insight drew its labels at 2.7pt, under the 5.4pt floor, and the export could only warn (TYPE FLOOR); a line chart under a 63-word insight kept legible labels but fell from 737px to 368px, its insight 347px tall. The `graphic` treatment never splits (§0c), so nothing moved. | **Owner, 2026-11-17: "we always split chart and key insight so the chart has the stage"; picked "Insight gets its own page".** The measure (`fit-measure.js` `measureFit`) reports `insight` for a slide whose figure fills its cell and carries trailing beats, on two conditions. **The move must grow the figure:** the measure hides the beats for one synchronous layout and reads how big the figure then draws (a Mermaid drawing by its scale, a chart by its box), and asks for at least a fifth more; a first cut that only estimated the room put a two-line insight on its own page under 21 of the diagram gallery's 26 diagrams at square, most of them wide strips or height-capped drawings that could not grow. **And the beats must crowd it:** its labels fall below the legibility floor (the export's own `probeFigureLegibility`), or the beats stand taller than half the figure's cell, so the figure keeps under two-thirds of the room the two share. **Both thresholds (a fifth, a half) are this PR's numbers, not the owner's, and are on the decision card.** **The final checker (2026-11-17) found three gaps, fixed here:** (1) a chart moved to its own page kept the size it was drawn at, because its phone drawing is laid out at markdown time for the box under the insight (`data-form-box`) and nothing redraws it, so the growth the measure read from its box was fictitious; a chart is now read by its drawn scale like any SVG and so keeps its insight until a split can redraw it, **which leaves the chart half of the ruling to the owner (decision card)**; (2) an insight long enough to overflow the slide, or to squeeze the diagram to 0px while the slide still read as fitting (a 90-word insight at square, no warning), got no insight page, and now always does; (3) a live surface remembers an insight page and re-measures it with a margin (a tenth of growth, a coda of 0.4 of the cell). The integration test now also checks that the diagram draws over a fifth larger on its own page. **Census** (every gallery and example deck holding a graphic layout, 156 decks, at three sizes, on the final rule): no slide moves at 16:9; at square 55 slides in 14 decks take an insight page, at portrait 68 in 16, every one a Mermaid diagram (the diagram gallery, the narration decks, `system-design-foundations.md`); the full square sweep's phone-only clips stay at the two accepted decks (`marker-corner`, `overflow-guards`). The plan entry is `{ insightOwn }`; `auto-split.js` reads it whatever the capacity map says (a graphic is not enrolled) and `carousel.js` `insightOwnPage` builds two pages: the slide itself without its beats, title and footer kept (no split role, since a run's title shows on its cover only and this run has none), then the run's closing page holding the beats. The figure is never cut, and the fold pass never folds the beats back. Both hosts hand the measure the probe (`lattice.js`, `lib/playground/index.js` `fitVerdictConfig`), so the CLI, Studio and Playground share one rule. The §0c label says so (`npm run split:treatments`), and `base.docs.md` tells authors. `insight-own-page-phone.test.js` (DIAGRAM, CHART, SHORT), `insight-own-page.test.js`, `fit-plan.test.js`; demo deck `examples/insight-own-page.md`. |
+| The owner's 2026-11-22 rulings on the coda | — | The decision card put three questions: the measured thresholds for the insight page (a fifth of growth, a half of the cell), the chart that stayed its crowded size on its own page, and a code slide's own `_footer:` that ended mid-word on a phone cover (`key-insight-gap-spacing.md` 3). Investigating the last found worse: a split `compare-code` slide dropped its key insight from every page. | **Owner: "we automatically move coda to their own split page"; "footer can be on a coda page"; and the wide ASCII code blocks of `system-design-foundations.md` 173 and 225 are "an edge case we can't do anything about", logged (`followups.d/2988-p3-wide-ascii-code-on-portrait.md`).** (1) **No threshold.** On a square, tall or strip page, a chart or diagram slide with a coda always gives it the closing page (`fit-measure.js` `insightCrowds`); the legibility and growth probes, the synchronous coda hide and the memory margin are gone, and the hosts no longer pass the legibility probe. (2) **A chart is drawn for the page.** Because the insight always leaves, the phone chart's box estimate leaves the insight out (`chart-phone.js` `formBoxPx`/`heroBoxPx` `codaMoves`, `withoutInsight`); the chart's own caption still counts, and the stacked kinds (kanban, roadmap, journey, timeline) keep their estimate. (3) **The footer rides with the coda.** `auto-split.js` `applyRails` marks the cover of a run whose coda sits on a closing page or a folded last body page (`lat-split-footer-moved`) and that page (`lat-split-footer-here`), copying the cover's footer line to it when the page was built without one; on that page the line wraps rather than ending in an ellipsis. (4) **The lost insight.** `split-envelope.js` `trailingMaterialOf` read the coda cell beside the stage only when a stage existed; a stage-less layout's backward walk stopped at the slide's `<footer>`, so it now reads the sibling cell when the walk found nothing. `insight-own-page-phone.test.js` (DIAGRAM, CHART, SHORT, OVER, GROW for both figures, WIDE at 16:9) and `coda-footer-phone.test.js`, each failing against the previous commit. |
+| The trio on the 2026-11-22 rulings | — | The red team found four regressions in the rulings' commit. (1) Every phone chart was drawn for the page its insight leaves, but the insight leaves only when the slide is split by measurement: under `fit: heal` or `report`, on a `fit-report` slide, and in the Studio's Present and slide overview (which never split) the chart was laid out for the whole page and squeezed above the insight, labels a few pixels tall. (2) With `paginate: false` the cover hid its footer and no page showed it. (3) A chart's own insight page has no composed cover, so its footer never moved and its long line still clipped page 1. (4) The chart's caption moved to the closing page with the insight. | (1) **The engine says whether a render is measured** (`lib/engine/index.js` `activeMeasured`): the deck's `fit:` (`fitPacks`), or the host's `measured` option (`true` for the CLI's `--fit-pack`, `false` for the Studio's no-caret renders, which key their render cache on it). `lib/engine/slides.js` stamps it as `data-coda-moves` on each section of a measured render at a handheld shape (never at 16:9, which never splits), and `chart-frame.js` reads it off the section as it reads `data-aspect`, so the in-repo transform, the runtime's rebuild and a chart's code package (which is handed the section and nothing else) draw the same chart; `chart-phone.js` leaves the insight out of the box only then, and never on a `fit-report` slide; otherwise the estimate is main's. (2) **The footer moves only when it arrives** (`auto-split.js` `applyRails`): the coda page has a footer cell and no footer of its own, or the same line. (3) A run whose first page is the slide itself moves its footer too, and a chart's insight page keeps it on a phone through `with-footer` (the handheld rule exempts charts, `stage.css`). (4) `split-envelope.js` `trailingSpansIn` no longer takes `.chart-caption` for a note beat. `chart-coda-moves.test.js` (MEASURED, REPORT, HOST, NO CODA) and `coda-move-pages.test.js` (NOPAG, CHART, CAPTION), each red against the rulings' commit. **The checker added two.** (5) The Studio preview measured a slide only after the structural split cut it, which a chart slide never is, so the preview kept the insight on the slide while the PDF moved it: it now also measures when a coda may move (`split-gate.js` `codaMayMove`, a coda cell and a figure in the render), pinned on the real Studio by `measured-split.spec.ts`. (6) The footer move read the page's first `<footer>` and footer cell; it reads the last, as every other reader does, and `withoutInsight` cuts a nested quote whole. **The integration tier added one.** (7) The first fix passed the flag to the transform as a render option and stamped it on every chart section, 16:9 included; a code package gets no render options, so 29 chart packages stopped matching the in-repo render byte for byte (`code-package-parity.test.js`). The flag now rides the markup, as above. **The docs e2e tier added one.** (8) The Playground ran the measured split whenever `html !== out.html`, but the split stamps every slide's number, 16:9 included, so every Playground render measured the deck in a hidden frame: on a phone a tab switch went live in 9.2 s (the reveal backstop) where main takes 0.1 s, and two e2e specs failed (`playground-tab-switch:332` 5 of 5, `mermaid-cache-bindings:225` 3 of 5; 0 of 5 on main). `playground-engine.ts` now measures only when the split changed the render or a chart's coda may move, the Studio's gate (`single-slide-render.ts` `mayMeasure`), and `splitReady` returns nothing when nothing has to load. `measured-split.spec.ts` pins that a 16:9 Playground deck is never measured. |
+| A diagram's key insight over budget | 1 | `sequence-narration.md` 5: a sequence diagram over a 76-word key insight ran past a phone page. lint:deck already flagged it (`verbose-key-insight`, target about 18 words; `wall-of-text`, past 70). A diagram is a `graphic`, which never splits (§0c). | **Owner, 2026-11-17: "that seems like an over word budget issue".** The deck's key insight is cut to 17 words and the rest moved to the slide's speaker notes; the engine and the `graphic` treatment are unchanged. The slide now fits at square, portrait and 16:9, and lint is quiet on it. |
+| The iPhone Studio preview stayed on the bake's blur | — | On #2988's head `b1e175c` and on `7569dff` (main merged in), `ios-safari-studio-iphone` and `ios-safari-present-narration` failed: the Studio never rendered the imported deck (iOS runs 45272022608, 45307961207). Playwright's WebKit at iPhone size passed every probe, the narration one included. The phone's Preview is the full deck, which loads the engine; a failed first engine import was cached by the browser and replayed by every later attempt, so the preview never left the placeholder. Why the iPhone's first import fails is the pre-existing first-render stall (`followups.d/3368-p1`). | Main's #3385 (merged into #2988 at `691c65f`) shows the failure card and retries the entry under `engine.js?retry=N`. On `4791f42` both suites pass (iOS run 45315964279) and the probes log no fallback. #2988 also bounds every wait the preview takes for the measured split: `measuredSplitInFrame` ends by a 12 s deadline and the lazy splitter and measured-split chunks by 8 s (`within-ms.ts`), each falling back to the structural split with a warning; the iOS probes fail if any fallback fired (`latticeFallbacks`, `show-editor.js`), so a bound can never hide a stall. #3385's Gecko Retry test raced the page's own engine retries (4 of 20 on this branch, 0 of 25 on main); it now keeps the entry blocked until the press. |
+
+`overflow-guards.md` slides 3 and 5 clip at phone by the deck's own choice: it names `guards: strict`, which
+turns the measured split off (lib/core/resolve-guards.js `fitPacks`) so the deck can show trimming. They are an
+opt-out, not a defect.
+

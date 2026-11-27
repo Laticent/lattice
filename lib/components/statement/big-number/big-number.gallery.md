@@ -25,7 +25,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- @meta{layout=big-number, footer="Stress test · big-number — Ten digits is the practical ceiling."} -->
+<!-- @meta{layout=big-number, class=venue-laptop, footer="Stress test · big-number — Ten digits is the practical ceiling."} -->
 <!-- @meta{stress-slide} -->
 
 `big-number · stress — the longest number that still lands`
