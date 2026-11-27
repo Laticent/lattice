@@ -61,8 +61,16 @@ measured  — each wait held back in turn on gecko, the narrated 30-slide deck, 
             - `font-embed` and `player-core` load at +30–80 ms after the click from the Studio's warm queue
               (`warmNarrationProjection`), not from `shareHtmlPlayer`. So their loading in the nightly trace says
               nothing about how far the export got.
-            Under load, unfixed and fixed: gecko 20 of 20 green (`--workers=4 --repeat-each=10`, 4 CPU-burning loops
-            alongside); webkit-phone: see the PR.
+            Under load (`--workers=4`, 4 CPU-burning loops alongside), with the bound: gecko 20 of 20 green; webkit-phone
+            19 of 20, then 40 of 40. The one webkit-phone failure had the nightly's exact shape: `font-embed` and
+            `player-core` 0.5 s after the click, then no `deck-export`, no capture document, no speech request. Its
+            trace kept info, log and warning lines but NOT ONE at `console.debug`, so it could not name the step; the
+            log moved to `console.info` for that reason.
+two renders — switching narration audio on starts the panel's quote, a full deck render (`projectDeckSpeech`), and
+            the test clicks Download a moment later, so the export's render overlaps it. The `font-embed` and
+            `player-core` loads after the click are the quote's render finishing, not the export's. The export's own
+            render is the one that stalls. No lock or shared single-flight between the two was found in
+            render-engine.ts, theme-fetch.ts, ensure-charts.ts or the code-package door.
 not named — the nightly trace's network list was not re-read for a `themes/lattice.css` request left open. If the next
             failing run's trace shows `load the theme: started` with no `done`, the cause is that fetch, and the next
             fix is the full sheet's fetch itself (a fetch with no answer, on a 1.2 MB file the page fetches once). Today
