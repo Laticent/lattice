@@ -13,10 +13,11 @@ source: https://github.com/Laticent/lattice/pull/3349
 
 `test/integration/export-nightly/npm-plugin-export-check.test.js` launches WebKit and Firefox through
 `docs/node_modules/playwright`, but `npm run test:integration` installs neither. In a fresh cloud sandbox,
-8 subtests fail with `browserType.launch: Executable doesn't exist at /opt/pw-browsers/webkit-2215/...`.
+8 subtests fail with `browserType.launch: Executable doesn't exist at /opt/pw-browsers/webkit-<build>/...`.
 On 2026-11-21, `cd docs && npx playwright install --with-deps webkit firefox` made the file pass, 12 of 12.
-Use that copy of Playwright: the global `npx playwright` is a different version (1.63) and installs
-other builds.
+Use that copy of Playwright: the sandbox's global `npx playwright` can be a different version (1.63 on
+2026-11-21, against the docs copy's 1.56.1) and installs other builds. `main` pins 1.65.1 as of 2026-11-27,
+and no change to this file or to the integration tier since then installs these browsers.
 
 done when — the integration tier installs (or fails loudly on) the browsers this file needs, the way
 `docs/scripts/e2e-ensure-browsers.mjs` does for the e2e suite, and the file passes in a fresh sandbox.
