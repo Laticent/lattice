@@ -218,7 +218,10 @@ section.topic > h2 {
   text-wrap: balance;
   padding: 0;
 }
-section.topic > h2 + p {
+/* A topic's lede page (lib/core/carousel.js `lede-page`; owner, 2026-11-16) has no heading: its paragraphs are the
+ * claim that sat under the heading, so they keep its size and its ink on the dark field. */
+section.topic > h2 + p,
+section.topic.topic-lede:not(.fact) > p:not(:has(> code:only-child):not(:where([data-prose]))) {
   font-size: var(--fs-message);
   /* `--lh-snug`, not `--lh-relaxed`: at relaxed a two-line claim reads as two
    * separate sentences rather than one paragraph. */
@@ -416,7 +419,10 @@ section.topic.fact > h2::after {
 /* The claim, promoted. It grows into the space between the pinned name and the
  * foot rule and centers INSIDE it, so a short claim sits in symmetric air the
  * way divider's short heading does rather than orphaning at one edge. */
-section.topic.fact > h2 + p {
+/* On a fact's lede page (lib/core/carousel.js `lede-page`; owner, 2026-11-16) the heading stays on the cover, so
+ * the claim is the page's first paragraph and is set as the claim it is. */
+section.topic.fact > h2 + p,
+section.topic.fact.topic-lede > p:first-of-type:not(:has(> code:only-child):not(:where([data-prose]))) {
   flex: 1 1 auto;
   align-content: safe center;
   font-family: var(--font-display);
@@ -438,12 +444,15 @@ section.topic.fact > h2 + p {
 /* `:not([data-derived])`: the section eyebrow topic-track.js derives (topic.docs.md, eyebrow) is a
  * code-only paragraph too, and on a `fact` slide with no other paragraph it is also the last one. It
  * is the eyebrow, never provenance. */
-section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) {
+/* `:not(:first-of-type)`: a basis follows the claim, so it is never the first paragraph. On a fact's lede-page cover
+ * (lib/core/carousel.js `lede-page`) the eyebrow is the only paragraph left, first and last at once; it stays the
+ * eyebrow. */
+section.topic.fact > p:last-of-type:not(:first-of-type):has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) {
   padding: var(--sp-sm) 0 0 0;
   border-top: var(--_hair) solid var(--border);
   max-width: none;
 }
-section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) > code {
+section.topic.fact > p:last-of-type:not(:first-of-type):has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) > code {
   font-weight: 500;
   letter-spacing: 0.14em;
 }
@@ -488,3 +497,26 @@ section.topic:not(:has(> ul.tile-track)) {
   background-image: none;
   padding-bottom: calc(var(--sp-xl) - var(--_bar-b, 0px));
 }
+
+/* ── NARROW ROOM (the text-room rule, base.elements.css) ─────────────────────
+   The pinned eyebrow is absolute, so the section's top padding reserves it ONE line. Under ~47
+   characters a line its tracked capitals wrap ("SECTION 02 · UNIT / ECONOMICS" at square and
+   story at hall), and on a `fact` slide the second line printed over the topic name
+   (followups.d/2962-p5-…). In flow, shifted up by the same `--sp-xl` it was pinned at, it draws
+   where it did, and the name now starts below it. The section's top padding still reserves the
+   pinned eyebrow its line, so the name drops by the eyebrow's whole height (one line, or two when
+   it wraps), on every `fact` slide under ~47 characters a line; checked on the rendered pages at
+   square, portrait and story at hall. The eyebrow still holds its position as the content below
+   grows. `fact` only: the default topic's name already clears a two-line eyebrow,
+   and in flow the extra height pushed a nine-topic slide's claim into its track at portrait@hall
+   (measured: a new clip). */
+@container lattice (width < 23em) {
+  section.topic.fact > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
+    position: relative;
+    top: calc(-1 * var(--sp-xl));
+    inset-inline: auto;
+  }
+}
+/* The `fact` claim keeps `--fs-h1` at every box: venue is the only thing that changes a text
+   size (owner ruling 2026-11-05, fit-everywhere-model.md §18). It used to step down to `--fs-h2`
+   under ~35 characters a line, which the tall venues' smaller step (x1.22 at hall) made unneeded. */

@@ -53,3 +53,52 @@ globalThis.latticeShowDeckEditor = async function latticeShowDeckEditor(ms = 150
 	}
 };
 
+
+/**
+ * WHERE A STALLED PREVIEW STOPPED (#2988). A probe calls `latticeWatch()` as it starts, so the errors, unhandled
+ * rejections and policy refusals the page meets from then on are kept, and adds `latticeStallReport()` to the message of
+ * a wait for the preview that times out. The report holds counts and names only, no deck text: the measured split's
+ * counters (measured-split.ts), the hidden measuring frames still on the page, which lazy chunks finished loading
+ * (Resource Timing reads them after the fact), and what was kept.
+ */
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
+function latticeWatch() {
+	if (window.__latticeWatched) return;
+	const seen = (window.__latticeWatched = []);
+	const keep = (s) => seen.length < 20 && seen.push(String(s).slice(0, 240));
+	addEventListener('error', (e) => keep(`error: ${e.message || e.target?.src || e.target?.href || e.type}`), true);
+	addEventListener('unhandledrejection', (e) => keep(`rejection: ${e.reason?.message ?? e.reason}`));
+	document.addEventListener('securitypolicyviolation', (e) => keep(`csp: ${e.violatedDirective} blocked ${e.blockedURI || 'inline'}`));
+	for (const level of ['warn', 'error']) {
+		const real = console[level].bind(console);
+		console[level] = (...a) => {
+			keep(`${level}: ${a.map((x) => (x?.message ?? String(x))).join(' ')}`);
+			real(...a);
+		};
+	}
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
+function latticeStallReport() {
+	try {
+		const names = performance.getEntriesByType('resource').map((r) => r.name);
+		const loaded = ['split-lazy', 'measured-split', 'fit-probes', 'sanitize-slide-html', 'esm/engine.js', 'esm/lint.js'].map((f) => `${f} ${names.some((n) => n.includes(f)) ? 'yes' : 'no'}`).join(', ');
+		const hidden = document.querySelectorAll('iframe[aria-hidden="true"][tabindex="-1"]').length;
+		const last = window.__latticeLastMeasuredSplit;
+		const plan = last ? `rounds ${last.rounds}, fellBack ${last.fellBack}, ${last.facts?.length ?? 0} slides` : 'none';
+		const kept = (window.__latticeWatched || []).join(' | ') || 'none';
+		return `stall: readyState ${document.readyState}; measures ${window.__latticeMeasureCount ?? 0}; hidden frames ${hidden}; last measured split ${plan}; loaded: ${loaded}; ${names.length} resources; seen: ${kept}`;
+	} catch (e) {
+		return `stall report failed: ${e}`;
+	}
+}
+
+/**
+ * The preview's fallbacks this page took since `latticeWatch()` (#2988): a measured split that failed or ran past its
+ * deadline, or a splitter or measured-split chunk that did not load in time. Each one logs a warning, so a probe that
+ * passes with this list empty rendered the real split, not the bounded wait's fallback.
+ */
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script
+function latticeFallbacks() {
+	return (window.__latticeWatched || []).filter((s) => /measured split (failed|did not load|did not finish)|structural split did not load|splitForPreview ran before splitReady/.test(s));
+}

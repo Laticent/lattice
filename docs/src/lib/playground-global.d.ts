@@ -66,7 +66,17 @@ export interface LatticePlaygroundEngine {
 	 *  `render()` result so a portrait/square deck paginates live the way its PDF does. A no-op
 	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
 	 *  bundle older than this feature does not carry it. */
-	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean }) => { html: string; changed: number; applies?: boolean };
+	/** The fit verdict's probes, selectors and tolerance (lib/playground/index.js), for the measured split. */
+	fitVerdictConfig?: () => Record<string, unknown>;
+	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean; plan?: Record<string, unknown> | 'whole' | null }) => { html: string; changed: number; applies?: boolean; planned?: string[]; pending?: boolean };
+	/** A promise that resolves once `splitForPreview` can split a box this size, while the engine loads its splitter on
+	 *  demand; undefined when nothing has to load (a box that never splits, 16:9, or a splitter already loaded), so a
+	 *  caller awaits only a real load. Call it before `splitForPreview`, or a portrait or square render comes back
+	 *  unsplit (`pending: true`). Optional, because an engine bundle older than this splits synchronously. */
+	splitReady?: (width?: number, height?: number) => Promise<void> | undefined;
+	/** Can a slide in this render give its key insight a page of its own (lib/engine/split-gate.js)? A host measures
+	 *  when it can, even if the structural split cut nothing. Optional: an older engine bundle lacks it. */
+	codaMayMove?: (html: string) => boolean;
 	/** Author CSS the host appends after the theme, widened so its `section.<component>` rules
 	 *  reach a pane of the rendered `html` (lib/core/pane-css.js). Unchanged without a pane.
 	 *  Optional, because an engine bundle older than this does not carry it. */
@@ -89,6 +99,8 @@ export interface LatticeDeckPreviewController {
 	attachVirtual?: (frame: HTMLIFrameElement, getState: () => VirtualState, onChange?: () => void) => void;
 	mountAround?: (frame: HTMLIFrameElement, state: VirtualState, index: number) => boolean;
 	syncVirtual?: (frame: HTMLIFrameElement, state: VirtualState) => boolean;
+	/** The filmstrip's frame document (deck-preview.js), for the measured split's hidden measuring frame. */
+	measureDoc?: (opts: Record<string, unknown>) => string;
 	renderDeck: (
 		opts: Record<string, unknown>,
 	) => { state: { frameSig: string; lastSections: unknown }; count: number; patched: boolean; restyled?: boolean; anchor?: { index: number; frac: number; slide?: string } | null };

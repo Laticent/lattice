@@ -157,6 +157,16 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     script. `frame-agents.test.ts` parses `buildSrcdoc`'s and the Stage's documents and fails an
     inline one; the single-slide builder's document is internal to its host, so `site-csp.spec.ts`
     is its guard (an inline script put back there turned the component-page cell red).
+  - **The measured split's probes are a file too** (added 2026-11-23 with PR #2988). The Studio and
+    the Playground measure a non-16:9 deck in a hidden `srcdoc` frame (`docs/src/lib/measured-split.ts`),
+    which inherits this policy. The measure first reached that frame as source text run with
+    `contentWindow.eval`, and the verdict built its two probes with `Function(…)`: under the policy
+    both throw, and the CSP check left every page that can load the measuring chunk without a policy
+    (78 of 199). `docs/src/lib/fit-probes.mjs` now gives the asset sync `lattice-fit-probes.js`, written
+    beside the runtime; the measuring document names it with a `src` tag, it sets one frozen global in
+    the frame's realm, and the host calls those functions directly. `fitVerdict` takes the probes as
+    functions, so no live surface evaluates a string; the CLI builds them inside its own
+    `page.evaluate` text, which no page policy governs.
   - **The two sandboxes load through a shell.** The code-package runner and the draw host build a
     whole document with its own strict policy and the hash of its one script, and function-plot's
     frame needs `'unsafe-eval'`, which no page policy grants. As `srcdoc` both were refused. The frame

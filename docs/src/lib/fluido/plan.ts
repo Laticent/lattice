@@ -50,7 +50,8 @@ export function planSlide(facts: SlideFacts, readSeam?: () => SeamReading): Move
 	const seam = reading.seam;
 	if (!seam) return { kind: 'whole', reason: 'no-seam' };
 	const members = reading.members;
-	if (members <= ONE_PER_PAGE) return { kind: 'whole', reason: 'one-member' };
+	// One member is a cut only on a measured plan, which already knows the slide overflows whole.
+	if (members < 1 || (members <= ONE_PER_PAGE && !facts.measured)) return { kind: 'whole', reason: 'one-member' };
 	return { kind: 'paginate', seam, perPage: ONE_PER_PAGE, envelope: !facts.reSplit };
 }
 

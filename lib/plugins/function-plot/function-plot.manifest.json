@@ -44,6 +44,7 @@
     "--cat-7-mark",
     "--font-body",
     "--font-mono",
+    "--fp-scale",
     "--fs-meta",
     "--muted-mark",
     "--radius-sm",
