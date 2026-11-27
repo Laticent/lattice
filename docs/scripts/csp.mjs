@@ -192,6 +192,11 @@ export const ORIGIN_DIRECTIVES = Object.freeze({
 // until those hosts are measured.
 export const OPEN_ORIGINS = Object.freeze([
 	'esm.run', // voice-model.js imports kokoro-js; the Studio's on-device models import web-llm and transformers.js
+	// THROWAWAY storage spike (spike/drive.astro, never merges): GIS, Drive v3 and the Picker, which
+	// frames docs.google.com and loads more Google hosts no scan can list, so the page keeps no policy.
+	'accounts.google.com',
+	'www.googleapis.com',
+	'apis.google.com',
 ]);
 /** Every origin a page's code may call at run time (stage 1's name for the union). */
 export const RUNTIME_ORIGINS = Object.freeze([...Object.keys(ORIGIN_DIRECTIVES), ...OPEN_ORIGINS]);

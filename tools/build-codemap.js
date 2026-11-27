@@ -85,6 +85,7 @@ const FOLDERS = {
   'changelog.d/': 'Legacy changelog fragments (HARD RULE #10). The release converts each into an engine changeset.',
   '.changeset/': 'One changeset per PR (HARD RULE #10). `changeset version` writes each package CHANGELOG.md at release.',
   'release-notes/': 'Curated GitHub Release notes for a milestone release, one file per version (release-notes/1.0.0.md).',
+  'spike/': 'THROWAWAY storage spike (claude/storage-spike); never merges.',
   'design/': 'The design system, the deck-authoring contract, design principles and the authoring skills.',
   'docs/': 'The public docs site, Playground and Studio: a separate Astro package.',
   'engineering/': 'Engineering references, decision notes (`decisions/`) and gotcha topics (`gotchas/`).',
