@@ -62,8 +62,9 @@ an interactive catalog of every component with its slots, variants, when to
 reach for it, and when not to — and you can preview the whole thing in
 any Lattice palette. The same content is also available as a single
 [Markdown document](/components.md). An AI agent should start from
-[`/agents/start.md`](/agents/start.md) instead: every layout in one line each,
-with one Markdown file per layout under `/agents/components/`.
+[`/agents/start.md`](/agents/start.md) instead: the short contract, in under
+1,500 tokens. [`/agents/layouts.md`](/agents/layouts.md) gives every layout in one
+line each, and `/agents/components/` has one Markdown file per layout.
 
 ## Swappable renderings (variants)
 
