@@ -32,16 +32,18 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const THEMES = ['indaco', 'cuoio', 'onyx', 'a11y-protanopia', 'concrete', 'mustard'];
 const MODES = ['light', 'dark'];
 
+// The progress rail's marks, as the engine injects them on a divider (lib/forms/tile/progress).
+const RAIL = '<span class="divider-marker-marks"><i class="dot on"></i><i class="dot"></i></span>';
 const FOOTER = '<span data-probe="footer" style="color:var(--marp-slide-footer-color)">Footer</span>'
   + '<img class="deck-logo" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">';
 const SLIDES = {
   title: (m) => `<section class="title spectrum ${m}" data-kind="cover">`
-    + '<h1>A cover</h1><p><code>Eyebrow</code></p><p>A subtitle with <code>a chip</code>.</p>'
+    + '<h1>A cover</h1><p><code>Eyebrow</code></p><p>A subtitle with <code>a chip</code> and <a href="#">a link</a>.</p>'
     + `<table><tbody><tr><td>A bookend table cell</td></tr></tbody></table>${FOOTER}</section>`,
   closing: (m) => `<section class="closing index ${m}" data-kind="cover">`
     + `<h2>Thank you</h2><p><code>Eyebrow</code></p><p>A closing line.</p><ul><li><code>key</code> a row</li></ul>${FOOTER}</section>`,
   divider: (m) => `<section class="divider numbered ${m}" data-kind="divider">`
-    + `<p><code>Section 01</code></p><h2>A chapter starts</h2><p>A lede with <code>a chip</code>.</p>${FOOTER}</section>`,
+    + `<p><code>Section 01</code></p><h2>A chapter starts</h2><p>A lede with <code>a chip</code> and <a href="#">a link</a>.</p><h3>An off-slot heading</h3>${RAIL}${FOOTER}</section>`,
   subsection: (m) => `<section class="divider subsection ${m}" data-kind="divider">`
     + `<p><code>Part 2</code></p><h2>A finer turn</h2><p>A lede line.</p>${FOOTER}</section>`,
 };
@@ -52,6 +54,27 @@ const REFS = MODES.map((m) => `<section class="content ${m}" data-ref="${m}"><p>
 
 let browser;
 let page;
+
+describe('a printed divider is paper and keeps its progress rail', () => {
+  test('the lit dot paints on a printed divider, in every layout', async () => {
+    const b = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
+    try {
+      const p = await b.newPage();
+      const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
+      await p.setContent(`<style>${paletteChainCss('indaco')}\n${bundle}</style><article class="lattice">`
+        + ['divider numbered print', 'divider subsection print'].map((c) => `<section class="${c}"><h2>A</h2>${RAIL}</section>`).join('')
+        + '</article>');
+      const dots = await p.evaluate(() => [...document.querySelectorAll('section')].map((s) => ({
+        cls: s.className, on: getComputedStyle(s.querySelector('.dot.on')).backgroundColor,
+      })));
+      // An undefined ink makes the token invalid and the dot `transparent` (2026-11-27 checker finding).
+      const blank = dots.filter((d) => /rgba\(0, 0, 0, 0\)|transparent/.test(d.on));
+      assert.deepEqual(blank, [], 'a printed divider lost its lit rail dot');
+    } finally {
+      await b.close();
+    }
+  });
+});
 
 describe('the bookends follow the color mode, and every ink clears its bar on the field', () => {
   before(async () => {
@@ -106,7 +129,9 @@ describe('the bookends follow the color mode, and every ink clears its bar on th
           const ink = (el, role, bar) => {
             if (!el) return;
             const c = parse(role === 'hairline' ? getComputedStyle(el, '::after').borderBottomColor : getComputedStyle(el).color);
-            row.inks.push({ role, bar, ratio: ratio(over(c, bg), bg) });
+            // A chip paints its own ground (a wash over the field): measure the ink on THAT, as a reader sees it.
+            const ground = el.tagName === 'CODE' ? over(parse(getComputedStyle(el).backgroundColor), bg).concat(1) : bg;
+            row.inks.push({ role, bar, ratio: ratio(over(c, ground), ground) });
           };
           const AAx = 4.5; // 15 px text: the AA floor; the numbered hairline is a rule, held to 3:1 below
           ink(s.querySelector('h1, h2'), 'heading', AAx);
@@ -118,6 +143,10 @@ describe('the bookends follow the color mode, and every ink clears its bar on th
           ink(s.querySelector('td'), 'table cell', AAx);
           ink(s.querySelector('[data-probe=footer]'), 'footer', AAx);
           if (s.classList.contains('numbered')) ink(s.querySelector('h2'), 'hairline', 3.0);
+          ink(s.querySelector('h3'), 'h3', AAx);
+          ink(s.querySelector('a'), 'link', AAx);
+          const dot = s.querySelector('.dot.on');
+          if (dot) row.inks.push({ role: 'rail dot', bar: 3.0, ratio: ratio(over(parse(getComputedStyle(dot).backgroundColor), bg), bg) });
           rows.push(row);
         }
         // The two logo treatments the engine defines, as Chromium computes them on a probe.

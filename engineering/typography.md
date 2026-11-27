@@ -791,12 +791,12 @@ composed measure is theirs. Two tokens serve all three
 | Token | Value | ≈ | Applies to |
 |---|---|---|---|
 | `--measure-bookend-heading` | `16em` | 33 ch | `title h1`, `closing h2`, `divider h2` |
-| `--measure-bookend-lede` | `26em` | 56 ch | `closing p`, `closing` list rows, `divider.light p` |
+| `--measure-bookend-lede` | `26em` | 56 ch | `closing p`, `closing` list rows, `divider.subsection p` |
 
 **Where they bind: landscape, with one exception.** Portrait frames are
 narrower than either token, so both go inert; on square the heading
 measure does too. The square lede is inert inside `closing`'s frame by a
-margin of ~10px — but `divider.light` drops divider's left inset, so its
+margin of ~10px — but `divider.subsection` drops divider's left inset, so its
 frame is ~54px wider and the lede measure binds there by about 1em. That
 one case follows from the light variant's own framing, not from the
 measure. Override either in a deck's front-matter `style:` to compose

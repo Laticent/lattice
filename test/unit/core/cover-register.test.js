@@ -142,6 +142,39 @@ test('fix: one pass migrates a deck, keeps its look, and lints clean of the rule
   assert.equal(retired(fixed).length, 0);
 });
 
+test('fix: a quoted value keeps its words, and a contradicting mode word yields to the old surface', () => {
+  for (const q of ['"light poster"', "'light poster'"]) {
+    const src = deck([`cover: ${q}`], [TITLE(), CLOSING()]);
+    const fixed = applyAllFixes(src, buildVocab());
+    assert.match(fixed, /^cover-layout: poster$/m, `${q}: the composition survives`);
+    assert.match(fixed, /_class: title light|layout=title, class=light/, `${q}: the light cover survives`);
+  }
+  const both = applyAllFixes(deck([], [TITLE('cover-light dark'), CLOSING('cover-inverse light')]), buildVocab());
+  assert.match(both, /title, class=light\b(?! dark)|_class: title light -->/, '`cover-light dark` becomes `light`');
+  assert.doesNotMatch(both, /title[^\n]*light dark|title[^\n]*dark light/);
+  assert.match(both, /closing, class=dark\b|_class: closing dark -->/, '`cover-inverse light` becomes `dark`');
+});
+
+test('fix: a key with no surface word meant the dark panel, and the fix keeps it', () => {
+  const fixed = applyAllFixes(deck(['cover: masthead'], [TITLE(), CLOSING()]), buildVocab());
+  assert.match(fixed, /^cover-layout: masthead$/m);
+  assert.match(fixed, /layout=title, class=dark|_class: title dark/, 'the default surface was inverse');
+  assert.match(fixed, /layout=closing, class=dark|_class: closing dark/);
+});
+
+test('fix: the key waits while a slide it depends on cannot be fixed by machine, and a block value gets none', () => {
+  const multi = deck(['cover: inverse'], ['<!--\n_class: title\n-->\n\n# A deck.', CLOSING()]);
+  const key = retired(multi).find((f) => f.slide === 0);
+  assert.ok(key && !key.autofixable && !('replaceLine' in key), 'no machine fix on the key while a slide needs a hand edit');
+  const fixed = applyAllFixes(multi, buildVocab());
+  assert.match(fixed, /^cover: inverse$/m, 'the key survives the fix pass, so the slide stays reported');
+  assert.ok(retired(fixed).some((f) => f.slide === 1), 'and the slide is still named');
+  const block = deck(['cover: |', '  inverse masthead'], [TITLE()]);
+  const bk = retired(block).find((f) => f.slide === 0);
+  assert.ok(bk && !bk.autofixable, 'a block scalar is reported without a machine fix');
+  assert.equal(retired(block).filter((f) => f.slide > 0).length, 0, 'and asks no slide edit (the engine never read it)');
+});
+
 test('lint: slides are counted the way the engine splits them (a `***` break, a `---` inside a fence)', () => {
   const src = deck([], ['## One', '```yaml\n---\ncover: light\n---\n```', TITLE('cover-light')]).replace('\n\n---\n\n## One', '\n\n## One').replace(/\n\n---\n\n```yaml/, '\n\n***\n\n```yaml');
   assert.deepEqual(retired(src).map((f) => f.slide), [3]);

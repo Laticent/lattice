@@ -110,7 +110,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
       decoration — rules, hairlines, empty/skipped marks, low-alpha washes — is
       `--muted-mark`, at the 3:1 graphical floor, and never carries glyphs.
    4. **Accent** — `--accent`, `--accent-soft`, `--on-accent` (must clear contrast
-      vs `--bg` **and** vs `--accent-soft`).
+      vs `--bg` **and** vs `--accent-soft`). In light mode the accent is also the
+      **divider's whole field**, inked with `--on-accent`, and the deck logo takes its
+      lightened mark there, so keep the light accent dark enough for a **light**
+      `--on-accent`; `node tools/contrast-audit.js <theme>` fails a theme whose ink is
+      darker than its accent.
    5. **Categorical cycle** — the scaffold copies indaco's block verbatim, so you
       **start from a correct three-layer cycle** and only re-hue it. Each slot is a
       *flipping* pair of the SAME hue: `--cat-N-fill: light-dark(<pale chromatic>,

@@ -806,11 +806,11 @@ left in the engine. They are named, documented, and yours to override:
 | Token | Default | ≈ | Applies to |
 |---|---|---|---|
 | `--measure-bookend-heading` | `16em` | 33 characters | `title` h1, `closing` h2, `divider` h2 |
-| `--measure-bookend-lede` | `26em` | 56 characters | `closing` subtitle + list rows, `divider.light` subtitle |
+| `--measure-bookend-lede` | `26em` | 56 characters | `closing` subtitle + list rows, `divider.subsection` subtitle |
 
 **They bind on landscape, with one exception.** Portrait frames are narrower than either token,
 so both go inert there; on square the heading measure does too. The square lede clears `closing`'s
-frame by ~10px — but `divider.light` drops divider's left inset, so its frame is ~54px wider and
+frame by ~10px — but `divider.subsection` drops divider's left inset, so its frame is ~54px wider and
 the lede measure binds there by about 1em. Change the bookend proportion for a whole deck from
 front-matter:
 

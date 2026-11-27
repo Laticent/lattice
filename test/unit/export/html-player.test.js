@@ -531,10 +531,10 @@ test('the color-system logo rules reach ONLY slides whose ground follows the OS'
 	assert.ok(reaches(['color-system', 'title']), 'a title follows the system scheme, and so does its mark');
 	assert.ok(reaches(['color-system', 'closing']), 'a closing follows it too');
 	assert.ok(!reaches(['color-system', 'divider']), 'a divider keeps the inverse mark in every scheme');
-	// Permanently LIGHT — a pin, or the bright divider variant that replaces the canvas.
+	// Permanently LIGHT — a pin.
 	assert.ok(!reaches(['color-system', 'light']), 'a pinned-light slide is light whatever the OS says');
 	assert.ok(!reaches(['color-system', 'color-light']), 'a color-light slide is light whatever the OS says');
-	assert.ok(!reaches(['color-system', 'divider', 'light']), 'divider.light keeps the light scheme it declares');
+	assert.ok(!reaches(['color-system', 'divider', 'light']), 'a light-pinned divider is reached by no reset');
 	assert.ok(!reaches(['color-system', 'print']), 'the print band is paper');
 	// Permanently dark BY THE AUTHOR'S OWN PIN. `DARK_SLIDE_SEL` hands a `.dark` slide the dark
 	// token block in every player scheme, so a `dark color-system` section has a ground that does

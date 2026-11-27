@@ -30,7 +30,7 @@ A 59-slide answer to the question "have you considered writing things down"
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light, footer="Section 1 opener, centered · divider light"} -->
+<!-- @meta{layout=divider, class=subsection light, footer="Section 1 opener, centered · divider subsection light"} -->
 
 
 `Section 01 · Why This Exists`

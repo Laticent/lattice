@@ -1354,17 +1354,26 @@ section:where(.title, .closing):not(.print) {
   --marp-slide-footer-color: light-dark(var(--text-muted), var(--_bk-on-muted));
   --marp-slide-pagination-color: light-dark(var(--text-muted), var(--_bk-on-muted));
 }
-/* A LINK ON A DIVIDER takes the field's ink, underlined. Lattice colors no link anywhere, so a link
+/* A LINK ON A BOOKEND takes the slide's ink, underlined. Lattice colors no link anywhere, so a link
  * took the browser's own blue: 9.4:1 on a white canvas and on the old dark panel (the dark-scheme
- * blue), 1.72:1 on indaco's light accent. `currentColor` follows whichever ink the text around it
- * resolved, in both modes. */
-section.divider:not(.print) a {
+ * blue), 1.72:1 on indaco's light accent, and 1.20:1 on a cover in the player after a toggle to dark
+ * (the player repaints the cover but cannot move the browser's link color). `currentColor` follows
+ * whichever ink the text around it resolved, in both modes and both player schemes. */
+section:is(.title, .closing, .divider):not(.print) a {
   color: currentColor;
 }
-/* `**bold**` reads `--text-heading`, a diagram token the Mermaid scope keys on the section's class
- * list, so it cannot be remapped from the `> *` rule above (the build's diagram-token scope gate);
- * the element takes the field's ink itself, as the section does. */
-section.divider:not(.print) strong {
+/* AN INLINE CHIP ON THE DIMMED FIELD drops its wash. The chip's ground is a 10% wash of its own
+ * light ink, which lifts the dimmed accent toward the ink: 4.33:1 on concrete's dark divider. Without
+ * the wash the ink sits on the field itself (5.27:1 there, the lowest theme). The border still draws
+ * the chip; the light arm keeps the wash. */
+section.divider:not(.print) code {
+  --code-inline-bg: light-dark(color-mix(in srgb, currentColor 10%, transparent), transparent);
+}
+/* `**bold**` and a heading below the slot's own read `--text-heading`, a diagram
+ * token the Mermaid scope keys on the section's class list, so it cannot be remapped from the `> *`
+ * rule above (the build's diagram-token scope gate); each element takes the field's ink itself, as
+ * the section does. An `h3` on a light divider measured 1.00:1 on concrete before this. */
+section.divider:not(.print) :is(strong, h3, h4, h5, h6) {
   color: light-dark(var(--on-accent), var(--_bk-on-primary));
 }
 section:where(.divider):not(.print) {

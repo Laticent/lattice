@@ -464,6 +464,21 @@ function auditTheme(theme) {
   const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
     .test(css.replace(/\/\*[\s\S]*?\*\//g, ''));
 
+  // THE DIVIDER'S LOGO ASSUMES A DARK FIELD. base.modifiers.css gives a divider the inverse
+  // (lightened) mark in both modes, which is right only while the light accent carries a LIGHT
+  // `--on-accent`: true on every shipped theme. A theme with a pale accent and dark ink would get a
+  // white mark on a pale field, so the assumption fails here, loudly, instead of on a slide.
+  // engineering/decisions/2026-11-23-cover-layout.md §7.
+  if (!isDark && parseHex(vars['on-accent']) && parseHex(vars.accent)) {
+    checks++;
+    if (luminance(vars['on-accent']) < luminance(vars.accent)) {
+      fails.push({
+        ctx: 'divider: --on-accent must be the LIGHT ink (the divider logo takes the inverse mark)',
+        fgHex: vars['on-accent'], bgHex: vars.accent, ratio: contrastRatio(vars['on-accent'], vars.accent), minRatio: 0,
+      });
+    }
+  }
+
   return { theme, fails, missing, checks, isDark };
 }
 

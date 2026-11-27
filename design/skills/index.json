@@ -89,7 +89,7 @@
       "description": "Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content.",
       "kind": "make",
       "studio": true,
-      "tokens": 3943
+      "tokens": 3950
     },
     {
       "name": "fix-findings",
@@ -161,7 +161,7 @@
       "description": "Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes.",
       "kind": "make",
       "studio": true,
-      "tokens": 5930
+      "tokens": 6010
     }
   ]
 }

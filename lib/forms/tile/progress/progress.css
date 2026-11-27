@@ -34,15 +34,17 @@ section.form .tile-progress {
  * invisible. The heading ink is guaranteed against its canvas on every palette, and it flips with
  * `color-scheme`, so a dark-mode deck gets a light pill without a rule of its own.
  *
- * A dark DIVIDER is the one canvas where the ink is the display ink: the divider pins
- * `color-scheme: dark` over `--surface-inverse`, and `--text-display` is the ink every palette
- * guarantees against it. Its rest marks are that ink at low strength rather than `--muted-mark`,
- * which a theme may define as a fixed mid-tone that disappears into the field. */
+ * A DIVIDER is the one canvas where the ink is the field's own: since 2026-11-23 it follows the
+ * color mode, the accent inked with `--on-accent` in light and the dimmed accent inked with the
+ * panel's light ink in dark (base.modifiers.css). Its rest marks are that ink at low strength
+ * rather than `--muted-mark`, which a theme may define as a fixed mid-tone that disappears into
+ * the field. `:not(.print)`, as on the capture it reads: a printed divider is paper and keeps the
+ * form rule above (an undefined `--_bk-on-primary` left both dots transparent). */
 section:is(.form, .divider) {
   --_rail-on: var(--text-heading);
   --_rail-off: color-mix(in srgb, var(--muted-mark) 50%, transparent);
 }
-section.divider {
+section.divider:not(.print) {
   /* The divider's field follows the mode (base.modifiers.css): its ink is `--on-accent` on the
    * light accent and the panel's light ink on the dimmed dark one. */
   --_rail-on: light-dark(var(--on-accent), var(--_bk-on-primary));

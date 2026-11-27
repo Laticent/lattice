@@ -205,8 +205,8 @@ from `dist/docs/components.json`); for the other 41 the bucket diverges to keep 
 
 | Form         | Description                                                 | Used by |
 |--------------|-------------------------------------------------------------|---------|
-| **bookend**  | Dark, centered, no chrome — full-canvas anchor              | Anchor (title, closing) |
-| **divider**  | Dark band or full slide marking a section boundary          | Anchor |
+| **bookend**  | Centered, no chrome — full-canvas anchor; follows the mode   | Anchor (title, closing) |
+| **divider**  | Accent field marking a section boundary; dimmed in dark     | Anchor |
 | **canvas**   | One element fills the working area, centered                | Statement, Evidence, Imagery |
 | **grid**     | N cells in M columns × K rows, each cell parallel           | Inventory, Comparison |
 | **stack**    | N cells stacked vertically (or horizontally), each parallel | Inventory |

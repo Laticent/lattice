@@ -42,7 +42,7 @@ The two agree only while the type size holds still — and it doesn't. Lattice c
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light, header="", footer=Lede measure · divider light} -->
+<!-- @meta{layout=divider, class=subsection light, header="", footer=Lede measure · divider subsection light} -->
 
 
 
