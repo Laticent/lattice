@@ -328,3 +328,43 @@ test('a probe makes one max_tokens-1 call, judges nothing, and the table shows n
   assert.equal(summary.aggregate.table[0].passed, null);
   assert.match(fs.readFileSync(path.join(out, 'summary.md'), 'utf8'), /\| test\/cheap \| retrieval \| current \| 1 \| — \|/);
 });
+
+test('every call sends a fixed reasoning effort, low by default, and reads the reasoning tokens back', async () => {
+  const { complete, parseArgs } = await load();
+  const bodies = [];
+  const fetchImpl = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '' }, finish_reason: 'length' }],
+        usage: { prompt_tokens: 10, completion_tokens: 6000, completion_tokens_details: { reasoning_tokens: 5990 }, cost: 0.001 },
+      }),
+    };
+  };
+  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }] }, { fetchImpl, now: () => 0 });
+  assert.deepEqual(bodies[0].reasoning, { effort: 'low' });
+  assert.equal(r.reasoningTokens, 5990);
+  await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: 'default' }, { fetchImpl, now: () => 0 });
+  assert.equal('reasoning' in bodies[1], false, '--reasoning default sends no reasoning object');
+  assert.equal(parseArgs([]).reasoning, 'low');
+  assert.equal(parseArgs(['--reasoning', 'high']).reasoning, 'high');
+  assert.throws(() => parseArgs(['--reasoning', 'none']), /one of low/, 'none is refused: a model that must reason rejects it');
+});
+
+test('a reply that reasoned through the whole budget fails as "no deck was written", and the run passes its effort on', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const empty = async (req) => {
+    calls.push(req);
+    return { text: '', finish: 'length', tokensIn: 100, tokensOut: 6000, reasoningTokens: 6000, cost: 0.001, costReported: true, latencyMs: 0 };
+  };
+  const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--reasoning', 'medium', '--out', out]), { ...deps(t, calls), complete: empty });
+  assert.equal(code, 1);
+  assert.equal(calls[0].reasoning, 'medium');
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.equal(summary.reasoning, 'medium');
+  assert.equal(summary.rows[0].reasoningTokens, 6000);
+  assert.match(summary.rows[0].problems[0], /reasoning spent the whole max_tokens budget \(6000 of 6000 tokens\): no deck was written/);
+});

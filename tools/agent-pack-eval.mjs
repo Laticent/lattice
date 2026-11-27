@@ -18,14 +18,14 @@
  *
  * Usage:  OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1 node tools/agent-pack-eval.mjs
  *           [--arm start|small|retrieval] [--model <openrouter id>|nightly] [--limit <n>] [--repeat <n>]
- *           [--temperature <t>] [--max-usd <n>] [--old <start.md> [--new <start.md>]] [--probe] [--out <dir>]
+ *           [--temperature <t>] [--reasoning <effort>] [--max-usd <n>] [--old <start.md> [--new <start.md>]] [--probe] [--out <dir>]
  *         node tools/agent-pack-eval.mjs --judge deck.md [--out <dir>]
  *           (judge one deck, no model call; its PDF goes to --out, never beside the deck)
  *         node tools/agent-pack-eval.mjs --nightly-model   (print tonight's model: Haiku and DeepSeek by day parity)
  *
  *   --max-usd   a hard cap, USD 1 by default. Before every call the tool adds that call's worst case to what
  *               OpenRouter reported spending so far, and stops if the sum would cross the cap (a pair's
- *               first calls are checked together). The worst case counts every 2 bytes of prompt as a token,
+ *               first calls are checked together). The worst case counts an ASCII character of prompt as half a token and any other byte as one,
  *               every reply as max_tokens long, and the price of the DEAREST provider OpenRouter lists for
  *               the model, so a stop comes early, not late, while OpenRouter charges its listed prices.
  *   --old       PAIRED mode: each brief and repeat runs once on the old start.md and once on the new one
@@ -33,6 +33,11 @@
  *               The arm must be start or retrieval. The retrieval arm serves the CURRENT kit to both.
  *   --repeat    runs each brief n times, with seed = repeat index; pass --temperature above 0, or the
  *               repeats only measure the provider's own nondeterminism.
+ *   --reasoning the reasoning effort sent to every call: low (default), minimal, medium, high, or
+ *               default to send none and leave it to the model. Reasoning tokens come out of max_tokens,
+ *               so a model left to reason as it likes can spend the whole budget thinking and return no
+ *               deck (DeepSeek V4.1 Flash did, run 46068425702). `none` is refused: a model that must
+ *               reason rejects it. Old and new start.md always get the same effort.
  *   --probe     one max_tokens-1 call per system file: what the prompt costs in tokens on this model (R0).
  *               Anthropic and Gemini have free token counters; use this only where none exists.
  *
@@ -72,6 +77,8 @@ export const ARMS = {
   retrieval: { file: 'start.md', model: process.env.AGENT_PACK_MODEL || MODELS.sonnet, turns: 2 },
 };
 
+/** Reasoning efforts --reasoning takes. `none` is left out on purpose: a model that must reason rejects it. */
+export const REASONING = ['low', 'minimal', 'medium', 'high', 'default'];
 const MAX_TOKENS = 6000;
 /** The retrieval arm serves at most this many files, and at most this many bytes of them in all. */
 export const SERVE_MAX_FILES = 6;
@@ -301,7 +308,7 @@ export function worstCase(promptTokens, maxTokens, price) {
 }
 
 /** One chat completion. Returns what OpenRouter reported; a call cut at max_tokens returns, so its cost still counts. */
-export async function complete({ model, messages, maxTokens = MAX_TOKENS, temperature = 0, seed }, { fetchImpl = fetch, now = Date.now } = {}) {
+export async function complete({ model, messages, maxTokens = MAX_TOKENS, temperature = 0, seed, reasoning = 'low' }, { fetchImpl = fetch, now = Date.now } = {}) {
   const t0 = now();
   const res = await fetchImpl(`${API}/chat/completions`, {
     method: 'POST',
@@ -312,6 +319,7 @@ export async function complete({ model, messages, maxTokens = MAX_TOKENS, temper
       max_tokens: maxTokens,
       temperature,
       ...(seed === undefined ? {} : { seed }),
+      ...(reasoning === 'default' ? {} : { reasoning: { effort: reasoning } }),
       provider: { sort: 'price' },
       usage: { include: true },
     }),
@@ -326,6 +334,7 @@ export async function complete({ model, messages, maxTokens = MAX_TOKENS, temper
     finish: j.choices?.[0]?.finish_reason ?? null,
     tokensIn: Number(j.usage?.prompt_tokens ?? 0),
     tokensOut: Number(j.usage?.completion_tokens ?? 0),
+    reasoningTokens: Number(j.usage?.completion_tokens_details?.reasoning_tokens ?? 0),
     cost: Number(cost ?? 0),
     costReported: cost !== undefined && cost !== null,
     latencyMs: now() - t0,
@@ -389,6 +398,10 @@ export function parseArgs(argv, date = new Date()) {
   const arms = val('--arm') ? [val('--arm')] : ['start', 'small'];
   for (const a of arms) if (!ARMS[a]) throw new Error(`unknown arm ${a}; one of ${Object.keys(ARMS).join(', ')}`);
   let model = val('--model');
+  const reasoningOf = (e) => {
+    if (!REASONING.includes(e)) throw new Error(`--reasoning ${e}: one of ${REASONING.join(', ')}`);
+    return e;
+  };
   if (model === 'nightly') model = nightlyModel(date);
   const old = val('--old');
   if (old && arms.some((a) => ARMS[a].file !== 'start.md')) throw new Error('--old compares start.md: pass --arm start or --arm retrieval');
@@ -399,6 +412,7 @@ export function parseArgs(argv, date = new Date()) {
     limit: num('--limit', BRIEFS.length, (v) => Number.isInteger(v) && v >= 1),
     repeat: num('--repeat', 1, (v) => Number.isInteger(v) && v >= 1),
     temperature: num('--temperature', 0, (v) => v >= 0 && v <= 2),
+    reasoning: reasoningOf(val('--reasoning', 'low')),
     maxUsd: num('--max-usd', 1, (v) => v > 0),
     old: old ? path.resolve(old) : null,
     new: val('--new') ? path.resolve(val('--new')) : null,
@@ -465,6 +479,7 @@ async function runJob(job, opts, deps, spent) {
     fetched: [],
     tokensIn: 0,
     tokensOut: 0,
+    reasoningTokens: 0,
     cost: 0,
     latencyMs: 0,
   };
@@ -473,7 +488,7 @@ async function runJob(job, opts, deps, spent) {
     if (spent.usd + ceiling > opts.maxUsd) throw new CapStop(`USD ${spent.usd.toFixed(4)} spent; the next call could cost up to USD ${ceiling.toFixed(4)}, past the USD ${opts.maxUsd} cap`);
     let r;
     try {
-      r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat }, deps);
+      r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat, reasoning: opts.reasoning }, deps);
     } catch (err) {
       // A call that failed or timed out may still have been billed for what it generated: count its ceiling.
       row.cost += ceiling;
@@ -483,6 +498,7 @@ async function runJob(job, opts, deps, spent) {
     row.calls++;
     row.tokensIn += r.tokensIn;
     row.tokensOut += r.tokensOut;
+    row.reasoningTokens += r.reasoningTokens ?? 0;
     // A cost OpenRouter did not report is counted at its worst case: the cap stays a cap.
     const usd = r.costReported ? r.cost : ceiling;
     row.cost += usd;
@@ -511,7 +527,22 @@ async function runJob(job, opts, deps, spent) {
     mkdirSync(opts.out, { recursive: true });
     writeFileSync(`${base}.md`, deckFrom(reply.text));
     // A reply cut off at max_tokens is a truncated deck: say so rather than judge half of it.
-    if (reply.finish === 'length') return { ...row, slides: 0, layouts: [], errors: 0, warnings: 0, suggestions: 0, pass: false, problems: [`reply hit max_tokens (${reply.tokensOut} tokens)`] };
+    if (reply.finish === 'length') {
+      return {
+        ...row,
+        slides: 0,
+        layouts: [],
+        errors: 0,
+        warnings: 0,
+        suggestions: 0,
+        pass: false,
+        problems: [
+          !reply.text.trim() && reply.reasoningTokens
+            ? `reasoning spent the whole max_tokens budget (${reply.reasoningTokens} of ${reply.tokensOut} tokens): no deck was written`
+            : `reply hit max_tokens (${reply.tokensOut} tokens)`,
+        ],
+      };
+    }
     const verdict = deps.judgeFn(`${base}.md`, `${base}.pdf`);
     return { ...row, ...verdict, pass: verdict.problems.length === 0 };
   } catch (e) {
@@ -621,7 +652,7 @@ export async function run(opts, deps = {}) {
   const worst = jobs.reduce((a, j) => a + jobWorstCase(j, prices.get(j.model)), 0);
   d.log(
     `agent-pack-eval: ${jobs.length} ${opts.probe ? 'probe(s)' : 'deck(s)'} on ${models.join(', ')}` +
-      `${opts.old ? ' (paired: old vs new start.md)' : ''}, temperature ${opts.temperature}; cap USD ${opts.maxUsd}. Ceiling if every reply ran ` +
+      `${opts.old ? ' (paired: old vs new start.md)' : ''}, temperature ${opts.temperature}, reasoning ${opts.reasoning}; cap USD ${opts.maxUsd}. Ceiling if every reply ran ` +
       `to ${MAX_TOKENS} tokens and every retrieval read ${SERVE_MAX_BYTES / 1000} KB: USD ${worst.toFixed(4)}; the real figure is OpenRouter's, printed at the end.`,
   );
   if (!d.allowSpend) {
@@ -670,6 +701,7 @@ export async function run(opts, deps = {}) {
     date: new Date(d.now()).toISOString(),
     models,
     temperature: opts.temperature,
+    reasoning: opts.reasoning,
     maxUsd: opts.maxUsd,
     cost: Number(spent.usd.toFixed(6)),
     planned: jobs.length,
