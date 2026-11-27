@@ -57,5 +57,8 @@ test('`cover:` is an error that names `cover-layout:`, and the fix keeps both wo
   assert.equal(applyAllFixes(deck('cover: light column'), vocab), deck('cover-layout: light column'));
   assert.equal(found('cover-layout: light column').length, 0);
   assert.equal(lintText(deck('cover-layout: light column'), { vocab }).filter((x) => /^unknown-/.test(x.rule)).length, 0);
-  assert.ok(lintText(deck('cover-layout: zzqx'), { vocab }).some((x) => x.rule === 'unknown-cover-layout'));
+  const unknown = lintText(deck('cover-layout: zzqx'), { vocab }).find((x) => x.rule === 'unknown-cover-layout');
+  assert.ok(unknown, 'expected unknown-cover-layout');
+  // The message names what ignores the word, as `cover:`'s did: "covers", not "cover-layouts".
+  assert.match(unknown.message, /so covers ignore it/);
 });
