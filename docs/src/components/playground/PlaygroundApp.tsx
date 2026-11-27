@@ -1672,6 +1672,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// deck under the new component's name. A no-op when the preview is already open; when
 			// it was collapsed, the expand's `onExpand` runs the one deferred render.
 			split.expand('b');
+			// THE PICK IS DURABLE THE MOMENT IT IS MADE. `startWalk` records the component too, but only after its
+			// plan fetch lands, so a reader who picked and then reloaded while that fetch was still on the wire came
+			// back to the component they had left: the reload aborted the fetch before anything was written
+			// (playground-state.spec.ts, "actors" after the reload at 390px under load). Writing here, synchronously,
+			// leaves no window. A later pick still wins: it writes over this one, and `startWalk`'s sequence counter
+			// drops the earlier walk.
+			setReaderComponent(name);
+			try {
+				localStorage.setItem(COMPONENT_KEY, name);
+			} catch {
+				/* private mode */
+			}
 			void startWalkRef.current(name, null);
 		},
 		[catalog, split.expand],
@@ -2555,10 +2567,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const write = () => {
 			const { pathname, hash, search } = window.location;
 			if (view === 'read' && walk?.kind === 'plan') {
-				const s = walk.plan.slides[walk.index]?.kind ?? null;
+				// A PICK WHOSE PLAN IS STILL ON THE WIRE owns the address. The pick records `readerComponent` at once
+				// and flips to Explore, but `walk` is the previous component's plan until the new one lands, so this
+				// wrote `?c=<previous>` — and a reload in that window honored the URL over the stored pick and came back
+				// on the old component (playground-state.spec.ts at 390px under load). Name the pick, from its first
+				// slide; the landing re-runs this effect with the real position.
+				const pending = walk.plan.name !== readerComponent;
+				const s = pending ? null : (walk.plan.slides[walk.index]?.kind ?? null);
+				const c = pending ? readerComponent : walk.plan.name;
 				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
 				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
-				window.history.replaceState(window.history.state, '', pathname + withPlaygroundQuery(search, { c: walk.plan.name, view: 'read', s }) + hash);
+				window.history.replaceState(window.history.state, '', pathname + withPlaygroundQuery(search, { c, view: 'read', s }) + hash);
 			} else if (search) {
 				// Strip the Playground's keys only: a key it does not own (`?tier=`) is someone else's to keep.
 				const rest = withPlaygroundQuery(search, {});
@@ -2567,7 +2586,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		};
 		const t = setTimeout(write, SCROLL_IDLE_MS);
 		return () => clearTimeout(t);
-	}, [view, walk]);
+	}, [view, walk, readerComponent]);
 
 	// The tour's mode hook: guided-tour steps declare the mode their target
 	// needs and revealStep dispatches `pg-set-view` (playground-tour.js).

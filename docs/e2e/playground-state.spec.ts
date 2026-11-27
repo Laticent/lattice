@@ -70,6 +70,32 @@ test('@crosswidth search and lens survive reopening the picker AND a reload', as
 	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
 });
 
+test('@crosswidth a pick survives a reload that beats its plan fetch', async ({ page }) => {
+	// The race the test above lost once under load, which had TWO losing orders. (1) A pick was recorded only after
+	// `startWalk`'s plan fetch landed, so a reload while that fetch was on the wire found the old component stored.
+	// (2) The pick flips to Explore at once, and the address-bar sync then wrote `?c=<the walk on screen>`, which is
+	// still the boot warm-up's plan ("actors"); the reload honors `?c=` over storage. HOLD the fetch — the route is
+	// never answered, and the reload aborts it — so both orders happen every run, not one run in many. No unroute:
+	// unrouting releases the held request, and then the fetch lands before the reload.
+	await gotoPlayground(page);
+	// Order (2) needs the warm-up walk on screen before the pick; it mounts #pg-walk even in Edit.
+	await expect(page.locator('#pg-walk')).toBeAttached();
+	let held = 0;
+	await page.route(/\/kpi\.json($|\?)/, () => {
+		held++;
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await expect.poll(() => held).toBeGreaterThan(0);
+	// The address bar names the pick, not the walk still on screen (order 2).
+	await expect(page).toHaveURL(/[?&]c=kpi(&|$)/);
+
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
+	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+});
+
 test('@crosswidth the picker detaches honestly when the draft holds no recognized component', async ({ page }) => {
 	await gotoPlayground(page);
 	await page.locator('#pg-template-trigger').click();
