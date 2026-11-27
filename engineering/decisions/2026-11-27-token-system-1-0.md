@@ -2,11 +2,12 @@
 status: proposed
 summary: >
   The Theme spec becomes a token-system spec (owner, 2026-11-27). Measured on main: themes declare 198 tokens in
-  30 families, mentioned 22,325 times in 1,015 files, with four numbering styles, three "on" placements, two words
-  for one role, and a duplicated categorical family. The engine already builds all 132 required theme tokens from
-  10 starting colors (`deriveTheme`). The note proposes naming principles (role over look, one word per role, one
-  grammar), maps them to SOLID, shows before/after names, and recommends freezing only the 10 starting colors as
-  THEME 1.0's core, with every derived token documented but experimental until a later audit renames it.
+  30 families, mentioned 22,325 times in 1,015 files, with four numbering styles and a duplicated categorical
+  family. Themes are already hand-curated (indaco: 152 of 168 tokens), but the renderers compute about 440 colors of
+  their own, mostly in the chart family, and Mermaid fills every setting we do not map. After the owner's "we curate
+  and only derive out of desperation", the note proposes a curation-first contract: every visible color is curated,
+  derivation only for see-through washes and marked fallbacks of optional tokens, and renderers compute no color.
+  Naming principles, their SOLID mapping and before/after names stand; the 10-seed option is withdrawn (§7).
 builds-on:
   - 2026-11-27-specs-1-0.md
   - 2026-06-11-universal-token-system.md
@@ -139,3 +140,86 @@ gate, and that promise is already true in the code. The rest can be designed pro
   re-measured first, and closing it is part of B.
 - The second "unused" pass (§2) before the spec lists anything as unread.
 - The THEME PR gets the adversarial trio (#25) and a checker-graded 🚦 card. With no rename, no export bytes change.
+
+## 7. Revision: curation first (owner, 2026-11-27)
+
+**The owner's words (event `6086f4d5`, typed on iOS):** "i hate the fact that mermaid and other tools use derived
+colors. We curate and only derive our of desperation". This reverses §1's model. The 10 seeds in `deriveTheme` are
+how the Studio's generator starts a theme, not what the spec promises. Option A in §5 is withdrawn; §7.4 replaces it.
+Nothing is renamed or changed until the owner answers.
+
+### 7.1 What is curated today, and what is computed
+
+**Themes are already curated.** In the five themes measured, almost every token is a hand-picked value:
+
+| Theme | Tokens | Hand hex | Hand light/dark pair | Points at another token | Mixes two colors |
+|---|---|---|---|---|---|
+| indaco | 168 | 36 | 116 | 6 | 3 |
+| cuoio | 173 | 33 | 116 | 10 | 7 |
+| ardesia | 164 | 34 | 114 | 6 | 3 |
+| carta | 167 | 35 | 116 | 6 | 3 |
+| onyx | 201 | 32 | 114 | 9 | 3 |
+
+The chart solids are curated too: `tools/curate-chart-solids.js` runs the solver once, and the theme commits the
+resulting hex values, so a reviewer sees each one.
+
+**The renderers compute.** CSS formulas that make a new color from others (`color-mix` of two colors, or
+`oklch(from …)`), counted by line across `lib/` and `themes/`:
+
+| Where | Mixes of two colors | See-through washes of one color |
+|---|---|---|
+| chart family (`lib/plugins/chart-family/`) | about 305 | about 114 |
+| engine base CSS (`lib/base/`) | 64 | 152 |
+| components | 20 | 24 |
+| Mermaid's CSS | 13 | 0 |
+| themes | 4 | 46 |
+| `oklch(from …)` / `rgb(from …)` | 24, in 4 files | — |
+
+A see-through wash keeps the curated color and only lowers its opacity; a mix makes a color nobody picked.
+
+**Mermaid computes what we do not hand it.** Lattice maps 166 Mermaid theme settings to tokens
+(`lib/plugins/mermaid/shared/mermaid-theme-map.js`). Mermaid fills every other setting from its own formulas
+(`lighten`, `darken`, `invert` of the background). Its bundled theme code holds about 212 settings with a computed
+default (an estimate from the minified bundle, `chunk-VLFMOWSA.mjs`; a measured run of which settings a Lattice deck
+leaves to Mermaid is the first step of §7.4). The map's own comments record two that shipped off-brand before they
+were mapped: the ER row bands (`lighten(background)`) and the flowchart arrowhead (`invert(background)`, a light
+peach on a dark deck).
+
+### 7.2 Concrete examples
+
+1. **A bar chart ignores the theme's categorical color.** indaco curates category 1's fill as `#BCD5EC` (light) and
+   `#006398` (dark) in `--cat-1-fill`. A chart's category-1 bar does not use it: the chart family computes
+   `--chart-cat-1-fill` as 24% of the category's hue mixed into the page color (light), or 40% mixed into black (dark)
+   (`chart-family.styles.css:320`). The same category is two different blues on one slide, one picked and one
+   computed.
+2. **Chart text ink is a formula.** `--chart-cat-1-ink` is 65% of the hue mixed into the heading ink, unless the
+   theme states `--chart-cat1-ink` (`:359`).
+3. **Mindmap edges are an engine-chosen gray.** `mermaid.styles.css:1210` paints each mindmap edge at a fixed
+   lightness (`oklch(0.47 none none)` light, `0.8` dark), whatever the theme says.
+4. **A missing chart hue falls back to the engine's hex.** `--chart-cat-1-hue` is
+   `var(--chart-cat1, light-dark(#0053B3, #2B73D6))`: a theme that does not curate `--chart-cat1` gets the engine's
+   blue, which breaks HARD RULE #3's spirit (color belongs to the theme) while passing its letter.
+
+### 7.3 Answers to the three questions
+
+- **Which tokens must every theme curate by hand?** Every color a reader can see as its own color: surfaces, the ink
+  tiers, the accent pair, the status colors and their tiers, the 12 categorical colors (fill, mark, text), the chart
+  solids, the code-highlighting roles. That is today's required list (132 in THEME 1.0), which shipped themes already
+  curate. The audit renames them by §3's principles before they freeze.
+- **Where may a color be derived, and how is it marked?** Two places only. (a) A see-through wash of one curated
+  color, which changes opacity and nothing else. (b) A fallback for an OPTIONAL token a theme leaves out, listed in
+  the token registry with `derived: <recipe>`; the theme gate warns on every fallback it uses, so "derive out of
+  desperation" is visible, never silent. A required token never has a fallback.
+- **How do Mermaid and the other renderers get curated colors?** A renderer reads tokens and computes no new color.
+  For Mermaid, every setting a rendered diagram consumes is mapped to a curated token, and a test fails if Mermaid
+  would fill one itself. For the chart family, bars, edges and text read the curated `--cat-N-*` and chart solids,
+  and the ~305 mixes become reads or marked fallbacks. A plugin's own colors follow the same rule (EXTENDING §4).
+
+### 7.4 The scope question, revised
+
+The honest size: making every renderer read curated colors touches about 440 formulas, mostly in the chart family,
+and changes rendered colors, so it owes the dark and light export sign-off. That does not fit before 1.0 at the bar.
+What can freeze at 1.0 is the CONTRACT: the curated required list, the two derivation exceptions, and the rule that
+renderers compute no color. The renderer work then lands as fixes against that contract, each a visible improvement
+with before/after renders, and no outside theme breaks because the theme side is already curated. This goes to the
+owner as a visual explainer through the command center, not as a card.
