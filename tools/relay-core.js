@@ -362,8 +362,9 @@ function nextStep(card) {
 }
 
 /**
- * The whole living comment, pure. `extra` is the YAML's optional `relay:` block: `traps`,
- * `unverified` and `claims` lists, for the facts a 🎯 card has no field for (#3410's second section).
+ * The whole living comment, pure. `extra` is the YAML's optional `relay:` block: `decisions`,
+ * `answers`, `traps`, `unverified`, `caveats` and `claims` lists, for the facts a 🎯 card has no field
+ * for (#3410's second section; the brief's sections 2-5, engineering/workflow.md §Session rotation).
  */
 function buildLivingBody({ cardText, card, extra = {}, holder, since, checkpoint, head, signatureLine, baton = 'held', gate = null }) {
   let header = livingHeader({ baton, holder, since, checkpoint, head, next: nextStep(card) });
@@ -372,8 +373,11 @@ function buildLivingBody({ cardText, card, extra = {}, holder, since, checkpoint
   const list = (title, items) => {
     if (Array.isArray(items) && items.length) parts.push('', `**${title}**`, ...items.map((t) => `- ${t}`));
   };
+  list('DECISIONS', extra.decisions);
+  list('OWNER ANSWERS', extra.answers);
   list('TRAPS', extra.traps);
   list('UNVERIFIED', extra.unverified);
+  list('CAVEATS', extra.caveats);
   list('CLAIMS', extra.claims);
   parts.push('', ...(signatureLine ? [signatureLine, ''] : []), FOOTER);
   return parts.join('\n');

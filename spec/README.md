@@ -21,6 +21,9 @@ the Lattice Timing Track (LTT):
   names, ignoring what a reader does not know, the version line, and what each version may change. A **draft**
   for the owner's sign-off (`engineering/decisions/2026-11-27-specs-1-0.md`); not projected into the docs site
   until it is ratified.
+- `SEGNO-1.0.md` — Segno notation, the curly-brace syntax pills, sparks, icons and `@meta` records
+  are written in: its grammar, its tree, its refusals and its versioning rule. A **draft** for the
+  owner's sign-off; its cases are in `conformance/segno/`.
 - `LPM.md` — the Lattice Plugin Model, a **draft** (0.x) until Mermaid and the chart family run on
   it. Not projected into the docs site while it is a draft.
 

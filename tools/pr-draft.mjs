@@ -3,7 +3,7 @@
  * Park an open PR as a draft, or mark it ready so CI runs once on its head, without the race.
  *
  * #3314 made `ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job on a draft
- * PR, so a session iterates as a draft and marks the PR ready once to run CI
+ * PR (`platform-suites.yml` is dispatch-only since 2026-11-27, so it no longer runs on a PR at all), so a session iterates as a draft and marks the PR ready once to run CI
  * (engineering/workflow.md §Iterating on an open PR). Doing that by hand with the two REST
  * routes had one race: marking the PR ready about a second after a draft push left a READY PR
  * whose only `ci` run had skipped every job (#3333, 2026-11-20). GitHub had folded the ready

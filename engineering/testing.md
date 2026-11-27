@@ -87,8 +87,8 @@ produce the slides we expect, with the page count we expect.
   `@smoke` subset on `desktop`; the full suite runs in the Studio E2E nightly.
 - **Platform suites** (`.github/workflows/platform-suites.yml`, registry
   `.github/platform-suites.json`): real `macos-26` and `windows-2025` runners, and the iOS Simulator
-  on macOS for the `ios-safari-*` suites. A pull request runs the suites whose paths it touches; the
-  iOS suites run only by dispatch or on schedule.
+  on macOS for the `ios-safari-*` suites. Dispatch-only since 2026-11-27 (owner decision; the workflow
+  header says how to undo it): no pull request or nightly runs them, and a suite never sets a card's grade.
 - **Nightlies** (`.github/workflows/*-nightly.yml`): the full e2e suite, integration, fit,
   overflow, perf and WebKit baselines, each filing a rolling issue on failure.
 
