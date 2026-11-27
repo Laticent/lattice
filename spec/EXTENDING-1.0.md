@@ -14,8 +14,9 @@ add a rule of its own; it may not weaken one of these. Design record:
 `engineering/decisions/2026-11-27-specs-1-0.md`.
 
 The specs this page governs: [LFM](./LFM-1.0.md) (what a deck means), [the Diagnostic Protocol](./diagnostics.md)
-(what a finding looks like) and [LTT](./LTT-1.0.md) (when each word of a narration is spoken).
-<!-- PENDING owner D6: THEME-1.0.md (what a theme supplies) and LATTICE-FILE-1.0.md (how a project is packed). -->
+(what a finding looks like), [LTT](./LTT-1.0.md) (when each word of a narration is spoken) and
+[the `.lattice` project file](./LATTICE-FILE-1.0.md) (how a project is packed).
+<!-- PENDING the owner's token-system answer: THEME-1.0.md (what a theme supplies). -->
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
