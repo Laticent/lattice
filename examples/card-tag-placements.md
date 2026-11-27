@@ -9,13 +9,13 @@ header: "Lattice · Card tag placements"
 
 # A card tag can sit anywhere on its card.
 
-Five placements and three alignments, on every tagged layout, set deck-wide by `tag:` or per slide.
+Five placements and three alignments, on every tagged layout, set deck-wide by `card-tag:` or per slide.
 
 ---
 
-<!-- @meta{layout=decision, class=tag-foot} -->
+<!-- @meta{layout=decision, class=card-tag-foot} -->
 
-## tag-foot moves every tag to the bottom corner.
+## card-tag-foot moves every tag to the bottom corner.
 
 - Build
   - Owns the scoring policy, the calibration loop and the pager.
@@ -26,9 +26,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=cards-grid, class=four tag-notch} -->
+<!-- @meta{layout=cards-grid, class=four card-tag-notch} -->
 
-## tag-notch straddles each card's top edge.
+## card-tag-notch straddles each card's top edge.
 
 1. Signal Intake
    - Weekly structured collection, one schema.
@@ -41,7 +41,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=decision, class=tag-band tag-center} -->
+<!-- @meta{layout=decision, class=card-tag-band card-tag-center} -->
 
 ## A band may wrap to two lines, and every band matches it.
 
@@ -54,9 +54,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=compare-prose, class=transition tag-inline} -->
+<!-- @meta{layout=compare-prose, class=transition card-tag-inline} -->
 
-## tag-inline sets the label above the text as a chip.
+## card-tag-inline sets the label above the text as a chip.
 
 - Before
   - Every prioritization debate argued from first principles, average close four hours.
@@ -65,9 +65,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=list-steps, class=tag-corner} -->
+<!-- @meta{layout=list-steps, class=card-tag-corner} -->
 
-## On list-steps, tag-corner boxes the step label.
+## On list-steps, card-tag-corner boxes the step label.
 
 1. Scope
    - Agree the boundary.
@@ -80,9 +80,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=cards-stack, class=tag-band tag-end} -->
+<!-- @meta{layout=cards-stack, class=card-tag-band card-tag-end} -->
 
-## tag-end sets the text at the far end of the band.
+## card-tag-end sets the text at the far end of the band.
 
 1. False signal amplification
    - One loud voice dominating the decision. The model caps any source at 30%.
@@ -91,9 +91,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- @meta{layout=decision, class=tag-notch tag-bare} -->
+<!-- @meta{layout=decision, class=card-tag-notch card-tag-bare} -->
 
-## With tag-bare, a notch reads as a legend.
+## With card-tag-bare, a notch reads as a legend.
 
 - Build
   - Owns the scoring policy and the pager.

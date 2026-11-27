@@ -32,7 +32,7 @@ const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-reg
 const PROBE = {
   label: 'Probe',
   desc: 'test only',
-  values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', 'chart-finish': 'etch', 'color-intensity': 'vivid', backdrop: '40 clear', rule: 'short' },
+  values: { theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch', 'chart-finish': 'etch', 'color-intensity': 'vivid', backdrop: '40 clear', 'heading-rule': 'short' },
   tokens: { '--rule-w': '2px' },
 };
 const TABLE = { ...PRESETS, probe: PROBE };
@@ -56,7 +56,7 @@ test('kernel: an absent or empty top-level key reads as the preset; a written on
     assert.equal(frontMatterValue('preset: probe', 'chart-finish'), 'etch', 'a loose key');
     // Control: the same reads with no preset.
     assert.equal(topLevelRegisterValue('theme: indaco', 'theme'), 'indaco');
-    assert.equal(topLevelRegisterValue('rule: short', 'theme'), null);
+    assert.equal(topLevelRegisterValue('heading-rule: short', 'theme'), null);
     // A key outside the family reads exactly as the strict reader does.
     assert.equal(topLevelRegisterValue('preset: probe\nfooter:', 'footer'), '');
   });
@@ -167,7 +167,7 @@ test('engine: the preset stamps its color mode, hand, marks, backdrop and token 
   const engine = latticeEngine.createEngine();
   withProbe(() => {
     for (const cls of classesOf(engine.render(deck(['preset: probe'])).html)) {
-      for (const t of ['dark', 'sketch', 'chart-finish-etch', 'color-intensity-vivid', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'rule-short']) {
+      for (const t of ['dark', 'sketch', 'chart-finish-etch', 'color-intensity-vivid', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'heading-rule-short']) {
         assert.ok(cls.includes(t), `${t} in ${cls.join(' ')}`);
       }
     }
@@ -234,7 +234,7 @@ test('runtime: stamps the preset color mode, backdrop and token class from a bak
   const markup = '<section class="content"><h2>One</h2></section>';
   const on = await runtimeWithProbe(deck(['preset: probe']), markup);
   const cls = on.querySelector('section').className.split(/\s+/);
-  for (const t of ['dark', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'rule-short']) assert.ok(cls.includes(t), `${t} in ${cls.join(' ')}`);
+  for (const t of ['dark', 'backdrop-40', 'backdrop-clear', 'preset-probe', 'heading-rule-short']) assert.ok(cls.includes(t), `${t} in ${cls.join(' ')}`);
   const off = await runtimeWithProbe(deck(['preset: editorial']), markup);
   const offCls = off.querySelector('section').className;
   assert.ok(!/\b(dark|preset-|backdrop-)/.test(offCls), `control: ${offCls}`);

@@ -14,9 +14,9 @@ elevation, where a card row puts its spare height, and the slide's own corner.
 **Why this file exists.** Nine of these ten lived under `### sketch` in
 `base.docs.md` — a per-slide *variant* — because `mode: sketch` is how you turn
 sketch on deck-wide, and each new register arrived as "a sibling of the one
-above it". A reader looking for `headline:` had no reason to open a section
+above it". A reader looking for `headline-align:` had no reason to open a section
 about handwriting, and the heading structure gave them no way to find it. The
-tenth (`corners:`) sat one level up, correctly filed and equally hard to find.
+tenth (`slide-corners:`) sat one level up, correctly filed and equally hard to find.
 Moved here 2026-08-30. Nine of the ten bodies are byte-identical to what was in
 `base.docs.md`, with only the heading LEVEL changed; the tenth, `eyebrow:`, has a
 one-line edit, because it pointed at *Eyebrow labels* "above" and that section
@@ -39,20 +39,20 @@ model, see `design/concepts.md`.
 | [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
 | [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
 | [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
-| [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
+| [`stamp-shape:` / `tone:`](#the-stamp-shape--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
 | [`spectrum:` / `card-spectrum:` / `trim-spectrum:`](#the-spectrum-keys-spectrum-card-spectrum-and-trim-spectrum) | The stripe on the slide edge and on each card (style, edge, weight), and the accent on the structure | *(none)* |
-| [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
+| [`heading-rule:`](#the-heading-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
-| [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
-| [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
+| [`headline-align:`](#the-headline-align-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
+| [`card-lift:`](#the-card-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`chart-finish:`](#the-chart-finish-and-color-intensity-front-matter-keys-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and, under tone, the hue it draws in: ink or accent | `pigment` |
 | [`color-intensity:`](#the-chart-finish-and-color-intensity-front-matter-keys-how-charts-spend-color) | How loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `muted` |
 | [`align:`](#the-align-front-matter-register-where-content-sits) | Where content sits, up and down and side to side | *(the component's)* |
-| [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
+| [`card-tag:`](#the-card-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`cover-layout:`](#the-cover-layout-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
-| [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
+| [`slide-corners:`](#the-slides-corner--slide-corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `pack` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
@@ -89,9 +89,9 @@ are its overrides.
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `trim-spectrum: mono` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
-| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
+| `editorial` | `finish: ledger` · `headline-align: left` · `heading-rule: short` · `eyebrow: bar` · `trim-spectrum: mono` · `card-lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline-align: center` · `spectrum: solid` · `card-spectrum: solid` · `trim-spectrum: solid` · `heading-rule: accent` · `eyebrow: dot` · `card-lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `minimal` | `headline-align: left` · `spectrum: off` · `heading-rule: none` · `slide-corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
 the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
@@ -101,7 +101,7 @@ built from those alone left four identical title slides.
 ---
 theme: indaco
 preset: editorial
-rule: none          # everything from Editorial except the heading rule
+heading-rule: none          # everything from Editorial except the heading rule
 ---
 ```
 
@@ -129,7 +129,7 @@ preset gets a `preset-<name>` class on every slide, and the build generates the 
 `section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
 of all four today. The class is the engine's to stamp; don't write it in `_class:`.
 
-A preset leaves alone `claim:`, `align:`, `stamp:` / `tone:` and every content key. An unknown
+A preset leaves alone `claim:`, `align:`, `stamp-shape:` / `tone:` and every content key. An unknown
 name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
 the four live on one sample slide, in the deck's theme and color mode, at the top of the deck
 panel, with a count of the keys that differ from the chosen preset and a Reset. See
@@ -305,9 +305,9 @@ layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->
 **A split run keeps the finish on every page.** When a slide splits (a cover, then
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
-swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
-`spectrum*` register, `corners:`, `fit:`, `rule:`, `eyebrow:`, `inline-code:`,
-`headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
+swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp-shape:`/`tone:`, every
+`spectrum*` register, `slide-corners:`, `fit:`, `heading-rule:`, `eyebrow:`, `inline-code:`,
+`headline-align:`, `card-lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `align:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in
 `lib/core/surface-registers.js`, built from each register's own token list. The split
@@ -435,25 +435,25 @@ expected — Marp is an *export target*, served by a self-contained bundle
 themes, assets, a renderer + a marp-cli config, and a README), not a live render
 path we keep in lockstep. See `engineering/decisions/2026-06-13-export-to-marp.md`.
 
-## The `stamp:` / `tone:` front-matter registers (marker shape)
+## The `stamp-shape:` / `tone:` front-matter registers (marker shape)
 
-`stamp:` and `tone:` are the **deck-wide marker-SHAPE selectors** — siblings of
+`stamp-shape:` and `tone:` are the **deck-wide marker-SHAPE selectors** — siblings of
 `finish:` / `mode:` that pick the *shape* the status markers render in, once, for
 the whole deck. They are **orthogonal to which marker shows**: a state marker
 (`confidential` / `wip` / `draft` / …) sets its own *label + color*; a tone marker
 (`tone-pass` / `tone-warn` / …) sets its own *color*; these registers only choose
 the shape both render in, so a deck reads as one family. They **compose** with any
-per-slide `_class:`, and a slide carrying its OWN `stamp-<name>` / `tone-<style>`
+per-slide `_class:`, and a slide carrying its OWN `stamp-shape-<name>` / `tone-<style>`
 token **overrides** the deck default (append-not-replace, like every register). A
-typo is caught by the deck linter (`unknown-stamp` / `unknown-tone`). The vocab is
-open (`lib/core/resolve-stamp.js`, `lib/core/resolve-tone-style.js`), read by all
+typo is caught by the deck linter (`unknown-stamp-shape` / `unknown-tone`). The vocab is
+open (`lib/core/resolve-stamp-shape.js`, `lib/core/resolve-tone-style.js`), read by all
 three render paths, and surfaced in the Studio "This slide" drawer (the boardroom
 subset first, then the wider range).
 
-`stamp:` — the **state-marker shape** (the `::before` corner mark). The default
+`stamp-shape:` — the **state-marker shape** (the `::before` corner mark). The default
 (omit the key) is the uniform `tab`. The curated boardroom subset:
 
-| `stamp:` value | Shape |
+| `stamp-shape:` value | Shape |
 |---|---|
 | `tab` | A rounded corner tab. **The default.** |
 | `notch` | A folded corner notch. |
@@ -478,7 +478,7 @@ spectrum brand bar** itself (the top border) with the tone color — the same mo
 
 Every marker uses the SAME shape by default (a coherent family, not a per-marker
 signature); pick a different shape deck-wide with the register, or per-slide with
-the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
+the token. `stamp-shape: seal` + `<!-- _class: confidential stamp-shape-notch -->` renders that
 one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
 ## The spectrum keys: `spectrum:`, `card-spectrum:` and `trim-spectrum:`
@@ -552,7 +552,7 @@ touches the structural accents, so a stripe-off deck keeps its table rails and `
 **Back to the default on one slide — the restore classes.** A deck value writes no class when it is the
 default, so the default needs a class of its own for one slide to ask for it inside a deck that set
 something else: `with-spectrum`, `spectrum-top`, `spectrum-regular`, `card-spectrum-left`,
-`card-spectrum-regular` and `trim-spectrum-quiet`, beside `rule-auto`, `eyebrow-plain` and `head-auto`.
+`card-spectrum-regular` and `trim-spectrum-quiet`, beside `heading-rule-auto`, `eyebrow-plain` and `headline-align-auto`.
 A restore class draws nothing; the engine drops the deck's class on its axis for that slide. So in a
 `spectrum: left` deck, `_class: spectrum-top` puts one slide's stripe back on top. Write one class per
 axis: beside a rival from its own axis (`with-spectrum spectrum-solid`) a restore class always loses, so
@@ -626,35 +626,35 @@ were consolidated to drive every accent (`2026-07-15-accent-finish-consolidation
 pulled back to the slide edge alone, with a structure opt-in (`2026-07-16-spectrum-structure-default.md`);
 the five keys became three, with a weight axis, and no key follows another (`2026-11-21-spectrum-keys.md`).)*
 
-## The `rule:` front-matter register (heading underline)
+## The `heading-rule:` front-matter register (heading underline)
 
-`rule:` is the **heading-underline** accent finish — the line beneath a slide's heading (the
+`heading-rule:` is the **heading-underline** accent finish — the line beneath a slide's heading (the
 `form` masthead hairline; the split-panel kicker rule). Sibling register
-(`lib/core/resolve-rule.js`), propagated to every section, overridable per slide; a typo is
-caught as `unknown-rule`. Palette-blind; defaults to today's render.
+(`lib/core/resolve-heading-rule.js`), propagated to every section, overridable per slide; a typo is
+caught as `unknown-heading-rule`. Palette-blind; defaults to today's render.
 
-| `rule:` value | Token | Effect |
+| `heading-rule:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)*; per slide `rule-auto` | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
-| `full` | `rule-full` | An explicit full-width hairline. |
-| `short` | `rule-short` | A short rule under the heading. |
-| `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
+| `auto` | *(none)*; per slide `heading-rule-auto` | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
+| `full` | `heading-rule-full` | An explicit full-width hairline. |
+| `short` | `heading-rule-short` | A short rule under the heading. |
+| `accent` | `heading-rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
 | `none` | `no-heading-rule` | No heading underline. |
 
-`rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
+`heading-rule:` sets the heading rule's **style**; **its alignment follows the `headline-align:` register in
 effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
-headline aligns (left / center) — pick the *look* with `rule:`, the *side* with `headline:`.
+headline aligns (left / center) — pick the *look* with `heading-rule:`, the *side* with `headline-align:`.
 (`full` is a full-width divider, so alignment is moot; `none` has nothing to align.) The
 `short`/`accent` rule is a **real `<hr class="masthead-rule">` element** — the last child of the
 masthead-lede flex column — so it aligns with the eyebrow + heading via the cluster's one
 `align-items`, tracking the heading with or without a masthead bay. (It used to be an absolutely
 positioned pseudo that had to be hand-placed; the element makes alignment a plain flex property.)
 
-`rule:` governs the `form` masthead hairline — the canonical heading underline. The
+`heading-rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
-masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+masthead-scoped. On a slide with no heading underline, `heading-rule:` is a graceful no-op.
 
-`rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
+`heading-rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
 `--rule-w`, `--rule-style`, `--rule-mark` — that a preset sets and no register exposes. Unset,
 they are today's `1px solid var(--border)`. See "Preset hooks" in
 [`base.docs.md`](base.docs.md).
@@ -776,31 +776,31 @@ kicker. Measured harmless across shipped decks (over a thousand spans across bot
 [`base.docs.md`](base.docs.md).
 
 Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
-per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
+per slide reads as a ransom note. Together `spectrum:` / `heading-rule:` / `eyebrow:` are the Finish
 axis's **accent** sub-family (accent marks on the heading block), distinct from `finish:`
 (backdrops behind content). The eyebrow itself is content, not chrome
 (`engineering/decisions/2026-11-09-type-voices.md`): `eyebrow:` picks its mark, and the
 `typography:` set picks its face.
 
-## The `headline:` front-matter register (framing-text alignment)
+## The `headline-align:` front-matter register (framing-text alignment)
 
-`headline:` sets the **horizontal alignment of a slide's framing text** — the eyebrow,
+`headline-align:` sets the **horizontal alignment of a slide's framing text** — the eyebrow,
 heading, heading rule, subtitle, below-note, key insight, and caption — as one cluster.
 Alignment used to be baked into each layout (a title centered, a content masthead left, a
 chart header its own way), so the pieces could disagree within a slide. Now one register owns
 the axis: set it deck-wide or per slide, and every framing piece moves together. Sibling
-register (`lib/core/resolve-headline.js`), propagated to every section, overridable per slide;
-a typo is caught as `unknown-headline`.
+register (`lib/core/resolve-headline-align.js`), propagated to every section, overridable per slide;
+a typo is caught as `unknown-headline-align`.
 
-| `headline:` value | Token | Effect |
+| `headline-align:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)*; per slide `head-auto` | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
-| `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
-| `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
-| `right` | `head-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |
+| `auto` | *(none)*; per slide `headline-align-auto` | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `left` | `headline-align-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
+| `center` | `headline-align-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
+| `right` | `headline-align-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |
 
 Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
-controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
+controls, on two surfaces: **`headline-align:`** moves the framing cluster (this register);
 **`align-left`/`align-center`/`align-right`** (the universal `#527` modifiers) move the **body
 block**. They are independent, so a left headline can sit over a differently-aligned body.
 
@@ -809,7 +809,7 @@ for the flex-boxed pieces); a component's default is the `var(--headline-align, 
 fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
 (never `margin`), so it measures cleanly.
 
-**Coverage.** A framing surface follows `headline:` only if its CSS reads the seam — a new
+**Coverage.** A framing surface follows `headline-align:` only if its CSS reads the seam — a new
 component must opt in (a rot-guard test pins the covered set). Two layouts don't route their
 heading through the seam yet: `split-panel` / `split-compare` (no `masthead-lede`).
 
@@ -870,23 +870,23 @@ A measure is also **not** line balance. The cap decides how wide the block is; `
 balance` decides where the breaks fall inside it. Every bookend heading carries both — widening
 a cap to cure an orphaned last word only moves the orphan, and buys a longer line for nothing.
 
-## The `lift:` front-matter register (card elevation)
+## The `card-lift:` front-matter register (card elevation)
 
-`lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow
+`card-lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow
 that lifts card surfaces (`cards-grid`, `kpi` tiles, `stats`, `pricing`, `verdict-grid`, …)
 off the slide. It's a crisp dark contact shadow on a light deck, a 1px white top-edge
 rim-light on a dark deck (the card *fill* never changes), and zero-blur so it survives the
-vector PDF export. Sibling of the registers above (`lib/core/resolve-lift.js`), propagated
+vector PDF export. Sibling of the registers above (`lib/core/resolve-card-lift.js`), propagated
 to every section, overridable per slide.
 
-| `lift:` value | Token | Effect |
+| `card-lift:` value | Token | Effect |
 |---|---|---|
 | `off` | *(none)* | Cards are flat. **The default** (omit the key). |
-| `on` | `lifted` | Every card lifts, deck-wide. |
+| `on` | `card-lift-on` | Every card lifts, deck-wide. |
 
-Per slide, `<!-- _class: lifted -->` lifts one slide in a flat deck, and
-`<!-- _class: flat -->` drops one slide out of a lifted deck (include the layout too,
-e.g. `_class: cards-grid flat`). The `lifted` class swaps the `--elevation-card` /
+Per slide, `<!-- _class: card-lift-on -->` lifts one slide in a flat deck, and
+`<!-- _class: card-lift-off -->` drops one slide out of a lifted deck (include the layout too,
+e.g. `_class: cards-grid card-lift-off`). The `card-lift-on` class swaps the `--elevation-card` /
 `--elevation-berth` tokens from their `none` / `0` default to the shadow **and** its berth
 padding, so the two turn on together — a flat card gets neither the shadow nor the extra
 padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split-panel`'s
@@ -1247,26 +1247,26 @@ hierarchy/bands/preemption/lane forms, the `list-steps` column variants (`vertic
 `compare-prose decision` (its label sits at mid-stage). See
 `engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5, §12 and §13.
 
-## The `tag:` front-matter register (card tags)
+## The `card-tag:` front-matter register (card tags)
 
 A **card tag** is the small label that names a card: the number on a `cards-grid` or
 `cards-stack` card written as `1. … 2. …`, the slot label on a `compare-prose` or `decision`
 card (and its `banner-tag` band), the split-compare verdict, and the list-steps `STEP 01`
-label and `capsule` pill. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
+label and `capsule` pill. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `card-tag:` sets
 how they look. It takes up to four words, one per axis, in any order:
 
 | Axis | Deck value | Per-slide class | Effect |
 |---|---|---|---|
-| Color | `color` | `tag-color` | The component's own pair: the accent, or decision's categorical cycle. **The default** (omit the key) |
-| Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
-| Color | `bare` | `tag-bare` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
-| Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
-| Placement | `corner` | `tag-corner` | Flush into the card's top-left corner. **The default** on every tagged layout except list-steps |
-| Placement | `foot` | `tag-foot` | Flush into the bottom-left corner. The card keeps the tag's room at its bottom instead |
-| Placement | `notch` | `tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `bare` it reads as a legend: bare text on the page color, so the edge does not strike through it |
-| Placement | `band` | `tag-band` | A full-width strip across the card top, the way `banner-tag` draws one on decision and compare-prose, now on every tagged layout |
-| Placement | `inline` | `tag-inline` | In the text flow above the card's first line, as a chip. **The default** on list-steps, whose `STEP 01` label is bare text |
-| Text alignment | `start` `center` `end` | `tag-start` … | Where the text sits inside a tag wider than it: a band, a tag widened to match its neighbors, a wrapped label, or list-steps' label across its card. **Default `start`** |
+| Color | `color` | `card-tag-color` | The component's own pair: the accent, or decision's categorical cycle. **The default** (omit the key) |
+| Color | `plain` | `card-tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
+| Color | `bare` | `card-tag-bare` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
+| Size | `small` `regular` `large` | `card-tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
+| Placement | `corner` | `card-tag-corner` | Flush into the card's top-left corner. **The default** on every tagged layout except list-steps |
+| Placement | `foot` | `card-tag-foot` | Flush into the bottom-left corner. The card keeps the tag's room at its bottom instead |
+| Placement | `notch` | `card-tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `bare` it reads as a legend: bare text on the page color, so the edge does not strike through it |
+| Placement | `band` | `card-tag-band` | A full-width strip across the card top, the way `banner-tag` draws one on decision and compare-prose, now on every tagged layout |
+| Placement | `inline` | `card-tag-inline` | In the text flow above the card's first line, as a chip. **The default** on list-steps, whose `STEP 01` label is bare text |
+| Text alignment | `start` `center` `end` | `card-tag-start` … | Where the text sits inside a tag wider than it: a band, a tag widened to match its neighbors, a wrapped label, or list-steps' label across its card. **Default `start`** |
 
 A placement word moves the tag on every tagged layout. On list-steps, `corner`, `foot`, `notch`
 and `band` turn the bare `STEP 01` label into a boxed tag in the accent; `inline` is its own
@@ -1275,11 +1275,11 @@ them alone: `compare-prose axis`, whose label is the card's title, and list-step
 `chevron`, `converge` and `ghost`, whose markers belong to a rail or a watermark.
 
 `banner-tag` is the `band` placement under its older name, and it now works on every tagged
-layout. A placement class on the same slide wins over it (`decision banner-tag tag-foot` draws
-foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
+layout. A placement class on the same slide wins over it (`decision banner-tag card-tag-foot` draws
+foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`card-tag: corner`
 leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
-centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
-restyle it too. `lint:deck` suggests `tag-band` in place of `banner-tag` (`tag-alias`, advisory).
+centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `card-tag:` words
+restyle it too. `lint:deck` suggests `card-tag-band` in place of `banner-tag` (`tag-alias`, advisory).
 
 `large` costs room: every tagged card reserves the bigger tag's height above its body, and the
 capacity figures in each component's docs assume the regular size. On a dense slide at a large
@@ -1288,25 +1288,25 @@ does.
 
 ```markdown
 ---
-tag: plain large band
+card-tag: plain large band
 ---
 
-<!-- _class: decision tag-color tag-foot -->
+<!-- _class: decision card-tag-color card-tag-foot -->
 ```
 
-The deck line stamps `tag-plain tag-large tag-band` on every slide. The decision slide above
+The deck line stamps `card-tag-plain card-tag-large card-tag-band` on every slide. The decision slide above
 returns to its categorical colors, moves its tags to the bottom corner and keeps the large size:
 a slide's word on one axis replaces the deck's word on that axis and leaves the others alone.
 
-**Most specific wins:** a slide class, then the deck's `tag:`, then the component's own tag.
-`tag-color`, `tag-regular`, `tag-corner` and `tag-start` exist so a slide can return to the
+**Most specific wins:** a slide class, then the deck's `card-tag:`, then the component's own tag.
+`card-tag-color`, `card-tag-regular`, `card-tag-corner` and `card-tag-start` exist so a slide can return to the
 component's own look inside a deck that set another.
 
 **Every tag on a slide is the same size.** Each boxed tag (any placement with a box, and a
 `banner-tag` band) takes the widest tag's width and the tallest tag's height, so `BUILD` and
 `WHY NOT DELAY` read as one component rather than two. A band spans its card, so only its height
 matches. The text sits at the start of the tag unless an alignment word moves it, and a one-line
-tag beside a two-line one is centered in the taller box (a `tag-bare` label, which has no box,
+tag beside a two-line one is centered in the taller box (a `card-tag-bare` label, which has no box,
 stays at the top so the labels line up). A measuring step does this after fonts load
 (`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG, PPTX, Marp,
 `--fluid` and `--player` outputs. A plain `.html` export has no script, so there each tag keeps
@@ -1316,9 +1316,9 @@ as it writes the file and names each such slide in a warning. The budget below i
 lint-clean deck clear of it.
 
 **In the Studio**, deck settings carry a **Card tags** group with one select per axis (Tag
-color, Tag size, Tag placement, Tag text), which writes the `tag:` line; *Component's own* on
+color, Tag size, Tag placement, Tag text), which writes the `card-tag:` line; *Component's own* on
 every axis removes it. Slide settings show the same four rows on a tagged layout, each defaulting
-to the deck's word, and write `tag-*` classes on that slide.
+to the deck's word, and write `card-tag-*` classes on that slide.
 
 **A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
 wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label
@@ -1328,16 +1328,16 @@ the row:
 | Cards in the row | 2 | 3 | 4 |
 |---|---|---|---|
 | Characters, regular size | 49 | 33 | 24 |
-| Characters, `tag-large` | 40 | 27 | 20 |
-| Characters, `tag-small` | 57 | 38 | 28 |
+| Characters, `card-tag-large` | 40 | 27 | 20 |
+| Characters, `card-tag-small` | 57 | 38 | 28 |
 
-A band (`tag-band`, or the `banner-tag` class) is a header strip across the card, so it gets
+A band (`card-tag-band`, or the `banner-tag` class) is a header strip across the card, so it gets
 two lines, twice the figure. That is the one placement where a label should wrap. Anywhere else,
 shorten the label and move the detail into the card body. The figures are measured at the
 `laptop` venue; a larger venue fits fewer characters, and the tags still match each other if a
 label wraps there.
 
-An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
+An unknown word, or a second word on one axis, is `unknown-card-tag`. Kernel:
 `lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css` § REGISTER, § PLACEMENT and
 § TEXT ALIGNMENT; measure: `lib/core/card-tag-equalize.js`; record:
 `engineering/decisions/2026-09-27-card-tag-register.md`.
@@ -1391,7 +1391,7 @@ Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and
 
 **Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `image-card-light` (white words on a near-black card) and `image-card-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
 
-**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `trim-spectrum:` (a quiet accent tint by default; a style such as `duo` or `rainbow` colors them) and a slide's own `trim-spectrum-*` class. `rule: none` drops them.
+**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `trim-spectrum:` (a quiet accent tint by default; a style such as `duo` or `rainbow` colors them) and a slide's own `trim-spectrum-*` class. `heading-rule: none` drops them.
 
 In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
@@ -1450,8 +1450,8 @@ components, so a slide can also name it in `_class:` (`_class: title cover-poste
 heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover-layout: light
 ledger` and `cover-layout: ledger` both read in either color mode, with or without a `finish:`.
 
-**A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
-`label`, `poster`) only change the default alignment, so `headline: center` centers them.
+**A `headline-align:` register still wins.** The four left-set compositions (`masthead`, `column`,
+`label`, `poster`) only change the default alignment, so `headline-align: center` centers them.
 
 **Keep a `stage` or `poster` heading to a few words: about 60 characters at the laptop venue, and
 fewer as `venue:` scales the display size up.** At laptop that is three lines of about twenty
@@ -1530,27 +1530,27 @@ and `legend:` switched them. It no longer exists: `lint:deck` flags it as unknow
 `legend-off` and `legend-on` on a slide do nothing. Write `callout:`
 (`engineering/decisions/2026-10-20-callout-placement.md` § 2).
 
-## The slide's corner — `corners:`
+## The slide's corner — `slide-corners:`
 
 Whether the slide's own surface is square or rounded. A sibling register of the ones
-above (`lib/core/resolve-corners.js`), propagated to every section, overridable per
+above (`lib/core/resolve-slide-corners.js`), propagated to every section, overridable per
 slide.
 
-| `corners:` value | Token | Effect |
+| `slide-corners:` value | Token | Effect |
 |---|---|---|
 | `square` | *(none)* | Hard corners. **The default** (omit the key). |
-| `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+| `rounded` | `slide-corners-rounded` | The slide rounds, at the theme's radius. |
 
-`corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
+`slide-corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
 token (unset: `--radius-md`), which a preset sets; see "Preset hooks" in
 [`base.docs.md`](base.docs.md).
 
-Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
-`<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
-layout too, e.g. `_class: cards-grid corners-square`).
+Per slide, `<!-- _class: slide-corners-rounded -->` rounds one slide in a square deck and
+`<!-- _class: slide-corners-square -->` squares one slide off in a rounded deck (include the
+layout too, e.g. `_class: cards-grid slide-corners-square`).
 
 **One token, and it is the engine's.** `--slide-radius` is `0` unless the register turns
-it on; `section.corners-rounded` (`base.modifiers.css`) is the single place that gives it
+it on; `section.slide-corners-rounded` (`base.modifiers.css`) is the single place that gives it
 a length — `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd. It is a **different tier**
 from `--radius-sm/md/lg`, which round things *inside* a slide (cards, images, code
 panels) and are wrong for this job.
@@ -1560,7 +1560,7 @@ engine-owns-names / theme-owns-values reading of
 `engineering/decisions/2026-08-09-color-theme-ownership.md` — but that charter is about
 *color*. A corner has no per-palette answer worth varying, no theme in the tree wanted
 one, and a theme that ever does is CSS: redeclare `--slide-radius` under
-`section.corners-rounded`.
+`section.slide-corners-rounded`.
 
 Two implementation notes worth knowing before you touch either:
 
@@ -1640,7 +1640,7 @@ Two consequences worth knowing. A deck with no rounded **slides** is unaffected 
 format — square is still the default and still stamps no token. Note that is about slides,
 not about the front-matter key: the transparent capture is gated on a slide actually
 carrying the corner, so a deck that says nothing in its front matter but opts one slide in
-with `_class: corners-rounded` *does* get the alpha channel on that slide, and correctly
+with `_class: slide-corners-rounded` *does* get the alpha channel on that slide, and correctly
 so. And in Lattice's own `--player` viewer the backdrop is the deck's own `--bg`, so a
 rounded corner there is *invisible* rather than wrong: the slide and the surface behind it
 are the same color.

@@ -3,7 +3,7 @@
  *
  * A deck value writes no token when it is the default, so one slide inside a deck that set
  * another value needs the default's own token to ask for it back: `with-spectrum`,
- * `spectrum-top`, `card-spectrum-left`, `rule-auto`, `eyebrow-plain`, `head-auto`.
+ * `spectrum-top`, `card-spectrum-left`, `heading-rule-auto`, `eyebrow-plain`, `headline-align-auto`.
  * Each sits in its register's override set, so the engine drops the deck's token on that axis
  * for that slide, and the slide renders as the default. markdown-it-plugins.test.js pins the
  * same contract on the plugin; this pins it where decks are actually rendered. The last test pins
@@ -25,14 +25,14 @@ const RESTORES = [
   ['spectrum-regular', 'spectrum-band'],
   ['card-spectrum-regular', 'card-spectrum-hairline'],
   ['trim-spectrum-quiet', 'trim-spectrum-mono'],
-  ['rule-auto', 'rule-accent'],
+  ['heading-rule-auto', 'heading-rule-accent'],
   ['eyebrow-plain', 'eyebrow-dot'],
-  ['head-auto', 'head-center'],
+  ['headline-align-auto', 'headline-align-center'],
 ];
 const DECK = [
   '---', 'theme: indaco',
   'spectrum: solid left band', 'card-spectrum: rainbow top hairline', 'trim-spectrum: mono',
-  'rule: accent', 'eyebrow: dot', 'headline: center',
+  'heading-rule: accent', 'eyebrow: dot', 'headline-align: center',
   '---', '', '## Follows the deck',
   ...RESTORES.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, '', `## ${own}`]),
 ].join('\n');

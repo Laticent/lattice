@@ -25,7 +25,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ### Variant decision rule
 
 - **default (no modifier).** The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading.
-- **`tag-band`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout.
+- **`card-tag-band`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card. `card-tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `card-tag: band` deck-wide, works on every tagged layout.
 
 ### Common mistakes
 
@@ -75,14 +75,14 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 ## Variants (component-specific)
 
-### `tag-band` — tag-band
+### `card-tag-band` — card-tag-band
 
 Headlines each card with its camp.
 
 ```markdown
-<!-- @meta{layout=decision, class=tag-band} -->
+<!-- @meta{layout=decision, class=card-tag-band} -->
 
-## tag-band headlines each card with its camp.
+## card-tag-band headlines each card with its camp.
 
 - DECIDE
   - The banner carries the stance; the body carries the reason.

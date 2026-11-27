@@ -12,7 +12,7 @@
  * Bundled right after the component CSS (tools/build-css.js), so these rules win a
  * specificity tie by source order, and `sketch` (later) still restyles them.
  *
- * Every tag is still the pseudo-element or `<strong>` it was. The `tag:` register and
+ * Every tag is still the pseudo-element or `<strong>` it was. The `card-tag:` register and
  * the equal-size measure (lib/core/card-tag-equalize.js) build on the tokens below.
  *
  * ── TOKENS ──
@@ -26,7 +26,7 @@
  *                      landscape corner tag to the pixel. pad-y is a bare multiplier
  *                      (--card-tag-h needs it as a number); pad-x is a length, and since
  *                      an unregistered custom property substitutes as written, `0.84em`
- *                      resolves against the TAG's font where padding reads it. `tag: none`
+ *                      resolves against the TAG's font where padding reads it. `card-tag: none`
  *                      re-points it to the card's own inset so bare text lines up.
  *   --card-tag-lh      a flush tag's line height: 1, a chip sized to its caps. A band
  *                      (a header strip) takes 1.2 through --card-tag-band-lh.
@@ -40,7 +40,7 @@
  *   --card-tag-num-font the face a NUMBER tag uses. `sketch` re-points it to the
  *                      hand display face; labels keep --font-label.
  *   --card-tag-edge    a hairline drawn INSIDE the tag (box-shadow, so it adds no size).
- *                      Off unless the register asks for it (`tag: plain`).
+ *                      Off unless the register asks for it (`card-tag: plain`).
  *   --card-tag-inline-ink
  *                      the ink of a tag with no box (the list-steps STEP label).
  *   --card-tag-band-pad-y / --card-tag-band-lh
@@ -159,7 +159,7 @@ section.split-compare .verdict {
 
 /* ── Placement: band — `banner-tag` is an alias of the register's `band` (§ PLACEMENT) ──
  * It used to be its own in-flow recipe on decision and compare-prose; it now draws through
- * the band rules below on every tagged layout, and lint suggests `tag-band`. A placement word
+ * the band rules below on every tagged layout, and lint suggests `card-tag-band`. A placement word
  * on the same slide still wins over it. engineering/decisions/2026-09-27-card-tag-register.md
  * §6 phase 4. */
 
@@ -167,7 +167,7 @@ section.split-compare .verdict {
  * The voice is the kernel's; the ink is --card-tag-inline-ink, which the component's rule
  * reads, so the register can re-point it. */
 
-/* ── REGISTER — `tag:` in front matter, `tag-*` on a slide ────────────────────
+/* ── REGISTER — `card-tag:` in front matter, `card-tag-*` on a slide ────────────────────
  * lib/core/resolve-card-tag.js stamps the classes (deck word, then a slide's word evicts it
  * on its own axis). Each rule here only re-points tokens.
  *
@@ -185,24 +185,24 @@ section.split-compare .verdict {
  *   none   no box: the label as bare text in the secondary ink. Pair: --text-secondary on the
  *          card (--bg-alt). Both pairs are AA-pinned in test/unit/palette/contrast.test.js.
  *   color  the component's own pair — the default, written so a slide can return to it. */
-section.tag-small { --card-tag-scale: 0.85; }
-section.tag-large { --card-tag-scale: 1.2; }
+section.card-tag-small { --card-tag-scale: 0.85; }
+section.card-tag-large { --card-tag-scale: 1.2; }
 
-section.tag-plain li::before,
-section.tag-plain .card::before,
-section.tag-plain .verdict::before,
-section.tag-plain li > strong:first-child,
-section.tag-plain .card > strong:first-child {
+section.card-tag-plain li::before,
+section.card-tag-plain .card::before,
+section.card-tag-plain .verdict::before,
+section.card-tag-plain li > strong:first-child,
+section.card-tag-plain .card > strong:first-child {
   --card-tag-fill: var(--bg);
   --card-tag-ink: var(--text-body);
   --card-tag-edge: inset 0 0 0 1px var(--muted-mark);
   --card-tag-inline-ink: var(--text-secondary);
 }
-section.tag-bare li::before,
-section.tag-bare .card::before,
-section.tag-bare .verdict::before,
-section.tag-bare li > strong:first-child,
-section.tag-bare .card > strong:first-child {
+section.card-tag-bare li::before,
+section.card-tag-bare .card::before,
+section.card-tag-bare .verdict::before,
+section.card-tag-bare li > strong:first-child,
+section.card-tag-bare .card > strong:first-child {
   --card-tag-fill: transparent;
   --card-tag-ink: var(--text-secondary);
   --card-tag-edge: none;
@@ -219,7 +219,7 @@ section.tag-bare .card > strong:first-child {
  *   foot    flush into the bottom-left corner; the card reserves the tag at its BOTTOM
  *           and its top padding returns to --card-tag-rest.
  *   notch   a tab inset from the corner, straddling the card's top edge, half outside it;
- *           the card reserves half a tag. `tag-bare` there reads as a fieldset legend: the
+ *           the card reserves half a tag. `card-tag-bare` there reads as a fieldset legend: the
  *           page fill behind bare text, so the card's edge does not strike through it.
  *   band    a full-width strip across the card top — the corner tag stretched to both
  *           sides, with a header strip's padding and line height (the tokens below).
@@ -232,17 +232,17 @@ section.tag-bare .card > strong:first-child {
  * boxed tag on a slide takes one size, and --card-tag-block feeds the reserve. Without a
  * script each tag keeps its own size and the card reserves one line of tag, as a corner
  * does. engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 3. */
-section.tag-foot { --card-tag-radius: 0 var(--radius-sm) 0 var(--radius-card, var(--radius-md)); }
-section.tag-notch,
-section.tag-inline { --card-tag-radius: var(--radius-sm); }
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)) {
+section.card-tag-foot { --card-tag-radius: 0 var(--radius-sm) 0 var(--radius-card, var(--radius-md)); }
+section.card-tag-notch,
+section.card-tag-inline { --card-tag-radius: var(--radius-sm); }
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)) {
   --card-tag-lh: var(--card-tag-band-lh);
   --card-tag-pad-y: var(--card-tag-band-pad-y);
   --card-tag-pad-x: var(--sp-md);   /* a header strip lines up with the body text */
 }
 
 /* list-steps leaves its inline label for a box: the corner recipe, on its step cards. */
-section:is(.tag-corner, .tag-foot, .tag-notch, .tag-band, .banner-tag:not(.tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
+section:is(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-band, .banner-tag:not(.card-tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
   position: absolute;
   top: 0;
   left: 0;
@@ -258,63 +258,63 @@ section:is(.tag-corner, .tag-foot, .tag-notch, .tag-band, .banner-tag:not(.tag-i
   color: var(--card-tag-ink, var(--on-accent, var(--on-dark-primary)));
   box-shadow: var(--card-tag-edge);
 }
-section:is(.tag-corner, .tag-band, .banner-tag:not(.tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
+section:is(.card-tag-corner, .card-tag-band, .banner-tag:not(.card-tag-foot, .card-tag-notch, .card-tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) + var(--card-tag-gap));
 }
 
 /* foot */
-section.tag-foot.cards-grid > .cell-stage > ol > li::before,
-section.tag-foot.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-foot.cards-stack > .cell-stage > ol > li::before,
-section.tag-foot.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section.tag-foot.split-compare .verdict::before,
-section.tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
+section.card-tag-foot.cards-grid > .cell-stage > ol > li::before,
+section.card-tag-foot.cards-grid .cards-grid-inner--ordered > .card::before,
+section.card-tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.card-tag-foot.cards-stack > .cell-stage > ol > li::before,
+section.card-tag-foot.cards-stack .cards-stack-inner--ordered > .card::before,
+section.card-tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section.card-tag-foot.split-compare .verdict::before,
+section.card-tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
   top: auto;
   bottom: 0;
 }
-section.tag-foot.cards-grid > .cell-stage > ol > li,
-section.tag-foot.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-foot.cards-stack > .cell-stage > ol > li,
-section.tag-foot.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
-section.tag-foot.split-compare .verdict,
-section.tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
+section.card-tag-foot.cards-grid > .cell-stage > ol > li,
+section.card-tag-foot.cards-grid .cards-grid-inner--ordered > .card,
+section.card-tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
+section.card-tag-foot.cards-stack > .cell-stage > ol > li,
+section.card-tag-foot.cards-stack .cards-stack-inner--ordered > .card,
+section.card-tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
+section.card-tag-foot.split-compare .verdict,
+section.card-tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
   padding-top: var(--card-tag-rest);
   padding-bottom: calc(max(var(--card-tag-h), var(--card-tag-block)) + var(--card-tag-gap));
 }
 
 /* notch */
-section.tag-notch.cards-grid > .cell-stage > ol > li::before,
-section.tag-notch.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-notch.cards-stack > .cell-stage > ol > li::before,
-section.tag-notch.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section.tag-notch.split-compare .verdict::before,
-section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
+section.card-tag-notch.cards-grid > .cell-stage > ol > li::before,
+section.card-tag-notch.cards-grid .cards-grid-inner--ordered > .card::before,
+section.card-tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.card-tag-notch.cards-stack > .cell-stage > ol > li::before,
+section.card-tag-notch.cards-stack .cards-stack-inner--ordered > .card::before,
+section.card-tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section.card-tag-notch.split-compare .verdict::before,
+section.card-tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
   top: 0;
   left: var(--sp-md);
   transform: translateY(-50%);
 }
-section.tag-notch.cards-grid > .cell-stage > ol > li,
-section.tag-notch.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-notch.cards-stack > .cell-stage > ol > li,
-section.tag-notch.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
-section.tag-notch.split-compare .verdict,
-section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
+section.card-tag-notch.cards-grid > .cell-stage > ol > li,
+section.card-tag-notch.cards-grid .cards-grid-inner--ordered > .card,
+section.card-tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
+section.card-tag-notch.cards-stack > .cell-stage > ol > li,
+section.card-tag-notch.cards-stack .cards-stack-inner--ordered > .card,
+section.card-tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
+section.card-tag-notch.split-compare .verdict,
+section.card-tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) / 2 + var(--card-tag-gap));
   overflow: visible;
 }
@@ -324,70 +324,70 @@ section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:wher
  * the berth token itself: it is a unitless 0 on a flat deck, and 0 + a length is an invalid
  * calc() that drops the whole declaration). Class doubled to outrank each layout's own
  * `section.X > .cell-stage` berth rule. */
-section.tag-notch.tag-notch > .cell-stage {
+section.card-tag-notch.card-tag-notch > .cell-stage {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) / 2 + var(--sp-xs));
 }
-section.tag-notch.tag-bare li::before,
-section.tag-notch.tag-bare .card::before,
-section.tag-notch.tag-bare .verdict::before,
-section.tag-notch.tag-bare li > strong:first-child,
-section.tag-notch.tag-bare .card > strong:first-child {
+section.card-tag-notch.card-tag-bare li::before,
+section.card-tag-notch.card-tag-bare .card::before,
+section.card-tag-notch.card-tag-bare .verdict::before,
+section.card-tag-notch.card-tag-bare li > strong:first-child,
+section.card-tag-notch.card-tag-bare .card > strong:first-child {
   --card-tag-fill: var(--bg);
   --card-tag-pad-x: 0.5em;
 }
 
 /* band */
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid > .cell-stage > ol > li::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid .cards-grid-inner--ordered > .card::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack > .cell-stage > ol > li::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack .cards-stack-inner--ordered > .card::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).split-compare .verdict::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).cards-grid > .cell-stage > ol > li::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).cards-grid .cards-grid-inner--ordered > .card::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).cards-stack > .cell-stage > ol > li::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).cards-stack .cards-stack-inner--ordered > .card::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).split-compare .verdict::before,
+section:is(.card-tag-band, .banner-tag:not(.card-tag-corner, .card-tag-foot, .card-tag-notch, .card-tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
   right: 0;
   border-radius: var(--radius-card, var(--radius-md)) var(--radius-card, var(--radius-md)) 0 0;
 }
 
 /* inline */
-section.tag-inline.cards-grid > .cell-stage > ol > li::before,
-section.tag-inline.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-inline.cards-stack > .cell-stage > ol > li::before,
-section.tag-inline.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section.tag-inline.split-compare .verdict::before {
+section.card-tag-inline.cards-grid > .cell-stage > ol > li::before,
+section.card-tag-inline.cards-grid .cards-grid-inner--ordered > .card::before,
+section.card-tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section.card-tag-inline.cards-stack > .cell-stage > ol > li::before,
+section.card-tag-inline.cards-stack .cards-stack-inner--ordered > .card::before,
+section.card-tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.card-tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section.card-tag-inline.split-compare .verdict::before {
   position: static;
   align-self: flex-start;
   flex: 0 0 auto;
   order: -2;
 }
-section.tag-inline.cards-grid > .cell-stage > ol > li,
-section.tag-inline.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-inline.cards-stack > .cell-stage > ol > li,
-section.tag-inline.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
-section.tag-inline.split-compare .verdict {
+section.card-tag-inline.cards-grid > .cell-stage > ol > li,
+section.card-tag-inline.cards-grid .cards-grid-inner--ordered > .card,
+section.card-tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
+section.card-tag-inline.cards-stack > .cell-stage > ol > li,
+section.card-tag-inline.cards-stack .cards-stack-inner--ordered > .card,
+section.card-tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.card-tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
+section.card-tag-inline.split-compare .verdict {
   padding-top: var(--card-tag-rest);
 }
-section.tag-inline.cards-grid > .cell-stage > ol > li::after,
-section.tag-inline.cards-grid .cards-grid-inner--ordered > .card::after,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::after,
-section.tag-inline.cards-stack > .cell-stage > ol > li::after,
-section.tag-inline.cards-stack .cards-stack-inner--ordered > .card::after {
+section.card-tag-inline.cards-grid > .cell-stage > ol > li::after,
+section.card-tag-inline.cards-grid .cards-grid-inner--ordered > .card::after,
+section.card-tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::after,
+section.card-tag-inline.cards-stack > .cell-stage > ol > li::after,
+section.card-tag-inline.cards-stack .cards-stack-inner--ordered > .card::after {
   content: '';
   order: -1;
   flex: 0 0 100%;
   height: var(--sp-xs);
 }
-section.tag-inline.split-compare .verdict {
+section.card-tag-inline.split-compare .verdict {
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
@@ -396,18 +396,18 @@ section.tag-inline.split-compare .verdict {
 /* ── TEXT ALIGNMENT — the register's fourth axis ──
  * Where the text sits inside a tag wider than it: a band, a tag the measure widened to
  * match its neighbors, a wrapped label, or list-steps' inline label across its card. */
-section.tag-start { --card-tag-lead: 0; --card-tag-align: start; }   /* beats a native center (capsule) */
-section.tag-center { --card-tag-lead: 0.5; --card-tag-align: center; }
-section.tag-end { --card-tag-lead: 1; --card-tag-align: end; }
-section:is(.tag-start, .tag-center, .tag-end).cards-grid > .cell-stage > ol > li::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-grid .cards-grid-inner--ordered > .card::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-stack > .cell-stage > ol > li::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-stack .cards-stack-inner--ordered > .card::before,
-section:is(.tag-start, .tag-center, .tag-end).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-start, .tag-center, .tag-end).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-start, .tag-center, .tag-end).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
-section:is(.tag-start, .tag-center, .tag-end).split-compare .verdict::before,
-section:is(.tag-start, .tag-center, .tag-end).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
+section.card-tag-start { --card-tag-lead: 0; --card-tag-align: start; }   /* beats a native center (capsule) */
+section.card-tag-center { --card-tag-lead: 0.5; --card-tag-align: center; }
+section.card-tag-end { --card-tag-lead: 1; --card-tag-align: end; }
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).cards-grid > .cell-stage > ol > li::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).cards-grid .cards-grid-inner--ordered > .card::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).cards-stack > .cell-stage > ol > li::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).cards-stack .cards-stack-inner--ordered > .card::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).split-compare .verdict::before,
+section:is(.card-tag-start, .card-tag-center, .card-tag-end).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > *):where(:not([data-ordered="false"])) > li::before {
   text-align: var(--card-tag-align);
 }

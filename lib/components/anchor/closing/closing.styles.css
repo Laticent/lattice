@@ -9,7 +9,7 @@
 
 
 /* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
- * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
+ * seam (`headline-align:` register). `auto`/no register → the fallback `center` — byte-identical to
  * the centered closing bookend. */
 /* `color-scheme: dark` rides with `--surface-inverse` — see the note on `section.title`.
  * Without it this bookend's own accent heading measured 2.06:1 on indaco (light-canvas
@@ -163,7 +163,7 @@ section.closing-lede.spectrum::before { display: none; }
  * The back cover composes the way the front cover does. Why these are variants, why each is
  * surface-blind and why the alignment sits in `:where()`: the note on the title block. The
  * closing's heading may be an `h1` or an `h2`, so every heading rule names both; the trailing list
- * follows the alignment through the `headline:` seam like the rest of the cluster. */
+ * follows the alignment through the `headline-align:` seam like the rest of the cluster. */
 section:where(.closing.cover-masthead), section:where(.closing.cover-column), section:where(.closing.cover-label), section:where(.closing.cover-poster) { --headline-align: left; --headline-justify: flex-start; }
 section.closing.cover-masthead :is(h1, h2) {
   align-self: stretch;

@@ -87,9 +87,9 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- @meta{layout=compare-prose, class=tag-band, footer="tag-band · compare-prose tag-band — Corner tags become banners."} -->
+<!-- @meta{layout=compare-prose, class=card-tag-band, footer="card-tag-band · compare-prose card-tag-band — Corner tags become banners."} -->
 
-## tag-band fills the corner tags at banner weight.
+## card-tag-band fills the corner tags at banner weight.
 
 - OPTION A
   - The tag takes the accent fill and full contrast.

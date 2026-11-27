@@ -52,7 +52,7 @@ A slide's look is a stack of independent choices, and each has one home:
 | **Backdrop** | atmosphere behind content | `finish:` `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` |
 | **Hand** | clean or hand-drawn | `mode:` `boardroom` · `sketch` · `sketch-clean` |
 | **Room** | how big type renders | `venue:` `laptop` · `huddle` · `conference` · `hall` |
-| **Details** | heading rule, kicker, alignment, card lift, corners | `rule:` · `eyebrow:` · `headline:` · `lift:` · `corners:` |
+| **Details** | heading rule, kicker, alignment, card lift, corners | `heading-rule:` · `eyebrow:` · `headline-align:` · `card-lift:` · `slide-corners:` |
 | **Layout** | the slide's shape | the component in `<!-- _class: name -->` |
 | **Slide exceptions** | one slide differs | modifiers on that slide's `_class:` line |
 
@@ -61,8 +61,8 @@ They compose: `theme: cuoio` + `color-mode: dark` + `finish: atrium` +
 palette.
 
 **A preset is a starting point; an explicit key beats it.** `preset: editorial`
-sets `finish: ledger`, `headline: left`, `rule: short`, `eyebrow: bar`,
-`trim-spectrum: mono` and `lift: on`. Write `rule: none` beside it and you
+sets `finish: ledger`, `headline-align: left`, `heading-rule: short`, `eyebrow: bar`,
+`trim-spectrum: mono` and `card-lift: on`. Write `heading-rule: none` beside it and you
 get everything from Editorial except the heading rule.
 
 **Per-slide tokens win over deck keys.** `<!-- _class: content light -->` puts
@@ -249,7 +249,7 @@ We recommend a monthly cap before renewals open in March.
 
 - "Make it dark" is one line: `color-mode: dark`. No slide's `_class:` changed.
 - "More editorial, but no heading rule" is two lines: `preset: editorial` and
-  `rule: none`.
+  `heading-rule: none`.
 - A finish was chosen for a reason the author can repeat ("the ledger lines
   suit a finance review"), and the closing slide still reads cleanly over it.
 - The one bright slide in a dark deck carries `light`, and it is the slide the
@@ -319,8 +319,8 @@ We recommend a monthly cap before renewals open in March.
 ## Canonical sources
 
 - `lib/base/base.registers.docs.md` — every front-matter register: `preset:`,
-  `mode:`, `finish:`, `fit:`, `split:`, `rule:`, `eyebrow:`, `headline:`,
-  `lift:`, `venue:`, `corners:` and the rest.
+  `mode:`, `finish:`, `fit:`, `split:`, `heading-rule:`, `eyebrow:`, `headline-align:`,
+  `card-lift:`, `venue:`, `slide-corners:` and the rest.
 - `lib/base/base.docs.md` § Common modifiers and § Switches — per-slide modifiers.
 - `design/theming.md` — palettes and the four ways to a dark canvas.
 - `lib/core/deck-settings.js` — the list of front-matter keys the linter knows.

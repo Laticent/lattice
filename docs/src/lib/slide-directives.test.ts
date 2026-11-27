@@ -199,7 +199,7 @@ describe('the class drawer on a record slide', () => {
 	});
 	it('a toggled modifier joins the record; a register word is written as its field', () => {
 		expect(toggleToken(slide, 'compact')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, class=compact} -->\n\n# Hi');
-		expect(toggleToken(slide, 'head-left')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, headline=left} -->\n\n# Hi');
+		expect(toggleToken(slide, 'headline-align-left')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, headline-align=left} -->\n\n# Hi');
 	});
 	it('removing a register word drops its field; swapping the layout keeps it typed', () => {
 		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');

@@ -69,8 +69,8 @@ describe('conformance: the deck-setting MEASUREMENT can produce a failing fact',
     for (const id of ['deck-setting.read', 'deck-setting.spec-row', 'deck-setting.documented', 'deck-setting.lint-knows-key']) assert.ok(failing.includes(id), id);
   });
   test('a real key is measured as read, specified and cased', () => {
-    const lift = contract.measure('lift', { key: 'lift' }, ctx);
-    assert.ok(lift.readers.includes('lib/core/resolve-lift.js'), lift.readers.join(', '));
+    const lift = contract.measure('card-lift', { key: 'lift' }, ctx);
+    assert.ok(lift.readers.includes('lib/core/resolve-card-lift.js'), lift.readers.join(', '));
     assert.equal(lift.inSpec, true);
     assert.ok(lift.specCases >= 1);
   });

@@ -1,14 +1,14 @@
-// The Studio corners catalog — DISPLAY metadata for the `corners:` register (whether
-// the slide's own surface is rounded). Sibling of mode-catalog.ts / rule-catalog.ts.
-// The engine's single source of truth is CORNERS_NAMES (lib/core/resolve-corners.js);
-// THIS file adds only the human layer the picker needs. Rot-guard: corners-catalog.test.ts.
+// The Studio corners catalog — DISPLAY metadata for the `slide-corners:` register (whether
+// the slide's own surface is rounded). Sibling of mode-catalog.ts / heading-rule-catalog.ts.
+// The engine's single source of truth is SLIDE_CORNERS_NAMES (lib/core/resolve-slide-corners.js);
+// THIS file adds only the human layer the picker needs. Rot-guard: slide-corners-catalog.test.ts.
 //
-// Authored deck-wide via `corners:` or per-slide via `_class: corners-rounded` /
-// `corners-square` (square carries an explicit token so a slide can opt back out of a
+// Authored deck-wide via `slide-corners:` or per-slide via `_class: slide-corners-rounded` /
+// `slide-corners-square` (square carries an explicit token so a slide can opt back out of a
 // rounded deck).
 
-export type CornersEntry = {
-	/** the `corners:` register value (and engine CORNERS_NAMES member) */
+export type SlideCornersEntry = {
+	/** the `slide-corners:` register value (and engine SLIDE_CORNERS_NAMES member) */
 	name: string;
 	label: string;
 	blurb: string;
@@ -22,7 +22,7 @@ export type CornersEntry = {
 const SURFACE = 'color-mix(in srgb, var(--text-heading) 22%, transparent)';
 
 // Ordered as the picker shows them. `square` is the baseline (omitting the key renders it).
-export const CORNERS: CornersEntry[] = [
+export const SLIDE_CORNERS: SlideCornersEntry[] = [
 	{
 		name: 'square', label: 'Square',
 		blurb: 'Slide corners meet at a right angle — the default.',
@@ -35,12 +35,12 @@ export const CORNERS: CornersEntry[] = [
 	},
 ];
 
-export const CORNERS_BY_NAME: Record<string, CornersEntry> = Object.fromEntries(
-	CORNERS.map((s) => [s.name, s]),
+export const SLIDE_CORNERS_BY_NAME: Record<string, SlideCornersEntry> = Object.fromEntries(
+	SLIDE_CORNERS.map((s) => [s.name, s]),
 );
 
 /** The active corners entry for a value; unknown / empty → the `square` baseline. */
-export function activeCorners(value: string | undefined | null): CornersEntry {
+export function activeSlideCorners(value: string | undefined | null): SlideCornersEntry {
 	const key = (value ?? '').trim().toLowerCase();
-	return CORNERS_BY_NAME[key] ?? CORNERS_BY_NAME.square;
+	return SLIDE_CORNERS_BY_NAME[key] ?? SLIDE_CORNERS_BY_NAME.square;
 }

@@ -8,7 +8,7 @@ import CraftLab from '../../../components/craft/CraftLab.astro';
 export const LAB_ACCENTS = `---
 theme: cuoio
 spectrum: duo
-rule: short
+heading-rule: short
 eyebrow: bar
 ---
 
@@ -115,8 +115,8 @@ else.
 | `mode:` | The hand: `boardroom` (clean, the default) or `sketch` (hand-drawn). |
 | `finish:` | A backdrop behind every slide, e.g. `halo` or `gallery`. |
 
-Two more change the feel of card layouts: `lift: on` gives cards a shadow, and
-`corners: rounded` rounds the slide. `align:` decides where content sits, up and
+Two more change the feel of card layouts: `card-lift: on` gives cards a shadow, and
+`slide-corners: rounded` rounds the slide. `align:` decides where content sits, up and
 down (`top`, `middle`, `bottom`, `spread`, `fill`) and side to side (`left`,
 `center`, `right`, `full`): `align: bottom right`, or `align: center` for both.
 
@@ -144,7 +144,7 @@ These are where a deck gets its character, and each one is a single word:
 	editMarkdown
 	markdown={LAB_ACCENTS}
 	size="short"
-	hint="Try spectrum: mono, rule: accent, eyebrow: dot. Each changes its own decoration. An unknown value falls back to the default, and lint:deck lists the valid ones."
+	hint="Try spectrum: mono, heading-rule: accent, eyebrow: dot. Each changes its own decoration. An unknown value falls back to the default, and lint:deck lists the valid ones."
 />
 
 | Key | Decorates |
@@ -152,10 +152,10 @@ These are where a deck gets its character, and each one is a single word:
 | `spectrum:` | The stripe on the slide edge, one word for each of its style (`rainbow`, `solid`, `duo`, `mono` or `off`), edge (`top`, `left`, `right` or `bottom`) and weight (`regular`, `hairline` or `band`): `spectrum: solid left band`. The style also colors every accent that follows it, such as table rails and code strips. |
 | `card-spectrum:` | A stripe on each card, with the same three parts: `card-spectrum: rainbow top`. Off by default, and it never copies the slide edge. |
 | `trim-spectrum:` | The style of table rails, code strips and rules: `quiet` (the default), `rainbow`, `solid`, `duo` or `mono`. It never copies the slide edge. |
-| `rule:` | The line under each heading. |
+| `heading-rule:` | The line under each heading. |
 | `eyebrow:` | The mark on the **eyebrow**: a line holding only inline code, just above the heading, like `` `Q3 review` ``. |
-| `headline:` | How the heading lines up: left, center, right. |
-| `stamp:` · `tone:` | The shape of a status stamp, and of a review tone. |
+| `headline-align:` | How the heading lines up: left, center, right. |
+| `stamp-shape:` · `tone:` | The shape of a status stamp, and of a review tone. |
 
 ### Motion — for live surfaces only
 

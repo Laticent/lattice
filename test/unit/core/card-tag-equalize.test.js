@@ -11,7 +11,7 @@
  *      read as tall as the tallest — which made the first cut add, then remove, its own shim;
  *   3. a second run writes nothing (the runtime calls it from an observer that watches style);
  *   4. a tag that is not boxed (an `axis` label) or not laid out (a hidden slide) is left alone;
- *   5. a tag with no visible box (`tag-bare`) is not centered in an invisible taller box, so
+ *   5. a tag with no visible box (`card-tag-bare`) is not centered in an invisible taller box, so
  *      its first line stays in line with its neighbors'.
  *
  * The same kernel runs on the real surface in both paths; examples/card-tags.pdf is the artifact.
@@ -120,9 +120,9 @@ test('the export injects the same function it exports', () => {
   assert.ok(fromSrc(doc) > 0, 'the serialized source closes over nothing');
 });
 
-test('tag-bare: bare text stays top-aligned, and the section still reserves the tallest', () => {
+test('card-tag-bare: bare text stays top-aligned, and the section still reserves the tallest', () => {
   const lines = { BUILD: 1, 'A LONG LABEL THAT WRAPS': 2 };
-  const doc = page(decision('tag-bare', Object.keys(lines)), (el) =>
+  const doc = page(decision('card-tag-bare', Object.keys(lines)), (el) =>
     content(120, 14.98 * lines[el.textContent], { backgroundColor: 'rgba(0, 0, 0, 0)' }));
   equalizeCardTags(doc);
   const lis = [...doc.querySelectorAll('section > .cell-stage > ul > li')];
@@ -136,14 +136,14 @@ test('tag-bare: bare text stays top-aligned, and the section still reserves the 
 });
 
 test('inline: an in-flow chip with a fill is a tag box, so the row takes one size', () => {
-  const doc = page(decision('tag-inline', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15, { position: 'static' }));
+  const doc = page(decision('card-tag-inline', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15, { position: 'static' }));
   assert.ok(equalizeCardTags(doc) > 0);
   const xs = [...doc.querySelectorAll('section > .cell-stage > ul > li')].map((li) => li.style.getPropertyValue('--card-tag-shim-x'));
   assert.deepEqual(xs, ['30px', '0px']);
 });
 
-test('tag-band: an absolute strip spans its card, so it takes no width shim', () => {
-  const doc = page(decision('tag-band', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
+test('card-tag-band: an absolute strip spans its card, so it takes no width shim', () => {
+  const doc = page(decision('card-tag-band', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
   equalizeCardTags(doc);
   for (const li of doc.querySelectorAll('section > .cell-stage > ul > li')) {
     assert.equal(li.style.getPropertyValue('--card-tag-shim-x'), '0px');
@@ -151,7 +151,7 @@ test('tag-band: an absolute strip spans its card, so it takes no width shim', ()
 });
 
 test('a placement word wins over banner-tag: the tag is widened like any chip', () => {
-  const doc = page(decision('banner-tag tag-foot', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
+  const doc = page(decision('banner-tag card-tag-foot', ['A', 'BBBB']), (el) => content(el.textContent.length * 10, 15));
   equalizeCardTags(doc);
   const xs = [...doc.querySelectorAll('section > .cell-stage > ul > li')].map((li) => li.style.getPropertyValue('--card-tag-shim-x'));
   assert.deepEqual(xs, ['30px', '0px']);
@@ -160,8 +160,8 @@ test('a placement word wins over banner-tag: the tag is widened like any chip', 
 test('list-steps: a boxed step tag is measured; the rail variants are not tags', () => {
   const steps = (cls) => `<section class="list-steps ${cls}"><div class="cell-stage"><ol><li>a</li><li>bb</li></ol></div></section>`;
   const sized = (el) => content(el.textContent.length * 10, 15);
-  assert.ok(equalizeCardTags(page(steps('tag-corner'), sized)) > 0);
-  assert.equal(equalizeCardTags(page(steps('timeline tag-corner'), sized)), 0);
+  assert.ok(equalizeCardTags(page(steps('card-tag-corner'), sized)) > 0);
+  assert.equal(equalizeCardTags(page(steps('timeline card-tag-corner'), sized)), 0);
 });
 
 test('report mode names the slides where a tag covers its card body, and writes nothing', () => {

@@ -181,7 +181,7 @@ describe('makeStudioCompletion', () => {
 			modifierGroups: [
 				{ name: 'mood', label: 'Canvas', tokens: ['dark', 'light'], exclusive: true },
 				{ name: 'chrome', label: 'Chrome', tokens: ['silent', 'no-footer'] },
-				{ name: 'rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
+				{ name: 'heading-rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
 				{ name: 'table', label: 'Table', tokens: ['table-fill'], surface: 'table' },
 				{ name: 'cards', label: 'Card spacing', tokens: ['align-spread'], surface: 'card-row' },
 			],
@@ -228,11 +228,11 @@ describe('makeStudioCompletion', () => {
 			const cat = [
 				{ name: 'kpi', bucket: 'evidence', description: 'KPIs', variants: ['ops'], surfaces: ['slide', 'heading'], variantSurfaces: { ops: ['card-surface'] }, inertSurfaces: ['table'] },
 			];
-			const vocab = { ...VOCAB, modifierGroups: [...VOCAB.modifierGroups, { name: 'lift', label: 'Card lift', tokens: ['lifted'], surface: 'card-surface' }] };
+			const vocab = { ...VOCAB, modifierGroups: [...VOCAB.modifierGroups, { name: 'card-lift', label: 'Card lift', tokens: ['card-lift-on'], surface: 'card-surface' }] };
 			const k = makeStudioCompletion(cat, [], [], { vocab });
 			const at = (doc: string, line = doc.split('\n')[0]) => (k(new CompletionContext(EditorState.create({ doc }), line.length, true))?.options ?? []).map((o) => o.label);
-			expect(at('<!-- _class: kpi ')).not.toContain('lifted');
-			expect(at('<!-- _class: kpi ops ')).toContain('lifted');
+			expect(at('<!-- _class: kpi ')).not.toContain('card-lift-on');
+			expect(at('<!-- _class: kpi ops ')).toContain('card-lift-on');
 			// A table on the slide does not bring back modifiers measured to do nothing here.
 			expect(at('<!-- _class: kpi \n\n| a | b |\n|---|---|\n')).not.toContain('table-fill');
 		});
@@ -439,7 +439,7 @@ describe('front-matter registers — keys and values', () => {
 	});
 
 	it('tag: keeps completing after its first word too', () => {
-		const next = done('---\ntag: plain ');
+		const next = done('---\ncard-tag: plain ');
 		expect(next).not.toContain('none');
 		expect(next).toContain('large');
 	});
@@ -845,7 +845,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
-		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
+		['a register value inside @meta', `${FM}<!-- @meta{headline-align=`, 'left', null],
 		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],

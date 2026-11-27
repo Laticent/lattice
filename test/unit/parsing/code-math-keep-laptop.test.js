@@ -46,9 +46,9 @@ test('NO-TOKENS: a deck that sets no deck token still marks its code, compare-co
 });
 
 test('DECK-TOKENS: with other deck registers set, the marker still lands', () => {
-  const [code, prose] = sections(deck('lift: on\n', CODE, PROSE));
+  const [code, prose] = sections(deck('card-lift: on\n', CODE, PROSE));
   assert.ok(keeps(code));
-  assert.ok(code.includes('lifted'), 'the deck register merged too');
+  assert.ok(code.includes('card-lift-on'), 'the deck register merged too');
   assert.ok(!keeps(prose));
 });
 

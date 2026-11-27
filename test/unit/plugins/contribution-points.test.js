@@ -121,14 +121,14 @@ describe('contributes.registers', () => {
   const axes = { frame: ['framed', 'bare'], look: ['pigment', 'etch'] };
   test('a register resolves; a host key or a second owner fails', () => {
     assert.deepEqual(errorsOf([plugin('a', { registers: { badge: { axes } } })]), []);
-    expectError([plugin('a', { registers: { tag: { axes } } })], /declares register "tag", which the host already owns/);
+    expectError([plugin('a', { registers: { 'card-tag': { axes } } })], /declares register "card-tag", which the host already owns/);
     expectError([plugin('a', { registers: { badge: { axes } } }), plugin('b', { registers: { badge: { axes } } })], /register "badge", which plugin "a" already owns/);
   });
   test('a word on two axes fails', () => {
     expectError([plugin('a', { registers: { badge: { axes: { frame: ['bare', 'x'], look: ['bare', 'y'] } } } })], /lists "bare" on both "frame" and "look"/);
   });
   test('every first-party axis register is on the host list, and a plugin\'s is not', () => {
-    for (const key of ['tag', 'backdrop']) assert.ok(HOST_REGISTERS.includes(key), key);
+    for (const key of ['card-tag', 'backdrop']) assert.ok(HOST_REGISTERS.includes(key), key);
     // `spark:` is the sparks plugin's (sparks.manifest.json), so the host must not claim it.
     assert.ok(!HOST_REGISTERS.includes('spark'));
   });

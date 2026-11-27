@@ -328,103 +328,103 @@
    }
   },
   {
-   "name": "stamp: tab",
-   "source": "---\nstamp: tab\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: tab",
+   "source": "---\nstamp-shape: tab\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: notch",
-   "source": "---\nstamp: notch\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: notch",
+   "source": "---\nstamp-shape: notch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: bracket",
-   "source": "---\nstamp: bracket\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: bracket",
+   "source": "---\nstamp-shape: bracket\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: seal",
-   "source": "---\nstamp: seal\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: seal",
+   "source": "---\nstamp-shape: seal\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: pill",
-   "source": "---\nstamp: pill\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: pill",
+   "source": "---\nstamp-shape: pill\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: ribbon",
-   "source": "---\nstamp: ribbon\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: ribbon",
+   "source": "---\nstamp-shape: ribbon\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: flag",
-   "source": "---\nstamp: flag\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: flag",
+   "source": "---\nstamp-shape: flag\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: underline",
-   "source": "---\nstamp: underline\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: underline",
+   "source": "---\nstamp-shape: underline\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: dot",
-   "source": "---\nstamp: dot\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: dot",
+   "source": "---\nstamp-shape: dot\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: mark",
-   "source": "---\nstamp: mark\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: mark",
+   "source": "---\nstamp-shape: mark\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: veil",
-   "source": "---\nstamp: veil\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: veil",
+   "source": "---\nstamp-shape: veil\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: bar",
-   "source": "---\nstamp: bar\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: bar",
+   "source": "---\nstamp-shape: bar\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: pin",
-   "source": "---\nstamp: pin\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: pin",
+   "source": "---\nstamp-shape: pin\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "stamp: (unknown)",
-   "source": "---\nstamp: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "stamp-shape: (unknown)",
+   "source": "---\nstamp-shape: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-stamp",
+      "rule": "unknown-stamp-shape",
       "severity": "warning",
       "slide": 0
      }
@@ -570,47 +570,47 @@
    }
   },
   {
-   "name": "rule: auto",
-   "source": "---\nrule: auto\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: auto",
+   "source": "---\nheading-rule: auto\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "rule: full",
-   "source": "---\nrule: full\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: full",
+   "source": "---\nheading-rule: full\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "rule: short",
-   "source": "---\nrule: short\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: short",
+   "source": "---\nheading-rule: short\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "rule: accent",
-   "source": "---\nrule: accent\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: accent",
+   "source": "---\nheading-rule: accent\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "rule: none",
-   "source": "---\nrule: none\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: none",
+   "source": "---\nheading-rule: none\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "rule: (unknown)",
-   "source": "---\nrule: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "heading-rule: (unknown)",
+   "source": "---\nheading-rule: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-rule",
+      "rule": "unknown-heading-rule",
       "severity": "warning",
       "slide": 0
      }
@@ -666,40 +666,40 @@
    }
   },
   {
-   "name": "headline: auto",
-   "source": "---\nheadline: auto\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "headline-align: auto",
+   "source": "---\nheadline-align: auto\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "headline: left",
-   "source": "---\nheadline: left\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "headline-align: left",
+   "source": "---\nheadline-align: left\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "headline: center",
-   "source": "---\nheadline: center\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "headline-align: center",
+   "source": "---\nheadline-align: center\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "headline: right",
-   "source": "---\nheadline: right\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "headline-align: right",
+   "source": "---\nheadline-align: right\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "headline: (unknown)",
-   "source": "---\nheadline: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "headline-align: (unknown)",
+   "source": "---\nheadline-align: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-headline",
+      "rule": "unknown-headline-align",
       "severity": "warning",
       "slide": 0
      }
@@ -707,26 +707,26 @@
    }
   },
   {
-   "name": "lift: on",
-   "source": "---\nlift: on\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-lift: on",
+   "source": "---\ncard-lift: on\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "lift: off",
-   "source": "---\nlift: off\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-lift: off",
+   "source": "---\ncard-lift: off\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "lift: (unknown)",
-   "source": "---\nlift: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-lift: (unknown)",
+   "source": "---\ncard-lift: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-lift",
+      "rule": "unknown-card-lift",
       "severity": "warning",
       "slide": 0
      }
@@ -837,110 +837,110 @@
    }
   },
   {
-   "name": "tag: color",
-   "source": "---\ntag: color\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: color",
+   "source": "---\ncard-tag: color\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: plain",
-   "source": "---\ntag: plain\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: plain",
+   "source": "---\ncard-tag: plain\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: bare",
-   "source": "---\ntag: bare\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: bare",
+   "source": "---\ncard-tag: bare\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: small",
-   "source": "---\ntag: small\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: small",
+   "source": "---\ncard-tag: small\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: regular",
-   "source": "---\ntag: regular\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: regular",
+   "source": "---\ncard-tag: regular\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: large",
-   "source": "---\ntag: large\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: large",
+   "source": "---\ncard-tag: large\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: corner",
-   "source": "---\ntag: corner\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: corner",
+   "source": "---\ncard-tag: corner\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: foot",
-   "source": "---\ntag: foot\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: foot",
+   "source": "---\ncard-tag: foot\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: notch",
-   "source": "---\ntag: notch\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: notch",
+   "source": "---\ncard-tag: notch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: band",
-   "source": "---\ntag: band\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: band",
+   "source": "---\ncard-tag: band\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: inline",
-   "source": "---\ntag: inline\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: inline",
+   "source": "---\ncard-tag: inline\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: start",
-   "source": "---\ntag: start\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: start",
+   "source": "---\ncard-tag: start\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: center",
-   "source": "---\ntag: center\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: center",
+   "source": "---\ncard-tag: center\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "tag: end",
-   "source": "---\ntag: end\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "card-tag: end",
+   "source": "---\ncard-tag: end\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
    "name": "tag: (unknown)",
-   "source": "---\ntag: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "source": "---\ncard-tag: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-tag",
+      "rule": "unknown-card-tag",
       "severity": "warning",
       "slide": 0
      }
@@ -1140,26 +1140,26 @@
    }
   },
   {
-   "name": "corners: square",
-   "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "slide-corners: square",
+   "source": "---\nslide-corners: square\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "corners: rounded",
-   "source": "---\ncorners: rounded\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "slide-corners: rounded",
+   "source": "---\nslide-corners: rounded\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "corners: (unknown)",
-   "source": "---\ncorners: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "slide-corners: (unknown)",
+   "source": "---\nslide-corners: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-corners",
+      "rule": "unknown-slide-corners",
       "severity": "warning",
       "slide": 0
      }

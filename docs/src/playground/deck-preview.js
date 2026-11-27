@@ -168,7 +168,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// the deck's --border, base.modifiers.css) and needs only the on-screen scale, which the
 		// FIT agent stamps when `slideEdge` asks for it. The LIFT rides the CONTAINER, not the
 		// section: this frame used to give every slide a 6px radius and a box-shadow of its
-		// own, so a square deck previewed rounded — and a `corners-rounded` section's
+		// own, so a square deck previewed rounded — and a `slide-corners-rounded` section's
 		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
 		// slide's painted outline instead, square or rounded.
 		'.lattice{filter:' + slideFrameFilter('card') + ';}';
@@ -180,7 +180,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 	// (`.db-bar`, placed by markPreviewPages in components/playground/reading-page.ts), so it paints over the slide and
 	// takes nothing from it.
 	const barRule = activeBar ? 'body{position:relative;}.db-bar{position:absolute;width:6px;z-index:5;pointer-events:none;display:none;background:' + activeBar + ';}' : '';
-	const activeRule = activeOutline
+	const activeHeadingRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
 	const printCss = printRules ? buildPrintCss(gw, gh, printOpts) : '';
@@ -206,7 +206,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// tiny + jitter. See frame-css.js + engineering/gotchas.md.
 		slideBox(gw, gh) +
 		sectionRule +
-		activeRule +
+		activeHeadingRule +
 		barRule +
 		// HARD RULE #22, stylesheet channel. The engine sheet carries a theme's own
 		// comment header, and a Studio theme's label/description ride in it — so this

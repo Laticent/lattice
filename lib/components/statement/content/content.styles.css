@@ -11,7 +11,7 @@ section.content h2 { padding-bottom:var(--sp-sm); }
  * `.masthead-lede` track is the constraint (it already reserves the right bay). A
  * 72cqi cap used to sit here and held the heading below its band on 21 of 28 measured
  * slides, costing 18 of them an extra line. Framing behavior is the deck's call via
- * the `headline:` alignment register, not a per-component bake. */
+ * the `headline-align:` alignment register, not a per-component bake. */
 /* BODY prose reads at --fs-body, NOT --fs-message, and that is the whole of §3.
  * --fs-message is the SLIDE-STATEMENT tier (statement, quote, lead, divider sub);
  * content is a prose layout, and the type contract assigns "card / list / inline

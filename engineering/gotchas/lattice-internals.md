@@ -1092,7 +1092,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   **It applies only when EVERY arm is one compound that starts with `section` (not `section\.a`, not
   `section|a`) and none mentions `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`)
   filters on a descendant of a section, not on the slide, so it keeps scoping as a descendant and keeps
-  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed rule:
+  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed heading-rule:
   preview 0px, export 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
   `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)`
   bullet below). All are pinned in `css-scope.test.js`, where the guard exempts the companion arm only

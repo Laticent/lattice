@@ -1234,13 +1234,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await waitFor(() => expect(source()).not.toMatch(/chart-finish:/));
 	});
 
-	it('Corners writes and clears the `corners:` register', async () => {
+	it('Corners writes and clears the `slide-corners:` register', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose corners', 'Rounded');
-		await waitFor(() => expect(source()).toMatch(/corners: rounded/));
+		await waitFor(() => expect(source()).toMatch(/slide-corners: rounded/));
 		await pick(user, 'Choose corners', 'Auto — Square'); // back to the baseline → no key
-		await waitFor(() => expect(source()).not.toMatch(/corners:/));
+		await waitFor(() => expect(source()).not.toMatch(/slide-corners:/));
 	});
 
 	// THE list shape every deck picker shares (`withAutoHead`): one `Auto — <resolved>` head,

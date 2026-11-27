@@ -1041,7 +1041,7 @@ function modifiersDoc() {
     '```',
     '',
     `This page lists the ${total} core tokens, in ${Object.keys(UNIVERSAL_GROUPS).length} groups; a layout never has to declare them.`,
-    'They are not the whole vocabulary: card tags (`tag-*`), card lift and rows, stage alignment,',
+    'They are not the whole vocabulary: card tags (`card-tag-*`), card lift and rows, stage alignment,',
     'motion and the front-matter registers add more, each acting only on a layout that has the part',
     'it styles. The complete list, with the part of the slide each group acts on, is',
     '`vocabularies.modifierGroups` in [`reference/components.json`](../reference/components.json).',

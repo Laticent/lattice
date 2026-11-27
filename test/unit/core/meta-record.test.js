@@ -222,7 +222,7 @@ describe('writeMeta on records: the inversion’s cases', () => {
   });
   test('the layout word stays first: register words come after `class`', () => {
     const { readRecord } = require('../../../lib/core/meta-door.mjs');
-    assert.equal(readRecord(' {headline=left, class=stats} ').d.class, 'stats head-left');
+    assert.equal(readRecord(' {headline-align=left, class=stats} ').d.class, 'stats headline-align-left');
     assert.equal(readRecord(' {finish=ledger, layout=cards, class=compact} ').d.class, 'cards compact finish finish-ledger');
   });
 });

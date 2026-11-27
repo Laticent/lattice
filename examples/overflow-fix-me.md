@@ -15,7 +15,7 @@ The red "Overflows" ring names the slide. The yellow tag names the element respo
 
 ---
 
-<!-- @meta{layout=split-compare, class=confidential stamp-pin venue-laptop} -->
+<!-- @meta{layout=split-compare, class=confidential stamp-shape-pin venue-laptop} -->
 
 `Decision Required`
 
@@ -34,7 +34,7 @@ This slide overflows on purpose: in a live preview the ring and the yellow tag l
 
 ---
 
-<!-- @meta{layout=cards-grid, class=wip stamp-flag} -->
+<!-- @meta{layout=cards-grid, class=wip stamp-shape-flag} -->
 
 ## Which card is the actual problem?
 

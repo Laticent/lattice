@@ -117,7 +117,7 @@ test('legacy-directive-comment fires on every deck, as a warning, with the whole
 
 test('legacy-directive-comment: the fix writes what `lattice migrate meta` writes, byte for byte', async () => {
   const { migrateDeckText } = await import('../../../lib/cli/migrate-meta.mjs');
-  const src = deck('<!-- _class: kpi dark -->\n<!-- _footer: Q3 -->\n\n# One', '<!-- {headline=left} -->\n\n# Two', '<!-- _class: dark kpi -->\n\n# Three');
+  const src = deck('<!-- _class: kpi dark -->\n<!-- _footer: Q3 -->\n\n# One', '<!-- {headline-align=left} -->\n\n# Two', '<!-- _class: dark kpi -->\n\n# Three');
   const f = core.lintTextWith(src, VOCAB).find((x) => x.rule === 'legacy-directive-comment');
   assert.equal(core.applyFix(src, f), migrateDeckText(src, VOCAB.names).text);
   assert.equal(await core.applyFixWhenReady(src, f), core.applyFix(src, f));
@@ -205,15 +205,15 @@ test('meta-opener-bare: a wrapped record under a bare opener is still caught', (
 test('meta-record names what the door drops; meta-class-overridden names the class a later comment replaces', () => {
   const found = findMetaCommentIssues(deck('<!-- @meta{layout=kpi, bogus=1} -->\n\n# A', '<!-- @meta{layout=kpi\n-->\n\n# B'));
   assert.deepEqual(found.map((f) => [f.slide, f.rule, f.classToken]), [[1, 'meta-record', 'meta-unknown-key'], [2, 'meta-record', 'unterminated-record']]);
-  const over = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- @meta{headline=left} -->\n\n# A')).filter((f) => f.rule !== 'legacy-directive-comment');
+  const over = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- @meta{headline-align=left} -->\n\n# A')).filter((f) => f.rule !== 'legacy-directive-comment');
   assert.deepEqual(over.map((f) => [f.slide, f.rule]), [[1, 'meta-class-overridden']]);
   assert.match(over[0].message, /`kpi` is dropped/);
   // A record sharing its line with text or another comment is not read; the door's diagnostics are not reported for it.
   assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{layout=kpi, footer=x} --> trailing\n\n# A')).filter((f) => f.rule === 'meta-record'), []);
   // A repeated register field is reported (it would write both words).
-  assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{headline=left, headline=center} -->\n\n# A')).map((f) => f.classToken), ['meta-repeated-key']);
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{headline-align=left, headline-align=center} -->\n\n# A')).map((f) => f.classToken), ['meta-repeated-key']);
   // One comment carrying every word is the fix, and is clean.
-  assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{layout=kpi, headline=left} -->\n\n# A')), []);
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- @meta{layout=kpi, headline-align=left} -->\n\n# A')), []);
   // A running global `class:` and a spot `_class:` are two scopes, not a collision.
   assert.deepEqual(findMetaCommentIssues(deck('<!-- class: kpi -->\n<!-- _class: kpi dark -->\n\n# A')).map((f) => f.rule), ['legacy-directive-comment', 'legacy-directive-comment']);
 });

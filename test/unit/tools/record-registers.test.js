@@ -28,8 +28,8 @@ describe('record registers', () => {
   });
 
   test('a register field reads to its class words; a bad value is reported, never applied', () => {
-    assert.equal(readRecord(' {layout=cards, finish=ledger, headline=left} ').d.class, 'cards finish finish-ledger head-left');
-    const bad = readRecord(' {rule=bogus} ');
+    assert.equal(readRecord(' {layout=cards, finish=ledger, headline-align=left} ').d.class, 'cards finish finish-ledger headline-align-left');
+    const bad = readRecord(' {heading-rule=bogus} ');
     assert.equal(bad.d.class, undefined);
     assert.equal(bad.diagnostics[0].code, 'meta-field-value');
   });
