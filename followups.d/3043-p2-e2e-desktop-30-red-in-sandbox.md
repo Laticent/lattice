@@ -2,7 +2,7 @@
 origin: 3043
 priority: P2
 recorded: 2026-11-05
-updated: 2026-11-21
+updated: 2026-11-27
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
@@ -17,7 +17,15 @@ state     — 2026-11-06 a full desktop run on `main` 8a755f69 ended 1,227 passe
             causes, each with its evidence in that PR; the last of those fixes is kept below.
 open      — deck-register-gap.spec.ts:99 (desktop): red only under full-suite load, 0 of 8 runs at 4 workers, cause
             unknown. #3307 owns it.
-            WebKit and Gecko, the paragraphs below (another session owns those projects).
+            compose-avatar-icon-editor.spec.ts:122 (mobile-touch, the `@parity` tap test): red once, in a full
+            all-projects run on PR #3480's merged tree (main 7c252ae + the PR), 2026-11-27: the tap on the avatar
+            never showed the popover within 15 s. It passed every run after that: 10 of 10 alone (--repeat-each=10),
+            5 of 5 at --workers=4 --repeat-each=5, and 15 of 15 at --workers=4 with two extra CPU-burning processes
+            on a fresh `build:e2e` of e9be16e. Cause unknown; no claim on it. The owner chose to record it here
+            rather than hold #3480 (2026-11-27).
+            WebKit and Gecko, the paragraphs below (another session owns those projects). The same #3480 run also
+            met plugin-admission.spec.ts:375 (webkit-tablet, Preview button click timeout) and
+            compose-layout-button.spec.ts:85 (gecko), red once each and green alone and under load since.
 cleared   — 2026-11-21, branch claude/chromium-e2e-flake-triage, on main 450df6d with a fresh `build:e2e`, the desktop,
             tablet and mobile projects, --retries=0, whole spec files: 4 workers x2 and x8 under load, and 1 worker x5
             alone. Every Chromium item still listed here passed every run, so each is stale:
