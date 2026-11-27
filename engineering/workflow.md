@@ -3184,7 +3184,8 @@ archives a session only when all of these hold, read fresh in the same run, with
 `get_session` called immediately before `archive_session`:
 
 1. It is not the command center, not a desk (`desk:*`), not `ui:pinned`, and no scheduled
-   task names it in `persistent_session_id`.
+   task names it in `persistent_session_id`. No live desk names it as the owner of an open
+   item either (the flake desk routes a flake's next red run to the session that fixed it).
 2. It is idle, and its `updated_at` is at least 60 minutes old, or it has answered check
    4(b) since it last worked.
 3. Every PR it owns is merged or closed, no 🚦 card of its waits on the owner, and its
