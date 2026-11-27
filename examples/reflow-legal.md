@@ -2,11 +2,11 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · legal bucket reflow"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Legal layouts that read down the page.
 
@@ -18,7 +18,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: statute-stack -->
+<!-- @meta{layout=statute-stack} -->
 
 ## Children's data — three jurisdictions, three obligations.
 
@@ -37,7 +37,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## COPPA — the chain, tier by tier.
 
@@ -56,7 +56,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: regulatory-update -->
+<!-- @meta{layout=regulatory-update} -->
 
 ## Privacy and AI motion — Q1 2026.
 
@@ -81,7 +81,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## What counts as "personal information" under CCPA.
 
@@ -95,7 +95,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: citation-card split -->
+<!-- @meta{layout=citation-card, class=split} -->
 
 ## CCPA defines "sale" broadly.
 
@@ -108,7 +108,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: citation-card triptych -->
+<!-- @meta{layout=citation-card, class=triptych} -->
 
 ## What "personal data" covers under GDPR.
 
@@ -123,7 +123,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: citation-card margin -->
+<!-- @meta{layout=citation-card, class=margin} -->
 
 ## The GDPR lawful-basis test.
 
@@ -136,7 +136,7 @@ deck. Landscape renders byte-identically.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Same markup, two orientations.
 

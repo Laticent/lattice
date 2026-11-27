@@ -35,7 +35,9 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
-import { migrateMetaSource } from '../../lib/cli/meta-migrate.mjs';
+import { migrateMetaSource } from '../../lib/authoring/meta-migrate.mjs';
+import { META_KIT } from '../../lib/cli/migrate-meta.mjs';
+import { slideClassValue } from '../../lib/core/class-entries.mjs';
 import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
@@ -140,7 +142,8 @@ function stressDeck(times) {
 
 function hubSpokeDeck(tieredCopies) {
   const gallery = readFileSync(join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.gallery.md'), 'utf8');
-  const tiered = gallery.split('\n---\n').find((s) => /_class: hub-spoke tiered/.test(s));
+  // The slide's class through the engine's own reader: the gallery is written in `@meta` records since the meta sweep.
+  const tiered = gallery.split('\n---\n').find((s) => { const w = slideClassValue(s).split(/\s+/); return w.includes('hub-spoke') && w.includes('tiered'); });
   if (!tiered) throw new Error('hub-spoke.gallery.md has no tiered slide — the hub-spoke dataset would measure the wrong thing');
   return gallery + Array.from({ length: tieredCopies }, () => `\n---\n${tiered}`).join('');
 }
@@ -172,7 +175,7 @@ const datasets = [
   // records (`<!-- {class=cards} -->`) instead of directive comments, so the pair says what the door
   // and the token expansion cost against the comments they replace. The claim is "no slower than comments, within the
   // variance band" (HARD RULE #19); the jargon row above is the comment arm, rendered from the same source.
-  { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon).source, theme: 'crepuscolo' },
+  { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon, { kit: META_KIT }).source, theme: 'crepuscolo' },
 ];
 // The datasets the BROWSER tiers (export, print) skip.
 //
@@ -443,7 +446,7 @@ const EDIT_BURST = 12;
 // browser's lint core keeps its own reader without it, by the owner's decision of 2026-11-06). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
 async function studioBoundaryReaders() {
   try {
-    const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-markdown')]);
+    const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-languages/markdown')]);
     // The memo's deriver (absent in a tree that predates it).
     const dm = await import('../../lib/core/deck-model.mjs');
     if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);
@@ -632,7 +635,7 @@ async function flowchartTier() {
   // Trama's built kernel (the graph-chart library), or, on a tree from before Trama, the
   // kernel's old home in the chart family, so a base arm cut from an older main still runs.
   const kernelPath = [
-    join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
+    join(ROOT, 'docs/src/lib/trama/dist/index.mjs'),
     join(ROOT, 'lib/plugins/chart-family/shared/graph-layout.js'),
   ].find((p) => existsSync(p));
   if (!kernelPath) return { summary: [] };
@@ -714,7 +717,7 @@ async function collageTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
   const packPath = join(ROOT, 'lib/components/imagery/collage/collage.pack.js');
-  const libPath = join(ROOT, 'docs/src/lib/mosaico/dist/index.cjs');
+  const libPath = join(ROOT, 'docs/src/lib/mosaico/dist/index.mjs');
   if (!existsSync(packPath) || !existsSync(libPath)) {
     console.log('\n=== COLLAGE PACK \u00b7 not comparable (no @laticent/mosaico in this tree) ===');
     return { summary: [] };
@@ -762,7 +765,7 @@ const SPLIT_SIZES = ['square', 'portrait', 'mobile'];
 async function splitTier() {
   const { createRequire } = await import('node:module');
   const req = createRequire(import.meta.url);
-  const fluidoPath = join(ROOT, 'docs/src/lib/fluido/dist/index.cjs');
+  const fluidoPath = join(ROOT, 'docs/src/lib/fluido/dist/index.mjs');
   if (!existsSync(fluidoPath)) {
     console.log('\n=== SPLIT \u00b7 not comparable (no @laticent/fluido in this tree) ===');
     return { summary: [] };
@@ -828,7 +831,7 @@ function timeRuns(n, fn) {
   return median(out);
 }
 async function filoTier() {
-  const libPath = join(ROOT, 'docs/src/lib/filo/dist/index.cjs');
+  const libPath = join(ROOT, 'docs/src/lib/filo/dist/index.mjs');
   if (!existsSync(libPath) || !existsSync(FILO_DECK)) {
     console.log('\n=== FILO · not comparable (no built @laticent/filo, or no deck, in this tree) ===');
     return { summary: [] };

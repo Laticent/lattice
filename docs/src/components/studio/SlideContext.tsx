@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
+import { classFields } from '../../../../lib/core/meta-comment.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { switchOn } from '../../../../lib/core/switches.mjs';
 import chromeGenerated from '../../../../lib/packages/chrome.generated.js';
@@ -32,6 +33,7 @@ import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGr
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { autoSelected, type CatalogGroup, type CatalogOption, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import { CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -40,7 +42,6 @@ import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
-import { DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import type { SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -384,7 +385,6 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
-	const isRecord = React.useMemo(() => readClassDirective(chunk).record === true, [chunk]);
 	const has = (t: string) => tokens.includes(t);
 	const component = tokens[0] ?? '';
 	const entry = catalog.find((c) => c.name === component);
@@ -400,7 +400,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// `class:` tokens with the slide's own, through the one precedence (`with-X` > `no-X` > `silent`).
 	// Flipping it writes the least the slide needs: `no-X` when the deck shows the band, `with-X` when
 	// the deck (or the slide's `silent`) hides it, and neither when the slide's wish IS the deck's.
-	// With no switch token, the page number follows what the ENGINE does: the deck's `paginate:` and
+	// With no switch token, the page number follows what the ENGINE does: the deck's `pagination:` and
 	// the layout's own default (title, divider and closing show none), by lib/core/pagination.js, the
 	// rule the engine uses. The other rows read the switch itself: `with-progress` cannot make a rail
 	// in a deck with no divider, nor `with-logo` a logo the deck never set, so those rows say what the
@@ -408,7 +408,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// The page-number fallback is lib/core/pagination.js `slidePaginates`, restated over the same
 	// generated table: that file has requires of its own, which the dev server's CJS shim refuses.
 	const shownWith = (name: string, list: string[]) =>
-		switchOn(name, list, name !== 'pagination' || (!list.some((t) => NO_PAGINATION.includes(t)) && paginateOn(getFrontMatter(source, 'paginate'))));
+		switchOn(name, list, name !== 'pagination' || (!list.some((t) => NO_PAGINATION.includes(t)) && paginateOn(getFrontMatter(source, 'pagination'))));
 	const switchHidden = (name: string) => !shownWith(name, [...deck.classTokens, ...tokens]);
 	const setSwitchHidden = (name: string, hide: boolean) => onMutate((c) => {
 		const own = getClassTokens(c).filter((t) => t !== `no-${name}` && t !== `with-${name}`);
@@ -609,17 +609,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
 	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
 	// Chart finish — its own axis rather than overrideAxis, because its default (`pigment`) is ALSO a
-	// real per-slide choice: inside a `tone` deck, `marks-pigment` is how one slide asks for the
+	// real per-slide choice: inside a `tone` deck, `chart-finish-pigment` is how one slide asks for the
 	// default. So the head follows the deck and every OTHER finish stays in the list. Shown on chart
 	// slides only.
-	// Any token, not only the first: `_class: marks-tone bar` is a chart slide too.
+	// Any token, not only the first: `_class: chart-finish-tone bar` is a chart slide too.
 	const isChart = tokens.some((t) => catalog.find((c) => c.name === t)?.bucket === 'chart');
 	const marksProv = React.useMemo(() => marksProvenance(chunk, source), [chunk, source]);
 	const marksOpt = React.useMemo(() => {
-		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_MARKS;
-		// A slide token that restates the deck (`marks-pigment` in a deck with no finish, or
+		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_CHART_FINISH;
+		// A slide token that restates the deck (`chart-finish-pigment` in a deck with no finish, or
 		// the deck's own value) is what the head already says, so it selects the head.
-		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(MARKS_FINISHES) }], { value: deck }) };
+		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(CHART_FINISHES) }], { value: deck }) };
 	}, [marksProv]);
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
@@ -822,7 +822,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{isChart && (
-								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: marks-*</code>.</>}>
+								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: chart-finish-*</code>.</>}>
 									<Picker ariaLabel="Marks" value={marksOpt.value} onChange={onMarks} groups={marksOpt.groups} />
 								</Row>
 							)}
@@ -1005,7 +1005,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							{!editable && (
 								<SettingsBlock terms="hand authored class read only yaml" className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
-									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({{ 'array-form': 'a YAML array', record: 'a slide record', duplicate: 'more than one _class comment' }[readClassDirective(chunk).reason ?? 'duplicate']}), so the look/status controls are hidden. Edit it directly in the markdown.
+									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({{ 'array-form': 'a YAML array', record: 'a slide record', duplicate: 'set in more than one place', nested: 'a comment inside a quote or a list', deck: 'a deck-wide setting', compound: 'one comment holding a second setting, which the class swallows' }[readClassDirective(chunk).reason ?? 'duplicate']}), so the look/status controls are hidden. Edit it directly in the markdown.
 								</SettingsBlock>
 							)}
 						</div>
@@ -1272,15 +1272,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 				</SettingsFind>
 				</div>
 
-				{/* The emitted directive, in the form this slide is written in (a record or a `_class` comment) — teach the grammar. Inherited deck tokens ghosted. */}
+				{/* The emitted record, `<!-- @meta{layout=…} -->`, the one form the Studio writes (record note §15) — teach the grammar. Inherited deck tokens ghosted. */}
 				<div className="border-t border-border bg-[color-mix(in_srgb,var(--accent-soft)_50%,var(--bg))] px-4 py-2.5">
 					<div className="font-mono text-[11px] leading-relaxed text-[var(--text-heading)]">
 						{tokens.length || inheritedGhost.length ? (
 							<>
-								<span className="text-muted-foreground">{isRecord ? '<!-- {class=' : '<!-- _class: '}</span>
-								{tokens.join(' ')}
+								<span className="text-muted-foreground">{'<!-- @meta{'}</span>
+								{classFields(tokens.join(' ')).join(', ')}
 								{inheritedGhost.length > 0 && <span className="opacity-45"> {inheritedGhost.join(' ')}</span>}
-								<span className="text-muted-foreground">{isRecord ? '} -->' : ' -->'}</span>
+								<span className="text-muted-foreground">{'} -->'}</span>
 							</>
 						) : <span className="text-muted-foreground">no class — bare markdown slide</span>}
 					</div>

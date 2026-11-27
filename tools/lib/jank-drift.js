@@ -18,7 +18,7 @@
  * The far edge is constant on all twelve pages; at page 10 the numeral gains a digit and
  * the near edge steps back 9px. The old measure called that `DRIFT 9.0px horizontal` and
  * exited 1 — a false verdict against the most widely shipped running mark in the engine,
- * which had never been measured at all before, because rendering it needs `paginate: true`
+ * which had never been measured at all before, because rendering it needs `pagination: true`
  * front matter the sweep deck could not carry.
  *
  * The figure is 9, not 8.99: `check-jank` rounds every coordinate to one decimal before the

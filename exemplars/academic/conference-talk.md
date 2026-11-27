@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Rumor cascades · Conference talk"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `WebSci '26 · Session 4B · 12 min`
@@ -17,7 +17,7 @@ A structural signature of misinformation cascades, learned from 1.2M shares.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We can flag a viral rumor in its first hour — from shape alone, not content.
@@ -26,7 +26,7 @@ Corrections always lag the rumor they chase. We asked whether the *structure* of
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The problem: by the time a rumor is labeled false, it has already arrived.
@@ -38,7 +38,7 @@ On the platform we study, the median verified rumor reaches 60% of its eventual 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Our claim: false cascades are structurally distinct from true ones, early.
@@ -47,7 +47,7 @@ True news spreads broad and shallow — many people share it once. Rumors spread
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Method: 1.2M shares across 4,300 labeled cascades, modeled as growing trees.
@@ -59,7 +59,7 @@ We reconstructed each cascade as a reshare tree, sampled it at fixed time slices
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 <!-- tier: short -->
 
 `[{Structural features, 0..10}]`
@@ -83,7 +83,7 @@ We reconstructed each cascade as a reshare tree, sampled it at fixed time slices
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Held-out 2025 test set · n = 1,040 cascades`
@@ -103,7 +103,7 @@ We reconstructed each cascade as a reshare tree, sampled it at fixed time slices
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The single most predictive feature is structural virality, not volume.
@@ -115,7 +115,7 @@ Raw share count barely helps — popular true stories look popular too. What sep
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Ablation: drop the bot-account features and performance barely moves.
@@ -124,7 +124,7 @@ We worried the model was just an automation detector. Removing every bot-related
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Threats to validity we want you to push on.
@@ -136,7 +136,7 @@ The labels come from English-language fact-checkers; the signature may not trans
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## What changes if you can flag a rumor at hour one instead of hour eleven.
@@ -148,9 +148,9 @@ A ten-hour head start moves the intervention from cleanup to containment — fri
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Rumors have a shape — and the shape shows up before the truth does.

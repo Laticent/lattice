@@ -2,7 +2,7 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · math splits on structure"
 footer: "Engineering"
 acronyms:
@@ -12,7 +12,7 @@ acronyms:
   IVT: "intermediate value theorem"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `math · #2136 · four structures, not eight variants`
 
@@ -22,7 +22,7 @@ Every math slide after this one is at `size: portrait`, where the split fires. E
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What each structure does when the box gets tall
 
@@ -37,7 +37,7 @@ Every math slide after this one is at `size: portrait`, where the split fires. E
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Linear regression · OLS`
 
@@ -52,7 +52,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: math feature -->
+<!-- @meta{layout=math, class=feature} -->
 
 `Logistic regression · MLE`
 
@@ -67,7 +67,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math derivation -->
+<!-- @meta{layout=math, class=derivation} -->
 
 `Chain rule · four steps`
 
@@ -81,7 +81,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math theorem -->
+<!-- @meta{layout=math, class=theorem} -->
 
 `Continuity · IVT`
 
@@ -95,7 +95,7 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 
 ---
 
-<!-- _class: math compare -->
+<!-- @meta{layout=math, class=compare} -->
 
 `Estimators · asymptotics`
 
@@ -115,7 +115,7 @@ Biased, lower variance. The penalty $\lambda$ buys stability when $X^\top X$ is 
 
 ---
 
-<!-- _class: math stats -->
+<!-- @meta{layout=math, class=stats} -->
 
 `Effect size · the reading`
 

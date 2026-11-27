@@ -1,0 +1,24 @@
+# 📶 Completion meter: a desk's own report. Render: npm run card -- engineering/card-examples/meter.yml
+# Stage weights: not-started 0 · working 0.25 · pr-open 0.5 · green (🚦 card posted) 0.75
+#                queued 0.9 · merged 1 · closed 0, or 1 when `dropped` gives a reason.
+# An item with a `pr` takes its stage from GitHub; only an item with no PR is
+# not-started or working. The same `meter:` block goes on the desk's fleet item.
+# `previous` is the last report's date, percent and ids: "+N new" and any drop come from it.
+card: meter
+title: 🚢 Release 1.0.0
+meter:
+  today: 2026-11-23
+  previous:
+    date: 2026-11-23
+    percent: 85
+    ids: [B1, B2, B3, B4, B5, B6, B7]
+  items:
+    - { id: B1, title: changelog fold, pr: 3390, stage: merged, merged: 2026-11-20 }
+    - { id: B2, title: dist-kits branch, pr: 3402, stage: merged, merged: 2026-11-22 }
+    - { id: B3, title: npm provenance, pr: 3409, stage: merged, merged: 2026-11-22 }
+    - { id: B4, title: release notes draft, pr: 3431, stage: merged, merged: 2026-11-23 }
+    - { id: B5, title: publishable libraries, pr: 3451, stage: merged, merged: 2026-11-23 }
+    - { id: B6, title: dry run green, pr: 3455, stage: queued }
+    - { id: B7, title: README install path, pr: 3458, stage: pr-open }
+    - { id: B8, title: license audit, pr: 3460, stage: pr-open }
+    - { id: B9, title: Segno rename, stage: not-started, blocking: true }

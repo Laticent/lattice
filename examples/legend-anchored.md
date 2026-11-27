@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · callout plugin · anchored labels"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Labels a chart did not have
 
@@ -15,8 +15,8 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Before · a heatmap with no callout. The reader has to find the drop-off alone." -->
+<!-- @meta{layout=heatmap, footer=Before · a heatmap with no callout. The reader has to find the drop-off alone.} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -31,8 +31,8 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "The default: the first callout is a circle with its number, on the cell and again before the words." -->
+<!-- @meta{layout=heatmap, footer="The default: the first callout is a circle with its number, on the cell and again before the words."} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -49,8 +49,8 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "The pill's words pick the marker: {…, tag, c4} is the square in color slot 4." -->
+<!-- @meta{layout=heatmap, footer="The pill's words pick the marker: {…, tag, c4} is the square in color slot 4."} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -67,8 +67,8 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "A list of records. Two on one row stay apart: each has its own shape and color, and nothing crosses the grid." -->
+<!-- @meta{layout=heatmap, footer="A list of records. Two on one row stay apart: each has its own shape and color, and nothing crosses the grid."} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -85,8 +85,8 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap scale -->
-<!-- _footer: "With the band key. The key and the callout each sit on the side that leaves the grid largest." -->
+<!-- @meta{layout=heatmap, class=scale, footer=With the band key. The key and the callout each sit on the side that leaves the grid largest.} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -103,9 +103,9 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- stress-slide -->
-<!-- _footer: "Stress · seven by twelve. No room inside a cell, so every marker takes the same badge spot." -->
+<!-- @meta{layout=heatmap, stress-slide, footer="Stress · seven by twelve. No room inside a cell, so every marker takes the same badge spot."} -->
+
+
 
 `Usage · hour by weekday`
 
@@ -125,9 +125,9 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: heatmap -->
-<!-- stress-slide -->
-<!-- _footer: "Stress · ten rows of four-digit values: no room for a digit, so each cell carries its shape alone." -->
+<!-- @meta{layout=heatmap, stress-slide, footer="Stress · ten rows of four-digit values: no room for a digit, so each cell carries its shape alone."} -->
+
+
 
 `Revenue · region by month, $K`
 
@@ -150,7 +150,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ---
 
-<!-- _class: statement -->
+<!-- @meta{class=statement} -->
 
 ## One line of Markdown, every surface: the slide, the hover card, the speaker note, narration.
 

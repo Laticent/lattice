@@ -1,6 +1,6 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 progress-rail: on
 glossary: auto
 acronyms:
@@ -8,13 +8,13 @@ acronyms:
     definition: Annual recurring revenue
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## A
 
@@ -26,7 +26,7 @@ ARR grew this year.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## B
 

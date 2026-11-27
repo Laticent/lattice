@@ -542,10 +542,10 @@ describe('edit protocol — what the trio found', () => {
 
   test('deleting the last remaining slide leaves the FRONT MATTER intact', async () => {
     const { applyEditChecked } = await load();
-    const deck = '---\ntheme: indaco\npaginate: true\n---\n\n# Only\n';
+    const deck = '---\ntheme: indaco\npagination: true\n---\n\n# Only\n';
     const r = applyEditChecked(deck, { action: 'delete', slide: 1 });
     assert.equal(r.ok, true);
-    assert.match(r.source, /^---\ntheme: indaco\npaginate: true\n---/); // used to eat the closing ---
+    assert.match(r.source, /^---\ntheme: indaco\npagination: true\n---/); // used to eat the closing ---
     assert.doesNotMatch(r.source, /# Only/);
   });
 

@@ -1,4 +1,4 @@
-import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -24,15 +24,15 @@ import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-histo
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
-import { classifyMedia, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
+import { classifyMedia, importVideo, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
 import { importPhotoBatch } from './media-import-batch';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_HEADER, LIBRARY_KINDS, LIBRARY_SECTIONS, type LibraryFilter, type LibrarySection, sectionFilter, sectionOf } from './panel-shells';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
-import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
-import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { formatBytes, REF_DOC_ACCEPT } from './reference-doc';
+import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, refDocDeckFile, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
@@ -69,8 +69,12 @@ function fmtDate(ts: number): string {
 	}
 }
 
-/** Everything the one Import picker offers: a package archive, photos and clips, and reference files. */
-const IMPORT_ACCEPT = `.zip,${LIBRARY_MEDIA_ACCEPT},${REF_DOC_ACCEPT}`;
+// The one Import picker names NO `accept`, on every device. iOS maps each `accept` entry to a system file type and
+// grays out whatever matches none, and it has no type for `.lattice`, so any list kept a deck out of reach on an
+// iPhone (2026-11-20). A device sniff to drop the list only there did not hold on the owner's phone, so there is no
+// sniff and no list: the bytes decide where a file goes (`classifyDropped`, then library-deck-ref.ts `routeByBytes`),
+// and a file nothing takes is named in the toast. With no `accept`, an iPhone's own sheet still offers Photo Library,
+// Take Photo or Video, and Choose Files (owner's iPhone, 2026-11-21).
 
 /** The reference-file extensions the picker accepts, as a lower-cased set. */
 const REF_DOC_EXTS = new Set(
@@ -79,8 +83,14 @@ const REF_DOC_EXTS = new Set(
 
 const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerCase();
 
+/** Extensions the deck reader takes and the reference reader does not: the project file, a PowerPoint, a Lattice
+ *  webpage and MDX. Each goes through the deck reader (deck-import.ts), which names a file that is no deck (a webpage
+ *  Lattice did not export). A `.zip` may be a deck or a package, so its bytes decide (library-deck-ref.ts
+ *  `routeByBytes`); a `.md` or `.pdf` stays a reference file that may also open as a deck. */
+const DECK_EXTS = new Set(['.lattice', '.pptx', '.html', '.htm', '.mdx']);
+
 /**
- * Split a dropped set into the Library's two existing ingests, plus what neither takes.
+ * Split a dropped set into the Library's ingests, plus what none takes.
  *
  * Keyed on EXTENSION, not on the picker that would have been used: dropping is one
  * gesture for every kind, so a `.zip` imports and a `.md` attaches regardless of which
@@ -88,32 +98,34 @@ const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerC
  * the drag wiring around it is verified on the real Studio, but which file goes where
  * is plain logic and belongs in a unit test.
  */
-export function classifyDropped(files: File[]): { zips: File[]; docs: File[]; images: File[]; rejected: File[] } {
+export function classifyDropped(files: File[]): { zips: File[]; decks: File[]; docs: File[]; images: File[]; rejected: File[] } {
 	const zips: File[] = [];
+	const decks: File[] = [];
 	const docs: File[] = [];
 	const images: File[] = [];
 	const rejected: File[] = [];
 	for (const f of files) {
 		const ext = extOf(f.name);
 		if (ext === '.zip') zips.push(f);
+		else if (DECK_EXTS.has(ext)) decks.push(f);
 		else if (REF_DOC_EXTS.has(ext)) docs.push(f);
 		else if (classifyMedia(f)) images.push(f);
 		else rejected.push(f);
 	}
-	return { zips, docs, images, rejected };
+	return { zips, decks, docs, images, rejected };
 }
 
 /**
  * Where the Library should open after a batch lands: the one place it all belongs, or All when it
  * spans kinds. A package archive goes to Design, a photo to Images, a clip to Videos, a mix of the
- * two to Media, a reference file to Files. `null` when nothing in the batch can be added.
+ * two to Media, a reference file or a deck to Files. `null` when nothing in the batch can be added.
  */
-export function landingFilter(c: { zips: File[]; docs: File[]; images: File[] }): LibraryFilter | null {
+export function landingFilter(c: { zips: File[]; decks?: File[]; docs: File[]; images: File[] }): LibraryFilter | null {
 	const clips = c.images.filter((f) => classifyMedia(f) === 'video').length;
 	const photos = c.images.length - clips;
 	const kinds: LibraryFilter[] = [];
 	if (c.zips.length) kinds.push('design');
-	if (c.docs.length) kinds.push('refdoc');
+	if (c.docs.length || c.decks?.length) kinds.push('refdoc');
 	if (photos && clips) kinds.push('media');
 	else if (photos) kinds.push('image');
 	else if (clips) kinds.push('video');
@@ -129,7 +141,7 @@ export function landingFilter(c: { zips: File[]; docs: File[]; images: File[] })
 export function rejectedMessage(names: string[]): string {
 	const shown = names.slice(0, 3).join(', ');
 	const rest = names.length > 3 ? ` and ${names.length - 3} more` : '';
-	return `Can't add ${shown}${rest} — drop a .zip, an image, a video, or ${REF_DOC_ACCEPT}.`;
+	return `Can't add ${shown}${rest} — drop a deck (.lattice, .pptx), a .zip, an image, a video, or ${REF_DOC_ACCEPT}.`;
 }
 
 /**
@@ -221,7 +233,7 @@ function FilterRow({ icon, label, desc, count, on, onPick }: { icon: React.React
 	);
 }
 
-export function Library({ open, onOpenChange, docked, onCollapse, options, activePalette, activeFinish, initialFilter, filterRequest, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, onCollapse, options, activePalette, activeFinish, initialFilter, filterRequest, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onOpenDeck, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal). Compact: omit →
@@ -257,6 +269,10 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	onEditComponent?: (c: StudioComponent) => void;
 	onEditFinish?: (f: StudioFinish) => void;
 	onEditMotion?: (m: StudioScene) => void;
+	/** "Open as deck" on a deck kept as reference: the shell's own deck import (StudioShell `importDeckFile`), the
+	 *  path "Import deck…" takes, so a deck opened from here meets the same reader and the same gates. Without it the
+	 *  card shows no such action. */
+	onOpenDeck?: (file: File) => void;
 	onChanged: () => void;
 	/** Replace the open deck's markdown (the shell owns it live). Used when a photo's decks are rewritten to its new name. */
 	onReplaceSource: (source: string) => void;
@@ -539,6 +555,8 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	// lattice assets), so refdoc cards carry no selection checkbox.
 	function downloadDoc(d: RefDocRecord) {
 		try {
+			// A deck downloads as the file it was: its reference text under `deck.lattice` would be neither.
+			if (d.deck) { download(d.deck, d.name); return; }
 			const pdfBytes = refDocBlob(d);
 			if (d.docKind === 'pdf' && !pdfBytes) { notify('Could not download that doc.'); return; } // don't ship a 0-byte .pdf
 			const blob = d.docKind === 'pdf' && pdfBytes ? pdfBytes : new Blob([d.text ?? ''], { type: 'text/plain' });
@@ -550,24 +568,46 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	function removeDoc(d: RefDocRecord) {
 		deleteRefDoc(d.id).then(() => { reload(); notify(`Deleted ${d.name}.`); });
 	}
-	async function addDocFiles(files: FileList | File[] | null) {
-		if (!files?.length) return;
+	// A reference file and a deck share one shelf: a deck lands as its slide text and speaker notes, and keeps its
+	// file for "Open as deck" (library-deck-ref.ts). Per FILE, so one broken deck names itself and the rest still land.
+	async function addDocFiles(files: File[], decks: File[] = []) {
+		if (!files.length && !decks.length) return;
 		markFresh();
 		setBusy('Adding…');
 		let n = 0;
+		const notes: string[] = [];
+		const failed: string[] = [];
 		try {
-			for (const file of Array.from(files)) {
-				const d = await readReferenceDoc(file);
-				await saveRefDoc(d, Date.now());
-				n++;
-			}
+			const { readDeckReference, readLibraryReference } = await import('./library-deck-ref');
+			const one = async (file: File, asDeck: boolean) => {
+				try {
+					const r = asDeck ? await readDeckReference(file) : await readLibraryReference(file);
+					await saveRefDoc(r.doc, Date.now(), { deck: r.deck, sourceExact: r.sourceExact });
+					if (r.note) notes.push(r.note);
+					n++;
+				} catch (e) {
+					failed.push(`${file.name}: ${String((e as Error)?.message || 'could not be read')}`);
+				}
+			};
+			for (const file of decks) await one(file, true);
+			for (const file of files) await one(file, false);
 			reload();
-			notify(`Added ${n} reference doc${n === 1 ? '' : 's'}.`);
+			const detail = [...notes, ...failed].join('\n') || undefined;
+			if (n) notify(`Added ${n} reference ${n === 1 ? 'file' : 'files'}.`, { description: detail });
+			else notify(failed.length === 1 ? failed[0] : 'Could not add those files.', { description: failed.length > 1 ? detail : undefined });
 		} catch (e) {
+			// The reader itself did not load (a stale tab after a deploy): nothing was added.
 			notify(String((e as Error)?.message || 'Could not add that file.'));
 		} finally {
 			setBusy(null);
 		}
+	}
+	function openDoc(d: RefDocRecord) {
+		const file = refDocDeckFile(d);
+		if (!file || !onOpenDeck) return;
+		onOpenDeck(file);
+		// A sheet would sit over the deck that just opened; a docked Library stays where it is.
+		if (!docked) onOpenChange(false);
 	}
 
 	// Images (engineering/decisions/2026-10-12-library-media-assets.md). Each file is decoded,
@@ -911,15 +951,33 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	// the SAME two functions rather than growing a third ingest: `unpackBundle` already
 	// normalizes a component skeleton's line endings on the way in
 	// (SANCTIONED_EOL_BOUNDARIES), and `readReferenceDoc` already owns the size/kind
-	// rules. A second parser here would be a second set of both.
+	// rules. A second parser here would be a second set of both. A deck is not a third
+	// parser either: the deck importer reads it (library-deck-ref.ts), and it lands as a
+	// reference file beside the others.
 	//
-	// The kind is decided by EXTENSION, not by the picker that would have been used:
+	// The kind is decided by EXTENSION first, not by the picker that would have been used:
 	// dropping is one gesture for every kind, so a `.zip` imports and a `.md` attaches
-	// regardless of which filter tab happens to be showing. Anything else is named in
+	// regardless of which filter tab happens to be showing. A `.zip` and an unknown
+	// extension are then read: a zip holding a deck is a deck. Anything else is named in
 	// the toast rather than silently ignored — a drop that does nothing reads as broken.
 	async function acceptDropped(files: File[]) {
-		const picked = classifyDropped(files);
-		const { zips, docs, images, rejected } = picked;
+		const byName = classifyDropped(files);
+		const { docs, images } = byName;
+		let { zips, decks, rejected } = byName;
+		// A `.zip` is a deck or a package, and a file with an extension nothing takes may be a deck that lost its name:
+		// the bytes decide (library-deck-ref.ts). Loaded only when such a file is in the batch.
+		if (zips.length || rejected.length) {
+			try {
+				const { routeByBytes } = await import('./library-deck-ref');
+				const settled = await routeByBytes({ zips, rejected });
+				zips = settled.zips;
+				decks = [...decks, ...settled.decks];
+				rejected = settled.rejected;
+			} catch {
+				// The reader did not load: the extension's answer stands, as it did before bytes were read.
+			}
+		}
+		const picked = { zips, decks, docs, images, rejected };
 		// Take the person to what they just added, before the slow part starts. A mixed batch lands on All,
 		// where the newest items sort first.
 		const target = landingFilter(picked);
@@ -927,8 +985,8 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			setQuery('');
 			React.startTransition(() => setFilter(target));
 		}
-		if (zips.length) await importFiles(zips, { keepFilter: docs.length + images.length > 0 });
-		if (docs.length) await addDocFiles(docs);
+		if (zips.length) await importFiles(zips, { keepFilter: docs.length + decks.length + images.length > 0 });
+		if (docs.length || decks.length) await addDocFiles(docs, decks);
 		if (images.length) addMediaFiles(images);
 		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
 	}
@@ -1036,14 +1094,13 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 		<>
 			{phone || searchShown ? null : <PanelSearchButton label="Search library" onClick={() => setSearchOpen(true)} />}
 					{/* ONE import, the same on every tab. The kind of file decides where it goes; the person only
-					    chooses files. No `capture` attribute, so a phone's sheet offers Photo Library, Take Photo
-					    or Video and Choose Files. */}
-					<Tip label="Import files, photos or a package (.zip)"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => importRef.current?.click()} aria-label="Import files"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
+					    chooses files. No `accept` (a list grays out a `.lattice` on iOS; see `classifyDropped`) and no
+					    `capture` (a `capture` skips the choice and opens the camera). */}
+					<Tip label="Import files, photos, decks or a package (.zip)"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => importRef.current?.click()} aria-label="Import files"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
 					<input
 						ref={importRef}
 						type="file"
 						data-testid="library-import-input"
-						accept={IMPORT_ACCEPT}
 						multiple
 						hidden
 						onChange={(e) => {
@@ -1207,10 +1264,13 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const renderDoc = (d: RefDocRecord) => (
 			// Reference doc — manage-only card (no select/share; docs aren't lattice assets).
 			<div key={`refdoc:${d.id}`} className={cn('relative overflow-hidden rounded-xl border bg-card', isFresh(d.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
-				<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
+				<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.deck ? 'DECK' : d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
 				<div className="p-2.5">
 					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
-					<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
+					<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.deck ? 'deck · text' : d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
+					{(d.deck || (d.sourceExact && d.docKind === 'text')) && onOpenDeck && (
+						<button type="button" onClick={() => openDoc(d)} aria-label={`Open ${d.name} as a deck`} className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><FolderOpen className="size-3.5" />Open as deck</button>
+					)}
 					<div className="mt-2.5 flex items-center gap-1.5">
 						<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
 						<DeleteBtn labelClass={confirmLabel} armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />

@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # anchor
 
@@ -9,8 +9,7 @@ Anchor — where you are in the deck.
 
 ---
 
-<!-- _class: closing silent -->
-<!-- _footer: "closing · anchor survey" -->
+<!-- @meta{layout=closing, class=silent, footer=closing · anchor survey} -->
 
 ## The closing mirrors the title — dark canvas, one last claim.
 
@@ -18,8 +17,7 @@ Anchor — where you are in the deck.
 
 ---
 
-<!-- _class: divider silent -->
-<!-- _footer: "divider · anchor survey" -->
+<!-- @meta{layout=divider, class=silent, footer=divider · anchor survey} -->
 
 `divider · Section 03`
 
@@ -27,8 +25,7 @@ Anchor — where you are in the deck.
 
 ---
 
-<!-- _class: title silent -->
-<!-- _footer: "title · anchor survey" -->
+<!-- @meta{layout=title, class=silent, footer=title · anchor survey} -->
 
 # The title slide opens on the dark canvas.
 
@@ -38,9 +35,8 @@ One heading, an eyebrow, one line of context — centered, chrome-free, quickly 
 
 ---
 
-<!-- _class: topic -->
-<!-- _footer: "topic · anchor survey" -->
-<!-- _track: Cost to win | Lifetime value | [Payback] | The assumptions -->
+<!-- @meta{layout=topic, track="Cost to win | Lifetime value | [Payback] | The assumptions", footer=topic · anchor survey} -->
+
 
 `Section 02 · Unit economics`
 

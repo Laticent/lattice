@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · q-and-a alignment pass"
 ---
 
-<!-- _class: title -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, footer=Title slide · title} -->
+
 
 # The Q&A slide, on one baseline
 
@@ -16,8 +16,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a -->
-<!-- _footer: "Default ledger — the numeral now sits on the question's baseline" -->
+<!-- @meta{layout=q-and-a, footer="Default ledger — the numeral now sits on the question's baseline"} -->
+
 
 `Anticipated questions`
 
@@ -34,8 +34,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a spine -->
-<!-- _footer: "spine — the rail begins and ends on a node" -->
+<!-- @meta{layout=q-and-a, class=spine, footer="spine — the rail begins and ends on a node"} -->
+
 
 ## The spine no longer overshoots its nodes.
 
@@ -50,8 +50,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a rail -->
-<!-- _footer: "rail — number, question and answer on one baseline" -->
+<!-- @meta{layout=q-and-a, class=rail, footer="rail — number, question and answer on one baseline"} -->
+
 
 ## The exhibit row reads as one line again.
 
@@ -66,8 +66,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a tab -->
-<!-- _footer: "tab — the pairs group again" -->
+<!-- @meta{layout=q-and-a, class=tab, footer="tab — the pairs group again"} -->
+
 
 ## A pair now looks like a pair.
 
@@ -80,8 +80,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a grid -->
-<!-- _footer: "grid — four questions, one starting line" -->
+<!-- @meta{layout=q-and-a, class=grid, footer="grid — four questions, one starting line"} -->
+
 
 ## The quadrant tops align at any length.
 
@@ -98,8 +98,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: q-and-a solo -->
-<!-- _footer: "solo — the index re-base finally reaches the counter" -->
+<!-- @meta{layout=q-and-a, class=solo, footer="solo — the index re-base finally reaches the counter"} -->
+
 
 ## One question, at its own scale.
 
@@ -110,8 +110,8 @@ Six looks, four measured misalignments, and a spine that stopped dangling
 
 ---
 
-<!-- _class: closing silent -->
-<!-- _footer: "Closing · closing" -->
+<!-- @meta{layout=closing, class=silent, footer=Closing · closing} -->
+
 
 ## What this pass changed.
 

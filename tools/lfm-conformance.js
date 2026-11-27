@@ -181,7 +181,7 @@ function l2(source) {
 function runCase(c) {
   load();
   if (Array.isArray(c.expect.rows)) {
-    return c.expect.rows.flatMap((row) => runCase({ name: row.name, source: row.source, expect: row }).map((f) => `[${row.name}] ${f}`));
+    return c.expect.rows.flatMap((row) => runCase({ name: row.name, source: row.source, expect: { spec: c.expect.spec, ...row } }).map((f) => `[${row.name}] ${f}`));
   }
   const fails = [];
   const { L0, L1, L2 } = c.expect;
@@ -211,7 +211,13 @@ function runCase(c) {
     const got = l2(c.source);
     const key = (f) => `${f.rule}|${f.severity}|${f.slide}`;
     const want = (L2.findings || []).map(key).sort();
-    const have = got.map(key).sort();
+    // A case written for LFM 1.x uses 1.x's directive comment (`<!-- _class: … -->`), the spelling its spec defines. The
+    // reference implementation follows the LFM 2.0 draft, which warns on that spelling (`legacy-directive-comment`,
+    // record note §15): a finding about the CASE's spec version, not about what the case checks. So a pre-2.0 case does
+    // not count it; a 2.0 case is written in records and does (meta sweep, slice D). The cut marks these cases
+    // `until: LFM-2.0`.
+    const preRecord = !atOrBelow('LFM-2.0', c.expect.spec || 'LFM-1.0');
+    const have = got.filter((f) => !(preRecord && f.rule === 'legacy-directive-comment')).map(key).sort();
     if (!sameJson(want, have)) fails.push(`L2: findings ${JSON.stringify(have)}, expected ${JSON.stringify(want)}`);
   }
   return fails;

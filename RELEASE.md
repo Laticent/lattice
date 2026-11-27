@@ -1,41 +1,71 @@
-# Releasing `@laticent/lattice`
+# Releasing `@laticent/lattice` and its libraries
 
-> **Status: automated, manually triggered, cut in two phases across a merge.**
-> **Release (prepare)** (`.github/workflows/release.yml`, `workflow_dispatch`)
-> reads the bump from the changelog, bumps the version, rolls `## Unreleased`,
-> rebuilds `dist/`, and puts the result up as a **pull request with auto-merge
-> already on** — so the merge queue lands it unattended. **Release (publish)**
-> (`release-publish.yml`) then fires on `main`, tags the merged commit, and
-> publishes a GitHub Release with notes + the showcase zip. **npm publish is
-> opt-in** (skipped until an `NPM_TOKEN` is configured).
+> **Status: Changesets, manually triggered, cut in two phases across a merge.**
+> A release publishes up to thirteen packages to npm, each on its own version
+> line: `@laticent/lattice` and the twelve libraries in
+> `tools/release-packages.js` `PUBLISH_SET`. **Release (prepare)**
+> (`.github/workflows/release.yml`, `workflow_dispatch`) runs `changeset version`
+> and puts the result up as a **pull request with auto-merge already on**, so the
+> merge queue lands it unattended. **Release (publish)** (`release-publish.yml`)
+> then fires on `main`, runs `changeset publish` for every package npm does not
+> have yet (in dependency order, with provenance), tags what it published, and
+> creates the engine's GitHub Release with the notes and the showcase zip.
 >
 > **Why two phases:** `main` takes no direct pushes — the `Main Merge Queue`
 > ruleset requires a PR, the queue, and a green `ci`, for bots and humans alike
-> (#1439). A release is exactly the change that should go that route: the tag
-> ends up naming a tree the required check actually passed on. The same two
-> phases run locally — `npm run release:prepare` / `npm run release:publish`.
+> (#1439). A release is exactly the change that should go that route: the tags
+> end up naming a tree the required check actually passed on. The same phases run
+> locally — `npm run release:prepare` / `npm run release:publish`.
 >
 > **Where the human is:** dispatching **Release (prepare)** *is* the
 > authorization to ship — from there nothing waits on a click. That is a
-> deliberate narrowing of "a human authorizes every merge" (`CLAUDE.md` rule 7),
-> and it is the only merge in the repo besides the backlog mirror that a human
-> doesn't approve. To stop a release mid-flight, disable auto-merge on the PR or
-> close it before the queue takes it.
+> deliberate narrowing of "a human authorizes every merge" (`CLAUDE.md` rule 7).
+> To stop a release mid-flight, disable auto-merge on the PR or close it before
+> the queue takes it.
+>
+> Decision: `engineering/decisions/2026-10-07-first-npm-release.md` (§11 is the
+> Changesets build). Weekly automatic releases (slice F) come after 1.0.0, in their
+> own PR; today every release starts with a dispatch.
 
 ## What a release is
 
-A release is a git tag `v<x.y.z>` whose number matches `package.json`
-`version`, pointing at a commit with a freshly built, in-sync `dist/` and a
-`CHANGELOG.md` whose `## Unreleased` items — and every pending `changelog.d/`
-fragment, folded in and deleted by the same commit — have been rolled into a
-dated section. The tag is the source of truth; the GitHub Release (and, when
-enabled, npm publish) follows from it. **The bump level is derived
-deterministically from `## Unreleased` + the fragments** — see Versioning.
+A release is a set of npm versions plus one git tag per package,
+`<name>@<version>` (`@laticent/lattice@1.0.0`, `@laticent/ltt@0.1.0`), each on
+the merged release commit. When the engine is among them it also gets
+`v<version>` (`v1.0.0`), which names its GitHub Release and the showcase zip.
+**npm is the source of truth**: Release (publish) publishes whatever is missing
+from it and tags whatever is untagged, so a re-run after a partial failure picks
+up exactly where the last one stopped.
+
+What a release contains comes from the **changesets** pending on `main`
+(`.changeset/*.md`, HARD RULE #10, contract in `.changeset/README.md`), plus any
+legacy `changelog.d/` fragment, which the release converts into an engine
+changeset first. Six libraries (`filo`, `fuoco`, `suono`, `tavola`, `vetrina`,
+`veduta`) are held back by `.changeset/config.json` `ignore` and never publish
+until a PR moves them into `PUBLISH_SET`.
 
 ## The distribution contract
 
-What ships is defined entirely by `package.json` — don't special-case
-it at release time:
+What ships is defined entirely by `packages/lattice/package.json`, the
+engine's publish folder — don't special-case it at release time.
+
+**Where the package lives.** The repository root `package.json` is a private
+workspace root: npm scripts, `devDependencies`, `workspaces` and `overrides`.
+`packages/lattice/package.json` carries every field the engine publishes
+(`name`, `version`, `bin`, `main`, `exports`, `files`, `dependencies`,
+`optionalDependencies`, `engines`, `license` and the metadata), and nothing
+else of the source moved: `lattice.js`, `lib/`, `themes/` and the docs stay at
+the root. Its `prepack` runs `npm run build` at the root, then
+`tools/stage-engine-package.js`, which hard-links every `files` entry (and the
+`design/README.md` npm adds from a packed folder) into `packages/lattice/`;
+its `postpack` removes them again. The staged paths are gitignored. The folder
+exists so Changesets can version `@laticent/lattice` as a workspace
+(`engineering/decisions/2026-10-07-first-npm-release.md` §8, option A). The
+dev CLI and the installed one read the version through
+`lib/core/pkg-root.js` `engineManifestPath`. Bump a runtime dependency in
+`packages/lattice/package.json`; bump `puppeteer` in both manifests, because
+the root's `$puppeteer` override needs a root dependency of the same range
+(`test/unit/tools/stage-engine-package.test.js` holds them equal).
 
 - **`exports`** — the public entry points, and at 1.0 every one of them is
   a promise. The root import (`.` and `main`) is the engine,
@@ -61,9 +91,10 @@ it at release time:
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`), which the
-  bundled CLI also inlines, so `lattice` runs even where `./engine`'s
-  imports would not resolve. A library a plugin keeps a committed copy of
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`, `segno-languages`).
+  The bundled CLI inlines nine of them (`INLINE_PACKAGES` in `tools/build-cli.js`); it
+  still `require`s `@laticent/markup` and `@laticent/segno-languages`, so the CLI needs those
+  two installed like any other dependency. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
   `devDependency`: the build refreshes the copy from it, and no install
   needs it. `test/unit/cli/shipped-imports-resolvable.test.js` fails when
@@ -73,95 +104,196 @@ it at release time:
 Verify before any release:
 
 ```sh
-npm pack --dry-run        # inspect file list + size; no .pdf should appear
+npm pack --dry-run -w @laticent/lattice   # builds, stages, lists; no .pdf should appear
 ```
+
+That listing is the root tarball's, file for file: on 2026-11-22 both shipped
+2,202 files, 34.2 MB packed and 112.2 MB unpacked, and the two lists diffed
+empty. `test/integration/export/installed-package.test.js` stages a copy and
+installs from it on every PR.
+
+**The trial publish** goes one step further: it really publishes. `node
+tools/trial-publish.js` (after `npm run build`) starts a throwaway Verdaccio,
+publishes every non-private `@laticent` library (each through its own prepack)
+and the staged engine, runs `npm install @laticent/lattice` in an empty folder
+whose `.npmrc` points only the `@laticent` scope at it, and renders a 4-slide
+deck with the installed CLI. Before any of that, it fails on a `@laticent`
+package the engine needs that is `"private": true`, since npm would refuse to
+publish it. `.github/workflows/trial-publish.yml` runs it on PRs that touch a
+manifest or the release tooling, nightly, and as the first job of
+`release.yml`, so a release PR never opens on a package that would not
+install. About 50 s after the build; the whole job 3 min 36 s on a runner
+(measured 2026-11-23). The install pins third-party packages to the
+repository lockfile's versions, so it tests our packages, not the newest
+upstream release in range a user would get.
+
+The job publishes through the release's own path, not `npm publish` per
+package: it sets `TRIAL_PUBLISH_COMMAND` to `tools/release-trial.sh`, which runs
+`tools/release.js --prepare` (first release only) and `--publish` in a
+throwaway git worktree, so `changeset publish` puts the thirteen packages on
+the local registry in dependency order. It pushes no tag, makes no GitHub
+Release, and leaves the checkout clean.
 
 And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
 ```sh
-npm pack --pack-destination /tmp/p && npm pack --workspaces --pack-destination /tmp/p
+npm pack --workspaces --pack-destination /tmp/p   # the engine is a workspace too
 mkdir /tmp/room && cd /tmp/room && npm init -y && PUPPETEER_SKIP_DOWNLOAD=1 npm i /tmp/p/*.tgz
 npx @laticent/lattice deck.md deck.pdf   # also: npx lat deck.md deck.pdf (the short bin)
 ```
 
-`--workspaces` packs every `@laticent/*` workspace, so a new dependency can't be left out.
-A hand-kept list here missed `@laticent/segno-markdown`, and the install then failed with a
+`--workspaces` packs every `@laticent/*` workspace, the engine included, so a new dependency can't be left out.
+A hand-kept list here missed `@laticent/segno-markdown` (since renamed `@laticent/segno-languages`), and the install then failed with a
 404 for a package that wasn't published yet (found 2026-11-11, PR #3142).
 
 ## Versioning
 
-Semver. `package.json` `version` is the single source of truth. **The bump
-level is computed from `CHANGELOG.md` `## Unreleased` plus every pending
-`changelog.d/` fragment** by `tools/changelog.js`, mapping Keep-a-Changelog
-categories to semver. A fragment's category is in its FILENAME
-(`<slug>.<category>.md`), so it maps through the same table:
+Semver, per package. Each package's own `package.json` `version` is its source
+of truth, and each changeset names the packages it changes and the bump for each:
 
-| Category in `## Unreleased` / a fragment filename | Bump |
+| Bump | When |
 |---|---|
-| `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-| `### Added`, `### Changed`, `### Deprecated` | **minor** |
-| `### Fixed`, `### Security` | **patch** |
+| **major** | anything that breaks a deck or a caller: a removed or renamed `exports` key, a dropped theme, a raised Node floor (currently **>=22**), a break to a stable layout or token surface |
+| **minor** | something new: a component, theme, modifier or additive export; a deprecation |
+| **patch** | a fix, or internal churn (Mermaid CSS) |
 
-This is why `## Unreleased` must be kept accurate **as changes land** (the
-`CLAUDE.md` convention) — the changelog *is* the release input. The
-semantic policy behind the categories: removed/renamed `exports`, dropped
-themes, a raised Node floor (currently **>=22**), or any break to a stable
-layout/token surface ⇒ major (flag with `**Breaking:`**); new
-components/themes/modifiers or additive `exports` ⇒ minor; fixes and
-internal (Mermaid CSS) churn ⇒ patch. An empty `## Unreleased` means there
-is nothing to release.
+`changeset version` applies them: it bumps each named package, patches every
+package that depends on one whose new version leaves its range, writes each
+package's `CHANGELOG.md`, and deletes the changesets. A legacy fragment converts
+with the bump its filename's category always picked (`removed` or a
+`**Breaking:**` bullet ⇒ major; `added`/`changed`/`deprecated` ⇒ minor;
+`fixed`/`security` ⇒ patch).
 
-> **No contract-diff backstop (yet).** The bump trusts the changelog. A
-> structural break (e.g. a removed `exports` key) mis-filed under
-> `### Changed` without a `**Breaking:`** marker would under-bump. If that
-> ever bites, add a `tools/check-version-bump.js` that diffs
-> `exports`/`themes`/`engines` since the last tag and fails when the
-> computed bump is lower than the diff requires.
+The libraries are `0.x`: under semver a `0.x` minor may break, which lets a
+library's API settle. Only `@laticent/lattice` makes the 1.0 promise.
+
+> **No contract-diff backstop (yet).** The bump trusts the changeset. A
+> structural break (e.g. a removed `exports` key) filed as `minor` would
+> under-bump. If that ever bites, add a check that diffs `exports`/`themes`/
+> `engines` since the last tag and fails when the declared bump is lower.
+
+## The first release: 1.0.0
+
+The first npm release **bumps nothing.** The engine ships at the version it
+carries (`1.0.0`, or a candidate `1.0.0-rc.N`; see below) and each library at its
+`0.1.0`. `tools/release.js` recognizes it by asking npm and git: the engine is
+`1.0.0` or `1.0.0-rc.N`, npm returns 404 for that version, and no
+`@laticent/lattice@*` tag exists at all. Any other unpublished engine version is
+refused, because it means the previous release never finished, and so is a
+hand-set `1.0.0` or `1.0.0-rc.2` once any engine version has shipped.
+
+For that release, Release (prepare) archives every pending fragment and
+changeset into `changelog/pre-release-archive.md` (1.0.0's notes are the curated
+`release-notes/1.0.0.md`) and writes each package's first `CHANGELOG.md` section.
+Release (publish) refuses to publish while the August `v1.0.0` tag still exists,
+before anything reaches npm.
+
+### The release candidate: 1.0.0-rc.1
+
+The owner's ruling (#3518, answer 1) puts a candidate first: the engine at
+`1.0.0-rc.1` and each library at its `0.1.0`, all under npm's **`next`** tag. We never point
+`latest` at the candidate ourselves (see the unverified note below). The engine's `package.json` carries `1.0.0-rc.1` on `main`, and
+`tools/release.js` treats `1.0.0-rc.N` exactly like `1.0.0`: a bootstrap that bumps
+nothing. On top of that a pre-release engine changes three things:
+
+- `changeset publish --tag next` for the whole run (the libraries ship with it).
+- The GitHub Release `v1.0.0-rc.1` is marked **pre-release** and never "Latest";
+  its notes open with a release-candidate line, then the curated `release-notes/1.0.0.md`.
+- It needs no retired August tag: it never touches `v1.0.0`. Release-day step 3
+  is due before the real `1.0.0`, not before the candidate.
+
+The candidate's release-day steps are the list below with three changes: step 3
+is optional (the curated notes say the August tag was renamed `v0.9.0`, so doing
+it on the day keeps them true); the release PR is `release: v1.0.0-rc.1` and the
+GitHub Release `v1.0.0-rc.1`; and step 6 runs `npx @laticent/lattice@next deck.md deck.pdf`.
+
+**After rc.1, the real 1.0.0.** Once `1.0.0-rc.1` is on npm, the next Release
+(prepare) is an ordinary version run: any pending engine changeset, `major`, `minor`
+or `patch`, takes `1.0.0-rc.1` to `1.0.0` (semver drops the pre-release before it
+bumps anything), and library changesets bump their libraries as usual. The renames
+carry `major` changesets, so they supply it. A library changeset alone cannot do
+it: when a library leaves the engine's `^0.1.0` range, Changesets patches the
+engine, and the patch of `1.0.0-rc.1` is `1.0.0`. `tools/release.js` refuses that
+run, so the real `1.0.0` only ever ships on an engine changeset.
+`1.0.0` publishes under `latest`, and its publish still refuses until the August
+`v1.0.0` tag is retired. *Unverified:* whether npm also points `latest` at a
+brand-new package's first version published under `next`; if it does, `npx
+@laticent/lattice` resolves to the candidate until `1.0.0` ships.
+
+**Release-day steps (issue #3449):**
+
+1. Every blocker on #3449 is checked off and `main` is green. `npm run release:dry`
+   on a synced `main` prints `BOOTSTRAP` and the thirteen packages, with no
+   warning. (A warning naming `segno-markdown` or `segno-languages` means the Segno
+   rename has not merged.)
+2. `NPM_TOKEN` is listed under Settings → Environments → `automation`. Never read
+   or print it.
+3. Owner: retire the August tag. Tag its commit `v0.9.0`, mark that GitHub
+   Release as a pre-release, delete `v1.0.0`.
+4. **Actions → Release (prepare) → Run workflow** on `main`. The release PR
+   (`release: v1.0.0`) auto-merges through the queue. Between step 3 and this PR
+   merging, nothing else publishes: Release (publish) runs on a push only for a
+   commit titled `release: …`.
+5. Release (publish) runs by itself: thirteen `npm publish --provenance` (the
+   eleven libraries with no `@laticent/*` dependency first, then `cadenza`, then
+   the engine), fourteen tags, and the `v1.0.0` GitHub Release.
+6. From a clean folder: `npx @laticent/lattice deck.md deck.pdf` renders.
+7. Attach a trusted publisher to each of the thirteen packages on npmjs.com. Keep
+   `NPM_TOKEN` until the publish job upgrades npm: trusted publishing needs npm
+   11.5.1 or later, Node 22 ships 10.9, and that upgrade step is slice F's PR. Revoke
+   the token once it has merged.
 
 ## How to cut a release
 
 **Primary path — the Release workflows.**
 
-1. **Actions → Release (prepare) → *Run workflow***. Set `bump` to **`auto`**
-   for the changelog-derived level, or force `patch`/`minor`/`major`. It gates
-   (lint + unit + `build:check`), then runs `tools/release.js --prepare`:
-   computes the bump, `npm version`s, rolls `## Unreleased` →
-   `## <version> - <date>`, rebuilds `dist/`, and commits `release: v<version>`
-   — **no tag, no push to `main`**. It pushes `release/v<version>`, opens the
-   PR, and turns on auto-merge.
-2. **Nothing to do — the queue lands it.** `ci` runs on the PR, the merge queue
-   rebases and re-runs it on the combined state, and the PR squash-merges. Worth
-   a look while it runs (the version, the rolled changelog section, the `dist/`
-   rebuild); to abort, disable auto-merge or close the PR.
-3. **Release (publish) fires by itself** on the resulting push to `main`. It
-   no-ops unless `package.json`'s version is untagged, then runs
-   `tools/release.js --publish --push`: tags **the merged commit**, rederives
-   the notes from the changelog section, builds the zip from the tagged tree,
-   pushes the tag, creates the GitHub Release, and publishes to npm if
-   `NPM_TOKEN` is set. Re-runnable by hand (`workflow_dispatch`) if a step
-   failed partway.
+1. **Actions → Release (prepare) → *Run workflow*** (no inputs: each changeset
+   names its own bump). It gates (lint + unit + `build:check`), then runs
+   `tools/release.js --prepare`: converts pending fragments, runs
+   `changeset version`, refreshes `package-lock.json`, rebuilds, and commits
+   `release: v<engine version>` (or `release: libraries-<date>` when only
+   libraries move) — **no tag, no publish, no push to `main`**. It pushes
+   `release/<name>`, opens the PR, and turns on auto-merge, **unless a package
+   crosses a major version** (the engine to 2.0.0, say). Then auto-merge stays off,
+   a comment names each crossing, and a human merges it.
+2. **Nothing to do — the queue lands it.** Worth a look while `ci` runs: the
+   versions and each package's new `CHANGELOG.md` section. To abort, disable
+   auto-merge or close the PR.
+3. **Release (publish) fires by itself** on the push to `main`, for a commit whose
+   title starts `release: ` (the squashed release PR) and for no other push. It
+   no-ops unless a publish-set package is missing from npm or untagged, then runs
+   `tools/release.js --publish --push`: `build:check`; the engine's notes and zip
+   (before anything reaches npm); `changeset publish`; the tags; then
+   `gh release create v<version>` when the engine shipped. Re-run it by hand
+   (`workflow_dispatch`) after a partial failure; it publishes and tags only what is
+   left. One case it cannot repair: the engine is on npm and `v<version>` is pushed,
+   but `gh release create` failed. Create that Release by hand with the local-fallback
+   command below (`npm run release:publish` regenerates the notes and zip on a synced
+   `main`).
 
-The tag is deliberately cut in phase 2: the queue squashes the PR into a new
-commit, so a tag made on the release branch would name a sha `main` never gets.
-
-**Local fallback** — the same two phases, same tools:
+**Local fallback** — the same phases, same tools:
 
 ```sh
-npm run release:dry              # preview: bump level, version, notes — changes nothing
+npm run release:dry              # preview: bootstrap or the pending bumps; changes nothing
+npm run release:status           # the exact bumps changeset version will apply
 git switch -c release/vX.Y.Z     # cut the release commit on a branch, never on main
-npm run release:prepare          # bump, roll, rebuild dist, commit (no tag, no push)
+npm run release:prepare          # convert, version, rebuild, commit (no tag, no push)
 git push -u origin release/vX.Y.Z
 # open the PR, get it merged through the queue, then on a synced main:
-npm run release:publish          # tag the merged commit, zip, notes, push the tag
+npm run release:publish          # publish, tag, push the tags
 gh release create v<version> release/lattice-v<version>.zip \
   --notes-file release/notes-v<version>.md --verify-tag
 ```
 
-`npm run release` with no phase flag prints this menu rather than guessing.
+`node tools/release.js --publish --dry-run` runs the publish with npm's dry-run on
+and tags locally without pushing; run it on a scratch clone, never on your working
+copy. `npm run release` with no phase flag prints the menu rather than guessing.
 
-`prepublishOnly` re-runs `npm test` as a backstop before any registry
-upload.
+The engine's `prepack` runs the root build and stages the files; there is no
+`prepublishOnly` test run. Inside `changeset publish`, npm hands `--json` to
+lifecycle scripts, which broke a packing test there, and the release commit has
+already passed the required `ci` check on the same tree.
 
 ## The GitHub release zip
 
@@ -215,83 +347,73 @@ uploaded to the Release, never committed.
 ## How the workflow works
 
 **`.github/workflows/release.yml` — Release (prepare)** (`workflow_dispatch`),
-`ubuntu-latest`, node 22:
+`ubuntu-24.04`, node 22:
 
-1. `checkout` (`fetch-depth: 0`, `fetch-tags: true`) + `setup-node` + `npm ci`.
-2. Gate: `npm run lint`, `npm test`, `npm run build:check`. (The integration
-   tier already ran on the commit via `ci.yml`, and the full tier runs again on
-   the PR and in the queue; this only stops an obviously broken release from
-   becoming a PR.)
+1. `checkout` (`fetch-depth: 0`, `fetch-tags: true`) + `setup-node` + `npm ci`, and
+   zsh, which `npm test`'s completion test drives (in CI it fails, not skips, without it).
+2. Gate: `npm run lint`, `npm test`, `npm run build:check`. (The full tier runs
+   again on the PR and in the queue; this only stops an obviously broken release
+   from becoming a PR.)
 3. Set the `github-actions[bot]` git identity.
-4. `node tools/release.js --prepare --bump=<input> --skip-checks` — the bump,
-   changelog roll, dist rebuild, and the commit. The version comes back via
-   `$GITHUB_OUTPUT`, so the workflow never re-derives it.
-5. Push `release/v<version>` and `gh pr create` — both as `AUTOMATION_PAT`, not
-   the repo token (see Prerequisites).
-6. `gh pr merge --auto --squash`, so the queue lands it once `ci` is green.
+4. `node tools/release.js --prepare --skip-checks`. It refuses unless the strict
+   publish-set check passes (all thirteen packages exist and are public) and every
+   changeset and fragment parses. It asks npm whether the engine's version is
+   published, so it needs the network. `version`, `name` and `branch` come back
+   via `$GITHUB_OUTPUT`.
+5. Push `release/<name>` and `gh pr create` — both as `AUTOMATION_PAT`, not the
+   repo token (see Prerequisites).
+6. `gh pr merge --auto --squash`, so the queue lands it once `ci` is green; or,
+   when `needs_review` is true (a major crossed), a comment instead, and a human merges.
 
-**`.github/workflows/release-publish.yml` — Release (publish)** (`push` to
-`main` touching `package.json`, plus `workflow_dispatch` for recovery):
+**`.github/workflows/release-publish.yml` — Release (publish)** (`push` to `main`
+touching a publish-folder or library `package.json` or `CHANGELOG.md`, run only
+when the commit's title starts `release: `; plus `workflow_dispatch` for recovery):
 
-1. `checkout` with full history + tags.
-2. **Gate:** read `package.json`'s version; if `v<version>` is already tagged,
-   every remaining step is skipped. A dependency bump touches `package.json`
-   too, so this must be a quiet no-op rather than a failure.
-3. `node tools/release.js --publish --push` — `build:check`, rederive
-   `release/notes-v<version>.md` from the changelog's `## <version>` section,
-   tag `HEAD`, build the zip, push the tag.
-4. `gh release create v<version>` with `--notes-file` and the
-   `release/lattice-v<version>.zip` asset (`--verify-tag`).
-5. `npm publish --access public --provenance`, if `NPM_TOKEN` is set.
+1. `checkout` with full history + tags, `setup-node` with the npm registry.
+2. **Gate:** `node tools/release.js --plan` lists every publish-set package that
+   is missing from npm or untagged; with none, every remaining step is skipped. A
+   dependency bump touches a manifest too, so this must be a quiet no-op.
+3. `npm ci`, the git identity, and a check that no GitHub Release is already named
+   `v<version>` when the engine is due (the August release owns `v1.0.0` until step 3).
+   `--publish` also refuses a package whose `CHANGELOG.md` has no section for its
+   version: only a release commit can publish.
+4. `npm whoami` when the token is set, so a bad token stops the run before anything
+   publishes; then `node tools/release.js --publish --push`, with `NODE_AUTH_TOKEN`
+   (the `NPM_TOKEN` secret) and `NPM_CONFIG_PROVENANCE=true`. It asks npm up to four
+   times, 15 s apart, before calling a just-published package missing. Changesets publishes in
+   dependency rounds (`@pnpm/deps.graph-sequencer`); within a round, in parallel.
+   A failure stops before the next round, so the engine, which depends on the
+   most, publishes last or not at all.
+5. `gh release create v<version>` with the notes and the zip, when the engine
+   shipped.
 
 Prerequisites:
 
-- **Nothing needs a ruleset bypass.** Phase 1 pushes a branch, phase 2 pushes a
-  tag, and the ruleset targets `refs/heads/main` only. See
+- **Nothing needs a ruleset bypass.** Phase 1 pushes a branch, phase 2 pushes
+  tags, and the ruleset targets `refs/heads/main` only. See
   `engineering/workflow.md` § Automation vs. the main ruleset.
 - **`AUTOMATION_PAT` (required), in the `automation` environment.** A branch
-  pushed or a PR opened with `GITHUB_TOKEN` never starts `ci` — GitHub
-  suppresses workflow runs for events raised by the repo token — so the required
-  check never appears and the PR could never merge. Phase 1 uses a fine-grained
-  PAT with **Contents: write** + **Pull requests: write**, and **fails loudly**
-  if it is missing rather than opening a PR that can never land. It is an
-  *environment* secret restricted to `main`, so a PR branch cannot read it; both
-  release jobs therefore declare `environment: automation`. The same secret
-  drives `sync-backlog.yml`. Details:
-  `engineering/workflow.md` § Automation vs. the main ruleset.
+  pushed or a PR opened with `GITHUB_TOKEN` never starts `ci` — GitHub suppresses
+  workflow runs for events raised by the repo token — so the required check never
+  appears and the PR could never merge. Phase 1 uses a fine-grained PAT with
+  **Contents: write** + **Pull requests: write**, and **fails loudly** if it is
+  missing. It is an *environment* secret restricted to `main`, so a PR branch
+  cannot read it; both release jobs therefore declare `environment: automation`.
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
-  phase 2 (`id-token` for npm `--provenance`).
-- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on ten workspace
-  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`) that are not
-  on npm, and this workflow publishes only the root package. A root-only publish
-  would make every `npm i @laticent/lattice` fail with E404. The libraries
-  publish first, from the multi-package release that replaces this step (slices C
-  and E of `engineering/decisions/2026-10-07-first-npm-release.md`). `@laticent/markup` and
-  `@laticent/lastra` are still `"private": true` (their publish has not been approved, so they have no docs-site page): that
-  release clears the flag and adds the page, or `npm publish` refuses it.
-- **To enable npm publish (after that):** add an **`NPM_TOKEN`** secret (publish rights,
-  exposed as `NODE_AUTH_TOKEN`) and confirm the `@laticent` scope exists and
-  the token can publish to it. **Put it in the `automation` environment, not in
-  the repo secrets** — a registry-publish credential is the last thing that
-  should be readable from a PR branch. **Setting the secret *is* the opt-in** —
-  the phase that publishes is no longer the phase you dispatch, so there is no
-  run to tick a checkbox on. Until it is set the step is skipped with a notice,
-  and the GitHub Release + zip still ship.
+  phase 2 (`id-token` for npm provenance, and later for trusted publishing).
+- **`NPM_TOKEN`, in the `automation` environment, for the first publish only.**
+  npm can attach a trusted publisher only to a package that already exists, so
+  the bootstrap publish uses a short-lived granular token; once each package has
+  a trusted publisher, the token is revoked (release-day step 7). Without a token
+  and without trusted publishers, npm refuses the publish and nothing is tagged.
 
-### One caveat on the release notes
+### The release notes
 
-The GitHub Release body is capped at **125,000 characters**. `tools/release.js`
-trims the notes on a line boundary and appends a pointer to `CHANGELOG.md`,
-warning when it does — without that, `gh release create` fails *after* the tag
-is pushed. The changelog remains the complete record.
-
-That trim used to fire on every release and discard most of what it was given.
-1.0.0 shipped from a hand-written section without rolling `## Unreleased`, so
-that section kept accumulating until it was ~1.4 MB — and 92.7% of the assembled
-body was being cut at the limit, keeping 1,234 of 20,143 lines — 6.1%. That log
-moved to `changelog/pre-release-archive.md` in #1735.
-
-**The trim still fires**, because 106 pending fragments are themselves ~196,000
-characters. It now keeps 1,239 of 1,790 lines (69.2%) rather than
-1,234 of 20,143 (6.1%). Cutting a release more often is what actually retires it.
+The engine's GitHub Release body is `release-notes/<version>.md` when that file
+exists (1.0.0 has one; so will any later release with a story), followed by
+**Packages in this release**: one line per package, built from the first line of
+each entry in that package's `CHANGELOG.md` section, which is each changeset's
+first line. The body is capped at **125,000 characters**; `tools/release.js` trims
+on a line boundary and says so rather than letting `gh release create` fail after
+the tags are pushed.

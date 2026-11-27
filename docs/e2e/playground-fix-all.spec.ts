@@ -6,7 +6,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 // the event reaches a real toast. The refusal is the 500-pass cap: 501 inline-title cards on one
 // slide (docs/e2e/editor-lint.spec.ts drives the Studio's side of the same deck).
 const REFUSED_DECK = [
-	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- @meta{layout=cards-grid} -->', '', '## Bets', '',
 	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
 	'',
 ].join('\n');

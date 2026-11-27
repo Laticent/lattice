@@ -22,10 +22,10 @@ export type TourBuild = (opts: { mobile: boolean }) => Walkthrough<StudioActions
 
 // ── Canonical slide sources (authored to the shipped component contracts) ──────────────────────
 export const SLIDE = {
-	title: '<!-- _class: title -->\n\n# Q4 Board Update\n\n`Board · Q4 2026`\n\nGrowth held; spend stayed disciplined.',
-	bigNumber: '<!-- _class: big-number -->\n\n`Net Revenue Retention`\n\n- 127%\n  - Expansion outran churn every month this quarter.',
+	title: '<!-- @meta{layout=title} -->\n\n# Q4 Board Update\n\n`Board · Q4 2026`\n\nGrowth held; spend stayed disciplined.',
+	bigNumber: '<!-- @meta{layout=big-number} -->\n\n`Net Revenue Retention`\n\n- 127%\n  - Expansion outran churn every month this quarter.',
 	radar:
-		'<!-- _class: radar -->\n\n`[{Scale, 0..10}]`\n\n## Where the platform bet is paying off.\n\n- This quarter\n  - Coverage `8`\n  - Reliability `9`\n  - Velocity `7`\n  - Cost control `8`\n  - Sentiment `9`\n- A year ago\n  - Coverage `5`\n  - Reliability `6`\n  - Velocity `4`\n  - Cost control `6`\n  - Sentiment `5`',
+		'<!-- @meta{layout=radar} -->\n\n`[{Scale, 0..10}]`\n\n## Where the platform bet is paying off.\n\n- This quarter\n  - Coverage `8`\n  - Reliability `9`\n  - Velocity `7`\n  - Cost control `8`\n  - Sentiment `9`\n- A year ago\n  - Coverage `5`\n  - Reliability `6`\n  - Velocity `4`\n  - Cost control `6`\n  - Sentiment `5`',
 } as const;
 
 const SEP = '\n\n---\n\n';

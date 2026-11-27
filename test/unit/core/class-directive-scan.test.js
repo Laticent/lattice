@@ -18,6 +18,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
+const { recordsToComments } = require('../../../lib/core/meta-door.mjs');
 const { splitTopLevel } = require('../../../lib/authoring/slide-split');
 const { resolveSplitMode } = require('../../../lib/core/resolve-split');
 const scan = require('../../../lib/core/class-directive-scan.mjs');
@@ -171,8 +172,10 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       try { src = fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { return null; }
       const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       if (!fm || !/^\s*(marp|theme|split):/m.test(fm[1])) return null;
-      if (!/<!--\s*_?class:/.test(src)) return null;
-      return { rel, src };
+      // A class in either spelling: a directive comment, or a record (the corpus is records since the meta sweep).
+      if (!/<!--\s*(?:_?class:|@meta\{)/.test(src)) return null;
+      // `legacy`: the same deck in directive comments (the engine's form), which the historical reader below needs.
+      return { rel, src, legacy: recordsToComments(src, null, { legacy: true }) };
     })
     .filter(Boolean);
 
@@ -191,7 +194,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       const scanned = payloads(src).slice(2); // drop the two front-matter chunks
       // A PANE-SPLIT divergence, a second known kind: a deck that cannot lay panes side by side (square, portrait,
       // story, mobile) gives each pane its own page (lib/core/panes.js), which a `^---$` scan cannot see either.
-      if (spans.length > scanned.length && /<!--\s*_?pane:/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
+      if (spans.length > scanned.length && /<!--\s*(?:_?pane:|@meta\{pane)/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
         paneSplit++;
         continue;
       }
@@ -276,22 +279,28 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
         i = open + 4;
       }
     };
+    // Over each deck's directive-comment form: the corpus is written in records since the meta sweep (slice D), and the
+    // historical reader read only comments.
     const wrong = [];
-    for (const { rel, src } of decks) {
+    for (const { rel, legacy: src } of decks) {
       const spans = slideClassSpans(src).spans.map((s) => s.slideClass);
       const chunks = splitTopLevel(src);
       if (chunks.length - 2 !== spans.length) continue;
       for (let i = 2; i < chunks.length; i++) {
-        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1 });
+        if (!sameClass(oldReaderClass(chunks[i]) ?? '', spans[i - 2])) wrong.push({ rel, slide: i - 1, chunk: chunks[i] });
       }
     }
     assert.ok(wrong.length >= 4, `the corpus must exercise the defect, got ${wrong.length}`);
-    const byDeck = new Set(wrong.map((w) => w.rel));
-    for (const rel of byDeck) {
-      const src = decks.find((d) => d.rel === rel).src;
+    // The other form the old reader cannot see is a record (`<!-- @meta{layout=…} -->`, record note §15), which the
+    // generators now write: a wrong slide must hold one, or sit in a deck with a running global directive.
+    const recordOn = (chunk) => /^\s*<!--\s*(?:@meta)?\{/m.test(chunk);
+    for (const w of wrong) {
+      if (recordOn(w.chunk)) continue;
+      const src = decks.find((d) => d.rel === w.rel).legacy;
       assert.match(src, /^\s*<!--\s*class:/m,
-        `${rel}: the old reader was wrong on a deck that uses NO global directive — a different defect`);
+        `${w.rel} slide ${w.slide}: the old reader was wrong on a slide with no record, in a deck that uses NO global directive — a different defect`);
     }
+    assert.ok(wrong.some((w) => !recordOn(w.chunk)), 'the corpus still exercises the running-global defect, not only records');
   });
 });
 
@@ -522,5 +531,47 @@ describe('cost — this runs on every keystroke', () => {
       const scanned = closeSearchCost(() => slideClassDirectives(src));
       assert.ok(scanned <= 3 * src.length, `the \`-->\` searches covered ${scanned} characters of a ${src.length}-character deck — the consumption is re-scanning its buffer`);
     }
+  });
+});
+
+// `classEntries`: every class setting the engine reads, in either spelling (meta-record §15, slice A). The tools that
+// counted `_class` comments with their own regex read this, so a deck swept to records reads the same.
+describe('classEntries — every class setting, comment or record', () => {
+  const { classEntries } = require('../../../lib/core/class-entries.mjs');
+  test('a comment deck and its record twin give the same entries, fences skipped', () => {
+    const deck = (a, b) => `---\nmarp: true\n---\n\n${a}\n# A\n\n---\n\n${b}\n# B\n\n\`\`\`\n<!-- _class: fenced -->\n\`\`\`\n`;
+    const pick = (es) => es.map(({ slide, value, spot }) => ({ slide, value, spot }));
+    const comments = classEntries(deck('<!-- _class: cards dark -->', '<!-- class: lead -->'));
+    const records = classEntries(deck('<!-- @meta{layout=cards, class=dark} -->', '<!-- @meta{class=lead, carry} -->'));
+    assert.deepEqual(pick(comments), [{ slide: 2, value: 'cards dark', spot: true }, { slide: 3, value: 'lead', spot: false }]);
+    assert.deepEqual(pick(records), pick(comments));
+    assert.deepEqual(records.map((e) => e.record), [true, true]);
+  });
+  test('a record that sets no class is no entry', () => {
+    assert.deepEqual(classEntries('<!-- @meta{footer="Q3"} -->\n# A\n'), []);
+  });
+});
+
+// `slideClassValue`: one slide's class as the ENGINE resolves it, for readers (meta-record §15, slice A). Where it
+// differs from meta-edit's `readMetaField` (an editor primitive that reads a `_class:` line anywhere in a comment, so
+// it can write back to it), it sides with the render.
+describe('slideClassValue — one slide, as the engine resolves it', () => {
+  const { slideClassValue } = require('../../../lib/core/class-entries.mjs');
+  test('a comment, a record, the bare record and last-wins all read as the engine does', () => {
+    assert.equal(slideClassValue('<!-- _class: kpi wide -->\n# X'), 'kpi wide');
+    assert.equal(slideClassValue('<!-- @meta{layout=kpi, footer=Q3} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- {layout=kpi} -->\n# X'), 'kpi');
+    assert.equal(slideClassValue('<!-- class: a -->\n<!-- _class: b -->\n# X'), 'b');
+    assert.equal(slideClassValue('<!-- _class: b -->\n<!-- @meta{layout=a} -->\n# X'), 'a');
+    assert.equal(slideClassValue('# no class'), '');
+  });
+  test('a comment that sets two directives: the engine gives the footer the rest, so there is no class', () => {
+    // The engine renders `data-footer="Q3\n_class: kpi"` and no `kpi` class for both of these.
+    assert.equal(slideClassValue('<!-- footer: Q3\n_class: kpi -->\n# X'), '');
+    assert.equal(slideClassValue('<!--\nfooter: Q3\n_class: kpi\n-->\n# X'), '');
+  });
+  test('a record shown in inline code, or opened on a later line, sets nothing', () => {
+    assert.equal(slideClassValue('Use `<!-- @meta{layout=kpi} -->` like so.\n\n# X'), '');
+    assert.equal(slideClassValue('<!--\n@meta{layout=kpi}\n-->\n# X'), '');
   });
 });

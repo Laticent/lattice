@@ -24,3 +24,12 @@ test('a sample with an eyebrow, a heading and a table is left alone', () => {
   const s = splitSample('<!-- _class: content -->\n\n`Revenue · FY26`\n\n## Heading.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n', 'content');
   assert.equal(exercised(s), null);
 });
+
+test('splitSample takes the class fields out of a record and keeps its other fields (topic keeps its track)', () => {
+  // The meta sweep merged topic's `_track` into its class record; dropping the whole record took the track rail out of
+  // the venue probe (check:venue-conformance) without a word.
+  const s = splitSample('<!-- @meta{layout=topic, class=fact, track="A | [B] | C"} -->\n\n## Payback\n', 'topic');
+  assert.deepEqual(s.tokens, ['fact']);
+  assert.equal(s.body, '<!-- @meta{track="A | [B] | C"} -->\n\n## Payback');
+  assert.equal(splitSample('<!-- @meta{layout=kpi} -->\n\n## H\n', 'kpi').body, '## H');
+});

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Marks"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Five marks you can now see, and an orbit that leaves the page number alone.
 
@@ -13,7 +13,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-brackets -->
+<!-- @meta{layout=cards-grid, class=mark-brackets} -->
 
 ## mark-brackets
 
@@ -26,7 +26,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-threads -->
+<!-- @meta{layout=cards-grid, class=mark-threads} -->
 
 ## mark-threads
 
@@ -39,7 +39,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-ticks -->
+<!-- @meta{layout=cards-grid, class=mark-ticks} -->
 
 ## mark-ticks
 
@@ -52,7 +52,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-seeds -->
+<!-- @meta{layout=cards-grid, class=mark-seeds} -->
 
 ## mark-seeds
 
@@ -65,7 +65,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-asterisks -->
+<!-- @meta{layout=cards-grid, class=mark-asterisks} -->
 
 ## mark-asterisks
 
@@ -78,7 +78,7 @@ header: "Lattice · Marks"
 
 ---
 
-<!-- _class: cards-grid mark-orbit -->
+<!-- @meta{layout=cards-grid, class=mark-orbit} -->
 
 ## mark-orbit
 

@@ -2,14 +2,14 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 corners: rounded
 header: "Lattice · The slide's corner"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, header="", footer=Title slide · title} -->
+
+
 
 # The slide has a corner
 
@@ -19,7 +19,7 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _footer: "Content slide · content" -->
+<!-- @meta{footer=Content slide · content} -->
 
 ## What the register does
 
@@ -32,8 +32,8 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Card grid · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Card grid · cards-grid} -->
+
 
 ## Why a clip and not a radius
 
@@ -48,7 +48,7 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Its rail rides the background`
 
@@ -56,8 +56,8 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _class: corners-square -->
-<!-- _footer: "Per-slide opt-out · corners-square" -->
+<!-- @meta{class=corners-square, footer=Per-slide opt-out · corners-square} -->
+
 
 ## This slide opted out
 
@@ -68,8 +68,8 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Card grid · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Card grid · cards-grid} -->
+
 
 ## The export decides whether it survives
 
@@ -84,8 +84,8 @@ One register, one token, and the brand bar comes with it.
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Closing slide · closing" -->
+<!-- @meta{layout=closing, footer=Closing slide · closing} -->
+
 
 ## Square is still the default
 

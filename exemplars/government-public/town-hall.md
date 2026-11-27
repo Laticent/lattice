@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "City of Granger · Town Hall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Community town hall · Spring 2027`
@@ -17,7 +17,7 @@ A plain accounting of the city budget, and what the new street-paving levy is bu
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: short -->
 
 `This year's city budget`
@@ -27,7 +27,7 @@ A plain accounting of the city budget, and what the new street-paving levy is bu
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Three services take two of every three dollars you pay.
@@ -36,7 +36,7 @@ Public safety, streets and transit, and parks and libraries account for 67% of t
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Where the $142M goes, by service.
@@ -53,7 +53,7 @@ Public safety, streets and transit, and parks and libraries account for 67% of t
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## This year's change: the street-paving levy you approved.
@@ -62,7 +62,7 @@ Last November residents approved a five-year street levy. This is the first year
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: standard -->
 
 ## What the street levy is buying, in its first year.
@@ -79,7 +79,7 @@ Last November residents approved a five-year street levy. This is the first year
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## How a street gets picked for repaving.
@@ -91,7 +91,7 @@ The city surveys every street on a pavement-condition index from 0 to 100. Stree
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## What we are asking of you tonight.
@@ -100,7 +100,7 @@ We want your priorities for next year's budget. Three things are on the table: e
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## How to stay involved after tonight.
@@ -112,9 +112,9 @@ The draft budget is open for comment through May. You can comment online, speak 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Your money, your streets, your say — the budget vote is in June.

@@ -178,7 +178,7 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	it('drops marks arms the captured document carries no finish for', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.title{color:blue} section.marks-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
+		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).not.toContain('marks');
 	});
@@ -186,40 +186,40 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	it('drops a present finish\'s arm when the page holds no mark it reaches, and keeps it when one exists', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.title{color:blue} section.marks-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
+		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
 		const section = doc.querySelector('.lattice > section') as HTMLElement;
-		section.classList.add('marks-tone');
+		section.classList.add('chart-finish-tone');
 		const bare = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(bare?.css).not.toContain('marks-tone');
+		expect(bare?.css).not.toContain('chart-finish-tone');
 		section.insertAdjacentHTML('beforeend', '<svg><rect class="bar-mark" data-hue="1"></rect></svg>');
 		const finished = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(finished?.css).toContain('marks-tone');
+		expect(finished?.css).toContain('chart-finish-tone');
 	});
 
-	// The shared mark rules serve every finish, so their head is `section:is(.marks-a, .marks-b, .marks-c)`; the mark test
+	// The shared mark rules serve every finish, so their head is `section:is(.chart-finish-a, .chart-finish-b, .chart-finish-c)`; the mark test
 	// must read that head as it reads `section.marks-X`, or every shared rule would ride into every snapshot.
 	it('drops a shared mark rule (an `:is()` of finishes) when the page holds no mark it reaches', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.title{color:blue} section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
+		doc.head.innerHTML = '<style>section.title{color:blue} section:is(.chart-finish-pigment, .chart-finish-etch, .chart-finish-tone) :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
 		const section = doc.querySelector('.lattice > section') as HTMLElement;
-		section.classList.add('marks-tone');
+		section.classList.add('chart-finish-tone');
 		const bare = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(bare?.css).not.toContain('marks-tone');
+		expect(bare?.css).not.toContain('chart-finish-tone');
 		section.insertAdjacentHTML('beforeend', '<svg><rect class="bar-mark" data-hue="1"></rect></svg>');
 		const finished = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(finished?.css).toContain('marks-tone');
+		expect(finished?.css).toContain('chart-finish-tone');
 	});
 
 	it('keeps an arm that names several finishes when any one of them is on the page', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.title{color:blue} :is(section, figure):is(.marks-etch, .marks-tone) .chart-status{background-clip:padding-box}</style>';
+		doc.head.innerHTML = '<style>section.title{color:blue} :is(section, figure):is(.chart-finish-etch, .chart-finish-tone) .chart-status{background-clip:padding-box}</style>';
 		const section = doc.querySelector('.lattice > section') as HTMLElement;
-		section.classList.add('marks-tone');
+		section.classList.add('chart-finish-tone');
 		section.insertAdjacentHTML('beforeend', '<span class="chart-status" data-s="done">done</span>');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(snap?.css).toContain('marks-tone');
+		expect(snap?.css).toContain('chart-finish-tone');
 	});
 
 	it('reads past a paren inside a quoted attribute value when it finds the arm\'s marks', () => {
@@ -227,19 +227,19 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		const doc = frame.contentDocument as Document;
 		// The `)` in the value is text. Counted as nesting, it ended the arm early, the selector failed to parse, and
 		// the rule rode along kept; read correctly, the page holds no such mark and the rule is dropped.
-		doc.head.innerHTML = '<style>section.title{color:blue} section.marks-tone :where(.bar-mark[data-note=")"]){fill:red}</style>';
-		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('marks-tone');
+		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(.bar-mark[data-note=")"]){fill:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('chart-finish-tone');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(snap?.css).not.toContain('marks-tone');
+		expect(snap?.css).not.toContain('chart-finish-tone');
 	});
 
 	it('keeps a finish arm it cannot read, rather than dropping a rule the page may need', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
-		doc.head.innerHTML = '<style>section.marks-tone :where(:bogus-pseudo(1)){fill:red}</style>';
-		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('marks-tone');
+		doc.head.innerHTML = '<style>section.chart-finish-tone :where(:bogus-pseudo(1)){fill:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('chart-finish-tone');
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
-		expect(snap?.css).toContain('marks-tone');
+		expect(snap?.css).toContain('chart-finish-tone');
 	});
 
 	// Every theme ships every face, and a face no captured element names can never draw in the replay. Kept, the

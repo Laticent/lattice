@@ -686,6 +686,30 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
   the live site after it. The first run
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `ios-safari-present-landscape-ipad` and `-iphone` run it with `PROBE=present-landscape` (#3304), one device per job:
+  an iPad Pro 13-inch and an iPhone, turned sideways. The deck is the same photos at `size: 4k`, each slide with a spoken note. Present opens upright, then
+  `run.mjs` turns the simulator through Simulator.app (Device > Rotate Left, then Command-Left; `simctl` has no rotate
+  verb). It fails when the page is not sideways, or the slide is not laid out on the canvas `lib/core/screen-canvas.mjs`
+  picks for the host width the page measures, when the layout never holds after the turn, or the slide spans under 45%
+  of the screen's width. It also fails when the 4K deck is not on HD (in the Playwright self-test Present's chrome left
+  the 13-inch iPad's slide host 1,099 CSS px), on the present-memory failures, and, on the iPhone, when the caption on
+  screen does not wrap to two lines, does not play over the slide in a band sized to the sentence, or Play and Pause
+  change the slide's size. It also logs, never judges, Present's layout through the turn: in Playwright's WebKit the
+  slide host was a box under 100 px (34 to 100 px) for up to about 0.9 s, until the orientation `change` event started
+  the rotation hold; real Mobile Safari showed no such box on either device, going straight from the upright width to
+  the sideways one with the hold on. First iOS run (2026-11-22, run 45043454498): the 13-inch iPad's slide host was
+  1,077 CSS px (2,154 device px, HD) and Present added 97 MB; the iPhone's was 544 CSS px (HD), Present added 126 MB, and
+  a three-line caption fit its band exactly (69 px). Self-test:
+  `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` (`NO_TURN=1` is its failing arm for the turn).
+  `ios-safari-codec-support` runs it with `PROBE=codec-support` (no docs build, a blank page, the iPhone alone): the iOS arm
+  of the narration codec bake-off. `codec-probe.js` decodes every file in `codec-fixtures/` (a 2 s Kokoro sentence as WAV,
+  and the same in Opus/Ogg, Opus/WebM, Opus/MP4, Opus/CAF, AAC/MP4, AAC/ADTS, LAME MP3 with and without a gapless tag,
+  FLAC and Vorbis) with `decodeAudioData` at 48 kHz, reports each one's added length, reads WebCodecs' `AudioEncoder` and
+  `AudioDecoder` support, and round-trips the source through `AudioEncoder` and `AudioDecoder` (Opus 24 and 32 kbps,
+  AAC 64). `codecs.mjs` fails it only on what the streaming design needs: Opus decodes from Ogg or WebM, with under 20 ms
+  of lead-in, and round-trips through WebCodecs. Linux WebKit decodes with GStreamer, not Apple's stack, so only this
+  run answers for an iPhone. `PROBE=codec-support node docs/scripts/ios-safari/probe.selftest.mjs` runs it in
+  Playwright's Chromium, WebKit and Firefox.
   `ios-safari-present-narration` runs it with `PROBE=present-narration`, on the iPhone alone: the owner's iPhone reloaded
   the tab when Present played a 4K deck with narration and Guide on, and not with narration off (2026-11-17).
   `present-narration.mjs` builds a 30-slide `size: 4k` deck with an `@say{…}` note on every slide (about ten minutes of narration);
@@ -1275,19 +1299,23 @@ The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).
 
-`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
-cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives every page a
+strict, hash-based Content-Security-Policy, except the few it names in each build's output. **An inline script on
 such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
 (`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
-Pages that can build a preview frame carry no policy until stage 2
-(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
+Slide previews are covered: the preview frames load their agents from a same-origin file
+(`lib/core/frame-agents.mjs`), and the two sandboxes load through a same-origin shell
+(`lib/packages/sandbox-shell.mjs`). The pages still without a policy, and how each closes:
+`followups.d/3277-p1-csp-remaining-pages.md`. Why: `engineering/decisions/2026-11-17-site-discovery.md`.
 
 ### The docs site is an installable PWA (offline cache)
 
 The site ships a web-app manifest (`docs/public/site.webmanifest`, icons
 generated by `tools/make-pwa-icons.js`) and a **runtime-caching service
 worker** (`docs/public/sw.js`): visited pages work offline (network-first
-HTML, stale-while-revalidate assets, PDFs/PPTX/zips never cached), unvisited
+HTML, stale-while-revalidate assets, network-first for the Studio's component
+catalog and modifier vocabulary so the add-slide gallery never searches the
+previous deploy's catalog, PDFs/PPTX/zips never cached), unvisited
 navigations fall back to `/offline/` (`docs/public/offline/index.html`). The head tags +
 registration live in ONE component — `docs/src/components/site/PwaHead.astro` —
 included by `<ResourceHints>` (standalone routes) and the `ThemeProvider`
@@ -1345,6 +1373,15 @@ locally from `docs/`:
   (`scripts/perf-regression.mjs`) — a **relative** budget, not absolute
   thresholds (which rotted + flapped — issue #327). On a regression it opens a
   `[perf-nightly]` tracking issue. Tolerances live in `perf-regression.mjs`.
+  **Speed numbers from before and after 2026-11-22 do not compare.** That day lhci
+  0.15 → 0.16 (Lighthouse 12.6 → 13.6) landed through #3201 (`fe71a9956`), and Lighthouse 13
+  measures the same build differently: TBT is 30–110% higher on the script-heavy pages
+  (`/playground/`, `/studio/`, mobile `/`) and LCP is lower where the largest paint is text
+  (`/components/` mobile 4.6 s → 1.4 s). Accessibility, SEO, CLS and the report files did not
+  change. Best practices rose 3 points on one row (mobile `/studio/`) because Lighthouse 13
+  dropped its `font-size` audit. A night's verdict is still sound, since both arms run the
+  head's lhci; a trend line across the date is not. The table is in
+  `decisions/2026-11-22-lighthouse-13-measurement-shift.md`.
 - **BYTES are NOT gated by that nightly — they are gated per-PR.**
   `docs/scripts/check-route-budget.mjs` reads gzipped `/_astro/*.js` and the HTML
   document off the built `dist/`, compares them to `docs/route-budget.json`, and

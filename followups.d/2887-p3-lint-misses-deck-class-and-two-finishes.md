@@ -13,8 +13,8 @@ source: https://github.com/Laticent/lattice/pull/2887
 ```text
   P3 · two silent cases in the class lint, both the same on main
        found     — #2887's checker. (1) A deck-level `class: bogusxyz` raises no unknown-class, so
-                   `class: chart-finish-tone` gets no `marks-renamed` note either (it renders correctly).
-                   (2) `_class: bar marks-tone marks-etch` stamps both finishes and lint is silent;
+                   `class: marks-tone` gets no renamed-class error either (#3510 retired that spelling).
+                   (2) `_class: bar chart-finish-tone chart-finish-etch` stamps both finishes and lint is silent;
                    the old spelling behaves the same, so the alias did not cause it.
        where     — lint-core.js, the unknown-class pass (it reads `_class:` directives only) and
                    findUnknownMarks (it reads the front-matter key, not slide classes).

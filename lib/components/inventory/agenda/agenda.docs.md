@@ -53,7 +53,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ## Authoring
 
 ```markdown
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## What this deck covers.
 
@@ -86,7 +86,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 Stop 1 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-1 -->
+<!-- @meta{layout=agenda, class=progress-1} -->
 
 ## progress-1 marks stop 1 as the current one.
 
@@ -103,7 +103,7 @@ Stop 1 is current; the rest dim or wait.
 Stop 2 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-2 -->
+<!-- @meta{layout=agenda, class=progress-2} -->
 
 ## progress-2 marks stop 2 as the current one.
 
@@ -120,7 +120,7 @@ Stop 2 is current; the rest dim or wait.
 Stop 3 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-3 -->
+<!-- @meta{layout=agenda, class=progress-3} -->
 
 ## progress-3 marks stop 3 as the current one.
 
@@ -137,7 +137,7 @@ Stop 3 is current; the rest dim or wait.
 Stop 4 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-4 -->
+<!-- @meta{layout=agenda, class=progress-4} -->
 
 ## progress-4 marks stop 4 as the current one.
 
@@ -154,7 +154,7 @@ Stop 4 is current; the rest dim or wait.
 Stop 5 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-5 -->
+<!-- @meta{layout=agenda, class=progress-5} -->
 
 ## progress-5 marks stop 5 as the current one.
 
@@ -171,7 +171,7 @@ Stop 5 is current; the rest dim or wait.
 Stop 6 is current; the rest dim or wait.
 
 ```markdown
-<!-- _class: agenda progress-6 -->
+<!-- @meta{layout=agenda, class=progress-6} -->
 
 ## progress-6 marks stop 6 as the current one.
 
@@ -188,7 +188,7 @@ Stop 6 is current; the rest dim or wait.
 Numbers become rings; current fills.
 
 ```markdown
-<!-- _class: agenda circles progress-3 -->
+<!-- @meta{layout=agenda, class=circles progress-3} -->
 
 ## circles swaps the numbers for filled dots.
 
@@ -204,7 +204,7 @@ Numbers become rings; current fills.
 Done gets a tick, current an arrow.
 
 ```markdown
-<!-- _class: agenda checks progress-3 -->
+<!-- @meta{layout=agenda, class=checks progress-3} -->
 
 ## checks ticks the stops already behind you.
 

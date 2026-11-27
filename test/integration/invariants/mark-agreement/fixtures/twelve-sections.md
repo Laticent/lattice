@@ -1,16 +1,16 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 progress-rail: on
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 1
 
@@ -22,7 +22,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 2
 
@@ -34,7 +34,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 3
 
@@ -46,7 +46,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 4
 
@@ -58,7 +58,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 5
 
@@ -70,7 +70,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 6
 
@@ -82,7 +82,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 7
 
@@ -94,7 +94,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 8
 
@@ -106,7 +106,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 9
 
@@ -118,7 +118,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 10
 
@@ -130,7 +130,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 11
 
@@ -142,7 +142,7 @@ Body.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## Part 12
 

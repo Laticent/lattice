@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · policy-recommendation"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # policy-recommendation
 
@@ -15,8 +15,7 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
-<!-- _footer: "Default · policy-recommendation" -->
+<!-- @meta{layout=policy-recommendation, class=adopt, footer=Default · policy-recommendation} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -34,8 +33,7 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 
 ---
 
-<!-- _class: policy-recommendation adopt -->
-<!-- _footer: "adopt · policy-recommendation adopt — Support — green verdict badge and rail." -->
+<!-- @meta{layout=policy-recommendation, class=adopt, footer="adopt · policy-recommendation adopt — Support — green verdict badge and rail."} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -53,8 +51,7 @@ Consumers now learn of a breach 78 days late on average.
 
 ---
 
-<!-- _class: policy-recommendation amend -->
-<!-- _footer: "amend · policy-recommendation amend — Conditional support — amber badge and rail." -->
+<!-- @meta{layout=policy-recommendation, class=amend, footer="amend · policy-recommendation amend — Conditional support — amber badge and rail."} -->
 
 `SB 88 · Algorithmic Hiring`
 
@@ -72,8 +69,7 @@ Post-hoc audits catch bias only after applicants are screened out.
 
 ---
 
-<!-- _class: policy-recommendation oppose -->
-<!-- _footer: "oppose · policy-recommendation oppose — Against — red verdict badge and rail." -->
+<!-- @meta{layout=policy-recommendation, class=oppose, footer="oppose · policy-recommendation oppose — Against — red verdict badge and rail."} -->
 
 `AB 402 · Encryption Backdoors`
 
@@ -91,8 +87,7 @@ A state-held decryption key is a single point of failure for every resident's da
 
 ---
 
-<!-- _class: policy-recommendation defer -->
-<!-- _footer: "defer · policy-recommendation defer — Study first — neutral badge and rail." -->
+<!-- @meta{layout=policy-recommendation, class=defer, footer="defer · policy-recommendation defer — Study first — neutral badge and rail."} -->
 
 `HR 19 · Municipal Facial Recognition`
 
@@ -110,9 +105,8 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: policy-recommendation amend -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · policy-recommendation — Three reasons — the ceiling." -->
+<!-- @meta{layout=policy-recommendation, class=amend, footer="Stress test · policy-recommendation — Three reasons — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 `SB 88 · Algorithmic Hiring`
 
@@ -130,8 +124,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: policy-recommendation adopt dark -->
-<!-- _footer: "Composition: dark · policy-recommendation dark" -->
+<!-- @meta{layout=policy-recommendation, class=adopt dark, footer=Composition: dark · policy-recommendation dark} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -149,8 +142,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: policy-recommendation adopt compact -->
-<!-- _footer: "Composition: compact · policy-recommendation compact" -->
+<!-- @meta{layout=policy-recommendation, class=adopt compact, footer=Composition: compact · policy-recommendation compact} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -168,8 +160,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: policy-recommendation adopt accent -->
-<!-- _footer: "Composition: accent · policy-recommendation accent" -->
+<!-- @meta{layout=policy-recommendation, class=adopt accent, footer=Composition: accent · policy-recommendation accent} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -187,8 +178,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · policy-recommendation · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · policy-recommendation · 1 of 2} -->
 
 ## When NOT to reach for policy-recommendation.
 
@@ -199,8 +189,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · policy-recommendation · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · policy-recommendation · 2 of 2} -->
 
 ## When NOT to reach for policy-recommendation.
 
@@ -211,7 +200,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

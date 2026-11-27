@@ -63,7 +63,7 @@ Use when the claim is that these categories differ in size: revenue by region, h
 ## Authoring
 
 ```markdown
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Which category is biggest.
 
@@ -98,7 +98,7 @@ Use when the claim is that these categories differ in size: revenue by region, h
 Horizontal bars with the category name in a wide left gutter — the correct form whenever the names are long or numerous.
 
 ```markdown
-<!-- _class: bar row -->
+<!-- @meta{layout=bar, class=row} -->
 
 ## Support load sits with two teams.
 
@@ -114,7 +114,7 @@ Horizontal bars with the category name in a wide left gutter — the correct for
 Two to four series side by side in each category, selected by nesting numeric children under each category.
 
 ```markdown
-<!-- _class: bar grouped -->
+<!-- @meta{layout=bar, class=grouped} -->
 
 ## We beat plan everywhere but APAC.
 
@@ -134,7 +134,7 @@ Two to four series side by side in each category, selected by nesting numeric ch
 Signed values off a centered zero rule, both sides on one scale — the variance and tornado form.
 
 ```markdown
-<!-- _class: bar diverging row -->
+<!-- @meta{layout=bar, class=diverging row} -->
 
 ## What moves the forecast, and which way.
 

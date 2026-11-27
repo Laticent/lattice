@@ -32,7 +32,7 @@ describe('the shipped motion library (lib/motion/)', () => {
 			expect(posterFits({ label: s.label, description: s.description, art: art as string }), `${s.name} poster over ${ART_MAX_BYTES} bytes`).toBe(true);
 			const md = slideSkeleton({ label: s.label, description: s.description, art: art as string, spec: s.spec });
 			const lines = md.split('\n');
-			expect(lines[0]).toBe('<!-- _class: scene -->');
+			expect(lines[0]).toBe('<!-- @meta{layout=scene} -->');
 			expect(lines).toContain(`## ${s.label}`);
 			const svg = lines.find((l) => l.startsWith('<svg'));
 			expect(svg, s.name).toBeTruthy();

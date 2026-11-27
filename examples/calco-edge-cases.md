@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Editable export edge cases"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # What the editable export has to get right.
 

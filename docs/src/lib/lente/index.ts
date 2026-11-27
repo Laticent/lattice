@@ -18,9 +18,9 @@ export { approvalHash, deeperLens, ladderRungs, lensEligibility, lensEscapees, l
 // Registry — parse / emit / upsert the front-matter `lenses:` block (Lente is its sole writer).
 export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry.js';
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
-export { catalogFromComponents, suggestMembership } from './suggest.js';
+export { catalogFromComponents, commentClassReader, type SlideClassReader, suggestMembership } from './suggest.js';
 // Tags — the per-slide membership carrier.
-export { applyTag, parseSlideTags, taggedLensIds } from './tags.js';
+export { applyTag, commentLensCarrier, type LensTagCarrier, parseSlideTags, setLensTagCarrier, taggedLensIds } from './tags.js';
 export type {
 	ComponentCatalog,
 	ComponentInfo,

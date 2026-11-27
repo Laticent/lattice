@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · HTML player"
 player: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The deck that is also a webpage.
 
@@ -16,8 +16,8 @@ One self-contained `.html` — double-click it and it *is* your deck. No install
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "One file, three ways to read it" -->
+<!-- @meta{layout=content, footer="One file, three ways to read it"} -->
+
 
 ## A deck is a talk and a document at once.
 
@@ -25,8 +25,8 @@ So the exported file is both. It opens in **Present** mode for the room, reflows
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Pick a view from the top bar" -->
+<!-- @meta{layout=cards-grid, footer=Pick a view from the top bar} -->
+
 
 `Three views`
 
@@ -41,8 +41,8 @@ So the exported file is both. It opens in **Present** mode for the room, reflows
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Safe to open, safe to send" -->
+<!-- @meta{layout=cards-grid, footer="Safe to open, safe to send"} -->
+
 
 `Built to be shared`
 
@@ -57,7 +57,7 @@ So the exported file is both. It opens in **Present** mode for the room, reflows
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## "Give me the one file that is my deck."
 
@@ -65,8 +65,8 @@ The emotional default a share format has to earn — not a zip to unpack, not a 
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Dark and light travel together" -->
+<!-- @meta{layout=content, footer=Dark and light travel together} -->
+
 
 ## It adapts to the reader.
 
@@ -74,7 +74,7 @@ Both color modes are baked in, so the file follows the reader's system preferenc
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Write once. Present, read, and share from the same file.
 

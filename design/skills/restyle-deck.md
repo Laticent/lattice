@@ -143,7 +143,7 @@ theme: cuoio
 color-mode: dark
 preset: editorial
 venue: conference
-paginate: true
+pagination: true
 header: "Harbor Analytics · Pricing review"
 ---
 ```
@@ -187,7 +187,7 @@ theme: cuoio
 color-mode: dark
 preset: editorial
 venue: conference
-paginate: true
+pagination: true
 header: "Harbor Analytics · Pricing review"
 ---
 

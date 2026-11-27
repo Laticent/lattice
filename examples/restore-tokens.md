@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Restore tokens"
 spectrum: solid left
 card-spectrum: solid top
@@ -10,7 +10,7 @@ eyebrow: dot
 headline: center
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Accent registers · restore tokens`
 
@@ -20,7 +20,7 @@ This deck sets a non-default value on six accent registers. Each slide after the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The deck's own look`
 
@@ -30,7 +30,7 @@ This slide carries no tokens of its own, so it shows the deck's settings: a soli
 
 ---
 
-<!-- _class: content spectrum-top -->
+<!-- @meta{layout=content, class=spectrum-top} -->
 
 `spectrum-top`
 
@@ -40,7 +40,7 @@ A deck that writes `spectrum: left` puts every bar on the left. `spectrum-top` r
 
 ---
 
-<!-- _class: content with-spectrum -->
+<!-- @meta{layout=content, class=with-spectrum} -->
 
 `with-spectrum`
 
@@ -50,7 +50,7 @@ The deck runs `spectrum: solid`. `with-spectrum` returns this slide to the theme
 
 ---
 
-<!-- _class: content rule-auto eyebrow-plain -->
+<!-- @meta{layout=content, class=rule-auto eyebrow-plain} -->
 
 `rule-auto · eyebrow-plain`
 
@@ -60,7 +60,7 @@ The deck runs `spectrum: solid`. `with-spectrum` returns this slide to the theme
 
 ---
 
-<!-- _class: content head-auto -->
+<!-- @meta{layout=content, class=head-auto} -->
 
 `head-auto`
 
@@ -70,7 +70,7 @@ The deck centers every heading with `headline: center`. `head-auto` hands this s
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `Card rails · the deck's setting`
 
@@ -85,7 +85,7 @@ The deck centers every heading with `headline: center`. `head-auto` hands this s
 
 ---
 
-<!-- _class: cards-grid three card-spectrum-left -->
+<!-- @meta{layout=cards-grid, class=three card-spectrum-left} -->
 
 `card-spectrum-left`
 
@@ -100,7 +100,7 @@ The deck centers every heading with `headline: center`. `head-auto` hands this s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `When to reach for one`
 

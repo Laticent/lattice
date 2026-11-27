@@ -12,8 +12,8 @@ studio: true
 > without editing the source.
 
 > **Two words, one feature — and which to use where.** The MACHINE register is
-> `lens`: the front-matter `lenses:` block, `lens-default:`, the per-slide `_lens`
-> tag, and every name in `@laticent/lente`. The HUMAN register is **view**: every
+> `lens`: the front-matter `lenses:` block, `lens-default:`, the per-slide `lens`
+> field of the slide's `@meta` record, and every name in `@laticent/lente`. The HUMAN register is **view**: every
 > string a person reads says "reader view" (the panel is titled *Reader views*, not
 > *Lenses*). Write prose in the human register; write keys and identifiers in the
 > machine one. Neither migrates into the other — see
@@ -23,7 +23,7 @@ studio: true
 
 **Read this when** you are asked to create a reader view, an exec summary view, a
 "show me just the ask" projection, or any saved subset of a deck. **You'll produce**
-a `LensDef` in the deck's front-matter `lenses:` block, per-slide `_lens` tags, and
+a `LensDef` in the deck's front-matter `lenses:` block, per-slide `lens` fields in each slide's `@meta` record, and
 an approval hash — usually via the Studio Lenses panel.
 
 ---
@@ -99,9 +99,9 @@ interface LensDef {
 **`base` is the core idea:**
 
 - `base: 'none'` (**additive**) — a slide is OUT unless it opts IN with
-  `<!-- _lens: brief -->`. Used by `brief`, `story`, `ask`.
+  `<!-- @meta{lens=brief} -->`. Used by `brief`, `story`, `ask`.
 - `base: 'all'` (**subtractive**) — every slide is IN unless it opts OUT with
-  `<!-- _lens: -evidence -->`. Used by `evidence`.
+  `<!-- @meta{lens="-evidence"} -->`. Used by `evidence`.
 - `full` is neither — the implicit identity lens, always present, un-removable, and
   the fallback a reader lands on whenever the deck's landing view is unavailable
   (safe because it's the whole deck).
@@ -210,8 +210,9 @@ never five.
 ## Where it lives
 
 - **The library** (pure, framework-free, zero-dependency, no DOM):
-  `docs/src/lib/lente/` — `types.ts` (the `LensDef`), `tags.ts` (the `_lens`
-  grammar + `applyTag`), `registry.ts` (parse/emit the `lenses:` block — Lente is
+  `docs/src/lib/lente/` — `types.ts` (the `LensDef`), `tags.ts` (tag tokens + `applyTag`, over an
+  injected carrier; Lattice installs the `@meta` record one in `docs/src/lib/lente-host.ts`, which every Studio
+  surface imports), `registry.ts` (parse/emit the `lenses:` block — Lente is
   the *sole* writer), `project.ts` (the read path + `lensEligibility` +
   `approvalHash` + the ladder: `lensKind` / `ladderRungs` / `lensEscapees` /
   `deeperLens`), `suggest.ts` (the 4 archetype rules), `validate.ts` (including
@@ -219,7 +220,7 @@ never five.
 - **Studio integration**: `lens-archetypes.ts` (the archetype catalog),
   `workspace-lenses.ts`, `LensesPanel.tsx` (the human-in-the-loop UI),
   `lens-picker.tsx` / `PresentOverlay.tsx` (the reader switchers).
-- **Engine touch**: `_lens` is a flag directive — tags are **stripped** from
+- **Engine touch**: `lens` is a record field — tags are **stripped** from
   exported HTML/PDF, so membership never leaks into output bytes.
 
 ---
@@ -243,8 +244,8 @@ never five.
    `lenses:\n  myview: { label: "My view", base: none }`. Add `kind: rung` **only**
    if it is a genuine altitude — a strict superset of the rung below it — because
    `validateLadder` will hold you to that.
-2. Tag member slides: `<!-- _lens: myview -->` (or `-myview` on a `base: all`
-   lens).
+2. Tag member slides: `<!-- @meta{lens=myview} -->` (or `lens="-myview"` on a
+   `base: all` lens), in the slide's one record beside its `layout`.
 3. To ship a suggester for it, add an entry to `SUGGESTERS` in `suggest.ts` keyed
    by the id, and (for Studio) an archetype in `lens-archetypes.ts` — the id must
    match across both.
@@ -275,17 +276,16 @@ lenses:
 which is the right default for anything that is not a strict superset of the rung
 below it.
 
-Per-slide tags mirror the `_class` grammar (lowercase, space-separated tokens):
+Per-slide tags are the `lens` field of the slide's record (lowercase, space-separated tokens; the Studio quotes a value
+that starts with `-`, and either form reads):
 
 ```markdown
-<!-- _class: kpi -->
-<!-- _lens: brief ask -->
+<!-- @meta{layout=kpi, lens="brief ask"} -->
 ## Revenue up 38% YoY
 ```
 
 ```markdown
-<!-- _class: table -->
-<!-- _lens: -evidence -->     ← opt this slide OUT of the base:all evidence lens
+<!-- @meta{layout=table, lens="-evidence"} -->     ← opt this slide OUT of the base:all evidence lens
 ```
 
 Programmatic read (host code): `parseLensRegistry(fm)` →
@@ -311,7 +311,7 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
   asserting a human vetted content that has since changed. Use the content hash.
 - A reader landing on the full deck when their lens is unavailable — shows slides the
   author never approved for that view, on the one path where nobody vetted the result.
-- Renaming `brief` → `summary` in place — orphans every `_lens: brief` tag. Ship a
+- Renaming `brief` → `summary` in place — orphans every `lens=brief` tag. Ship a
   migration instead.
 - The suggester writing tags or reaching a reader directly.
 - An `ask`/single lens guessing a member when confidence is low — it should emit
@@ -360,7 +360,8 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
 - `docs/src/lib/lente/types.ts` — the `LensDef` anatomy.
 - `docs/src/lib/lente/project.ts` — the read path, eligibility, content hash (the
   safety core).
-- `docs/src/lib/lente/tags.ts` — the `_lens` tag grammar and `applyTag`.
+- `docs/src/lib/lente/tags.ts` — the tag tokens, the carrier and `applyTag`; `docs/src/lib/lente-host.ts` — Lattice's
+  record carrier.
 - `docs/src/lib/lente/suggest.ts` — the four archetype rules.
 - `docs/src/components/studio/lens-archetypes.ts` — the archetype catalog (and each
   view's `kind`).

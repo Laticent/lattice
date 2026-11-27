@@ -52,7 +52,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 ## Authoring
 
 ```markdown
-<!-- _class: authority-chain -->
+<!-- @meta{layout=authority-chain} -->
 
 ## Rule name — the chain, tier by tier.
 
@@ -93,7 +93,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 The chain forks.
 
 ```markdown
-<!-- _class: authority-chain branching -->
+<!-- @meta{layout=authority-chain, class=branching} -->
 
 ## branching forks the chain where authority splits.
 
@@ -110,7 +110,7 @@ The chain forks.
 A breadcrumb walk.
 
 ```markdown
-<!-- _class: authority-chain trail -->
+<!-- @meta{layout=authority-chain, class=trail} -->
 
 ## trail walks the chain as a breadcrumb.
 
@@ -133,7 +133,7 @@ A breadcrumb walk.
 Tiers weighted by force.
 
 ```markdown
-<!-- _class: authority-chain pyramid -->
+<!-- @meta{layout=authority-chain, class=pyramid} -->
 
 ## pyramid weights the tiers by force.
 
@@ -156,7 +156,7 @@ Tiers weighted by force.
 Tiers grouped by actor.
 
 ```markdown
-<!-- _class: authority-chain bracket -->
+<!-- @meta{layout=authority-chain, class=bracket} -->
 
 ## bracket groups the tiers by actor.
 

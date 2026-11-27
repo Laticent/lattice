@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: 'Lattice'
 footer: 'Design system — function · form · substance · finish'
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Lattice Design System
 
@@ -18,7 +18,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## What this deck covers.
 
@@ -31,9 +31,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 01`
 
@@ -41,7 +41,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- @meta{layout=cards-grid, class=four} -->
 
 ## Each slide is a stack of four orthogonal decisions.
 
@@ -56,9 +56,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 02`
 
@@ -66,7 +66,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: list-tabular compact -->
+<!-- @meta{layout=list-tabular, class=compact} -->
 
 ## Pick by intent. Then by data shape.
 
@@ -87,9 +87,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 03`
 
@@ -97,7 +97,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- @meta{layout=compare-prose, class=chosen} -->
 
 ## Why dotted names lost the rethink.
 
@@ -108,9 +108,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 04`
 
@@ -118,7 +118,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## Each layout ships a manifest at `lib/components/<bucket>/<name>/<name>.manifest.json`.
 
@@ -131,9 +131,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 05`
 
@@ -141,7 +141,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: cards-stack horizontal -->
+<!-- @meta{layout=cards-stack, class=horizontal} -->
 
 ## Two paths from blank deck to a slide skeleton.
 
@@ -152,9 +152,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `Section 06`
 
@@ -162,7 +162,7 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## What ships on this branch.
 
@@ -176,9 +176,9 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Authors keep their short names. Everyone else gets a map.
 

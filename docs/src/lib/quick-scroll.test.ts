@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Box, EDGE_SLOP, edgeState, fits, GAP, INSET, layoutFor, place, SIZE } from './quick-scroll';
+import { type Box, boxChanged, EDGE_SLOP, edgeState, fits, GAP, INSET, layoutFor, place, SIZE } from './quick-scroll';
 
 const pane: Box = { left: 0, top: 100, right: 600, bottom: 800 };
 
@@ -67,5 +67,19 @@ describe('place', () => {
 	it('reports a placement that would spill out of a crowded pane as not fitting', () => {
 		const tall: Box = { left: 450, top: 150, right: 600, bottom: 790 };
 		expect(fits(place(pane, 0, 'stack', [tall]), pane)).toBe(false);
+	});
+});
+
+describe('boxChanged', () => {
+	const box: Box = { left: 0, top: 103, right: 393, bottom: 659 };
+	it('reads the same box as no change: the observer\'s first callback after observe()', () => {
+		expect(boxChanged(box, { ...box })).toBe(false);
+	});
+	it('ignores subpixel noise', () => {
+		expect(boxChanged(box, { left: 0.2, top: 103.3, right: 392.8, bottom: 659.4 })).toBe(false);
+	});
+	it('reads a resize or a move as a change', () => {
+		expect(boxChanged(box, { ...box, bottom: 600 })).toBe(true);
+		expect(boxChanged(box, { ...box, left: 40, right: 433 })).toBe(true);
 	});
 });

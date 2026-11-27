@@ -69,21 +69,21 @@ test('the two keys the sweep owns are refused, and each names its flag', () => {
 });
 
 test('the same key twice is refused, and the message shows both values', () => {
-  const { status, err } = run('--front-matter', 'paginate: true', '--front-matter', 'paginate: false');
+  const { status, err } = run('--front-matter', 'pagination: true', '--front-matter', 'pagination: false');
   assert.equal(status, 2, err);
-  assert.match(err, /sets 'paginate' twice/);
+  assert.match(err, /sets 'pagination' twice/);
   assert.match(err, /'true'[\s\S]*'false'/);
 });
 
 test('the flag is REPEATABLE — a second entry does not replace the first', () => {
   // THE DEFECT THIS PINS. The argv parser stores flags in a Map, so a plain `set` per
-  // occurrence kept only the LAST entry: `--front-matter 'paginate: true' --front-matter
+  // occurrence kept only the LAST entry: `--front-matter 'pagination: true' --front-matter
   // 'header: x'` would have swept with no pagination at all and reported a clean verdict
   // over an absent mark. The duplicate-key refusal above is what makes this observable
   // without a render — it can only fire if BOTH entries survived parsing.
-  const { status, err } = run('--front-matter', 'paginate: true', '--front-matter', 'paginate: x');
+  const { status, err } = run('--front-matter', 'pagination: true', '--front-matter', 'pagination: x');
   assert.equal(status, 2, err);
-  assert.match(err, /sets 'paginate' twice/, 'only one entry survived the parser');
+  assert.match(err, /sets 'pagination' twice/, 'only one entry survived the parser');
 });
 
 test('a valid entry is accepted — the refusals are not refusing everything', () => {
@@ -103,7 +103,7 @@ test('a valid entry is accepted — the refusals are not refusing everything', (
   // What is actually being claimed is one thing and it is browser-independent: a WELL-FORMED
   // entry is not rejected by THIS flag. Both downstream failures prove that equally, because
   // both happen after the validation block.
-  const { status, err } = run('--front-matter', 'paginate: true', '--anchor', 'nosuch::after', '--max', '2');
+  const { status, err } = run('--front-matter', 'pagination: true', '--anchor', 'nosuch::after', '--max', '2');
   assert.equal(status, 2, err);
   assert.doesNotMatch(err, /--front-matter/, 'a valid entry must not be refused');
   // Positive, and true with or without a browser: the run reached the sweep. Either it

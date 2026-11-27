@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Project Atlas · Status review"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Monthly status · 10 June 2026`
@@ -17,7 +17,7 @@ The mobile rebuild is on schedule and on budget — one dependency is now our to
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Atlas is green on schedule and budget; the auth vendor is our one amber risk.
@@ -26,7 +26,7 @@ The native mobile rebuild is 64% complete, tracking to the September beta and wi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Why the rebuild: the old hybrid app caps our growth.
@@ -38,7 +38,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## On schedule and on budget; one workstream amber.
@@ -55,7 +55,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Quality · internal builds`
@@ -75,7 +75,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: short -->
 
 ## Where each workstream stands against the September beta.
@@ -89,7 +89,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- @meta{layout=timeline-list} -->
 <!-- tier: full -->
 
 `History · 2026`
@@ -107,7 +107,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: short -->
 
 ## Our open risks, placed by likelihood and impact.
@@ -123,7 +123,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: full -->
 
 ## Beta-readiness checklist.
@@ -137,7 +137,7 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: full -->
 
 ## To protect the date, we are building an auth fallback in parallel.
@@ -149,9 +149,9 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Green on schedule and budget — watching the auth dependency closely.

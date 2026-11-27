@@ -331,6 +331,16 @@ const floorCss = [...floorIds]
   .map((i) => `/*@lat-module ${i}*/\n${readFileSync(join(stylesMinDir, styleIndex.modules[i].file), 'utf8')}`)
   .join('');
 generated.push(['styles/floor.css', floorCss]);
+// The preview frames' agents (fit, font gate, link guard, the Stage's transport) as one same-origin
+// file beside the runtime. A frame inherits its page's script policy, which allows no inline script,
+// so the builders name this file instead of writing the agents inline (lib/core/frame-agents.mjs).
+const { FRAME_AGENTS_FILE, frameAgentsSource } = await import('../../lib/core/frame-agents.mjs');
+generated.push([FRAME_AGENTS_FILE, frameAgentsSource()]);
+// …and the sandbox shell the code-package runner and the draw host load their frames through: a
+// sandboxed srcdoc would inherit the page's policy too, and refuse the frame's own hashed script
+// (lib/packages/sandbox-shell.mjs).
+const { SANDBOX_SHELL_FILE, sandboxShellHtml } = await import('../../lib/packages/sandbox-shell.mjs');
+generated.push([SANDBOX_SHELL_FILE, sandboxShellHtml()]);
 generated.push(['styles/needs.json', JSON.stringify({ ...styleIndex, floorFile: 'floor.css', bundleBase: 'bundle?m=' })]);
 
 // The Galleries sheet's "All examples" list: one static deck per examples/*.md plus a

@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart keys"
 footer: "A key's value column fits its values"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A chart key sizes its value column to what it holds
 
@@ -14,7 +14,7 @@ footer: "A key's value column fits its values"
 
 ---
 
-<!-- _class: map world highlight -->
+<!-- @meta{layout=map, class=world highlight} -->
 
 `Field offices · 2026`
 
@@ -29,7 +29,7 @@ footer: "A key's value column fits its values"
 
 ---
 
-<!-- _class: map world highlight -->
+<!-- @meta{layout=map, class=world highlight} -->
 
 `Global South · by continent`
 
@@ -44,7 +44,7 @@ footer: "A key's value column fits its values"
 
 ---
 
-<!-- _class: map world highlight grouped -->
+<!-- @meta{layout=map, class=world highlight grouped} -->
 
 `Partner tiers · 2026`
 
@@ -57,7 +57,7 @@ footer: "A key's value column fits its values"
 
 ---
 
-<!-- _class: piechart -->
+<!-- @meta{layout=piechart} -->
 
 `Revenue mix · FY26`
 
@@ -71,7 +71,7 @@ footer: "A key's value column fits its values"
 
 ---
 
-<!-- _class: map world -->
+<!-- @meta{layout=map, class=world} -->
 
 `Program reach · 2026`
 

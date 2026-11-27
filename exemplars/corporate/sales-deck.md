@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind · Sales narrative"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `For revenue leaders · 2026`
@@ -17,7 +17,7 @@ Forecasting that learns from every deal — so your number stops being a guess.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Revenue forecasting just shifted from gut feel to a system of record.
@@ -29,7 +29,7 @@ For a decade, the forecast was a spreadsheet ritual — reps sandbagging, manage
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Every quarter you miss the number, the cost compounds beyond the miss.
@@ -41,7 +41,7 @@ A forecast that's wrong by 15% doesn't just dent the quarter. It misprices hirin
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `What forecast error actually costs`
@@ -51,7 +51,7 @@ A forecast that's wrong by 15% doesn't just dent the quarter. It misprices hirin
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Imagine opening the forecast and trusting it — because the deals back it up.
@@ -60,7 +60,7 @@ Northwind reads every email, call, and CRM change, scores each deal on the signa
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## The promised land: a forecast that improves itself every quarter.
@@ -72,7 +72,7 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 <!-- tier: standard -->
 
 ## Only Northwind closes the loop from signal to forecast to coaching.
@@ -95,7 +95,7 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Proof · Customers in production`
@@ -115,7 +115,7 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Proof · 2026`
@@ -134,7 +134,7 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## Run one quarter on Northwind and forecast against your own history.
@@ -146,9 +146,9 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Make your number something you can trust.

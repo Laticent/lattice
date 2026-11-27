@@ -1,1 +1,0 @@
-- The Studio's export panel and the `--editable` reference now say to send the PDF or the plain `.pptx` to an iPhone: iPhone Preview can draw shapes from one slide of an editable PowerPoint file on another, a defect in Apple's viewer that no change to the file stopped.

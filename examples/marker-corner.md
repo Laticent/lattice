@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 logo: sample:logo-acme-mark.svg
 header: "Lattice · the marker corner"
 meta: Marker corner · four claimants, one capsule
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The corner held four things. Now it holds two, and the markers are one.
 
@@ -17,7 +17,7 @@ Four absolutely-positioned boxes wanted the slide's top-right, and the arithmeti
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The occupants`
 
@@ -36,7 +36,7 @@ The first two keep the corner. The last two are one pill at the foot.
 
 ---
 
-<!-- _class: split-panel confidential -->
+<!-- @meta{layout=split-panel, class=confidential} -->
 
 `What a reader receives`
 
@@ -51,7 +51,7 @@ The panel can no longer hold the copy it was handed, so the export tags the slid
 
 ---
 
-<!-- _class: split-panel confidential stamp-notch -->
+<!-- @meta{layout=split-panel, class=confidential stamp-notch} -->
 
 `Two ends of the frame`
 
@@ -66,7 +66,7 @@ The panel can no longer hold the copy it was handed, so the export tags the slid
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why merging ended it`
 
@@ -78,7 +78,7 @@ Two segments in one flex row cannot collide with each other, and a single center
 
 ---
 
-<!-- _class: content confidential stamp-notch -->
+<!-- @meta{layout=content, class=confidential stamp-notch} -->
 
 `The whole stamp vocabulary`
 
@@ -95,7 +95,7 @@ A stamp paints along the top. The capsule berths at the foot. There is nothing l
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One object, up to two facts, and no arithmetic holding it together.
 

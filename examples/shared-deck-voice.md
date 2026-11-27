@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 pace: deliberate
 header: "Lattice · a shared deck finds its voice"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · narration that travels`
 
@@ -16,7 +16,7 @@ Everything built for “the deck presents itself” stopped at the Studio bounda
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 <!-- @say{A persistent clip store, prefetch windows, adaptive lookahead, a presentation beat, a readiness rail. On every shipped surface, the deck was silent.} -->
 
@@ -26,7 +26,7 @@ Everything built for “the deck presents itself” stopped at the Studio bounda
 
 ---
 
-<!-- _class: compare-prose transition -->
+<!-- @meta{layout=compare-prose, class=transition} -->
 
 ## What actually reaches a recipient.
 
@@ -39,7 +39,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `The contract`
 
@@ -54,7 +54,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why refusing is kinder`
 
@@ -66,7 +66,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Two switches, four files`
 
@@ -81,7 +81,7 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Whose voice, whose rhythm`
 
@@ -93,7 +93,7 @@ The narrator defaults to the voice the deck was rehearsed in, and can be changed
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 `Where the audio rides`
 
@@ -108,7 +108,7 @@ The narrator defaults to the voice the deck was rehearsed in, and can be changed
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The privacy interaction`
 
@@ -118,7 +118,7 @@ Narration is generated from what is on the slide, so a note has nothing to do wi
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Still open`
 

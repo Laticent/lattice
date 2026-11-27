@@ -54,7 +54,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 ## Authoring
 
 ```markdown
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid} -->
 
 ## Where each level sits on two axes.
 

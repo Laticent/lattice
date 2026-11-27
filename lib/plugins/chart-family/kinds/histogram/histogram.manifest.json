@@ -82,12 +82,12 @@
       "description": "Optional nested sublist under a band. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
     }
   },
-  "skeleton": "<!-- _class: histogram -->\n\n## Most values sit in the first band.\n\n- `0..10` `45%`\n- `10..20` `30%`\n- `20..30` `15%`\n- `30..40` `10%`\n",
+  "skeleton": "<!-- @meta{layout=histogram} -->\n\n## Most values sit in the first band.\n\n- `0..10` `45%`\n- `10..20` `30%`\n- `20..30` `15%`\n- `30..40` `10%`\n",
   "anatomyBlock": "funnel",
-  "sample": "<!-- _class: histogram -->\n\n`[{Annual loss, $1M..$250M, log}, {Share of years}]`\n\n## Most years stay under $10M; one in thirty tops $100M.\n\n- `$1M..$10M` `55%`\n- `$10M..$50M` `30%`\n- `$50M..$100M` `12%`\n- `$100M..$250M` `3%`\n",
+  "sample": "<!-- @meta{layout=histogram} -->\n\n`[{Annual loss, $1M..$250M, log}, {Share of years}]`\n\n## Most years stay under $10M; one in thirty tops $100M.\n\n- `$1M..$10M` `55%`\n- `$10M..$50M` `30%`\n- `$50M..$100M` `12%`\n- `$100M..$250M` `3%`\n",
   "stressDoc": {
     "summary": "Twelve equal bands on a linear axis, the tail bands under one percent.",
-    "sample": "<!-- _class: histogram -->\n\n`[{Claim size}, {Share of claims}]`\n\n## Twelve bands, a long thin tail.\n\n- `$0..$10k` `31%`\n- `$10k..$20k` `22%`\n- `$20k..$30k` `15%`\n- `$30k..$40k` `10%`\n- `$40k..$50k` `7%`\n- `$50k..$60k` `5%`\n- `$60k..$70k` `4%`\n- `$70k..$80k` `2.5%`\n- `$80k..$90k` `1.5%`\n- `$90k..$100k` `1%`\n- `$100k..$110k` `0.6%`\n- `$110k..$120k` `0.4%`\n"
+    "sample": "<!-- @meta{layout=histogram} -->\n\n`[{Claim size}, {Share of claims}]`\n\n## Twelve bands, a long thin tail.\n\n- `$0..$10k` `31%`\n- `$10k..$20k` `22%`\n- `$20k..$30k` `15%`\n- `$30k..$40k` `10%`\n- `$40k..$50k` `7%`\n- `$50k..$60k` `5%`\n- `$60k..$70k` `4%`\n- `$70k..$80k` `2.5%`\n- `$80k..$90k` `1.5%`\n- `$90k..$100k` `1%`\n- `$100k..$110k` `0.6%`\n- `$110k..$120k` `0.4%`\n"
   },
   "whenToUse": [
     {

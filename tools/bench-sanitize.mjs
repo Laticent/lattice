@@ -60,7 +60,7 @@ const RATES = String(arg('--rate', '1,4'))
 const SAMPLES = Number(arg('--samples', 25));
 const BATCH = 20;
 
-const PROSE = '---\ntheme: indaco\npaginate: true\n---\n\n## Slide 7\n\nBody text for slide 7, with enough prose to be a real section.\n';
+const PROSE = '---\ntheme: indaco\npagination: true\n---\n\n## Slide 7\n\nBody text for slide 7, with enough prose to be a real section.\n';
 
 /** The perf spec's own gallery deck: the first n slides of the baseline gallery, fence-aware. */
 function gallerySlides(n) {

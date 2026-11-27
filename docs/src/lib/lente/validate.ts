@@ -52,7 +52,7 @@ export function validateRegistry(slides: string[], reg: LensRegistry): Diagnosti
 			}
 		}
 		for (const id of [...t.include, ...t.exclude]) {
-			if (!known.has(id)) out.push({ level: 'warning', code: 'orphan-tag', slide: index, lensId: id, message: `slide ${index + 1}: _lens token "${id}" names no registered lens` });
+			if (!known.has(id)) out.push({ level: 'warning', code: 'orphan-tag', slide: index, lensId: id, message: `slide ${index + 1}: lens token "${id}" names no registered lens` });
 		}
 	});
 	out.push(...validateLadder(src, reg));

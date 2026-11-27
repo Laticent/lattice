@@ -2,10 +2,10 @@
 marp: true
 theme: indaco
 size: story
-paginate: false
+pagination: false
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Portrait layouts`
 
@@ -15,7 +15,7 @@ KPIs, comparisons and split panels reflow to the taller frame — no rebuild, ju
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Financial · Q4`
 
@@ -33,7 +33,7 @@ KPIs, comparisons and split panels reflow to the taller frame — no rebuild, ju
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Four tools, one clear winner.
 
@@ -48,7 +48,7 @@ KPIs, comparisons and split panels reflow to the taller frame — no rebuild, ju
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision`
 
@@ -67,7 +67,7 @@ The difference is where the next 18 months go.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A flow that reads top-to-bottom on a phone.
 
@@ -80,7 +80,7 @@ flowchart LR
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Ship it`
 

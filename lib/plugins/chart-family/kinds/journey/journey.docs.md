@@ -53,7 +53,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 ## Authoring
 
 ```markdown
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 ## Walking through my Tuesday morning.
 
@@ -90,7 +90,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 Stages shade by score.
 
 ```markdown
-<!-- _class: journey heatmap -->
+<!-- @meta{layout=journey, class=heatmap} -->
 
 ## heatmap shades the stages by score.
 
@@ -110,7 +110,7 @@ Stages shade by score.
 A sentiment line rides the stages.
 
 ```markdown
-<!-- _class: journey curve -->
+<!-- @meta{layout=journey, class=curve} -->
 
 ## curve draws the sentiment line.
 
@@ -130,7 +130,7 @@ A sentiment line rides the stages.
 One lane per actor.
 
 ```markdown
-<!-- _class: journey swimlane -->
+<!-- @meta{layout=journey, class=swimlane} -->
 
 ## swimlane splits the journey by actor.
 
@@ -150,7 +150,7 @@ One lane per actor.
 Stage size carries weight.
 
 ```markdown
-<!-- _class: journey weighted -->
+<!-- @meta{layout=journey, class=weighted} -->
 
 ## weighted sizes the stages by importance.
 

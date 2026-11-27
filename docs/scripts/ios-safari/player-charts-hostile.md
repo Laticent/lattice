@@ -2,7 +2,7 @@
 theme: indaco
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Footer vector.
 

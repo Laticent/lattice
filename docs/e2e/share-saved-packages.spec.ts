@@ -114,8 +114,13 @@ test('a .lattice project carries its saved theme and component to another Studio
 				probe.remove();
 				return { accent, outline: getComputedStyle(s).outlineStyle };
 			});
+	// WAIT FOR THE SAVED CSS, not for the section. Saving a component refreshes the Studio's component list from
+	// IndexedDB, and the preview takes the component's CSS from that list, so a deck set right after the save can render
+	// once before the list lands and again, styled, when it does. Reading the first render went red 3 times in 10 at four
+	// workers on main (outline "" in a frame that styled itself about 0.5 s later). The outline is the signal: it can only
+	// read `solid` once the saved CSS is in the frame, and a component that never styles still fails here.
+	await expect.poll(async () => (await rendered(page)).outline, { message: 'the saved component renders at the origin' }).toBe('solid');
 	const origin = await rendered(page);
-	expect(origin.outline, 'the saved component renders at the origin').toBe('solid');
 	const file = await download(page, 'lattice');
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(fs.readFileSync(file));
@@ -139,7 +144,7 @@ test('a .lattice project carries its saved theme and component to another Studio
 		});
 		expect(before).not.toBe(origin.accent);
 		// By name: Playwright's download path has no extension, and the Studio picks the reader by it.
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: fs.readFileSync(file) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: fs.readFileSync(file) });
 		await expect(p2.getByText(/Added the deck's 1 theme\(s\) \+ 1 component\(s\) to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		// The oracle is the render. The component's rule outlines the section (nothing else in the engine sets `outline`); the
 		// theme's accent must match the origin's, and it is not the site palette's (the
@@ -150,7 +155,7 @@ test('a .lattice project carries its saved theme and component to another Studio
 		// Opening a file is not asking to change your Library. The same file again writes
 		// nothing; a copy whose theme DIFFERS from the saved one lands under a new name and the
 		// opened deck follows it, so the theme B already had is left as it was.
-		const reopen = async (buffer: Buffer) => p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer });
+		const reopen = async (buffer: Buffer) => p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer });
 		await reopen(fs.readFileSync(file));
 		await expect(p2.getByText(/already in your Library, unchanged/).first()).toBeVisible({ timeout: 30_000 });
 		const tampered = await JSZip.loadAsync(fs.readFileSync(file));

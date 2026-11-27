@@ -17,6 +17,7 @@ const { slideShape, slotProblems, unpackContract } = require('../../../lib/autho
 const { matches, slotText } = require('../../../lib/authoring/slot-contract-pack');
 const SLOT_CONTRACT = unpackContract(require('../../../lib/authoring/slot-contract.generated.js'));
 const { boundaryParser } = require('../../../lib/core/boundary-parser');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 
 const vocab = buildVocab();
 const manifests = loadAll().filter((m) => m.slots);
@@ -105,7 +106,7 @@ describe('the audit mutations are no longer lint silent', () => {
     if (body.length) {
       test(`${m.name}: heading-only slide`, () => {
         counts.headingOnly[1]++;
-        const cls = md.match(/<!--\s*_class:[^>]*-->/)[0];
+        const cls = ownClassOf(md).text;
         const found = contractFindings(`${cls}\n\n${h[0]}\n`);
         assert.ok(found.length, `${m.name} with every body slot empty lints clean`);
         counts.headingOnly[0]++;

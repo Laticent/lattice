@@ -32,7 +32,7 @@ describe('deck linter', () => {
   });
 
   test('accepts the nested-list shape on a card-style slide', () => {
-    const src = `${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- First\n  - body text.\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## H.\n\n- First\n  - body text.\n`;
     assert.equal(lintText(src, { vocab }).length, 0);
   });
 
@@ -119,7 +119,7 @@ describe('deck linter', () => {
   });
 
   test('does not flag known components or modifiers', () => {
-    const src = `${FM}<!-- _class: cards-grid dark compact -->\n\n## H.\n\n- A\n  - b\n`;
+    const src = `${FM}<!-- @meta{layout=cards-grid, class=dark compact} -->\n\n## H.\n\n- A\n  - b\n`;
     assert.equal(lintText(src, { vocab }).length, 0);
   });
 
@@ -131,7 +131,7 @@ describe('deck linter', () => {
   });
 
   test('front matter is not treated as a slide', () => {
-    const src = `${FM}<!-- _class: content -->\n\n## H.\n`;
+    const src = `${FM}<!-- @meta{layout=content} -->\n\n## H.\n`;
     assert.equal(lintText(src, { vocab }).length, 0);
   });
 
@@ -215,7 +215,7 @@ describe('deck linter', () => {
     assert.equal(found[0].severity, 'warning');
     assert.equal(found[0].classToken, 'kpi');
     assert.match(found[0].message, /every slide would be a kpi slide/);
-    assert.match(found[0].fix, /<!-- _class: kpi -->/);
+    assert.match(found[0].fix, /<!-- @meta\{layout=kpi\} -->/);
     // The per-slide and the mid-deck-global spellings are both legitimate and silent.
     for (const src of [
       '---\ntheme: indaco\n---\n\n<!-- _class: kpi -->\n\n## H.\n',
@@ -291,7 +291,8 @@ describe('deck linter', () => {
     const fixed = applyAllFixes(src, vocab);
     assert.equal(fixed, [
       '---', 'theme: indaco', 'spectrum: rainbow left # brand', 'card-spectrum: rainbow top',
-      'trim-spectrum: mono', '---', '', '<!-- _class: cards-grid spectrum-top no-card-spectrum trim-spectrum-rainbow -->', '', '## H.', '',
+      // Fix all also writes the old comment as a `@meta` record (`legacy-directive-comment`, last, after the class fix).
+      'trim-spectrum: mono', '---', '', '<!-- @meta{layout=cards-grid, class=spectrum-top no-card-spectrum trim-spectrum-rainbow} -->', '', '## H.', '',
     ].join('\n'));
     assert.deepEqual(lintText(fixed, { vocab }).filter((x) => /spectrum|unknown-class/.test(x.rule)), [], 'no spectrum finding is left');
   });

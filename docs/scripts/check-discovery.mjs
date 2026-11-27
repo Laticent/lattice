@@ -14,6 +14,9 @@
 //      the size its tags declare.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
 //      built file; llms.txt stays a router (under 4 KB), not an index.
+//   5. Every page (404 included, redirect stubs and playground frames not) names the llms.txt
+//      router with exactly one DESCRIBEDBY_TAG, which md-twins.mjs writes. And the homepage's initial HTML carries the agent entry (#3522 E2-S01): one visible anchor
+//      to AGENT_ENTRY and each HOME_AGENT_LINKS tag, every target a built file.
 //
 // Not checked: redirect stubs (Astro writes them with their own noindex + canonical), the
 // 404 page, and the baked playground frames under /playground/v/, which are not routes.
@@ -26,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
+import { describedbyProblems, homeAgentEntryProblems } from './home-agent-entry.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
@@ -69,16 +73,23 @@ if (!fs.existsSync(DIST)) {
 	process.exit(1);
 }
 
+/** Check 5, first half: one live llms.txt describedby link (home-agent-entry.mjs). */
+function describedbyProblem(route, html) {
+	for (const p of describedbyProblems(html)) fail(`${route} ${p}`);
+}
+
 // ── 1 + 3: every route's own signals ─────────────────────────────────────────
 const indexable = new Set();
 let checked = 0;
 for (const file of walk(DIST)) {
 	const route = routeOf(file);
+	if (route === '/404.html') describedbyProblem(route, fs.readFileSync(file, 'utf8'));
 	if (route === '/404.html' || route.startsWith('/playground/v/')) continue;
 	const html = fs.readFileSync(file, 'utf8');
 	const head = html.split('</head>')[0];
 	if (/<meta http-equiv="refresh"/i.test(head)) continue; // a redirect stub
 	checked++;
+	describedbyProblem(route, html);
 	const noindex = /<meta name="robots" content="[^"]*noindex/i.test(head);
 	const want = isIndexable(route);
 	if (noindex && want) fail(`${route} says noindex, but discovery.mjs lists it as indexable — add it to NOINDEX_PREFIXES or drop the meta`);
@@ -175,6 +186,14 @@ else {
 		if (page.endsWith('/') && !indexable.has(page)) fail(`llms.txt links ${p}, whose page ${page} is not indexable`);
 	}
 }
+
+// ── 5: the homepage's agent entry, in the HTML as served (no script runs here) ─────────────
+// `homeAgentEntryProblems` reads a string so the unit test can feed it a page with the anchor
+// or a tag removed and watch it fail.
+const home = path.join(DIST, 'index.html');
+if (fs.existsSync(home)) {
+	for (const problem of homeAgentEntryProblems(fs.readFileSync(home, 'utf8'), (p) => fs.existsSync(path.join(DIST, p)))) fail(`index.html: ${problem}`);
+} else fail('dist/index.html is missing');
 
 for (const w of warnings) console.warn(`check-discovery: warning: ${w}`);
 if (errors.length) {

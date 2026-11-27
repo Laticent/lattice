@@ -45,7 +45,8 @@ describe('makeStudioCompletion', () => {
 	it('completes front-matter keys inside the --- block', () => {
 		const r = complete('---\nsi', 6);
 		expect(labels(r)).toContain('size');
-		expect(labels(r)).toContain('paginate');
+		expect(labels(r)).toContain('pagination');
+		expect(labels(r)).not.toContain('paginate');
 	});
 
 	it('completes the finish-override + mode keys in the --- block', () => {
@@ -462,10 +463,8 @@ describe('front-matter registers — keys and values', () => {
 	// vocabulary. It must be wired for value completion or named here as handled by its
 	// own branch, so a register can't ship with values the editor never offers.
 	it('every register value list in the lint vocab is wired for completion', () => {
-		// `guardsNames` is the old spelling of `fit:` — lint still reads it to name the new key
-		// (`guards-renamed`), and the editor offers `fit:` instead of it.
 		// finish, pace and theme complete from their own sources (built-in + saved finishes, the pace catalog, built-in + saved palettes).
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames', 'themeNames']);
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'themeNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -473,7 +472,7 @@ describe('front-matter registers — keys and values', () => {
 
 	// The gate above reads the FULL vocab, but the Studio receives what studio.astro
 	// serializes. That page used to hand-pick a few `*Names` lists, so this suite passed
-	// while the real editor had no `guards:` values at all. Pin the pass-everything spread.
+	// while the real editor had no `fit:` values at all. Pin the pass-everything spread.
 	it('the Studio page passes every register value list to the editor', () => {
 		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
 		expect(page).toMatch(/packedNames: packVocabNames\(v\)/);
@@ -486,9 +485,8 @@ describe('front-matter registers — keys and values', () => {
 	// editor, so the two surfaces can't offer different front-matter vocabularies.
 	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
 		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
-		// A write whose value is a literal `null` only DELETES a key (the Fit field drops the old
-		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete. The Fit
-		// field's own `fit` write is a separate statement precisely so this pattern still sees it.
+		// A write whose value is a literal `null` only DELETES a key, so it offers nothing to
+		// autocomplete. The Fit field's `fit` write must stay visible to this pattern.
 		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)', (?!null\))/g)].map((m) => m[1]));
 		expect(written.size).toBeGreaterThan(20);
 		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
@@ -767,6 +765,12 @@ describe('altFromAssetName / inCollageSlide', () => {
 		expect(at(6)).toBe(true);
 		expect(at(8)).toBe(false);
 	});
+	it('reads a slide record the same way (`@meta{layout=collage}`)', () => {
+		const lines = ['---', 'theme: x', '---', '<!-- @meta{layout=collage} -->', '', '- a', '---', '- b'];
+		const at = (n: number) => inCollageSlide((i) => lines[i - 1], n);
+		expect(at(6)).toBe(true);
+		expect(at(8)).toBe(false);
+	});
 });
 
 describe('frontMatterKeyAt — the hover over a front-matter key', () => {
@@ -793,13 +797,13 @@ describe('frontMatterKeyAt — the hover over a front-matter key', () => {
 	});
 });
 
-describe('marks: completes one word per axis', () => {
-	it('after a finish word, offers the intensities and not a second finish', async () => {
+describe('chart-finish: completes one word per axis', () => {
+	it('after a finish word, offers the sources and not a second finish', async () => {
 		const { nextAxisWords } = await import('./editor-complete');
-		const words = ['pigment', 'etch', 'tone', 'muted', 'vivid'];
-		expect(nextAxisWords('marks', 'pigment ', words)).toEqual(['muted', 'vivid']);
-		expect(nextAxisWords('marks', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
-		expect(nextAxisWords('marks', 'etch vivid', words)).toEqual([]);
+		const words = ['pigment', 'etch', 'tone', 'ink', 'accent'];
+		expect(nextAxisWords('chart-finish', 'tone ', words)).toEqual(['ink', 'accent']);
+		expect(nextAxisWords('chart-finish', 'ink ', words)).toEqual(['pigment', 'etch', 'tone']);
+		expect(nextAxisWords('chart-finish', 'tone ink', words)).toEqual([]);
 	});
 });
 
@@ -835,13 +839,17 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
 		// Slice 3.
-		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a slide directive value', `${FM}<!-- _pagination: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
+		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
+		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],
+		['a register value inside @meta', `${FM}<!-- @meta{headline=`, 'left', null],
 		['a pane key after <!--, and never a retired note key', `${FM}<!-- pa`, 'panes', 'say'],
 		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
 		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
 		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
-		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- _class: -->', null],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- @meta{layout=} -->', '<!-- _class: -->'],
+		['the record insert, never the bare one', `${FM}# Title\n\n`, '<!-- @meta{} -->', '<!-- { } -->'],
 		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
 		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
 		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
@@ -883,21 +891,28 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		expect(await ask(studio, `${FM}An escaped \\$ sign \\fr`)).not.toContain('\\frac');
 	});
 
+	it('the retired bare record `<!-- {` completes no field in either editor (only `@meta{` is taught)', async () => {
+		for (const ed of [studio, playground]) {
+			expect(await ask(ed, `${FM}<!-- {lay`)).not.toContain('layout');
+			expect(await ask(ed, `${FM}<!-- {headline=`)).not.toContain('left');
+		}
+	});
+
 	it('a word that is not a slide directive gets no directive values (it is a speaker note)', async () => {
 		expect(await ask(studio, `${FM}<!-- cards: `)).toEqual([]);
 	});
 
 	it('the insert list stays out of the front matter, fences and lines with text', async () => {
-		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- _class: -->');
-		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- @meta{layout=} -->');
+		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the insert list opens only on Ctrl-Space, never while typing', async () => {
 		const doc = `${FM}# Title\n\n`;
 		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
 		const got = await Promise.all(studio.map((s) => s(typed)));
-		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- _class: -->');
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- @meta{layout=} -->');
 	});
 
 	it('the map completer loads only on a map slide', async () => {

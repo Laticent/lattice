@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · narrative build"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Assemble the slide as you go.
 
@@ -15,7 +15,7 @@ A dense slide lands all at once. Walked live, the story is better told one beat 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The slide is the same. The reveal is the argument.
 
@@ -23,8 +23,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: content -->
-<!-- _build -->
+<!-- @meta{layout=content, build} -->
+
 
 ## `_build` — one step per point, in order.
 
@@ -35,8 +35,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: content -->
-<!-- _build: 1, 2-3, 4 -->
+<!-- @meta{layout=content, build="1, 2-3, 4"} -->
+
 
 ## `_build: 1, 2-3, 4` — group beats into steps.
 
@@ -47,8 +47,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _build: rows -->
+<!-- @meta{layout=table, class=state-cells, build=rows} -->
+
 
 ## `_build: rows` — reveal the comparison row by row.
 
@@ -60,8 +60,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ---
 
-<!-- _class: code -->
-<!-- _build: lines -->
+<!-- @meta{layout=code, build=lines} -->
+
 
 ## `_build: lines` — walk the code a line at a time.
 
@@ -74,7 +74,7 @@ function reveal(step) {
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Derived, restrained, print-faithful.
 

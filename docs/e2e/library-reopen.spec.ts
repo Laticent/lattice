@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, liveToast, test } from './studio-fixture';
 
 // Reopening a saved asset — the round trip a saved COMPONENT and a saved FINISH did not
 // have until #1839. Themes have had it since #1850; the other two kinds could be made and
@@ -63,7 +63,7 @@ test('@smoke a saved component reopens in the Component faculty', async ({ page 
 	await openFabricate(page, 'Component');
 	await nameComponent(page, 'reopen-probe');
 	await save(page);
-	await expect(page.getByText(/Saved .*reopen-probe/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*reopen-probe/)).toBeVisible();
 
 	await openLibrary(page);
 	const edit = page.getByRole('button', { name: 'Edit .reopen-probe' });
@@ -80,7 +80,7 @@ test('@smoke a saved finish reopens in the Finish faculty, with its display name
 	await openFabricate(page, 'Finish');
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Reopen Probe');
 	await save(page);
-	await expect(page.getByText(/Saved "Reopen Probe"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Reopen Probe"/)).toBeVisible();
 
 	await openLibrary(page);
 	const edit = page.getByRole('button', { name: 'Edit Reopen Probe' });
@@ -99,13 +99,13 @@ test('@smoke reopening a component and renaming it updates the record instead of
 	await openFabricate(page, 'Component');
 	await nameComponent(page, 'fork-probe');
 	await save(page);
-	await expect(page.getByText(/Saved .*fork-probe/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*fork-probe/)).toBeVisible();
 
 	await openLibrary(page);
 	await page.getByRole('button', { name: 'Edit .fork-probe' }).click();
 	await nameComponent(page, 'fork-probe-renamed');
 	await save(page);
-	await expect(page.getByText(/Saved .*fork-probe-renamed/)).toBeVisible();
+	await expect(liveToast(page, /Saved .*fork-probe-renamed/)).toBeVisible();
 
 	await openLibrary(page);
 	await expect(page.getByRole('button', { name: 'Edit .fork-probe-renamed' })).toBeVisible();
@@ -123,13 +123,13 @@ test('@smoke reopening a finish and renaming it updates the record instead of fo
 	await openFabricate(page, 'Finish');
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Fork Probe');
 	await save(page);
-	await expect(page.getByText(/Saved "Fork Probe"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Fork Probe"/)).toBeVisible();
 
 	await openLibrary(page);
 	await page.getByRole('button', { name: 'Edit Fork Probe' }).click();
 	await page.getByRole('textbox', { name: /finish name/i }).fill('Fork Probe Renamed');
 	await save(page);
-	await expect(page.getByText(/Saved "Fork Probe Renamed"/)).toBeVisible();
+	await expect(liveToast(page, /Saved "Fork Probe Renamed"/)).toBeVisible();
 
 	await openLibrary(page);
 	await expect(page.getByRole('button', { name: 'Edit Fork Probe Renamed' })).toBeVisible();

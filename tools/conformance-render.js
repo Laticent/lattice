@@ -36,6 +36,8 @@
  *                                    [--no-axe] [--no-themes] [--changed[=<base ref>]]
  */
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+const { metaComment } = require('../lib/core/meta-comment.mjs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -107,12 +109,18 @@ function buildMatrixDeck(files) {
     if (!header) throw new Error(`conformance-render: ${path.relative(ROOT, f.file)} has no front-matter header:`);
     if (headers.has(header)) throw new Error(`conformance-render: galleries ${headers.get(header)} and ${f.name} share the header "${header}"`);
     headers.set(header, f.name);
-    return galleryBody(f.file).replace(/(<!--\s*_class:)/g, `<!-- _header: ${JSON.stringify(header)} -->\n$1`);
+    // The header goes above every slide's class line, in either spelling, and is written as a record (record note §15,
+    // slice C): the generators write their own slides as records, the samples still as `<!-- _class: … -->`.
+    const lead = metaComment({ header });
+    return galleryBody(f.file)
+      .split('\n')
+      .map((l) => (classEntries(l).length ? `${lead}\n${l}` : l))
+      .join('\n');
   });
   // `size: 4k` is the canvas the shared contrast exemptions are calibrated to (a watermark counts as
   // decoration at fs >= 200, which a 1280 px hd canvas never reaches) and the one palette-sweep's
   // gallery deck uses; the galleries ship at hd, and cqi units keep layout the same across sizes.
-  const md = `---\nmarp: true\nsize: 4k\ntheme: indaco\nform: on\npaginate: true\n---\n\n${parts.join('\n\n---\n\n')}\n`;
+  const md = `---\nmarp: true\nsize: 4k\ntheme: indaco\nform: on\npagination: true\n---\n\n${parts.join('\n\n---\n\n')}\n`;
   return { md, headers };
 }
 
@@ -280,7 +288,7 @@ const now = () => Number(process.hrtime.bigint() / 1000000n);
 const CHUNK_SLIDES = Number(process.env.CONF_CHUNK) || 150;
 
 /** Slides a gallery contributes: one per `_class` directive (the galleries are generated). */
-const slideCount = (file) => (galleryBody(file).match(/<!--\s*_class:/g) || []).length;
+const slideCount = (file) => classEntries(galleryBody(file)).filter((e) => e.spot).length;
 
 /** Pack galleries, in order, into chunks of at most `max` slides (one gallery is never split). */
 function chunkFiles(files, max = CHUNK_SLIDES) {

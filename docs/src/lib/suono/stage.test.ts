@@ -57,6 +57,42 @@ describe('createStage — decode-bomb guard', () => {
 	});
 });
 
+describe('createStage — a decode already running', () => {
+	it('is shared by a second request for the same key, so the bytes decode once', async () => {
+		const { decodeAudioData } = installMockAudio();
+		const stage = createStage();
+		const [a, b] = await Promise.all([stage.decode(bytesOfSize(8), 'k'), stage.decode(bytesOfSize(8), 'k')]);
+		expect(decodeAudioData).toHaveBeenCalledTimes(1);
+		expect(a).toBe(b);
+	});
+
+	it('is not cached when the key is forgotten while it runs, so a late look-ahead cannot put a played clip back', async () => {
+		const { decodeAudioData } = installMockAudio();
+		const stage = createStage();
+		const running = stage.decode(bytesOfSize(8), 'k');
+		stage.forget('k');
+		expect(await running).toBeTruthy(); // its caller still gets the clip
+		await stage.decode(bytesOfSize(8), 'k');
+		expect(decodeAudioData).toHaveBeenCalledTimes(2); // not served from the cache
+	});
+});
+
+describe('createStage — forget', () => {
+	it('drops one decoded clip, so the next decode of that key decodes again, and leaves the others cached', async () => {
+		const { decodeAudioData } = installMockAudio();
+		const stage = createStage();
+		await stage.decode(bytesOfSize(8), 'a');
+		await stage.decode(bytesOfSize(8), 'b');
+		expect(decodeAudioData).toHaveBeenCalledTimes(2);
+		stage.forget('a');
+		await stage.decode(bytesOfSize(8), 'b'); // still cached
+		expect(decodeAudioData).toHaveBeenCalledTimes(2);
+		await stage.decode(bytesOfSize(8), 'a'); // forgotten: decoded again
+		expect(decodeAudioData).toHaveBeenCalledTimes(3);
+		stage.forget('never-decoded'); // a no-op, never a throw
+	});
+});
+
 describe('createStage — decoded cache eviction', () => {
 	it('evicts by ENTRY COUNT (FIFO) — an evicted key re-decodes', async () => {
 		const { decodeAudioData } = installMockAudio();

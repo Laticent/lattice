@@ -133,9 +133,13 @@ function flowItems() {
   const items = [];
   for (const f of decks()) {
     const src = readFileSync(f, 'utf8');
-    if (!/_class:\s*[^>]*\b(flowchart|state-chart)\b/.test(src)) continue;
+    // Loaded here, not at the top: the inline corpus's caller (segno-both-paths.test.js) counts reads on the one
+    // copy of the inline library, and a top-level import of the deck reader loads a second copy that resets the count.
+    const { classEntries } = require('../../lib/core/class-entries.mjs');
+    const isMachine = (text) => classEntries(text).some((e) => /\b(flowchart|state-chart)\b/.test(e.value)); // comment or record
+    if (!isMachine(src)) continue;
     for (const slide of src.split(/^---$/m)) {
-      if (!/_class:\s*[^>]*\b(flowchart|state-chart)\b/.test(slide)) continue;
+      if (!isMachine(slide)) continue;
       const visit = (list) => {
         for (const it of list) { items.push(it); visit(it.children || []); }
       };

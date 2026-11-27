@@ -101,7 +101,7 @@
  *                     the two tables IS the evidence.
  *   --front-matter <k: v>
  *                     an extra deck-level front-matter key, repeatable. The lever for a
- *                     mark the engine GATES ON FRONT MATTER: `paginate: true` is what puts
+ *                     mark the engine GATES ON FRONT MATTER: `pagination: true` is what puts
  *                     `section.form::after` — the page number, the most widely shipped
  *                     running mark there is — on the page at all, so before this flag the
  *                     one tool built to measure a running mark could not reach it (#2168).
@@ -138,6 +138,8 @@
  */
 
 const fs = require('node:fs');
+const { classEntries } = require('../lib/core/class-entries.mjs');
+const { readRecord, recordParts } = require('../lib/core/meta-door.mjs');
 const {
   SIZE_ALIAS, FAMILIES, BUILDERS, words, cap, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
@@ -162,7 +164,7 @@ const VALUE_FLAGS = new Set([
   'style', 'front-matter',
 ]);
 // REPEATABLE flags accumulate instead of overwriting. A `Map.set` per occurrence made
-// `--front-matter 'paginate: true' --front-matter 'header: "x"'` silently keep only the
+// `--front-matter 'pagination: true' --front-matter 'header: "x"'` silently keep only the
 // LAST one — the sweep would then run without the key the caller asked for and report a
 // clean verdict over a mark that was never on the page, which is the exact false clean
 // this flag exists to remove.
@@ -183,7 +185,7 @@ const USAGE = [
   '  --max-drift PX   anchor movement over this fails (default 2)',
   '  --max-growth PX  anchor SIZE change over this fails (default: reported, never failed)',
   '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
-  "  --front-matter <k: v>  extra deck front matter, repeatable (e.g. 'paginate: true')",
+  "  --front-matter <k: v>  extra deck front matter, repeatable (e.g. 'pagination: true')",
   '  --anchors        list the marks this component HAS, and how far each moves',
   '  --json           machine-readable      --advisory    never exit 1 (setup failures still exit 2)',
   '',
@@ -302,7 +304,7 @@ const STYLE = (() => {
  * forced it is the page number: `section.form::after` is positioned by
  * lib/forms/cell/pagination-right/pagination-right.css, but its content is
  * `attr(data-lattice-pagination)` (lib/engine/css.js) and lib/engine/css.js suppresses the
- * pseudo outright when the slide has no such attribute — which only `paginate: true`
+ * pseudo outright when the slide has no such attribute — which only `pagination: true`
  * supplies. So the most widely shipped running mark in the engine, present on every
  * paginated slide, had never been measured by the one tool built to measure exactly that
  * (#2168). It is also the archetype the tool was written for: `inset`-pinned to the section
@@ -340,9 +342,9 @@ const FRONT_MATTER = (() => {
     // U+2028 — so the line silently fails to match and is DROPPED — while
     // `frontMatterValue` uses /m/, where `^` does break there, so it SEES the smuggled
     // second key. Both halves of that split are defects, and both were reproduced:
-    //   · `'paginate: true\u2028size: 4:3'` set `size`, the key this flag refuses by name,
+    //   · `'pagination: true\u2028size: 4:3'` set `size`, the key this flag refuses by name,
     //     overriding the rig's own family control (`error: unknown size: 4:3`);
-    //   · the requested `paginate: true` was dropped, and the sweep then reported a
+    //   · the requested `pagination: true` was dropped, and the sweep then reported a
     //     confident CLEAN over a page number that was never on the page — exit 0.
     // The second is the precise false clean every refusal in this block exists to prevent,
     // arrived at THROUGH the guard meant to stop it.
@@ -353,7 +355,7 @@ const FRONT_MATTER = (() => {
     const at = entry.indexOf(':');
     if (at < 0) {
       die(`--front-matter '${entry}' is not a mapping entry. Write it as \`key: value\`, `
-        + "e.g. --front-matter 'paginate: true'.");
+        + "e.g. --front-matter 'pagination: true'.");
     }
     const key = entry.slice(0, at).trim();
     const value = entry.slice(at + 1).trim();
@@ -432,7 +434,8 @@ if (!(MAX > 1)) die('--max must be at least 2 — a sweep of one step measures n
 function headingSweep() {
   const skeleton = manifest.skeleton || manifest.sample;
   if (!skeleton) die(`'${COMP}' has no skeleton or sample in its manifest to sweep.`);
-  const lines = skeleton.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l));
+  // The class comes off (the sweep sets its own); a record keeps its other fields (`@meta{layout=topic, track=…}`).
+  const lines = skeleton.split('\n').map(withoutClass).filter((l) => l !== null);
   const at = lines.findIndex((l) => /^#{1,6}\s+\S/.test(l));
   if (at < 0) {
     die(`'${COMP}'s skeleton has no heading line, so there is nothing to grow on the heading `
@@ -443,7 +446,9 @@ function headingSweep() {
   // Every directive line — carried from the sample, or already in the skeleton (a manifest
   // with no skeleton sweeps its sample, whose `_track` names the sample's heading) — gets the
   // swept heading in place of the sample's, so the lit label grows with the axis.
-  const swap = (l, heading) => (sampleHeading && DIRECTIVE.test(l) ? l.replaceAll(sampleHeading, heading) : l);
+  // A setting line in either spelling: a `_track:` comment, or a record holding the track (the meta sweep merged topic's
+  // track into its class record, and a `_key:`-only test left the lit label fixed while the heading grew).
+  const swap = (l, heading) => (sampleHeading && carriesSetting(l) ? l.replaceAll(sampleHeading, heading) : l);
   return {
     steps: Array.from({ length: MAX }, (_, i) => i + 1),
     slideFor: (n) => {
@@ -477,13 +482,31 @@ function headingSweep() {
  * the same way without an edit here.
  */
 const DIRECTIVE = /^\s*<!--\s*_(?!class\b)[\w-]+\s*:.*-->\s*$/;
+
+/** A line with the slide's class taken off: a class comment goes (null), a record keeps every field that is not a class
+ *  word, and any other line is itself. A field is a class word when the door's own reader turns it into `class` and
+ *  nothing else (`layout`, `variant`, `class`, a register such as `finish=ledger`), so registers count without a list. */
+function withoutClass(line) {
+  if (!classEntries(line).length) return line;
+  const t = line.trim();
+  const parts = t.startsWith('<!--') && t.endsWith('-->') ? recordParts(t.slice(4, -3).trim()) : null;
+  if (!parts) return null;
+  const kept = parts.items.filter((it) => {
+    const d = readRecord(`{${it.text}}`)?.d || {};
+    return !(Object.keys(d).length === 1 && d.class !== undefined);
+  });
+  return kept.length ? `<!-- ${parts.lead}{${kept.map((it) => it.text).join(', ')}} -->` : null;
+}
+
+/** A sample line that sets a slide setting other than the class: a `_key:` comment, or a record with such a field. */
+const carriesSetting = (line) => DIRECTIVE.test(line) || (/^\s*<!--\s*(?:@meta)?\{/.test(line) && withoutClass(line) !== null);
 function sampleDirectives(skeletonLines) {
   const sample = (manifest.sample || '').split('\n');
   const h = sample.find((l) => /^#{1,6}\s+\S/.test(l));
   const sampleHeading = h ? h.replace(/^#+\s+/, '').trim() : null;
   if (!manifest.sample || !manifest.skeleton) return { carried: [], sampleHeading };
-  const have = new Set(skeletonLines.filter((l) => DIRECTIVE.test(l)).map((l) => l.trim()));
-  const carried = sample.filter((l) => DIRECTIVE.test(l) && !have.has(l.trim())).map((l) => l.trim());
+  const have = new Set(skeletonLines.filter(carriesSetting).map((l) => withoutClass(l).trim()));
+  const carried = sample.filter(carriesSetting).map((l) => withoutClass(l).trim()).filter((l) => !have.has(l));
   return { carried, sampleHeading };
 }
 

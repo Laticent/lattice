@@ -1,0 +1,1 @@
+- The docs site has a page for Segno Languages (`@laticent/segno-languages`), at `/libraries/segno-languages/`: a live demo on the real library, where each edit to a Markdown deck shows which slides the deck model read again, and a Learn page on what it does, how Lattice uses it and what it doesn't do.

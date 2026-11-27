@@ -75,9 +75,9 @@ describe('the retired keys warn and fix', () => {
   test('deleting the only front-matter key keeps every slide', () => {
     const { render } = require('../../../lib/engine/index.js');
     const headings = (src) => [...String(render(src).html).matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map((m) => m[1]);
-    const src = '---\nlogo-on: all\n---\n<!-- _class: title -->\n# Q3 Board Review\n\n---\n\n# Agenda\n';
+    const src = '---\nlogo-on: all\n---\n<!-- @meta{layout=title} -->\n# Q3 Board Review\n\n---\n\n# Agenda\n';
     const out = fixed(src);
-    assert.equal(out, '<!-- _class: title -->\n# Q3 Board Review\n\n---\n\n# Agenda\n');
+    assert.equal(out, '<!-- @meta{layout=title} -->\n# Q3 Board Review\n\n---\n\n# Agenda\n');
     assert.deepEqual(headings(out), headings(src));
     assert.deepEqual(headings(out), ['Q3 Board Review', 'Agenda']);
   });

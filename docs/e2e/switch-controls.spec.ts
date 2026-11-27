@@ -84,12 +84,12 @@ test(`slide Content: a slide brings back what the deck turned off, and the engin
 	await expect(page.getByText('Off · deck')).toBeVisible();
 	await expect(slideSection(page)).toHaveClass(/\bno-spine\b/);
 	await row.getByRole('radio', { name: 'On' }).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: columns with-spine -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=columns, class=with-spine} -->');
 	// The deck's no-spine still reaches the slide; with-spine wins, so the settled slide carries one token.
 	await expect(slideSection(page)).toHaveClass(/\bwith-spine\b/);
 	await expect(slideSection(page)).not.toHaveClass(/\bno-spine\b/);
 	await row.getByRole('radio', { name: 'Auto' }).click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: columns -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=columns} -->');
 });
 }
 
@@ -101,7 +101,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 	const hide = page.getByRole('switch', { name: "Hide the deck's tints" });
 	await expect(hide).toHaveAttribute('aria-checked', 'false');
 	await hide.click();
-	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: columns no-treatment -->');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @meta{layout=columns, class=no-treatment} -->');
 	await expect(slideSection(page)).toHaveClass(/\bno-treatment\b/);
 });
 }

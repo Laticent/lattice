@@ -4,10 +4,10 @@ import { frontMatterKeys, mergeFrontMatterBlocks } from './front-matter-merge';
 describe('mergeFrontMatterBlocks', () => {
 	it('applies the pasted keys in place, adds new ones, and keeps the deck-only ones byte for byte', () => {
 		const deck = '---\n# my deck\ntheme: indaco\ntitle: "Q3"\nstyle: |\n  section { color: red; }\n---\n\n';
-		const pasted = '---\ntheme: cuoio\npaginate: true\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\n---\n';
+		const pasted = '---\ntheme: cuoio\npagination: true\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\n---\n';
 		expect(mergeFrontMatterBlocks(deck, pasted)).toEqual({
-			block: '---\n# my deck\ntheme: cuoio\ntitle: "Q3"\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\npaginate: true\n---\n\n',
-			changed: ['theme', 'paginate', 'style'],
+			block: '---\n# my deck\ntheme: cuoio\ntitle: "Q3"\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\npagination: true\n---\n\n',
+			changed: ['theme', 'pagination', 'style'],
 		});
 	});
 
@@ -17,7 +17,7 @@ describe('mergeFrontMatterBlocks', () => {
 	});
 
 	it('reads keys as the engine does (a quoted `"theme":` is not one), and reports only what changed, once', () => {
-		const out = mergeFrontMatterBlocks('---\ntheme: indaco\npaginate: true\n---\n\n', '---\n"theme": cuoio\npaginate: true\ntheme: cuoio\n---\n');
+		const out = mergeFrontMatterBlocks('---\ntheme: indaco\npagination: true\n---\n\n', '---\n"theme": cuoio\npagination: true\ntheme: cuoio\n---\n');
 		expect(out.changed).toEqual(['theme']);
 	});
 

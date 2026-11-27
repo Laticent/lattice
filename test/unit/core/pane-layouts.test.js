@@ -47,7 +47,7 @@ test('_class: columns lays out two panes at its ratio, and names no class of its
   assert.match(html, /<div class="lat-panes" data-panes="side" data-heads style="--pane-a: 60; --pane-b: 40; --pane-cols: minmax\(0, 60fr\) minmax\(0, 40fr\)">/);
   assert.deepEqual(cells(html), ['bar', 'list']);
   const host = sectionTags(html)[0];
-  assert.match(host, /class="lat-pane-host marks-pigment marks-muted form"/);
+  assert.match(host, /class="lat-pane-host chart-finish-pigment color-intensity-muted form"/);
   assert.doesNotMatch(host, /columns|60\/40/);
 });
 
@@ -154,7 +154,7 @@ test('a narrow deck splits each pane onto its own page, its head held together',
   const tags = sectionTags(html);
   assert.equal(tags.length, 2);
   // A narrow deck gives each pane its OWN PAGE, which is a slide: it is stamped like any other.
-  assert.match(tags[0], /class="bar marks-pigment marks-muted form chart-frame"/);
+  assert.match(tags[0], /class="bar chart-finish-pigment color-intensity-muted form chart-frame"/);
   const flat = html.replace(/>\s+</g, '><');
   assert.match(flat, /<div class="lat-pane-head"><h3>Revenue by line<\/h3><p><code>\$M, trailing four quarters<\/code><\/p><\/div>/);
   assert.match(flat, /<div class="lat-pane-head" data-hidden><h3>What changed<\/h3><\/div>/);
@@ -285,7 +285,7 @@ test('lint: the alias gets pane-syntax with the rewrite', () => {
   const f = lintText('## T\n\n<!-- panes: stack 40/60 -->\n<!-- pane: list -->\n\n- a\n\n<!-- pane: content -->\n\nx\n').find((x) => x.rule === 'pane-syntax');
   assert.ok(f);
   assert.equal(f.severity, 'warning'); // promoted from a suggestion ahead of retiring the alias
-  assert.match(f.fix, /<!-- _class: rows ratio-40-60 -->/);
+  assert.match(f.fix, /<!-- @meta\{layout=rows, class=ratio-40-60\} -->/);
 });
 
 test('lint: a layout with fewer than two panes, two insights, a component in the layout class', () => {

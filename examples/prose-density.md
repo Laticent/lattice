@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · prose-density budget"
 footer: "Budget the words, not just the elements"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Budget the words.
 
@@ -19,7 +19,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The right layout, with far too many words.
 
@@ -34,7 +34,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Two budgets, one axis.
 
@@ -47,7 +47,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How the numbers are set.
 
@@ -60,7 +60,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 
 ## Each row gets a word budget too.
 
@@ -73,7 +73,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The chrome has budgets, regardless of layout.
 
@@ -86,7 +86,7 @@ footer: "Budget the words, not just the elements"
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Write tight; the reviewer has your back.
 

@@ -398,3 +398,9 @@
 [data-slot="edit-bar"]:is([data-fit="2"], [data-fit="3"], [data-fit="4"], [data-fit="5"]) [data-more] {
 	display: inline-flex !important;
 }
+
+/* THE TOAST CLEARS THE DOCK, BY STANDING AT THE TOP. On a phone a panel's one field (PanelDock in
+   components/ui/panel.tsx) sits at the bottom, and a bottom-center toast covered it: measured at 390px, "Added 1
+   reference file." (y 774-828) over the Library's search (y 801-823). A lift here raised phone toasts 4.5rem while a
+   dock was open; since PR 3559 every toast below 1024px stands at the top (ui/sonner.tsx, note 5), so the lift had
+   nothing left to move and is gone. Still pinned by e2e/library-deck-import.spec.ts ("the import toast stands above"). */

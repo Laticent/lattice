@@ -152,7 +152,7 @@ system, "Frame" names the slicer. A component therefore *selects a Frame* and
 binds Substance into the Cells it produces. `design/forms.md` owns the Form
 vocabulary; this doc owns how a *component* selects a Form. (No human word is
 coined for "Frame" — it is a structural, designer-facing system word; an author
-selects one via `form: <name>`.)
+selects one with the `form: <name>` field of a component manifest.)
 
 The **authored-part → Cell map** — which slot (eyebrow, title, lede, content,
 key-insight, below-note, caption, footer, …) hoists into which Cell — is owned by
@@ -480,7 +480,7 @@ and opt individual slides out:
 |---|---|---|---|
 | Running header | `no-header` · `with-header` | `header: "…"` (text present), or `class: no-header` | off |
 | Running footer | `no-footer` · `with-footer` | `footer: "…"` (text present), or `class: no-footer` | off |
-| Page number | `no-pagination` · `with-pagination` | `paginate: false`, or `class: no-pagination` | on (Form) |
+| Page number | `no-pagination` · `with-pagination` | `pagination: false`, or `class: no-pagination` | on (Form) |
 | Section rail | `no-progress` · `with-progress` | `class: no-progress` | on (Form) |
 | Deck logo | `no-logo` · `with-logo` | `logo:` (present), or `class: no-logo` | on when `logo:` is set |
 

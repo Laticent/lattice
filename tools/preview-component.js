@@ -42,7 +42,7 @@ function combineCss(latticeCss, componentCss) {
 /** Wrap a bare skeleton in deck front-matter; strip any front-matter the skeleton already carries. */
 function buildDeck(skeleton, { theme = 'indaco' } = {}) {
   const body = String(skeleton || '').replace(/^﻿?---\n[\s\S]*?\n---\s*\n?/, '').trimStart();
-  return `---\nmarp: true\ntheme: ${theme}\npaginate: true\n---\n\n${body}\n`;
+  return `---\nmarp: true\ntheme: ${theme}\npagination: true\n---\n\n${body}\n`;
 }
 
 /**

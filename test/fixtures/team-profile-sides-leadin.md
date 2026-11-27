@@ -4,7 +4,7 @@ size: portrait
 theme: indaco
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 ## No lead-in at all
 
@@ -20,7 +20,7 @@ theme: indaco
 
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 ## One lead-in
 
@@ -38,7 +38,7 @@ The shape the grid was designed around.
 
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 ## Two lead-ins
 

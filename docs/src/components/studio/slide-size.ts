@@ -9,6 +9,8 @@
 // so the preview and Present drew a 4:3, 9:16 or square frame around a 16:9 slide and left an empty
 // band beside it. `4k` is 16:9 (a resolution, not a shape). Pinned against the engine by
 // slide-size.test.ts.
+import { deckSizeOf } from '../../../../lib/core/screen-canvas.mjs';
+
 export const SIZE_RATIO: Record<string, [number, number]> = {
 	'16:9': [16, 9],
 	hd: [16, 9],
@@ -36,21 +38,11 @@ export function sizeRatio(size: string): [number, number] {
 	return Object.hasOwn(SIZE_RATIO, size) ? SIZE_RATIO[size] : [16, 9];
 }
 
-// Read the `size:` directive from a deck source's leading `---` front-matter block. A
-// self-contained reader (no parser import) so the exact same logic can be inlined into the
-// pre-paint seed script, which can't import modules. Returns '' when unset.
+// Read the `size:` directive from a deck source's leading `---` front-matter block; '' when unset. The reader is the
+// kernel's `deckSizeOf` (lib/core/screen-canvas.mjs), which the live renderer also uses; it stays a self-contained regex
+// so the pre-paint seed script, which can't import modules, can mirror it by hand (studio.astro).
 export function sizeFromSource(source: string): string {
-	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source ?? ''));
-	if (!fm) return '';
-	// `/m` is REQUIRED: without it `$` anchors to end-of-string, so `size:` is only found
-	// when it is the LAST front-matter line — and it usually isn't. `size:` sits wherever the
-	// author (or the Size control's line splice) left it, above any other directive (theme,
-	// paginate, …), and such a deck would silently fall back to 16:9. With `/m`, `$` matches
-	// end-of-LINE. (The original wording blamed `setFrontMatter` pushing the last-edited key
-	// to the end; that writer is retired — #1256 — and the `/m` is no less required without it.)
-	// TOP-LEVEL and LAST, as the engine reads `size:` (#2050, #3050 D1).
-	const m = [...fm[1].matchAll(/^size[ \t]*:[ \t]*(.+?)[ \t]*$/gm)].pop();
-	return m ? m[1].replace(/^['"]|['"]$/g, '').trim() : '';
+	return deckSizeOf(source);
 }
 
 // The aspect ratio a deck source will render at (its chosen size, or the engine default).

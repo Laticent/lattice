@@ -42,7 +42,8 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid; and, under tone, the hue it draws in: ink or accent | `pigment muted` |
+| [`chart-finish:`](#the-chart-finish-and-color-intensity-front-matter-keys-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and, under tone, the hue it draws in: ink or accent | `pigment` |
+| [`color-intensity:`](#the-chart-finish-and-color-intensity-front-matter-keys-how-charts-spend-color) | How loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -108,7 +109,7 @@ reader answers with the preset's value, and `preset:` itself is read top-level o
 and the Studio agree by construction.
 
 **A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
-hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+hand), `chart-finish:`, `color-intensity:` and `backdrop:`. None of the four shipped presets does yet; the presets that
 use them arrive with the deck-preset work
 (`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
 anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
@@ -160,12 +161,16 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 
-**The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
-`trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
-wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
+**The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
+(`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
+says `guards:` gets the default, `heal`, and `lint:deck` reports the line as an error
+(`key-renamed`); `lint:deck --fix` rewrites `guards: strict` to `fit: trim` and deletes
+`guards: loose`, which was the default. A typo (`fit: reprot`) resolves to the default and
+is flagged as `unknown-fit`.
 
-**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
-`guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
+**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim`. The old
+`guards-strict` / `guards-loose` classes do nothing now; `lint:deck --fix` rewrites them to
+`fit-trim` / `fit-heal`. The per-slide token **evicts** the deck token rather
 than stacking on it, so a slide's own choice always wins.
 
 **Two invariants, not settings.** No level changes the type size, and no level changes
@@ -210,9 +215,9 @@ cause overflow are largely the ones it refuses to touch. See
 **The overflow signals stay on.** `strict` does not silence the ring, the "Content
 clipped" tag or the type-floor warning, and a trim records itself
 (`data-lattice-trim`) because the existing content-clipped probe can see a clamp
-but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
-caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
-key), including one carrying a trailing `#` comment.
+but not a removal. A typo (`fit: trimm`) resolves to the baseline and is
+caught by `npm run lint:deck` as `unknown-fit`, including one carrying a trailing `#`
+comment.
 
 **The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
 and has no fit problem, so the clamp is lifted there and the reader gets the whole
@@ -271,7 +276,7 @@ layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
 swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
-`spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
+`spectrum*` register, `corners:`, `fit:`, `rule:`, `eyebrow:`, `inline-code:`,
 `headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in
@@ -950,72 +955,76 @@ neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the fro
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
 
-## The `marks:` front-matter register (how charts spend color)
+## The `chart-finish:` and `color-intensity:` front-matter keys (how charts spend color)
 
-`marks:` picks how every chart on the deck spends its color. A finish moves color;
-it never adds any, never removes any, and never changes a chart's structure. Its second word, the
-intensity, sets every status mark on the slide, not only a chart's: a checklist disc, a kpi pill,
+`chart-finish:` picks how every chart on the deck spends its color. A finish moves color;
+it never adds any, never removes any, and never changes a chart's structure. `color-intensity:`
+sets how loud every status mark on the slide is, not only a chart's: a checklist disc, a kpi pill,
 a policy badge.
 
-**It was called `chart-finish:`.** The old key and the old `chart-finish-*` slide classes still
-render, and `lint:deck` names the new spelling (`marks-renamed`, info). When a deck sets both keys,
-`marks:` wins.
+**They were one key, `marks:`.** Before 1.0 it split in two, and the engine no longer reads it, so a
+deck that still writes `marks:` renders the defaults. `lint:deck` reports it as an error
+(`marks-split`), and `lint:deck --fix` writes the two new lines: `marks: tone ink vivid` becomes
+`chart-finish: tone ink` and `color-intensity: vivid`. The old slide classes are errors with a fix
+too: `marks-tone` is `chart-finish-tone`, and `marks-vivid` (or the older `chart-finish-vivid`) is
+`color-intensity-vivid`.
 
 Like `icon:` and `spark:`, it is a look rather than a layer that can be switched off: a chart
 always spends its color some way, so there is no `off`. A deck that names none wears `pigment`,
-and so does one that names a word that is not a finish (`unknown-marks` catches it).
+and so does one that names a word that is not a finish (`unknown-chart-finish` catches it).
 
-| `marks:` value | Token | Identity lives in | Choose it for |
+| `chart-finish:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
-| `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
-| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge (on a dark slide the body is stronger, so it clears 3:1 against the slide) | a modern look |
-| `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
+| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
+| `etch` | `chart-finish-etch` | the line: a whisper of color under a doubled edge (on a dark slide the body is stronger, so it clears 3:1 against the slide) | a modern look |
+| `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
 ---
 theme: indaco
-marks: tone
+chart-finish: tone
 ---
 ```
 
-**Intensity: `muted` or `vivid`.** A second word sets how loud the status colors (done, at
-risk, blocked) are, under any finish, and not only in charts: every status mark on the slide
-takes it, so a checklist disc, a verdict badge, a kpi status pill or a policy badge matches
-the chart beside it. Write the two words in either order.
+**Intensity: `color-intensity: muted` or `vivid`.** Its own key sets how loud the status colors
+(done, at risk, blocked) are, under any finish, and not only in charts: every status mark on the
+slide takes it, so a checklist disc, a verdict badge, a kpi status pill or a policy badge matches
+the chart beside it. An intensity word under `chart-finish:` does nothing, and `lint:deck` names
+the key it belongs on (`marks-split`).
 
-| Second word | Token | Light slide | Dark slide |
+| `color-intensity:` value | Token | Light slide | Dark slide |
 |---|---|---|---|
-| `muted` | `marks-muted` | deep status fills under the slide's paper, each theme's own: done a quiet sage in the theme's green, at risk an amber, blocked a red, deferred a gray in the theme's own neutral. **The default** (omit the word). | mid-tone fills in the same family as the category colors beside them, under white text |
-| `vivid` | `marks-vivid` | every status more saturated, still under the slide's paper | the same, more saturated |
+| `muted` | `color-intensity-muted` | deep status fills under the slide's paper, each theme's own: done a quiet sage in the theme's green, at risk an amber, blocked a red, deferred a gray in the theme's own neutral. **The default** (omit the word). | mid-tone fills in the same family as the category colors beside them, under white text |
+| `vivid` | `color-intensity-vivid` | every status more saturated, still under the slide's paper | the same, more saturated |
 
 ```markdown
 ---
-marks: pigment vivid
+color-intensity: vivid
 ---
 ```
 
 **Under `tone`, a source: `ink` or `accent`.** Tone draws one hue in eight steps, and that hue is
-chart color one unless the deck names a third word. `ink` draws every chart in the deck's heading
+chart color one unless `chart-finish:` names a second word. `ink` draws every chart in the deck's heading
 ink, so a chart reads as one ink in stepped shades, dark on a light slide and light on a dark one.
 `accent` draws it in the theme's accent. Either way the names and edges are drawn in the same
 color, which every built-in palette holds at 4.5:1 or better against the slide, in both modes, and
 the strongest step clears 3:1. Status colors keep their own hues, as under every finish.
 
-| Third word | Token | Tone draws in |
+| Second `chart-finish:` word | Token | Tone draws in |
 |---|---|---|
 | *(none)* | *(none)* | chart color one. **The default** (omit the word). |
-| `ink` | `marks-ink` | the heading ink (`--text-heading`) |
-| `accent` | `marks-accent` | the theme's accent (`--accent`) |
+| `ink` | `chart-finish-ink` | the heading ink (`--text-heading`) |
+| `accent` | `chart-finish-accent` | the theme's accent (`--accent`) |
 
 ```markdown
 ---
-marks: tone ink
+chart-finish: tone ink
 ---
 ```
 
 A source means something only under `tone`: pigment and etch draw every category in its own
-hue, so `marks: etch ink` draws nothing differently, and `lint:deck` says so (`marks-source-needs-tone`).
-The three words go in any order, one per axis.
+hue, so `chart-finish: etch ink` draws nothing differently, and `lint:deck` says so
+(`chart-finish-source-needs-tone`). The two words go in either order, one per axis.
 
 Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …). On a light slide every
 fill clears 4.5:1 against everything it sits on (the slide, a card, its own row tint), and its text
@@ -1023,11 +1032,11 @@ is the slide's paper; on a dark slide text on every fill clears 4.6:1. For a rea
 pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
 in both intensities.
 
-**Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
-`<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
+**Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish, and
+`<!-- _class: bar chart-finish-pigment -->` asks for the default inside a `tone` deck. The slide
 token replaces the deck's; it never stacks with it. The two axes are separate:
-`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish, and
-`<!-- _class: bar marks-accent -->` changes only tone's source.
+`<!-- _class: bar color-intensity-vivid -->` changes only the intensity and keeps the deck's finish, and
+`<!-- _class: bar chart-finish-accent -->` changes only tone's source.
 Every slide is stamped, including a chart
 in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
@@ -1061,9 +1070,9 @@ reader keeps the texture channel.
 
 In the Studio, pick it in deck settings (**Look → Marks**). A chart slide's own
 settings carry a **Marks** row (**Look**) that follows the deck unless you pin one.
-`unknown-marks` catches a typo. The design is `engineering/chart-styling.md` §3. The
+`unknown-chart-finish` and `unknown-color-intensity` catch a typo. The design is `engineering/chart-styling.md` §3. The
 rules are generated from each chart manifest's `kernel.marks` by
-`tools/build-marks-css.js`. Resolver: `lib/core/resolve-marks.js`.
+`tools/build-chart-finish-css.js`. Resolver: `lib/core/resolve-chart-finish.js`.
 
 ## The `cards:` front-matter register (where a card row puts its spare height)
 
@@ -1284,32 +1293,43 @@ image-card: top-right soft sm compact
 
 | Axis | Deck value | Per-slide class | Effect |
 |---|---|---|---|
-| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `at-tl` `at-top` `at-tr` `at-center` `at-bl` `at-bottom` `at-br` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
-| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `card-solid` … · `card-o5` … `card-o95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
-| Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
-| Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
-| Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
-| Shape | `float` `band` | `card-float` `band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
+| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `image-card-top-left` `image-card-top` `image-card-top-right` `image-card-center` `image-card-bottom-left` `image-card-bottom` `image-card-bottom-right` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
+| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `image-card-solid` … · `image-card-5` … `image-card-95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
+| Ink | `light` `dark` | `image-card-light` `image-card-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
+| Size | `sm` `md` `lg` | `image-card-sm` `image-card-md` `image-card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
+| Density | `regular` `compact` | `image-card-regular` `image-card-compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
+| Shape | `float` `band` | `image-card-float` `image-card-band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
 
-**Image slides only.** Two of these classes mean something on other layouts too: `at-*` places
-the corner and edge tints, and `compact` tightens any slide. So the deck's words ride only a
-slide whose own class list names `image`; a chart or prose slide in the same deck is untouched.
-On an image slide whose composition sets its text beside the photo (`clean`, `split`, `gallery`)
-the card classes paint nothing, with two exceptions that follow from the shared words: `compact`
-still tightens that slide's spacing, as it does on any slide, and an `at-*` word also moves a
-tint the slide carries (`tint-corner`, `tint-edge`).
+**Every class is `image-card-<word>`**, the word the deck line takes, with a level's `%` dropped
+(`image-card: 65%` stamps `image-card-65`). The classes are the card's own, so they mean nothing
+anywhere else: the tint placements (`at-tl`, `at-top`, …) and the universal `compact` keep their
+own meanings, and neither moves nor tightens the card. A slide can carry `tint-corner at-tr` and
+`image-card-top-right` side by side, and each does its own job. The deck's words ride only a slide
+whose own class list names `image`, and on an image slide whose composition sets its text beside
+the photo (`clean`, `split`, `gallery`) they paint nothing.
+
+**Renamed 2026-11-22.** Until then the card borrowed shared words (`at-tr`, `card-soft`,
+`card-o65`, `ink-light`, `card-sm`, `card-regular`, `compact`, `band`, `card-float`), so a deck
+line `image-card: compact` also tightened the whole slide's spacing. It no longer does. The old
+classes paint nothing on the card: `lint:deck` reports each as `image-card-renamed`, an error
+that names the new class, and `lint:deck --fix` rewrites it. A `compact` on a `spotlight` or
+`statement` slide is a warning instead, because it still tightens the slide (info on an image slide
+that names no composition, since lint cannot see whether the photo gets a card); the fix adds
+`image-card-compact` beside it so the slide renders as before
+(`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2).
 
 **A slide overrides one axis at a time.** A slide's own class on an axis replaces the deck's word
 on that axis and keeps the rest: in a deck with `image-card: top-right soft`, a slide with
-`_class: image spotlight at-bl` gets a soft card in the bottom-left corner. `card-regular` is the
-slide-side way out of a deck-wide `compact`, and `card-float` the way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
+`_class: image spotlight image-card-bottom-left` gets a soft card in the bottom-left corner.
+`image-card-regular` is the slide-side way out of a deck-wide `compact`, and `image-card-float` the
+way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
 leaving the axis out already means it.
 
 Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
 
-**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `ink-light` (white words on a near-black card) and `ink-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
+**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `image-card-light` (white words on a near-black card) and `image-card-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
 
-**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
+**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `trim-spectrum:` (a quiet accent tint by default; a style such as `duo` or `rainbow` colors them) and a slide's own `trim-spectrum-*` class. `rule: none` drops them.
 
 In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
@@ -1680,7 +1700,7 @@ agenda: circles no-pages
 `divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
 pages axis on, each item ends with the page its section starts on: the divider's place among the shown
 slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
-pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+pages are numbered `4.2` and move nothing after them. A deck with `pagination: false` prints no page numbers
 on its agenda either, and neither does an agenda whose lines no longer name the sections in order (reordered or
 renamed after the fill): a page number shows only beside the section it belongs to.
 
