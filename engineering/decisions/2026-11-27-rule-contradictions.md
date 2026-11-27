@@ -152,9 +152,26 @@ That row is 84 o200k tokens. CLAUDE.md has 56 tokens left under `ROUTER_TOKEN_CE
 | i | `936bdb2b-…` then `dfbec808-2354-44c2-b144-69aa4409db93` | question tool, then typed | "what is the most token efficient way?", then "i'm aligned" to the answer: the command center merges |
 | cards | `560105c1-54dd-4719-9bbc-65173fcd03f5`, `fa51ad00-190d-4383-b7ca-5ba39679b832`, `f61c5be7-c9b4-42b6-9717-307a4098224d` | typed | "reading pr for the cards should canonical", "i mean red the cards from the pr not the session", "i'm aligned" |
 
-**Committed on this PR** (workflow.md carries out directions the owner gave): the command center merges on
-the owner's click in its 🚦 digest (§Merging); a session pings `card ready #N <head sha>` and the command
-center reads the card from the PR (§Where the cards go, §❓ Decision card, §Desks).
+**Drafted, then held off this PR: (i) and the card ping.** Both were committed and then reverted, after
+the card's checker found that they contradicted canonical text. The ping ("a session never pastes a card
+into a message") contradicts CLAUDE.md #28 ("Same wording in the ask and on the PR") and the DEFAULT
+OPERATING MODE row. The merge text ("a session never asks in chat for a merge") contradicts rule 7 ("stop
+and ask me"). Both also rest on relays that today's §Relay does not let carry a direction. Shipping them
+first would open the kind of gap this note closes. They land together with (g) and the CLAUDE.md lines
+below, as one change:
+- **(i) workflow.md §Merging**: a new bullet, "The command center merges": on the owner's click in the 🚦
+  digest, it checks each PR's head against the digest and squash-merges or enqueues, one GitHub call per
+  PR. It never relays the merge to the PR's session, which would reload 250k tokens or more for one call.
+  It is still one owner decision per head. With no live merge desk, the command center builds the digest
+  from the cards on the PRs.
+- **The card ping**: §Where the cards go gains "The command center reads 🚦 and ❓ cards from the PR,
+  never from a message". The session sends exactly `card ready #N <head sha>`; the command center checks
+  the head, reads the card, messages the session only when the card is stale or missing, and scans for
+  unannounced cards on its 2-hourly check-in. The §Desks gate table and §❓ "And to the command center"
+  change to match.
+- **Kept on this PR:** the merge-landed gate now applies only to a merge the command center did not make,
+  because the command center already tells the session (§Merging). That fixes a defect the checker found,
+  and it changes no canonical meaning.
 
 **Not committed: the auto-mode safety classifier refused both, as "Undermining Oversight".** This session
 did not retry or route around either refusal. Each needs the owner to apply it or approve it here.

@@ -1610,22 +1610,14 @@ The contract, and its limits — be precise about what it does and doesn't cover
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
   after a queue ejection, ask again before merging or re-arming auto-merge.
-- **The command center merges** (owner, 2026-11-27: question-tool answer `936bdb2b-bed3-48b2-a7b1-4618b957d937`
-  asked "what is the most token efficient way?", and the owner typed "i'm aligned",
-  `dfbec808-2354-44c2-b144-69aa4409db93`, to the answer: the command center). The owner clicks or names
-  PRs in the 🚦 digest in the command center; the command center checks each PR's head against the head the
-  digest listed and squash-merges or enqueues it, one GitHub call per PR. It never relays the merge to the
-  PR's own session: waking an idle session to merge reloads its whole context (250k tokens or more) for one
-  API call. Still one owner decision per head: a new head needs a fresh click.
 - **While a merge desk is live, the desk's digest is the ask** (owner's decision,
   2026-11-20). A session still posts its 🚦 card on its PR, but does not ask the
   owner in chat; `/desk-merge` sends one digest of every ready PR, each at its head
   commit. The owner answers in the command center, and the command center merges each
   named PR whose head still matches; a moved head is asked again. After each merge
   the command center tells that PR's session, which posts its 📋 standup and 🎯
-  brief as after any merge. With no live `desk:merge` session, the command center builds the digest
-  itself from the cards on the PRs (§Where the cards go); a session never asks in chat for a merge it
-  cannot answer itself.
+  brief as after any merge. With no live
+  `desk:merge` session, each session asks as below.
 - **Batch the ask when more than one PR is green.** The authorization itself does
   not change — a human still authorizes every merge, and one PR's approval is
   never license for the next. What changes is the *delivery*: when several PRs
@@ -2097,17 +2089,6 @@ comments, and it is the object the standup is about.
   durable surface worth having.
 - **Fenced in the comment too.** GitHub re-flows unfenced markdown exactly like
   the terminal does, and the brief is still meant to be copied verbatim.
-
-**The command center reads 🚦 and ❓ cards from the PR, never from a message** (owner, 2026-11-27, typed
-in the command center, events `560105c1-54dd-4719-9bbc-65173fcd03f5`: "reading pr for the cards should
-canonical", `fa51ad00-190d-4383-b7ca-5ba39679b832`: "i mean red the cards from the pr not the session",
-and `f61c5be7-c9b4-42b6-9717-307a4098224d`: "i'm aligned"). The moment a session posts a 🚦 or ❓ card on
-its PR, it sends the command center exactly `card ready #N <head sha>` and nothing else (§Desks, "A
-worker messages the command center only at a gate"). The command center reads the card from the PR at
-once (one GitHub read), after checking that the card's head matches the PR's current head. It messages
-the session only when the card is stale (the head moved) or missing. Its 2-hourly check-in scans open PRs
-for cards nobody announced, as a backstop. A session never pastes a card into a message: a pasted card
-costs the command center a full turn to read and is a second copy that can drift from the record.
 
 Three edge cases, with deterministic answers:
 
@@ -2886,9 +2867,8 @@ A section with no items is left out, not printed empty.
   standup or a brief is posted at the same moment, they go in the same comment
   with ❓ **first**, because it is the only one that needs action from the owner.
   No PR: comment on the ticket; with neither, chat only, and say so on the card.
-- **And announced to the command center** (owner, 2026-11-24; since 2026-11-27 by a ping, not a copy),
-  so the owner can answer every open decision in one place: send the live command center exactly
-  `card ready #N <head sha>`, and it reads the card from the PR (§Where the cards go). The owner may answer in either
+- **And to the command center** (owner, 2026-11-24), so the owner can answer every open decision in one
+  place: `send_message` the same fenced card to the live command center. The owner may answer in either
   session. An answer typed in the command center comes back as a relay (§Relay, "The owner's word, relayed
   from the command center"), and the session checks it before acting. The command center batches the cards
   it holds into one round.
@@ -3172,22 +3152,23 @@ a session (`list_events`) to asking it.
 
 **A worker messages the command center only at a gate** (owner, 2026-11-27: the old command center's
 proposal, event `7d201c7b-b798-4901-9821-ced3088c50b8`, answered "in aligned", typed event
-`21f75ff9-9914-4ace-99c2-e54df8267865`). Every `send_message` wakes a whole turn of the command center,
-which carries the whole fleet in its context, so a progress note costs a full-context turn and buys nothing
-the owner acts on. A worker (any session on a line of work, including one a desk started) sends the command
-center a message at exactly four moments:
+`21f75ff9-9914-4ace-99c2-e54df8267865`). Every `send_message` wakes a whole turn of the command center, which carries the whole fleet in
+its context, so a progress note costs a full-context turn and buys nothing the owner acts on. A worker (any
+session on a line of work, including one a desk started) sends the command center a message at exactly
+four moments:
 
 | Gate | What it sends |
 |---|---|
-| **Card ready** (🚦 or ❓) | exactly `card ready #N <head sha>`, nothing else; the card itself stays on the PR (§Where the cards go) |
+| **Card ready** | the 🚦 pre-merge card, same wording as on the PR (§Pre-merge card) |
 | **Blocker** | the one `🧱 blocker` line (below) |
-| **Owner question** with no card to hold it | the question, one message |
-| **Merge landed** by a path other than the command center | one line once the commit is on `main`; a merge the command center made needs no reply |
+| **Owner question** | the ❓ decision card, same wording as on the PR (§❓ Decision card) |
+| **Merge landed** by a path other than the command center | one line once the commit is on `main`, with the 📋 standup and 🎯 brief on the PR (§Post-merge standup); a merge the command center made needs no reply, because it already told the session (§Merging) |
 
 Everything else (progress, a slice pushed, CI going green, a checker round, a rebase) goes in the PR's
-living handoff comment (§Relay), where the command center reads it when it needs it. A question from the
-command center or a desk is answered with one `send_message` back; that is a reply, not a fifth gate. A
-desk's own end-of-pass report ("How a desk shows on the board", below) is the desk's gate and stays.
+living handoff comment (§Relay), where the command center reads it when it needs it (`list_events`, the
+PR). A question from the command center or a desk is answered with one `send_message` back, as below; that
+is a reply, not a fifth gate. A desk's own end-of-pass report ("How a desk shows on the board", below) is
+the desk's gate and stays.
 
 **Blockers go to the command center** (owner, 2026-11-24: "i also want sessions to automatically send
 flake or blockers like missing dependencies to the command center for evaluation and guidance. ideally if
@@ -3212,9 +3193,8 @@ command center sorts each line in its next turn:
 flake desk. If no `desk:flaky` session is live, the desk that met the test fixes
 it itself under HARD RULE #33, or asks the command center to start a flake desk.
 
-**Where a desk's ❓ card goes.** As a comment on the PR it concerns, opening with the desk's name,
-announced to the command center with `card ready #N <head sha>`, which reads it from the PR (§Where the
-cards go). A card about no PR goes in the desk's end-of-pass report instead.
+**Where a desk's ❓ card goes.** To the command center, and as a comment on the PR
+it concerns, opening with the desk's name, so the owner sees it in either place.
 
 **Pinned, never self-archived.** The command center and every desk add the tag
 `ui:pinned` to their own session when they start, which pins it in the owner's
