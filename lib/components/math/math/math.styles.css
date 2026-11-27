@@ -501,15 +501,21 @@ section.math.math.form.derivation:where([data-family="tall"], [data-family="stri
 }
 
 /* ── math.theorem ──
- * Authoring: blockquotes labeled by their first **Bold.** word.
+ * Authoring: blockquotes labeled by their leading `### heading`.
  *   ## Title
- *   > **Definition.** A function $f:\mathbb{R}\to\mathbb{R}$ is continuous
+ *   > ### Definition.
+ *   >
+ *   > A function $f:\mathbb{R}\to\mathbb{R}$ is continuous
  *   > at $a$ if $\lim_{x\to a} f(x) = f(a)$.
  *   >
- *   > **Theorem (IVT).** If $f$ is continuous on $[a,b]$ and $y$ lies
+ *   > ### Theorem (IVT).
+ *   >
+ *   > If $f$ is continuous on $[a,b]$ and $y$ lies
  *   > between $f(a)$ and $f(b)$, then $\exists c \in [a,b]$ with $f(c)=y$.
  *   >
- *   > **Proof.** By contradiction. …
+ *   > ### Proof.
+ *   >
+ *   > By contradiction. …
  *
  * The blockquotes render as stacked color-coded cards. Markdown wraps
  * each `>`-prefixed block in a single `<blockquote>`; theorem-card stripes
@@ -882,10 +888,14 @@ section.math.form.canvas > .cell-stage > p > img {
  * Authoring (default — one matrix + properties):
  *   ## Title
  *   $$ M = \begin{pmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{pmatrix} $$
- *   - **shape** — $2 \times 3$
- *   - **rank** — $2$
- *   - **rows** — observations
- *   - **cols** — features
+ *   - shape
+ *     - $2 \times 3$
+ *   - rank
+ *     - $2$
+ *   - rows
+ *     - observations
+ *   - cols
+ *     - features
  *
  * Authoring (`.decompose` — three matrices in sequence):
  *   ## Title

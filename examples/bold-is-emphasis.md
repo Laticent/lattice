@@ -14,11 +14,11 @@ A card's title, a tag's label and a KPI's value come from the item's own first l
 
 ---
 
-<!-- @meta{layout=decision, footer="decision · `- **Build** in region`: one tag (bold made Build the tag and dropped the rest before)"} -->
+<!-- @meta{layout=decision, footer="decision · the tag is the whole first line; a bold word inside it changes nothing (a leading bold run alone was the tag before)"} -->
 
 ## We build in region and keep the vendor as a fallback.
 
-- **Build** in region
+- Build in **region**
   - Keeps customer data inside the EU boundary the contract names.
 - Keep the vendor
   - Covers the three months until our own cluster is certified.
@@ -27,11 +27,11 @@ A card's title, a tag's label and a KPI's value come from the item's own first l
 
 ---
 
-<!-- @meta{layout=kpi, footer="kpi · `1. **$2.4B** total`: the whole lead is the value (only the bold run was the value before)"} -->
+<!-- @meta{layout=kpi, footer="kpi · the value is the plain first line (`1. **$2.4B** total` is now a lint error; --fix makes it this)"} -->
 
 ## Revenue ran ahead of plan while margin held.
 
-1. **$2.4B** total
+1. $2.4B
    - Revenue
    - target $2.2B, up 9%
 2. 42%

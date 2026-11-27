@@ -5,12 +5,13 @@
 /* ── DECISION ──────────────────────────────────────────────────────────
  * ## We are building, not buying.   (the verdict, in display weight)
  * `Decision · 2026 Q1`              (eyebrow, optional)
- * - **Build**           justification one
- * - **Why not buy**     justification two
- * - **Why not delay**   justification three
+ * - Build               (the tag: the lead, lifted to `.lat-label`)
+ *   - justification one
+ * - Why not buy
+ *   - justification two
  *
  * The heading carries the verb of the decision. The list below holds
- * 2-4 short justifications, each with a strong-prefix label and a body
+ * 2-4 short justifications, each with a lifted label and a body
  * paragraph. Cards render as a horizontal strip with an accent left
  * edge — visually unified, signaling that they all support the verdict.
  * ──────────────────────────────────────────────────────────────────────── */

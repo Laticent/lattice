@@ -4,10 +4,10 @@
 
 /* ── KPI ───────────────────────────────────────────────────────────────
  * ## heading (with optional inline-code eyebrow above)
- * 1. **94%**
+ * 1. 94%                  (the value: the lead, lifted to `.lat-label`)
  *    - Signal-classification success
  *    - target 99%, +2pp QoQ `On plan` `Board`
- * 2. **18 min**
+ * 2. 18 min
  *    - p99 decision close
  *    - target 10 ms, -3 ms QoQ `On plan` `SRE`
  *

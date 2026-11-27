@@ -3,10 +3,10 @@
  * badge must stay ABSOLUTELY positioned once the Form default wraps the card
  * body in `.cell-stage`.
  *
- * The badge treatment (compare-prose.styles.css) styles the leading `<strong>`
+ * The badge treatment (compare-prose.styles.css) styles the leading `.lat-label`
  * of each card as an absolute-positioned filled corner tag. Under the Form
  * default (on since 2026-06-26), masthead-lift wraps a migrated component's body
- * one level deeper — `section.decision > .cell-stage > ol > li > strong`. A rule
+ * one level deeper — `section.decision > .cell-stage > ol > li > .lat-label`. A rule
  * left addressing the PRE-migration bare `section.decision > ol` child silently
  * stops matching the wrapped card, and the badge degrades to plain inline text
  * (no fill, no corner placement) with NO error. See the 2026-07-14 cell-stage
@@ -66,13 +66,13 @@ describe('decision corner tag survives the .cell-stage wrap (Form on)', () => {
 
       // Sanity: the body really is wrapped in .cell-stage (Form on).
       const wrapped = await page.$$eval(
-        'section[data-lattice-slide="1"] > .cell-stage > :is(ul, ol) > li > strong:first-child',
+        'section[data-lattice-slide="1"] > .cell-stage > :is(ul, ol) > li > .lat-label:first-child',
         (els) => els.length,
       );
       assert.ok(wrapped >= 2, `expected ≥2 badges under .cell-stage, got ${wrapped} (Form wrap missing?)`);
 
       const tags = await page.$$eval(
-        'section[data-lattice-slide="1"] :is(ul, ol) > li > strong:first-child',
+        'section[data-lattice-slide="1"] :is(ul, ol) > li > .lat-label:first-child',
         (els) => els.map((el) => {
           const cs = getComputedStyle(el);
           return { position: cs.position, bg: cs.backgroundColor };

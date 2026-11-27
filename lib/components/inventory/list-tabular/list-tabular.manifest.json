@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "list-tabular",
+  "inlineRun": { "depths": [1] },
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",

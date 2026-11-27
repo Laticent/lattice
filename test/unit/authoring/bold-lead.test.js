@@ -28,7 +28,7 @@ describe('findBoldLeads: each bold-lead shape and its rewrite', () => {
     assert.deepEqual(rewrites('- **Lead.** Detail sentence.'), ['- Lead\n  - Detail sentence.']);
   });
   test('an ordered item keeps its marker and nests to its text column', () => {
-    assert.deepEqual(rewrites('12. **$4.2M** ARR'), ['12. $4.2M\n    - ARR']);
+    assert.deepEqual(rewrites('12. **Plan.** Ship it'), ['12. Plan\n    - Ship it']);
   });
   test('a separator after the bold run is dropped, not kept as the body', () => {
     assert.deepEqual(rewrites('- **shape** — $n \\times p$'), ['- shape\n  - $n \\times p$']);
@@ -42,6 +42,26 @@ describe('findBoldLeads: each bold-lead shape and its rewrite', () => {
   });
   test('a nested item, a mid-sentence bold, a fenced line and a non-item are left alone', () => {
     assert.deepEqual(findBoldLeads('- plain **x**\n  - **nested** y\n```\n- **fenced** z\n```\n**not an item**'), []);
+  });
+  test('a bold word that opens a phrase is emphasis: not split (red team / checker, W3 round 2)', () => {
+    assert.deepEqual(findBoldLeads('- **Faster** onboarding for every rep'), []);
+    assert.deepEqual(findBoldLeads('- **A** and **B** together carry it.'), []);
+  });
+  test('a question or exclamation keeps its mark in the title', () => {
+    assert.deepEqual(rewrites('- **Why now?** The window closes.'), ['- Why now?\n  - The window closes.']);
+  });
+  test('`***bold italic***` is left alone, never half-rewritten into stray asterisks', () => {
+    assert.deepEqual(findBoldLeads('- ***Bold italic*** lead text'), []);
+    assert.deepEqual(findBoldTheoremLabels('> ***Theorem.*** It holds.'), []);
+  });
+  test('an HTML comment (a speaker note) is never rewritten', () => {
+    assert.deepEqual(findBoldLeads('<!--\n- **Say** this loudly.\n-->\n<!-- - **One.** line -->'), []);
+    assert.deepEqual(rewrites('<!-- note -->\n- **Lead.** detail'), ['- Lead\n  - detail']);
+  });
+  test('on a value layout the bold run was the value: `1. **$4.2M** ARR` splits, with or without a body', () => {
+    const r = (md) => findBoldLeads(md, { tagLayout: true }).map((h) => h.replaceLine);
+    assert.deepEqual(r('1. **$4.2M** ARR'), ['1. $4.2M\n   - ARR']);
+    assert.deepEqual(r('1. **$4.2M** ARR\n   - up nine percent'), ['1. $4.2M\n   - ARR']);
   });
   test('the rewrite is a fixed point: the rewritten text reports nothing', () => {
     const src = '- **A.** one\n- **B.**\n  - two\n1. **C** three';
@@ -76,13 +96,30 @@ describe('the bold-lead rule and its fix', () => {
   const vocab = buildVocab();
   const deck = `${FM}<!-- @meta{layout=inventory} -->\n\n## Parts\n\n- **Planning.** Sets targets.\n- **Routing.** Assigns jobs.\n`;
 
-  test('fires once per bold lead on a structural layout, as an autofixable warning', () => {
+  test('a title with its body on the same line is an ERROR: the row now renders as one title', () => {
     const hits = lintText(deck, { vocab }).filter((f) => f.rule === 'bold-lead');
     assert.equal(hits.length, 2);
     for (const f of hits) {
-      assert.equal(f.severity, 'warning');
+      assert.equal(f.severity, 'error');
       assert.equal(f.autofixable, true);
     }
+  });
+  test('a wholly bold lead over a nested body is a WARNING: it renders the same', () => {
+    const md = `${FM}<!-- @meta{layout=inventory} -->\n\n## Parts\n\n- **Planning.**\n  - Sets targets.\n`;
+    const hits = lintText(md, { vocab }).filter((f) => f.rule === 'bold-lead');
+    assert.deepEqual(hits.map((f) => f.severity), ['warning']);
+  });
+  test('a corner-tag layout reports `- **A** rest` over a body: the tag would read the whole sentence', () => {
+    const md = `${FM}<!-- @meta{layout=decision} -->\n\n## D\n\n- **Build** — own the roadmap\n  - Slower start.\n- Buy\n  - Faster.\n`;
+    const hits = lintText(md, { vocab }).filter((f) => f.rule === 'bold-lead');
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].severity, 'error');
+    const fixed = lintCore.applyAllFixes(md, vocab);
+    assert.match(fixed, /^- Build\n {2}- own the roadmap\n {2}- Slower start\.$/m, 'the rest becomes the first body line');
+  });
+  test('the same shape on a card layout is emphasis inside the title: not reported', () => {
+    const md = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## C\n\n- **Routing** is live\n  - Vans take the shortest route.\n- Parts\n  - Daily.\n`;
+    assert.equal(lintText(md, { vocab }).filter((f) => f.rule === 'bold-lead').length, 0);
   });
   test('does not fire on a prose layout, where bold is ordinary emphasis', () => {
     const prose = `${FM}<!-- @meta{layout=content} -->\n\n## Notes\n\n- **Planning.** Sets targets.\n`;
@@ -103,6 +140,18 @@ describe('the bold-lead rule and its fix', () => {
     assert.match(fixed, /^- Routing\n {2}- Assigns jobs\.$/m);
     assert.equal(lintText(fixed, { vocab }).filter((f) => f.rule === 'bold-lead').length, 0);
   });
+  test('a kpi `1. **$4.2M** ARR` over a body is an error, and the fix keeps ARR as the caption', () => {
+    const md = `${FM}<!-- @meta{layout=kpi} -->\n\n## K\n\n1. **$4.2M** ARR\n   - up nine percent\n2. 42%\n   - Gross margin\n`;
+    const hits = lintText(md, { vocab }).filter((f) => f.rule === 'bold-lead');
+    assert.deepEqual(hits.map((f) => f.severity), ['error']);
+    assert.match(lintCore.applyAllFixes(md, vocab), /^1\. \$4\.2M\n {3}- ARR\n {3}- up nine percent$/m);
+  });
+  test('the card rule\'s fix keeps a pill on the title line and drops a dash separator', () => {
+    const pill = `${FM}<!-- @meta{layout=cards-grid} -->\n\n## C\n\n- **Pilot.** {Live} body\n- **Ends** — dash body\n`;
+    const fixed = lintCore.applyAllFixes(pill, vocab);
+    assert.match(fixed, /^- Ends\n {2}- dash body$/m);
+    assert.doesNotMatch(fixed, /- — /);
+  });
   test('`only` limits the pass to the named rules (lint:deck --fix --rule bold-lead)', () => {
     const mixed = `${deck}\n---\n\n<!-- @meta{layout=content, class=guards-strict} -->\n\n## X\n\nBody.\n`;
     const { text } = lintCore.fixAllDetailed(mixed, vocab, undefined, ['bold-lead']);
@@ -120,6 +169,29 @@ describe('the engine labels the whole lead; bold inside it is emphasis', () => {
   test('an inventory row is lifted: its lead is the label and its detail stays nested', () => {
     const out = html('<!-- _class: inventory -->\n\n## H\n\n- Planning\n  - Sets targets.\n');
     assert.match(out, /<li><span class="lat-label">Planning<\/span>\s*<ul>\s*<li>Sets targets\.<\/li>/);
+  });
+  test('an un-migrated inventory row degrades to body text with a bold word, not one long title', () => {
+    // The W3 newcomers (inventory, citation-card, math matrix) label only an item with a nested body.
+    const out = html('<!-- _class: inventory -->\n\n## H\n\n- **Lead.** detail here\n- Plain\n  - body\n');
+    assert.match(out, /<li><strong>Lead\.<\/strong> detail here<\/li>/);
+    assert.match(out, /<li><span class="lat-label">Plain<\/span>/);
+  });
+  test('an existing slot layout still labels a lead with no nested body (a kpi value may stand alone)', () => {
+    assert.match(html('<!-- _class: kpi -->\n\n## K\n\n1. $2.4B\n'), /<span class="lat-label">\$2\.4B<\/span>/);
+  });
+  test('a bold word in a word cloud is drawn (a <tspan>), not dropped as an unknown SVG element', () => {
+    const out = html('<!-- _class: word-cloud -->\n\n## W\n\n- **pricing** `5`\n- security `3`\n');
+    assert.match(out, /<text class="wc-word"[^>]*><tspan dominant-baseline="central" font-weight="bold">pricing<\/tspan><\/text>/);
+    assert.doesNotMatch(out, /<text[^>]*><strong>/);
+  });
+  test('a bold kanban lane is still its lane: `**Done**` keeps the done state', () => {
+    const out = html('<!-- _class: kanban -->\n\n## K\n\n- Doing\n  - a `S`\n- **Done**\n  - b `S`\n');
+    assert.match(out, /class="kanban-column" data-done[^>]*data-label="Done"/);
+  });
+  test('list-tabular keeps a bold-led name as ONE grid cell (an inline run), its value a sibling', () => {
+    const run = require('../../../lib/transformers/inline-run.js');
+    const out = run.applyToHtml(html('<!-- _class: list-tabular -->\n\n## L\n\n1. **Board** approval `Q3`\n2. Migration `Q4`\n'));
+    assert.match(out, /<li><span class="lat-run"><strong>Board<\/strong> approval <\/span><code>Q3<\/code><\/li>/);
   });
   test('findLabel reads a balanced label, inner spans included', () => {
     const li = '<li><span class="lat-label"><span class="x">a</span> b</span><ul><li>c</li></ul></li>';

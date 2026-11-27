@@ -4,9 +4,9 @@
 
 /* ── ACTORS ────────────────────────────────────────────────────────────
  * ## heading
- * - **Signal custody** `Signal owner`
+ * - Signal custody `Signal owner`     (the lead, lifted to `.lat-label`)
  *   - Manages intake quality and source diversity. Never tunes the weights directly.
- * - **Policy** `Framework operator`
+ * - Policy `Framework operator`
  *   - Owns scoring policy, calibration cadence, version floors.
  *
  * Roster of responsibilities owned by named actors. Strong = the

@@ -106,6 +106,13 @@ const TSPAN_BUILDERS = [
       'declares no dominant-baseline, so there is nothing to carry down',
   },
   {
+    file: 'lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform.js',
+    owes: 'attr',
+    why: 'an author\'s `**bold**` or `*italic*` inside a word becomes a <tspan> (an HTML ' +
+      '<strong> is not drawn inside SVG text, W3); it sits on the word\'s single line, ' +
+      'centered with `central`, so the tspan carries it',
+  },
+  {
     file: 'lib/plugins/chart-family/shared/standalone-svg.js',
     owes: 'style',
     why: 'sets an inline `style` ON the tspan it creates, not on an ancestor, so ' +

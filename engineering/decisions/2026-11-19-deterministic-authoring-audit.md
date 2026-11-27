@@ -495,6 +495,23 @@ behind the one before it only where it reads that one's output.
   body for the repo's decks and for Studio imports. A lint finding with an autofix carries
   authors over during the transition (see decision 2).
 
+**W3 shipped (2026-11-27, #3572).** What landed, and where it differs from the plan above:
+
+- **The label.** `lib/core/slot-label-lift.js` wraps an item's WHOLE lead in `<span class="lat-label">`
+  on every path (markdown-it, the runtime mirror, the split-panel string path); an author's `<strong>`
+  stays inside it as emphasis. `inventory` and `citation-card` joined the lift and `math matrix` lifts
+  on its host; these three label only an item with a nested body, so an un-migrated `- **Lead.**
+  detail` degrades to body text with a bold word. A `math theorem` card's label is its `### heading`.
+  citation-card's action callout is keyed by POSITION (the last item with a nested body), not bold.
+- **The codemod is a lint rule, not a separate tool.** `bold-lead` (`lib/authoring/lint-core.js`,
+  detectors in `lib/core/list-shapes.js`) carries each rewrite; `lint:deck --fix --rule bold-lead`
+  applies only it. It is an error where the render moved and a warning where it did not (spec
+  `diagnostics.md`). "Studio imports" are not migrated on ingest: the Studio shows the errors and its
+  Fix all applies them, and its agent loop sees errors only. Decided against an automatic ingest pass
+  so an author is never surprised by a silent rewrite of their deck.
+- **Evidence.** The bold probe (#3572's body): main 86 of 91 list galleries change structure when a
+  lead's bold run moves; the branch is the table in the PR.
+
 ### W4 — Universals are declared, and protected
 
 - The manifest gets a **`universals`** block: one entry per universal (`coda`, `note`, `eyebrow`,

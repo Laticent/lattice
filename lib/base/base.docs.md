@@ -667,9 +667,13 @@ layouts the leading text is structurally a slot label, not editorial
 emphasis. Authors don't carry presentational markup.
 
 **Bold is emphasis, never structure.** The WHOLE lead is the label, so a
-`**bold**` word in it is emphasis inside the label and never the label on
-its own: `- **Build** in region` tags "Build in region", not "Build". The
-same holds on every layout whose item lead is its title, value or term
+`**bold**` word in it is never the label on its own: `- **Build** in region`
+tags "Build in region", not "Build". Inside a label the bold adds nothing you
+can see (the label is already set at heading weight), so keep a tag short and
+plain. On a corner-tag layout (`decision`, `compare-prose`, `split-compare`)
+a leading bold run followed by more text is an error, because the tag now
+reads the whole sentence; `--fix` keeps the bold word as the tag and nests the
+rest as the first body line. The same holds on every layout whose item lead is its title, value or term
 (cards, ledgers, `kpi`, `inventory`, `glossary`, `citation-card`, `math
 matrix`): titles come from nesting (`- Title` / `  - body`) or from a
 heading, never from bold. `lint:deck` flags a bold lead there

@@ -46,7 +46,7 @@ async function expectOneTagSize(
 	// until the three tags agree rather than sleeping.
 	const sizes = () =>
 		slide.evaluate((s) =>
-			[...s.querySelectorAll(':scope > .cell-stage > ul > li > strong:first-child')].map((el) => {
+			[...s.querySelectorAll(':scope > .cell-stage > ul > li > .lat-label:first-child')].map((el) => {
 				const r = el.getBoundingClientRect();
 				return { w: r.width, h: r.height };
 			}),
@@ -73,7 +73,7 @@ for (const [label, width, height] of [
 }
 
 // The same row in real WebKit (Safari's engine), at the webkit-tablet project's iPad-landscape
-// box. The measure reads getComputedStyle on `::before` and on the lifted <strong>, which is
+// box. The measure reads getComputedStyle on `::before` and on the lifted `.lat-label`, which is
 // engine behavior a Chromium run cannot stand in for.
 test('every card tag on a slide is one size in the live preview @webkit-tablet', async ({ page }, info) => {
 	await expectOneTagSize(page, info, 'webkit-tablet', 1180, 703);
@@ -99,7 +99,7 @@ for (const [engine, width, height] of [
 	test(`every card tag on a slide is one size at ${placement} in the live preview${engine}`, async ({ page }, info) => {
 		await expectOneTagSize(page, info, `${placement}${engine ? '-webkit' : ''}`, width, height, deckFor(placement));
 		const cs = await livePreview(page)
-			.locator('section.decision > .cell-stage > ul > li > strong:first-child')
+			.locator('section.decision > .cell-stage > ul > li > .lat-label:first-child')
 			.first()
 			.evaluate((el) => {
 				const c = getComputedStyle(el);

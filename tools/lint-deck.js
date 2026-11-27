@@ -150,6 +150,9 @@ async function main(argv) {
   const fix = flags.has('--fix');
   // --rule <id[,id]>: with --fix, apply only those rules' fixes — a codemod for one grammar change.
   const onlyRules = ruleValueAt > 0 && argv[ruleValueAt] ? argv[ruleValueAt].split(',').map((r) => r.trim()).filter(Boolean) : null;
+  // `bold-lead` leaves a card or ledger layout's `- **Title.** body` line to `card-style-inline-title`
+  // (one finding per line), so the W3 codemod is both rules.
+  if (onlyRules?.includes('bold-lead') && !onlyRules.includes('card-style-inline-title')) onlyRules.push('card-style-inline-title');
 
   const files = (flags.has('--all') ? discoverDecks() : expandArgs(patterns)).filter((f) => fs.existsSync(f));
   if (!files.length) {

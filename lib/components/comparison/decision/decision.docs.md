@@ -30,7 +30,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ### Common mistakes
 
 - **Reordering justification cards, expecting their categorical accent color to travel with the same justification.** The accent color is assigned purely by card POSITION (an `nth-child` cycle through the categorical palette), not by content — reordering cards in the markdown reassigns colors; they don't follow the justification.
-- **Manually bolding the option name with `**…**`.** The lead auto-lifts to the engine's label (the corner-tag CSS keys off it). A bolded lead is emphasis inside that label, so it changes nothing you can see, and a bold first word never becomes the tag on its own (`- **Build** in region` tags “Build in region”). Write plain text and let the lift do the work.
+- **Manually bolding the option name with `**…**`.** The lead auto-lifts to the engine's label (the corner-tag CSS keys off it). A wholly bolded lead renders the same as a plain one, so the bold is noise. A bold FIRST WORD followed by more text no longer makes that word the tag: the tag reads the whole line (`- **Build** in region` tags “Build in region”), which `lint:deck` reports as an error and `--fix` splits into `- Build` with the rest nested. Write the tag plain and short.
 
 ## When to use
 
