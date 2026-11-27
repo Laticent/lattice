@@ -1,0 +1,1 @@
+- The CLI no longer adds a second copy of the engine stylesheet to a palette that writes a `/*` inside a string before its `@import 'lattice'` (for example `content: "/*"`). It reads whether a palette imports a theme the way CSS reads it, so an `@import` inside a comment or a string doesn't count, and one written in capitals or with escapes does.

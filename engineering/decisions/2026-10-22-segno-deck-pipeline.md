@@ -1208,7 +1208,7 @@ readers that ship.
 | export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
 | export/marp-vscode-stub.js, marp-bundle-math.js `STYLE_VALUE` | theme imports; a math style value | 3, 2 | no | yes |
 | export/pdf-asset-reader.js | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |
-| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
+| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` (**moved in P5b:** `importsTheme` reads `cssImports`; test/unit/export/cli-theme-import-differential.test.js) | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
 | export/author-css.js: the naive `COMMENT_RE`, the depth walk | the author's CSS, re-wrapped (a #22 re-wrap site) | 3 | re-wrap | yes |
 | export/inline-url-media.mjs, html-player.js `BACKGROUND_IMAGE_STRING`, deck-assets.js | web `url()` refs; file `url()`; `asset:` refs | 3, 4, 3 | no | yes |
 | fonts/face-css.js: `AT_KEYWORD`, `HOP`, `URL_RE` | `@font-face` rules and their `src` URLs | 4 | no | yes |

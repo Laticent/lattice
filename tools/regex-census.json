@@ -93,7 +93,6 @@
     "lib/engine/index.js": 2,
     "lib/engine/themes.js": 1,
     "lib/export/author-css.js": 2,
-    "lib/export/cli-deck-sheet.js": 2,
     "lib/export/deck-assets.js": 1,
     "lib/export/html-player.js": 1,
     "lib/export/image-set.js": 1,
@@ -915,10 +914,6 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/@import\\s*(['\"])([A-Za-z0-9_-]+)\\1\\s*;?/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
-    },
-    "/@import\\s*(['\"])[A-Za-z0-9_-]+\\1/": {
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
