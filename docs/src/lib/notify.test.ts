@@ -48,6 +48,13 @@ describe('notify — the status kind', () => {
 		expect(opts(1).position).toBeUndefined();
 	});
 
+	// A sticky notice never leaves on its own, so it stands at the bottom at every width; the toaster's own place is the top
+	// below 1024px, where a sticky notice covered the Playground's whole top bar until dismissed (PR 3559).
+	it('raises a sticky notice at the bottom, whatever the toaster default', () => {
+		notifySticky('This page is out of date.', { label: 'Reload', onClick: () => {} });
+		expect(opts(0).position).toBe('bottom-center');
+	});
+
 	it('rotates the id once the pill has closed, so the next message is not swallowed', () => {
 		notify('First message.');
 		autoClose(0);

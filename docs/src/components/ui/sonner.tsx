@@ -47,21 +47,21 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 //     it: measured at 390px, a Share failure saying "Try again" overlapped the sheet's Download button and a press on it
 //     missed for the toast's dwell; at 820 it covered the button label's start (PR 3559). The owner chose top-center
 //     for narrow screens (D1 on PR 3559). Desktop keeps the bottom, where the side sheet leaves the center clear.
-//     Read once on mount and on each crossing of the breakpoint, so a toast never jumps while the width holds.
-const NARROW = "(max-width: 1023.98px)"
+//     A STICKY notice (`notifySticky`, one that never leaves on its own) stays at the bottom at every width: at the top
+//     it covered the Playground's whole top bar until dismissed (lib/notify.ts, `notifySticky`).
+//     Read on mount and on each crossing of the breakpoint, so a toast never jumps while the width holds.
+//     It starts at the bottom and moves on mount: no toast is up before the first effect, so nothing jumps, and the
+//     server render and the first client render agree.
 function usePlace(): "top-center" | "bottom-center" {
-  const query = () =>
-    typeof window !== "undefined" && window.matchMedia?.(NARROW).matches ? "top-center" : "bottom-center"
-  const [place, setPlace] = React.useState<"top-center" | "bottom-center">(query)
+  const [top, setTop] = React.useState(false)
   React.useEffect(() => {
-    const mq = window.matchMedia?.(NARROW)
-    if (!mq) return
-    const read = () => setPlace(mq.matches ? "top-center" : "bottom-center")
+    const mq = window.matchMedia("(max-width: 1023.98px)")
+    const read = () => setTop(mq.matches)
     read()
     mq.addEventListener("change", read)
     return () => mq.removeEventListener("change", read)
   }, [])
-  return place
+  return top ? "top-center" : "bottom-center"
 }
 
 function useMode(): "light" | "dark" {
