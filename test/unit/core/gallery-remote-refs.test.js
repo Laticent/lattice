@@ -138,7 +138,7 @@ const BENIGN = {
   'the vendored runtime from dist/': '<script src="../dist/lattice-runtime.js"></script>',
   'the vendored dagre build beside the deck': '<script src="lattice-dagre-min.js"></script>',
   'a gallery written against the pre-rename name (.min.js, before 2026-09-29)': '<script src="../mermaid-v11.min.js"></script>',
-  'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
+  'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npagination: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n',
 };

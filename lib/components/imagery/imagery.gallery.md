@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # imagery
 
@@ -9,8 +9,7 @@ Imagery — visuals that carry their own meaning.
 
 ---
 
-<!-- _class: collage -->
-<!-- _footer: "collage · imagery survey" -->
+<!-- @meta{layout=collage, footer=collage · imagery survey} -->
 
 `The atelier`
 
@@ -28,8 +27,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "image · imagery survey" -->
+<!-- @meta{layout=image, footer=image · imagery survey} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -39,8 +37,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- _footer: "scene · imagery survey" -->
+<!-- @meta{layout=scene, class=gallery, footer=scene · imagery survey} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -66,8 +63,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: video companion -->
-<!-- _footer: "video · imagery survey" -->
+<!-- @meta{layout=video, class=companion, footer=video · imagery survey} -->
 
 ## The video card plays beside its context.
 

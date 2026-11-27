@@ -41,7 +41,7 @@ describe('the vocabulary is derived from the meta manifest', () => {
     // The set the engine kept by hand before the manifest owned it. A change here is a decision.
     assert.deepEqual([...keys.KNOWN_KEYS].sort(), [
       'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize', 'build', 'class',
-      'color', 'debug', 'focus', 'focusStyle', 'focusSteps', 'footer', 'header', 'hide', 'lang', 'lens', 'logo', 'marp', 'paginate', 'size',
+      'color', 'debug', 'focus', 'focusStyle', 'focusSteps', 'footer', 'header', 'hide', 'lang', 'lens', 'logo', 'marp', 'paginate', 'pagination', 'size',
       'style', 'theme', 'track',
     ].sort());
     assert.deepEqual([...keys.FLAG_KEYS].sort(), ['build', 'debug', 'hide', 'lens']);

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 ## Style-loader device check
@@ -10,8 +10,8 @@ Open this deck on the phone, then open the same text again with `?styles=modules
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "Chart — funnel · funnel" -->
+<!-- @meta{layout=funnel, footer="Chart — funnel · funnel"} -->
+
 
 ## Most signals die long before they change a decision.
 
@@ -25,8 +25,8 @@ Open this deck on the phone, then open the same text again with `?styles=modules
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "Hero stat · big-number" -->
+<!-- @meta{layout=big-number, footer=Hero stat · big-number} -->
+
 
 `Calibration Result · 6-Month Pilot`
 
@@ -35,8 +35,8 @@ Open this deck on the phone, then open the same text again with `?styles=modules
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "Single code block · code" -->
+<!-- @meta{layout=code, footer=Single code block · code} -->
+
 
 `Implementation · Decision Pipeline`
 
@@ -58,8 +58,8 @@ const entry = await framework.decisions.log(decision, { signals: [signal.id], ra
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Chart — state-chart · state-chart lr" -->
+<!-- @meta{layout=state-chart, class=lr, footer="Chart — state-chart · state-chart lr"} -->
+
 
 `Decision lifecycle`
 
@@ -81,8 +81,8 @@ const entry = await framework.decisions.log(decision, { signals: [signal.id], ra
 
 ---
 
-<!-- _class: math -->
-<!-- _footer: "Math — closed form · math" -->
+<!-- @meta{layout=math, footer="Math — closed form · math"} -->
+
 
 `Scoring model · OLS`
 
@@ -97,8 +97,8 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "Pull quote · quote" -->
+<!-- @meta{layout=quote, footer=Pull quote · quote} -->
+
 
 > The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
 
@@ -151,7 +151,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## A blocked web image
 

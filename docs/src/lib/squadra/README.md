@@ -205,7 +205,7 @@ into Squadra's node shape. Squadra writes no Markdown parser and keeps no depend
 the model in as a function.
 
 ```ts
-import { BlockParser, deckModel } from '@laticent/segno-markdown';
+import { BlockParser, deckModel } from '@laticent/segno-languages/markdown';
 import { markdownLanguage } from '@laticent/squadra/markdown';
 
 const parser = new BlockParser({});
@@ -216,7 +216,7 @@ The tree is `deck` → `front-matter`, then a `slide` per chunk between top-leve
 the `break` between them. Inside a slide sit the blocks the model records: `paragraph`, `heading`,
 `cell`, `fence` (its info string in `attrs.info`), `code-block`, `comment`, `html-block` and
 `plugin-block`, each with `attrs.level` for its depth in the token stream. When the model lists its
-containers (`containers`, as `@laticent/segno-markdown`'s does), the blocks nest inside them: `list`
+containers (`containers`, as `@laticent/segno-languages/markdown`'s does), the blocks nest inside them: `list`
 (`attrs.ordered`) → `item`, `quote`, and `table` → `row`, so `item > paragraph` is a selector a rule
 can write. Spans are line-granular: a block runs from the start of its first line to the end of its
 last, so a paragraph in an item takes in its `- `, and a container stops at its last line of text. Fenced and indented code is inert. A span

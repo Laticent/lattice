@@ -1,1 +1,0 @@
-- A theme that names a web picture the deck has not allowed no longer makes the Studio's export say "the export could not load every image". The capture refuses that picture on purpose and draws the placeholder, so the file is complete; a picture that is really missing is still named.

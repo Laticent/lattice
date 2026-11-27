@@ -275,7 +275,7 @@ benchmark (`npm run bench`, the collage pack tier) gates on those counts.
 ## Build
 
 ```sh
-npm run mosaico-lib:build   # dist/index.{mjs,cjs} + dist/*.d.ts
+npm run mosaico-lib:build   # dist/index.mjs + dist/*.d.ts
 npm run mosaico-lib:check   # fails if dist/ is stale
 npm run test:mosaico        # the unit tests
 ```

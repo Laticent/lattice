@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Spectrum keys"
 footer: "spectrum: solid left band · card-spectrum: solid band · trim-spectrum: mono"
 spectrum: solid left band
@@ -9,7 +9,7 @@ card-spectrum: solid band
 trim-spectrum: mono
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Spectrum · three keys`
 
@@ -19,7 +19,7 @@ Three keys now set the spectrum, each with one word per part: the slide edge, th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `spectrum: solid left band`
 
@@ -29,7 +29,7 @@ This deck writes `spectrum: solid left band`, so every slide carries a heavy sol
 
 ---
 
-<!-- _class: content spectrum-hairline -->
+<!-- @meta{layout=content, class=spectrum-hairline} -->
 
 `_class: spectrum-hairline`
 
@@ -39,7 +39,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: content spectrum-top spectrum-regular -->
+<!-- @meta{layout=content, class=spectrum-top spectrum-regular} -->
 
 `_class: spectrum-top spectrum-regular`
 
@@ -49,7 +49,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 `card-spectrum: solid band`
 
@@ -64,7 +64,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: cards-grid three with-card-spectrum card-spectrum-top card-spectrum-hairline -->
+<!-- @meta{layout=cards-grid, class=three with-card-spectrum card-spectrum-top card-spectrum-hairline} -->
 
 `_class: with-card-spectrum card-spectrum-top card-spectrum-hairline`
 
@@ -79,7 +79,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 `trim-spectrum: mono`
 
@@ -93,7 +93,7 @@ This slide adds `spectrum-hairline`, so its stripe drops to one pixel. It stays 
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 `spectrum: solid left band · dark`
 
@@ -103,7 +103,7 @@ The same deck setting on a dark slide: the band draws in the accent's dark-canva
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Spectrum, card spectrum, trim spectrum
 

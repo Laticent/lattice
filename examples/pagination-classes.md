@@ -5,7 +5,7 @@ header: 'Q3 Board Review'
 footer: 'Confidential · Lattice'
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Feature demo · page numbers`
 
@@ -17,15 +17,15 @@ Every slide is numbered unless the deck or the slide says otherwise.
 
 ## Every slide is numbered by default.
 
-- This deck's front matter has no `paginate:` line, and the slide still shows its number
-- `paginate: false` in front matter is the one deck-wide off switch
-- `paginate: no`, `off` and `0` mean off too
+- This deck's front matter has no `pagination:` line, and the slide still shows its number
+- `pagination: false` in front matter is the one deck-wide off switch
+- `pagination: no`, `off` and `0` mean off too
 
 > Front matter numbers the deck.
 
 ---
 
-<!-- _class: content no-pagination -->
+<!-- @meta{layout=content, class=no-pagination} -->
 
 ## One slide drops its number with a class.
 
@@ -47,7 +47,7 @@ Every slide is numbered unless the deck or the slide says otherwise.
 
 ---
 
-<!-- _class: content silent with-pagination -->
+<!-- @meta{layout=content, class=silent with-pagination} -->
 
 ## with-pagination puts a number back.
 
@@ -69,7 +69,7 @@ Every slide is numbered unless the deck or the slide says otherwise.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # One rule
 

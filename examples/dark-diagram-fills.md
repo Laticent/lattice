@@ -2,13 +2,13 @@
 marp: true
 size: 16:9
 theme: laguna-dark
-paginate: true
+pagination: true
 header: "Dark diagram fills"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: "Dark diagram fills · title" -->
+<!-- @meta{layout=title, header="", footer=Dark diagram fills · title} -->
+
+
 
 # Jewel tones, not primaries
 
@@ -18,8 +18,8 @@ Eight themes painted dark-mode diagram boxes in raw electric blue and violet. Th
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Flowchart · laguna-dark" -->
+<!-- @meta{layout=diagram, footer=Flowchart · laguna-dark} -->
+
 
 `Flow & sequence · Flowchart`
 
@@ -36,8 +36,8 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Slots one to six · laguna-dark" -->
+<!-- @meta{layout=diagram, footer=Slots one to six · laguna-dark} -->
+
 
 `Categorical cycle · the working six`
 
@@ -54,8 +54,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "The measurement · content" -->
+<!-- @meta{layout=content, footer=The measurement · content} -->
+
 
 `What changed`
 
@@ -67,8 +67,8 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Where a cap was not enough · content" -->
+<!-- @meta{layout=content, footer=Where a cap was not enough · content} -->
+
 
 `Two exceptions`
 
@@ -80,9 +80,9 @@ flowchart LR
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: "Dark diagram fills · closing" -->
+<!-- @meta{layout=closing, header="", footer=Dark diagram fills · closing} -->
+
+
 
 `Eight dark faces`
 

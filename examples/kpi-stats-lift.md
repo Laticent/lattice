@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · kpi + stats auto-lift"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Authoring · Slot-header lift`
 
@@ -15,8 +15,8 @@ header: "Lattice · kpi + stats auto-lift"
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "stats · nested number + label" -->
+<!-- @meta{layout=stats, footer="stats · nested number + label"} -->
+
 
 `Impact · Pilot Results`
 
@@ -35,8 +35,8 @@ header: "Lattice · kpi + stats auto-lift"
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "kpi · value + nested detail" -->
+<!-- @meta{layout=kpi, footer="kpi · value + nested detail"} -->
+
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -55,8 +55,8 @@ header: "Lattice · kpi + stats auto-lift"
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "What changed" -->
+<!-- @meta{layout=list, footer=What changed} -->
+
 
 ## One authoring contract, two fewer footguns.
 
@@ -69,7 +69,7 @@ header: "Lattice · kpi + stats auto-lift"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Same numbers, less markup.
 

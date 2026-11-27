@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Deck logo on every canvas"
 meta: "Deck logo · the canvas decides the flip"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Deck mark · the canvas decides`
 
@@ -17,7 +17,7 @@ A `logo:` mark is a monochrome watermark, so it needs the **opposite** treatment
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Light canvas · the default`
 
@@ -32,7 +32,7 @@ On an ordinary body slide the mark darkens to a faint gray watermark, top right.
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 `Dark canvas · the flip`
 
@@ -47,7 +47,7 @@ The `dark` modifier declares `color-scheme: dark` and paints the canvas dark, so
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Bookends`
 
@@ -55,7 +55,7 @@ The `dark` modifier declares `color-scheme: dark` and paints the canvas dark, so
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## A `divider light` is not
 
@@ -63,7 +63,7 @@ The `light` variant **replaces** the canvas with `var(--bg)`. The mark takes the
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Bookends`
 
@@ -71,7 +71,7 @@ The `light` variant **replaces** the canvas with `var(--bg)`. The mark takes the
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Paper band`
 
@@ -86,7 +86,7 @@ The `print` band is a deck-wide register (`class: print`), not a per-slide class
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `What to take away`
 

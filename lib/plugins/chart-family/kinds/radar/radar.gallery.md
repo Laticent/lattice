@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · radar"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # radar
 
@@ -15,8 +15,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Default · radar" -->
+<!-- @meta{layout=radar, footer=Default · radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -46,8 +45,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar target -->
-<!-- _footer: "target · radar target — The bar the shape must clear." -->
+<!-- @meta{layout=radar, class=target, footer="target · radar target — The bar the shape must clear."} -->
 
 `[{Scale, 0..100}]`
 
@@ -71,8 +69,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar delta -->
-<!-- _footer: "delta · radar delta — The gap between two shapes, shaded." -->
+<!-- @meta{layout=radar, class=delta, footer="delta · radar delta — The gap between two shapes, shaded."} -->
 
 `[{Scale, 0..10}]`
 
@@ -94,8 +91,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar benchmark -->
-<!-- _footer: "benchmark · radar benchmark — A reference shape overlaid." -->
+<!-- @meta{layout=radar, class=benchmark, footer="benchmark · radar benchmark — A reference shape overlaid."} -->
 
 `[{Scale, 0..10}]`
 
@@ -133,8 +129,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar quadrant -->
-<!-- _footer: "quadrant · radar quadrant — The compass quarters, shaded." -->
+<!-- @meta{layout=radar, class=quadrant, footer="quadrant · radar quadrant — The compass quarters, shaded."} -->
 
 `[{Scale, 0..5}]`
 
@@ -159,8 +154,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar small-multiples -->
-<!-- _footer: "small-multiples · radar small-multiples — One radar per option." -->
+<!-- @meta{layout=radar, class=small-multiples, footer="small-multiples · radar small-multiples — One radar per option."} -->
 
 `[{Scale, 0..10}]`
 
@@ -194,8 +188,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar minimal -->
-<!-- _footer: "minimal · radar minimal — Rings stripped to the shape." -->
+<!-- @meta{layout=radar, class=minimal, footer="minimal · radar minimal — Rings stripped to the shape."} -->
 
 `[{Scale, 0..10}]`
 
@@ -217,9 +210,8 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · radar — Many axes, many shapes — the ceiling." -->
+<!-- @meta{layout=radar, footer="Stress test · radar — Many axes, many shapes — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 `[{Scale, 0..10}]`
 
@@ -256,8 +248,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar dark -->
-<!-- _footer: "Composition: dark · radar dark" -->
+<!-- @meta{layout=radar, class=dark, footer=Composition: dark · radar dark} -->
 
 `[{Scale, 0..10}]`
 
@@ -287,8 +278,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar compact -->
-<!-- _footer: "Composition: compact · radar compact" -->
+<!-- @meta{layout=radar, class=compact, footer=Composition: compact · radar compact} -->
 
 `[{Scale, 0..10}]`
 
@@ -318,8 +308,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar accent -->
-<!-- _footer: "Composition: accent · radar accent" -->
+<!-- @meta{layout=radar, class=accent, footer=Composition: accent · radar accent} -->
 
 `[{Scale, 0..10}]`
 
@@ -349,8 +338,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · radar" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · radar} -->
 
 ## When NOT to reach for radar.
 
@@ -363,7 +351,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

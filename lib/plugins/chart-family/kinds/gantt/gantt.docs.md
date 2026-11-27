@@ -59,7 +59,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 ## Authoring
 
 ```markdown
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 

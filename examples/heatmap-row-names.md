@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · heatmap row names"
 acronyms:
   AMER: the Americas
@@ -9,7 +9,7 @@ acronyms:
   APAC: Asia Pacific
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Row names read on one line.
 
@@ -19,8 +19,8 @@ The row names used to sit in a fixed gutter that held about ten characters. An o
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Full month names · every one on a single line" -->
+<!-- @meta{layout=heatmap, footer=Full month names · every one on a single line} -->
+
 
 `Retention · 2026 cohorts`
 
@@ -35,8 +35,8 @@ The row names used to sit in a fixed gutter that held about ten characters. An o
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Short names · the gutter shrinks and the grid takes the width" -->
+<!-- @meta{layout=heatmap, footer=Short names · the gutter shrinks and the grid takes the width} -->
+
 
 `Gross margin · by region`
 
@@ -50,7 +50,7 @@ The row names used to sit in a fixed gutter that held about ten characters. An o
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The cells keep their numbers first.
 
@@ -58,8 +58,8 @@ A wider gutter narrows every cell, and a cell too narrow for its number drops th
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "Twelve columns · the numbers hold, long names wrap" -->
+<!-- @meta{layout=heatmap, footer="Twelve columns · the numbers hold, long names wrap"} -->
+
 
 `Weekly active · by acquisition channel`
 
@@ -74,8 +74,8 @@ A wider gutter narrows every cell, and a cell too narrow for its number drops th
 
 ---
 
-<!-- _class: heatmap -->
-<!-- _footer: "A sentence-length name · the gutter stops at its ceiling and wraps" -->
+<!-- @meta{layout=heatmap, footer=A sentence-length name · the gutter stops at its ceiling and wraps} -->
+
 
 `Renewal rate · by segment`
 
@@ -89,7 +89,7 @@ A wider gutter narrows every cell, and a cell too narrow for its number drops th
 
 ---
 
-<!-- _class: statement silent -->
+<!-- @meta{class=statement silent} -->
 
 ## The ceiling is the bar chart's.
 

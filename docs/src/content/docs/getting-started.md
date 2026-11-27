@@ -48,7 +48,7 @@ comment picks the layout.
 ```markdown
 ---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <!-- _class: title -->

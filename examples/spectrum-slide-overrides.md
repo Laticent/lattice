@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 spectrum: duo
-paginate: true
+pagination: true
 header: "Lattice · spectrum overrides"
 ---
 
@@ -10,7 +10,7 @@ header: "Lattice · spectrum overrides"
      makes its own explicit choice -- `accent`, or a semantic tone with `tone-edge` -- keeps its
      own bar, as it does in a default-rainbow deck.} -->
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `A fix demo`
 
@@ -20,7 +20,7 @@ header: "Lattice · spectrum overrides"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A plain slide carries the deck's duo bar
 
@@ -29,7 +29,7 @@ header: "Lattice · spectrum overrides"
 
 ---
 
-<!-- _class: content accent -->
+<!-- @meta{layout=content, class=accent} -->
 
 ## An accent slide keeps its single stripe
 
@@ -38,7 +38,7 @@ header: "Lattice · spectrum overrides"
 
 ---
 
-<!-- _class: content tone-pass tone-edge -->
+<!-- @meta{layout=content, class=tone-pass tone-edge} -->
 
 ## A pass keeps its green
 
@@ -46,7 +46,7 @@ header: "Lattice · spectrum overrides"
 
 ---
 
-<!-- _class: content tone-fail tone-edge -->
+<!-- @meta{layout=content, class=tone-fail tone-edge} -->
 
 ## A fail keeps its red
 
@@ -54,7 +54,7 @@ header: "Lattice · spectrum overrides"
 
 ---
 
-<!-- _class: content tone-edge -->
+<!-- @meta{layout=content, class=tone-edge} -->
 
 ## A tone-edge with no tone keeps the duo bar
 

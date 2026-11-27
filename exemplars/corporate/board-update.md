@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Meridian Freight · Board update"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Board update · Q2 2026`
@@ -17,7 +17,7 @@ The quarter beat plan, but a carrier-capacity squeeze needs a board decision tod
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We beat plan on revenue and margin — and we need your call on capacity by Friday.
@@ -29,7 +29,7 @@ Bottom line up front: Q2 revenue landed 11% ahead of plan and contribution margi
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Revenue, margin, and cash all came in ahead of plan.
@@ -46,7 +46,7 @@ Bottom line up front: Q2 revenue landed 11% ahead of plan and contribution margi
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: standard -->
 
 `Demand · Q2 2026`
@@ -66,7 +66,7 @@ Bottom line up front: Q2 revenue landed 11% ahead of plan and contribution margi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Demand is outrunning the carrier capacity we have contracted.
@@ -78,7 +78,7 @@ Volume is up 18% year over year, but our committed carrier capacity grew only 9%
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The exposure we are carrying into peak`
@@ -88,7 +88,7 @@ Volume is up 18% year over year, but our committed carrier capacity grew only 9%
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## A capacity pre-buy locks rates now, before the peak-season run-up.
@@ -100,7 +100,7 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 <!-- tier: full -->
 
 ## The pre-buy is the only option that protects both service and margin.
@@ -116,7 +116,7 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Pre-buy economics · Q4 2026`
@@ -134,7 +134,7 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: full -->
 
 ## Full-year guidance holds, with upside if peak demand lands as forecast.
@@ -151,7 +151,7 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We ask the board to approve a $9.8M Q4 capacity pre-buy this week.
@@ -163,9 +163,9 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Strong quarter — let's protect the peak.

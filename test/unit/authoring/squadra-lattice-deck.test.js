@@ -280,11 +280,15 @@ describe('the reference diff: the reference tree', () => {
     const path = require('node:path');
     const { linkModules } = require('../../../tools/squadra/reference-tree');
     const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'squadra-tree-'));
+    const root = path.join(__dirname, '../../..');
     try {
+      // A worktree carries the root manifest and each workspace's own: the links are read from the TREE's names.
+      fs.copyFileSync(path.join(root, 'package.json'), path.join(tree, 'package.json'));
+      fs.mkdirSync(path.join(tree, 'docs', 'src', 'lib', 'segno-markdown'), { recursive: true });
+      fs.copyFileSync(path.join(root, 'docs', 'src', 'lib', 'segno-markdown', 'package.json'), path.join(tree, 'docs', 'src', 'lib', 'segno-markdown', 'package.json'));
       linkModules(tree);
-      const root = path.join(__dirname, '../../..');
       // A workspace package resolves INSIDE the tree, so main's library is what the reference loads.
-      const ws = path.resolve(path.join(tree, 'node_modules', '@laticent'), fs.readlinkSync(path.join(tree, 'node_modules', '@laticent', 'segno-markdown')));
+      const ws = path.resolve(path.join(tree, 'node_modules', '@laticent'), fs.readlinkSync(path.join(tree, 'node_modules', '@laticent', 'segno-languages')));
       assert.equal(ws, path.join(tree, 'docs', 'src', 'lib', 'segno-markdown'));
       // Any other package is the repo's install, shared.
       assert.equal(fs.realpathSync(path.join(tree, 'node_modules', 'yaml')), fs.realpathSync(path.join(root, 'node_modules', 'yaml')));

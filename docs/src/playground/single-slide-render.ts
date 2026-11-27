@@ -25,9 +25,12 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
+import { readRecord } from '../../../lib/core/meta-door.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
@@ -68,6 +71,8 @@ const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
@@ -323,7 +328,25 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void; __latticeScreenCanvas?: { deckSize: string; canvas: 'hd' | null; rerender: () => void; pending?: boolean }; __latticeCanvasCall?: number };
+
+/** lib/core/sizes.js `withSize`, loaded only when a 4K deck is first shown small (see THE SCREEN CANVAS in renderInto). */
+let withSizeCore: ((source: string, name: string) => string) | null = null;
+let withSizeLoad: Promise<void> | null = null;
+function loadWithSize(): Promise<void> {
+	withSizeLoad ??= import('../../../lib/core/sizes.js').then((m) => {
+		const fn = ((m as { default?: { withSize?: unknown } }).default ?? (m as { withSize?: unknown })).withSize;
+		// A module without the function must fail the load, not resolve it: a resolved load with no `withSize` would send
+		// every 4K render back into the wait it just left, forever.
+		if (typeof fn !== 'function') throw new Error('lib/core/sizes.js has no withSize');
+		withSizeCore = fn as (source: string, name: string) => string;
+	}).catch((err) => {
+		// A failed chunk fetch must not pin the failure: the next 4K render tries again.
+		withSizeLoad = null;
+		throw err;
+	});
+	return withSizeLoad;
+}
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -339,9 +362,36 @@ function docOrMount(fr: HTMLIFrameElement, host: HTMLElement, build: () => strin
 	try {
 		return build();
 	} catch (e) {
-		if (!fr.parentNode) host.appendChild(fr);
+		if (!fr.parentNode) frameSlot(host).appendChild(fr);
 		throw e;
 	}
+}
+
+/**
+ * The display-sized box the live frame sits in, and the thing that FADES. The frame itself never animates: an opacity
+ * animation on the iframe makes WebKit give it a compositing layer sized by the frame's own box, and the frame's box is
+ * the slide's (3840x2160 for a 4K deck) shrunk by a transform, so on an iPhone at 3x one fade cost a 4K buffer (about
+ * 300 MB) and Present reloaded the tab (2026-11-20; engineering/gotchas/memory-profiling.md). The slot is the host's own
+ * size, so its fade costs a display-sized layer. The frame keeps `opacity` as its revealed flag (0 hidden, 1 shown), set
+ * in one step, which DeckPreview and the reveal gate read.
+ */
+function frameSlot(host: HTMLElement): HTMLElement {
+	const h = host as HTMLElement & { __latticeFrameSlot?: HTMLElement };
+	let slot = h.__latticeFrameSlot;
+	if (slot && slot.parentNode === host) return slot;
+	slot = host.ownerDocument.createElement('span');
+	slot.className = 'lat-frame-slot';
+	slot.style.cssText = 'position:absolute;inset:0;display:block;overflow:hidden;';
+	host.appendChild(slot);
+	h.__latticeFrameSlot = slot;
+	return slot;
+}
+
+/** Fade the frame's slot in over the reveal ease. A no-op where the frame has no slot or Web Animations are missing. */
+function fadeInSlot(fr: HTMLIFrameElement): void {
+	const slot = fr.parentElement;
+	if (!slot || slot.className !== 'lat-frame-slot' || typeof slot.animate !== 'function') return;
+	slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
 }
 
 function frameHasPainted(fr: HTMLIFrameElement): boolean {
@@ -527,11 +577,31 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 	return out + html.slice(pos);
 }
 
-/** A raw, over-matching probe for a class word in a slide RECORD (`<!-- @meta{layout=divider} -->`), the record arm
- *  beside each `_class` probe below. Raw on purpose, like them: a word in code or prose costs one whole-deck render,
- *  and a miss would preview a wrong slide. */
+/** Each slide RECORD in the text (`<!-- @meta{layout=divider} -->`, `<!-- {…} -->`), read through the shared door: its
+ *  class words (`readRecord` folds `layout`, `variant`, `universal` and `modifiers` into `class`) and whether it carries.
+ *  Raw on purpose, like the `_class` probes below: a record in code or prose still counts, which costs one whole-deck
+ *  render, and a miss would preview a wrong slide. But only the CLASS is read: a footer, a note or an alt text that says
+ *  "proof", "carry" or "agenda" is prose (a footer saying "A proof chain" sent the math gallery's preview to the
+ *  whole-deck route and typeset all of its math).
+ *
+ *  It starts only at a record OPENER (`<!--` then `{` or `@meta{`). Pairing every `<!--` with the next `-->` let an
+ *  unclosed `<!--` in inline code or a fence swallow the record after it, and the preview lost a `carry` the engine
+ *  applies (the checker on #3433). */
+function slideRecords(text: string): Array<{ words: Set<string>; carry: boolean }> {
+	const out: Array<{ words: Set<string>; carry: boolean }> = [];
+	const opener = /<!--(?=\s*(?:@meta)?\{)/g;
+	for (let m = opener.exec(text); m; m = opener.exec(text)) {
+		const end = text.indexOf('-->', m.index + 4);
+		if (end < 0) break;
+		const rec = readRecord(text.slice(m.index + 4, end));
+		if (rec?.ok) out.push({ words: new Set(String(rec.d.class ?? '').split(/\s+/).filter(Boolean)), carry: !!rec.carry });
+	}
+	return out;
+}
+
+/** A class word in a slide record, the record arm beside each `_class` probe below. */
 function recordHasWord(text: string, word: string): boolean {
-	return new RegExp(`<!--\\s*(?:@meta)?\\{(?:(?!-->)[\\s\\S])*?\\b${word}\\b`).test(text);
+	return slideRecords(text).some((r) => r.words.has(word));
 }
 
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
@@ -613,7 +683,8 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'running-global directive',
 		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
 		// A record that carries (`<!-- @meta{class=dark, carry} -->`) is the same running global in the record spelling.
-		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/, /<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\bcarry\b/],
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+		test: (deck) => slideRecords(deck).some((r) => r.carry),
 	},
 
 	{
@@ -670,9 +741,10 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
 		probes: [
 			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
-			/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?\b(?:proof|capstone)\b/, // slide record
 			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
 		],
+		// A slide record (`<!-- @meta{layout=split-panel, class=proof} -->`), by its class words only.
+		test: (deck) => slideRecords(deck).some((r) => r.words.has('proof') || r.words.has('capstone')),
 	},
 ];
 
@@ -1033,19 +1105,27 @@ const SHEET_CACHE_MAX = 6;
  *
  * `data:` and `blob:` values are already absolute and left alone.
  */
-function absolutizeUrls(css: string): string {
-	const base = typeof document !== 'undefined' ? document.baseURI : '';
+function absolutizeUrls(css: string, base: string = typeof document !== 'undefined' ? document.baseURI : ''): string {
 	if (!base) return css;
-	return css.replace(/url\((\s*)(['"]?)([^'")]+)\2(\s*)\)/g, (whole, pre, quote, raw) => {
-		const value = String(raw).trim();
-		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return whole; // data:, blob:, https:, #frag
+	// Each real `url(…)`, read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten, and an escaped
+	// address is resolved as the browser decodes it. The resolved address goes back where the written one was, so it is
+	// escaped for that place: inside quotes, its quote, a backslash and a newline; unquoted, also the characters an unquoted
+	// url() cannot hold (quotes, parentheses, whitespace). `new URL()` leaves `'` and `(` as they are.
+	return rewriteCssUrls(css, (_raw, { value, quoted, rawFrom }) => {
+		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return undefined; // data:, blob:, https:, #frag
+		let href: string;
 		try {
-			return `url(${pre}${quote}${new URL(value, base).href}${quote}${''})`;
+			href = new URL(value, base).href;
 		} catch {
-			return whole;
+			return undefined;
 		}
+		const quote = quoted ? css[rawFrom - 1] : '';
+		return href.replace(quoted ? /[\\\n]|["']/g : /[\\\s"'()]/g, (c) => (quoted && (c === '"' || c === "'") && c !== quote ? c : c === '\n' ? '\\a ' : `\\${c}`));
 	});
 }
+
+/** For tests only: `absolutizeUrls` against an explicit base. */
+export const __absolutizeUrlsForTest = absolutizeUrls;
 
 /**
  * A URL serving `css`, shared with every other frame that wants the same bytes — or `null`
@@ -1276,7 +1356,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`
 			// keeps the figure's box (no reflow / no Fit-math corruption on reveal, unlike display:none). The
 			// class is added ONLY by the live parent host — never by engine output — so it is inert in export.
-			'.anima-prehide{visibility:hidden}'
+			'.anima-prehide{visibility:hidden}' +
+			// PREVIEW-ONLY too: in the editing preview (`data-lattice-live-layout`), a logo wall the runtime has not stamped
+			// yet is held back exactly as a `measuring` one is (logo-wall.styles.css). The stamp comes when the runtime's pass
+			// runs, which can be a frame after the slide's markup lands, so the unpacked grid painted once first
+			// (logo-wall-first-visit.spec.ts: 1 run in 48 at eight workers). Only the lists the stamp takes (the stage's first
+			// child, holding marks: lib/transformers/logo-marks.js), so a wall the stamp does not take is never hidden. And a
+			// wall the stamp never REACHES (the runtime failed to load, or an earlier transform threw) is not stranded: past
+			// the measure kit's cap (4 s, measure-kit.js DEFAULT_CAP_MS) plus a margin, the animation shows it as the grid,
+			// which is what the preview showed before. A stamp removes the match, and the animation with it.
+			'@keyframes lat-logo-unhold{to{visibility:visible}}' +
+			'html[data-lattice-live-layout] section.logo-wall>.cell-stage>ul:first-child:not([data-logo-wall]):has(>li>.logo-mark){visibility:hidden;animation:lat-logo-unhold 0s 4.5s forwards}'
 		);
 	}
 
@@ -1425,10 +1515,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
 		// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
 		// makes the whole element (white content included) transparent, so the dark
-		// pane behind covers that window — AND, unlike `visibility`, opacity animates,
-		// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+		// pane behind covers that window. The reveal flips it to 1 in one step and fades the frame's SLOT instead
+		// (`frameSlot`, `fadeInSlot`): an animated opacity on the frame itself costs a slide-sized compositing layer.
 		fr.style.opacity = '0';
-		fr.style.transition = 'opacity 180ms ease-out';
 		// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
 		// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
 		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
@@ -1523,7 +1612,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
 			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
-			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), host);
+			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), frameSlot(host));
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -1571,6 +1660,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		armLateFonts(fr);
 		fr.style.width = geom.width + 'px';
 		fr.style.height = geom.height + 'px';
+		// The screen canvas (see renderInto): a resize that carries the slide across the line re-renders it on the
+		// other canvas, once, after the resize settles.
+		// Not while `withSize` is still loading: the render waiting on it reads the host's width when it resumes, so it
+		// already lands on the right canvas, and a re-render here would supersede it and leave its caller a stand-down
+		// instead of the render's own result.
+		const sc = (host as LiveHost).__latticeScreenCanvas;
+		const sizeLoading = !!withSizeLoad && !withSizeCore;
+		if (sc && w > 0 && !sc.pending && !sizeLoading && screenCanvas(sc.deckSize, w, window.devicePixelRatio || 1) !== sc.canvas) {
+			sc.pending = true;
+			setTimeout(() => {
+				if (!disposed && host.isConnected && (host as LiveHost).__latticeScreenCanvas === sc) sc.rerender();
+			}, 150);
+		}
 		if (w > 0) {
 			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
 			// The slide's EDGE is the engine's (base.modifiers.css, "The slide's EDGE"): it draws a
@@ -1590,7 +1692,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// frame stuck hidden forever (rev:NO on-device — the "blank"). Content-presence is
 			// onload-independent AND closes the white about:blank window (about:blank has no
 			// `.lattice`, so the pre-load scaleFrame below can't reveal a blank white frame).
-			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
+			// Reveal by flipping the frame's OPACITY 0→1 and fading its slot in over ~180ms (`fadeInSlot`) rather
 			// than a hard visibility cut, so the slide eases in over the loader instead of
 			// popping — no flicker. opacity:0 hides the about:blank white just as well.
 			// …AND (c) the document's own faces have landed. Every engine `@font-face` is
@@ -1607,6 +1709,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// without the gate behaving exactly as it did before.
 			if (fr.style.opacity === '0' && frameHasPainted(fr) && facesReady(fr, host)) {
 				fr.style.opacity = '1';
+				fadeInSlot(fr);
 				// Restore hit-testing on reveal — an opacity:0 iframe is still hit-testable, so it was
 				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
 				fr.style.pointerEvents = '';
@@ -1632,17 +1735,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			const win = fr.contentWindow as (Window & { __latticeLateArmed?: boolean }) | null;
 			if (!win || win.__latticeLateArmed) return;
 			win.__latticeLateArmed = true;
+			// Through the SLOT, from transparent, for the frame the new layout paints in; the frame stays revealed.
 			const fadeThrough = () => {
 				if (disposed || fr.style.opacity !== '1') return;
-				const transition = fr.style.transition;
-				fr.style.transition = 'none';
-				fr.style.opacity = '0';
-				requestAnimationFrame(() =>
-					requestAnimationFrame(() => {
-						fr.style.transition = transition;
-						fr.style.opacity = '1';
-					}),
-				);
+				fadeInSlot(fr);
 			};
 			win.addEventListener('lattice:fonts-late', fadeThrough);
 		} catch {
@@ -1782,6 +1878,49 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// an unguarded edge, and one line closes the class instead of the instance.
 		if (disposed) return Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' });
 		countIn(); // first render joins the shared-memo refcount — see createSingleSlideRenderer
+		// THE SCREEN CANVAS (lib/core/screen-canvas.mjs): a 4K deck is laid out on HD wherever the slide is shown at
+		// 2,560 device px or fewer across, because WebKit pays every layer inside a 4K frame at 3840x2160 times the
+		// density squared, and an iPhone presenting one reloaded the tab (owner, 2026-11-20). Sharpness does not follow
+		// the canvas, only memory does. The rewrite is the deck's `size:` line only, the same `withSize` the CLI's
+		// `--size` and the export panel use; exports render on their own and never pass through here. scaleFrame
+		// re-renders the host when a resize carries it across the line (a window made full screen on a 4K display).
+		{
+			// Every call takes a turn here, before any wait, so a render deferred for `withSize` below can tell that a
+			// newer one has started and stand down instead of drawing an older deck over it.
+			const canvasCall = ((host as LiveHost).__latticeCanvasCall = ((host as LiveHost).__latticeCanvasCall ?? 0) + 1);
+			const deckSize = deckSizeOf(markdown);
+			if (/^4k$/i.test(deckSize.trim())) {
+				const original = { markdown, slideMarkdown: opts?.slideMarkdown };
+				const canvas = screenCanvas(deckSize, host.clientWidth, window.devicePixelRatio || 1);
+				const prev = (host as LiveHost).__latticeScreenCanvas;
+				(host as LiveHost).__latticeScreenCanvas = {
+					deckSize,
+					canvas,
+					pending: false,
+					rerender: () => {
+						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown });
+					},
+				};
+				if (prev?.pending) prev.pending = false;
+				// `withSize` lives in lib/core/sizes.js, a CommonJS module the bundler cannot trim: about 1 KB gzipped that
+				// every route would load to serve only a 4K deck shown small. It loads on that path, once per page, and the
+				// render waits for it rather than drawing the 4K frame first (that frame is the one that reloaded the tab).
+				if (canvas && !withSizeCore) {
+					return loadWithSize().then(() => {
+						// A disposed renderer needs no check here: the call below meets renderInto's own `disposed` latch first.
+						if (!host.isConnected || (host as LiveHost).__latticeCanvasCall !== canvasCall) {
+							return { ok: false, slides: 0, error: 'renderer disposed' };
+						}
+						return renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts);
+					}, () => ({ ok: false, slides: 0, error: 'the 4K screen canvas could not load lib/core/sizes.js' }));
+				}
+				if (canvas && withSizeCore) {
+					const withSize = withSizeCore;
+					markdown = withSize(markdown, canvas);
+					if (opts?.slideMarkdown) opts = { ...opts, slideMarkdown: withSize(opts.slideMarkdown, canvas) };
+				}
+			} else (host as LiveHost).__latticeScreenCanvas = undefined;
+		}
 		const allow = [...new Set(opts?.webOrigins ?? [])].sort();
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
@@ -2677,7 +2816,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
 				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
 				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
-				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), host);
+				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), frameSlot(host));
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

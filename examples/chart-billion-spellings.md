@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · chart values"
 footer: "Every billion spelling reads as a billion"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # `Bn` and `BN` now read as billions
 
@@ -14,7 +14,7 @@ Finance decks write a billion four ways, and every chart draws all four at the s
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Revenue by segment · $ billion`
 
@@ -29,7 +29,7 @@ Before, Services and Licensing drew at five dollars, a billion times too short.
 
 ---
 
-<!-- _class: bar row -->
+<!-- @meta{layout=bar, class=row} -->
 
 `Capital plan · $ billion`
 
@@ -42,7 +42,7 @@ Before, Services and Licensing drew at five dollars, a billion times too short.
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Group revenue · $ billion`
 
@@ -55,7 +55,7 @@ Before, Services and Licensing drew at five dollars, a billion times too short.
 
 ---
 
-<!-- _class: bar diverging -->
+<!-- @meta{layout=bar, class=diverging} -->
 
 `Variance to plan · $ billion`
 
@@ -70,7 +70,7 @@ The narration says "down eight hundred million dollars" for EMEA, as it does for
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The picture and the voice now agree
 

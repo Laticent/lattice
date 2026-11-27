@@ -117,12 +117,12 @@
       "description": "The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one."
     }
   },
-  "skeleton": "<!-- _class: q-and-a -->\n\n## What we expect to be asked.\n\n- First question the audience will raise?\n  - The prepared answer — two or three sentences that close it down.\n- Second question?\n  - The prepared answer.\n- Third question?\n  - The prepared answer.\n",
+  "skeleton": "<!-- @meta{layout=q-and-a} -->\n\n## What we expect to be asked.\n\n- First question the audience will raise?\n  - The prepared answer — two or three sentences that close it down.\n- Second question?\n  - The prepared answer.\n- Third question?\n  - The prepared answer.\n",
   "anatomyBlock": "q-and-a",
-  "sample": "<!-- _class: q-and-a -->\n\n## The Q&A pairs questions with short answers.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n- What if answers run long?\n  - Use solo, one per slide.\n",
+  "sample": "<!-- @meta{layout=q-and-a} -->\n\n## The Q&A pairs questions with short answers.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n- What if answers run long?\n  - Use solo, one per slide.\n",
   "stressDoc": {
     "summary": "Five pairs — the hard ceiling, with compact.",
-    "sample": "<!-- _class: q-and-a compact -->\n\n## Five pairs is the most one slide answers.\n\n- Why five pairs and not six?\n  - The sixth runs off the slide.\n- Do answers shrink at the ceiling?\n  - No; the gaps close.\n- Where does the eye tire?\n  - Pair four; park risk there.\n- Can compact buy a sixth?\n  - No — it tightens spacing only.\n- And past five?\n  - Split the slide.\n"
+    "sample": "<!-- @meta{layout=q-and-a, class=compact} -->\n\n## Five pairs is the most one slide answers.\n\n- Why five pairs and not six?\n  - The sixth runs off the slide.\n- Do answers shrink at the ceiling?\n  - No; the gaps close.\n- Where does the eye tire?\n  - Pair four; park risk there.\n- Can compact buy a sixth?\n  - No — it tightens spacing only.\n- And past five?\n  - Split the slide.\n"
   },
   "whenToUse": [
     {
@@ -156,27 +156,27 @@
     "spine": {
       "label": "spine",
       "summary": "Pairs threaded down an accent spine.",
-      "sample": "<!-- _class: q-and-a spine -->\n\n## spine threads the pairs down an accent spine.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
+      "sample": "<!-- @meta{layout=q-and-a, class=spine} -->\n\n## spine threads the pairs down an accent spine.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
     },
     "rail": {
       "label": "rail",
       "summary": "Numbered exhibit rows in columns.",
-      "sample": "<!-- _class: q-and-a rail -->\n\n## rail hangs the questions on a left rail.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
+      "sample": "<!-- @meta{layout=q-and-a, class=rail} -->\n\n## rail hangs the questions on a left rail.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
     },
     "tab": {
       "label": "tab",
       "summary": "Underlined prompts; answers hang below.",
-      "sample": "<!-- _class: q-and-a tab -->\n\n## tab folds each answer under a question tab.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
+      "sample": "<!-- @meta{layout=q-and-a, class=tab} -->\n\n## tab folds each answer under a question tab.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n"
     },
     "grid": {
       "label": "grid",
       "summary": "Four pairs in a two-by-two.",
-      "sample": "<!-- _class: q-and-a grid -->\n\n## grid deals the pairs into two columns.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n- Why four pairs here?\n  - Grids want even counts.\n"
+      "sample": "<!-- @meta{layout=q-and-a, class=grid} -->\n\n## grid deals the pairs into two columns.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Four; five with compact.\n- Why four pairs here?\n  - Grids want even counts.\n"
     },
     "solo": {
       "label": "solo",
       "summary": "One pair, the whole slide.",
-      "sample": "<!-- _class: q-and-a solo -->\n\n## solo gives one question the whole slide.\n\n- What does solo change?\n  - One pair, full canvas.\n"
+      "sample": "<!-- @meta{layout=q-and-a, class=solo} -->\n\n## solo gives one question the whole slide.\n\n- What does solo change?\n  - One pair, full canvas.\n"
     }
   },
   "related": [

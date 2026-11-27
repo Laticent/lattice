@@ -102,10 +102,10 @@ test.describe('Markdown on the Compose clipboard', () => {
 	test("a pasted deck's settings are applied, key by key, and the Studio names them", async ({ page }) => {
 		await openDeckInCompose(page, `---\ntheme: indaco\ntitle: Kickoff\n---\n\n${DECK}`);
 		await caretAfter(page, 'Where we start.');
-		await paste(page, { 'text/plain': `---\ntheme: cuoio\npaginate: true\n---\n\n${PASTE}` });
+		await paste(page, { 'text/plain': `---\ntheme: cuoio\npagination: true\n---\n\n${PASTE}` });
 		await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
 		const saved = await savedDeck(page);
-		expect(saved.startsWith('---\ntheme: cuoio\ntitle: Kickoff\npaginate: true\n---')).toBe(true);
+		expect(saved.startsWith('---\ntheme: cuoio\ntitle: Kickoff\npagination: true\n---')).toBe(true);
 		expect(saved).not.toContain('indaco');
 		await expect(toastText(page)).toContainText('Applied the pasted deck');
 		// One undo takes back the settings and the slides together.
@@ -131,12 +131,12 @@ test.describe('Markdown on the Compose clipboard', () => {
 	// The card's grader on #3234: "Goal:" is an ordinary slide line and names no deck setting, so the first slide is a
 	// slide, and the deck's settings are untouched.
 	test('a first slide with a "Goal:" line lands as a slide, and the deck settings stay as they were', async ({ page }) => {
-		await openDeckInCompose(page, `---\ntheme: indaco\npaginate: true\n---\n\n${DECK}`);
+		await openDeckInCompose(page, `---\ntheme: indaco\npagination: true\n---\n\n${DECK}`);
 		await caretAfter(page, 'Where we start.');
 		await paste(page, { 'text/plain': '---\n\n# Plan\n\nGoal: ship Q3\n\n---\n\n# Next\n' });
 		await expect.poll(() => savedDeck(page)).toContain('# Next');
 		const saved = await savedDeck(page);
-		expect(saved.startsWith('---\ntheme: indaco\npaginate: true\n---\n')).toBe(true);
+		expect(saved.startsWith('---\ntheme: indaco\npagination: true\n---\n')).toBe(true);
 		expect(saved).toContain('# Plan\n\nGoal: ship Q3');
 		await expect(page.locator('.cs-slide')).toHaveCount(3);
 	});

@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 color-mode: dark
 header: "Lattice · mermaid diagram surface"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 `Diagram surface · engine`
 
@@ -17,7 +17,7 @@ The band a diagram bakes for, the map it is colored from, and the box it is draw
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `#1340 · the deck says dark`
 
@@ -31,7 +31,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why it hit every deck`
 
@@ -46,7 +46,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram light -->
+<!-- @meta{layout=diagram, class=light} -->
 
 `Rule two, intact`
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `The containment box`
 
@@ -79,7 +79,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Corner and padding`
 
@@ -94,7 +94,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `Left alone, deliberately`
 
@@ -113,7 +113,7 @@ kanban
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `One map, two readers`
 

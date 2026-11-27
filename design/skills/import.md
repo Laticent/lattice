@@ -149,7 +149,7 @@ does not read. `lint:deck` names each one.
    | Rule | Source of it | Fix |
    |---|---|---|
    | `unknown-theme` | `theme: gaia` / `default` | a Lattice palette name from the message |
-   | `paginate-comment-retired` | `<!-- paginate: false -->` / `<!-- _paginate: … -->` | `no-pagination` on the slide's `_class:` |
+   | `pagination-comment-retired` | `<!-- paginate: false -->` / `<!-- _paginate: … -->` | `no-pagination` on the slide's `_class:` |
    | `image-marp-keyword` | any `![bg …](…)` line | `--fix`: Markdown's picture, `![A name](…)`, with the slide's `image` (`mirror` for left) or `bleed`; then name the photo |
    | `web-image` | a picture loaded from a URL | save it beside the deck, link by relative path |
    | `unknown-class` | a Marp class such as `invert` | a Lattice component, or delete it |
@@ -197,7 +197,7 @@ title subtitle:
 ---
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Onboarding plan · Engineering"
 ---
 
@@ -282,7 +282,7 @@ four and the buddy detail.
 - [ ] Ingest route matches the source format; a foreign PPTX/PDF was rebuilt
       from text, not "imported".
 - [ ] LF endings, no BOM.
-- [ ] Front matter is Lattice's: a real `theme:`, `size: 4k`, `paginate`,
+- [ ] Front matter is Lattice's: a real `theme:`, `size: 4k`, `pagination`,
       `header`.
 - [ ] Every slide has a `<!-- _class: … -->` line and a claim-heading.
 - [ ] Every point from the source is on a slide or in a speaker note.

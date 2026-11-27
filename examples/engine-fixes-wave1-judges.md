@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Northwind Freight · FY2026 board review"
 footer: "Confidential · prepared for the board"
 ---

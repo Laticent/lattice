@@ -181,6 +181,7 @@ describe('tap proxies name the right mark', () => {
 describe('every label that names one mark links to it, in every chart gallery', () => {
   const fs = require('node:fs');
   const path = require('node:path');
+  const { ownClassOf } = require('../../helpers/slide-class.js');
   const engine = require('../../../lib/engine');
   const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
   // A tick that happens to read like a task name ("Q4"), and a key of SERIES, name no single mark.
@@ -192,8 +193,10 @@ describe('every label that names one mark links to it, in every chart gallery', 
       const src = fs.readFileSync(path.join(CHART_DIR, chart, `${chart}.gallery.md`), 'utf8');
       const fm = (src.match(/^---\n[\s\S]*?\n---\n/) || [''])[0];
       const missing = [];
+      let slides = 0;
       for (const body of src.slice(fm.length).split(/\n---\n/)) {
-        if (!/<!--\s*_class:/.test(body)) continue;
+        if (!ownClassOf(body)) continue;
+        slides++;
         const doc = new JSDOM(engine.render(fm + body, 'indaco', { preview: true }).html).window.document;
         for (const svg of doc.querySelectorAll('svg')) {
           const marks = [...svg.querySelectorAll('[data-mark]:not(template)')];
@@ -219,6 +222,8 @@ describe('every label that names one mark links to it, in every chart gallery', 
           }
         }
       }
+      // A floor, so a reader that finds no slide cannot pass empty (the meta sweep's `_class:` match found none).
+      assert.ok(slides > 0, `${chart}: the gallery has slides to check`);
       assert.deepEqual(missing, [], `${chart}: labels that name one mark but do not link to it`);
     });
   }

@@ -101,8 +101,8 @@ const BR_DECK = path.join(TMP, 'br.md');
 const BR_SRC = `---
 marp: true
 theme: indaco
-paginate: true
-guards: strict
+pagination: true
+fit: trim
 ---
 
 <!-- _class: title -->
@@ -132,10 +132,11 @@ before(async () => {
 
 after(async () => { if (browser) await browser.close(); });
 
-// The deck below still says `guards: strict`, the register's OLD spelling, on purpose: it
-// proves the alias reaches TRIM. The console names the level by its new name, `fit: trim`
-// (engineering/decisions/2026-09-25-fit-policy.md).
-describe('guards: strict — what the deliverable carries, and what the console claims', () => {
+// The deck below says `fit: trim`. It said `guards: strict`, the old spelling, to prove the
+// alias reached TRIM, until the plain-English renames removed that spelling (D2,
+// engineering/decisions/2026-11-21-plain-english-key-renames.md). The console names the level
+// `fit: trim` (engineering/decisions/2026-09-25-fit-policy.md).
+describe('fit: trim — what the deliverable carries, and what the console claims', () => {
   test('an .html DELIVERABLE carries no trim, and the console neither claims one nor hides the clip', async () => {
     const err = render('deliverable.html');
     const state = await trimStateOf('deliverable.html');

@@ -1,1 +1,0 @@
-- **Studio:** a browser that has shown a diagram or opened Fabricate now keeps the Mermaid bundle cached after each deploy, so a diagram it meets offline draws instead of showing its source. It is not warmed for anyone else, or under Save-Data.

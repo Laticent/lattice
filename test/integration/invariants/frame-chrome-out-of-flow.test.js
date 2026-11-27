@@ -114,7 +114,7 @@ const PAIRS = [
 // of its own because it only exists on a SPLIT RUN — and only docks at section level when
 // the frame builds no footer Cell. `buildFooterCell` returns nothing when a deck has no
 // `footer:` and no page numbers (lib/forms/cell/masthead/masthead.transform.js). Page numbers
-// are on by default, so this front matter turns them off with `paginate: false`, the
+// are on by default, so this front matter turns them off with `pagination: false`, the
 // ordinary way to reach that path, not a contrived one.
 //
 // It is here because the first cut of the exclusion list MISSED it: that list was built
@@ -132,7 +132,7 @@ theme: indaco
 size: portrait
 autosplit: on
 finish: atrium
-paginate: false
+pagination: false
 ---
 
 <!-- _class: checklist -->
@@ -255,7 +255,7 @@ marp: true
 theme: indaco
 header: "Sweep"
 footer: "Sweep"
-paginate: true
+pagination: true
 logo: sample:logo-acme-mark.svg
 ---
 

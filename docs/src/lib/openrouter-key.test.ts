@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fakeKey } from '../test/fake-key';
 import { __resetOpenRouterKeyForTests, isOpenRouterKeyEvent, loadOpenRouterKey, noteOpenRouterStatus, openRouterKeyRejected, openRouterKeySettled, readOpenRouterKey, writeOpenRouterKey } from './openrouter-key.js';
 
 // THE ONE READER. "What can read the author's key?" must have a one-module answer, because
@@ -80,7 +81,7 @@ describe('openrouter-key — read, write, reject', () => {
 describe('openrouter-key — no storage sweep returns the key value', () => {
 	afterEach(freshPage);
 	it('the storage meter, summary and deck stats never carry the seeded value', async () => {
-		const SECRET = 'sk-or-v1-sweep-canary-0123456789';
+		const SECRET = fakeKey('sk-or-v1-', 'sweep-canary-0123456789');
 		writeOpenRouterKey(SECRET);
 		const { scanLocalStorage } = await import('../playground/storage-metrics');
 		const { storageSummary } = await import('../components/studio/workspace-backup-meta');
@@ -117,7 +118,7 @@ describe('openrouter-key — encrypted at rest', () => {
 	it('a plaintext key from before encryption is used, then re-sealed in place', async () => {
 		// Deliberately plaintext: this fixture IS the pre-encryption storage the migration reads.
 		// A fake key, never a real one.
-		const LEGACY = 'sk-or-v1-legacy-plaintext-5e1f';
+		const LEGACY = fakeKey('sk-or-v1-', 'legacy-plaintext-5e1f');
 		localStorage.setItem(KEY, LEGACY);
 		expect(readOpenRouterKey()).toBe(LEGACY);
 		await loadOpenRouterKey();

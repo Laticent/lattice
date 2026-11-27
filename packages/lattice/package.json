@@ -66,7 +66,6 @@
     "!dist/engineering/"
   ],
   "scripts": {
-    "prepublishOnly": "cd ../.. && npm run build && npm test",
     "prepack": "cd ../.. && npm run build && node tools/stage-engine-package.js",
     "postpack": "node ../../tools/stage-engine-package.js --clean"
   },
@@ -80,7 +79,7 @@
     "@laticent/markup": "^0.1.0",
     "@laticent/mosaico": "^0.1.0",
     "@laticent/segno": "^0.1.0",
-    "@laticent/segno-markdown": "^0.1.0",
+    "@laticent/segno-languages": "^0.1.0",
     "@laticent/squadra": "^0.1.0",
     "@laticent/trama": "^0.1.0",
     "@mediabunny/aac-encoder": "1.60.0",

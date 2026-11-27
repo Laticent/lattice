@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · blur holds still"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Blur softens the rest and moves nothing.
 
@@ -15,9 +15,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 4 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=cards-grid, focus=item 4, focus-style=blur} -->
+
+
 
 ## The corner card stays inside the stage.
 
@@ -32,9 +32,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _focus: item 2 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=cards-stack, focus=item 2, focus-style=blur} -->
+
+
 
 ## The lower card stays full width.
 
@@ -45,9 +45,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: checklist -->
-<!-- _focus: item 6 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=checklist, focus=item 6, focus-style=blur} -->
+
+
 
 ## A lower row never nudges the rows above.
 
@@ -61,9 +61,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _focus: item 2 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=verdict-grid, focus=item 2, focus-style=blur} -->
+
+
 
 ## The right-hand verdict keeps its edge.
 
@@ -94,9 +94,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: pricing -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=pricing, focus=item 3, focus-style=blur} -->
+
+
 
 ## Every pricing tier sits where it rests.
 
@@ -118,9 +118,9 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _focus: item 4 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=list-steps, focus=item 4, focus-style=blur} -->
+
+
 
 ## Step four ends flush with the stage.
 
@@ -135,7 +135,7 @@ footer: "Laticent · blur holds still"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Focus without the shove.
 

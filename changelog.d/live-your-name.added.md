@@ -1,1 +1,0 @@
-- Live: **Your settings** now starts with **Your name**. Change it after you join and everyone's panel, cursor label and (for the host) the lobby invite follow. The host refuses a name another person already has, so nobody can pass for someone else.

@@ -4,10 +4,11 @@
 // mocked with a recorded page of its live `/v1beta/voices` list; nothing reaches the network. The phone
 // width is a viewport change inside the test (the editor it seeds the deck through is desktop-only).
 import { readFileSync } from 'node:fs';
+import { fakeKey } from '../src/test/fake-key';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 const VOICES = JSON.parse(readFileSync(new URL('../src/playground/gemini-voices.recorded.json', import.meta.url), 'utf8')).voices;
-const GEM = 'AIzaE2eLocaleGeminiKey000a1b2';
+const GEM = fakeKey('AIza', 'E2eLocaleGeminiKey000a1b2');
 const SEL = JSON.stringify({ v: 1, source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'kore', last: {} });
 const DECK = ['---', 'theme: indaco', 'lang: pt-BR', '---', '', '# Nosso trabalho', '', '---', '', '# Dois'].join('\n');
 const WIDTHS = [

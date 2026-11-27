@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 venue: hall
-paginate: true
+pagination: true
 header: "Lattice · chart text follows the venue"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Chart labels now grow with the room.
 
@@ -16,7 +16,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Hall · labels at the back row`
 
@@ -29,7 +29,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 `Hall · every quarter stays named`
 
@@ -50,7 +50,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 `Hall · the columns fit their names`
 
@@ -63,7 +63,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 `Hall · the key grows with the chart`
 
@@ -84,7 +84,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 `Hall · cell values and both axes`
 
@@ -98,7 +98,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 `Hall · steps and totals`
 
@@ -112,7 +112,7 @@ At `venue: hall` a chart's labels used to print smaller than on a laptop. They n
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 `Hall · a short box keeps every name`
 

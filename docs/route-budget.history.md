@@ -6,6 +6,66 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-24 — raise the studio eagerJsGz ceiling by 2,048 B (642,732 → 644,780), by hand, for PR 2988, at the owner's direction
+
+Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 2 KB", in its own PR. Written by hand, as the entries below are; soft stays 571,778.
+
+Why: merged with main after #3294 (Segno P5a), PR #2988 (fit everywhere, tier 1) measures the Studio's eager JS at 628.4 KB, 0.8 KB over the old ceiling; main alone sits about 0.7 KB under it. #2988 adds 1,430 B gzipped, CI-measured: the venue picker's per-shape table (venue.ts, +409), the Align catalog (in progress-rail, +368), the measured-split call and its bounded waits (single-slide-render, +289), StudioIsland (+156) and front-matter-fence (+104), declared in `docs/route-budget.d/2988-measured-split.md`. Giving the bytes back would mean loading the settings panel's tables on demand, a refactor the owner chose not to wait for. About 1.2 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 644780 |
+
+### 2026-11-24 — raise the studio lintCoreGz ceiling by 1,024 B (172,998 → 174,022), by hand, for PR 2988, at the owner's direction
+
+Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 1 KB", in its own PR. Written by hand, as the 2026-11-22 lintCoreGz entry below is: `route-budget:rebaseline --raise --ceiling` would also reset soft to the measurement and put the ceiling 10% above it. Soft stays 152,151.
+
+Why: merged with today's main, PR #2988 (fit everywhere, tier 1) measures the lint core at 169.4 KB, 0.5 KB over the old ceiling, which main alone sits about 0.2 KB under. #2988's lint rules add about 0.66 KB gzipped: the handheld-chrome-hidden rule (0.19 KB), the passage and lede split checks the measured split needs, the venue-capacity hints for the phone and tablet venues, and the four `cards-*` to `align-*` rename hints (0.04 KB). Cutting rules to fit would have taken most of them; the owner chose the raise. About 0.5 KB stays as headroom.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 174022 |
+### 2026-11-24 — raise the home eagerJsGz ceiling by 3,072 B (328,192 → 331,264) and studio's by 2,048 B (640,684 → 642,732), by hand, for PR 3294, at the owner's direction
+
+Owner OK 2026-11-24, option (A) relayed by the Segno desk: "+2 KB on home and studio, own PR". A build of main 6bb9f459 with this raise and PR 3294 merged then left home only 573 B (main had grown about 550 B since the CI run below), so the owner raised home to +3 KB in this session; studio stays +2 KB.
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds 3,120 B to home's eager JS and 3,170 B to studio's against main (CI run 45303178666, the per-PR check against main c3635999; a local build against the merge base 0fef07ac measured +3,124 and +3,192). The bytes are the tokenizer's driver: three docs readers on every route's eager path (theme-fetch.ts, single-slide-render.ts, snapshot-cache.js) moved their `url()` regexes onto `rewriteCssUrls`, which the owner chose on 2026-11-17 (option A, one tokenizer everywhere). No chunk moved from lazy to eager: the one new eager file, theme-fetch.js, is code main already loads eagerly inside video-overlay.js. Nothing could be given back. The tokenizer is CommonJS, so Node 24 cannot race its two load paths, and the docs build bundles a CommonJS module whole, so tree-shaking cannot trim it; as an ES module, `rewriteCssUrls` alone would still be 4,642 of the tokenizer's 5,163 B. Merged with main, PR 3294 measured home 321.4 KB against the 320.5 KB ceiling and studio at its 625.7 KB ceiling. Measured on that merged build: home 329,667 B (about 1.6 KB under 331,264) and studio 641,299 B (1,433 B under 642,732). The soft targets are unchanged, so every byte above them is still declared in `docs/route-budget.d/`. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 331264 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 642732 |
+
+### 2026-11-23 — raise the studio eagerJsGz ceiling by 2,048 B (638,636 → 640,684), by hand, for PR 3294, at the owner's direction
+
+Owner OK 2026-11-23, option (A) relayed by the command center and the Segno desk: "+2 KB raise, own PR".
+
+PR 3294 (Segno P5a, one CSS tokenizer) adds 2,606 B to studio's eager JS against main: the tokenizer on the eager path, which the owner chose on 2026-11-17 (option A, one tokenizer everywhere). It last fit with 1.5 KB to spare; since then main's own studio eager JS grew to 636,270 B (measured with `check-route-budget.mjs --measure` on a build of main at 110d4500), so PR 3294 at cac73b6f measured 0.1 KB past the old ceiling. The alternatives were put to the owner: taking the tokenizer off studio's eager path would reverse the 2026-11-17 choice and miss the 1.0 freeze; holding PR 3294 for after 1.0 was the other. The ceiling rises 638636 -> 640684 (625.7 KB), which leaves about 1.8 KB after PR 3294. The soft target is unchanged, so every byte above it is still declared in `docs/route-budget.d/`. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 640684 |
+
+### 2026-11-23 — raise the playground htmlRaw ceiling by 2,048 B (520,570 → 522,618), by hand, at the owner's direction
+
+The owner chose a 2 KB raise and nothing more, written by hand for the same reason as the lintCoreGz entry below; soft stays 471,849.
+
+Why: rebased onto today's main, PR #3415 (the image card's own `image-card-*` classes) measured the playground page at about 520,806 B, 236 B over the old ceiling; main measures about 518,450 B. The page embeds the component catalog and lint vocabulary, and #3415 adds 2,260 B there: the new `image-card-compact` gallery variant (about 530 B), the longer class names (about 960 B), the image-card placement lint axis (about 290 B) and docs text (about 120 B). The raise leaves about 1.8 KB after #3415.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 522618 |
+
+### 2026-11-22 — raise the studio lintCoreGz ceiling by 1,024 B (171,974 → 172,998), by hand, at the owner's direction
+
+The owner chose a 1 KB ceiling raise and nothing more. `route-budget:rebaseline --raise --ceiling` would have reset soft to the measurement too and put the ceiling 10% above it, so this entry is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 152,151, so the lint core stays flagged above it.
+
+Why: PR #3415 (the image card gets its own `image-card-*` classes; the `guards:` spelling of `fit:` is removed) measured 168.3 KB on CI, 0.4 KB over the old ceiling. Its lint core adds 0.76 KB gzipped: most of it is the longer class names in the tables the lint core carries, and about 0.2 KB is the `image-card-renamed` logic that keeps a tint's `at-*` from moving or losing the card silently. Shortening its messages gave back 0.14 KB; dropping that logic would ship the silent change the review found.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 172998 |
+
 ### 2026-11-22 — raise the studio chartKernelGz ceiling by 1,000 B (90,460 → 91,460), by hand, at the owner's direction
 
 Owner OK 2026-11-22, in PR 3431's session: "don't settle and create jank. raise it if that's a better option." PR 3431 deletes the dead tall-canvas code, and with it the chart dispatch's `boxAspect`, the engine's only import of `chart-box.js`. That module now loads with the lazy chart kernels that use it (the callout placement and the phone page). Measured on PR 3431's build against main's: the engine closure falls 642 B on every page load, and `chart-map.js`'s closure, the largest kernel, rises 202 B. Main measures 88.2 KB, 0.1 KB under the old ceiling, so the move needs room. The alternatives were weighed: keeping `chart-box.js` imported in the engine only to satisfy this gate puts the 0.2 KB back on every startup; the standard rebaseline (soft to about 90,324, ceiling to about 99,356) would leave about 9 KB of slack on the largest kernel, which the gate could no longer see. So this row is written by hand, as the 2026-11-22 eagerJsGz entry below is. Soft stays 82,236.

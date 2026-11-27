@@ -2,13 +2,13 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · State chart polish"
 lexicon:
   "4.5:1": 4.5 to 1
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -18,7 +18,7 @@ A status paints the state, and a long machine wraps in reading order instead of 
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Status paints the state`
 
@@ -43,7 +43,7 @@ The same fill, edge and leading accent a gantt bar wears. A state with no status
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Reading-order wrap`
 
@@ -75,7 +75,7 @@ Each row reads left to right, and one connector drops to the next.
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Reading-order wrap`
 
@@ -111,7 +111,7 @@ The chart scores every row count and keeps the one that sets the type largest.
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Loops`
 
@@ -143,7 +143,7 @@ Back-edges ride above their row, skips below, and each lane is ordered against t
 
 ---
 
-<!-- _class: state-chart -->
+<!-- @meta{layout=state-chart} -->
 
 `Branching`
 
@@ -177,7 +177,7 @@ dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear
 
 ---
 
-<!-- _class: state-chart tb -->
+<!-- @meta{layout=state-chart, class=tb} -->
 
 `Direction`
 
@@ -200,7 +200,7 @@ dagre cannot wrap, so a wrapped layout competes with it and wins only by a clear
 
 ---
 
-<!-- _class: state-chart dark -->
+<!-- @meta{layout=state-chart, class=dark} -->
 
 `Dark mode`
 

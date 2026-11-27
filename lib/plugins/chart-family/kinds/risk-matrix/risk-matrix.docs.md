@@ -44,7 +44,7 @@ Use for a risk register a board or risk committee reviews: enterprise risk, a pr
 ## Authoring
 
 ```markdown
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 ## Where our top risks sit.
 

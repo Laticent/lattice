@@ -477,7 +477,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
   the Playground and the exported PDF, but in the Studio (Present, its overview grid, the editor
-  preview) they all paint the SAME hue, always `cat-1`. Add `paginate: true` to the front matter and
+  preview) they all paint the SAME hue, always `cat-1`. Add `pagination: true` to the front matter and
   the colors come right — which is the confusing part, because pagination has nothing to do with
   color.
 
@@ -512,7 +512,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A live preview prints "1" as the page number on every slide
 
-- **Symptom:** a deck with `paginate: true` shows the page number `1` on every slide in a
+- **Symptom:** a deck with `pagination: true` shows the page number `1` on every slide in a
   preview — most visibly the Studio's Present slide-overview grid, where every tile reads
   "1". Navigating slides doesn't change it. The exported PDF/HTML numbers correctly, and the
   Playground's filmstrip numbers correctly, so it looks like a Studio-only rendering bug.
@@ -2276,3 +2276,18 @@ never turn "passed in headless" into "works on iOS."
   fix (`ChatCost.tsx`) keeps both rows for a priced source and shows a dash until the price arrives;
   `model-spine.spec.ts` "the source switch stays where it was when the turn prices land" holds the catalog and checks
   the switch's box before and after.
+
+## The iOS Simulator's WebDriver taps never raise the software keyboard
+
+- **Symptom** — a probe in `docs/scripts/ios-safari/run.mjs` taps a text field with a WebDriver touch action and waits
+  for `visualViewport.height` to shrink, and it never does, even with the Simulator's hardware keyboard disconnected
+  (`defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false` before the boot). Typing into the field
+  over WebDriver then shows no results either.
+- **Cause** — under safaridriver, a touch action is not taken as a user gesture there. Five harness runs on #3484
+  (2026-11-23, iOS 26.5 runtime, iPhone 17 Pro type): the same touch did not press a Studio button either, and the
+  gallery opened only by a script `click()`; the tap on the search field then raised no keyboard. iOS raises the
+  keyboard only for a real gesture, so this runner cannot show any layout that depends on the keyboard being up.
+- **Fix** — none in CI today. Verify keyboard layouts on a real iPhone (the PR preview link works; the owner's
+  screenshots closed #3484), and keep the in-browser half (`:has(input:focus)`, `--kb`, `--vvh`) under Playwright with
+  the keyboard height set by hand, as `docs/e2e/slide-picker-fit.spec.ts` does. Do not spend another harness round
+  trying: the probe is in #3484's history (`ef8c977` to `a3df11e`) if a future runner can raise the keyboard.

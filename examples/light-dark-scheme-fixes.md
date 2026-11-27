@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Player scheme fidelity"
 ---
 
-<!-- _class: title silent spectrum -->
+<!-- @meta{layout=title, class=silent spectrum} -->
 
 # What the toggle used to leave behind.
 
@@ -17,8 +17,8 @@ three places a color can hide were already covered. This deck is the third.
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Elevation written as a pair in a real property · kanban" -->
+<!-- @meta{layout=kanban, footer=Elevation written as a pair in a real property · kanban} -->
+
 
 `Sink one · box-shadow`
 
@@ -35,8 +35,8 @@ three places a color can hide were already covered. This deck is the third.
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Fill and chip, canvas-aware · progress" -->
+<!-- @meta{layout=progress, footer="Fill and chip, canvas-aware · progress"} -->
+
 
 `Sink two · background`
 
@@ -50,8 +50,8 @@ three places a color can hide were already covered. This deck is the third.
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Node, index and disc surfaces · state-chart lr" -->
+<!-- @meta{layout=state-chart, class=lr, footer="Node, index and disc surfaces · state-chart lr"} -->
+
 
 `Pair to page`
 
@@ -71,8 +71,8 @@ three places a color can hide were already covered. This deck is the third.
 
 ---
 
-<!-- _class: split-panel watermark -->
-<!-- _footer: "Chrome ink · split-panel watermark" -->
+<!-- @meta{layout=split-panel, class=watermark, footer=Chrome ink · split-panel watermark} -->
+
 
 ## Chrome sits on the rail, so it takes the rail's ink
 
@@ -89,9 +89,9 @@ three places a color can hide were already covered. This deck is the third.
 
 ---
 
-<!-- _class: closing spectrum -->
-<!-- _header: '' -->
-<!-- _footer: "Nothing shipped depends on light-dark() · closing spectrum" -->
+<!-- @meta{layout=closing, class=spectrum, header="", footer="Nothing shipped depends on light-dark() · closing spectrum"} -->
+
+
 
 `The contract, now true`
 

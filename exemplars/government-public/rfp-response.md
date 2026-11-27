@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Meridian Civic Partners · RFP Response"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `RFP DPR-2027-04 · Oral presentation`
@@ -17,7 +17,7 @@ Our proposal to replace the county's 22-year-old building-permit system within 1
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We understand the goal: cut permit turnaround from weeks to days, without a risky big-bang cutover.
@@ -26,7 +26,7 @@ The county's permitting backlog is a constituent-service problem before it is a 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## We have read the problem behind the requirements.
@@ -35,7 +35,7 @@ The RFP asks for a new system. The real requirement is faster, more predictable 
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## How our approach meets each evaluation criterion.
@@ -51,7 +51,7 @@ The RFP asks for a new system. The real requirement is faster, more predictable 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Our approach: ship value in phases, never a big-bang cutover.
@@ -60,7 +60,7 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 ---
 
-<!-- _class: gantt -->
+<!-- @meta{layout=gantt} -->
 <!-- tier: short -->
 
 `[{Timeline, 2027 Q3 .. 2028 Q4}]`
@@ -83,7 +83,7 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: standard -->
 
 ## The team accountable for delivery.
@@ -99,7 +99,7 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 <!-- tier: full -->
 
 ## Our relevant record on comparable engagements.
@@ -115,7 +115,7 @@ We deliver the highest-volume permit types first, run them in parallel with the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Why the phased approach is the risk story, not a slower one.
@@ -124,7 +124,7 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Value · Committed outcomes`
@@ -143,7 +143,7 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: full -->
 
 `Value · Year-one impact`
@@ -162,9 +162,9 @@ A big-bang cutover concentrates all risk on one date — the failure mode of the
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## A faster permit in six months, a finished system in eighteen — without the cutover risk.

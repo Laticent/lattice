@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Full-bleed ink"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # Words that read over any photo
 
@@ -16,7 +16,7 @@ A full-bleed slide picks its ink from the photo behind it
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{layout=content, class=bleed} -->
 
 `Dark photo · no class`
 
@@ -26,7 +26,7 @@ A full-bleed slide picks its ink from the photo behind it
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{layout=content, class=bleed} -->
 
 `Light photo · no class`
 
@@ -36,7 +36,7 @@ A full-bleed slide picks its ink from the photo behind it
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{layout=content, class=bleed} -->
 
 `The record`
 
@@ -46,7 +46,7 @@ A full-bleed slide picks its ink from the photo behind it
 
 ---
 
-<!-- _class: content bleed dark -->
+<!-- @meta{layout=content, class=bleed dark} -->
 
 `The author decides`
 
@@ -56,7 +56,7 @@ A full-bleed slide picks its ink from the photo behind it
 
 ---
 
-<!-- _class: content bleed -->
+<!-- @meta{layout=content, class=bleed} -->
 
 `Where it looks`
 
@@ -68,7 +68,7 @@ The ink is chosen for where the words sit: the top of the photo, cropped as the 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Every export makes the same choice.
 

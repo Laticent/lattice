@@ -66,12 +66,13 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GALLERY = readFileSync(join(REPO, 'lib/components/math/math/math.gallery.md'), 'utf8');
 
 /**
- * The gallery's slides up to and including the one carrying `_class: math compare`
+ * The gallery's slides up to and including the `math compare` one
  * — a real math slide, so it ends the deck with expressions on screen.
  */
 function deckEndingAtCompare(source: string): string {
 	const slides = source.split(/^---$/m);
-	const cut = slides.findIndex((s) => /_class:\s*math compare/.test(s));
+	// The slide's record (`@meta{layout=math, class=compare}`), or the old comment.
+	const cut = slides.findIndex((s) => /<!--\s*(?:_class:\s*math compare\b|@meta\{layout=math, class=compare\b)/.test(s));
 	if (cut < 0) throw new Error('math.gallery.md no longer has a `math compare` slide — re-point this spec');
 	return slides.slice(0, cut + 1).join('---');
 }

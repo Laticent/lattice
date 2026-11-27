@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lattice · Form"
 footer: "Laticent · Form"
 meta: "Q2 FY26 · Board Pack | Owner · S. Aden"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Slides as Form
 
@@ -17,7 +17,7 @@ A slide is not content with chrome bolted on. It is a Frame that divides the can
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -25,7 +25,7 @@ A slide is not content with chrome bolted on. It is a Frame that divides the can
 
 ---
 
-<!-- _class: content confidential watermark -->
+<!-- @meta{layout=content, class=confidential watermark} -->
 
 `Context · One Model`
 
@@ -35,7 +35,7 @@ There is no `form:` key and no per-slide token. Every slide carries the model, s
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three nouns, and only two kinds of object.
 
@@ -51,7 +51,7 @@ There is no `form:` key and no per-slide token. Every slide carries the model, s
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02`
 
@@ -59,7 +59,7 @@ There is no `form:` key and no per-slide token. Every slide carries the model, s
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Contrast · Nine and One`
 
@@ -69,7 +69,7 @@ The chrome-hosting `standard` Frame declares nine Cells — masthead, lede, bay,
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Evidence · One Composition, Three Paths`
 
@@ -86,7 +86,7 @@ The chrome-hosting `standard` Frame declares nine Cells — masthead, lede, bay,
 
 ---
 
-<!-- _class: content wip -->
+<!-- @meta{layout=content, class=wip} -->
 
 `Takeaway · The Bay`
 
@@ -96,7 +96,7 @@ The chrome-hosting `standard` Frame declares nine Cells — masthead, lede, bay,
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 03`
 
@@ -104,7 +104,7 @@ The chrome-hosting `standard` Frame declares nine Cells — masthead, lede, bay,
 
 ---
 
-<!-- _class: content watermark -->
+<!-- @meta{layout=content, class=watermark} -->
 
 `Close · Orientation`
 
@@ -114,6 +114,6 @@ The running footer, the page number and the section rail sit in Cells the chrome
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Form, always.

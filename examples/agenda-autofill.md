@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Agenda"
 footer: "Acme · Q3 board review"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,14 +16,14 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Four parts, one decision.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 01`
 
@@ -31,7 +31,7 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: list -->
+<!-- @meta{layout=list} -->
 
 ## The agenda you just saw has no list in its source.
 
@@ -42,8 +42,8 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 02`
 
@@ -51,14 +51,14 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: agenda circles -->
+<!-- @meta{layout=agenda, class=circles} -->
 
 ## Here is where we are.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 03`
 
@@ -66,14 +66,14 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: agenda checks -->
+<!-- @meta{layout=agenda, class=checks} -->
 
 ## Two parts done, one to decide.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 04`
 
@@ -81,8 +81,8 @@ Leave the list out, and the deck's dividers fill it in.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 ## Three styles, one source.
 

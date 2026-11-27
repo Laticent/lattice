@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · checks"
 acronyms:
   PIPEDA: Pipeda
@@ -9,7 +9,7 @@ lexicon:
   CCPA/CPRA: C C P A and C P R A
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · checks`
 
@@ -19,7 +19,7 @@ The six answers now have one owner. A component puts a check in a pill, a row or
 
 ---
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Each criterion is a check inside a pill.
 
@@ -41,7 +41,7 @@ The six answers now have one owner. A component puts a check in a pill, a row or
 
 ---
 
-<!-- _class: pricing two -->
+<!-- @meta{layout=pricing, class=two} -->
 
 ## A pricing feature is the check, then its words.
 
@@ -58,7 +58,7 @@ The six answers now have one owner. A component puts a check in a pill, a row or
 
 ---
 
-<!-- _class: obligation-matrix pills -->
+<!-- @meta{layout=obligation-matrix, class=pills} -->
 
 ## With pills, every cell says its answer.
 
@@ -74,7 +74,7 @@ The label set renames the pills, the key and the narration together.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The full form works anywhere inline code does.
 
@@ -89,7 +89,7 @@ The label set renames the pills, the key and the narration together.
 
 ---
 
-<!-- _class: verdict-grid checks-outline -->
+<!-- @meta{layout=verdict-grid, class=checks-outline} -->
 
 ## Style variants reach the check inside the pill.
 
@@ -106,7 +106,7 @@ The label set renames the pills, the key and the narration together.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Six answers, one owner.
 

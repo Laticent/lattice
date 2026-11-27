@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · universal token system"
 footer: "Phase 2 — diagram-structural"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Borders and lines, named for the job.
 
@@ -19,7 +19,7 @@ footer: "Phase 2 — diagram-structural"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Three structural foregrounds.
 
@@ -32,7 +32,7 @@ footer: "Phase 2 — diagram-structural"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · Flowchart`
 
@@ -50,7 +50,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Sequence`
 
@@ -71,7 +71,7 @@ sequenceDiagram
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · Class`
 
@@ -93,9 +93,9 @@ classDiagram
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Structural foregrounds, off the junk drawer.
 

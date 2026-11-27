@@ -4,7 +4,7 @@ theme: indaco
 meta: Shell highlighting · Owned grammar
 ---
 
-<!-- _class: title no-finish -->
+<!-- @meta{layout=title, class=no-finish} -->
 
 # Shell blocks that read as code
 
@@ -14,7 +14,7 @@ A command list is the shape a shell block actually takes on a slide. Stock highl
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `The everyday case · Command list`
 
@@ -33,7 +33,7 @@ tar -czf dist.tgz dist/ && rm -rf .git
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 `Same source · Two grammars`
 
@@ -57,7 +57,7 @@ cp my-file.txt "$OUT_DIR"
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What the borrowed grammar gets wrong is invisible at a glance
 
@@ -70,7 +70,7 @@ cp my-file.txt "$OUT_DIR"
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Scripts too · Nothing lost`
 
@@ -92,7 +92,7 @@ _Trimmed for the slide; the real script also checks the lockfile._
 
 ---
 
-<!-- _class: compare-code -->
+<!-- @meta{layout=compare-code} -->
 
 `Tag the shape · Two grammars`
 
@@ -114,7 +114,7 @@ built 19 slides
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Two tags, two grammars, one message
 
@@ -127,7 +127,7 @@ built 19 slides
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 `Universal blocks · One per slide`
 

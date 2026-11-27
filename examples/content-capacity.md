@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · content-capacity contract"
 footer: "Pick the layout by content shape"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Count first, then choose.
 
@@ -19,7 +19,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## The slip that causes overflow.
 
@@ -32,7 +32,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## A grid at its sweet spot.
 
@@ -45,7 +45,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Too many? Escalate, don't cram.
 
@@ -62,7 +62,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 ## The contract, in four numbers.
 
@@ -77,7 +77,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## The warning reads like a fix.
 
@@ -90,7 +90,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## The author's loop.
 
@@ -103,7 +103,7 @@ footer: "Pick the layout by content shape"
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > Pick the layout by shape, not by vibe — the number of elements decides it as much as the topic does.
 

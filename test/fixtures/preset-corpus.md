@@ -1,6 +1,6 @@
 ---
 marp: true
-paginate: true
+pagination: true
 header: "Northwind Freight · FY2026 board review"
 footer: "Confidential · prepared for the board"
 ---
@@ -25,7 +25,7 @@ Change the slide list only with the study note: the judges' worst-slide scores a
 comparable across waves while the deck stays the same.
 -->
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Freight that pays for itself
 
@@ -35,7 +35,7 @@ How the network turned a margin problem into a pricing advantage.
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 
 ## Three questions this review answers.
 
@@ -45,7 +45,7 @@ How the network turned a margin problem into a pricing advantage.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -53,7 +53,7 @@ How the network turned a margin problem into a pricing advantage.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 `Operating margin · FY2026`
 
@@ -62,7 +62,7 @@ How the network turned a margin problem into a pricing advantage.
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Why it moved`
 
@@ -79,7 +79,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We stopped selling capacity and started selling reliability. The customers who stayed pay more and complain less.
 
@@ -87,7 +87,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## Three customer segments now fund the network.
 
@@ -100,7 +100,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- @meta{layout=list-tabular} -->
 
 ## Six operating measures moved the right way.
 
@@ -119,7 +119,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: table -->
+<!-- @meta{layout=table} -->
 
 ## The three largest lanes carry most of the margin gain.
 
@@ -133,7 +133,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02`
 
@@ -141,7 +141,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Owning trailers beat leasing them on our busiest lanes.
 
@@ -152,7 +152,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## Each lane sits in one of four pricing positions.
 
@@ -168,7 +168,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## Repricing a lane takes four weeks from signal to contract.
 
@@ -183,7 +183,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Financial · FY2026`
 
@@ -201,7 +201,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: bar -->
+<!-- @meta{layout=bar} -->
 
 ## Rotterdam to Ruhr earns twice the margin of any other lane.
 
@@ -213,7 +213,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: line -->
+<!-- @meta{layout=line} -->
 
 ## Margin climbed every quarter once lane pricing landed.
 
@@ -226,7 +226,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## Industrial parts grew fastest inside a growing total.
 
@@ -245,7 +245,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `Revenue by country · FY2026`
 
@@ -260,7 +260,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: heatmap -->
+<!-- @meta{layout=heatmap} -->
 
 ## On-time delivery dips on Mondays across every lane.
 
@@ -274,7 +274,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: scatter -->
+<!-- @meta{layout=scatter} -->
 
 `[Loads per week, Operating margin]`
 
@@ -289,7 +289,7 @@ Three changes account for most of the 4.4-point gain.
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 ## The new Ruhr cross-dock opened in September.
 
@@ -299,7 +299,7 @@ It handles 1,400 pallets a day and cut the average dwell time on the Rotterdam l
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A quote now passes three checks before it reaches the customer.
 
@@ -314,7 +314,7 @@ flowchart LR
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 `Lane pricing · floor rule`
 
@@ -328,7 +328,7 @@ $$ P_{\text{floor}} = \frac{C_{\text{fuel}} + C_{\text{labor}} + C_{\text{empty}
 
 ---
 
-<!-- _class: code -->
+<!-- @meta{layout=code} -->
 
 ## The floor rule runs on every quote in three lines.
 
@@ -340,7 +340,7 @@ def floor_price(lane, margin=0.15):
 
 ---
 
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## The fleet purchase needs board approval under our own bylaws.
 
@@ -354,11 +354,11 @@ def floor_price(lane, margin=0.15):
 
 ---
 
-<!-- _class: columns -->
+<!-- @meta{layout=columns} -->
 
 ## The purchase pays back inside three years.
 
-<!-- _pane: content -->
+<!-- @meta{pane=content} -->
 
 ### The ask
 
@@ -366,7 +366,7 @@ def floor_price(lane, margin=0.15):
 - Finance from free cash flow, with no new debt
 - Keep leasing for the peak-season surge
 
-<!-- _pane: bar -->
+<!-- @meta{pane=bar} -->
 
 ### Payback by year
 
@@ -376,7 +376,7 @@ def floor_price(lane, margin=0.15):
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Every lane below the floor price after two renegotiation rounds will be given notice by the end of the first quarter, without exception.
 
@@ -384,7 +384,7 @@ Four contracts are at risk. Together they are 3% of revenue and a negative contr
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## The first ninety days after approval are about trailers, contracts and the spring peak season.
 
@@ -397,7 +397,7 @@ Four contracts are at risk. Together they are 3% of revenue and a negative contr
 
 ---
 
-<!-- _class: contact -->
+<!-- @meta{layout=contact} -->
 
 ## Questions after the meeting go to the finance lead.
 
@@ -409,7 +409,7 @@ Four contracts are at risk. Together they are 3% of revenue and a negative contr
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Approve the fleet and the floor.
 

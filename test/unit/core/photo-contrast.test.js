@@ -68,11 +68,11 @@ test('the ratio is card-ink.mjs contrast, so the two features cannot disagree', 
 test('describe names the ratio and the fix, or says nothing clears it', async () => {
   const { describe } = await load();
   assert.match(describe({ ratio: 1.3, floor: 4.5, fix: 'dark', fixRatio: 12.1 }), /1\.3:1.*Pinning the slide dark.*12\.1:1/);
-  assert.match(describe({ ratio: 2, floor: 4.5, fix: 'ink-light', fixRatio: 9.4 }), /2\.0:1.*Setting the card ink light lifts it to 9\.4:1/);
+  assert.match(describe({ ratio: 2, floor: 4.5, fix: 'image-card-light', fixRatio: 9.4 }), /2\.0:1.*Setting the card ink light lifts it to 9\.4:1/);
   assert.match(describe({ ratio: 2, floor: 4.5, fix: 'solid', fixRatio: null }), /a solid card does/);
   assert.match(describe({ ratio: 2, floor: 4.5, fix: null, fixRatio: null }), /No fix here clears it/);
   // An estimate has no current ratio: it names the fix and says where the number came from.
-  const est = describe({ ratio: null, floor: 4.5, fix: 'ink-light', fixRatio: 9.4, estimate: true });
+  const est = describe({ ratio: null, floor: 4.5, fix: 'image-card-light', fixRatio: 9.4, estimate: true });
   assert.match(est, /^Setting the card ink light lifts it to 9\.4:1\. \(Estimated from the photo file/);
 });
 
@@ -82,33 +82,33 @@ test('when no pin clears, the card ink that does is offered', async () => {
   const v = judge({
     photo: DARK_PHOTO,
     ink: [NEAR_BLACK, muted],
-    pins: { dark: { ink: [WHITE, muted] }, 'ink-light': { ink: [WHITE, [255, 255, 255, 0.88]] }, 'ink-dark': { card: null, ink: [NEAR_BLACK, [14, 18, 26, 0.8]] } },
+    pins: { dark: { ink: [WHITE, muted] }, 'image-card-light': { ink: [WHITE, [255, 255, 255, 0.88]] }, 'image-card-dark': { card: null, ink: [NEAR_BLACK, [14, 18, 26, 0.8]] } },
   });
   assert.equal(v.low, true);
-  assert.equal(v.fix, 'ink-light');
+  assert.equal(v.fix, 'image-card-light');
   assert.ok(v.fixRatio >= v.floor);
 });
 
 test('a pin that clears wins over a card ink that clears higher', async () => {
   const { judge } = await load();
-  const v = judge({ photo: DARK_PHOTO, ink: NEAR_BLACK, pins: { dark: { ink: [200, 200, 200] }, 'ink-light': { ink: WHITE } } });
+  const v = judge({ photo: DARK_PHOTO, ink: NEAR_BLACK, pins: { dark: { ink: [200, 200, 200] }, 'image-card-light': { ink: WHITE } } });
   assert.equal(v.fix, 'dark');
 });
 
 test('when both inks clear, the higher ratio wins', async () => {
   const { judge } = await load();
-  // On a mid-gray photo white reads at about 6.9:1; near-black on the ink-dark card beats it when the card is solid
+  // On a mid-gray photo white reads at about 6.9:1; near-black on the image-card-dark card beats it when the card is solid
   // (about 16:1) and loses when the card is at 30% (about 4.9:1).
   const gray = [90, 90, 90];
-  const scene = (alpha) => ({ photo: gray, ink: [100, 100, 100], pins: { 'ink-dark': { card: [250, 249, 246, alpha], ink: NEAR_BLACK }, 'ink-light': { ink: WHITE } } });
-  assert.equal(judge(scene(1)).fix, 'ink-dark');
-  assert.equal(judge(scene(0.3)).fix, 'ink-light');
+  const scene = (alpha) => ({ photo: gray, ink: [100, 100, 100], pins: { 'image-card-dark': { card: [250, 249, 246, alpha], ink: NEAR_BLACK }, 'image-card-light': { ink: WHITE } } });
+  assert.equal(judge(scene(1)).fix, 'image-card-dark');
+  assert.equal(judge(scene(0.3)).fix, 'image-card-light');
 });
 
 test('a card ink that does not clear the floor is not offered either', async () => {
   const { judge } = await load();
   const mid = [128, 128, 128];
-  const v = judge({ photo: mid, ink: [140, 140, 140], pins: { 'ink-light': { ink: [160, 160, 160] }, 'ink-dark': { ink: [100, 100, 100] } } });
+  const v = judge({ photo: mid, ink: [140, 140, 140], pins: { 'image-card-light': { ink: [160, 160, 160] }, 'image-card-dark': { ink: [100, 100, 100] } } });
   assert.equal(v.fix, null);
 });
 
@@ -126,7 +126,7 @@ test('strongestScrim stacks every layer at its densest stop', async () => {
   assert.ok(Math.abs(s[3] - 0.9608) < 1e-9);
 });
 
-test('strongestScrim is null when the scrim paints nothing (card-clear)', async () => {
+test('strongestScrim is null when the scrim paints nothing (image-card-clear)', async () => {
   const { strongestScrim } = await load();
   assert.equal(strongestScrim(SCRIM.map((l) => l.map((c) => [...c.slice(0, 3), 0]))), null);
   assert.equal(strongestScrim([]), null);
@@ -143,9 +143,9 @@ test('strongestScrim composites two colors the way the browser stacks them', asy
 test('white on a bright photo under the default scrim reads; with the scrim cleared it fails', async () => {
   const { judge, strongestScrim } = await load();
   assert.equal(judge({ photo: BRIGHT_PHOTO, card: strongestScrim(SCRIM), ink: WHITE }).low, false);
-  const clear = judge({ photo: BRIGHT_PHOTO, card: null, ink: WHITE, pins: { 'ink-dark': { card: null, ink: [14, 18, 26] } } });
+  const clear = judge({ photo: BRIGHT_PHOTO, card: null, ink: WHITE, pins: { 'image-card-dark': { card: null, ink: [14, 18, 26] } } });
   assert.equal(clear.low, true);
-  assert.equal(clear.fix, 'ink-dark');
+  assert.equal(clear.fix, 'image-card-dark');
 });
 
 test('describe says "at most" for a ratio judged against the strongest scrim', async () => {
@@ -157,9 +157,9 @@ test('describe says "at most" for a ratio judged against the strongest scrim', a
 test('on a card lint flags, the inks go first and a pin is never offered', async () => {
   const { judge } = await load();
   // The pin would clear (white on the dark photo), but it would leave lint's thin-card-no-ink warning standing.
-  const scene = { photo: DARK_PHOTO, ink: NEAR_BLACK, pins: { dark: { ink: WHITE }, 'ink-light': { ink: WHITE }, 'ink-dark': { ink: NEAR_BLACK } } };
+  const scene = { photo: DARK_PHOTO, ink: NEAR_BLACK, pins: { dark: { ink: WHITE }, 'image-card-light': { ink: WHITE }, 'image-card-dark': { ink: NEAR_BLACK } } };
   assert.equal(judge(scene).fix, 'dark');
-  assert.equal(judge(scene, { inkFirst: true }).fix, 'ink-light');
+  assert.equal(judge(scene, { inkFirst: true }).fix, 'image-card-light');
   const noInk = { ...scene, pins: { dark: { ink: WHITE } } };
   assert.equal(judge(noInk, { inkFirst: true }).fix, null, 'no pin, even with nothing else');
   assert.equal(judge(noInk, { inkFirst: true, solidReads: true }).fix, 'solid', 'a spotlight falls back to a solid card');
@@ -169,19 +169,19 @@ test('wantFix names the ink even when the theme ink happens to read; an estimate
   const { judge, inkScenes } = await load();
   const reads = judge({ photo: DARK_PHOTO, ink: WHITE, pins: inkScenes('spotlight', 0, false) }, { inkFirst: true, wantFix: true });
   assert.equal(reads.low, false);
-  assert.equal(reads.fix, 'ink-light');
+  assert.equal(reads.fix, 'image-card-light');
   const est = judge({ photo: BRIGHT_PHOTO, ink: null, pins: inkScenes('spotlight', 0, true) }, { inkFirst: true, solidReads: true });
   assert.equal(est.ratio, null);
-  assert.equal(est.fix, 'ink-dark');
+  assert.equal(est.fix, 'image-card-dark');
 });
 
 test('inkScenes paints the stylesheet inks: the card under a spotlight, none under a statement', async () => {
   const { inkScenes } = await load();
   const { INK_FILL, INK_TEXT, INK_BODY } = await card();
   const spot = inkScenes('spotlight', 30, true);
-  assert.deepEqual(spot['ink-light'], { card: [...INK_FILL.light, 0.3], ink: [INK_TEXT.light, INK_BODY.light] });
-  assert.equal(inkScenes('spotlight', 0, false)['ink-dark'].card, null);
-  assert.equal(inkScenes('statement', 30, false)['ink-dark'].card, null);
+  assert.deepEqual(spot['image-card-light'], { card: [...INK_FILL.light, 0.3], ink: [INK_TEXT.light, INK_BODY.light] });
+  assert.equal(inkScenes('spotlight', 0, false)['image-card-dark'].card, null);
+  assert.equal(inkScenes('statement', 30, false)['image-card-dark'].card, null);
 });
 
 test('describe rounds down, so a ratio just under the floor never prints as the floor', async () => {
@@ -191,5 +191,5 @@ test('describe rounds down, so a ratio just under the floor never prints as the 
 
 test('fixLabel is the one button label both views show', async () => {
   const { fixLabel } = await load();
-  assert.deepEqual(['dark', 'light', 'ink-light', 'ink-dark', 'solid'].map(fixLabel), ['Pin this slide dark', 'Pin this slide light', 'Set card ink light', 'Set card ink dark', 'Use a solid card']);
+  assert.deepEqual(['dark', 'light', 'image-card-light', 'image-card-dark', 'solid'].map(fixLabel), ['Pin this slide dark', 'Pin this slide light', 'Set card ink light', 'Set card ink dark', 'Use a solid card']);
 });

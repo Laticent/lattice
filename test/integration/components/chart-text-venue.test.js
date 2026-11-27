@@ -49,7 +49,7 @@ describe('chart text follows the venue', () => {
       const md = path.join(dir, `${venue}.md`);
       const html = path.join(dir, `${venue}.html`);
       fs.writeFileSync(md, [
-        '---', 'theme: cuoio', 'paginate: true', 'header: "Northwind · Board review"', 'meta: "Q3 2026 · Finance"',
+        '---', 'theme: cuoio', 'pagination: true', 'header: "Northwind · Board review"', 'meta: "Q3 2026 · Finance"',
         'footer: "Confidential · prepared for the board"', `venue: ${venue}`, '---', '',
         COVERED.map(gallerySlide).join('\n\n---\n\n'), '',
       ].join('\n'));

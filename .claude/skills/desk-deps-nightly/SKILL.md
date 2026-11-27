@@ -41,7 +41,7 @@ the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps
    hand.** `platform-suites-supervisor.yml` already re-runs once when the runner lost
    the job before any test reported; anything else is a red test (#33).
 3. **Report** to the command center: one fleet item per red run or PR, with
-   `budget: N/10 today`.
+   `budget: N/10 today`, with its `meter:` ledger.
 
 ## Lane
 

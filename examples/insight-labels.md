@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · insight-labels"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Rename the callout
 
@@ -17,7 +17,7 @@ the word to a curated boardroom heading.
 
 ---
 
-<!-- _footer: "default · no modifier" -->
+<!-- @meta{footer=default · no modifier} -->
 
 ## The default stays KEY INSIGHT.
 
@@ -31,8 +31,8 @@ its familiar eyebrow. Nothing changes unless you ask for it.
 
 ---
 
-<!-- _class: insight-takeaway -->
-<!-- _footer: "insight-takeaway" -->
+<!-- @meta{class=insight-takeaway, footer=insight-takeaway} -->
+
 
 ## Same panel, read as a TAKEAWAY.
 
@@ -45,8 +45,8 @@ When the callout is what the audience should walk away with, name it so.
 
 ---
 
-<!-- _class: insight-the-ask -->
-<!-- _footer: "insight-the-ask" -->
+<!-- @meta{class=insight-the-ask, footer=insight-the-ask} -->
+
 
 ## A board slide closes with THE ASK.
 
@@ -60,8 +60,8 @@ The curated set covers the words a decision slide actually needs.
 
 ---
 
-<!-- _class: split-compare -->
-<!-- _footer: "split-compare · default RECOMMENDATION" -->
+<!-- @meta{layout=split-compare, footer=split-compare · default RECOMMENDATION} -->
+
 
 `Decision Required`
 
@@ -80,8 +80,8 @@ The verdict card defaults to RECOMMENDATION — no modifier needed.
 
 ---
 
-<!-- _class: split-compare insight-verdict -->
-<!-- _footer: "split-compare insight-verdict · one vocabulary, both surfaces" -->
+<!-- @meta{layout=split-compare, class=insight-verdict, footer="split-compare insight-verdict · one vocabulary, both surfaces"} -->
+
 
 `Decision Required`
 
@@ -101,8 +101,8 @@ recommendation is a Key Insight variant, not a split-compare special.
 
 ---
 
-<!-- _class: insight-our-view -->
-<!-- _footer: "insight-our-view · the board-slide follow-ons" -->
+<!-- @meta{class=insight-our-view, footer=insight-our-view · the board-slide follow-ons} -->
+
 
 ## An analyst deck signs with OUR VIEW.
 
@@ -116,7 +116,7 @@ The vocabulary grew with the words a board or analyst slide reaches for.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One seam, one vocabulary
 

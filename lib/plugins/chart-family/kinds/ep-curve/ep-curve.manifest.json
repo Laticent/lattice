@@ -92,12 +92,12 @@
       "description": "The curve's points, one `{return period, loss}` pill per nested `-` item."
     }
   },
-  "skeleton": "<!-- _class: ep-curve -->\n\n## A 1-in-100 year costs $410M.\n\n- `{10, $120M}`\n- `{50, $300M}`\n- `{100, $410M}`\n- `{250, $560M}`\n",
+  "skeleton": "<!-- @meta{layout=ep-curve} -->\n\n## A 1-in-100 year costs $410M.\n\n- `{10, $120M}`\n- `{50, $300M}`\n- `{100, $410M}`\n- `{250, $560M}`\n",
   "anatomyBlock": "funnel",
-  "sample": "<!-- _class: ep-curve -->\n\n`[{Return period}, {Loss}]`\n\n## A 1-in-100 year costs $410M a single event, $480M a year.\n\n- OEP\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n- AEP\n  - `{10, $150M}`\n  - `{25, $230M}`\n  - `{50, $350M}`\n  - `{100, $480M}`\n  - `{250, $650M}`\n",
+  "sample": "<!-- @meta{layout=ep-curve} -->\n\n`[{Return period}, {Loss}]`\n\n## A 1-in-100 year costs $410M a single event, $480M a year.\n\n- OEP\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n- AEP\n  - `{10, $150M}`\n  - `{25, $230M}`\n  - `{50, $350M}`\n  - `{100, $480M}`\n  - `{250, $650M}`\n",
   "stressDoc": {
     "summary": "Four curves, eight return periods from 1-in-2 to 1-in-1,000.",
-    "sample": "<!-- _class: ep-curve -->\n\n## Four curves, eight return periods.\n\n- Gross OEP\n  - `{2, $20M}`\n  - `{5, $55M}`\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n  - `{1000, $900M}`\n- Gross AEP\n  - `{2, $35M}`\n  - `{10, $150M}`\n  - `{100, $480M}`\n  - `{1000, $1.1B}`\n- Net OEP\n  - `{2, $20M}`\n  - `{10, $50M}`\n  - `{100, $90M}`\n  - `{1000, $400M}`\n- Net AEP\n  - `{2, $30M}`\n  - `{10, $70M}`\n  - `{100, $130M}`\n  - `{1000, $500M}`\n"
+    "sample": "<!-- @meta{layout=ep-curve} -->\n\n## Four curves, eight return periods.\n\n- Gross OEP\n  - `{2, $20M}`\n  - `{5, $55M}`\n  - `{10, $120M}`\n  - `{25, $190M}`\n  - `{50, $300M}`\n  - `{100, $410M}`\n  - `{250, $560M}`\n  - `{1000, $900M}`\n- Gross AEP\n  - `{2, $35M}`\n  - `{10, $150M}`\n  - `{100, $480M}`\n  - `{1000, $1.1B}`\n- Net OEP\n  - `{2, $20M}`\n  - `{10, $50M}`\n  - `{100, $90M}`\n  - `{1000, $400M}`\n- Net AEP\n  - `{2, $30M}`\n  - `{10, $70M}`\n  - `{100, $130M}`\n  - `{1000, $500M}`\n"
   },
   "whenToUse": [
     {

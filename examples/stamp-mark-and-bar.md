@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Stamps"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Two stamps that now say what they mean.
 
@@ -13,7 +13,7 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- _class: cards-grid stamp-mark draft -->
+<!-- @meta{layout=cards-grid, class=stamp-mark draft} -->
 
 `stamp-mark · draft`
 
@@ -30,7 +30,7 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- _class: cards-grid stamp-mark confidential -->
+<!-- @meta{layout=cards-grid, class=stamp-mark confidential} -->
 
 `stamp-mark · confidential`
 
@@ -43,7 +43,7 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- _class: cards-grid stamp-bar draft -->
+<!-- @meta{layout=cards-grid, class=stamp-bar draft} -->
 
 `stamp-bar · draft`
 
@@ -60,7 +60,7 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- _class: cards-grid stamp-bar confidential -->
+<!-- @meta{layout=cards-grid, class=stamp-bar confidential} -->
 
 `stamp-bar · confidential`
 
@@ -73,8 +73,8 @@ header: "Lattice · Stamps"
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 `Stamps`
 

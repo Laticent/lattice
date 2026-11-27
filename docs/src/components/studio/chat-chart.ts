@@ -3,6 +3,7 @@
 // also imported by the chat panel (autoHold), whose bundle should not pay for it.
 
 import { readNumber } from '@laticent/segno/values';
+import { metaClass } from '../../../../lib/core/meta-comment.mjs';
 
 /** The chart kinds chart_from_data writes: the ones whose data is a plain list with value pills. */
 export const CHART_KINDS = ['bar', 'line', 'piechart', 'stacked-bar'] as const;
@@ -62,5 +63,5 @@ export function buildChartSlide(a: { kind?: unknown; variant?: unknown; heading?
 			lines.push(`- ${label} ${v}`);
 		}
 	}
-	return { body: `<!-- _class: ${kind}${variant ? ` ${variant}` : ''} -->\n\n## ${heading}\n\n${lines.join('\n')}` };
+	return { body: `${metaClass(`${kind}${variant ? ` ${variant}` : ''}`)}\n\n## ${heading}\n\n${lines.join('\n')}` };
 }

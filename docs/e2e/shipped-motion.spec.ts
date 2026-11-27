@@ -34,7 +34,7 @@ test('the Library lists the shipped scenes on its Motion tab, and Insert places 
 	await page.getByRole('button', { name: 'Insert Pipeline, beat by beat', exact: true }).click();
 	await expect.poll(() => persistedSource(page), { timeout: 10_000 }).toContain('## Pipeline, beat by beat');
 	const src = await persistedSource(page);
-	expect(src).toContain('<!-- _class: scene -->');
+	expect(src).toContain('<!-- @meta{layout=scene} -->');
 	expect(src).toContain('```anima');
 	// A copy, not the shipped namespace: two inserts of the same scene never share an id.
 	expect(src).not.toContain('m3dimpz56-');

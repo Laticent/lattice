@@ -113,9 +113,9 @@ test('settle: a live preview paints the composed cover already lifted, so the ru
   // cover's heading and lead are bare children of the section, and the live runtime wraps them in
   // `.cell-stage` after first paint, which the owner saw as the cover jumping. Settled, every
   // lift-eligible page already has its stage, which is exactly the runtime mirror's skip rule.
-  // `paginate: false`: a numbered cover is composed WITH its footer cell, and both the runtime
+  // `pagination: false`: a numbered cover is composed WITH its footer cell, and both the runtime
   // and this settle leave a footed frame alone (the next test). This one is the footer-less cover.
-  const md = DECK('portrait').replace('theme: indaco\n', 'theme: indaco\npaginate: false\n');
+  const md = DECK('portrait').replace('theme: indaco\n', 'theme: indaco\npagination: false\n');
   const out = engine.render(md, 'indaco', { preview: true });
   const opts = { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY };
   const cover = (html) => ss.splitTopLevelSections(html).find((p) => /data-split-role="cover"/.test(p));

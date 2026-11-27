@@ -17,6 +17,7 @@
  *     (engine, runtime, theme CSS, KaTeX, Mermaid) AND Astro's own /_astro/ build chunks
  *     (the docs pages' JS/CSS). No revalidation — this is the bulk of the cache, and
  *     re-fetching it on every reload was pure waste (the reload storm #storage surfaced).
+ *   • The Studio catalog JSON  network-first, cache fallback offline (FRESH_DATA).
  *   • Other same-origin assets  stale-while-revalidate (a page's inline image, the
  *     manifest, favicon — things that CAN change at a stable url).
  *     Heavy downloadables (.pdf/.pptx/.zip) are never cached — they'd blow the
@@ -234,6 +235,25 @@ async function networkFirst(event) {
 }
 
 /**
+ * Network-first for a same-origin DATA file whose name never changes but whose bytes change
+ * with every deploy: the Studio's component catalog and its modifier vocabulary. Stale-while-
+ * revalidate served the PREVIOUS deploy's catalog on the first open after a deploy, so the
+ * add-slide gallery searched a catalog without the components just shipped (owner, 2026-11-23).
+ * Online it is always the current file; offline it falls back to the last good copy, so the
+ * Studio still opens with a gallery. Only `ok` responses are stored.
+ */
+const FRESH_DATA = /\/studio\/(component-catalog|modifier-vocab)\.json$/;
+async function networkFirstData(event, cacheName) {
+	try {
+		const response = await fetch(event.request);
+		if (response.ok) event.waitUntil(put(cacheName, event.request, response.clone()));
+		return response;
+	} catch {
+		return (await caches.match(event.request)) || Response.error();
+	}
+}
+
+/**
  * Stale-while-revalidate: cached copy now, refreshed copy for next time.
  * Deliberately NOT async: the revalidation must be handed to event.waitUntil()
  * while the fetch event is still being dispatched — on a cache hit respondWith
@@ -306,6 +326,10 @@ self.addEventListener('fetch', (event) => {
 		// `/_astro/` is trusted as all-immutable — an unenforced Astro invariant (it emits only
 		// content-hashed assets there). If a future Astro/integration drops a STABLE-named file
 		// under /_astro/, cache-first would pin it until eviction; revisit this match then.
+		if (FRESH_DATA.test(url.pathname)) {
+			event.respondWith(networkFirstData(event, ASSETS));
+			return;
+		}
 		if (VERSIONED.test(url.pathname) || url.pathname.startsWith('/_astro/')) {
 			event.respondWith(cacheFirst(event, ASSETS));
 			return;

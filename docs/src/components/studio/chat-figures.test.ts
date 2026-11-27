@@ -15,15 +15,15 @@ describe('which fences are figures', () => {
 
 describe('figureSample', () => {
 	it('puts the deck front matter in front so the figure takes the deck theme', () => {
-		expect(figureSample('mermaid', 'flowchart LR\n A-->B', FM)).toMatch(/^---\ntheme: indaco\n---\n\n<!-- _class: diagram -->/);
+		expect(figureSample('mermaid', 'flowchart LR\n A-->B', FM)).toMatch(/^---\ntheme: indaco\n---\n\n<!-- @meta\{layout=diagram\} -->/);
 	});
 	it('wraps a mermaid body in a mermaid fence on a diagram slide', () => {
-		expect(figureSample('mermaid', 'flowchart LR\n A-->B\n', '')).toBe('<!-- _class: diagram -->\n\n```mermaid\nflowchart LR\n A-->B\n```\n');
+		expect(figureSample('mermaid', 'flowchart LR\n A-->B\n', '')).toBe('<!-- @meta{layout=diagram} -->\n\n```mermaid\nflowchart LR\n A-->B\n```\n');
 	});
 	it('wraps math in a display block on the math layout', () => {
 		const out = figureSample('math', 'E = mc^2', '') as string;
 		expect(out).toContain('$$\nE = mc^2\n$$');
-		expect(out).toContain('<!-- _class: math -->');
+		expect(out).toContain('<!-- @meta{layout=math} -->');
 	});
 	it('maps the latticeplot alias onto functionplot', () => {
 		expect(figureSample('latticeplot', '{ "data": [{ "fn": "x^2" }] }', '')).toContain('```functionplot\n');

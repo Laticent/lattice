@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Tilde fences"
 meta: "Tilde fences · a ~~~mermaid block draws its diagram on both paths"
 spectrum: duo
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Mermaid · both fence characters`
 
@@ -17,7 +17,7 @@ CommonMark fences with backticks **or** tildes, and Markdown treats the two as t
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What was wrong, and where
 
@@ -29,7 +29,7 @@ The author could not see it coming: the preview they wrote in renders both. The 
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A backtick fence.
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A tilde fence.
 
@@ -61,7 +61,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A fence indented under a bullet.
 
@@ -77,7 +77,7 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Checked against what the engine draws
 
@@ -87,7 +87,7 @@ Three spaces of indent is still a fence, so a diagram under a bullet draws. Four
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- @meta{layout=cards-stack} -->
 
 ## One walker, and what it is allowed to move.
 
@@ -98,4 +98,4 @@ Three spaces of indent is still a fence, so a diagram under a bullet draws. Four
 - No deck's bytes moved
   - Measured across every tracked file: three docs changed, each already substituting its own example.
 
-<!-- _footer: "Rendered with `node lattice.js examples/mermaid-tilde-fences.md`" -->
+<!-- @meta{footer="Rendered with `node lattice.js examples/mermaid-tilde-fences.md`"} -->

@@ -476,7 +476,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   preview but was silently ignored by `lattice.js`.
 - **Cause:** The emulator hand-rolls its front-matter reader (it
   doesn't use markdown-it / Marpit for parse). Until recently it only
-  looked for `paginate:`, `header:`, `footer:`, `class:`, and
+  looked for `pagination:`, `header:`, `footer:`, `class:`, and
   `headingDivider:`.
 - **Mitigation:** Front-matter reader in
   [lattice.js:773-792](../lattice.js#L773-L792)

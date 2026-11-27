@@ -190,12 +190,12 @@
       "description": "The steps of a stage, one nested `-` item each, with its `{who=…, mood=…}` pills."
     }
   },
-  "skeleton": "<!-- _class: journey -->\n\n## Walking through my Tuesday morning.\n\n- Wake up\n  - Hit snooze `{who=me, mood=2}`\n  - Make coffee `{who=me, mood=4}`\n- Commute\n  - Subway `{who=me, mood=1}`\n  - Walk `{who=me, mood=5}`\n- Work\n  - Standup `{who=team, mood=3}`\n  - Deep work `{who=me, mood=5}`\n",
+  "skeleton": "<!-- @meta{layout=journey} -->\n\n## Walking through my Tuesday morning.\n\n- Wake up\n  - Hit snooze `{who=me, mood=2}`\n  - Make coffee `{who=me, mood=4}`\n- Commute\n  - Subway `{who=me, mood=1}`\n  - Walk `{who=me, mood=5}`\n- Work\n  - Standup `{who=team, mood=3}`\n  - Deep work `{who=me, mood=5}`\n",
   "anatomyBlock": "journey",
-  "sample": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n",
+  "sample": "<!-- @meta{layout=journey} -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n",
   "stressDoc": {
     "summary": "Five stages, twelve tasks — the ceiling.",
-    "sample": "<!-- _class: journey -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `{who=prospect, mood=3}`\n  - First visit `{who=prospect, mood=4}`\n- Evaluate\n  - Read the case `{who=prospect, mood=4}`\n  - Book a demo `{who=prospect, mood=3}`\n  - Sit the demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Sign up `{who=prospect, mood=3}`\n  - First setup `{who=user, mood=1}`\n  - Invite the team `{who=user, mood=2}`\n- Adopt\n  - First report `{who=user, mood=4}`\n  - Weekly habit `{who=user, mood=5}`\n- Expand\n  - Add seats `{who=buyer, mood=4}`\n  - Renew early `{who=buyer, mood=5}`\n"
+    "sample": "<!-- @meta{layout=journey} -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `{who=prospect, mood=3}`\n  - First visit `{who=prospect, mood=4}`\n- Evaluate\n  - Read the case `{who=prospect, mood=4}`\n  - Book a demo `{who=prospect, mood=3}`\n  - Sit the demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Sign up `{who=prospect, mood=3}`\n  - First setup `{who=user, mood=1}`\n  - Invite the team `{who=user, mood=2}`\n- Adopt\n  - First report `{who=user, mood=4}`\n  - Weekly habit `{who=user, mood=5}`\n- Expand\n  - Add seats `{who=buyer, mood=4}`\n  - Renew early `{who=buyer, mood=5}`\n"
   },
   "whenToUse": [
     {
@@ -247,22 +247,22 @@
     "heatmap": {
       "label": "heatmap",
       "summary": "Stages shade by score.",
-      "sample": "<!-- _class: journey heatmap -->\n\n## heatmap shades the stages by score.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
+      "sample": "<!-- @meta{layout=journey, class=heatmap} -->\n\n## heatmap shades the stages by score.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
     },
     "curve": {
       "label": "curve",
       "summary": "A sentiment line rides the stages.",
-      "sample": "<!-- _class: journey curve -->\n\n## curve draws the sentiment line.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
+      "sample": "<!-- @meta{layout=journey, class=curve} -->\n\n## curve draws the sentiment line.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
     },
     "swimlane": {
       "label": "swimlane",
       "summary": "One lane per actor.",
-      "sample": "<!-- _class: journey swimlane -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
+      "sample": "<!-- @meta{layout=journey, class=swimlane} -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Live demo `{who=prospect, mood=4}` `{who=sales}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}` `{who=onboarding}`\n- Activate\n  - First report `{who=user, mood=3}`\n  - Daily use `{who=user, mood=5}`\n"
     },
     "weighted": {
       "label": "weighted",
       "summary": "Stage size carries weight.",
-      "sample": "<!-- _class: journey weighted -->\n\n## weighted sizes the stages by importance.\n\n- Discover\n  - Search `{who=prospect, mood=4, volume=45}`\n  - Referral `{who=prospect, mood=5, volume=18}`\n- Convert\n  - Pricing page `{who=prospect, mood=3, volume=12}`\n  - Checkout `{who=prospect, mood=2, volume=10}`\n- Support\n  - Settings `{who=user, mood=3, volume=8}`\n  - Help docs `{who=user, mood=4, volume=7}`\n"
+      "sample": "<!-- @meta{layout=journey, class=weighted} -->\n\n## weighted sizes the stages by importance.\n\n- Discover\n  - Search `{who=prospect, mood=4, volume=45}`\n  - Referral `{who=prospect, mood=5, volume=18}`\n- Convert\n  - Pricing page `{who=prospect, mood=3, volume=12}`\n  - Checkout `{who=prospect, mood=2, volume=10}`\n- Support\n  - Settings `{who=user, mood=3, volume=8}`\n  - Help docs `{who=user, mood=4, volume=7}`\n"
     }
   },
   "commonMistakes": [
@@ -374,5 +374,5 @@
     },
     "key": "act:peak"
   },
-  "venueProbe": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n"
+  "venueProbe": "<!-- @meta{layout=journey} -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n"
 }

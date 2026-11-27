@@ -63,7 +63,7 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 ## Authoring
 
 ```markdown
-<!-- _class: stacked-bar -->
+<!-- @meta{layout=stacked-bar} -->
 
 ## What the total is made of.
 
@@ -101,7 +101,7 @@ Use when the claim is that a total DECOMPOSES — revenue by product line across
 Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar.
 
 ```markdown
-<!-- _class: stacked-bar share -->
+<!-- @meta{layout=stacked-bar, class=share} -->
 
 ## share normalizes every bar, so only the mix is compared.
 
@@ -124,7 +124,7 @@ Every bar normalized to 100 %, so only the mix is comparable — the absolute to
 The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar.
 
 ```markdown
-<!-- _class: stacked-bar row -->
+<!-- @meta{layout=stacked-bar, class=row} -->
 
 ## row turns the stack on its side for long category names.
 

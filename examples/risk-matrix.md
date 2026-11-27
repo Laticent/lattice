@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Risk matrix"
 meta: "Risk matrix"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · risk-matrix`
 
@@ -16,7 +16,7 @@ Write each risk as its name and `{likelihood, impact}`, each from 1 to 5. The ch
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -31,7 +31,7 @@ Write each risk as its name and `{likelihood, impact}`, each from 1 to 5. The ch
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Underwriting portfolio · exposures`
 
@@ -47,7 +47,7 @@ Write each risk as its name and `{likelihood, impact}`, each from 1 to 5. The ch
 
 ---
 
-<!-- _class: risk-matrix -->
+<!-- @meta{layout=risk-matrix} -->
 
 `Program delivery · top risks`
 
@@ -61,7 +61,7 @@ Write each risk as its name and `{likelihood, impact}`, each from 1 to 5. The ch
 
 ---
 
-<!-- _class: risk-matrix dark -->
+<!-- @meta{layout=risk-matrix, class=dark} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -76,7 +76,7 @@ Write each risk as its name and `{likelihood, impact}`, each from 1 to 5. The ch
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## How to write a risk matrix.
 
