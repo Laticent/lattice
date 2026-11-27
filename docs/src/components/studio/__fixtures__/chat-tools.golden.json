@@ -305,7 +305,7 @@
 			"type": "function",
 			"function": {
 				"name": "preview_speech",
-				"description": "Show what the voice will say aloud, before you guess a pronunciation. For slides (`from`, optional `to`, up to 10 at a time) it reads each slide the way Present and the export do: its spoken line (say:) first, then a front-matter say: entry, then chart narration, then the slide text. It names which one it read, lists each deck term that fired as written → as spoken (a possessive or plural is listed on its own), and lists words no term covers that a voice may stumble on (all-caps runs, a dot inside a word, odd capitals; names from other languages are not detected). Speaker notes are never read aloud. Or pass `text` to hear any words, for example a term before you add it with set_terms.",
+				"description": "Show what the voice will say aloud, before you guess a pronunciation. For slides (`from`, optional `to`, up to 10 at a time) it reads each slide the way Present and the export do: its spoken line (`@say{…}`) first, then chart narration, then the slide text; a hidden slide is skipped. It names which one it read, lists each deck term that fired as written → as spoken (a possessive or plural is listed on its own), and lists words no term covers that a voice may stumble on (all-caps runs, a dot inside a word, odd capitals; names from other languages are not detected). Speaker notes are never read aloud. Or pass `text` to hear any words, for example a term before you add it with set_terms.",
 				"parameters": {
 					"type": "object",
 					"properties": {
@@ -331,7 +331,7 @@
 			"type": "function",
 			"function": {
 				"name": "find_text",
-				"description": "Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, note, description, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Search for the words a reader sees: `$5` finds an escaped `\\$5`, and `Oct` is found inside bold or a link. Literal text unless regex is true; then `text` is a JavaScript regular expression, run per field and stopped if it takes too long. Use it before replace_text, and instead of read_slides when you are looking for a term.",
+				"description": "Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, speaker notes, slide alt text, handout, comment, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Search for the words a reader sees: `$5` finds an escaped `\\$5`, and `Oct` is found inside bold or a link. Literal text unless regex is true; then `text` is a JavaScript regular expression, run per field and stopped if it takes too long. Use it before replace_text, and instead of read_slides when you are looking for a term.",
 				"parameters": {
 					"type": "object",
 					"properties": {
@@ -577,7 +577,7 @@
 			"type": "function",
 			"function": {
 				"name": "replace_text",
-				"description": "Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, spoken lines, notes and descriptions. It works the way a word processor does: the words change and their formatting stays (replace `Oct` in **Oct** and it stays bold). Write the replacement as plain words; characters Markdown would read as markup (`$`, `*`, `[`…) are escaped for you, so `$5` shows as $5. It never touches link or image targets, URLs, directives, code blocks, math, HTML, `{…}` records or the front matter; a match that crosses formatting (`**Oct.** Tenth`) is left alone; it reports what it left alone (for terms in the front matter use set_terms). Literal text unless regex is true; then `find` is a JavaScript regular expression and `replace` may use $1, $<name> and $& (write $$ for a dollar sign). With case_sensitive false the replacement is written exactly as given, unless preserve_case is true: then each match keeps its case (OCT → OCTOBER, Oct → October, oct → october) — what an all-caps eyebrow needs. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result carries the checker’s verdict.",
+				"description": "Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, the four notes and plain comments. It works the way a word processor does: the words change and their formatting stays (replace `Oct` in **Oct** and it stays bold). Write the replacement as plain words; characters Markdown would read as markup (`$`, `*`, `[`…) are escaped for you, so `$5` shows as $5. It never touches link or image targets, URLs, directives, code blocks, math, HTML, `{…}` records or the front matter; a match that crosses formatting (`**Oct.** Tenth`) is left alone; it reports what it left alone (for terms in the front matter use set_terms). Literal text unless regex is true; then `find` is a JavaScript regular expression and `replace` may use $1, $<name> and $& (write $$ for a dollar sign). With case_sensitive false the replacement is written exactly as given, unless preserve_case is true: then each match keeps its case (OCT → OCTOBER, Oct → October, oct → october) — what an all-caps eyebrow needs. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result carries the checker’s verdict.",
 				"parameters": {
 					"type": "object",
 					"properties": {
@@ -681,7 +681,7 @@
 			"type": "function",
 			"function": {
 				"name": "chart_from_data",
-				"description": "Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. Read the chart guide (read_component) if unsure.",
+				"description": "Put numbers on a NEW slide as a chart, on the draft. bar compares categories; line shows a trend over ordered steps; piechart shows parts of one whole (values summing to 100%); stacked-bar shows what each total is made of (give `parts`). Write the heading as the claim the numbers make. Values keep their units: `$4.2M`, `68%`, `12,400`. If unsure, read_guide chart-from-data.",
 				"parameters": {
 					"type": "object",
 					"properties": {
