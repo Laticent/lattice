@@ -120,6 +120,47 @@ export const LLMS_LINKS = Object.freeze({
 });
 
 /**
+ * The homepage's agent entry (#3522 E2-S01): one hop from `/` to the instructions, for an agent
+ * that has never heard of llms.txt. `AGENT_ENTRY` is the visible anchor's target (ByomSection in
+ * components/landing/sections.tsx) and the first link llms.txt gives. `HOME_AGENT_LINKS` are the
+ * `<link>` tags the landing page's `<head>` carries: `describedby` names the llms.txt router (the
+ * relation llmstxt.org suggests), `help` names the entry. Both are site paths; the page resolves
+ * them against its base. scripts/check-discovery.mjs fails the build when the built index.html
+ * loses the anchor or either tag, or when a target was not built.
+ */
+export const AGENT_ENTRY = '/agents/start.md';
+export const HOME_AGENT_LINKS = Object.freeze([
+	Object.freeze({ rel: 'describedby', type: 'text/plain', href: '/llms.txt', title: 'Lattice for AI agents' }),
+	Object.freeze({ rel: 'help', type: 'text/markdown', href: AGENT_ENTRY, title: 'How an agent writes a Lattice deck' }),
+]);
+
+/** `name="value"` pairs of one start tag, as a map. HTML attribute names are case-blind. */
+const attrsOf = (tag) => Object.fromEntries([...tag.matchAll(/([\w:-]+)(?:="([^"]*)")?/g)].slice(1).map(([, k, v]) => [k.toLowerCase(), v ?? '']));
+
+/**
+ * What the homepage's HTML, as served, is missing of its agent entry: [] when it carries an
+ * `<a data-agent-entry>` to AGENT_ENTRY and every HOME_AGENT_LINKS tag. `exists(path)` says
+ * whether a site path (no leading slash) was built. An href may carry the site's base in
+ * front, so it is matched on its end. Pure, so the unit test can feed it a page with a piece
+ * cut out.
+ */
+export function homeAgentEntryProblems(html, exists) {
+	const problems = [];
+	const anchors = [...html.matchAll(/<a\b[^>]*>/gi)].map(([t]) => attrsOf(t)).filter((a) => 'data-agent-entry' in a);
+	if (anchors.length !== 1) problems.push(`expected one <a data-agent-entry> to ${AGENT_ENTRY}, found ${anchors.length}`);
+	for (const a of anchors) if (!a.href?.endsWith(AGENT_ENTRY)) problems.push(`<a data-agent-entry> points at ${a.href ?? 'nothing'}, not ${AGENT_ENTRY}`);
+	const links = [...html.matchAll(/<link\b[^>]*>/gi)].map(([t]) => attrsOf(t));
+	for (const want of HOME_AGENT_LINKS) {
+		const got = links.filter((l) => l.rel === want.rel && l.href?.endsWith(want.href));
+		if (got.length !== 1) problems.push(`expected one <link rel="${want.rel}" href="…${want.href}">, found ${got.length}`);
+		else if (got[0].type !== want.type) problems.push(`<link rel="${want.rel}"> has type ${got[0].type}, want ${want.type}`);
+	}
+	for (const target of new Set([AGENT_ENTRY, ...HOME_AGENT_LINKS.map((l) => l.href)]))
+		if (!exists(target.slice(1))) problems.push(`${target} is linked from the homepage but was not built`);
+	return problems;
+}
+
+/**
  * Markdown twins (scripts/md-twins.mjs): every content page has a plain-Markdown copy at its own
  * path plus `.md`. `/components/` is the one page whose twin another step already writes: the
  * whole component reference, from tools/build-docs-portal.js.

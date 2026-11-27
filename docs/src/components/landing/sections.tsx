@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { AGENT_ENTRY } from '@/lib/discovery.mjs';
 import { librariesNav } from '@/lib/nav.mjs';
 import { slideFrameStyle } from '@/lib/slide-frame';
 
@@ -651,12 +652,27 @@ export function ByomSection({
 					OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
 					nothing else changes.
 				</p>
-				<a
-					className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
-					href={featuresHref}
-				>
-					How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
-				</a>
+				{/* Two links, two readers (#3522 E2-S01). The first is for the AGENT: one
+				    server-rendered anchor from the homepage to the authoring entry point the
+				    llms.txt router opens with, so an agent that has never heard of llms.txt is
+				    one hop from the instructions. The second is the human explainer. The
+				    discovery gate (check-discovery.mjs) fails the build if the first one
+				    leaves the built index.html. */}
+				<div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+					<a
+						className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
+						href={url(AGENT_ENTRY.slice(1))}
+						data-agent-entry=""
+					>
+						Instructions for your agent <ArrowRight aria-hidden="true" className="size-4" />
+					</a>
+					<a
+						className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
+						href={featuresHref}
+					>
+						How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
+					</a>
+				</div>
 			</div>
 			<BuildersPanel url={url} layoutCount={layoutCount} />
 		</div>

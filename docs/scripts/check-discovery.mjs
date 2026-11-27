@@ -14,6 +14,8 @@
 //      the size its tags declare.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
 //      built file; llms.txt stays a router (under 4 KB), not an index.
+//   5. The homepage's initial HTML carries the agent entry (#3522 E2-S01): one visible anchor
+//      to AGENT_ENTRY and each HOME_AGENT_LINKS tag, every target a built file.
 //
 // Not checked: redirect stubs (Astro writes them with their own noindex + canonical), the
 // 404 page, and the baked playground frames under /playground/v/, which are not routes.
@@ -24,7 +26,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
+import { homeAgentEntryProblems, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -175,6 +177,14 @@ else {
 		if (page.endsWith('/') && !indexable.has(page)) fail(`llms.txt links ${p}, whose page ${page} is not indexable`);
 	}
 }
+
+// ── 5: the homepage's agent entry, in the HTML as served (no script runs here) ─────────────
+// `homeAgentEntryProblems` reads a string so the unit test can feed it a page with the anchor
+// or a tag removed and watch it fail.
+const home = path.join(DIST, 'index.html');
+if (fs.existsSync(home)) {
+	for (const problem of homeAgentEntryProblems(fs.readFileSync(home, 'utf8'), (p) => fs.existsSync(path.join(DIST, p)))) fail(`index.html: ${problem}`);
+} else fail('dist/index.html is missing');
 
 for (const w of warnings) console.warn(`check-discovery: warning: ${w}`);
 if (errors.length) {
