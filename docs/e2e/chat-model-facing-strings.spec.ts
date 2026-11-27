@@ -78,6 +78,9 @@ test('the chat request carries the corrected tool descriptions and system prompt
 	expect(system).toContain('`@meta{…}` records exactly as given');
 	expect(system).not.toContain('`_class` directives exactly as given');
 	expect(system).toContain('built from the terms: definitions');
+	// The canon's one-line card rule restated the contract's fuller one; the agent now reads it once.
+	expect(system).toContain('NESTED bullets');
+	expect(system).not.toContain('• CARD-style layouts nest');
 	expect(system).not.toContain('acronyms: definitions');
 
 	await test.info().attach('chat-request.json', { body: JSON.stringify(bodies[0], null, 2), contentType: 'application/json' });
