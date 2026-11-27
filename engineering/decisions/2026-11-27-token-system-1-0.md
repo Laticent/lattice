@@ -306,3 +306,74 @@ repeat is a defect to fix on its own.
 The model does not cut the total much. It cuts the formulas to zero, moves plugin colors out of the theme spec into
 the plugins, and turns the duplicates into one name per job. What a theme author must pick stays about the same,
 because the curated colors already exist.
+
+### 7.7 Plugin colors live in the plugin (owner, 2026-11-27)
+
+**The owner's words (event `1cb83b87`, typed on iOS):** "today our themes vary tokens for things like mermaid and hljs.
+my thought is these belong with the plugin. … i'm a perfectly comfortable with the mermaid plugin containing multiple
+theme css file of its one that it loads for each them. … the plugin designer has to want to provide color tokens
+semantics for their plug for each theme. the plugin owns it and we know nothing about that. we should have our own
+base categorical colors and ramp colors any plugin can use. i imagine our charts would just directly use them."
+
+This replaces §7.5's alias layer. Two owners: the THEME picks the core (brand roles, the base categorical colors, the
+ramps); a PLUGIN that wants its own per-theme colors ships them, one file per theme, and the core does not know what
+they mean.
+
+**(a) Plugin-specific tokens in a theme today** (indaco; the other light themes match within a few):
+
+| Family | Count | Who reads it | Under the model |
+|---|---|---|---|
+| `--syntax-*` | 14 | the code plugin (highlighting), the docs site's code blocks | code plugin's own per-theme file |
+| `--diagram-*` | 11 | Mermaid (through `mermaid-theme-map.js`), and two chart-family files (flowchart) | Mermaid's own file; the flowchart moves to core roles |
+| `--c-*` (containment) | 6 | Mermaid only | Mermaid's own file |
+| `--chart-cat1…8`, their inks, `--chart-neutral-mark` | 17 | chart family | fold into the core categorical set (a "solid" job per category) |
+| `--heatmap-step*` | 10 | chart family | replaced by the core sequential ramp |
+| `--code-*` | 2 | code component, code plugin | core (a code block is a core surface) |
+
+So 31 tokens per theme (14 + 11 + 6) leave the theme for two plugins, and 27 chart tokens become core categorical
+and ramp jobs.
+
+**(b) How a plugin finds the current theme's file.** Recommended: at BUILD time. The plugin declares
+`contributes.themes: { "indaco": "themes/indaco.css", …, "default": "themes/default.css" }` in its manifest;
+`tools/build-css.js` already writes one file per theme (`dist/themes/<name>-min.css`) and appends each plugin's file
+for that theme to it. Every render path (preview, PDF, PPTX, the player, the Marp export) already loads the theme's
+file, so the plugin's colors arrive with no runtime lookup and no second code path (HARD RULE #1). A `-dark` theme that
+composes a light one gets the light one's plugin file, because the values are light/dark pairs. Needs: a manifest
+field, `plugin.schema.json`, LPM §3.3, and the bundler step. A zip plugin's theme files are a stylesheet channel, so
+they pass `sanitizeStyleText` (HARD RULE #22) before they join a theme file. The runtime alternative (the plugin's
+browser half fetches its file by theme name) is rejected: the CLI export has no browser half to run it.
+
+**(c) A theme the plugin has no file for** (an outside theme, or one added after the plugin):
+
+| Option | What happens | Cost |
+|---|---|---|
+| A. The plugin's `default` file, built only from core roles (recommended) | the plugin looks on-brand in any theme that picks the core, just not hand-tuned | each plugin writes one default; a theme stays complete |
+| B. The theme package ships the plugin's file (`themes/acme/plugins/mermaid.css`) | a theme author tunes a plugin they care about | optional, on top of A |
+| C. No file, no colors | the plugin falls back to its library's own colors (Mermaid's stock look) | off-brand; this is today's failure, made official |
+
+A plus B: the default keeps every theme working, and a theme or a plugin author may tune.
+
+**(d) Ramps the core adds, measured from what charts use today.** A sequential ramp: the heatmap uses 5 steps, and the
+choropleth map the same pole-and-base mix (`--chart-ramp-hue` and `--heatmap-base`, both computed today). A diverging
+scale: the bar chart's `diverging` form colors by sign. So: one 5-step sequential ramp and one 5-step diverging scale
+(two ends, a middle, two between), each step a color plus its ink, in both modes: 20 picks per theme, written once by
+a solver and reviewed, like the chart solids. `--seq-500` folds into the sequential ramp.
+
+**(e) Token counts per theme, before and after** (indaco; "about" where the categorical-solid choice decides it):
+
+| | Before | After |
+|---|---|---|
+| Theme file | 168 | about 135: minus 31 plugin tokens, minus 10 `--scheme-dark-*` folded into pairs, minus 10 heatmap and 17 chart tokens, plus 12 category solids with inks (24) and the two ramps (20) |
+| Mermaid's file for indaco | 0 | about 17 (today's `--diagram-*` and `--c-*`) |
+| Code plugin's file for indaco | 0 | 14 (today's `--syntax-*`) |
+| Duplicate names in the theme | 23 | 0 is the goal |
+| Formulas a render computes | about 195 | 0 apart from see-through washes |
+
+The total stays near 170 per theme. The spec freezes the theme file's core only, about 135 names, and a plugin's
+file versions with its plugin.
+
+**(f) Who checks contrast.** Today `lib/theme/gate.js` checks theme tokens. Under the model, the core gate checks
+the core roles in every theme. Each plugin declares its contrast pairs in its manifest (which of its colors sits on
+which, and the floor: 4.5:1 for text, 3:1 for lines), and the build runs the same checker over every plugin file for
+every theme, the default included. A plugin that declares no pairs is not checked, and the theme gallery says so. That
+keeps "the core knows nothing about plugin semantics" true: the plugin states its pairs, the core only measures them.
