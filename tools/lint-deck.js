@@ -340,7 +340,14 @@ async function main(argv) {
   }
 
   if (asJson) {
-    process.stdout.write(`${JSON.stringify({ files: files.length, errors, warnings, suggestions: suggestions.length, findings: report, reviewFindings: suggestions }, null, 2)}\n`);
+    // Diagnostics 1.0 §1.2, the report: the protocol version, what was checked (every slide of each file, against the
+    // rules of these LFM parts), then the findings. Silence in `findings` means clean only for what `coverage` names.
+    const envelope = {
+      version: '1.0',
+      scope: { files: files.map((f) => { const rel = path.relative(process.cwd(), f); return rel && !rel.startsWith('..') ? rel : f; }), slides: 'all' },
+      coverage: { profiles: ['core', 'presentation', 'notation', 'lens', 'timing'] },
+    };
+    process.stdout.write(`${JSON.stringify({ ...envelope, files: files.length, errors, warnings, suggestions: suggestions.length, findings: report, reviewFindings: suggestions }, null, 2)}\n`);
     return errors > 0 || (strict && warnings > 0) ? 1 : 0;
   }
 

@@ -1,13 +1,13 @@
-# LFM Diagnostic Protocol 1.1
+# LFM Diagnostic Protocol 1.0
 
 <!-- spec-parts
-schema: none: the finding shape is stated in §1
+schema: spec/diagnostics.schema.json
 reference: lib/authoring/lint-core.js
-tests: test/unit/authoring/diagnostics-registry.test.js
+tests: test/unit/authoring/diagnostics-registry.test.js test/unit/authoring/diagnostics-schema.test.js
 -->
 
-**Status:** Draft · **Version:** 1.1 · **Date:** 2026-10-08 · **Owner:** @saden1
-**Companion to:** [`LFM-1.0.md`](./LFM-1.0.md) (conformance level **L2**)
+**Status:** Draft, for the owner's ratification at Lattice 1.0 · **Version:** 1.0 · **Date:** 2026-11-27 · **Owner:** @saden1
+**Companion to:** [`LFM-1.0.md`](./LFM-1.0.md) (the **Diagnostics** profile, LFM §1) · **Follows:** [How the Lattice specs version and extend](./EXTENDING-1.0.md)
 
 A conformant LFM document is always valid Markdown (§ LFM L0), so LFM
 diagnostics are never *parse errors*. They are **authoring findings**:
@@ -46,20 +46,53 @@ A diagnostic is a JSON object:
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `slide` | integer | yes | 1-based slide number, matching the preview's "Slide N" and edit markers. `0` for a deck-wide finding sourced from front matter. |
+| `slide` | integer | yes | 1-based slide number, matching the preview's "Slide N". `0` for a deck-wide finding, including every finding sourced from front matter. |
 | `rule` | string | yes | A stable ID from the registry (§3). Tools key suppression and docs links off this. |
 | `severity` | string | yes | `error`, `warning`, `info` or `suggestion` (§2). |
-| `classToken` | string | yes | The `_class` component or modifier token, or front-matter value, the finding concerns. |
-| `line` | string | yes | The offending source line (trimmed) or the `_class`/front-matter directive line, for locating and display. |
 | `message` | string | yes | Human-readable explanation of *what* and *why it matters*. |
-| `fix` | string | yes | Author-facing guidance — the canonical correct shape. |
-| `autofixable` | boolean | no | `true` when a deterministic automatic fix exists (§4). Absent means no automatic fix; apply `fix` by hand. |
+| `classToken` | string | no | The token the finding is about: a component, a modifier, a record field, a front-matter key or a value. Absent when the finding is about the slide or the deck as a whole. |
+| `line` | string | no | The offending source line (trimmed), for locating and display. Absent for a finding about a whole slide or deck. |
+| `fix` | string | no | Author-facing guidance: the correct shape, in words. |
+| `autofixable` | boolean | no | `true` when a deterministic automatic fix exists (§4). Absent means no automatic fix. |
+| `replace` | object | no | `{ "from": string, "to": string }`: the fix as data, a substring of `line` and what replaces it. Present on a did-you-mean finding. |
+| `didYouMean` | string | no | The nearest known name, for a misspelling. |
+| `replacement` | object | no | `{ "from": string, "to": string }`: for a renamed or retired key, the old key and the new one, so a tool renames the key without parsing `message`. |
+| `col` | integer | no | 0-based column in `line` where the offending text starts. |
+| `span` | string | no | The offending text inside `line`. |
+| `chunkLine` | integer | no | 0-based line, within the slide's source, where an autofix starts. |
+| `shapeChange` | boolean | no | `true` when applying the fix changes how an existing deck renders. |
+| `file` | string | no | The file the finding is in, when a tool lints several. |
 
-> **Location note (v1):** v1 locates a finding by `slide` + `line` (the text of
-> the offending line, scoped to the slide). A future minor version MAY add a
-> precise `range` (`{ start, end }` line/column) for editors that want
-> character-level squiggles; tools MUST treat an absent `range` as "highlight
-> the matching `line` within `slide`."
+A finding MAY carry other fields; a reader MUST ignore a field it does not know and MUST keep it when it passes the
+finding on ([EXTENDING §5](./EXTENDING-1.0.md)). A field with a prefix (`acme.score`) belongs to the tool of that
+name.
+
+> **Location (1.0):** a finding is located by `slide` and `line` (the text of the offending line, scoped to the
+> slide), with `col` and `span` where the producer knows them. A minor version MAY add a precise `range`
+> (`{ start, end }`, line and column); a tool MUST treat an absent `range` as "highlight the matching `line` within
+> `slide`." A slide number is a position, not an identity: it changes when slides move.
+
+### 1.1 The report
+
+A tool that reports on a whole deck (a CLI, a CI check, an agent tool) returns one JSON object:
+
+```jsonc
+{
+  "version": "1.0",                                   // this protocol's version
+  "scope": { "files": ["deck.md"], "slides": "all" }, // what was checked
+  "coverage": { "profiles": ["core", "presentation", "notation", "lens", "timing"] },
+  "findings": [ /* §1 findings */ ]
+}
+```
+
+`coverage.profiles` names the LFM parts whose rules the tool ran. **An empty `findings` list means clean only for what
+`scope` and `coverage` name**: a part the tool did not run is unknown, never a pass. A tool that skipped a rule it
+would otherwise run (a rule that needs a browser, say) MUST list it in `coverage.skipped`, an array of
+`{ "rule": string, "why": string }`. A reader MUST refuse a report whose major version it does not know.
+
+The reference CLI, `tools/lint-deck.js --json`, emits this report, with three counts beside it (`files`, `errors`,
+`warnings`, `suggestions`) and `reviewFindings`, the review tier (§3.9). Its schema is
+[`spec/diagnostics.schema.json`](./diagnostics.schema.json).
 
 ## 2. Severities
 
@@ -90,6 +123,12 @@ added in minor versions; a rule is never silently removed (it may be deprecated)
 The published namespace convention going forward is `lfm/<rule>`; the bare IDs
 below are the canonical identifiers the reference implementation emits, and
 `lfm/<rule>` is the equivalent qualified form a host MAY present.
+
+**A rule from outside this registry** carries a prefix naming its owner: `acme/slide-too-long`. An unprefixed ID
+is this registry's. **A renamed rule keeps its old ID** as a retired alias, listed with the ID that replaced it, so a
+tool that suppresses the old ID keeps working; renaming a rule is a minor version, never a break. Some IDs still
+carry a front-matter key's old name (`unknown-mode`, `unknown-lift`, `unknown-corners`, `unknown-headline`); whether
+they are renamed before Lattice 1.0 or after it, with aliases, is the owner's decision (#3531 D2).
 
 **The registry is complete.** Every rule ID the reference implementation can
 emit is listed here, and every ID listed here is one it emits.
@@ -499,24 +538,23 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 - **A Language Server.** This protocol is its foundation — a server wraps
   `lintTextWith` + `applyFix` behind LSP `textDocument/publishDiagnostics` and
   `textDocument/codeAction`. Not built here.
-- **Character-precise `range`s.** v1 locates by slide + line; ranges are a
+- **Character-precise `range`s.** 1.0 locates by slide + line (with `col` and `span` where known); ranges are a
   forward-compatible addition (§1).
 - **Cross-document / deck-level findings** beyond front matter (e.g. duplicate
   slide IDs, asset existence). Out of scope for 1.x.
-- **The optional fields the reference implementation already emits.** Some
-  findings carry fields §1 does not define yet: `didYouMean` and `replace`
-  (a did-you-mean rewrite), `span` and `col` (a span inside the line),
-  `chunkLine` (which line an autofix starts on), and `shapeChange` (the fix
-  changes how an existing deck renders). Some findings also omit `classToken` or
-  `line`, which §1 lists as required: the review tier's slide- and deck-level
-  findings and the CLI's `--discover` findings carry no `line`. And three
-  front-matter findings (`autosplit-retired`, `note-key-retired`,
-  `pagination-unsupported-value`) report `slide: 1`, where §1 says front matter is
-  `slide: 0`. Specifying these is the
-  next minor version's work.
+- **Outcome per check.** 1.0 reports failures as findings and what was not checked as `coverage`; a per-rule
+  pass record is a 1.x addition.
 
 ## 7. Change log
 
+- **1.0 (2026-11-27, draft for ratification at Lattice 1.0).** Renumbered 1.0 to ship beside LFM 1.0 (owner,
+  2026-11-27). §1 makes `classToken`, `line` and `fix` optional, as the review tier and the CLI's discovery pass
+  already emitted them, and specifies the fields the reference implementation already emitted (`replace`,
+  `didYouMean`, `col`, `span`, `chunkLine`, `shapeChange`, `file`), plus `replacement` on a renamed key. §1.1 adds the
+  report (`version`, `scope`, `coverage`), so silence is clean only for what was checked. §3 adds prefixed rule IDs and
+  retired aliases. Front-matter findings all report `slide: 0` (`autosplit-retired`, `note-key-retired` and
+  `pagination-unsupported-value` reported `slide: 1`). The `lfm-version` rule joins §3.4. Shared schema:
+  `spec/diagnostics.schema.json`. Design record: `engineering/decisions/2026-11-27-specs-1-0.md` §7.2.
 - **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
   (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2). §3.4 adds `key-renamed`,
   one rule over a table of renamed deck keys (`paginate:` → `pagination:` first); `fonts-renamed`

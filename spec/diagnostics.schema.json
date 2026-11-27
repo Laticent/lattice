@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lattice.style/schemas/diagnostics-1.0.schema.json",
+  "title": "LFM Diagnostic Protocol 1.0",
+  "description": "A finding (spec/diagnostics.md §1) and a report (§1.1). Hand-written with the spec; test/unit/authoring/diagnostics-schema.test.js holds the reference CLI's output to it.",
+  "$defs": {
+    "fromTo": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": { "from": { "type": "string" }, "to": { "type": "string" } }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["slide", "rule", "severity", "message"],
+      "properties": {
+        "slide": { "type": "integer", "minimum": 0 },
+        "rule": { "type": "string", "pattern": "^(?:[a-z][a-z0-9-]*/)?[a-z][a-z0-9-]*$" },
+        "severity": { "enum": ["error", "warning", "info", "suggestion"] },
+        "message": { "type": "string", "minLength": 1 },
+        "classToken": { "type": "string" },
+        "line": { "type": "string" },
+        "fix": { "type": "string" },
+        "autofixable": { "type": "boolean" },
+        "replace": { "$ref": "#/$defs/fromTo" },
+        "didYouMean": { "type": "string" },
+        "replacement": { "$ref": "#/$defs/fromTo" },
+        "col": { "type": "integer", "minimum": 0 },
+        "span": { "type": "string" },
+        "chunkLine": { "type": "integer", "minimum": 0 },
+        "shapeChange": { "type": "boolean" },
+        "file": { "type": "string" }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["version", "scope", "coverage", "findings"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+        "scope": {
+          "type": "object",
+          "required": ["files", "slides"],
+          "properties": { "files": { "type": "array", "items": { "type": "string" } }, "slides": { "const": "all" } }
+        },
+        "coverage": {
+          "type": "object",
+          "required": ["profiles"],
+          "properties": {
+            "profiles": {
+              "type": "array",
+              "items": { "enum": ["core", "presentation", "notation", "lens", "timing"] }
+            },
+            "skipped": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["rule", "why"],
+                "properties": { "rule": { "type": "string" }, "why": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "reviewFindings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    }
+  },
+  "$ref": "#/$defs/report"
+}
