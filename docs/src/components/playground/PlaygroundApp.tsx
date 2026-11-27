@@ -2056,7 +2056,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			userInputAtRef.current = Date.now(); // Home/End and the Step list are the reader too
 			const count = w.kind === 'plan' ? w.plan.slides.length : w.count;
 			const ni = Math.max(0, Math.min(count - 1, i));
-			if (ni === w.index) return;
+			// A JUMP NAMES A SLIDE, so it scrolls there even when the index already names it. The index and the frame
+			// are not always in the same place: a step's smooth scroll that outlives its 1200ms guard (a loaded page)
+			// is renamed from the frame mid-flight, and it goes on traveling. Measured on the built Playground at
+			// `?c=kpi` with the map open, the page stalled 250ms in every 500: "Map, last slide" set 14 / 14 and
+			// scrolled toward slide 14; 1.6s later, still short of it, the observer renamed the walk to slide 13;
+			// "Map, previous slide" then asked for slide 13, found the index already there and returned without a
+			// scroll, and the old scroll arrived on slide 14 and took the bar back to "14 / 14". The step was gone,
+			// in 2 runs of 48 (`playground-map.spec.ts`, "first, last, previous and next"). Re-aiming costs nothing
+			// when the frame is already there: the scroll goes to where it is.
+			if (ni === w.index) {
+				scrollWalk(true);
+				return;
+			}
 			const moved: Walk = { ...w, index: ni };
 			setWalk(moved);
 			walkRef.current = moved;
