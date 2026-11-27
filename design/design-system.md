@@ -699,6 +699,13 @@ AI agents authoring decks get a discovery surface and a validation loop:
   plus the controlled vocabularies. This is what TOOLS load; at 95k tokens it is not a
   document to read for a pick. Both are generated alongside `components.md/.html` by
   `tools/build-docs-portal.js`.
+- **`components.json` is versioned.** Its top-level `schemaVersion` is an integer
+  (today `1`). A new field keeps the version, so a reader ignores fields it does not
+  know. Removing or renaming a field, or changing what one means, bumps it, so a
+  reader checks `schemaVersion` before it trusts a field. The bump is
+  `COMPONENTS_JSON_SCHEMA_VERSION` in `tools/build-docs-portal.js`.
+  `test/unit/cli/components-json-schema-version.test.js` fails when a field in
+  `test/fixtures/components-json-fields.json` disappears without one.
 - **Capacity — pick by content shape.** A layout overflows when it holds more
   elements than it's built for — the most common authoring slip. A component's
   optional `capacity` block (`{ axis, sweet, soft, hard, escalateTo }`) declares
