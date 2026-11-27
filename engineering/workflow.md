@@ -2708,6 +2708,24 @@ the undo path sat mid-sentence, and the words were `P3`, "the SIZES line" and a
 `followups.d/` path. The reader had to dig the choice out, decode it, and guess
 what happens if they said nothing.
 
+**Every ask carries its own context, in the question tool where there is one (the
+owner's standing rule, 2026-11-27).** The owner said: "you have to give me more context
+when things like this come up and maybe use your question tool. this should be in our
+workflow as i hate always asking for clarification." So whoever puts a choice to the
+owner (the command center relaying a desk's card included):
+
+- asks it with `AskUserQuestion` when the session has it, batching up to four
+  questions in one round;
+- writes each question so it stands alone: what the thing is, one concrete example,
+  what changes under each option and what it costs, and which option is recommended
+  and why;
+- never asks with a bare code. "D1 A or B", "W1 keep or rename" or "night D1" with no
+  context are refused forms, even in a summary list of what is still open. A list of
+  open items names each in plain words ("which theme colors the 1.0 spec promises").
+
+A choice the owner has already answered with "I don't understand" is asked again
+from the start, with a new example, not reworded.
+
 ### When to post it
 
 - **Automatically**, whenever a session stops with anything open: parked at the
