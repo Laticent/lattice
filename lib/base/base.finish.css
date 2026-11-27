@@ -536,7 +536,7 @@ section:is(.title, .closing):not(.print, .cover-light),
 section.divider:not(.light):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
-/* `cover-light` (the `cover: light` register, lib/core/resolve-cover.js) is the one bookend
+/* `cover-light` (the `cover-layout: light` register, lib/core/resolve-cover-layout.js) is the one bookend
  * surface that is NOT the panel: it paints `var(--bg)` (base.modifiers.css, the light-cover
  * block), so it is carved out of the rule above inside the `:not()` that already held `.print`
  * (the selector keeps its (0,2,1)), and `--fin-canvas` falls back to the `section` default,

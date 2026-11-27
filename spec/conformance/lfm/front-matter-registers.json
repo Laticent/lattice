@@ -990,19 +990,19 @@
    }
   },
   {
-   "name": "cover: light",
-   "source": "---\ncover: light\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: light",
+   "source": "---\ncover-layout: light\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cover: (unknown)",
-   "source": "---\ncover: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: (unknown)",
+   "source": "---\ncover-layout: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-cover",
+      "rule": "unknown-cover-layout",
       "severity": "warning",
       "slide": 0
      }
@@ -1010,29 +1010,29 @@
    }
   },
   {
-   "name": "cover: inverse",
-   "source": "---\ncover: inverse\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: inverse",
+   "source": "---\ncover-layout: inverse\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cover: light column",
-   "source": "---\ncover: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: light column",
+   "source": "---\ncover-layout: light column\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cover: poster (composition alone)",
-   "source": "---\ncover: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: poster (composition alone)",
+   "source": "---\ncover-layout: poster\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cover: masthead light (either order)",
-   "source": "---\ncover: masthead light\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: masthead light (either order)",
+   "source": "---\ncover-layout: masthead light\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }

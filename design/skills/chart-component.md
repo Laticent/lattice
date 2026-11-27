@@ -62,9 +62,13 @@ three distinguishing traits:
    `<polygon>` / `<path>` / `<text>` marks. Each mark carries a `--i` index or a
    `--mix` percentage; **the kernel emits no color** — palette lives in CSS.
 3. **It runs through the three-renderer dispatcher** (engine, CLI, VS Code
-   runtime) — write-once, render-everywhere (HARD RULE #1). Because VS Code Marp
-   filters out `<script>`, the transform bakes into rendered HTML, not a runtime
-   script.
+   runtime) — write-once, render-everywhere (HARD RULE #1). On a Marp render the
+   chart is drawn by `lattice-runtime-min.js` with the same kernel, so in the VS
+   Code preview it appears only at security level *Disable*.
+4. **A trailing paragraph is the chart's caption.** It reaches the chart through
+   the coda (`coda: { caption: true }`): the kernel takes it as the slide's
+   paragraph beat and the chart draws it inside the figure. Declare the field;
+   do not claim the paragraph.
 
 **Substance is `series`** (a tabular DSL as bullets). Data is authored as a
 markdown list where each `<li>` is one datapoint: **lead text = label**, **trailing

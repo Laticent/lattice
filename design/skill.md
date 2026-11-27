@@ -33,7 +33,10 @@ Open the relevant file before starting work. Only load what the current task nee
 
 ## Rendering Modes (quick reference)
 
-Three modes, same `.md` source file — no source changes needed.
+Two modes, same `.md` source file. The VS Code preview needs the copy-and-go
+kit's link and script lines at the end of the deck and its security level at
+*Disable*; it is a drafting surface, and Lattice-only front-matter keys reach it
+only through a settings block (`dist/marp-kit/README.md`).
 
 | Situation | Use |
 |-----------|-----|
@@ -77,8 +80,9 @@ Full rendering pipeline (Mermaid, PPTX, image conversion): see [pipeline.md](../
 ## Dark canvas (quick reference)
 
 Lattice renders dark canvas via the native CSS `color-scheme` cascade —
-no class-list surgery, no per-renderer logic. Same recipe in the engine,
-the CLI, and the VS Code preview.
+no class-list surgery, no per-renderer logic. Same recipe in the engine and the
+CLI; in a deck Marp renders (the VS Code preview, marp-cli), put `color-mode: dark`
+in the settings block, because Marp drops the front-matter key.
 
 | Goal | Front-matter |
 |---|---|

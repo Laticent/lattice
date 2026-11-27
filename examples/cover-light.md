@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-cover: light
+cover-layout: light
 pagination: true
 footer: "Lattice · cover register"
 logo: sample:logo-acme-mark.svg
@@ -11,7 +11,7 @@ logo: sample:logo-acme-mark.svg
 
 # The cover can sit on the light canvas.
 
-`cover: light · the front cover`
+`cover-layout: light · the front cover`
 
 One line in the front matter repaints the title and the closing slide together.
 
@@ -19,12 +19,12 @@ One line in the front matter repaints the title and the closing slide together.
 
 ## One register sets both covers
 
-- `cover: inverse`
+- `cover-layout: inverse`
   - The default: the dark inverse panel every deck has today. It stamps nothing, so existing decks do not move.
-- `cover: light`
+- `cover-layout: light`
   - Title and closing take the deck's own light canvas, with the heading, subtitle and eyebrow inks a content slide uses.
 - `cover-inverse` on one slide
-  - Keeps the dark panel on that cover inside a `cover: light` deck.
+  - Keeps the dark panel on that cover inside a `cover-layout: light` deck.
 
 ---
 
@@ -42,7 +42,7 @@ A slide that names `cover-inverse` keeps the inverse panel.
 
 # A finish mixes toward the light canvas.
 
-`cover: light · with finish atrium`
+`cover-layout: light · with finish atrium`
 
 The backdrop and its clearance mask read the surface the cover paints.
 
@@ -52,7 +52,7 @@ The backdrop and its clearance mask read the surface the cover paints.
 
 ## Dividers keep their own surface.
 
-`cover: reaches title and closing only`
+`cover-layout: reaches title and closing only`
 
 ---
 
@@ -71,7 +71,7 @@ The backdrop and its clearance mask read the surface the cover paints.
 
 ## Where the light cover reaches.
 
-`cover: light · the back cover`
+`cover-layout: light · the back cover`
 
 - `title` — the front cover
 - `closing` — the back cover, its list included

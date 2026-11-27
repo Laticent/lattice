@@ -1,7 +1,11 @@
 # base — front-matter registers
 
 The **deck-level registers**: keys you set once in a deck's front matter that
-propagate to every slide, and that a per-slide `_class:` can override. They are
+propagate to every slide, and that a per-slide `_class:` can override. (In a deck
+rendered by Marp — the copy-and-go kit, marp-cli, the VS Code preview — Marp drops
+these keys from the front matter; put them in a settings block,
+`<script type="application/lattice-settings">`, directly under it. The runtime reads
+the block, so it needs the runtime to run. `dist/marp-kit/README.md` has the recipe.) They are
 `theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
 the backdrop, the divider, the marker shape, the accent, the heading rule, the
 kicker, whether inline code draws pills and marks, the framing alignment, the card
@@ -47,7 +51,7 @@ model, see `design/concepts.md`.
 | [`align:`](#the-align-front-matter-register-where-content-sits) | Where content sits, up and down and side to side | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
-| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
+| [`cover-layout:`](#the-cover-layout-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `pack` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -161,6 +165,31 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `heal` | *(no class)* | Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes, by a set number of items a page, without measuring. The default before 2026-11-06. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 | `pack` | *(no class)* | **The default** (owner, 2026-11-06: "we want the best results out of the box"; a deck with no `fit:` line splits this way). Everything `heal` does, with a MEASURED split. A slide that fits its box and venue stays one page even past its component's item count, and one that overflows packs as many items a page as fit by measured height, instead of one a page. Every surface splits it the same way: the CLI, the Studio and Playground preview, and the webpage export. In the live preview a slide keeps its pages while you type, and goes back to one page only when it fits with 30% of its room spare. See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §16. |
+
+**When a slide does not fit, Lattice names a claim that does — checked, not guessed.**
+No `fit:` level gives a crammed slide more room. A `claim` does: `claim-quiet` adds about
+24px of stage at 1280x720 and `claim-hero` about 113px, the same on every layout, without
+cutting a word or shrinking a type size. So the export ends its OVERFLOW and CONTENT CLIPPED
+warnings with the smallest claim that makes each clipped slide fit, found by rendering
+that slide again under each one:
+
+```text
+  ↳ grace: slide 22 fits with `claim-hero` added to its class (checked by rendering).
+```
+
+When three or more slides clip and one deck-wide `claim: quiet` fits them all, that comes
+first, with the slide-by-slide list beside it. A deck-wide `claim: hero` is never suggested:
+it drops the header and footer on every slide, and only the clipped slides were checked. A slide whose only cut
+is the running footer is left out, because dropping the footer is not a fix. Run it on its
+own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
+`--no-grace` (or `LATTICE_FIT_GRACE=off`) skips it in the export, which saves its re-render, and the
+export skips it on its own when the `CI` environment variable is set to anything but `false` or `0`
+(`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
+
+`lint:deck` follows the claim too. A list or card layout measured to hold more under a
+claim is judged by that budget, so a ten-item `checklist claim-quiet` is in budget where a
+bare one is not, and an over-budget bare slide is told the smallest claim that holds it:
+"Or add `claim-quiet`, which fits 10." A slide marked `claim-framed` is never offered one.
 
 **The old spelling is gone.** Since 2026-11-22 the engine reads only `fit:`
 (`engineering/decisions/2026-11-21-plain-english-key-renames.md`, D2). A deck that still
@@ -1368,14 +1397,14 @@ In the Studio: Deck settings → **Image**, one control per axis (backing is a s
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 
-## The `cover:` front-matter register (the front and back cover)
+## The `cover-layout:` front-matter register (the front and back cover)
 
 The `title` and `closing` slides are the deck's covers, and by default both paint the dark
-inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
+inverse panel with a centered heading. `cover-layout:` sets both covers at once, with up to two words in
 either order: a **surface** and a **composition**.
 
 ```yaml
-cover: light column
+cover-layout: light column
 ```
 
 ### Surface
@@ -1393,7 +1422,7 @@ a separate layout variant.
 `divider light` is, because the scheme travels with the surface. A dark deck that wants dark
 covers leaves the key out.
 
-**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `_class: closing cover-inverse`
+**A slide opts out with `cover-inverse`:** in a `cover-layout: light` deck, `_class: closing cover-inverse`
 keeps the dark panel on the back cover. A per-slide `_class: title cover-light` makes one light
 cover in a deck without the key.
 
@@ -1418,8 +1447,8 @@ components, so a slide can also name it in `_class:` (`_class: title cover-poste
 | `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
 
 **Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
-heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
-ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover-layout: light
+ledger` and `cover-layout: ledger` both read in either color mode, with or without a `finish:`.
 
 **A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
 `label`, `poster`) only change the default alignment, so `headline: center` centers them.
@@ -1432,7 +1461,7 @@ band is a keep-out: a heading long enough to reach it is reported as overflow (t
 overflow line, the Studio ring), never drawn into the footer. Shorten it, or add `cover-plain` to
 that slide.
 
-The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
+The register is `lib/core/resolve-cover-layout.js`. It has no Studio control on purpose: presets set it
 (deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the
 ingredients presets use.
 
