@@ -12,7 +12,7 @@ after release") · **Desk:** 🧭 Initiative desk (Kirk) · **Pinned to:** `main
 
 ## 0. The owner's decisions (2026-11-27)
 
-Typed in this desk's session. The options were put in plain English, with pros and cons.
+Typed in this desk's session; the owner's verbatim words are recorded on [PR #3587](https://github.com/Laticent/lattice/pull/3587#issuecomment-7230353813). The options were put in plain English, with pros and cons.
 
 | # | Question | Answer |
 |---|---|---|
