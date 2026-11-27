@@ -150,9 +150,12 @@ function parsePsiAvg10(text) {
 
 /**
  * The processes descended from `rootPid`, each as `comm:STATE(wchan)`. STATE is the kernel's one-letter
- * state from /proc/<pid>/stat (R running, S sleeping, D waiting on I/O, Z zombie), and wchan the kernel
- * function a sleeping process waits in. A Chrome stuck on a disk read shows `D(…)`; one starved of CPU
- * shows `R`. Linux only; elsewhere it returns ''. `limit` caps the list.
+ * state from /proc/<pid>/stat (R running, S sleeping, D waiting on I/O, T stopped, Z zombie), and wchan
+ * the kernel function a sleeping process waits in. Shown on PR #3577: a Chrome frozen by SIGSTOP reads
+ * `chrome:T(do_signal_stop)`, and a stand-in that never prints its endpoint reads `sleep:S(hrtimer_nanosleep)`.
+ * Expected but not shown: a Chrome stuck on a disk read would read `D(…)`, one starved of CPU `R`.
+ * Chrome processes come first, so `limit` (which caps the list) never crowds them out. Linux only;
+ * elsewhere it returns ''.
  */
 function describeDescendants(rootPid, limit = 12) {
   const parent = new Map();
@@ -177,10 +180,14 @@ function describeDescendants(rootPid, limit = 12) {
     try {
       wchan = fs.readFileSync(`/proc/${pid}/wchan`, 'utf8').trim();
     } catch {}
-    out.push(`${comm}:${state}${wchan && wchan !== '0' ? `(${wchan})` : ''}`);
-    if (out.length >= limit) break;
+    out.push({ chrome: /chrom/i.test(comm), text: `${comm}:${state}${wchan && wchan !== '0' ? `(${wchan})` : ''}` });
   }
-  return out.join(',');
+  // Stable sort: Chrome first, the rest in /proc order.
+  return out
+    .sort((a, b) => Number(b.chrome) - Number(a.chrome))
+    .slice(0, limit)
+    .map((p) => p.text)
+    .join(',');
 }
 
 /**
