@@ -7203,8 +7203,9 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pass or fail a preset nobody chose.',
   },
   {
-    file: 'tools/lint-deck.js',
-    why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
+    file: 'lib/cli/lint-deck.js',
+    why: 'the file read behind `lattice lint` and `npm run lint:deck` (it moved out of tools/ so the '
+       + 'published CLI ships it). Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
   },
   {

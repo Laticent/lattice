@@ -29,6 +29,7 @@ npx lattice <deck.md> <layouts.css> <output> [palette] [options]
 npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
+npx lattice lint <deck.md> [more.md …] [options]
 npx lattice fmt <deck.md> [more.md …] [options]
 npx lattice migrate notes <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
@@ -192,6 +193,30 @@ Themes, components, finishes and motion made in the Studio are packages.
 
 The store is `$LATTICE_HOME/packages`, or `~/.lattice/packages` when
 `LATTICE_HOME` is not set. `--packages <dir>` overrides it for one run.
+
+## `lattice lint`
+
+Checks a deck for authoring mistakes without rendering it: a key or class the
+engine no longer reads, a layout's slots in the wrong shape, a value no register
+knows. Each finding names its slide, the rule, the line and the fix. With
+`--fix` it applies every fix it can make by machine, in place, then reports what
+is left. That is how a deck written before a rename moves to the new spelling in
+one command: `marks: tone ink vivid` becomes `chart-finish: tone ink` and
+`color-intensity: vivid`, and `marks-etch` becomes `chart-finish-etch`. Line
+endings and a byte-order mark stay as the file had them.
+
+| Option | What it does |
+|---|---|
+| `--fix` | Apply every machine fix in place, then lint what is left |
+| `--strict` | Exit 1 on a warning too, not only on an error |
+| `--json` | Print the findings as JSON |
+| `--no-review` | Leave out the advisory presentation suggestions |
+
+Exit codes: 0 when there is no error (no warning either, under `--strict`), 1
+when there is, 2 for a usage error: no file matched, a named file does not
+exist, or an option is unknown. A suggestion never changes the exit code.
+The Studio shows the same findings in its editor, and **Fix all** applies the
+same fixes.
 
 ## `lattice fmt`
 
