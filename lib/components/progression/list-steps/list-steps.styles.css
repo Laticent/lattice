@@ -326,6 +326,10 @@ section.list-steps.chevron ol:where(.cell-stage > *) > li > .lat-label {
   padding:0 1cqi 2cqi;
   clip-path:polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%);
 }
+/* The tab is a flex box, so an author's `**bold**` word inside it would become a flex item of its
+ * own and the tag's words would split apart ("PROBLEM" beside a stacked "AND MORE"). The emphasis
+ * hands its weight to its text and leaves the tag one run (W3: bold is emphasis, never structure). */
+section.list-steps.chevron ol:where(.cell-stage > *) > li > .lat-label > :is(strong, b, em, i) { display:contents; }
 section.list-steps.chevron ol:where(.cell-stage > *) > li > ul {
   display:flex; flex-direction:column; justify-content:center;
   background:var(--bg-alt); border:1px solid var(--border); border-left:0.7cqi solid var(--accent);
