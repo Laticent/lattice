@@ -129,9 +129,20 @@ test('the proxy resolves its upstream once, to the address that accepts a connec
 	const upstream = http.createServer((_req, res) => res.end('x'));
 	await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
 	try {
-		assert.equal(await reachableAddress('localhost', upstream.address().port), '127.0.0.1', 'only the IPv4 loopback listens');
+		// The lookup is fixed, so the test does not depend on how this machine resolves `localhost`: ::1 comes first, as on
+		// the runner, and nothing listens there.
+		const lookup = async () => [{ address: '::1', family: 6 }, { address: '127.0.0.1', family: 4 }];
+		assert.equal(await reachableAddress('localhost', upstream.address().port, { lookup }), '127.0.0.1', 'only the IPv4 loopback listens');
 		assert.equal(await reachableAddress('127.0.0.1', 1), '127.0.0.1', 'a literal address is kept');
 	} finally {
 		upstream.close();
 	}
+});
+
+test('a connect that never answers gives up, so the proxy still starts', async () => {
+	// A loopback connect that neither connects nor errors held startFaultProxy forever, and the probe's .catch never fired.
+	const { reachableAddress } = await load();
+	const lookup = async () => [{ address: '127.0.0.1', family: 4 }];
+	const silent = () => ({ on() {}, destroy() {} });
+	assert.equal(await reachableAddress('localhost', 9, { lookup, connect: silent, timeoutMs: 20 }), 'localhost', 'falls back to the name');
 });

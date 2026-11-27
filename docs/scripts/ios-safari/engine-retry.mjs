@@ -57,16 +57,26 @@ export function engineRetryVerdict(r) {
  * out and the proxy's own connects failed ETIMEDOUT on /_astro/react.js and jsx-runtime.js, so the Studio never hydrated
  * (run 45475994893). Resolving once, to the address that accepts a connection, takes the race out of every request.
  */
-export async function reachableAddress(hostname, port) {
+export async function reachableAddress(hostname, port, { lookup = dns.lookup, connect = net.connect, timeoutMs = 2000 } = {}) {
 	if (net.isIP(hostname)) return hostname;
-	const all = await dns.lookup(hostname, { all: true });
+	const all = await lookup(hostname, { all: true });
 	for (const { address } of all) {
 		const ok = await new Promise((resolve) => {
-			const s = net.connect({ host: address, port }, () => {
+			// A connect that neither connects nor errors gives up after `timeoutMs`, so the proxy still starts and the probe
+			// reports, rather than holding the job until its cap.
+			const timer = setTimeout(() => {
+				s.destroy();
+				resolve(false);
+			}, timeoutMs);
+			const s = connect({ host: address, port }, () => {
+				clearTimeout(timer);
 				s.destroy();
 				resolve(true);
 			});
-			s.on('error', () => resolve(false));
+			s.on('error', () => {
+				clearTimeout(timer);
+				resolve(false);
+			});
 		});
 		if (ok) return address;
 	}
