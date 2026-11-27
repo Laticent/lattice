@@ -435,6 +435,11 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 
 	/** Pay what the preview is owed: the focus slide after a re-opened pane, else the editor's slide. False until it can be measured. */
 	function settleOwed(): boolean {
+		// A PICK OWNS THE PREVIEW: a tile tapped since the debt was run up has already sent the preview to its slide, and
+		// the editor follows the preview from there (`drivenByPreview`). Paying the old debt now would write the preview
+		// back to where the editor was and throw the pick away: a tile tapped while a fresh document loaded left the
+		// preview on slide 1 (`playground-map.spec.ts`, "a tile lands on the right page"). The pick settles the debt.
+		if (ports.now() < ownUntil) return true;
 		if (!owedFocus) return realign();
 		const flat = hub.get().flat;
 		if (flat < 0) {

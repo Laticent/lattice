@@ -485,6 +485,26 @@ describe('a pick moves the caret', () => {
 		expect(r.state.ed).toBeCloseTo(r.map().toA(600), 6);
 	});
 
+	it('a map tile tapped while a fresh document loads is not undone when the load pays the editor its realign', async () => {
+		// A full write owes the preview the editor's position once the new document loads (`loaded` → `settleOwed`). A
+		// tile tapped in that window has already sent the preview on its way, and the realign used to write it straight
+		// back to the editor's place: measured on the built Playground (a portrait deck whose slide splits, map open), the
+		// tile's smooth scroll was 67px into 4283 when the load wrote 0, and the preview stayed on slide 1
+		// (`playground-map.spec.ts` "a tile lands on the right page", 2 runs in 72 under `--workers=4`).
+		const r = rig();
+		await r.land(deck, SLIDES, false);
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		expect(r.log).toContain('page 3 instant=false');
+		r.state.now += 20;
+		r.scrollPreview(300);
+		r.log.length = 0;
+		r.sync.loaded();
+		r.frame();
+		expect(r.log.filter((l) => l.startsWith('preview-scroll'))).toEqual([]);
+		expect(r.state.pv).toBe(300);
+	});
+
 	it('a frame stall in the middle of a pick does not let the slide it is passing take the focus', async () => {
 		// The busy-page case: the smooth scroll is half way when the page stops delivering frames for longer than the
 		// stillness window. The preview is still between where the pick started and where it is going, so it is the

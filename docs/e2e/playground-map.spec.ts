@@ -202,8 +202,11 @@ test('a deck whose slide splits into pages still has one tile per slide, and a t
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
 	// Three authored slides, however many pages the split makes of the second.
 	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(3);
-	const pages = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0);
-	expect(pages).toBeGreaterThan(3);
+	// Polled, not read once: the rail's tiles come from the outline, so they can be up before the preview has written
+	// its pages (read once, this saw 0 pages in 1 run of 72 under `--workers=4`).
+	await expect
+		.poll(() => page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0))
+		.toBeGreaterThan(3);
 	await page.locator(`${RAIL} button[data-unit="2"]`).click();
 	await expect.poll(() => slideInView(page)).toBe('3');
 	await expect.poll(() => current(page)).toBe('2');
