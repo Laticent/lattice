@@ -525,3 +525,36 @@ on the gallery and the example decks) on Monday 30; round 2 (T6, the export name
 The honest summary: the renames and moves are three to four days of work behind three other sweeps that have not
 landed, against a breaking freeze tomorrow night. The plan fits 1.0 only if the token renames are allowed past that
 freeze and nothing upstream slips.
+
+### 9.5 Revision: the token work runs last (owner, 2026-11-27)
+
+**The owner's words (event `9757c88e`, typed on iOS):** "but this has to be done last since other prs and doing things
+right now. Would also say mermaid should maybe adopt our colors. first we need to see how all mermaid charts would
+look". So T1–T7 start only after the work in flight lands: #2988, #3510, #3517, @meta step E, #3496, #3480, #3507,
+#3491, the spec PRs and the release work (the command center's list). T1 (the name list, a document) is the one
+piece that touches no file those PRs touch, and can be drafted while they land. The dates in §9.2 move right by however
+long that takes; if it takes past Sunday 29, T5–T7 cannot finish before about 1–2 December, and §9.4's choices apply.
+
+### 9.6 Every Mermaid diagram type in the core colors (scratch, 2026-11-27)
+
+All 22 diagram types Lattice maps, rendered in indaco and cuoio, light and dark, today beside a scratch theme where
+Mermaid's category fills are the core STRONG colors with white text on them (sent to the owner as four contact
+sheets). Each label measured against the smallest filled shape behind it:
+
+| | Types where a label falls below 4.5:1 |
+|---|---|
+| Today, all four | none |
+| Core colors, indaco light | ER, pie, journey, sankey, packet, kanban, treemap (most at about 1:1) |
+| Core colors, cuoio light | the same seven |
+| Core colors, indaco dark | kanban (3.88) |
+| Core colors, cuoio dark | journey (4.31), kanban (3.89) |
+
+Flowchart, sequence, class, state, gantt, mind map, timeline, quadrant, git graph, C4, XY chart, block, architecture,
+requirement and radar pass in all four (timeline, C4 and architecture by eye: the probe found no label to measure).
+
+**Why the seven fail:** Mermaid uses one "text on a category fill" color for labels that do not sit on a fill (the pie
+legend and the ER attribute rows sit on the page, so white text vanishes on white), and kanban and journey put the
+heading ink on a fill. Adopting the core colors therefore needs, per Mermaid setting, the right ink for what that label
+actually sits on: the map's job, checked by the contrast pairs the plugin declares (§8.3). It is work in Mermaid's
+plugin file, not a reason against the core colors: the swap's failures are all ink choices, never a fill that cannot
+carry text.
