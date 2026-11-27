@@ -337,8 +337,11 @@ test('a blank slide in a deck with a front matter header and page numbers is a t
  * animation for anything to race: a smooth one starts on the next frame and, under load, still ran on to the last slide
  * after a `scrollTo` meant to cancel it (1 run in 10 at `--workers=4`). The guard holds an instant jump exactly as it holds
  * a smooth one, because it compares where the frame is with where the jump was going. The frame's own End keydown is the
- * jump (the shell key, `onDeckKey`); an instant `scrollTo` in the same task moves the frame back off the target, as a
- * scroll that stamps no input does, so the one scroll event that follows reports a frame between the two.
+ * jump (the shell key, `onDeckKey`); an instant `scrollTo` in the same task moves the frame back to HALFWAY, as a scroll
+ * that stamps no input does, so the one scroll event that follows reports a frame between the two. Halfway, not just
+ * off the target: while any of the last slide still shows, the observer reads the frame as having arrived on it (the
+ * hysteresis in `readingSlideIndex`) and lets the guard go by arrival, and the test then passes with no stamp at all
+ * (traced: parked 300px back, the bar followed the reader with the stamp removed).
  * Then the clock freezes a little past the jump's own stamp (`armedAt`): the guard's ceiling can never pass, so only a
  * reader's input can release it.
  */
@@ -348,7 +351,7 @@ async function jumpAndRest(page: Page): Promise<number> {
 	await page.evaluate(() => {
 		const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window;
 		w.document.dispatchEvent(new (w as unknown as typeof globalThis).KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
-		w.scrollTo({ top: w.scrollY - 300, behavior: 'instant' });
+		w.scrollTo({ top: Math.round(w.scrollY / 2), behavior: 'instant' });
 	});
 	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
 	await page.clock.setFixedTime(Date.now() + 50);
