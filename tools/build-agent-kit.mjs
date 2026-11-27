@@ -1590,7 +1590,12 @@ function listShapes(only) {
   const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
   const solo = { has: (n) => !only || only.includes(n) };
   const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
-  const ledger = [...ls.LEDGER_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  // The layouts whose rows MUST carry a nested body: the two sets lint-core's `split-bodyless-item`
+  // and number-slot rules hold to it. Not LEDGER_LAYOUTS, which is the inline-bold set
+  // (`card-style-inline-title`): it holds `agenda`, which reads ONE list level, so until
+  // 2026-11-27 this sentence told every model to nest a body under each agenda row and lint then
+  // warned on each (`list-depth-unsupported`; agent-pack eval run 46032981944).
+  const ledger = [...ls.SPLIT_SLOT_LAYOUTS, ...ls.NUMBER_SLOT_LAYOUTS].filter((n) => solo.has(n));
   // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
   return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
@@ -3283,7 +3288,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,458 for the 983-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,429 for the 966-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if

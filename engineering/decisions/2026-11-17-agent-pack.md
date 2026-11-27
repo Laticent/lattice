@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 983 today (Claude 1,458). Was 48,000 characters |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 966 today (Claude 1,429). Was 48,000 characters |
 | All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
@@ -205,7 +205,7 @@ So the pack has two layers where it had one. `start.md` is the short contract an
 the reference behind it: everything `start.md` used to carry, moved whole, with the structure
 gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
 in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
-written without (983 o200k tokens, measured):
+written without (966 o200k tokens, measured):
 
 | Section | Source | o200k tokens |
 |---|---|---|
@@ -215,7 +215,7 @@ written without (983 o200k tokens, measured):
 | Rules | `essentials(SOLO_LAYOUTS)`, less what the canon and §1 already say and the unclosed-comment rule the linter reports; where content goes on each listed layout with no heading slot (from the slot contracts) and the `NUMBER_SLOT_LAYOUTS` row, from their skeletons; the notes, from `NOTE_NAMES` | 193 |
 | The 19 common layouts | `SOLO_LAYOUTS` + `SOLO_INTENT`, the solo text's own list | 235 |
 | Modifiers | a record with a modifier, the first token of three `UNIVERSAL_GROUPS` (mood, tone, insight), and the link | 63 |
-| Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon, the skills | 79 |
+| Check, render, read more | the checker, `npx @laticent/lattice`, the render page, the full canon | 70 |
 
 What `start.md` no longer says, and where each now lives:
 
@@ -257,7 +257,8 @@ Gemini's `countTokens`, both free count-only endpoints, no generation), the gues
 | first 990 push | 984 | 1,040 | 1,476 |
 | after eval run 1 (kpi rule) | 981 | 1,037 | 1,459 |
 | after eval run 2 (big-number rule) | 984 | 1,042 | 1,460 |
-| as merged (990 gate, the general rule) | 983 | 1,040 | 1,458 |
+| after the general rule | 983 | 1,040 | 1,458 |
+| as merged (after eval run 3) | 966 | 1,022 | 1,429 |
 
 Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
 is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
@@ -269,12 +270,12 @@ eval as it is.
 **The eval, run on the 990 file (2026-11-27, run 46023640639, the owner's "raise it").** Claude
 Sonnet 5.5 had only `start.md` in its prompt and wrote one deck per brief; the run cost USD 0.08.
 
-| brief | main, old 12k `start.md` (run 45998307020) | run 1: first 990 file (46023640639) | run 2: + kpi rule (46026988831) |
-|---|---|---|---|
-| board-ask | pass: 7 slides, 6 layouts, 2 suggestions | pass: 7 slides, 6 layouts, 2 suggestions | **fail**: `big-number` number written as a heading |
-| teaching | pass: 10 slides, 8 layouts, 0 suggestions | pass: 8 slides, 6 layouts, 2 suggestions | pass: 8 slides, 6 layouts, 2 suggestions |
-| data-review | pass: 6 slides, 6 layouts, 1 suggestion | **fail**: the export clipped slide 3 | pass: 7 slides, 7 layouts, 3 suggestions |
-| cost (USD) | 0.23, both arms | 0.08 | 0.075 |
+| brief | main, old 12k `start.md` (run 45998307020) | run 1: first 990 file (46023640639) | run 2: + kpi rule (46026988831) | run 3: + general rule (46032981944) |
+|---|---|---|---|---|
+| board-ask | pass: 7 slides, 6 layouts, 2 suggestions | pass: 7 slides, 6 layouts, 2 suggestions | **fail**: `big-number` number written as a heading | pass: 8 slides, 6 layouts, 2 suggestions |
+| teaching | pass: 10 slides, 8 layouts, 0 suggestions | pass: 8 slides, 6 layouts, 2 suggestions | pass: 8 slides, 6 layouts, 2 suggestions | **fail**: a body nested under each `agenda` row |
+| data-review | pass: 6 slides, 6 layouts, 1 suggestion | **fail**: the export clipped slide 3 | pass: 7 slides, 7 layouts, 3 suggestions | pass: 6 slides, 6 layouts, 1 suggestion |
+| cost (USD) | 0.23, both arms | 0.08 | 0.075 | 0.077 |
 
 Slide 3 was a `kpi` written as `- Customer satisfaction: 91%` with a sentence under each row. The
 file carried no `kpi` skeleton, so the model guessed the shape. Rewriting only that slide to the
@@ -295,6 +296,17 @@ is named with the form its required slot takes (today `big-number`, a list item,
 an `h2` title slot, so a heading there is right. A new headingless layout enrolls itself, and a test
 derives the same set from the contracts. The three briefs' expected-shape decks lint clean against
 it and render with no overflow. Run 3 is the last eval round for this PR (the raise-loop cap).
+
+Run 3 passed board-ask and data-review and failed teaching on a rule `start.md` itself taught:
+"A row on `agenda`, `kpi`, … always has a body under its title". The model nested a body under each
+`agenda` row, and `agenda` reads one list level (`list-depth-unsupported`). The sentence comes from
+`essentials()`, which every paste text shares, and it drew its layouts from `LEDGER_LAYOUTS`, the
+inline-bold set, rather than from the layouts lint holds to a nested body (`SPLIT_SLOT_LAYOUTS` and
+`NUMBER_SLOT_LAYOUTS`). The defect was older than this PR (`main`'s paste texts teach it too); it is
+fixed at its source, so the paste texts, the repo drop-ins and `start.md` now name `split-panel`,
+`split-compare`, `kpi` and `stats` only. A test pins the set to lint's. The teaching deck with its
+agenda rows left bare lints clean and renders with no overflow. No fourth run: the desk capped the
+loop at three, so the fix is verified locally, not by the eval.
 
 **The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a

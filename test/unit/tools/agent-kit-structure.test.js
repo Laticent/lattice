@@ -1078,7 +1078,17 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.match(start, /A `kpi` key insight \(`>`\) fits only with 3 rows, and never on `kpi ops`/);
 		assert.match(start, /^- `profile:` \(`general` · `teaching` · `mission`\)/m, 'the profile key the canon names');
 		const solo = readKit('paste/lattice-instructions-solo.md');
-		assert.match(solo, /A row on `agenda`, `kpi`.*always has a body/, 'the solo ledger rule names its layouts');
+		// The bodied-row rule names exactly the layouts lint holds to a nested body (split slots and
+		// number slots), never `agenda`, which reads one list level (eval run 46032981944).
+		const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+		const bodied = [...ls.SPLIT_SLOT_LAYOUTS, ...ls.NUMBER_SLOT_LAYOUTS];
+		for (const text of [solo, readKit('start.md')]) {
+			const line = text.split('\n').find((l) => /always has a body/.test(l));
+			assert.ok(line, 'the bodied-row rule is present');
+			const named = [...line.matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]);
+			assert.ok(named.length && named.every((n) => bodied.includes(n)), `the bodied-row rule names ${named.join(', ')}; lint requires a body only on ${bodied.join(', ')}`);
+			assert.ok(!named.includes('agenda'), 'agenda reads one list level; its rows take no body');
+		}
 		assert.doesNotMatch(solo, /statement layout|ledger or split row/, 'no rule names a class of layout it never lists');
 	});
 });
