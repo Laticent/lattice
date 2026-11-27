@@ -3103,6 +3103,25 @@ before the eleventh. Messages are not free either: each one wakes a whole turn o
 the receiving session, so a desk sends at most about 30 a day and prefers reading
 a session (`list_events`) to asking it.
 
+**A worker messages the command center only at a gate** (owner, 2026-11-27, relayed from the command
+center). Every `send_message` wakes a whole turn of the command center, which carries the whole fleet in
+its context, so a progress note costs a full-context turn and buys nothing the owner acts on. A worker (any
+session on a line of work, including one a desk started) sends the command center a message at exactly
+four moments:
+
+| Gate | What it sends |
+|---|---|
+| **Card ready** | the 🚦 pre-merge card, same wording as on the PR (§Pre-merge card) |
+| **Blocker** | the one `🧱 blocker` line (below) |
+| **Owner question** | the ❓ decision card, same wording as on the PR (§❓ Decision card) |
+| **Merge landed** | one line once the commit is on `main`, with the 📋 standup and 🎯 brief on the PR (§Post-merge standup) |
+
+Everything else (progress, a slice pushed, CI going green, a checker round, a rebase) goes in the PR's
+living handoff comment (§Relay), where the command center reads it when it needs it (`list_events`, the
+PR). A question from the command center or a desk is answered with one `send_message` back, as below; that
+is a reply, not a fifth gate. A desk's own end-of-pass report ("How a desk shows on the board", below) is
+the desk's gate and stays.
+
 **Blockers go to the command center** (owner, 2026-11-24: "i also want sessions to automatically send
 flake or blockers like missing dependencies to the command center for evaluation and guidance. ideally if
 it impacts every session it should be handled by a flake desk"). Any session, worker or desk, that meets a
