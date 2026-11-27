@@ -964,6 +964,28 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 		return () => ro.disconnect();
 	}, [schedule]);
 
+	// A PASS WHEN THE SURFACE STOPS MOVING. Which tiles get a frame is decided by what is on screen (`seen`), measured
+	// against the viewport, and a surface that slides or zooms in (the phone sheet rises from the bottom; the desktop
+	// dialog zooms from 95%) moves its tiles with a transform: no scroll, no resize, nothing an observer reports. The pass
+	// that a reopen runs lands mid-slide, while the lower tiles are still below the viewport, so it gives their frames to
+	// tiles nobody can see, and nothing ran another pass once the sheet stopped. At 390x844 on LITE, 2 of the 6 tiles on
+	// screen stayed blank after every reopen (1 before #3441; MR-3's note called it "the tile at the edge that is still
+	// writing its srcdoc"). An animation or transition that ends on an ancestor of the layer now schedules a pass, which
+	// only re-decides who holds a frame (`schedule` is throttled to APPLY_MS).
+	React.useEffect(() => {
+		const layer = layerRef.current;
+		if (!layer) return;
+		const onEnd = (e: Event) => {
+			if (e.target instanceof Node && e.target.contains(layer)) schedule();
+		};
+		document.addEventListener('animationend', onEnd, true);
+		document.addEventListener('transitionend', onEnd, true);
+		return () => {
+			document.removeEventListener('animationend', onEnd, true);
+			document.removeEventListener('transitionend', onEnd, true);
+		};
+	}, [schedule]);
+
 	return (
 		<PoolContext.Provider value={api}>
 			<div className={cn('relative', className)}>

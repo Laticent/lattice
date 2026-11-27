@@ -318,6 +318,14 @@ as an argument with that read as the default, so its tests pass the tier in and 
   destroyed on every round trip (found by #3441's card grader). So a one-shape grid never uses the
   spare, and a grid that once mixed shapes keeps it until a look change retires it. It applies on every tier and to a
   host's own `maxSlots` too, and never passes `HARD_MAX_SLOTS`.
+- **A pass when the surface stops moving (2026-11-27, #3441).** Which tiles hold a frame is decided by what is on screen,
+  measured against the viewport. The Add slide gallery slides up from the bottom on a phone and zooms from 95% on a
+  desktop, both with a transform, so no scroll, resize or observer reports the move. A reopen's pass landed mid-slide,
+  saw the lower tiles as off screen and gave their frames away, and no pass ran once the sheet stopped: at 390×844 on
+  LITE, 2 of the 6 tiles on screen stayed blank after every reopen (1 before the spare frame above). The pool now runs a
+  pass when an animation or transition ends on an ancestor of its frame layer. Held by MR-8
+  (`gallery-preview-metamorphic.spec.ts`), which plays the page's animations at a fifth of their speed so the slide
+  always outlasts the pass: without the fix, 3 of 3 runs red at LITE on the phone width.
 - **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
   yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
   earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a

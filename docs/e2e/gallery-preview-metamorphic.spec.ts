@@ -188,9 +188,11 @@ async function stepTo(page: Page, top: number, stride = 300) {
  * retention regression would take. This asks the question that matters instead.
  *
  * NOT zero even when everything is healthy: measured on the built site, a settled gallery
- * carries one unpainted box at 390x844 and at 820x1180 alike — the tile at the edge that is
- * still writing its srcdoc. The callers allow for that; they are guarding against a wall of
- * empty cards, not against one.
+ * carries one unpainted box at 390x844 and at 820x1180 alike. The Blank tile is one such box: it
+ * draws no slide by design, and this count includes it. The callers allow for that; they are
+ * guarding against a wall of empty cards, not against one. Blank tiles after a REOPEN were a real
+ * defect, not this slack (the pass ran mid-slide; preview-pool.tsx): MR-8 holds that at zero,
+ * leaving the Blank tile out.
  *
  * ── WHY THE FRAME IS FOUND BY RECT AND NOT BY DESCENT ───────────────────────────────
  * A pooled preview is not a CHILD of the tile it shows. `preview-pool.tsx` holds a small
@@ -611,6 +613,42 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 		const made = (await documentsMade(page)) - before;
 		expect(made, `a breakpoint crossing cost ${made} preview documents on the next open`).toBeLessThanOrEqual(SLACK);
 	});
+
+	// MR-8: what a reopen SHOWS. Every relation above counts documents; none asked whether the tiles on screen show their
+	// slides after a reopen, and at 390x844 on LITE two of them did not. The pass a reopen runs lands while the phone sheet
+	// is still sliding up: it measured the lower tiles as off screen and gave their frames to tiles nobody could see, and
+	// no pass ran once the sheet stopped. The fix runs a pass when an animation or transition on the surface ends
+	// (preview-pool.tsx). MR-3 could not see it: it flicks to the bottom before each close, and those tiles still hold
+	// frames when it reopens. This one opens and closes at the top, which is where a person adds a slide. Both tiers,
+	// each pinned (the ceiling decides how many frames there are to give away). The Blank tile draws no slide by design.
+	for (const tier of ['full', 'lite'] as const) {
+		test(`@crosswidth MR-8 · every tile on screen shows its slide after a reopen (${tier})`, async ({ page }, testInfo) => {
+			test.setTimeout(150_000);
+			const compact = testInfo.project.name === 'mobile';
+			// AS SHIPPED, not through `gotoStudio`: that seeds the Craft posture and the Source pane, a different layout, and the
+			// blank tiles were met in the default one, the Studio a new visitor gets.
+			await page.goto(`/studio/?tier=${tier}`, { waitUntil: 'domcontentloaded' });
+			// The defect needs the reopen's pass to land WHILE the surface still moves; at full speed that is a race the test
+			// lost 1 run in 12 with the fix taken out. Playing the page's animations at a fifth of their speed (a slow phone)
+			// makes the slide outlast the pass every time, without a sleep (HARD RULE #32). Chromium only: both projects
+			// that run this are.
+			const cdp = await page.context().newCDPSession(page);
+			await cdp.send('Animation.enable');
+			await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.2 });
+			const unpainted = async () =>
+				Object.entries((await tileReport(page)).painted)
+					.filter(([label, painted]) => !painted && !label.startsWith('Insert Blank'))
+					.map(([label]) => label.split(' — ')[0]);
+			for (let open = 0; open < 3; open++) {
+				if (open === 0) await openAddSlide(page, compact);
+				else await reopen(page, compact);
+				await firstBandPainted(page);
+				await expect.poll(unpainted, { timeout: 20_000, message: `open #${open + 1}: tiles on screen that show no slide` }).toEqual([]);
+				await page.keyboard.press('Escape');
+				await expect.poll(() => galleryShown(page), { timeout: 20_000, message: 'the gallery stayed on screen after close' }).toBe(false);
+			}
+		});
+	}
 });
 
 /** Reopen the picker from whatever state the Studio was left in after a close, through whichever

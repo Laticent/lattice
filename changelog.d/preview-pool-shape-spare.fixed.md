@@ -3,3 +3,6 @@
   happened on every reopen and cost about two documents a time, which Safari never frees. The pool now adds a frame
   instead, keeping one spare past its ceiling while the slides on show mix the two kinds, and after a palette, theme or
   deck CSS change it reuses the frames the old look left behind rather than growing past them.
+- After you reopen the Add slide gallery on a phone, every slide on screen shows its preview again. On a LITE device two
+  of them stayed blank: the gallery chose which slides get a preview while its sheet was still sliding up, and never
+  looked again once it stopped.
