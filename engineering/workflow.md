@@ -186,6 +186,48 @@ comment (branch, holder, baton, last update, next step, claims, rescues): that i
 where session `claim:` tags cannot be seen. A claim on a test or issue that the other person must see is a
 `CLAIMS` line in the living comment (`test:<file>#<name>`).
 
+### Session rotation — a fresh session at a checkpoint
+
+The owner's direction (2026-11-27, typed in the command center: "should sessions be naturally be retired
+and a new one created after checkpoints?", event `9144dba8-d0a8-418c-bf8a-ecb9bbc18cf6`; "retired means
+archived?", `2a5b1760-0ff9-4c35-9361-23cbeb41ac44`; "aligned. add it", `51f3fe35-9fe6-4ba9-8217-888dd4d4953e`;
+then "should the hand off have a gotchas?", `cf16655c-20a6-485a-bc57-462fce37faa1`, and "caveats?",
+`2def2a32-fa5d-4fc6-8caf-810ccc95f258`). Every turn re-sends a session's whole context, so a session at
+775,834 tokens (the Segno desk on 2026-11-27, read from `get_session`) pays that on each small turn. A
+fresh session on the same branch starts near 50,000. The cost is fresh eyes in both directions: a new
+reader catches what the old one stopped seeing, and can drop what was never written down. The fixed brief
+below is what keeps the second from happening.
+
+**When.** At a natural checkpoint only, never mid-task: the PR merged, a card posted and parked at the
+owner's gate, or a desk between passes. A session whose context is above about **300,000 tokens** is
+retired there. The command center and every long-lived desk also rotate **once a day**. The command
+center triggers it from each session's reported `external_metadata.context_usage.used_tokens`
+(`get_session`), so neither the owner nor the session has to remember.
+
+**Steps.**
+1. **The old session pushes and writes its brief** in the PR's living comment (`npm run card -- --living
+   <PR>`), with the six sections below. A desk with no PR writes it in its last report.
+2. **The command center starts a fresh session from that brief.** It takes the baton on the same branch
+   (`npm run baton -- take`, HARD RULE #31): no new branch, ever.
+3. **First turn: read back.** Before it acts, the fresh session sends the command center its read of the
+   brief's open items and caveats. The command center compares that with the brief and with what it knows,
+   and catches anything that got dropped.
+4. **The old session is archived** only when it passes the auto-archive checks (§Desks, "Auto-archive"):
+   no unpushed work, no owner question waiting on it, and its PR has a new owner. An archived session stays
+   readable (`list_events`) for lookups.
+
+**The brief has six fixed sections**, in this order. The 🎯 card carries the first; the living comment's
+`relay:` block carries the rest:
+
+| # | Section | Where it goes |
+|---|---|---|
+| 1 | **Status and next steps** | the 🎯 card (`context`, `priorities`) |
+| 2 | **Decisions with their reasons**, and the dead ends already tried | `relay.decisions` |
+| 3 | **Owner answers**, each with its event uuid; the new session treats them as settled | `relay.answers` |
+| 4 | **Gotchas.** One specific to this line of work stays here. A general one is committed to `engineering/gotchas/<topic>.md` in the same PR, and the brief links it | `relay.traps` |
+| 5 | **Caveats.** Claims still UNVERIFIED with the surface each needs (#23), assumptions not yet checked, known limits of what shipped, and risks a reviewer should weigh | `relay.unverified` and `relay.caveats` |
+| 6 | **Baton and branch state**, and a desk's `meter:` ledger | the living comment's BATON block; the ledger in the desk's report |
+
 ### Signatures (#35)
 
 Every PR body, every comment and every commit carries the actor, read from `LATTICE_ACTOR` (a non-secret
