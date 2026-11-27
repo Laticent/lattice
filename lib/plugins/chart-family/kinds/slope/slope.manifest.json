@@ -122,12 +122,12 @@
     "dumbbell": {
       "label": "Dumbbell",
       "summary": "The same before/after model as one row per entity: two dots joined by a bar on a shared value axis, with the first point hollow and the last solid.",
-      "sample": "<!-- _class: slope dumbbell -->\n\n## Every team came in over plan except two.\n\n- Platform\n  - Plan `48`\n  - Actual `55`\n- Payments\n  - Plan `52`\n  - Actual `44`\n- Identity\n  - Plan `39`\n  - Actual `47`\n- Data\n  - Plan `61`\n  - Actual `59`\n- Growth\n  - Plan `47`\n  - Actual `53`\n"
+      "sample": "<!-- @meta{layout=slope, class=dumbbell} -->\n\n## Every team came in over plan except two.\n\n- Platform\n  - Plan `48`\n  - Actual `55`\n- Payments\n  - Plan `52`\n  - Actual `44`\n- Identity\n  - Plan `39`\n  - Actual `47`\n- Data\n  - Plan `61`\n  - Actual `59`\n- Growth\n  - Plan `47`\n  - Actual `53`\n"
     },
     "signal": {
       "label": "Signal",
       "summary": "Colors each line by direction — rising reads pass, falling reads fail. Opt-in, because the chart cannot know whether up is good news.",
-      "sample": "<!-- _class: slope signal -->\n\n## Adoption rose everywhere but the two legacy regions.\n\n- APAC\n  - 2024 `41%`\n  - 2026 `58%`\n- North America\n  - 2024 `62%`\n  - 2026 `71%`\n- EMEA North\n  - 2024 `55%`\n  - 2026 `49%`\n- LATAM\n  - 2024 `28%`\n  - 2026 `44%`\n- EMEA South\n  - 2024 `47%`\n  - 2026 `39%`\n"
+      "sample": "<!-- @meta{layout=slope, class=signal} -->\n\n## Adoption rose everywhere but the two legacy regions.\n\n- APAC\n  - 2024 `41%`\n  - 2026 `58%`\n- North America\n  - 2024 `62%`\n  - 2026 `71%`\n- EMEA North\n  - 2024 `55%`\n  - 2026 `49%`\n- LATAM\n  - 2024 `28%`\n  - 2026 `44%`\n- EMEA South\n  - 2024 `47%`\n  - 2026 `39%`\n"
     }
   },
   "lists": "neutral",
@@ -163,11 +163,11 @@
       "description": "A nested item with NO numeric pill is per-mark detail, not a data point. It drives the Present-mode reveal popover and folds into the slide's speaker note (`Atlas 12 to 19: Won the Rhodes contract`); the printed chart is byte-identical with or without it."
     }
   },
-  "skeleton": "<!-- _class: slope -->\n\n## Two of them swapped places.\n\n- First entity\n  - Before `12`\n  - After `19`\n- Second entity\n  - Before `18`\n  - After `14`\n",
-  "sample": "<!-- _class: slope -->\n\n## Kestrel took the lead; Northwind gave it up.\n\n- Northwind `fail`\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel Group `live`\n  - 2023 `22%`\n  - 2026 `29%`\n- Vantage\n  - 2023 `19%`\n  - 2026 `21%`\n- Meridian Partners\n  - 2023 `17%`\n  - 2026 `16%`\n- Everyone else\n  - 2023 `11%`\n  - 2026 `10%`\n",
+  "skeleton": "<!-- @meta{layout=slope} -->\n\n## Two of them swapped places.\n\n- First entity\n  - Before `12`\n  - After `19`\n- Second entity\n  - Before `18`\n  - After `14`\n",
+  "sample": "<!-- @meta{layout=slope} -->\n\n## Kestrel took the lead; Northwind gave it up.\n\n- Northwind `fail`\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel Group `live`\n  - 2023 `22%`\n  - 2026 `29%`\n- Vantage\n  - 2023 `19%`\n  - 2026 `21%`\n- Meridian Partners\n  - 2023 `17%`\n  - 2026 `16%`\n- Everyone else\n  - 2023 `11%`\n  - 2026 `10%`\n",
   "stressDoc": {
     "summary": "Eight entities with four of them inside 1.2 points of each other at the same date — the label collision a slopegraph lives or dies on.",
-    "sample": "<!-- _class: slope -->\n\n## Eight suppliers, four in a dead heat.\n\n- Atlas\n  - 2024 `12`\n  - 2026 `19`\n- Borealis\n  - 2024 `18`\n  - 2026 `14`\n- Cormorant\n  - 2024 `15`\n  - 2026 `16`\n- Delphinus\n  - 2024 `15.4`\n  - 2026 `11`\n- Equuleus\n  - 2024 `15.8`\n  - 2026 `17`\n- Fornax\n  - 2024 `16.2`\n  - 2026 `13`\n- Grus\n  - 2024 `9`\n  - 2026 `20`\n- Hydra\n  - 2024 `20`\n  - 2026 `9`\n"
+    "sample": "<!-- @meta{layout=slope} -->\n\n## Eight suppliers, four in a dead heat.\n\n- Atlas\n  - 2024 `12`\n  - 2026 `19`\n- Borealis\n  - 2024 `18`\n  - 2026 `14`\n- Cormorant\n  - 2024 `15`\n  - 2026 `16`\n- Delphinus\n  - 2024 `15.4`\n  - 2026 `11`\n- Equuleus\n  - 2024 `15.8`\n  - 2026 `17`\n- Fornax\n  - 2024 `16.2`\n  - 2026 `13`\n- Grus\n  - 2024 `9`\n  - 2026 `20`\n- Hydra\n  - 2024 `20`\n  - 2026 `9`\n"
   },
   "whenToUse": [
     {

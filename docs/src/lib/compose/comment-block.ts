@@ -72,9 +72,10 @@ const COMMENT_SHAPE = /^<!--(?!>|->)(?:(?!--!?>)[\s\S])*-->$/;
 /** A `_`-prefixed DIRECTIVE, or a slide-metadata RECORD (`<!-- {…} -->`, `<!-- @meta{…} -->`), which sets the same
  *  attributes: a comment node must never carry either. See `readCommentText`. */
 const DIRECTIVE_SHAPED = /^<!--\s*(?:_[A-Za-z]|\{|@meta\{)/i;
-/** A pane marker in its one admitted shape, `_pane:` or the record `{pane=…}`: lowercase words only
- *  (lib/core/pane-spec.js), so neither can carry a value such as a URL. */
-const PANE_MARKER_SHAPE = /^<!--[ \t]*(?:_pane:(?:[ \t]+[a-z][a-z0-9-]*){0,8}|\{pane=("?)[a-z][a-z0-9-]*(?:[ \t]+[a-z][a-z0-9-]*){0,8}\1\})[ \t]*-->$/;
+/** A pane marker in its admitted shapes, `_pane:` or the record `@meta{pane=…}` (what Compose writes, record note §15) /
+ *  the bare `{pane=…}`: lowercase words only (lib/core/pane-spec.js), so none can carry a value such as a URL. The empty
+ *  marker `@meta{pane=""}` is the pane break with no component. */
+const PANE_MARKER_SHAPE = /^<!--[ \t]*(?:_pane:(?:[ \t]+[a-z][a-z0-9-]*){0,8}|(?:@meta)?\{pane=(?:""|("?)[a-z][a-z0-9-]*(?:[ \t]+[a-z][a-z0-9-]*){0,8}\1)\})[ \t]*-->$/;
 
 /** Whether a string is exactly one inert HTML comment (see COMMENT_SHAPE). */
 export function isWellFormedComment(text: string): boolean {

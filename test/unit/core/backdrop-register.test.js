@@ -333,7 +333,7 @@ test('css: the keep-outs move the same clear layer onto the footer band; `clear`
 });
 
 test('the Studio mirror lists the same mask words in the same order', () => {
-  const ts = fs.readFileSync(path.join(ROOT, 'docs/src/components/studio/slide-provenance.ts'), 'utf8');
+  const ts = fs.readFileSync(path.join(ROOT, 'docs/src/components/studio/deck-axes.ts'), 'utf8');
   const { BACKDROP_MASK_NAMES } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
   const line = ts.match(/export const BACKDROP_MASKS = \[([^\n]*)\] as const;/)[1];
   const spots = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'].map((p) => `spot-${p}`);

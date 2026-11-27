@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · cards-grid"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # cards-grid
 
@@ -15,8 +15,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Default · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Default · cards-grid} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -32,8 +31,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid four compact -->
-<!-- _footer: "Four columns · cards-grid four — Four columns; pair with compact." -->
+<!-- @meta{layout=cards-grid, class=four compact, footer="Four columns · cards-grid four — Four columns; pair with compact."} -->
 
 ## four locks a two-by-two, compact tightens it.
 
@@ -49,8 +47,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "Three columns · cards-grid three — Three equal columns." -->
+<!-- @meta{layout=cards-grid, class=three, footer="Three columns · cards-grid three — Three equal columns."} -->
 
 ## three widens the grid to three columns.
 
@@ -64,8 +61,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Numbered cards · cards-grid numbered — Ordered source stamps corner tags." -->
+<!-- @meta{layout=cards-grid, footer="Numbered cards · cards-grid numbered — Ordered source stamps corner tags."} -->
 
 ## An ordered list numbers the cards.
 
@@ -79,9 +75,8 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · cards-grid — Four cards at the hard budget." -->
+<!-- @meta{layout=cards-grid, footer="Stress test · cards-grid — Four cards at the hard budget."} -->
+<!-- @meta{stress-slide} -->
 
 ## Four full cards is this grid's loud maximum.
 
@@ -97,8 +92,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid dark -->
-<!-- _footer: "Composition: dark · cards-grid dark" -->
+<!-- @meta{layout=cards-grid, class=dark, footer=Composition: dark · cards-grid dark} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -114,8 +108,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid compact -->
-<!-- _footer: "Composition: compact · cards-grid compact" -->
+<!-- @meta{layout=cards-grid, class=compact, footer=Composition: compact · cards-grid compact} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -131,8 +124,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid accent -->
-<!-- _footer: "Composition: accent · cards-grid accent" -->
+<!-- @meta{layout=cards-grid, class=accent, footer=Composition: accent · cards-grid accent} -->
 
 ## A cards grid gives equal weight to peers.
 
@@ -148,8 +140,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · cards-grid · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · cards-grid · 1 of 2} -->
 
 ## When NOT to reach for cards-grid.
 
@@ -160,8 +151,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · cards-grid · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · cards-grid · 2 of 2} -->
 
 ## When NOT to reach for cards-grid.
 
@@ -172,7 +162,7 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

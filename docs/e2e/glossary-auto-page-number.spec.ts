@@ -21,7 +21,8 @@ const DECK = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta
 // (a `no-pagination` class, or a component whose manifest drops the number: title, divider,
 // closing). Read from the CLI's render of this deck.
 const BODY = DECK.replace(/^---\n[\s\S]*?\n---\n/, '').split(/^---$/m);
-const PDF_NUMBER = BODY.map((slide, i) => (/_class:[^\n]*\b(no-pagination|title|divider|closing)\b/.test(slide) ? '' : String(i + 1)));
+// The slide's class, in a record (`<!-- @meta{layout=title} -->`, the deck's spelling since the meta sweep) or a comment.
+const PDF_NUMBER = BODY.map((slide, i) => (/(?:_class:|@meta\{)[^\n]*\b(no-pagination|title|divider|closing)\b/.test(slide) ? '' : String(i + 1)));
 
 test('a glossary: auto deck numbers every preview slide as its PDF does, stepping both ways', async ({ page }) => {
 	await gotoStudio(page);

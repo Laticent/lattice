@@ -164,9 +164,13 @@ describe('lint: chart-row-record-unread', () => {
     assert.equal(rest.length, 0);
     assert.equal(f.severity, 'warning');
     assert.match(f.message, /field the map chart cannot draw yet/);
-    // No machine fix: phase 4's codemod writes the record, so "Fix all" must not undo it.
+    // No machine fix: phase 4's codemod writes the record, so "Fix all" must not undo it. (On the slide's `@meta`
+    // spelling, so Fix all has no old comment to migrate either.)
     assert.equal(f.autofixable, undefined);
-    assert.equal(lintCore.applyAllFixes(src, vocab), src);
+    const rec = src.replace('<!-- _class: map -->', '<!-- @meta{layout=map} -->');
+    assert.notEqual(rec, src);
+    assert.equal(recordFindings(rec).length, 1, 'the record slide is reported the same');
+    assert.equal(lintCore.applyAllFixes(rec, vocab), rec);
   });
 
   test('lint stays silent where the old form already reads the same', () => {

@@ -50,7 +50,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 ## Authoring
 
 ```markdown
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Pick the plan that fits the team.
 
@@ -91,7 +91,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 A pair of plans, head to head.
 
 ```markdown
-<!-- _class: pricing two -->
+<!-- @meta{layout=pricing, class=two} -->
 
 ## two sets a pair of plans head to head.
 
@@ -110,7 +110,7 @@ A pair of plans, head to head.
 The whole ladder, compact.
 
 ```markdown
-<!-- _class: pricing four compact -->
+<!-- @meta{layout=pricing, class=four compact} -->
 
 ## four compact fits the whole ladder.
 

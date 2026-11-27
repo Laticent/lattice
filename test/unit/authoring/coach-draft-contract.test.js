@@ -34,7 +34,7 @@ const bucketOf = (n) => comps.find((c) => c.name === n)?.bucket ?? null;
 const densityOf = (n) => comps.find((c) => c.name === n)?.density ?? null;
 const vocab = buildVocab();
 
-const HEAD = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Q3 plan\n\nWhere we are.\n';
+const HEAD = '---\nmarp: true\n---\n\n<!-- @meta{layout=title} -->\n\n# Q3 plan\n\nWhere we are.\n';
 const SLIDE = '## Revenue held at plan\n\nThe quarter closed on target.\n';
 
 const score = (src) => {
@@ -45,14 +45,14 @@ const score = (src) => {
 };
 
 test('a finished, lint-clean draft reads Contract 100', () => {
-  const r = score(`${HEAD}\n---\n\n<!-- _class: content -->\n\n${SLIDE}`);
+  const r = score(`${HEAD}\n---\n\n<!-- @meta{layout=content} -->\n\n${SLIDE}`);
   assert.deepEqual(r.lint, [], 'the reference draft must be lint-clean');
   assert.equal(r.contract, 100);
   assert.equal(r.craft, 100);
 });
 
 test('a half-typed class name is a WARNING and reads Contract 93', () => {
-  const r = score(`${HEAD}\n---\n\n<!-- _class: compar -->\n\n${SLIDE}`);
+  const r = score(`${HEAD}\n---\n\n<!-- @meta{layout=compar} -->\n\n${SLIDE}`);
   assert.deepEqual(
     r.lint.map((f) => [f.rule, f.severity]),
     [['unknown-class', 'warning']],
@@ -62,7 +62,7 @@ test('a half-typed class name is a WARNING and reads Contract 93', () => {
 });
 
 test('an unterminated comment is an ERROR and reads Contract 71', () => {
-  const r = score(`${HEAD}\n---\n\n<!-- _class: content\n\n${SLIDE}`);
+  const r = score(`${HEAD}\n---\n\n<!-- @meta{layout=content}\n\n${SLIDE}`);
   assert.deepEqual(
     r.lint.map((f) => [f.rule, f.severity]),
     [['unterminated-comment', 'error']],
@@ -72,17 +72,28 @@ test('an unterminated comment is an ERROR and reads Contract 71', () => {
 });
 
 test('Contract separates these draft states — it is not a constant off the corpus', () => {
-  const clean = score(`${HEAD}\n---\n\n<!-- _class: content -->\n\n${SLIDE}`).contract;
-  const warned = score(`${HEAD}\n---\n\n<!-- _class: compar -->\n\n${SLIDE}`).contract;
-  const errored = score(`${HEAD}\n---\n\n<!-- _class: content\n\n${SLIDE}`).contract;
+  const clean = score(`${HEAD}\n---\n\n<!-- @meta{layout=content} -->\n\n${SLIDE}`).contract;
+  const warned = score(`${HEAD}\n---\n\n<!-- @meta{layout=compar} -->\n\n${SLIDE}`).contract;
+  const errored = score(`${HEAD}\n---\n\n<!-- @meta{layout=content}\n\n${SLIDE}`).contract;
   assert.ok(errored < warned && warned < clean, `${errored} < ${warned} < ${clean}`);
   // The whole point of the correction: the spread on a draft is wide, where the committed
   // corpus shows exactly zero spread (100 on all 198).
   assert.ok(clean - errored >= 25, `a draft must move Contract materially (moved ${clean - errored})`);
 });
 
+test('an old comment spelling costs Contract what a warning costs, and its @meta twin reads 100', () => {
+  // The sweep (record note §15, slice D) put the corpus in records, so the Coach counts `legacy-directive-comment` like
+  // any warning: the temporary exemption (lib/authoring/legacy-meta-rules.js) is gone.
+  const record = `${HEAD}\n---\n\n<!-- @meta{layout=content} -->\n\n${SLIDE}`;
+  const legacy = record.replace(/<!-- @meta\{layout=(\w+)\} -->/g, '<!-- _class: $1 -->');
+  assert.notEqual(record, legacy);
+  assert.deepEqual(score(legacy).lint.map((f) => [f.rule, f.severity]), [['legacy-directive-comment', 'warning'], ['legacy-directive-comment', 'warning']]);
+  assert.ok(score(legacy).contract < score(record).contract, 'the legacy draft costs Contract');
+  assert.equal(score(record).contract, 100);
+});
+
 test('and Craft moves with it, so the draft signal reaches the grade', () => {
-  const clean = score(`${HEAD}\n---\n\n<!-- _class: content -->\n\n${SLIDE}`).craft;
-  const errored = score(`${HEAD}\n---\n\n<!-- _class: content\n\n${SLIDE}`).craft;
+  const clean = score(`${HEAD}\n---\n\n<!-- @meta{layout=content} -->\n\n${SLIDE}`).craft;
+  const errored = score(`${HEAD}\n---\n\n<!-- @meta{layout=content}\n\n${SLIDE}`).craft;
   assert.ok(errored < clean, `Craft must fall with Contract (${errored} vs ${clean})`);
 });

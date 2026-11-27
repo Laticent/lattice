@@ -76,9 +76,9 @@ describe('deck-ops — structural slide editing', () => {
 	});
 
 	it('preserves front-matter across every op', () => {
-		const withFm = `---\nsize: square\npaginate: true\n---\n\n${DECK}`;
+		const withFm = `---\nsize: square\npagination: true\n---\n\n${DECK}`;
 		for (const r of [addSlideAfter(withFm, 0), duplicateSlide(withFm, 0), deleteSlide(withFm, 0), moveSlide(withFm, 0, 1)]) {
-			expect(r.source).toMatch(/^---\nsize: square\npaginate: true\n---\n/);
+			expect(r.source).toMatch(/^---\nsize: square\npagination: true\n---\n/);
 			// The front-matter is not counted as a slide.
 			expect(count(r.source)).toBeGreaterThanOrEqual(2);
 		}
@@ -88,11 +88,11 @@ describe('deck-ops — structural slide editing', () => {
 describe('replaceSlide — changes one slide and no other byte', () => {
 	// A Slide-panel edit used to rejoin the whole deck, which dropped the final newline: the edit then also touched the
 	// LAST byte, the focus hub mapped the caret through one span reaching the end, and the preview jumped to the last slide.
-	const AUTHORED = '---\ntitle: X\n---\n\n<!-- _class: image statement card-clear -->\n\n## A\n\n---\n\n## B\n\n\n---\n## C\n\nlast line\n';
+	const AUTHORED = '---\ntitle: X\n---\n\n<!-- _class: image statement image-card-clear -->\n\n## A\n\n---\n\n## B\n\n\n---\n## C\n\nlast line\n';
 
 	it('keeps the final newline, the separators and the other slides byte for byte', () => {
-		const next = replaceSlide(AUTHORED, 0, '<!-- _class: image statement card-clear ink-dark -->\n\n## A').source;
-		expect(next).toBe(AUTHORED.replace('card-clear -->', 'card-clear ink-dark -->'));
+		const next = replaceSlide(AUTHORED, 0, '<!-- _class: image statement image-card-clear image-card-dark -->\n\n## A').source;
+		expect(next).toBe(AUTHORED.replace('image-card-clear -->', 'image-card-clear image-card-dark -->'));
 	});
 
 	it('edits a middle and a last slide in place too', () => {
@@ -129,6 +129,16 @@ describe('splitSlideInHalf — the one-click fix for a slide too full for its ve
 		expect(out[2]).toContain('> The takeaway.');
 		expect(out[2].match(/Speaker note/g)).toHaveLength(1);
 		expect(out[1]).not.toContain('Speaker note');
+	});
+
+	it('carries a slide record (`@meta{…}`) onto the second half, a wrapped one whole, like the comment it replaces', () => {
+		for (const rec of ['<!-- @meta{layout=list-steps, footer="Q3"} -->', '<!-- @meta{layout=list-steps,\n  footer="Q3"} -->']) {
+			const src = `${FM}${slide(5).replace('<!-- _class: list-steps -->', rec)}`;
+			const out = splitSlides(stripFrontMatter(splitSlideInHalf(src, 0)!.source));
+			expect(out).toHaveLength(2);
+			expect(out[1].startsWith(`${rec}\n\n\`Eyebrow\``)).toBe(true);
+			expect(out[0].startsWith(rec)).toBe(true);
+		}
 	});
 
 	it('a table keeps its header on both halves', () => {

@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 <style>
@@ -61,7 +61,7 @@ section.finish.finish-beam.lattice-exporting {
 }
 </style>
 
-<!-- _class: statement finish finish-recede -->
+<!-- @meta{class=statement finish finish-recede} -->
 
 `The fifth finish layer`
 
@@ -71,7 +71,7 @@ The **recede** finish bakes a faint grid, a soft vignette, and a **backdrop clea
 
 ---
 
-<!-- _class: statement finish finish-recede -->
+<!-- @meta{class=statement finish finish-recede} -->
 
 ## The finish frames; the content stays clean.
 
@@ -79,7 +79,7 @@ The grid and vignette read at the edges. Where the body sits, the baked clearanc
 
 ---
 
-<!-- _class: statement finish finish-beam -->
+<!-- @meta{class=statement finish finish-beam} -->
 
 `Spotlight — the inverse mask`
 
@@ -89,7 +89,7 @@ Clearance clears the center; **spotlight** does the opposite — it shows the fi
 
 ---
 
-<!-- _class: kpi finish finish-recede -->
+<!-- @meta{layout=kpi, class=finish finish-recede} -->
 
 `Legible over a live finish`
 
@@ -104,7 +104,7 @@ Clearance clears the center; **spotlight** does the opposite — it shows the fi
 
 ---
 
-<!-- _class: code finish finish-recede -->
+<!-- @meta{layout=code, class=finish finish-recede} -->
 
 `One map overrides any baked layer`
 
@@ -125,7 +125,7 @@ The Fabricate designer bakes the backdrop into the finish; `finish-override:` de
 
 ---
 
-<!-- _class: statement finish finish-recede -->
+<!-- @meta{class=statement finish finish-recede} -->
 
 `the fifth finish layer — strength · clearance · spotlight`
 

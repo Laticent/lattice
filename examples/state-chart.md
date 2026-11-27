@@ -2,11 +2,11 @@
 marp: true
 theme: indaco
 size: 16:9
-paginate: true
+pagination: true
 header: "Lattice · State chart"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Feature deck`
 
@@ -16,7 +16,7 @@ A list of states, arrows to a state's name, palette-blind SVG. The flowchart's g
 
 ---
 
-<!-- _class: divider light -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## What this deck shows.
 
@@ -24,8 +24,8 @@ A finite-state machine, authored as a list. Each item is a state, named by its t
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "Default — laid out to fit the stage, with SVG edges" -->
+<!-- @meta{layout=state-chart, footer="Default — laid out to fit the stage, with SVG edges"} -->
+
 
 `Submission lifecycle`
 
@@ -52,8 +52,8 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "Self-loop + branching" -->
+<!-- @meta{layout=state-chart, footer="Self-loop + branching"} -->
+
 
 ## Connection retry.
 
@@ -67,8 +67,8 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: state-chart -->
-<!-- _footer: "Composite state — a sub-list of states is a group" -->
+<!-- @meta{layout=state-chart, footer="Composite state — a sub-list of states is a group"} -->
+
 
 ## An order ships in stages.
 
@@ -87,8 +87,8 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "Hidden detail — a blockquote shows on hover and in the notes" -->
+<!-- @meta{layout=state-chart, class=lr, footer="Hidden detail — a blockquote shows on hover and in the notes"} -->
+
 
 ## Every incident ends in a review.
 
@@ -106,8 +106,8 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: state-chart inline -->
-<!-- _footer: "Inline — same source, transitions as chips" -->
+<!-- @meta{layout=state-chart, class=inline, footer="Inline — same source, transitions as chips"} -->
+
 
 ## Inline rendering.
 
@@ -128,8 +128,8 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: state-chart lr -->
-<!-- _footer: "lr — left-to-right (Mermaid direction LR)" -->
+<!-- @meta{layout=state-chart, class=lr, footer="lr — left-to-right (Mermaid direction LR)"} -->
+
 
 ## Build pipeline.
 
@@ -144,7 +144,7 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Why a native state chart.
 
@@ -152,7 +152,7 @@ Mermaid's `stateDiagram-v2` works, but theming it cleanly requires a CSS overrid
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Lattice · State chart`
 

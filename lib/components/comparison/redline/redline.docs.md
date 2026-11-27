@@ -53,7 +53,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 ## Authoring
 
 ```markdown
-<!-- _class: redline -->
+<!-- @meta{layout=redline} -->
 
 ## Headline naming the amendment.
 
@@ -87,7 +87,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 Adds the why beside each edit.
 
 ```markdown
-<!-- _class: redline annotated -->
+<!-- @meta{layout=redline, class=annotated} -->
 
 ## annotated adds the why beside each edit.
 
@@ -105,7 +105,7 @@ Adds the why beside each edit.
 Old, new, and why side by side.
 
 ```markdown
-<!-- _class: redline three-col -->
+<!-- @meta{layout=redline, class=three-col} -->
 
 ## three-col sets old, new, and why side by side.
 
@@ -125,7 +125,7 @@ Old, new, and why side by side.
 Before and after in parallel.
 
 ```markdown
-<!-- _class: redline split -->
+<!-- @meta{layout=redline, class=split} -->
 
 ## split shows before and after in parallel.
 
@@ -143,7 +143,7 @@ Before and after in parallel.
 Prior text struck above the current.
 
 ```markdown
-<!-- _class: redline stacked -->
+<!-- @meta{layout=redline, class=stacked} -->
 
 ## stacked strikes the prior text above the current.
 

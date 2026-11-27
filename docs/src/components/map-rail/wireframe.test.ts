@@ -9,6 +9,10 @@ describe('wireOf', () => {
 		expect(w.blocks).toEqual(['text', 'list']);
 	});
 
+	it('reads the class from a slide record as from the comment (`@meta{layout=bar}`)', () => {
+		expect(wireOf('<!-- @meta{layout=bar, class="dark"} -->\n\n## One index.\n').kind).toBe('bar');
+	});
+
 	it('merges a run of the same block and names each kind', () => {
 		const w = wireOf('# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n![x](y.png)\n\n> quote\n\n```js\nconst a = 1;\n```\n');
 		expect(w.blocks).toEqual(['table', 'image', 'quote', 'code']);

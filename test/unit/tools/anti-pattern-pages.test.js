@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 const { antiPatternPages, antiPatternColumns, ANTI_PATTERN_WORD_CAPS, galleryPlan } = require('../../../tools/build-component-docs.js');
 const antiPatternWords = (p) => `${p.title} ${p.body}`.split(/\s+/).filter(Boolean).length;
 const { loadAll } = require('../../../lib/components');
+const { metaComment } = require('../../../lib/core/meta-comment.mjs');
 
 const card = (n) => ({ title: 'Title', body: Array.from({ length: n - 1 }, () => 'w').join(' ') });
 const sizes = (cards) => antiPatternPages(cards).map((p) => p.length);
@@ -42,7 +43,7 @@ test('every gallery anti-pattern slide is cards-grid within the per-column word 
       assert.ok(max <= ANTI_PATTERN_WORD_CAPS[0], `${m.name}: a card of ${max} words; trim the manifest to <= 200 (<= 100 to share a slide)`);
       assert.ok(page.length <= antiPatternColumns(max), `${m.name}: ${page.length} cards but the longest (${max} words) only fits ${antiPatternColumns(max)} across`);
       const klass = `${page.length === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
-      assert.ok(slides[i].md.startsWith(`<!-- _class: ${klass} -->`), `${m.name}: class for ${page.length} cards`);
+      assert.ok(slides[i].md.startsWith(metaComment({ class: klass, footer: `Anti-patterns · ${m.name}${pages.length > 1 ? ` · ${i + 1} of ${pages.length}` : ''}` })), `${m.name}: class for ${page.length} cards`);
     });
   }
 });

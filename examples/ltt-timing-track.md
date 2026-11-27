@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 pace: natural
 header: "Lattice · the timing track, step 2"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 <!-- @say{A shared deck now carries its own timing track. Every word, every breath and every hold is written down once, in one file.} -->
 
@@ -20,7 +20,7 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 <!-- @say{Slide one speaks at once. Every later slide waits one hold when it arrives. The deck carries that hold now, so the player no longer reads it off the page.} -->
 
@@ -31,7 +31,7 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 <!-- @say{Here is the whole sequence. Hold. Speak each sentence. Breathe. Then advance. Yes.} -->
 
@@ -48,9 +48,9 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 <!-- @say{A section break earns the deeper hold. The timing file says so, and the player obeys it.} -->
 
@@ -60,7 +60,7 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 
 <!-- @say{A clip that will not decode no longer stops the deck. It shows its caption, holds for its estimate and moves on, exactly like a sentence with no clip.} -->
 
@@ -71,7 +71,7 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 <!-- @say{Three copies of the timing code check each other. The source, the copy the player carries, and that copy after a production minifier. They agree on every probe.} -->
 
@@ -86,9 +86,9 @@ The exported deck plays from the same timing file that video export will read.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 <!-- @say{We recommend signing off this export, so video export can build on the same file.} -->
 

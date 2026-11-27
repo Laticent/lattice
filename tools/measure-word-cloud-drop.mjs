@@ -48,6 +48,7 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { slideClassValue } from '../lib/core/class-entries.mjs';
 
 const require_ = createRequire(import.meta.url);
 const { render } = require_('../lib/engine/index.js');
@@ -64,7 +65,7 @@ const ROOTS = ['examples', 'test', 'lib', 'docs/public'];
 function decks(args) {
   if (args.length) return args;
   return execSync(
-    `grep -rl '_class: word-cloud' --include=*.md ${ROOTS.join(' ')} 2>/dev/null || true`,
+    `grep -rlE '_class: word-cloud|layout=word-cloud' --include=*.md ${ROOTS.join(' ')} 2>/dev/null || true`,
     { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname },
   ).trim().split('\n').filter(Boolean);
 }
@@ -95,7 +96,7 @@ let ghosts = 0;
 for (const file of decks(process.argv.slice(2))) {
   let src;
   try { src = fs.readFileSync(file, 'utf8'); } catch { continue; }
-  const sections = src.split(/^---\s*$/m).filter((s) => /_class:\s*word-cloud/.test(s));
+  const sections = src.split(/^---\s*$/m).filter((s) => /^word-cloud/.test(slideClassValue(s).trim()));
   let out;
   try { out = render(src, {}); } catch { continue; }
   const html = typeof out === 'string' ? out : out.html;

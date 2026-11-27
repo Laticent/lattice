@@ -86,8 +86,8 @@
       "why": "probes optional third-party installs (mermaid-cli's puppeteer) across several node_modules roots"
     },
     "lib/authoring/lint-core.js": {
-      "count": 2,
-      "why": "the fix driver and the notes migration are required only in Node and hidden from browser bundlers on purpose, so the lint core stays fs-free (HARD RULE #7) and the Studio's lint chunk does not carry them (lintCoreGz, PR 3351)"
+      "count": 3,
+      "why": "the fix driver, the notes migration and the meta migration are required only in Node and hidden from browser bundlers on purpose, so the lint core stays fs-free (HARD RULE #7) and the Studio's lint chunk does not carry them (lintCoreGz, PR 3351; the meta migration, record note §15)"
     },
     "lib/core/dagre-bundle.generated.js": {
       "count": 1,

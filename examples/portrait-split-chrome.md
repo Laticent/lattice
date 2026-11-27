@@ -2,11 +2,11 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · portrait split chrome"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # The footer reads on either field
 
@@ -16,8 +16,8 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: split-panel pullquote -->
-<!-- _footer: "Confidential · board pre-read" -->
+<!-- @meta{layout=split-panel, class=pullquote, footer=Confidential · board pre-read} -->
+
 
 > It made us unable to pretend we had not known.
 
@@ -28,8 +28,8 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: split-panel pullquote mirror -->
-<!-- _footer: "Confidential · board pre-read" -->
+<!-- @meta{layout=split-panel, class=pullquote mirror, footer=Confidential · board pre-read} -->
+
 
 > It made us unable to pretend we had not known.
 
@@ -40,8 +40,8 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: split-panel pullquote -->
-<!-- _footer: "Confidential · board pre-read" -->
+<!-- @meta{layout=split-panel, class=pullquote, footer=Confidential · board pre-read} -->
+
 
 > The framework did not make us smarter. It made us unable to pretend we had not known.
 
@@ -56,8 +56,8 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: split-panel pullquote mirror -->
-<!-- _footer: "Confidential · board pre-read" -->
+<!-- @meta{layout=split-panel, class=pullquote mirror, footer=Confidential · board pre-read} -->
+
 
 > The framework did not make us smarter. It made us unable to pretend we had not known.
 
@@ -72,8 +72,8 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: split-panel pullquote -->
-<!-- _footer: "Confidential · board pre-read · do not forward outside the org" -->
+<!-- @meta{layout=split-panel, class=pullquote, footer=Confidential · board pre-read · do not forward outside the org} -->
+
 
 > A long footer holds one line and stops before the page marks.
 
@@ -88,9 +88,9 @@ In portrait the panels stack. The footer now takes the ink of the field it lands
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## Chrome follows the field under it
 

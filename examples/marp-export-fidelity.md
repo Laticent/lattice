@@ -8,7 +8,7 @@ meta: Export fidelity · Marp bundle
 finish: atrium
 ---
 
-<!-- _class: title no-finish -->
+<!-- @meta{layout=title, class=no-finish} -->
 
 # What survives the export
 
@@ -18,7 +18,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The deck-wide registers travel in the document, not over the network
 
@@ -29,7 +29,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- @meta{layout=matrix-grid} -->
 
 ## Bracket-marker cells render as swatches on both paths
 
@@ -41,7 +41,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 
@@ -56,7 +56,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Offsite · Day One`
 
@@ -68,7 +68,7 @@ The `![bg]` lift is baked into the exported deck; the text panel is folded by th
 
 ---
 
-<!-- _class: math -->
+<!-- @meta{layout=math} -->
 
 ## Math renders, with a different typesetter
 
@@ -76,7 +76,7 @@ $$ \int_0^1 x^2 \, dx = \frac{1}{3} $$
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A function-plot fence degrades to its config
 
@@ -91,7 +91,7 @@ $$ \int_0^1 x^2 \, dx = \frac{1}{3} $$
 
 ---
 
-<!-- _class: content with-period -->
+<!-- @meta{layout=content, class=with-period} -->
 
 ## A with-period heading keeps its period only on the engine
 

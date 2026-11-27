@@ -136,6 +136,13 @@ not the intent.
    visible, and it still counts toward the session cumulative for the *next*
    decision. If a shape has no hard cap, it is not exempt — estimate it and
    apply the gate.
+
+   **Checkpoint before a big fan-out** (the owner's direction, 2026-11-23). Before
+   launching more than about 5 agents at once, or any workflow, write a checkpoint
+   first: push what passes the hooks and update the handoff in place
+   (`workflow.md` §Relay, checkpoint rules). A large fan-out can carry the account's
+   weekly usage past 90% between two ticks of the 2-hourly usage watch, and the
+   session that launched it may then stop before it saves anything.
 2. **Hard budget every workflow run.** Launch with a token target; guard
    loops with `budget.remaining()`. Never an unguarded `while`.
 3. **Iterate warm; buy fresh contexts only for fresh eyes.** Revision

@@ -283,7 +283,8 @@ compiles runs in linear time. They belong in a package that depends on it (see D
 |---|---|---|
 | A generated line pass, alone, on the bake-off corpus | 361 MB/s (median of five) | at least the hand-written loop's 665 MB/s, on the same machine (G6) |
 | S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | markdown-it's block parse, same machine | at least 3x faster than that, on the same machine (restated 2026-11-05: was "under 0.5 ms", see §P2 landed) |
-| S0-S2 (full CommonMark parse) over the same deck | 3.6 ms | under 1 ms |
+| S2 alone (the inline parse of every leaf) over the same deck | markdown-it's inline parse of the same leaves, same machine | at least 4x faster than that, on the same machine (restated by the owner on 2026-11-16 (#3256): was "S0-S2 under 1 ms", see §P4 landed) |
+| S0-S2 (full CommonMark parse) over the same deck, and data-viz and card-tags | markdown-it's block and inline parse, same machine | a tracked bench metric, not a target, so a regression shows (2.79x, 3.55x and 2.08x at P4) |
 | Re-parse after a keystroke inside one slide | the whole deck, several times | one slide, tens of microseconds |
 | Structure work inside one lint of the gallery | about 17% of 73 ms, plus what each rule re-derives | near zero: rules read the model |
 
@@ -318,6 +319,8 @@ Each phase ships on its own and is worth having if the next never comes.
 | **P6. Djot** | Djot's S1 and S2, sharing S0 and S3 | Djot authoring, if chosen (2026-10-19 conformance probe) |
 | **P7. Render from the model** | A renderer that reads the document model; markdown-it removed | The dependency the owner cannot rely on long term. Held to byte-identical HTML on the corpus against today's renderer before the switch |
 | Later | HTML islands | The HTML tokenizer from the 2026-09-28 bake-off (`parser:bakeoff:languages`) and `scanHtml` (#2871) |
+
+**Completion plan (2026-11-22):** the remaining slices, their order, their proof and the exit criteria for release are in 2026-11-22-segno-completion-plan.md.
 
 ## Decisions
 
@@ -357,6 +360,9 @@ and emphasis drivers it would pair a generated tokenizer with a small hand-writt
   `@laticent/segno`. Segno keeps its compile-time linear promise; the dialect drivers carry
   their own stated bounds. *Alternative:* inside `@laticent/segno`, which is one package to
   publish but mixes proven grammars with hand-written drivers under one promise.
+  *Set on 2026-11-23:* the package is `@laticent/segno-languages`, named for the languages to come (formulas,
+  Djot), with Markdown at its `./markdown` subpath. The folder stays `docs/src/lib/segno-markdown/`
+  (`engineering/decisions/2026-11-22-segno-completion-plan.md`).
 
 ## G6 landed (2026-10-26)
 
@@ -442,7 +448,7 @@ reason the rest is the second pass and not the parser.
 
 ## P2 landed (2026-11-05)
 
-`deckModel(source)` exists: `@laticent/segno-markdown` (docs/src/lib/segno-markdown, the sibling package D4
+`deckModel(source)` exists: `@laticent/segno-languages/markdown` (docs/src/lib/segno-markdown, the sibling package D4
 chose) holds S0 and S1, and `lib/core/deck-model.mjs` configures it as the engine configures markdown-it.
 
 **What S1 is.** markdown-it 14.1.1's eleven block rules (with `table`), ported rule for rule onto a lean state
@@ -969,3 +975,353 @@ quotes closing across a break, unclosed `$$` in containers, edits that change ne
 updates over 11 seeds, 0 mismatches. It also confirmed the contract holds for math as installed: `math_block` has no
 `alt`, so it never ends a paragraph, list or quote and is never tried silently.
 
+## P4 landed: S2, the inline pass, and the token adapter (2026-11-16)
+
+**What S2 is.** markdown-it 14.3.3's inline rules (`text`, `newline`, `escape`, `backticks`, `strikethrough`,
+`emphasis`, `link`, `image`, `autolink`, `html_inline`, `entity`) and its post-processing (`balance_pairs`, the
+strikethrough and emphasis passes), ported rule for rule onto a tape of inline records in
+`docs/src/lib/segno-markdown/inline.ts`, as P2 ported the block rules. Lattice's one plugin inline rule, math's `$`,
+runs unchanged through the plugin facade, tried only on its manifest's trigger. As with S1, the design's sketch (a
+generated Segno tokenizer plus a hand driver) gave way to the port: D3's bar is markdown-it's tokens exactly, the
+rules' languages are mostly not LL(1) (a code span's closer is a run of the opener's length; a link label nests by
+skipping whole tokens), and porting makes the structure match by construction. The delimiter resolver states its
+bound (G5) in its header and the README: linear in a leaf's delimiters, through `openersBottom` and `jumps`.
+
+S2 runs per leaf and on first read (`inlineOf`), and keeps each leaf's tape with its slide's segment, so an update
+re-reads only the edited slide's leaves; a change to the deck's reference labels drops the kept tapes, since a
+reference link anywhere reads every definition. S1 now records the link reference definitions (label, destination
+and title pieces, with their spelling) for it.
+
+**One coordinate system.** A leaf's text is markdown-it's `content`, and `leafText` maps every character of it back to
+the body: inside a quote or list item markdown-it drops each line's prefix, a table cell drops the `\` of an escaped
+pipe, and a tab partly inside an indent becomes spaces (those map to the tab). The fuzz checks the map on every leaf
+it builds. What it takes that a boundary reader does not need (where each container line's text starts, the content
+columns of list markers, rules, fences and table rows, and the link reference definitions) is recorded only by a
+DETAIL parse, through a recorder that lives in detail.ts: recording it on every parse cost the gallery's block pass
+about a fifth, and carrying its code cost the home route's eager JavaScript 0.8 KB gzipped, which CI's route budget
+caught. `slideDetail` parses one slide with detail on demand (a slide starts after a top-level break, where every
+container is closed, so its text parsed alone has the same tokens), or the whole body once when most slides lack it;
+`detailedModel` makes the first parse a detail parse. A leaf outside any container needs none.
+
+**The token adapter.** `lib/core/model-tokens.mjs` builds markdown-it's tokens from the model, field for field (type,
+tag, nesting, level, map, content, markup, info, attrs, children, block, hidden, meta) with `env.references`, reading
+its configuration off the markdown-it instance it is given and refusing one it has no port of (`linkify`,
+`typographer`, a missing rule). The strings markdown-it derives from a range come from markdown-it's own functions
+(`normalizeLink`, `validateLink`, `normalizeLinkText`, `unescapeAll`, and a named entity's decoding), which is the one
+thing it still borrows; P7 replaces them. `parseFromModel(md, src, env)` is `md.parse` with the block and inline
+parsers swapped for the model and every other core rule running in its place. No render path calls it.
+
+**Parity (§Acceptance, CommonMark).**
+
+| Input | Files | Differences |
+|---|---|---|
+| every committed deck and fixture (`examples/`, galleries, baseline decks, exemplars, plugin and test fixtures) | 603 | 0 tokens (every field, children included, and `env.references`) |
+| the same, rendered through the real engine with only the parse swapped (`model-parse-identity.test.js`) | 603, 7,669 model parses | 0 bytes |
+| the bake-off corpus (decks and docs), through `parser:bakeoff:deck --inline` | 1,404 | 0 |
+| a seeded fuzz over the inline rule surface, each document in eight leaf contexts | 600,000 in development (five seeds); 12,000 per unit run | 0 |
+| CommonMark 0.31.2 spec examples, commonmark preset | 652 | 0 tokens; 652 render HTML identical to markdown-it's |
+
+**Spec conformance, the metric D3 asked for:** 649 of 652 examples render the spec's HTML exactly, the same 649
+markdown-it renders. The three that do not (218, 239, 240) are one difference, in markdown-it's renderer, not its
+parse: an empty `<blockquote>` renders as `<blockquote></blockquote>` where the spec writes a newline inside it. The
+spec's own test runner normalizes whitespace between tags and passes all three. (Run without replacing the spec's `→`
+with a tab, as the npm package's extractor leaves it, twelve more examples look like failures; CommonMark's runner
+replaces it, and so does the arm.) Reproduce: unpack `npm pack commonmark-spec@0.31.2` and run
+`npm run parser:bakeoff:deck -- --inline --spec <dir>/package`.
+
+The fuzz found two defects the corpus did not, both in this work and both fixed before it landed: a pooled inline
+state handed plugin rules the same object across leaves, so math's per-parse memo leaked from one leaf into the next
+(the facade keys it by that object; plugin rules now get a fresh view per parse, pinned by a test at both levels); and
+a scanned leaf with no backtick closers left a table unset. Mutants of the resolver's rule-of-3 condition and of
+`skipHtmlSpecial` turn the fuzz red; a table-alignment mutant in the adapter turns the engine identity red.
+
+**A defect markdown-it and the engine had, fixed (HARD RULE #18).** Math's inline `$` rule searched to the end of the
+paragraph for every `$` with no closer, so a paragraph of prices was quadratic: 100x the characters read for 10x the
+input, in markdown-it and in the model alike. It now remembers, per parse and per `posMax`, that no closer lies ahead
+(sound: whether a `$` closes depends only on its neighbors and on `posMax`). The first cut kept one slot, which every
+link label holding a `$` overwrote (its `posMax` is the label's end), so `Costs $5 per seat, see [the $5 plan](u).`
+repeated stayed quadratic: about 14x the time for 4x the input, 4.9 s at 131 KB in markdown-it. The maker-checker
+review found it; the memo is a map keyed by `posMax`. Renders are unchanged; four shapes, that one included, hold the
+ladder at 10x for 10x in `test/unit/core/model-tokens.test.js`. `html_inline` also matches a tag with a sticky regex at
+its position instead of markdown-it's `src.slice(pos).match(/^…/)`, which copied the rest of the leaf at every `<`.
+
+**The maker-checker review** (one `checker`; about 150,000 differential inputs of its own, every field compared,
+plus 400,000 destinations against `validateLink(normalizeLink(…))` and an incremental fuzz of 19,000 decks with four
+edits each) found no token difference, and four defects, all fixed here with a test that fails without the fix: the
+one-slot math memo above; `modelTokens` ignored an `env.references` a caller had filled in (markdown-it resolves
+against it, and its entries win over the document's; no engine path passes one, but `parseFromModel` claims to be
+`md.parse`); an update through the package's CommonJS copy with a parser from its ESM copy wrote the line index into
+the wrong copy's scratch (`updateDeckModel` now writes through `parser.lineScratch`); and a plugin inline rule whose
+trigger is above ASCII was never tried.
+
+**Bounds.** Seventeen hostile shapes in `inline.test.ts` (unmatched and rule-of-3 delimiter runs, strikethrough runs,
+unclosed and nested labels, destinations, references and images, backtick runs of growing length, unclosed comments,
+tags and autolinks, entities, escapes, breaks) each grow about 10x for 10x input, counted in characters read.
+
+**Speed** (`npm run parser:bakeoff:deck -- --inline --runs 5` and `--model --runs 5`, 4-core Xeon 2.1 GHz, Node 22.23,
+median and range):
+
+| Measure | markdown-it | Deck model |
+|---|---|---|
+| S0-S1, gallery (59 KB), against markdown-it's block parse | 1.54 ms | **0.46 ms**, 3.19x (the owner's floor: 3x) |
+| S0-S1, data-viz (12 KB) · card-tags (3 KB) | 0.46 · 0.12 ms | 0.16 · 0.04 ms, 2.89x · 3.05x (P2: 2.7x · 2.8x) |
+| the inline parse alone, the gallery's 973 leaves | 2.2 ms | 0.43 ms, **5.2x** (range 4.2-5.3) |
+| the inline parse alone, data-viz · card-tags | 1.0 · 0.04 ms | 7.9x · 2.3x |
+| S0-S2 (every leaf read), gallery, against markdown-it's block + inline parse | 4.40 ms | **1.56 ms**, 2.79x (range 2.68-3.10) |
+| S0-S2, data-viz · card-tags | 1.66 · 0.18 ms | 0.47 · 0.08 ms, **3.55x** · 2.08x |
+| the corpus, S0-S2 throughput | 11.7 MB/s | 31.3 MB/s, 2.7x |
+| a keystroke in the gallery's middle slide, the update and every leaf of that slide read again | the whole deck | **37 µs** |
+
+The keystroke target (one slide, tens of microseconds) is met with S2 included, and S1 kept its 3x. **The S0-S2
+target as written (under 1 ms on the gallery, against P0's 3.6 ms for markdown-it: about 3.6x) is met on data-viz
+(3.55x) and not on the gallery (2.79x) or the 3 KB deck (2.08x, where per-parse fixed costs dominate).** The first cut
+measured 2.0x on the gallery; what moved it, each re-measured:
+
+- the detail S1 records (columns, container line starts, reference definitions) moved out of the lean parse into an
+  on-demand detail parse and its recorder (detail.ts), shared from one whole-body parse when most slides lack it;
+- the inline state pooled per nesting depth (one token buffer, no per-leaf arrays), levels kept at push and recomputed
+  only when post-processing paired a delimiter;
+- a leaf that is one slice of the body carries no run table; leaf lines are read off the slide's own segment, not
+  searched for;
+- a per-slide reader (`inlineSlide`) that looks the slide up once instead of once per leaf;
+- the segment split walks a detail parse's side records once (it scanned them all per slide).
+
+**What the gallery's 1.56 ms is**, measured part by part (interleaved, medians): the detail S1 with the model around it
+about 0.6 ms, the inline parse about 0.5 ms, and the leaf texts and kept tapes about 0.4 ms. S1 and the inline parse
+alone bound the ratio near 4.4x even if leaves cost nothing; reaching 3.6x would need the leaf bookkeeping near zero
+while keeping each leaf's map to the body and the per-slide memo the keystroke path depends on. As with S1, the target
+was an absolute time set on another machine.
+
+**Restated by the owner on 2026-11-16 (#3256).** The targets are now ratios against markdown-it on the same machine,
+one per stage: the block pass (S1) at least 3x markdown-it's block parse, met at 3.19x; the inline parse alone at
+least 4x markdown-it's inline parse, met at 5.2x. S0-S2 stays a tracked metric that the bench reports for the gallery,
+data-viz and card-tags (2.79x, 3.55x and 2.08x today), so a regression shows. §Speed targets carries the new rows.
+
+**What P4 moves, and what it does not.** No reader is switched in this phase: the Studio's outline still tokenizes
+heading sections with the boundary parser (`headingSplitPoints`), and Compose and CodeMirror still parse with their own
+markdown-it and Lezer grammar. Those are P4b. The render path is P7, held to the identity test above and to the
+adversarial trio before it switches.
+
+## P5 census (2026-11-17)
+
+P5 replaces every hand-written CSS scan in `lib/` with readers on ONE tokenizer (§Plan). This is the list of what it
+replaces, the order, and what was decided before any reader moved.
+
+**How it was found.** Three passes over committed source, vendor and generated files left out:
+- CSS syntax inside regex literals: `url(`, `@import`, `@font-face`, `/*`, `var(--`, `</style`;
+- declaration and block shapes: `[^;}]`, `{[^}]*}`, custom properties, `!important`, a brace `indexOf`;
+- character loops that test for `{`, `}` or `/*` (the pass the first two missed: it found `leading-is.js`, `layout/ai.js`
+  and `packages/plugin-css.mjs`).
+
+Each hit was read by hand and kept only if it reads CSS syntax. "Callers" counts the modules that import the file.
+**#22** means the scan decides what CSS may reach a document, or what a sanitizer removes (HARD RULE #22,
+2026-08-17-theme-css-is-a-preview-sink.md §5, §9). **Bytes** means a change in the scan can change an exported or
+rendered byte, so `npm run identity:check -- --strict` holds it.
+
+**The tokenizer** is lib/core/css-tokens.js: `eachCssToken(css, visit, from, to)` and `cssTokens(css, from, to)`, one
+API for a whole sheet and for an island (a stretch of a host text, offsets in the host's coordinates). Its grammar is
+the `sheet` entry of `cssSpec` in lib/core/css-ref-grammar.js, whose `top` entry is the reader behind `cssRefSpans`
+(#2871); the two share the escape, string and `url(` rules. It stays LL(1) but for the one bounded `url(` attempt `top`
+already has.
+
+**It is CommonJS, not an ES module (2026-11-23).** It shipped first as `css-tokens.mjs`, and the merge queue's Node 24
+leg ejected #3294: about ten CommonJS readers require it and six ES modules import it, and Node 24 refuses to require
+an ES module that an import is still loading (ERR_REQUIRE_ESM_RACE_CONDITION). Importing any of the six and then
+requiring lib/engine before the import settled threw, on all six; main did not, because its parser was CommonJS
+(`css-ref.generated.js`). A CommonJS module loads synchronously on both paths, so neither can race the other.
+test/unit/core/css-tokens-load-race.test.js holds every importer on that order and pins the file as CommonJS. The same
+race exists on main through lib/core/front-matter-fence.mjs:
+followups.d/3294-p3-node24-require-esm-race.md.
+
+**One parser, not two (coordinator, 2026-11-17).** Minified and gzipped, the `top` parser alone was 2,585 B, a separate
+`sheet` parser 2,840 B, and one parser with both entries 3,073 B. The Studio already loads the `top` parser through
+remote-ref.js, so two parsers would have cost it about 2.8 KB and one costs about 0.5 KB. So lib/core/css-ref.generated.js
+holds the one parser with both entries, lib/core/css-tokens.js re-exports it as `cssParser`, and remote-ref.js keeps
+handing `css-ref.generated.js` to `makeCssRefSpans`. No reading logic changed. The evidence:
+- every function `top` runs (`r_wsUnit`, `r_hexEscape`, `r_escape`, `r_stringDq`, `r_stringSq`, `r_top`, `r_token`,
+  `r_urlBody`), `parse` and every other top-level name of the old file are byte-identical in the new one but
+  two: `KINDS` (seven kinds appended, the old ones keep their numbers) and `RULES` (a superset);
+- `makeCssRefSpans` over the deleted parser and over `cssParser`, with no options and with `imageSet`, `urlArg` and
+  `decls`, on the 209 stylesheets in the repo and 100,000 seeded inputs: 200,418 comparisons, 0 differ;
+- test/unit/core/css-ref-spans-differential.test.js (the frozen legacy tokenizer) passes on the new source. test/unit/core/css-tokens.test.js holds it to css-tree's spec tokenizer
+on 4,000 seeded inputs, token for token; the file's header lists the three places css-tree itself departs from the
+spec and from Chromium, and the three places this tokenizer departs from it on purpose.
+
+**The parser is a leaf of its own, not a region of the tokenizer (2026-11-24).** For a week the parser was generated
+into a region of css-tokens.js, and remote-ref.js took it from there. That cost nothing while the tokenizer was an ES
+module, because Rollup dropped the exports remote-ref.js did not read. Once the tokenizer became CommonJS (above),
+Rollup could no longer drop any of `module.exports`, so every docs page that loads remote-ref.js eagerly carried the
+whole tokenizer. The merge queue's docs build ejected #3294 a second time on it: home eagerJsGz at 320.9 KB against a
+320.5 KB ceiling. Measured minified and gzipped, the parser alone (main's leaf) is 2,924 B, the parser taken from the ES
+module tokenizer 3,193 B, and from the CommonJS one 5,417 B. So the generator writes the parser to
+lib/core/css-ref.generated.js again, remote-ref.js requires that leaf as it did on main, and css-tokens.js requires it
+too. The docs dev shim (docs/src/plugins/vite-cjs-lib-dev.mjs) inlines one level of sibling leaves, so both requires
+load in the dev server; a third level would not. The same queue run caught
+test/integration/export/read-slide-svg-text.test.js loading read-slide.mjs as a raw browser module, which cannot import
+a CommonJS file; it now injects an esbuild bundle of the reader, the way the CLI ships the writer. The render tier runs
+only in the merge queue, so PR CI could not see either.
+
+**The naive comment strip is a measured bypass.** `/\/\*[\s\S]*?\*\//g` treats comments and strings as separate
+layers, so a `/*` inside a string pairs with the next real `*/` and deletes everything between. Two measurements:
+- css-scan.js's header: `gateCss` returned zero findings for a remote `@import` and a remote `url()` placed after
+  `content: "/*"` (fixed when css-scan moved to lib/core/css-comments.mjs).
+- Measured 2026-11-17 on `main` dbc4d73a, lib/export/cli-deck-sheet.js `rootsOnBase`: a palette
+  `section::after{content:"/*"}` `@import 'indaco';` `/* note */` reads as importing no theme, so `cliThemeStore`
+  prepends a second `@import 'lattice';` to a palette whose parent already brings it.
+
+It is in 9 places in `lib/` (author-css.js, cli-deck-sheet.js, player-core.mjs ×4, slide-camera.mjs's `CSS_OPAQUE`
+variant, surfaces.js, component.contract.js); each P5 PR removes every copy in the files it touches. `tools/` and
+`test/` hold about 140 more, on theme and component CSS the repo itself writes; they are outside P5, which replaces the
+readers that ship.
+
+### Family A: decide what CSS is allowed (#22). P5c, with a checker and the browser oracles
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| core/css-scan.js: `findCssExfil`, `findCssImports`, `IMPORT_URL_RE` | every off-device or script-bearing construct; each `@import` and its target | 3 (both gates, theme-core build) | yes | no |
+| core/css-comments.mjs: `eachCssRun`, `stripCssComments`, `maskCssComments` | the canonical comment walk (strings and unquoted `url(` aware); feeds css-scan, the theme chain and themes.js | 9 | yes (through css-scan) | yes |
+| theme/gate.js: `ENGINE_THEME_IMPORT_RE` | a theme's `@import 'name'` allowlist | 8 | yes | no |
+| layout/gate.js (`gateCss`) | component CSS scoping and refusals, through css-scan | 8 | yes | no |
+| layout/ai.js: `nextOpen` and the block walk | whether a generated component's CSS stays scoped to its class | 2 | yes | no |
+| packages/plugin-css.mjs: `scan`, `scopeSheet` | a plugin's `styles.css`, parsed and rebuilt under the plugin's root | 2 | yes | yes |
+| core/sanitize-diagram-svg.mjs: `countImports`, the `@import` strip | `@import` in a diagram's `<style>`, before `sanitizeStyleText` | 2 | yes | yes (diagram SVG) |
+| core/decl-value-safe.js | an author's declaration value; `url()` forms allowlisted | 2 | yes | yes |
+| core/web-ref-readers.js: `MERMAID_FORBIDDEN` | `@import` in Mermaid CSS | 2 | yes | no |
+| core/remote-ref.js: `cssRefSpans`, the `@import` probe | off-device refs in CSS (already on the css-ref grammar, #2871) | 21 | yes | no |
+| engine/css.js: `URL_IMPORT_RE`, `THEME_IMPORT_RE` | a remote or quoted `@import` in author or theme CSS | 7 | yes | yes |
+| engine/themes.js: `THEME_NAME_IMPORT_RE` | which theme-name `@import` resolves against the registry; css.js's `THEME_IMPORT_RE` must agree with it and theme/gate.js allows a pinned subset of it (theme-gate.test.js), so it moves with those two | 2 | yes (through the agreement) | yes |
+| packages/import-gate.js | the package gate's refusing rules (css-scan's rule ids) | 7 | yes | no |
+| core/url-scheme.js: the `url()` matcher | the scheme of each `url()` in a slide's CSS | 6 | yes | yes |
+| core/door-attr.mjs: `cssRefTargets` | every address a CSS value holds, for the code door | 2 | yes | no |
+| docs/src: anima/schema.ts `COLOR_FORBID`, vetrina/theme.ts `SINK_FN` | refuse a color value that holds `url(`, `image(`, `expression(` or a structural character | 1 each | yes | no |
+| core/css-url.js: `firstCssUrl` | the first `url()` target in a CSS text (transformers and the browser runtime) | 6 | no | yes (runtime, exports) |
+
+### Family B: export and print assets. P5b, every byte held to identity:check
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| export/player-core.mjs: the comment, string and `url()` mask (×2), `noComments`, the `@font-face` walk, the `url()` list | minifying, `url()` rewriting and the font faces of the player's CSS | 3 | no | yes |
+| export/player-prune.js: `@font-face` blocks (×3) | the font faces the player keeps | 5 | no | yes |
+| export/player-fonts.js: `FACE`, `DATA_URI` | the embedded woff2 faces | 3 | no | yes |
+| export/player-assets.mjs, player-images.mjs: data-URL `url()` | inlined data URLs | 1, 2 | no | yes |
+| export/katex-inline.js: `woff2Src`, the `@font-face` split | KaTeX's font faces | 3 | no | yes |
+| export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
+| export/marp-vscode-stub.js, marp-bundle-math.js `STYLE_VALUE` | theme imports; a math style value | 3, 2 | no | yes |
+| export/pdf-asset-reader.js | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |
+| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
+| export/author-css.js: the naive `COMMENT_RE`, the depth walk | the author's CSS, re-wrapped (a #22 re-wrap site) | 3 | re-wrap | yes |
+| export/inline-url-media.mjs, html-player.js `BACKGROUND_IMAGE_STRING`, deck-assets.js | web `url()` refs; file `url()`; `asset:` refs | 3, 4, 3 | no | yes |
+| fonts/face-css.js: `AT_KEYWORD`, `HOP`, `URL_RE` | `@font-face` rules and their `src` URLs | 4 | no | yes |
+
+### Family C: engine and theme composition. P5a; bytes, not security
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| theme/chain.mjs: `flattenCssImports`'s import loop | the `@import` chain of a caller-supplied `--css` sheet | 1 (lattice.js) | no | yes |
+| core/leading-is.js: `splitSelectorList`, `leadingIsArms`, `splitLeadingTrivia`, `distributeLeadingIs` | selector lists and a leading `:is()`, for the engine's `packTheme`, pane twins and the Marp bundle | 3 | no | yes |
+| core/pane-css.js: `skipToken`, `pullComments`, `widenForPanes` | strings, `url(` and comments while twinning pane selectors | 7 | no | yes |
+| theme/contrast.js: the `light-dark()` and `var(--x)` reads | a token alias, per mode | 3 | no | no |
+| components/surfaces.js; conformance/kinds/component.contract.js (both the naive strip) | selector text; component CSS | 2, 0 | no | no (tooling) |
+
+### Family D: DOM and computed-style readers, one value at a time (islands). P5a
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| core/slide-camera.mjs: `CSS_OPAQUE`, the `@font-face` walk, `FACE_KEY_PROPS` (**moved in P5a, then reverted:** see below) | the deck sheet's comments and strings; its font faces and their descriptors | 4 | no | yes (camera images) |
+| core/pdf-compose/read-slide.mjs: `bgUrl`, `urlOf`, the mask data URL, the `@font-face` source | computed `background-image`, `mask`, `src` values | 1 | no | yes (PDF) |
+| core/image-painting.js `isBlockedHatch` | whether a picture's computed `background-image` holds a `url(` (eager on home, studio, playground) | 2 | no | yes |
+| transformers/logo-marks.js `measureMark` | a mark's `--logo-mask:url('…')` style value | 1 | no | yes |
+| transformers/prose-projection.mjs: the declaration reader's comment strip | comments in a declaration whose strings and addresses are already slots | 5 | no | yes (captions) |
+| plugins/mermaid/mermaid.draw-shim.mjs | a face rule's `src` `url()` | 0 (loaded by name) | no | yes |
+
+**The slide camera moves with (S) and (C), once its cold path is no slower than main's, measured (2026-11-22).** P5a moved
+its readers onto `cssRules`, and the maker-checker found the font chain slower on every slide. A per-sheet cache made the
+warm slides faster than main, but the first slide of each sheet stayed far slower, because the chain hands each step a new
+string, and every string costs a full tokenizer pass. Measured in Node on the chain `captureSlideCanvas` runs, in its
+order, fresh process each time:
+
+| Sheet | main cold | P5a + cache cold | main warm | P5a + cache warm |
+|---|---|---|---|---|
+| dist/lattice-min.css (1.2 MB, a Studio frame's) + 30 host faces | 36-47 ms | 484-670 ms | 16-22 ms/slide | 9-15 ms/slide |
+| dist/lattice.css (3 MB) | 58 ms | 394 ms | 30.7 ms/slide | 13.2 ms/slide |
+
+One cold tokenizer pass over the 1.2 MB sheet alone takes 72-105 ms (314k tokens; under 1% of the bytes sit inside
+`url()`), so no reader that tokenizes the whole sheet can match main's cold chain. The Studio's slide-map posters would
+have paid it once per distinct frame sheet. The Segno desk chose to revert the camera to main's readers in P5a (it keeps
+only the one-parser import, `cssParser` in place of the deleted `css-ref.generated.js`), and to move it in the P5a′ + P5b
+PR behind two commits of their own: **(S)** a fast path for long plain runs in the tokenizer's driver, held by the css-tree
+differential and a work-count test, with a bench scenario (HARD RULE #19); and **(C)** chain reuse, since a face-only
+replace removes whole blocks and the next string's rules are the last string's with shifted offsets. The camera moves only
+when cold is no slower than main on both sheets above.
+| docs/src: card-ink-sampler.ts, photo-verdict.ts | a spotlight panel's computed `background-image` address | 1 each | no | no |
+| docs/src: theme-fetch.ts, snapshot-cache.js (×2), single-slide-render.ts `absolutizeUrls` (eager on home) | rewrite each `url(fonts/…)` (or each relative `url()`) of a sheet the Studio stages | 1–2 each | no | no (the Studio's sheet text) |
+| docs/src: calco/reader.ts (×4), calco/picture.ts | computed `background-image`, `mask` and paint values, for the PowerPoint export | 4, 1 | no | yes (PPTX) |
+
+### Parsers already in the tree, which are not hand-written scans
+
+| File | Parser | Note |
+|---|---|---|
+| export/player-prune.js, fonts/face-css.js | `css-tree` (a dependency), loaded lazily | face-css measured the cold `require('css-tree')` at 64 ms per CLI render, and falls back when it is absent |
+| theme/parse.js | its own record parser, over `maskCssComments` | the theme round trip (`parseTheme` / `serializeTheme`) |
+| `postcss` | in package.json | no `lib/` reader found by name; tooling only |
+
+**Decided by the owner 2026-11-17: css-tree and theme/parse.js stay as the full-sheet reader until P5c lands; then
+measure the P5 reader against them (the 64 ms cold require included) and put the choice to the owner.** The later
+decision is followups.d/3042-p3-p5-css-tree-and-theme-parse.md.
+
+**Reviewed and kept as it is.** core/accessibility-textures.js `TEXTURE_REF_RE` finds `url(#latt-…)` references in
+style text that the runtime glues to SVG `fill` and `stroke` attribute values (lib/runtime/index.js
+`referencedTextureSets`). It errs toward finding too much, and a miss is the bad side: a `url(#…)` with no pattern paints
+black. A tokenizer read of the glued text would drop every reference after an unclosed comment or string in it, so it
+would be worse than the regex, not better.
+
+**Read HTML, not CSS: these move with the plan's "Later: HTML islands" row.** Each finds a `url(…)` in raw markup,
+where a quote may be an entity (`&#39;`, `&quot;`) and the CSS sits inside an attribute value, so a CSS read first needs
+the HTML read (`scanHtml`, html-ref-reader.js) to hand it the decoded value: core/image-aspect.js `BG_URL_RUN`,
+core/image-dimensions.js `bgUrlOf`, core/logo-wall-pack.js (a mark's span HTML), core/bg-image.js (the `sample:`
+resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF` (it rewrites `url(#id)` in markup by
+the ids it knows, entity-quoted spellings included). docs/src/components/studio/web-image-hint.ts is markup-level too: it scans a deck's Markdown and
+HTML source for a web address after any of several spellings (`![](`, `src=`, `url(`, `image-set(`, a Mermaid `img:`).
+
+**Move in P5a′, when the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.js where it
+lives (engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses both):
+- plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src` `url()` with a regex. A plugin reaches outside its
+  folder only through `ctx`, a service or a workspace library, and the shim is handed no `ctx`.
+- docs/src/lib/calco/reader.ts and picture.ts (the `@laticent/calco` library, layer 0) read computed `url()` values for
+  the PowerPoint export; an import of lib/core (layer 1) is an upward import.
+The owner decided on 2026-11-17 that they move inside P5, not as a follow-up: P5a′, its own PR between P5a and P5b, makes
+the standard-language grammars a published workspace library, `@laticent/segno-languages` (a sibling of `@laticent/segno`
+and `@laticent/segno-markdown`, one folder and one subpath export per language: `/css`, `/html`, `/front-matter`), and
+moves these readers onto it. Lattice's own authoring syntax (the flowchart row, list text) stays in lib/core.
+
+**Reviewed and kept, also:** core/rough-ink-dom.js's two `/url\s*\(/i` tests run only where `CSS.supports` is missing
+(jsdom in the unit tests); rejecting anything url-shaped there is the conservative side of a color check, and a
+tokenizer read would accept more.
+
+**Found by the security spine's list.** `SANCTIONED_SPINE_READERS` in tools/check-ownership.js counts every hand-written
+`url(` reader in `lib/` and `docs/src`; checked against it, the first census missed door-attr.mjs, css-url.js,
+bg-image.js, rough-ink-dom.js and four docs files, now placed above. Each P5 move lowers or removes its entry there, and
+the gate fails on a stale one.
+
+**Left out, and why.** docs/src/components/chart-detail-layer.tsx and docs/src/playground/font-embed.js (named in the first
+census) read no CSS: font-embed writes `@font-face` rules and tests a URL's path. export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
+checks, draw-frame-core.mjs, face-rule.js and face-css's builders WRITE CSS. plugins/resolve.js strips JavaScript
+comments; payload-elision.js finds a `data:` opener in Markdown or HTML; code-door-core.mjs and mermaid.bake.js match
+`<style>` elements as HTML; chart-rows.js, named-span.mjs and the video plugin read JSON-like records; lint-core.js's
+probe leaves with lint-core (followups.d/3194-p1-squadra-replaces-lint-core.md).
+
+### The split
+
+About 50 readers in four families. Each move needs a seeded differential against the scan it replaces and a failing
+arm; a Family A move needs a browser oracle and a checker; a Family B move needs `identity:check --strict` at 0. One PR
+cannot hold that, so P5 ships in three, each on its own branch from `main` after the one before it merges (HARD RULE
+#17), as the coordinator approved on 2026-11-17:
+
+1. **P5a: the tokenizer, and Families C and D.** No #22 reader; bytes held by identity, and by the PDF, camera and
+   caption checks where they apply.
+2. **P5b: Family B.** Byte-identical exports (identity, captions, the Marp bundle, PDF fonts); if any byte changes,
+   STOP with dark and light renders.
+3. **P5c: Family A**, in this order: url-scheme, decl-value-safe, web-ref-readers, sanitize-diagram-svg, engine/css.js,
+   css-comments.mjs, css-scan with its two gates and the import gate, layout/ai.js, plugin-css.mjs. Each gets a seeded
+   differential, the inliner and rehost browser oracles, and one checker. No sanitizer's behavior changes; if one must,
+   REPORT first and run the trio.

@@ -16,7 +16,7 @@ require('../../../lib/core/dagre-layout.js');
 const trama = require('@laticent/trama');
 const { flowchartAdapter, browserJs } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js');
 
-const DIST = path.join(__dirname, '../../../docs/src/lib/trama/dist/index.cjs');
+const DIST = path.join(__dirname, '../../../docs/src/lib/trama/dist/index.mjs');
 
 describe('trama — serialization', () => {
   test('the package resolves to the built dist/, not the TypeScript source', () => {

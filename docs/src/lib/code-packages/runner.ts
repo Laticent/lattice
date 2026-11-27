@@ -18,6 +18,8 @@
 
 import { FRAME_BOOTSTRAP, inlineScript, MAX_OUTPUT_CHARS, sandboxCsp } from '../../../../lib/core/code-door-core.mjs';
 import { checkedWorkerScript } from '../../../../lib/core/code-syntax.mjs';
+import { loadSandboxed, SANDBOX_SHELL_FILE } from '../../../../lib/packages/sandbox-shell.mjs';
+import { engineBase, sameOriginAsset } from '../engine-base';
 
 // `facts` is the slide's plain content (lib/core/slide-facts.mjs), read by the door, never by the package.
 export type CodeSlide = { html: string; facts?: unknown; index: number; idPrefix?: string; baseUrl?: string };
@@ -54,6 +56,11 @@ export async function openPackageFrame(code: string, { loadMs = 5000, fence = fa
 	// A plugin's `render.js` is wrapped for a fence (`{ body, id }`), a component's `transform.js` for a slide.
 	const text = checkedWorkerScript(code, { fence });
 	const doc = await frameDoc();
+	// On a page with a content policy, the frame loads the sandbox shell from beside the engine and the
+	// shell writes `doc` into itself: a srcdoc would inherit the page's script policy, which refuses the
+	// bootstrap's hash. A page without one writes srcdoc as before (sandbox-shell.mjs `loadSandboxed`).
+	const base = engineBase();
+	const shellUrl = (base && sameOriginAsset(base, SANDBOX_SHELL_FILE)?.href) || null;
 	const frame = document.createElement('iframe');
 	frame.setAttribute('sandbox', 'allow-scripts');
 	frame.setAttribute('aria-hidden', 'true');
@@ -83,9 +90,11 @@ export async function openPackageFrame(code: string, { loadMs = 5000, fence = fa
 		if (r.out.length > MAX_OUTPUT_CHARS) return w.reject(new RangeError(`the transform returned ${r.out.length} characters, past the ${MAX_OUTPUT_CHARS}-character limit`));
 		w.resolve(r.out);
 	};
+	let unhello: () => void = () => {};
 	const close = () => {
 		if (closed) return;
 		closed = true;
+		unhello();
 		window.removeEventListener('message', listener);
 		for (const [, w] of waiting) {
 			clearTimeout(w.timer);
@@ -107,7 +116,7 @@ export async function openPackageFrame(code: string, { loadMs = 5000, fence = fa
 		});
 	try {
 		const ready = step('ready');
-		frame.srcdoc = doc;
+		unhello = loadSandboxed(frame, doc, shellUrl);
 		document.body.appendChild(frame);
 		await ready;
 		const loaded = step('loaded');

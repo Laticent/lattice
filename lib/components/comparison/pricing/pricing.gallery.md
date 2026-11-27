@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · pricing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # pricing
 
@@ -15,8 +15,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "Default · pricing" -->
+<!-- @meta{layout=pricing, footer=Default · pricing} -->
 
 ## Three tiers, one recommended column.
 
@@ -39,8 +38,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing two -->
-<!-- _footer: "two · pricing two — A pair of plans, head to head." -->
+<!-- @meta{layout=pricing, class=two, footer="two · pricing two — A pair of plans, head to head."} -->
 
 ## two sets a pair of plans head to head.
 
@@ -56,8 +54,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing four compact -->
-<!-- _footer: "four · pricing four — The whole ladder, compact." -->
+<!-- @meta{layout=pricing, class=four compact, footer="four · pricing four — The whole ladder, compact."} -->
 
 ## four compact fits the whole ladder.
 
@@ -81,9 +78,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing four -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · pricing — Four tiers, five feature rows each — the ceiling on both axes." -->
+<!-- @meta{layout=pricing, class=four, footer="Stress test · pricing — Four tiers, five feature rows each — the ceiling on both axes."} -->
+<!-- @meta{stress-slide} -->
 
 ## Four tiers at five feature rows each is the ceiling.
 
@@ -119,8 +115,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing dark -->
-<!-- _footer: "Composition: dark · pricing dark" -->
+<!-- @meta{layout=pricing, class=dark, footer=Composition: dark · pricing dark} -->
 
 ## Three tiers, one recommended column.
 
@@ -143,8 +138,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: pricing compact -->
-<!-- _footer: "Composition: compact · pricing compact" -->
+<!-- @meta{layout=pricing, class=compact, footer=Composition: compact · pricing compact} -->
 
 ## Three tiers, one recommended column.
 
@@ -167,8 +161,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · pricing · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · pricing · 1 of 2} -->
 
 ## When NOT to reach for pricing.
 
@@ -179,8 +172,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · pricing · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · pricing · 2 of 2} -->
 
 ## When NOT to reach for pricing.
 
@@ -191,7 +183,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

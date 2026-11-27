@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const { toSpoken } = require(path.join(ROOT, 'docs/src/lib/cadenza/dist/index.cjs'));
+const { toSpoken } = require(path.join(ROOT, 'docs/src/lib/cadenza/dist/index.mjs'));
 
 /**
  * The corpus, grouped by the class the audit's Finding 3 table names. Every token here is a

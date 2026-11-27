@@ -89,7 +89,7 @@ describe('the slide a motion asset lands on', () => {
 		const { art, parts, viewBox } = artOf(src);
 		const spec = planToScene(parts, new Map(parts.map((p) => [p.pathRef, DEFAULT_PART_PLAN])), 'calm', 'flow', viewBox);
 		const md = slideSkeleton({ label: 'Value chain', art, spec });
-		expect(md).toContain('<!-- _class: scene -->');
+		expect(md).toContain('<!-- @meta{layout=scene} -->');
 		expect(md).toContain('## Value chain');
 		expect(md).toContain('```anima');
 		expect(md).toContain('"source": "svg"');

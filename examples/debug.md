@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · layout debug"
 debug: on-hover
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · debug overlay`
 
@@ -19,7 +19,7 @@ boardroom PDF is byte-identical whether debug is on or off.
 
 ---
 
-<!-- _footer: "`debug: on-always` pins every label on at once." -->
+<!-- @meta{footer="`debug: on-always` pins every label on at once."} -->
 
 ## Read the grid at a glance.
 
@@ -51,11 +51,11 @@ Each box is outlined by how it lays out its children: **grid** (blue), **flex**
   - [x] Calibration
   - Meets all four criteria within the weekly budget. Recommended.
 
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ---
 
-<!-- _debug: on-hover verbose -->
+<!-- @meta{debug=on-hover verbose} -->
 
 ## Pull every lever on one slide.
 
@@ -70,7 +70,7 @@ default everywhere else; a spot directive just overrides the box it sits on.
 
 ---
 
-<!-- _debug: off -->
+<!-- @meta{debug=off} -->
 
 ## Mute a slide you have already checked.
 
@@ -84,7 +84,7 @@ touch — one box (and its containers) at a time.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 # Debug in the preview. Ship it clean.
 

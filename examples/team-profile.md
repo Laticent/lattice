@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · team-profile"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The slide with the faces on it.
 
@@ -16,7 +16,7 @@ Meet-the-leaders, meet-the-team, and the QBR roll-call — one layout with five 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Five shapes, because the people slide is never the same slide twice.
 
@@ -28,7 +28,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `Your account team`
 
@@ -61,7 +61,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile lead -->
+<!-- @meta{layout=team-profile, class=lead} -->
 
 `Program leadership`
 
@@ -86,7 +86,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile bio -->
+<!-- @meta{layout=team-profile, class=bio} -->
 
 `Meet the leaders`
 
@@ -111,7 +111,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile lead -->
+<!-- @meta{layout=team-profile, class=lead} -->
 
 `Program leadership`
 
@@ -139,7 +139,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `The whole team`
 
@@ -174,7 +174,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 `Q3 business review`
 
@@ -200,7 +200,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: team-profile bench -->
+<!-- @meta{layout=team-profile, class=bench} -->
 
 `The wider bench`
 
@@ -241,7 +241,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The four people with no headshot are the point.
 
@@ -253,7 +253,7 @@ Half a roster arrives without photos — the customer side of a QBR almost alway
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Put the faces on the slide.
 

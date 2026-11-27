@@ -50,7 +50,7 @@ also red  — 2026-11-11, PR #3088's full WebKit and Gecko run (802 tests, 14 re
 also red  — 2026-11-11, PR #3141's WebKit and Gecko run (the raise loop's evidence row; the run was stopped at its
             50-minute deadline after 604 of 830 tests): under full-suite load only, slide-bar-studio.spec.ts:35
             (webkit-tablet, "choosing a different placement does not move a border frame's heading") read the heading
-            64 px right of its `top` position right after the class became `spectrum-edge-left`, then passed 15 of 15
+            64 px right of its `top` position right after the class became `spectrum-left`, then passed 15 of 15
             run alone (--repeat-each=5) on the branch and 3 of 3 on main's product code. Not patched with a poll on
             purpose: the read is a frame where the heading stood 64 px off, which may be a real jump on screen
             (engineering/jank.md), so it wants a root cause, not a wait. Also seen red on the same run and already listed

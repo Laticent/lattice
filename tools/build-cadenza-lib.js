@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type
+ * Build the Cadenza library's consumable dist/ — the ESM entries + type
  * declarations that let ROOT CJS `require('@laticent/cadenza')` AND a plain
  * Node-ESM / bundler consumer `import '@laticent/cadenza'`.
  *
  *   docs/src/lib/cadenza/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/cadenza/dist/index.mjs   (bundled ESM, esbuild)
- *     →  docs/src/lib/cadenza/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/cadenza/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: Cadenza is docs-side TypeScript with no node-importable artifact, so the
  * CJS export pipeline (lib/export/*, the CLI) can't use it — which is why the
  * read-along work grew hand-mirrors of two pure functions. This build gives
  * Cadenza real library shape (see 2026-07-08-library-shape-cadenza-vetrina.md):
- * an npm-workspace package whose `exports` map sends `require` → dist/index.cjs and
- * `import` → dist/index.mjs, while docs + Vitest import the TS SOURCE through the
+ * an npm-workspace package whose `exports` map sends every consumer to dist/index.mjs
+ * (ES modules only since 2026-11-23), while docs + Vitest import the TS SOURCE through the
  * `@/lib/*` path ALIAS (not the package name) — so the docs runtime is unaffected.
  *
  * Bundler = the in-tree esbuild (dist/engineering/capabilities.md names it the house

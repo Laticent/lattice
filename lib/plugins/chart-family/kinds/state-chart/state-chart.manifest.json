@@ -267,11 +267,11 @@
       }
     }
   },
-  "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Archived\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
-  "sample": "<!-- _class: state-chart lr -->\n\n`Submission lifecycle`\n\n## States connect; the arrows carry the rules.\n\nHow a draft moves from author to publication.\n\n- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review `at-risk`\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n  > Two reviewers must sign off before approval.\n- Approved\n  - -publish-> Published\n- Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
+  "skeleton": "<!-- @meta{layout=state-chart} -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Archived\n- Submitted `on-track`\n  - -review-> In Review\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
+  "sample": "<!-- @meta{layout=state-chart, class=lr} -->\n\n`Submission lifecycle`\n\n## States connect; the arrows carry the rules.\n\nHow a draft moves from author to publication.\n\n- Draft `start`\n  - -submit-> Submitted\n- Submitted `on-track`\n  - -review-> In Review\n- In Review `at-risk`\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n  > Two reviewers must sign off before approval.\n- Approved\n  - -publish-> Published\n- Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
   "stressDoc": {
     "summary": "A dense machine of states.",
-    "sample": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Stress test — back-edges, skips, self-loop.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Published\n- Submitted `on-track`\n  - -review-> In Review\n  - -withdraw-> Draft\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -recall-> In Review\n  - -publish-> Published\n- Published `end`\n  - -amend-> In Review\n"
+    "sample": "<!-- @meta{layout=state-chart} -->\n\n`Submission lifecycle`\n\n## Stress test — back-edges, skips, self-loop.\n\n- Draft `start`\n  - -submit-> Submitted\n  - -discard-> Published\n- Submitted `on-track`\n  - -review-> In Review\n  - -withdraw-> Draft\n- In Review\n  - -approve-> Approved\n  - -reject-> Draft\n  - -revise-> In Review\n- Approved `done`\n  - -recall-> In Review\n  - -publish-> Published\n- Published `end`\n  - -amend-> In Review\n"
   },
   "whenToUse": [
     {
@@ -327,32 +327,32 @@
     "lr": {
       "label": "Left-to-right",
       "summary": "States flow left to right.",
-      "sample": "<!-- _class: state-chart lr -->\n\n## lr flows the states left to right.\n\n- Source `start`\n  - -compile-> Compiled\n- Compiled\n  - -test-> Tested\n- Tested\n  - -deploy-> Deployed\n  - -fail-> Source\n- Deployed `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=lr} -->\n\n## lr flows the states left to right.\n\n- Source `start`\n  - -compile-> Compiled\n- Compiled\n  - -test-> Tested\n- Tested\n  - -deploy-> Deployed\n  - -fail-> Source\n- Deployed `end`\n"
     },
     "tb": {
       "label": "Top-to-bottom",
       "summary": "States flow top to bottom, whatever the stage.",
-      "sample": "<!-- _class: state-chart tb -->\n\n## tb stacks the states top to bottom.\n\n- Queued `start`\n  - -claim-> Running\n- Running `live`\n  - -finish-> Complete\n  - -crash-> Queued\n- Complete `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=tb} -->\n\n## tb stacks the states top to bottom.\n\n- Queued `start`\n  - -claim-> Running\n- Running `live`\n  - -finish-> Complete\n  - -crash-> Queued\n- Complete `end`\n"
     },
     "inline": {
       "label": "Inline",
       "summary": "The machine as rows with transition chips, beside its prose.",
-      "sample": "<!-- _class: state-chart inline -->\n\n## inline sets the chart beside its prose.\n\n- Connecting `start`\n  - -retry-> Connecting\n  - -ok-> Connected\n  - -fail-> Failed\n- Connected `live`\n  - -disconnect-> Connecting\n- Failed `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=inline} -->\n\n## inline sets the chart beside its prose.\n\n- Connecting `start`\n  - -retry-> Connecting\n  - -ok-> Connected\n  - -fail-> Failed\n- Connected `live`\n  - -disconnect-> Connecting\n- Failed `end`\n"
     },
     "curved": {
       "label": "Curved",
       "summary": "Generously rounded corners on the router's lines.",
-      "sample": "<!-- _class: state-chart curved -->\n\n## curved rounds the lines between states.\n\n- Draft `start`\n  - -submit-> In Review\n  - -discard-> Archived\n- In Review `at-risk`\n  - -approve-> Approved\n  - -revise-> In Review\n  - -reject-> Draft\n- Approved\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=curved} -->\n\n## curved rounds the lines between states.\n\n- Draft `start`\n  - -submit-> In Review\n  - -discard-> Archived\n- In Review `at-risk`\n  - -approve-> Approved\n  - -revise-> In Review\n  - -reject-> Draft\n- Approved\n  - -publish-> Published\n- Published `live`\n  - -archive-> Archived\n- Archived `end`\n"
     },
     "unnumbered": {
       "label": "Unnumbered",
       "summary": "No badges: the states show no place in the list.",
-      "sample": "<!-- _class: state-chart unnumbered -->\n\n## unnumbered drops the badges.\n\n- Open `start`\n  - -assign-> Assigned\n- Assigned `live`\n  - -resolve-> Resolved\n- Resolved `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=unnumbered} -->\n\n## unnumbered drops the badges.\n\n- Open `start`\n  - -assign-> Assigned\n- Assigned `live`\n  - -resolve-> Resolved\n- Resolved `end`\n"
     },
     "rearrange": {
       "label": "Rearrange",
       "summary": "States may leave their written order when that draws a cleaner chart.",
-      "sample": "<!-- _class: state-chart rearrange -->\n\n## rearrange lets a side state sit beside the state it leaves.\n\n- Intake `start`\n  - -triage-> Triage\n- Triage\n  - -start-> In Progress\n- In Progress `live`\n  - -review-> Code Review\n  - -block-> Blocked\n- Code Review\n  - -approve-> QA\n- QA `on-track`\n  - -stage-> Staging\n  - -fail-> In Progress\n- Staging\n  - -release-> Released\n- Released `done`\n  - -close-> Closed\n- Blocked `blocked`\n  - -unblock-> In Progress\n- Closed `end`\n"
+      "sample": "<!-- @meta{layout=state-chart, class=rearrange} -->\n\n## rearrange lets a side state sit beside the state it leaves.\n\n- Intake `start`\n  - -triage-> Triage\n- Triage\n  - -start-> In Progress\n- In Progress `live`\n  - -review-> Code Review\n  - -block-> Blocked\n- Code Review\n  - -approve-> QA\n- QA `on-track`\n  - -stage-> Staging\n  - -fail-> In Progress\n- Staging\n  - -release-> Released\n- Released `done`\n  - -close-> Closed\n- Blocked `blocked`\n  - -unblock-> In Progress\n- Closed `end`\n"
     }
   },
   "commonMistakes": [

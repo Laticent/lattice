@@ -2,13 +2,13 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · avatars"
 acronyms:
   QBR: quarterly business review
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A face for everyone you have not photographed yet.
 
@@ -18,7 +18,7 @@ acronyms:
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## An avatar goes wherever inline code goes, at the size of the words.
 
@@ -30,7 +30,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `The name picks the face`
 
@@ -63,7 +63,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `Write the traits you care about`
 
@@ -96,7 +96,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: team-profile bench -->
+<!-- @meta{layout=team-profile, class=bench} -->
 
 `Twelve traits, one name each`
 
@@ -141,7 +141,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: team-profile sides -->
+<!-- @meta{layout=team-profile, class=sides} -->
 
 `Photos, avatars and monograms together`
 
@@ -170,7 +170,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The tile takes the deck's colors, sizes and shapes; the face keeps its own.
 
@@ -180,7 +180,7 @@ Our sponsor `!{Ada Okafor}` Ada clears blockers above the program, and `!{Marcus
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## `gender=` changes which defaults a name draws from; it never locks a trait.
 

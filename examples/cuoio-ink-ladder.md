@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
+pagination: true
 header: "Lumen · Festival of light"
 footer: "Lumen 2027 · Riverside, 14–23 May"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Ninth edition · spring 2027`
 
@@ -26,7 +26,7 @@ Body text, secondary text and the frame used to share one ink. Now each reads a 
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `Three ways in`
 
@@ -41,7 +41,7 @@ Body text, secondary text and the frame used to share one ink. Now each reads a 
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > We do not light the city. We ask it to be dark for long enough that people look up.
 
@@ -49,7 +49,7 @@ Body text, secondary text and the frame used to share one ink. Now each reads a 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part two`
 
@@ -65,7 +65,7 @@ Body text, secondary text and the frame used to share one ink. Now each reads a 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Thank you
 

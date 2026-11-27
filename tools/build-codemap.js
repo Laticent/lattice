@@ -82,7 +82,9 @@ const FOLDERS = {
   'assets/': 'Source files vended into the build: the self-hosted fonts and third-party license texts.',
   'backlog.d/': 'GENERATED mirror of the open GitHub issues, one file per issue. Edit the issue, not the file.',
   'changelog/': 'The pre-release changelog archive.',
-  'changelog.d/': 'One changelog fragment per PR (HARD RULE #10). The release folds them into CHANGELOG.md.',
+  'changelog.d/': 'Legacy changelog fragments (HARD RULE #10). The release converts each into an engine changeset.',
+  '.changeset/': 'One changeset per PR (HARD RULE #10). `changeset version` writes each package CHANGELOG.md at release.',
+  'release-notes/': 'Curated GitHub Release notes for a milestone release, one file per version (release-notes/1.0.0.md).',
   'design/': 'The design system, the deck-authoring contract, design principles and the authoring skills.',
   'docs/': 'The public docs site, Playground and Studio: a separate Astro package.',
   'engineering/': 'Engineering references, decision notes (`decisions/`) and gotcha topics (`gotchas/`).',
@@ -95,6 +97,7 @@ const FOLDERS = {
   'test/': 'Unit and integration tests, fixtures and committed baselines. Every folder is listed below.',
   'themes/': 'The palettes: one folder per theme, each supplying the color tokens.',
   'kit/': 'The Marp kit: a sample deck and its VS Code extension.',
+  'packages/': 'The engine\'s publish folder `packages/lattice/`: its package.json (name, version, exports, dependencies). `npm pack` there stages the shipped files in first.',
   // lib/ folders that hold no code the import graph sees (CSS, images, a README)
   'lib/helpers/': 'Authoring-time diagnostics: the `.overflow` warning-ring contract.',
   'lib/samples/': 'Every demonstration picture Lattice ships, in one flat folder.',

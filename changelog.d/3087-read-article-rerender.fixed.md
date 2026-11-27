@@ -1,1 +1,0 @@
-- The Reading view no longer redraws every chart when the window is resized or the Studio re-renders around it. React re-applied the article's markup on each re-render, which threw away all its hydrated figures and drew them again.

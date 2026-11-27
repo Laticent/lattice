@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · xychart narration"
 footer: "read-aloud narrates the bar/line chart"
 ---
 
-<!-- _class: title -->
-<!-- _footer: '' -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, footer="", header=""} -->
+
+
 
 # Read-aloud that reads the bars.
 
@@ -19,7 +19,7 @@ footer: "read-aloud narrates the bar/line chart"
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `01 · A value on every category`
 
@@ -37,7 +37,7 @@ xychart-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `02 · Bars and lines, each named`
 
@@ -54,7 +54,7 @@ xychart-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `03 · The scale the author set`
 
@@ -71,7 +71,7 @@ xychart-beta horizontal
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `04 · When it's a lot`
 
@@ -88,7 +88,7 @@ xychart-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `05 · A numeric axis, still anchored`
 
@@ -105,7 +105,7 @@ xychart-beta
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 `06 · Honest bail`
 
@@ -121,8 +121,8 @@ xychart-beta
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, footer=""} -->
+
 
 # The bars are spoken now.
 

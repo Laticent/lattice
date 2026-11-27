@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const dispatcher = require('../../../lib/core/inline-code-directives.js');
-const { migrateBgLine, classLineWith } = require('../../../lib/plugins/image/shared/image-migrate.js');
+const { migrateBgLine } = require('../../../lib/plugins/image/shared/image-migrate.js');
+const { classLineWith } = require('../../../lib/core/meta-class-line.mjs');
 const { withImageMarkdown: translate } = require('../../../lib/plugins/image/shared/image-marp-export.js');
 const { picturePlacement } = require('../../../lib/export/picture-placement.js');
 // The translation as the bundle calls it (lib/export/marp-bundle.js): with the export host's reading of where pictures are placed.
@@ -17,7 +18,14 @@ const withImageMarkdown = (md, opts, ctx) => translate(md, { ...opts, placement:
 const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 
-const deck = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+// A slide in the old `_class:` spelling (the one the `![bg]` fix edits) and in a `@meta` record (record note §15). The
+// "no machine fix" tests use the record, so Fix all has no old comment to migrate and leaves the deck byte for byte.
+const legacyDeck = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+const recordDeck = (cls, body) => {
+  const [layout, ...rest] = cls.split(' ');
+  return `---\ntheme: indaco\n---\n\n<!-- @meta{layout=${layout}${rest.length ? `, class="${rest.join(' ')}"` : ''}} -->\n\n## T\n\n${body}\n`;
+};
+const deck = legacyDeck;
 const html = (md) => engine.render(md).html;
 
 describe('the address comes only from the author\'s record (§4.5)', () => {
@@ -83,9 +91,14 @@ describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 d
   });
 
   test('the class line gains the word once', () => {
-    assert.equal(classLineWith('<!-- _class: image -->', 'mirror'), '<!-- _class: image mirror -->');
+    // Written as a record (the one spelling Lattice writes, record note §15): an old class comment moves into one.
+    assert.equal(classLineWith('<!-- _class: image -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('<!-- _class: image mirror -->', 'mirror'), '<!-- _class: image mirror -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image, class=dark, footer=Q3} -->', 'mirror'), '<!-- @meta{layout=image, class=dark mirror, footer=Q3} -->');
+    assert.equal(classLineWith('<!-- @meta{layout=image, class=mirror} -->', 'mirror'), '<!-- @meta{layout=image, class=mirror} -->');
     assert.equal(classLineWith('Not a comment', 'mirror'), null);
+    assert.equal(classLineWith('<!-- class: image -->', 'mirror'), null, 'a running class is not the slide\'s own');
   });
 
 });
@@ -112,7 +125,7 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
 
   test('two `![bg]` on one slide: named, never rewritten into two pictures that place neither', () => {
     for (const body of ['![bg](a.jpg)\n![bg](b.jpg)', '![bg](a.jpg)\n\n![bg](b.jpg)']) {
-      const md = deck('content', body);
+      const md = recordDeck('content', body);
       assert.ok(keyword(md).length >= 2, body);
       assert.equal(fixed(md), md, `${body}: no machine fix`);
     }
@@ -120,19 +133,38 @@ describe('every `![bg]` the engine no longer reads is named, and `--fix` only re
 
   test('a `![bg]` sharing its paragraph with text, or beside another lone picture, is not rewritten', () => {
     for (const [cls, body] of [['image', '![bg right](x.jpg)\nA caption on the next line.'], ['image', '![bg right](photo.jpg)\n\n![Acme](logo.png)'], ['content', '![bg](photo.jpg)\n\n![Chart](chart.png)']]) {
-      const md = deck(cls, body);
+      const md = recordDeck(cls, body);
       assert.equal(keyword(md).length, 1, body);
       assert.equal(fixed(md), md, `${body}: no machine fix`);
     }
   });
 
   test('the plain case still rewrites, and the result is the slide\'s photo', () => {
-    const md = deck('content dark', '![bg](photo.jpg "The lake")');
+    const md = legacyDeck('content dark', '![bg](photo.jpg "The lake")');
     const out = fixed(md);
-    assert.match(out, /<!-- _class: content dark bleed -->/);
+    // The fix adds `bleed` to the `_class:` line; the meta migration then writes that line as a record (it runs last).
+    assert.match(out, /<!-- @meta\{layout=content, class=dark bleed\} -->/);
     assert.match(out, /^!\[The lake\]\(photo\.jpg\)$/m);
     assert.match(html(out), /class="lattice-bg /);
     assert.equal(keyword(out).length, 0);
+  });
+
+  test('a slide whose class is a record gains the word IN the record, never a second class', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{layout=content, class=dark} -->\n\n## T\n\n![bg](photo.jpg "The lake")\n';
+    const out = fixed(md);
+    assert.match(out, /<!-- @meta\{layout=content, class=dark bleed\} -->/);
+    assert.equal((out.match(/<!--/g) || []).length, 1, 'one settings comment, not two');
+    assert.match(html(out), /class="lattice-bg /);
+  });
+
+  test('a carried class is never the slide\'s own: the fix writes a record of its own, so later slides stay as they were', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- @meta{class=dark, carry} -->\n\n## T\n\n![bg](photo.jpg "The lake")\n\n---\n\n## Next\n';
+    const out = fixed(md);
+    assert.match(out, /<!-- @meta\{class=dark, carry\} -->/, 'the carry record is untouched');
+    const next = html(out).split('<section').slice(2).join('<section');
+    assert.doesNotMatch(next, /class="[^"]*\bbleed\b/, 'the next slide does not gain bleed');
+    assert.equal(classLineWith('<!-- @meta{class=dark, carry} -->', 'bleed'), null);
+    assert.equal(classLineWith('<!-- @meta{pane=bar} -->', 'bleed'), null);
   });
 
   test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {

@@ -2,7 +2,7 @@
 theme: indaco
 ---
 
-<!-- _class: divider qr -->
+<!-- @meta{layout=divider, class=qr} -->
 
 `Lattice · QR`
 
@@ -13,7 +13,7 @@ theme: indaco
 
 ---
 
-<!-- _class: closing qr -->
+<!-- @meta{layout=closing, class=qr} -->
 
 `Q3 Board Review`
 
@@ -26,7 +26,7 @@ Every slide, the appendix, and the workbook — before you go.
 
 ---
 
-<!-- _class: split-panel qr -->
+<!-- @meta{layout=split-panel, class=qr} -->
 
 `Revenue model`
 
@@ -39,7 +39,7 @@ Every line on the prior slide traces to a driver you can open — pricing, seat 
 
 ---
 
-<!-- _class: divider qr -->
+<!-- @meta{layout=divider, class=qr} -->
 
 `Next step`
 
@@ -50,7 +50,7 @@ Every line on the prior slide traces to a driver you can open — pricing, seat 
 
 ---
 
-<!-- _class: closing qr -->
+<!-- @meta{layout=closing, class=qr} -->
 
 `Wi-Fi`
 
@@ -63,7 +63,7 @@ The room password is on the table tents — or just scan.
 
 ---
 
-<!-- _class: split-panel qr -->
+<!-- @meta{layout=split-panel, class=qr} -->
 
 `Field notes`
 
@@ -76,7 +76,7 @@ A code needn't be a URL — force any string with the `qr` key. This one carries
 
 ---
 
-<!-- _class: closing qr -->
+<!-- @meta{layout=closing, class=qr} -->
 
 ## Questions?
 

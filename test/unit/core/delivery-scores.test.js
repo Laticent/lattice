@@ -36,7 +36,7 @@ function firstBoundSlide(m) {
 	const src = fs.readFileSync(file, 'utf8');
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
-		if (!new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(md)) continue;
+		if (!(ownClassOf(md)?.payload.split(/\s+/) ?? []).includes(m.name)) continue;
 		const script = narrateChartScript(md);
 		if (script?.refs.some((r) => r.unit)) return script;
 	}
@@ -78,6 +78,7 @@ for (const m of loadAll()) {
 // and the export play on a prose, list or table slide.
 const { ARCHETYPE_NAMES } = require('../../../lib/core/gesture.js');
 const engine = require('../../../lib/engine');
+const { ownClassOf } = require('../../helpers/slide-class.js');
 const { JSDOM } = require('jsdom');
 const parser = new new JSDOM('').window.DOMParser();
 
@@ -92,7 +93,7 @@ async function firstProseBoundSlide(m) {
 	if (!src) return null;
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
-		if (!new RegExp(`_class:[^>]*\\b${m.name}\\b`).test(md)) continue;
+		if (!(ownClassOf(md)?.payload.split(/\s+/) ?? []).includes(m.name)) continue;
 		const section = parser.parseFromString(engine.render(fm + md, 'indaco', { preview: true }).html, 'text/html').querySelector('section');
 		if (!section) continue;
 		const [script] = projectDeckToScript([section]);

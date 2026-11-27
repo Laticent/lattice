@@ -80,16 +80,16 @@ describe('the CSS and the JS agree on which frames are bleed', () => {
   test('every placement rule that draws a bar border exempts exactly the divider and the bleed frames', () => {
     const wanted = ['.divider', ...BLEED_FRAMES.map((f) => `.${f}`)].sort();
     for (const side of ['left', 'right', 'bottom']) {
-      const m = variants.match(new RegExp(`section\\.spectrum-edge-${side}:not\\(([^)]*)\\)\\s*\\{`));
-      assert.ok(m, `section.spectrum-edge-${side}:not(…) rule is missing`);
+      const m = variants.match(new RegExp(`section\\.spectrum-${side}:not\\(([^)]*)\\)\\s*\\{`));
+      assert.ok(m, `section.spectrum-${side}:not(…) rule is missing`);
       const got = m[1].split(',').map((x) => x.trim()).sort();
-      assert.deepEqual(got, wanted, `spectrum-edge-${side} exempts the wrong frames`);
+      assert.deepEqual(got, wanted, `spectrum-${side} exempts the wrong frames`);
     }
   });
 
   test('the overlay has a rule for each placement and for the top-bar gates', () => {
     for (const side of ['left', 'right', 'bottom']) {
-      assert.match(variants, new RegExp(`section\\.spectrum-edge-${side} > \\.slide-bar:not\\(\\.slide-bar-top\\)\\s*\\{[^}]*var\\(--_bar-w\\)`), side);
+      assert.match(variants, new RegExp(`section\\.spectrum-${side} > \\.slide-bar:not\\(\\.slide-bar-top\\)\\s*\\{[^}]*var\\(--_bar-w\\)`), side);
     }
     assert.match(variants, /section\.accent:not\(\.split-panel, \.split-compare\) > \.slide-bar-top/);
     // A bare `.tone-edge` (no tone class) draws nothing, so the deck-wide style must still draw its bar there.
@@ -254,11 +254,11 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     // accent
     assert.deepEqual(group(shared, /section\.accent:not\(\.split-panel, \.split-compare\):where\(:not\(([^)]*)\)\)/), NON_SPLIT);
     // deck-wide solid/duo/mono: :not(:where(<every bleed frame>, section.accent, ...))
-    // The edge exclusion names the four edges that move or drop the bar; `spectrum-edge-top` is the RESTORE token
+    // The edge exclusion names the four edges that move or drop the bar; `spectrum-top` is the RESTORE token
     // (a slide back on the top bar), so a `[class*="spectrum-edge-"]` match would treat it as a placement.
     assert.doesNotMatch(variants, /\[class\*="spectrum-edge-"\]/);
     // Linear scans, not a regex: nested-paren patterns here backtrack exponentially (CodeQL, js/redos).
-    const PREFIX = 'section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge):not(:where(';
+    const PREFIX = 'section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-left, .spectrum-right, .spectrum-bottom, .no-spectrum):not(:where(';
     const line = variants.split('\n').find((l) => l.startsWith(PREFIX));
     assert.ok(line, 'solid rule');
     let depth = 1;
@@ -271,9 +271,9 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     for (const name of [...BLEED_FRAMES.map((f) => `.${f}`), '.collage.bleed']) assert.ok(solid[1].includes(name), `solid exclusion names ${name}`);
   });
 
-  test('the restore token `spectrum-edge-top` is never treated as a placement, and the top strip names the four edges', () => {
+  test('the restore token `spectrum-top` is never treated as a placement, and the top strip names the four edges', () => {
     const variants = read('lib/base/base.variants.css');
-    // A `:not(` list that names `spectrum-edge-top` would drop the top bar on a slide that restores it (main's
+    // A `:not(` list that names `spectrum-top` would drop the top bar on a slide that restores it (main's
     // RESTORE token). Linear scan: find each `:not(`, read to its balanced `)`, and look inside.
     for (let at = variants.indexOf(':not('); at !== -1; at = variants.indexOf(':not(', at + 1)) {
       let depth = 0;
@@ -282,11 +282,11 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
         if (variants[end] === '(') depth++;
         else if (variants[end] === ')' && --depth === 0) break;
       }
-      assert.ok(!variants.slice(at, end).includes('spectrum-edge-top'), `:not() near offset ${at} names spectrum-edge-top`);
+      assert.ok(!variants.slice(at, end).includes('spectrum-top'), `:not() near offset ${at} names spectrum-top`);
     }
     const topStrip = variants.split('\n').find((l) => l.includes('> .slide-bar-top {') && l.includes('.spectrum-solid'));
     assert.ok(topStrip, 'the solid/duo/mono top-strip rule');
-    for (const edge of ['left', 'right', 'bottom']) assert.ok(topStrip.includes(`.spectrum-edge-${edge}`), `top strip excludes .spectrum-edge-${edge}`);
-    assert.ok(topStrip.includes('.no-spectrum-edge'), 'top strip excludes .no-spectrum-edge');
+    for (const edge of ['left', 'right', 'bottom']) assert.ok(topStrip.includes(`.spectrum-${edge}`), `top strip excludes .spectrum-${edge}`);
+    assert.ok(topStrip.includes('.no-spectrum'), 'top strip excludes .no-spectrum');
   });
 });

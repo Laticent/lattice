@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Mermaid 11.17"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Mermaid 11.17 in the deck palette
 
@@ -15,7 +15,7 @@ The vendored Mermaid moved up a minor, which brings its label sanitizer from DOM
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A C4 context diagram keeps the deck's colors.
 
@@ -28,7 +28,7 @@ C4Context
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## People are drawn as a head and a body.
 
@@ -41,7 +41,7 @@ C4Context
 
 ---
 
-<!-- _class: diagram sketch -->
+<!-- @meta{layout=diagram, class=sketch} -->
 
 ## A sketch slide now draws C4 by hand too.
 
@@ -54,7 +54,7 @@ C4Context
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A block diagram's cylinders fit their labels.
 
@@ -68,7 +68,7 @@ block-beta
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## C4 keeps the palette on a dark slide too.
 
@@ -81,7 +81,7 @@ C4Context
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Every diagram still takes its colors from the palette
 

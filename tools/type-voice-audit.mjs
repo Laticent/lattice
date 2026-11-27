@@ -58,7 +58,7 @@ const PROBE = `---
 marp: true
 theme: ${theme}
 color-mode: ${mode}
-${typography ? `typography: ${typography}\n` : ''}paginate: true
+${typography ? `typography: ${typography}\n` : ''}pagination: true
 header: "Northwind · Board review"
 meta: "Q3 2026 · Finance"
 footer: "Confidential · prepared for the board"

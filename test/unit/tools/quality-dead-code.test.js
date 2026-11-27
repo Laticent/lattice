@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { deadCodeMetrics, parseKnipResult, tallyKnip } = require('../../../tools/quality-assessment');
+const { deadCodeMetrics, parseKnipResult, tallyKnip, foldEngineManifest } = require('../../../tools/quality-assessment');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const TOOL = path.join(ROOT, 'tools', 'quality-assessment.js');
@@ -53,4 +53,54 @@ test('a knip category no row names (duplicates, a new one) still counts, and exi
   assert.equal(tallyKnip(data, 1).other, 2);
   assert.throws(() => tallyKnip({ issues: [{ file: 'a.js', duplicates: [] }] }, 1), /exited 1 .* no field this tool counts/);
   assert.equal(tallyKnip({ issues: [] }, 0).other, 0);
+});
+
+// The engine's dependencies are declared in packages/lattice/package.json, and the code that imports
+// them stays at the root (decision 2026-10-07-first-npm-release §8, option A). The fold credits one to
+// the other, and must still leave the two real findings standing.
+test('foldEngineManifest: root imports of engine dependencies are listed; undeclared and unloaded ones still count', (t) => {
+  const os = require('node:os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knip-fold-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'packages', 'lattice'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'packages', 'lattice', 'package.json'), JSON.stringify({
+    dependencies: { jszip: '1', 'never-loaded': '1', '@laticent/lib': '1', '@laticent/dead': '1', puppeteer: '1' },
+    optionalDependencies: { 'css-tree': '1' },
+  }));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ private: true, workspaces: ['libs/other', 'packages/lattice'], devDependencies: { puppeteer: '1' } }));
+  // Two workspace packages: shipped code imports @laticent/lib (lib/a.js), and nothing imports @laticent/dead.
+  fs.mkdirSync(path.join(root, 'node_modules', '@laticent'), { recursive: true });
+  for (const name of ['lib', 'dead']) {
+    fs.mkdirSync(path.join(root, `workspace-${name}`));
+    fs.symlinkSync(path.join(root, `workspace-${name}`), path.join(root, 'node_modules', '@laticent', name), 'junction');
+  }
+  fs.mkdirSync(path.join(root, 'lib'));
+  fs.writeFileSync(path.join(root, 'lib', 'a.js'), "const s = require('@laticent/lib/read');\n");
+  const report = {
+    issues: [
+      { file: 'lattice.js', unlisted: [{ name: 'jszip' }, { name: 'css-tree' }, { name: 'left-pad' }] },
+      // Another workspace importing an engine-only package is a real finding the engine manifest does not cover.
+      { file: 'libs/other/index.js', unlisted: [{ name: 'jszip' }] },
+      { file: 'packages/lattice/package.json', dependencies: [{ name: 'jszip' }, { name: 'never-loaded' }, { name: '@laticent/lib' }, { name: '@laticent/dead' }, { name: 'puppeteer' }] },
+    ],
+  };
+  const totals = tallyKnip(foldEngineManifest(report, root), 0);
+  assert.deepEqual(report.issues[0].unlisted.map((u) => u.name), ['left-pad'], 'an import nobody declares must stay unlisted');
+  assert.deepEqual(report.issues[1].unlisted.map((u) => u.name), ['jszip'], "another workspace's import of an engine-only package must stay unlisted");
+  assert.deepEqual(report.issues[2].dependencies.map((d) => d.name), ['never-loaded', '@laticent/dead'], 'an engine dependency nothing loads must stay unused, workspace package or not');
+  assert.equal(totals.unlistedDependencies, 2);
+  assert.equal(totals.unusedDependencies, 2);
+});
+
+test('foldEngineManifest leaves a report alone where there is no publish folder', (t) => {
+  const os = require('node:os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knip-nofold-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const report = { issues: [{ file: 'a.js', unlisted: [{ name: 'jszip' }] }] };
+  assert.equal(foldEngineManifest(report, root).issues[0].unlisted.length, 1);
+});
+
+test('tallyKnip counts a finding category reported as an object, so a new shape fails the ratchet', () => {
+  const totals = tallyKnip({ issues: [{ file: 'a.js', owners: [], futureCategory: { x: {}, y: {} } }] }, 1);
+  assert.equal(totals.other, 2);
 });

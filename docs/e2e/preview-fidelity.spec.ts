@@ -34,7 +34,7 @@ const PANEL = '[data-testid="preview-fidelity-overlay"]';
 // ruled that `header` and `footer` set their own slide only, audit §11r: a header no longer
 // carries, so there is nothing for a lone slide to lose.)
 const RUNNING_HEADER_DECK = `---
-paginate: true
+pagination: true
 ---
 
 <!-- backgroundColor: ivory -->

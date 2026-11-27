@@ -71,7 +71,7 @@ function resolveChrome() {
 const DECK = `---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Footer Text"
 ---
 

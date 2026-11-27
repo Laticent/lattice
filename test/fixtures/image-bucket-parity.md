@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Offsite · Day One`
 

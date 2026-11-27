@@ -5,11 +5,11 @@ theme: indaco
 color-mode: dark
 spectrum: off
 finish: atrium
-paginate: true
+pagination: true
 header: "Spectrum canvas ownership"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Engine · base.variants.css`
 
@@ -19,7 +19,7 @@ Every slide here carries `spectrum: off`. The anchors keep the surface they pain
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -27,8 +27,8 @@ Every slide here carries `spectrum: off`. The anchors keep the surface they pain
 
 ---
 
-<!-- _class: topic -->
-<!-- _track: [What it said] | How to fix it | The accent stripe -->
+<!-- @meta{layout=topic, track="[What it said] | How to fix it | The accent stripe"} -->
+
 
 `Section 01 · What it said`
 
@@ -38,7 +38,7 @@ The shorthand clears every background longhand at once — which is how you remo
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 
 `Decision · How to fix it`
 
@@ -51,7 +51,7 @@ The shorthand clears every background longhand at once — which is how you remo
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Measured`
 
@@ -60,11 +60,11 @@ The shorthand clears every background longhand at once — which is how you remo
 - On main
   - `title`, `topic` and `closing` read `rgb(0,29,51)` — the deck ground, not the panel.
 - On this branch
-  - All three read `rgb(0,61,102)`, off a real render, under `spectrum: off` and `spectrum-edge: left` alike.
+  - All three read `rgb(0,61,102)`, off a real render, under `spectrum: off` and `spectrum: left` alike.
 
 ---
 
-<!-- _class: topic fact -->
+<!-- @meta{layout=topic, class=fact} -->
 
 `Section 02 · The accent stripe`
 
@@ -74,7 +74,7 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: divider with-spectrum-trim -->
+<!-- @meta{layout=divider, class=trim-spectrum-rainbow} -->
 
 `Section 02`
 
@@ -82,6 +82,6 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## Three rules, one lesson: declare the thing you mean, not the thing that resets it.

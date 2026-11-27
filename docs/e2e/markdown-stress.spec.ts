@@ -519,7 +519,7 @@ async function revealEditor(page: Page): Promise<void> {
 // front-matter anchor — so the front matter stops being front matter and parses as a setext
 // heading instead. Measured on the pre-fix build with the SAME deck pasted twice:
 //
-//   clean  slide 1 renders `One body`, and the deck's `paginate: true` paints its mark
+//   clean  slide 1 renders `One body`, and the deck's `pagination: true` paints its mark
 //   BOM    slide 1 renders `theme: indaco paginate: true` — the YAML itself, set as the
 //          slide — and no pagination mark, because `paginate:` was never read
 //
@@ -528,7 +528,7 @@ async function revealEditor(page: Page): Promise<void> {
 // exact defect class (#1349/#1388) and lists the boundaries that guard against it; the
 // Studio's file-open door was on that list and its PASTE door was not.
 test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
-	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
+	const DECK = '---\ntheme: indaco\npagination: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
 	await pasteDeck(page, BOM + DECK);
 
 	// 1. The document is canonical.
@@ -561,7 +561,7 @@ test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
 // and this is the arm that fails without the seed-time strip.
 test('a deck already STORED with a BOM opens canonical', async ({ page }) => {
 	test.setTimeout(120_000); // two first paints
-	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
+	const DECK = '---\ntheme: indaco\npagination: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
 	await setDeck(page, DECK);
 	await expect.poll(() => persistedDeck(page)).toBe(DECK);
 
@@ -743,9 +743,22 @@ test('the inline Quick fix applies the repair its underline promised', async ({ 
 	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
 	const marker = page.locator('.cm-lint-marker').first();
 	await marker.waitFor();
-	await marker.hover();
-	const action = page.locator('.cm-diagnosticAction').first();
-	await action.waitFor();
+	// The marker carries two findings: `unknown-class` (this test's) and `legacy-directive-comment`, whose own action
+	// reads "Quick fix". Under load the marker can appear on a pass that holds only the legacy finding, and a lint popup
+	// keeps the findings it opened with. So take the action from the finding this test is about, never `.first()`, and
+	// hover again until the popup shows it: waiting on the finding, not on a duration (HARD RULE #32).
+	const action = page.locator('.cm-tooltip-lint .cm-diagnostic', { hasText: 'unknown-class' }).locator('.cm-diagnosticAction');
+	// Move away and wait for an open popup to close first: it covers the marker, and a hover that lands on it keeps it open.
+	// Away means the editor's far corner, not the page's: the gutter popup closes on a mouse move it sees inside the
+	// editor, and a pointer that leaves the editor sends it none.
+	const editor = page.locator('.cm-editor').first();
+	await expect(async () => {
+		const box = await editor.boundingBox();
+		if (box) await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 2_000 });
+		await marker.hover({ timeout: 2_000 });
+		await expect(action).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 30_000 });
 	expect(await action.textContent(), 'the action must name the component it will write').toContain('kpi');
 	await action.click();
 	await expect
@@ -773,8 +786,9 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	await fixAll.click();
 	await expect.poll(() => editorDoc(page)).toContain('- Alpha\n  - the body text');
 
-	// An unknown component with no near candidate: nothing to apply, so nothing is offered.
-	await setDeck(page, '<!-- _class: zzznotacomponent -->\n\n# Stray\n');
+	// An unknown component with no near candidate: nothing to apply, so nothing is offered. In a `@meta` record, because
+	// an old `<!-- _class: … -->` comment is itself fixable now (`legacy-directive-comment`, record note §15).
+	await setDeck(page, '<!-- @meta{class=zzznotacomponent} -->\n\n# Stray\n');
 	// Witness that the deck really is flagged — otherwise "disabled" would be true for the
 	// uninteresting reason that the linter never ran.
 	await expect(page.locator('.cm-lint-marker')).toHaveCount(1);
@@ -785,7 +799,8 @@ test('Fix all is offered exactly when something can be fixed, and then it fixes 
 	await setDeck(page, '<!-- _class: kpii -->\n\n# One\n');
 	await expect.poll(() => fixAll.isEnabled()).toBe(true);
 	await fixAll.click();
-	await expect.poll(() => editorDoc(page)).toContain('<!-- _class: kpi -->');
+	// Fix all fixes the typo, then (last) writes the old comment as a record, typing `kpi` as the layout.
+	await expect.poll(() => editorDoc(page)).toContain('<!-- @meta{layout=kpi} -->');
 });
 
 // ── The walk itself ─────────────────────────────────────────────────────────
@@ -882,7 +897,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 		async frontMatter() {
 			await focusEditor(page);
 			await page.keyboard.press('ControlOrMeta+Home');
-			await page.keyboard.type(pick(['---\ntheme: cuoio\n---\n', 'paginate: true\n', '---\n']));
+			await page.keyboard.type(pick(['---\ntheme: cuoio\n---\n', 'pagination: true\n', '---\n']));
 		},
 		async dropSeparator() {
 			// Delete a `---` line, merging two slides. The direction no spec covered: every

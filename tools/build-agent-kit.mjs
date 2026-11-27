@@ -68,6 +68,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { classEntries } from '../lib/core/class-entries.mjs';
 
 const require = createRequire(import.meta.url);
 const { readSkills: readSkillIndex } = require('./skill-index.js');
@@ -451,7 +452,8 @@ function pluginSummary(body) {
   const line = ex?.[1].split('\n').find((l) => notation.test(l));
   // Where the example works: the layout its own example block sets, when it sets one. A callout
   // copied onto a `content` slide renders as code (found by rendering every example, 2026-11-17).
-  const cls = ex?.[1].match(/<!--\s*_class:\s*([a-z0-9-]+)/)?.[1] ?? '';
+  // Read through the shared reader, so an example written as a record (`@meta{layout=…}`) counts too.
+  const cls = ex ? (classEntries(ex[1]).find((e) => e.spot)?.value.trim().split(/\s+/)[0] ?? '') : '';
   // A plugin whose own "Where it draws today" says its authored form is not drawn yet gets no
   // example: an agent copies examples. When the doc stops saying so, the example comes back.
   const today = text.split(/^## Where it draws today\s*$/m)[1]?.split(/^## /m)[0] ?? '';
@@ -1297,7 +1299,7 @@ function authoringReadme(files, layoutCount) {
     '',
     '`theme:` picks the palette: `indaco` is the default, and `cuoio`, `onyx` and the rest of',
     'the palettes in `../skills/theme.md` work the same way. Add `color-mode: dark` for the',
-    'dark version. `paginate:` turns on page numbers.',
+    'dark version. `pagination:` turns on page numbers.',
     '',
     '## primer.md — the other way to work',
     '',
@@ -1535,7 +1537,7 @@ function skeletonFor(cat, name) {
  * now `npx @laticent/lattice`, which knows every palette, and Marp is one export page
  * (`render/lattice-export-to-marp.md`). See engineering/decisions/2026-11-17-agent-pack.md.
  */
-const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
+const FRONT_MATTER = ['---', 'theme: indaco', 'pagination: true', '---'];
 
 /**
  * The rules that make a deck STRUCTURALLY wrong rather than merely plain. Every
@@ -1843,7 +1845,7 @@ function instructionsMax(traps) {
     'FRONT MATTER YOU MAY SET',
     '- `theme:` the palette. `indaco` is the default; `cuoio` and `onyx` are two others.',
     '- `color-mode: dark` for the dark version of the palette.',
-    '- `paginate: true` numbers the slides.',
+    '- `pagination: true` numbers the slides.',
     '- `size:` defaults to `hd` (1280x720). Leave it alone unless asked.',
     '',
   ].join('\n');
@@ -2196,7 +2198,7 @@ function exampleDecks() {
     out.push({
       name: `lattice-example-${slug}.md`,
       blurb,
-      slides: (body.match(/^<!--\s*_class:/gm) || []).length,
+      slides: classEntries(body).filter((e) => e.spot && !e.nested).length, // one class per slide, a comment or a record
       body: Buffer.from(body, 'utf8'),
     });
   }
@@ -2281,7 +2283,7 @@ function starterDeck() {
   return [
     ...FRONT_MATTER,
     '',
-    '<!-- _class: title silent -->',
+    '<!-- @meta{layout=title, class=silent} -->',
     '',
     '# Move billing to the new platform in March',
     '',
@@ -2291,7 +2293,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: agenda -->',
+    '<!-- @meta{layout=agenda} -->',
     '',
     '## What this deck covers.',
     '',
@@ -2302,7 +2304,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: big-number -->',
+    '<!-- @meta{layout=big-number} -->',
     '',
     '`Cost of the status quo`',
     '',
@@ -2311,7 +2313,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: cards-grid -->',
+    '<!-- @meta{layout=cards-grid} -->',
     '',
     '## Three failures repeat every quarter.',
     '',
@@ -2324,7 +2326,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: kpi -->',
+    '<!-- @meta{layout=kpi} -->',
     '',
     '## The pilot beat every target it was set.',
     '',
@@ -2340,7 +2342,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: quote -->',
+    '<!-- @meta{layout=quote} -->',
     '',
     '> We stopped arguing about whose number was right and started closing on time.',
     '',
@@ -2348,7 +2350,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: table -->',
+    '<!-- @meta{layout=table} -->',
     '',
     '## March costs less and carries less risk than June.',
     '',
@@ -2360,7 +2362,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: decision -->',
+    '<!-- @meta{layout=decision} -->',
     '',
     '## We recommend the March window.',
     '',
@@ -2371,7 +2373,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: list-steps -->',
+    '<!-- @meta{layout=list-steps} -->',
     '',
     '## Four steps take us from freeze to retirement.',
     '',
@@ -2386,7 +2388,7 @@ function starterDeck() {
     '',
     '---',
     '',
-    '<!-- _class: closing silent -->',
+    '<!-- @meta{layout=closing, class=silent} -->',
     '',
     '## Approve the March window and the $1.4M migration budget.',
     '',
@@ -3183,7 +3185,7 @@ function startDoc(files, cat) {
     '',
     '- `theme:` picks the palette. `indaco` is the default; `cuoio`, `onyx`, `carta`, `laguna`',
     '  and more ship with Lattice. Add `color-mode: dark` for the dark version.',
-    '- `paginate: true` numbers the slides.',
+    '- `pagination: true` numbers the slides.',
     '- Separate slides with a line containing only `---`, with a blank line on each side.',
     '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 5.',
     '',

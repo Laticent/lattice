@@ -2,11 +2,11 @@
 marp: true
 size: portrait
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · word-cloud portrait"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A cloud should fill the axis a tall slide has.
 
@@ -16,7 +16,7 @@ At portrait the cloud packs into a box nearly three times the area of its landsc
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## The scale was solved against the wrong box.
 
@@ -28,7 +28,7 @@ Word sizes are viewBox units. They scale by the square root of the area ratio be
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A constant is still the wrong shape.
 
@@ -42,7 +42,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: word-cloud -->
+<!-- @meta{layout=word-cloud} -->
 
 ## Weight is meaning in a word cloud.
 
@@ -58,7 +58,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: word-cloud dense -->
+<!-- @meta{layout=word-cloud, class=dense} -->
 
 ## dense packs the cloud tight.
 
@@ -75,7 +75,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: word-cloud constellation -->
+<!-- @meta{layout=word-cloud, class=constellation} -->
 
 ## constellation scatters the words like stars.
 
@@ -90,7 +90,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: word-cloud focal -->
+<!-- @meta{layout=word-cloud, class=focal} -->
 
 ## focal crowns one word the center.
 
@@ -104,7 +104,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: word-cloud dense -->
+<!-- @meta{layout=word-cloud, class=dense} -->
 
 ## Stress test — twenty terms, and not one of them lost.
 
@@ -131,7 +131,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What was verified.
 
@@ -142,7 +142,7 @@ Its floor rung is no scaling at all. Every shipped slide still takes the top run
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## What was not.
 

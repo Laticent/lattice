@@ -11,7 +11,7 @@ import { expect, gotoStudio, isPhone, railButtons, setEditorContent, test, typeD
 
 const DECK = `---
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 # Steps
@@ -136,6 +136,12 @@ test('the Stage paints the console\'s step, and drives the steps from its own ke
 	await launcher.click();
 	const stage = await popup;
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
+	// No wait for the console's layout: it changes in the frame of the Stage press (PresentOverlay `stageOn` counts
+	// `stageWanted`), so Next is already where it stays. Before, it changed when the Stage said `ready`, about a second
+	// later, and a click sent in between could start on one layout and end on the other (2 of 40 loaded gecko runs;
+	// #3439 waited for the talk clock). `#latt-count` reading the real count is the signal the Stage's own script, and
+	// so its key handler, has run (stage-window.spec.ts `openStage`, followups.d/3101).
+	await expect(stage.locator('#latt-count')).toHaveText(/^1 \/ 4$/);
 	// The Stage's painted slide: its step, and the lit row.
 	const stagePaint = () =>
 		stage.evaluate(() => {

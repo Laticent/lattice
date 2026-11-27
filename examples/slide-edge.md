@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · one slide frame"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # The engine draws the slide's edge.
 
@@ -16,7 +16,7 @@ A 1px keyline in the deck's own border color, on every surface that shows a slid
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `The default bar`
 
@@ -28,7 +28,7 @@ A 1px keyline in the deck's own border color, on every surface that shows a slid
 
 ---
 
-<!-- _class: content spectrum-edge-left -->
+<!-- @meta{layout=content, class=spectrum-left} -->
 
 `Spectrum on the left`
 
@@ -39,8 +39,8 @@ A 1px keyline in the deck's own border color, on every surface that shows a slid
 
 ---
 
-<!-- _class: split-panel watermark -->
-<!-- _footer: "Dark panel + content · split-panel watermark" -->
+<!-- @meta{layout=split-panel, class=watermark, footer="Dark panel + content · split-panel watermark"} -->
+
 
 ## Scoring Model Deep Dive
 
@@ -59,8 +59,8 @@ The scoring model is the most configurable component, and therefore the most arg
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "Image · auto becomes clean floated card · image" -->
+<!-- @meta{layout=image, footer=Image · auto becomes clean floated card · image} -->
+
 
 `Offsite · Day One`
 
@@ -72,7 +72,7 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 ---
 
-<!-- _class: content dark -->
+<!-- @meta{layout=content, class=dark} -->
 
 `A dark slide`
 
@@ -83,7 +83,7 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 ---
 
-<!-- _class: content corners-rounded -->
+<!-- @meta{layout=content, class=corners-rounded} -->
 
 `corners: rounded`
 
@@ -94,8 +94,8 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 # One frame, owned by the engine.
 

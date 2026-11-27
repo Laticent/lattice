@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Spectrum ramp floor · #1527"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # The quiet end of a ramp is still text.
 
@@ -17,8 +17,8 @@ A ramp encodes rank by lightness, so its lowest stop is the palest thing on the 
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- _footer: "Even weights — every tier lands well above the threshold" -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer="Even weights — every tier lands well above the threshold"} -->
+
 
 ## An even spread keeps every tier large.
 
@@ -33,8 +33,8 @@ A ramp encodes rank by lightness, so its lowest stop is the palest thing on the 
 
 ---
 
-<!-- _class: word-cloud spectrum -->
-<!-- _footer: "Clustered weights — the tier that used to fail" -->
+<!-- @meta{layout=word-cloud, class=spectrum, footer="Clustered weights — the tier that used to fail"} -->
+
 
 ## A clustered spread pushes a tier under 18.66px.
 
@@ -47,8 +47,8 @@ A ramp encodes rank by lightness, so its lowest stop is the palest thing on the 
 
 ---
 
-<!-- _class: word-cloud spectrum dark -->
-<!-- _footer: "The same clustered deck, dark canvas" -->
+<!-- @meta{layout=word-cloud, class=spectrum dark, footer="The same clustered deck, dark canvas"} -->
+
 
 ## Dark inverts the poles but not the problem.
 
@@ -61,9 +61,9 @@ A ramp encodes rank by lightness, so its lowest stop is the palest thing on the 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 ## The ramp floor sits on the palette's own anchor.
 

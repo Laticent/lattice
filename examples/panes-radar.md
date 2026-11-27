@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · panes"
 footer: "Radar in a pane — it lays out for the pane's box"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A radar lays out for its pane
 
@@ -14,7 +14,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -43,8 +43,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## In a narrow pane the key drops below the web.
 
-<!-- _class: columns ratio-35-65 -->
-<!-- _pane: radar -->
+<!-- @meta{layout=columns, class=ratio-35-65} -->
+<!-- @meta{pane=radar} -->
 
 - Northwind
   - Coverage `8`
@@ -53,7 +53,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `9`
   - Speed `7`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Northwind leads on support and speed
 - Cost is its weakest axis
@@ -66,8 +66,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## A half-width pane grows its type as far as the web allows.
 
-<!-- _class: columns -->
-<!-- _pane: radar -->
+<!-- @meta{layout=columns} -->
+<!-- @meta{pane=radar} -->
 
 - Northwind
   - Coverage `8`
@@ -82,7 +82,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `5`
   - Speed `6`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Northwind wins on support and speed
 - Contoso wins on cost and integration
@@ -95,8 +95,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## A wide pane reads at the slide's size.
 
-<!-- _class: columns ratio-65-35 -->
-<!-- _pane: radar -->
+<!-- @meta{layout=columns, class=ratio-65-35} -->
+<!-- @meta{pane=radar} -->
 
 - Northwind
   - Coverage `8`
@@ -111,7 +111,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Support `5`
   - Speed `6`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Support decides it
 - Cost is the tie-break
@@ -124,8 +124,8 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ## Resilience is the axis that still lags.
 
-<!-- _class: columns -->
-<!-- _pane: radar -->
+<!-- @meta{layout=columns} -->
+<!-- @meta{pane=radar} -->
 
 - This year
   - Operational resilience `5`
@@ -140,7 +140,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
   - Release cadence `6`
   - Security posture `6`
 
-<!-- _pane: list -->
+<!-- @meta{pane=list} -->
 
 - Resilience moved one point in a year
 - Onboarding moved two
@@ -150,7 +150,7 @@ footer: "Radar in a pane — it lays out for the pane's box"
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # The rim labels are what a radar is read by
 

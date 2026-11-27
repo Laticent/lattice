@@ -3,7 +3,7 @@ marp: true
 theme: carta
 mode: sketch
 finish: atrium
-paginate: true
+pagination: true
 ---
 
 # Slide One
@@ -13,7 +13,7 @@ Front-matter `mode: sketch` should apply the `sketch` class here, and
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Slide Two
 
@@ -28,7 +28,7 @@ Per-slide `_class: cards-grid` should COMPOSE with the deck-wide `mode:` and
 
 ---
 
-<!-- _class: boardroom -->
+<!-- @meta{class=boardroom} -->
 
 ## Slide Three
 

@@ -99,7 +99,7 @@ test('chart_from_data stages a chart slide that lands on Apply @crosswidth', asy
 	await openChatAtWidth(page, 1440);
 	await send(page, 'chart these: EMEA 4.2M, APAC 3.1M, Americas 2.9M');
 	await page.getByRole('button', { name: /^Apply( all)?$/ }).click({ timeout: 30_000 });
-	await expect.poll(async () => (await storedSources(page)).some((v) => v.includes('<!-- _class: bar -->') && v.includes('- EMEA `$4.2M`'))).toBe(true);
+	await expect.poll(async () => (await storedSources(page)).some((v) => v.includes('<!-- @meta{layout=bar} -->') && v.includes('- EMEA `$4.2M`'))).toBe(true);
 	await page.screenshot({ path: test.info().outputPath('chart-from-data-1440.png') });
 });
 

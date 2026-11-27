@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · full-bleed bar"
 ---
 
 <!-- @note{These layouts claim the whole slide, so their spectrum bar is an overlay strip laid over the art, not a border
      that would shrink it. Each slide sets a different placement; the photo, panel and text keep their true edges.} -->
 
-<!-- _class: image spectrum-edge-left -->
+<!-- @meta{layout=image, class=spectrum-left} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -18,7 +18,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: scene spectrum-edge-bottom -->
+<!-- @meta{layout=scene, class=spectrum-bottom} -->
 
 ## The rotor spins inside its fixed housing.
 
@@ -44,7 +44,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: split-panel spectrum-edge-right -->
+<!-- @meta{layout=split-panel, class=spectrum-right} -->
 
 `statement · split-panel`
 
@@ -61,7 +61,7 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: collage bleed spectrum-edge-left -->
+<!-- @meta{layout=collage, class=bleed spectrum-left} -->
 
 `The atelier`
 
@@ -79,7 +79,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 ---
 
-<!-- _class: split-compare dark spectrum-edge-left -->
+<!-- @meta{layout=split-compare, class=dark spectrum-left} -->
 
 `comparison · split-compare`
 
@@ -98,7 +98,7 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Pick the side by brand, not by layout
 

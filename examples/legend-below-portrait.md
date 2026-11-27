@@ -2,11 +2,11 @@
 marp: true
 size: story
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · legend-below portrait"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The key belongs below the dial.
 
@@ -16,7 +16,7 @@ On a tall deck the four keyed charts used to letterboxe into a short band — th
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Same chart, restructured for the box.
 
@@ -28,8 +28,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "Pie · the key fills the width below" -->
+<!-- @meta{layout=piechart, footer=Pie · the key fills the width below} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -43,8 +43,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "Donut · same unit, hollow center" -->
+<!-- @meta{layout=piechart, class=donut, footer="Donut · same unit, hollow center"} -->
+
 
 `FY2026 · engineering time`
 
@@ -58,8 +58,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Radar · labels reclaim the value column" -->
+<!-- @meta{layout=radar, footer=Radar · labels reclaim the value column} -->
+
 
 `Capability · team vs target`
 
@@ -80,8 +80,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: quadrant cohort -->
-<!-- _footer: "Cohort quadrant · counts in the value column" -->
+<!-- @meta{layout=quadrant, class=cohort, footer=Cohort quadrant · counts in the value column} -->
+
 
 `Impact vs effort`
 
@@ -101,8 +101,8 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: map us -->
-<!-- _footer: "Map · basemap letterboxes, key stacks below" -->
+<!-- @meta{layout=map, class=us, footer="Map · basemap letterboxes, key stacks below"} -->
+
 
 `Adoption by state`
 
@@ -117,7 +117,7 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Landscape unchanged. Portrait, finally whole.
 

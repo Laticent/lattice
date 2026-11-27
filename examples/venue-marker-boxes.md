@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 venue: hall
 header: "Lattice · venue marker boxes"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Marker boxes grow with the room
 
@@ -16,8 +16,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "timeline-list · the date pill and the status pill" -->
+<!-- @meta{layout=timeline-list, footer=timeline-list · the date pill and the status pill} -->
+
 
 ## Each date pill holds its quarter.
 
@@ -30,8 +30,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "list-steps timeline · the numbered disc" -->
+<!-- @meta{layout=list-steps, class=timeline, footer=list-steps timeline · the numbered disc} -->
+
 
 ## Each disc holds its numeral.
 
@@ -44,8 +44,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "roadmap · the phase meta pill" -->
+<!-- @meta{layout=roadmap, footer=roadmap · the phase meta pill} -->
+
 
 ## Each phase pill reads from the back row.
 
@@ -56,8 +56,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "progress · the status pill" -->
+<!-- @meta{layout=progress, footer=progress · the status pill} -->
+
 
 ## Each status pill holds its word.
 
@@ -67,8 +67,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: authority-chain -->
-<!-- _footer: "authority-chain · each card holds its own text" -->
+<!-- @meta{layout=authority-chain, footer=authority-chain · each card holds its own text} -->
+
 
 ## Each card holds its citation and gloss.
 
@@ -81,8 +81,8 @@ Every slide in this deck is set to `venue: hall`. The pills, discs and cards siz
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "What changed · one rule for every marker" -->
+<!-- @meta{layout=list-steps, class=timeline, footer=What changed · one rule for every marker} -->
+
 
 ## One rule now sizes every marker.
 

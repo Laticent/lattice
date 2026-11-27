@@ -606,7 +606,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + key,
         'HTTP-Referer': referer(), // OpenRouter app-ranking headers (optional, polite)
-        'X-Title': 'Lattice Drawing Board',
+        'X-Title': 'Lattice Studio',
       };
       const send = (modelId) => fetch(OPENROUTER_CHAT_URL, { method: 'POST', headers, body: JSON.stringify({ ...body, model: modelId }), signal });
       // A retired model is healed one level up, within its family and on this route only

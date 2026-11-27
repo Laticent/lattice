@@ -119,23 +119,23 @@
       "description": "A card's tag line under it: its workstream, and a status such as `at-risk` in inline code."
     }
   },
-  "skeleton": "<!-- _class: kanban -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",
+  "skeleton": "<!-- @meta{layout=kanban} -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",
   "anatomyBlock": "kanban",
-  "sample": "<!-- _class: kanban -->\n\n`chart · kanban`\n\n## The board tracks cards across lanes.\n\n- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n- Done\n  - Shipped work `L`\n",
+  "sample": "<!-- @meta{layout=kanban} -->\n\n`chart · kanban`\n\n## The board tracks cards across lanes.\n\n- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n- Done\n  - Shipped work `L`\n",
   "stressDoc": {
     "summary": "Six lanes — the board's hard ceiling.",
-    "sample": "<!-- _class: kanban compact -->\n\n`kanban · stress`\n\n## Six lanes is the board's hard ceiling.\n\n- Intake\n  - New arrivals `S`\n  - Unsorted `S`\n- Backlog\n  - Prioritized queue `M`\n- In progress\n  - The WIP limit `L`\n- Review\n  - Awaiting eyes `M`\n- Staging\n  - Nearly out `S`\n- Done\n  - The sixth lane `S`\n"
+    "sample": "<!-- @meta{layout=kanban, class=compact} -->\n\n`kanban · stress`\n\n## Six lanes is the board's hard ceiling.\n\n- Intake\n  - New arrivals `S`\n  - Unsorted `S`\n- Backlog\n  - Prioritized queue `M`\n- In progress\n  - The WIP limit `L`\n- Review\n  - Awaiting eyes `M`\n- Staging\n  - Nearly out `S`\n- Done\n  - The sixth lane `S`\n"
   },
   "variantDocs": {
     "keyline": {
       "label": "keyline",
       "summary": "Hairlines rule the lanes apart.",
-      "sample": "<!-- _class: kanban keyline -->\n\n`kanban keyline`\n\n## keyline rules the lanes apart.\n\n- Backlog\n  - Ruled lanes `S`\n- In progress\n  - Same board `M`\n- Done\n  - New look `L`\n"
+      "sample": "<!-- @meta{layout=kanban, class=keyline} -->\n\n`kanban keyline`\n\n## keyline rules the lanes apart.\n\n- Backlog\n  - Ruled lanes `S`\n- In progress\n  - Same board `M`\n- Done\n  - New look `L`\n"
     },
     "tinted": {
       "label": "tinted",
       "summary": "Each lane takes a colored wash.",
-      "sample": "<!-- _class: kanban tinted -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
+      "sample": "<!-- @meta{layout=kanban, class=tinted} -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
     }
   },
   "dataShapeGuidance": [
@@ -198,7 +198,7 @@
     },
     {
       "mistake": "Reaching for `flat` to remove the card shadows.",
-      "fix": "A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- _class: kanban flat -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead."
+      "fix": "A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- @meta{layout=kanban, class=flat} -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead."
     }
   ],
   "variantDecisionRule": [

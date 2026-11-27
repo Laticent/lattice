@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · funnel"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Watch where the flow leaks.
 
@@ -16,7 +16,7 @@ The pipeline slide for any narrowing flow — a sales or conversion funnel, a hi
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Same shape, wherever the pipeline narrows.
 
@@ -27,7 +27,7 @@ A funnel earns its trapezoids when every stage is a strict subset of the one abo
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## Where the signup pipeline leaks.
 
@@ -39,7 +39,7 @@ A funnel earns its trapezoids when every stage is a strict subset of the one abo
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## The hiring pipeline, role by role.
 
@@ -52,7 +52,7 @@ A funnel earns its trapezoids when every stage is a strict subset of the one abo
 
 ---
 
-<!-- _class: funnel -->
+<!-- @meta{layout=funnel} -->
 
 ## From prospect to grant award.
 
@@ -64,7 +64,7 @@ A funnel earns its trapezoids when every stage is a strict subset of the one abo
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## The narrowest gap is the story.
 

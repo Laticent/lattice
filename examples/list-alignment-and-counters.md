@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · list"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A list sits where `cards:` puts it
 
@@ -15,8 +15,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "No setting · the rows sit centered at their content height" -->
+<!-- @meta{layout=list, footer=No setting · the rows sit centered at their content height} -->
+
 
 ## Three points no longer stretch to fill the slide.
 
@@ -26,8 +26,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list cards-top -->
-<!-- _footer: "cards-top · the rows sit under the headline rule" -->
+<!-- @meta{layout=list, class=cards-top, footer=cards-top · the rows sit under the headline rule} -->
+
 
 ## Top packs the rows under the rule.
 
@@ -37,8 +37,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list cards-stretch -->
-<!-- _footer: "cards-stretch · the old full-height bands" -->
+<!-- @meta{layout=list, class=cards-stretch, footer=cards-stretch · the old full-height bands} -->
+
 
 ## Stretch hands the spare height to the rows.
 
@@ -48,8 +48,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "takeaway over 1. · counter 1.4× the text, one gap" -->
+<!-- @meta{layout=list, class=takeaway, footer="takeaway over 1. · counter 1.4× the text, one gap"} -->
+
 
 ## Counters sit one gap from their text.
 
@@ -59,8 +59,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "takeaway over 1. with a gloss · the lead outranks its gloss" -->
+<!-- @meta{layout=list, class=takeaway, footer=takeaway over 1. with a gloss · the lead outranks its gloss} -->
+
 
 ## A lead keeps its size over its gloss.
 
@@ -73,8 +73,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "principles · display weight, same 1.4× counter" -->
+<!-- @meta{layout=list, class=principles, footer="principles · display weight, same 1.4× counter"} -->
+
 
 ## Principles use the same counter rule.
 
@@ -84,8 +84,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Five rows, one wrapping · the wrapped row keeps its text inside, the others give up air" -->
+<!-- @meta{layout=list, footer="Five rows, one wrapping · the wrapped row keeps its text inside, the others give up air"} -->
+
 
 ## A wrapped row stays inside its pill on a full slide.
 

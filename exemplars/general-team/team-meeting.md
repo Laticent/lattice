@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Design team · Weekly sync"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Weekly sync · 11 June 2026`
@@ -17,7 +17,7 @@ Three decisions to land today, plus owners for what comes out of them.
 
 ---
 
-<!-- _class: agenda -->
+<!-- @meta{layout=agenda} -->
 <!-- tier: short -->
 
 ## What we are covering today.
@@ -29,7 +29,7 @@ Three decisions to land today, plus owners for what comes out of them.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## Today is about decisions, not updates — we have three to make.
@@ -41,7 +41,7 @@ We spend most syncs reporting status that already lives in the tracker. Today we
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: standard -->
 
 ## The three decisions on the table today.
@@ -55,7 +55,7 @@ We spend most syncs reporting status that already lives in the tracker. Today we
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## Design-system migration is two-thirds done and on track.
@@ -67,7 +67,7 @@ Forty of our sixty components are migrated to the new design system. The remaini
 
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 <!-- tier: full -->
 
 ## Design-system migration status by component group.
@@ -81,7 +81,7 @@ Forty of our sixty components are migrated to the new design system. The remaini
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## New request: research support for the onboarding redesign.
@@ -93,7 +93,7 @@ The growth team has asked design research to support a full onboarding redesign 
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## We are adopting the new icon set and retiring our own.
@@ -105,7 +105,7 @@ The growth team has asked design research to support a full onboarding redesign 
 
 ---
 
-<!-- _class: actors -->
+<!-- @meta{layout=actors} -->
 <!-- tier: short -->
 
 ## Who owns what comes out of today.
@@ -119,9 +119,9 @@ The growth team has asked design research to support a full onboarding redesign 
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Three decisions made, three owners named — see you next week.

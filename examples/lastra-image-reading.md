@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Reading a picture"
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
+<!-- @meta{layout=title, header=""} -->
+
 
 # A turned photo lands the way the browser paints it
 
@@ -16,7 +16,7 @@ Three pictures the old readers got wrong, and one they always got right
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Exif after the frame header`
 
@@ -28,7 +28,7 @@ Its turn sits after the frame header, where every engine still reads it. The lay
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Late Exif · in the PDF`
 
@@ -40,7 +40,7 @@ The PDF writer embeds the file once and draws it through its turn, so it lands u
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `PNG turned by eXIf`
 
@@ -52,7 +52,7 @@ The picture is stored a quarter turn round. Chromium and Firefox apply its rotat
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Turned PNG · in the PDF`
 
@@ -64,7 +64,7 @@ The writer used to embed the PNG's stored pixels into the box the browser had tu
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `AVIF`
 
@@ -76,7 +76,7 @@ The header reader finds the primary picture's size, so the layout picks a compos
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Control · an ordinary JPEG`
 
@@ -88,8 +88,8 @@ Every gallery and photo deck kept its bytes; only the files above change.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
+<!-- @meta{layout=closing, header=""} -->
+
 
 ## Each picture lands as painted.
 

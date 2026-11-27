@@ -86,10 +86,10 @@ export function showcaseDeck(label: string): string {
 	const L = label || 'Your theme';
 	return `---
 size: hd
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # ${L}
 
@@ -99,7 +99,7 @@ Every surface this palette touches — type, charts, diagrams, structure.
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 \`Highlights · at a glance\`
 
@@ -114,7 +114,7 @@ Every surface this palette touches — type, charts, diagrams, structure.
 
 ---
 
-<!-- _class: journey -->
+<!-- @meta{layout=journey} -->
 
 \`Charts · a journey map\`
 
@@ -132,7 +132,7 @@ Every surface this palette touches — type, charts, diagrams, structure.
 
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 \`Diagrams · Mermaid\`
 
@@ -146,7 +146,7 @@ flowchart LR
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 \`Structure · split panel\`
 
@@ -163,7 +163,7 @@ A framing sentence that sets up the supporting points beside it.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## ${L}, on every surface.
 

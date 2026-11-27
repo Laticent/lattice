@@ -1,0 +1,1 @@
+- The map chart's Robinson world basemap now ships its geometry only and shares names, aliases and groups with the Equal Earth basemap, so the map chart kernel the Studio loads on demand is about 9.9 KB gzipped smaller (90,324 → 80,404 B). Maps render the same.

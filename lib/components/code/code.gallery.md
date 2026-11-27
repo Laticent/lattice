@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # code
 
@@ -9,8 +9,7 @@ Code — syntax-highlighted source code blocks.
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "code · code survey" -->
+<!-- @meta{layout=code, footer=code · code survey} -->
 
 ## One block, syntax lit, sized to be read from the back.
 
@@ -25,8 +24,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: compare-code -->
-<!-- _footer: "compare-code · code survey" -->
+<!-- @meta{layout=compare-code, footer=compare-code · code survey} -->
 
 `Query path · report generation`
 

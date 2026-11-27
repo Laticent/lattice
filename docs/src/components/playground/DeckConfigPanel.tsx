@@ -191,8 +191,8 @@ export function DeckConfigPanel({
 			{show('venue') && selectRow('venue', 'Venue', 'Where the deck is seen — larger rooms get larger type', [{ options: withUnknown(VENUE_OPTIONS, fm.venue) }], fm.venue, 'laptop')}
 			{show('split') && selectRow('split', 'Slide splitting', 'Start a new slide on each ## heading (default) or only on ---', [{ options: SPLITS }], fm.split, 'headings')}
 
-			{group('On every slide', ['paginate', 'header', 'footer'])}
-			{show('paginate') && <SwitchRow label="Page numbers" hint="Show pagination on every slide" on={fm.paginate} onChange={(on) => apply('paginate', on)} />}
+			{group('On every slide', ['pagination', 'header', 'footer'])}
+			{show('pagination') && <SwitchRow label="Page numbers" hint="Show pagination on every slide" on={fm.pagination} onChange={(on) => apply('pagination', on)} />}
 			{show('header') && <TextField label="Header" hint="Running header text on every slide" value={fm.header} placeholder="e.g. Lattice · Q3 Board Review" onCommit={(v) => apply('header', v)} />}
 			{show('footer') && <TextField label="Footer" hint="Running footer text on every slide" value={fm.footer} placeholder="e.g. Confidential" onCommit={(v) => apply('footer', v)} />}
 

@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Cover compositions"
 footer: "Lattice · cover compositions"
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title cover-masthead -->
+<!-- @meta{layout=title, class=cover-masthead} -->
 
 # Seven ways to compose a cover.
 
@@ -28,7 +28,7 @@ Each composition reads on the dark panel and on the light canvas.
 
 ---
 
-<!-- _class: title cover-masthead -->
+<!-- @meta{layout=title, class=cover-masthead} -->
 
 # The cover sits under a heavy rule.
 
@@ -38,7 +38,7 @@ A heavy rule as wide as the heading's measure, the title set left.
 
 ---
 
-<!-- _class: closing cover-light cover-masthead -->
+<!-- @meta{layout=closing, class=cover-light cover-masthead} -->
 
 ## The back cover keeps the masthead.
 
@@ -48,7 +48,7 @@ A heavy rule as wide as the heading's measure, the title set left.
 
 ---
 
-<!-- _class: title cover-ledger -->
+<!-- @meta{layout=title, class=cover-ledger} -->
 
 # The cover reads like an annual report.
 
@@ -58,7 +58,7 @@ Small capitals over a double rule, centered.
 
 ---
 
-<!-- _class: closing cover-light cover-ledger -->
+<!-- @meta{layout=closing, class=cover-light cover-ledger} -->
 
 ## Small capitals close the books.
 
@@ -68,7 +68,7 @@ Small capitals over a double rule, centered.
 
 ---
 
-<!-- _class: title cover-column -->
+<!-- @meta{layout=title, class=cover-column} -->
 
 # An accent column holds the right edge.
 
@@ -78,7 +78,7 @@ The column runs between the header and footer bands, so it never meets the chrom
 
 ---
 
-<!-- _class: closing cover-light cover-column -->
+<!-- @meta{layout=closing, class=cover-light cover-column} -->
 
 ## The column closes the deck on the right.
 
@@ -88,7 +88,7 @@ The column runs between the header and footer bands, so it never meets the chrom
 
 ---
 
-<!-- _class: title cover-label -->
+<!-- @meta{layout=title, class=cover-label} -->
 
 # A wall label names the work.
 
@@ -98,7 +98,7 @@ A smaller title low on the left, under a hairline, with a quiet caption.
 
 ---
 
-<!-- _class: closing cover-light cover-label -->
+<!-- @meta{layout=closing, class=cover-light cover-label} -->
 
 ## The wall label closes the show.
 
@@ -108,7 +108,7 @@ A smaller title low on the left, under a hairline, with a quiet caption.
 
 ---
 
-<!-- _class: title cover-stage -->
+<!-- @meta{layout=title, class=cover-stage} -->
 
 # Built for the back row.
 
@@ -118,7 +118,7 @@ The title at stage size, centered.
 
 ---
 
-<!-- _class: closing cover-light cover-stage -->
+<!-- @meta{layout=closing, class=cover-light cover-stage} -->
 
 ## Thank you.
 
@@ -128,7 +128,7 @@ The title at stage size, centered.
 
 ---
 
-<!-- _class: title cover-frame -->
+<!-- @meta{layout=title, class=cover-frame} -->
 
 # The title sits in a drafting frame.
 
@@ -138,7 +138,7 @@ A keyline boxes the heading and follows the deck's rule weight.
 
 ---
 
-<!-- _class: closing cover-light cover-frame -->
+<!-- @meta{layout=closing, class=cover-light cover-frame} -->
 
 ## The frame closes the drawing set.
 
@@ -148,7 +148,7 @@ A keyline boxes the heading and follows the deck's rule weight.
 
 ---
 
-<!-- _class: title cover-poster -->
+<!-- @meta{layout=title, class=cover-poster} -->
 
 # Say it loud.
 
@@ -158,7 +158,7 @@ A giant title set left, heavy and tight.
 
 ---
 
-<!-- _class: closing cover-light cover-poster -->
+<!-- @meta{layout=closing, class=cover-light cover-poster} -->
 
 ## Make it yours.
 

@@ -47,7 +47,7 @@ import { createFocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partStart, partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
-import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente-host';
 import { fillFromConnections, SELECTION_FILLED_EVENT } from '@/lib/model-selection.js';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
@@ -95,10 +95,10 @@ import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './deck-axes';
 import { useDeckFileDrop } from './deck-drop';
-import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister, writeSpectrumAxis } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -113,7 +113,7 @@ import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
-import { activeGuards, GUARDS } from './guards-catalog';
+import { activeFit, FIT } from './fit-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -161,7 +161,6 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 
@@ -169,12 +168,13 @@ import { hasDrawnFence } from './slide-thumb';
 // change needs it (the Studio's eager bundle is budgeted, docs/route-budget.json).
 const ChatDraftPreview = React.lazy(() => import('./ChatDraftPreview').then((m) => ({ default: m.ChatDraftPreview })));
 
+import { CARD_SPECTRA } from './card-spectrum-catalog';
+import { CARD_SPECTRUM_EDGES } from './card-spectrum-edge-catalog';
 import { applyVariant } from './slide-variants';
-import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
-import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
-import { activeSpectrum, SPECTRA } from './spectrum-catalog';
-import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
-import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
+import { SPECTRA } from './spectrum-catalog';
+import { SPECTRUM_EDGES } from './spectrum-edge-catalog';
+import { parseSpectrum, renderedSpectrum, type SpectrumAxis, type SpectrumKey, spectrumDefault } from './spectrum-keys';
+import { SPECTRUM_WEIGHTS } from './spectrum-weight-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
@@ -184,6 +184,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
+import { TRIM_SPECTRA } from './trim-spectrum-catalog';
 import { deckTypography, TYPOGRAPHY_OPTIONS, withTypography } from './typography';
 import type { UndoDoorbell } from './undo-doorbell';
 import { useRowFit } from './use-row-fit';
@@ -367,6 +368,10 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
+/** How long the start grid waits for a touch tap's click before putting the caret itself. On the iPhone simulator the
+ *  click came 142 ms after the release (PR #3436, job 137343373196), with listener lag up to +288 ms on a busy page; a
+ *  click later than this still runs and puts the caret again, which is harmless. */
+const START_GRID_CLICK_WAIT_MS = 500;
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -1983,6 +1988,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// first slide would otherwise unmount a live editor and rebuild it later.
 	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
+	/** The start grid's fallback for a touch tap whose click never comes (the grid's `onPointerUp`). */
+	const startGridTapTimer = React.useRef(0);
+	const cancelStartGridFallback = React.useRef<() => void>(() => {});
+	/** Arm it: put the caret after START_GRID_CLICK_WAIT_MS unless the click comes first, or the person presses anywhere
+	 *  else first (a menu, the top bar, another deck), which must not have its focus taken by a timer (the checker on
+	 *  #3436). Once per tap; a new arm replaces the old. */
+	const armStartGridFallback = React.useCallback(() => {
+		cancelStartGridFallback.current();
+		const cancel = () => {
+			window.clearTimeout(startGridTapTimer.current);
+			document.removeEventListener('pointerdown', cancel, true);
+			cancelStartGridFallback.current = () => {};
+		};
+		startGridTapTimer.current = window.setTimeout(() => {
+			cancel();
+			composeRef.current?.focusEmptyLine();
+		}, START_GRID_CLICK_WAIT_MS);
+		// Added after this tap's own pointerdown has passed, so only the NEXT press cancels it.
+		document.addEventListener('pointerdown', cancel, true);
+		cancelStartGridFallback.current = cancel;
+	}, []);
+	React.useEffect(() => () => cancelStartGridFallback.current(), []);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
 	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
@@ -2170,7 +2197,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	
-	// Deck-level front-matter (size / paginate / header / footer) is split off the
+	// Deck-level front-matter (size / pagination / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
@@ -2700,8 +2727,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
-	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
-	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
+	// Page numbers are on unless the front matter says `pagination: false` (the owner's ruling, 2026-10-20).
+	const pageNumbers = paginateOn(getFrontMatter(source, 'pagination'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
 	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
 	// override it in the source. (resolve-lift.js.)
@@ -2829,36 +2856,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => writeFrontMatterLine(s, 'motion-style', value === 'build' ? null : value));
 	const motionSpeed = getFrontMatter(source, 'motion-speed') || 'auto';
 	const setMotionSpeedFM = (value: string) => settingsWrite(`Motion speed → ${value}`, (s) => writeFrontMatterLine(s, 'motion-speed', value === 'auto' ? null : value));
-	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
-	// writes no key; off / solid write the register.
-	const spectrum = registerValue(source, 'spectrum');
-	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => writeRegister(s, 'spectrum', value));
-	// The accent sub-family — siblings of the brand bar (spectrum STYLE). Each defaults to a
-	// no-token value (bar on top / no card rail / auto rule / plain eyebrow), so a default deck
-	// writes no key. See lib/core/resolve-spectrum.js / resolve-rule.js / resolve-eyebrow.js.
-	const spectrumEdge = registerValue(source, 'spectrum-edge');
-	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => writeRegister(s, 'spectrum-edge', value));
-	const spectrumCard = registerValue(source, 'spectrum-card');
-	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => {
-		const out = writeRegister(s, 'spectrum-card', value);
-		// Turning the rail off drops the placement too — a `spectrum-card-edge:` with no rail is
-		// dead front matter the (now-hidden) placement picker could no longer clear.
-		return value === 'off' ? writeFrontMatterLine(out, 'spectrum-card-edge', null) : out;
-	});
-	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
-	// when the card rail is on, so the picker is shown only then.
-	const spectrumCardEdge = registerValue(source, 'spectrum-card-edge');
-	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => writeRegister(s, 'spectrum-card-edge', value));
+	// The three spectrum keys (lib/core/resolve-spectrum.js): `spectrum:` (the stripe on the slide edge),
+	// `card-spectrum:` (the stripe on each card) and `trim-spectrum:` (the accent on tables, timelines and
+	// rules). Each takes one word per axis, and a row writes only its own axis, leaving out a word the preset
+	// or the default already gives (deck-preset.ts `writeSpectrumAxis`). `spectrumWord` reads what renders
+	// (the deck's own word, else the preset's, else the default); `spectrumAuto` what Auto means (the
+	// preset's word, else the default).
+	const spectrumWord = (key: SpectrumKey, axis: SpectrumAxis) => renderedSpectrum(key, registerValue(source, key))[axis] ?? spectrumDefault(key, axis);
+	const spectrumAuto = (key: SpectrumKey, axis: SpectrumAxis) => parseSpectrum(key, presetBaseline(source, key))[axis] ?? spectrumDefault(key, axis);
+	const setSpectrumWord = (key: SpectrumKey, axis: SpectrumAxis, label: string) => (value: string) =>
+		settingsWrite(`${label} → ${value}`, (s) => writeSpectrumAxis(s, key, axis, value));
+	const spectrumStyle = spectrumWord('spectrum', 'style');
+	const cardSpectrumStyle = spectrumWord('card-spectrum', 'style');
 	const headingRule = registerValue(source, 'rule');
 	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => writeRegister(s, 'rule', value));
 	const eyebrow = registerValue(source, 'eyebrow');
 	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => writeRegister(s, 'eyebrow', value));
 	const headline = registerValue(source, 'headline');
 	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => writeRegister(s, 'headline', value));
-	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
-	// the in-content accents. On writes the key; off clears it.
-	const spectrumTrim = registerValue(source, 'spectrum-trim');
-	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => writeRegister(s, 'spectrum-trim', value));
 	// ── The registers the Inspector gained in the coverage audit ────────────────────
 	// Each one the engine already reads and no panel offered (see
 	// engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2.2). Same
@@ -2895,11 +2910,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
 	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
 	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
-	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
-	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
-	// key. Writing the new key also drops the old one, so a deck never carries both.
-	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
-	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+	// Fit (`fit:`) — what the engine may do to make a slide fit: report / heal / trim.
+	// lib/core/resolve-fit.js; `heal` is the baseline and writes no key. Writing it also drops a
+	// `guards:` line, the retired spelling the engine no longer reads (lint `guards-renamed`).
+	const fit = activeFit(getFrontMatterName(source, 'fit')).name;
+	const setFit = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
 		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
 	});
@@ -3229,7 +3244,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// through the preset-aware helpers (typography.ts).
 	const deckType = deckTypography(source);
 	const setDeckType = (value: string) => settingsWrite(`Typography → ${TYPOGRAPHY_OPTIONS.find((o) => o.value === value)?.label ?? value}`, (s) => withTypography(s, value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
+	// The retired `paginate:` line goes too: the engine ignores it, and lint calls it an error (`key-renamed`).
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'paginate', null);
+		return writeFrontMatterLine(withoutOld, 'pagination', pageNumbers ? 'false' : null);
+	});
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);
@@ -5743,6 +5762,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	// WHILE PRESENT IS UP the editor's preview is not only parked but `display: none` (the FocusedPreview below): a parked
+	// frame still holds its drawing layers, and on a 4K deck WebKit sizes those by the slide's own 3840x2160 box times the
+	// screen's pixel density, so Present ran with two 4K frames' worth (the iPhone reload, 2026-11-20). Hidden, the frame
+	// keeps its document and re-lays out on return; it does not re-render.
 	// A preview that is not on screen never paints, so nothing would release the first-slide gate (`first-slide.ts`) but
 	// its backstop: an author who collapsed the preview to write would wait for lint. Release it as soon as it is hidden.
 	React.useEffect(() => {
@@ -5898,6 +5921,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
 	const [startGridMounted, setStartGridMounted] = React.useState(false);
 	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// The grid went away (a letter typed, Source, Read, another deck): a tap's pending fallback has nothing left to do.
+	React.useEffect(() => {
+		if (!startGridShown) cancelStartGridFallback.current();
+	}, [startGridShown]);
 	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
 	// editor pane that hosts the grid.
 	const editPaneRef = React.useRef<HTMLElement>(null);
@@ -6963,7 +6990,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
 					</Field>
 					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(fit, 'heal', setFit, [{ options: catalogOptions(FIT, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>
@@ -7146,7 +7173,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			value: 'brand',
 			label: 'Accent',
 			// NOT 'color': the decision note's §4 contract is that keywords name what a section
-			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Brand bar row
+			// is FOR in words ITS ROWS DO NOT ALREADY CARRY, and this section's Spectrum row
 			// says "color" itself. Measured on the live panel: "color" returned ELEVEN rows —
 			// the whole Accent section, because the section matched as a whole — when the two
 			// rows actually about color (Theme, Color mode) were going to match on their own.
@@ -7155,27 +7182,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			body: () => (
 			<div>
 				<TabNote>Where your accent shows. Set the theme accent to a client's brand color and everything here follows it, white-labeling the deck.</TabNote>
-				<Field label="Brand bar" desc="The strip along the slide edge." find="spectrum rainbow" help={<>The colored strip on each slide's top edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck.</>}>
-					{/* The white-label spectrum — the rainbow bar on the top border / divider
-					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
-					    the theme accent to a client's brand and Solid follows. */}
-					<CatalogSelect ariaLabel="Choose brand bar" className="w-full" {...autoField(activeSpectrum(spectrum).name, activeSpectrum(presetBaseline(source, 'spectrum')).name, setSpectrum, [{ options: catalogOptions(SPECTRA) }])} />
+				{/* The three spectrum keys, one row per axis (lib/core/resolve-spectrum.js). Set the theme accent
+				    to a client's brand and Solid follows. */}
+				<Field label="Spectrum" desc="The stripe along the slide edge." find="spectrum rainbow brand bar" help={<>The colored stripe on each slide's edge (a divider shows it as a left rail). <strong>Rainbow</strong> is the default; <strong>Solid accent</strong> repaints it in the theme accent — set that accent to a client's brand color to white-label the deck. Written as one line, <code>spectrum:</code>, one word per row below.</>}>
+					<CatalogSelect ariaLabel="Choose spectrum style" className="w-full" {...autoField(spectrumStyle, spectrumAuto('spectrum', 'style'), setSpectrumWord('spectrum', 'style', 'Spectrum'), [{ options: catalogOptions(SPECTRA) }])} />
 				</Field>
-				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
-				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
-				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
-					<CatalogSelect ariaLabel="Choose bar placement" className="w-full" {...autoField(activeSpectrumEdge(spectrumEdge).name, activeSpectrumEdge(presetBaseline(source, 'spectrum-edge')).name, setSpectrumEdge, [{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }])} />
-				</Field>
-				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
-					<CatalogSelect ariaLabel="Choose card rail" className="w-full" {...autoField(activeSpectrumCard(spectrumCard).name, activeSpectrumCard(presetBaseline(source, 'spectrum-card')).name, setSpectrumCard, [{ options: catalogOptions(SPECTRUM_CARDS) }])} />
-				</Field>
-				{spectrumCard !== 'off' && (
-					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
-						<CatalogSelect ariaLabel="Choose card rail placement" className="w-full" {...autoField(activeSpectrumCardEdge(spectrumCardEdge).name, activeSpectrumCardEdge(presetBaseline(source, 'spectrum-card-edge')).name, setSpectrumCardEdge, [{ options: catalogOptions(SPECTRUM_CARD_EDGES, glyphs('edge')) }])} />
-					</Field>
+				{spectrumStyle !== 'off' && (
+					<SettingsScope label="Spectrum" keywords="spectrum stripe edge weight bar" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						<Field label="Spectrum edge" desc="Which edge the stripe sits on." help={<>Top by default. The slide's content stays where it is on every edge.</>}>
+							<CatalogSelect ariaLabel="Choose spectrum edge" className="w-full" {...autoField(spectrumWord('spectrum', 'edge'), spectrumAuto('spectrum', 'edge'), setSpectrumWord('spectrum', 'edge', 'Spectrum edge'), [{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }])} />
+						</Field>
+						<Field label="Spectrum weight" desc="How thick the stripe is." help={<>Regular by default; a one-pixel hairline, or a heavy band. The slide's content stays where it is.</>}>
+							<CatalogSelect ariaLabel="Choose spectrum weight" className="w-full" {...autoField(spectrumWord('spectrum', 'weight'), spectrumAuto('spectrum', 'weight'), setSpectrumWord('spectrum', 'weight', 'Spectrum weight'), [{ options: catalogOptions(SPECTRUM_WEIGHTS) }])} />
+						</Field>
+					</SettingsScope>
 				)}
-				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
-					<CatalogSelect ariaLabel="Choose structural trim" className="w-full" {...autoField(activeSpectrumTrim(spectrumTrim).name, activeSpectrumTrim(presetBaseline(source, 'spectrum-trim')).name, setSpectrumTrim, [{ options: catalogOptions(SPECTRUM_TRIMS) }])} />
+				<Field label="Card spectrum" desc="A stripe on each card." find="card rail spectrum" help={<>Its own style, never copied from the slide edge. Off by default; Rainbow, Solid, Duo or Mono turns it on. Written as one line, <code>card-spectrum:</code>.</>}>
+					<CatalogSelect ariaLabel="Choose card spectrum" className="w-full" {...autoField(cardSpectrumStyle, spectrumAuto('card-spectrum', 'style'), setSpectrumWord('card-spectrum', 'style', 'Card spectrum'), [{ options: catalogOptions(CARD_SPECTRA) }])} />
+				</Field>
+				{cardSpectrumStyle !== 'off' && (
+					<SettingsScope label="Card spectrum" keywords="card rail spectrum edge weight" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						<Field label="Card spectrum edge" desc="Which edge of each card." help={<>Left by default.</>}>
+							<CatalogSelect ariaLabel="Choose card spectrum edge" className="w-full" {...autoField(spectrumWord('card-spectrum', 'edge'), spectrumAuto('card-spectrum', 'edge'), setSpectrumWord('card-spectrum', 'edge', 'Card spectrum edge'), [{ options: catalogOptions(CARD_SPECTRUM_EDGES, glyphs('edge')) }])} />
+						</Field>
+						<Field label="Card spectrum weight" desc="How thick each card's stripe is." help={<>Regular by default; a hairline, or a heavy band.</>}>
+							<CatalogSelect ariaLabel="Choose card spectrum weight" className="w-full" {...autoField(spectrumWord('card-spectrum', 'weight'), spectrumAuto('card-spectrum', 'weight'), setSpectrumWord('card-spectrum', 'weight', 'Card spectrum weight'), [{ options: catalogOptions(SPECTRUM_WEIGHTS) }])} />
+						</Field>
+					</SettingsScope>
+				)}
+				<Field label="Trim spectrum" desc="Accent on in-content details." find="structural trim" help={<>The style of table rails, the timeline spine, code strips and <code>hr</code>, never copied from the slide edge. <strong>Quiet</strong> (the default) keeps those an accent-tinted hairline. Written as <code>trim-spectrum:</code>.</>}>
+					<CatalogSelect ariaLabel="Choose trim spectrum" className="w-full" {...autoField(spectrumWord('trim-spectrum', 'style'), spectrumAuto('trim-spectrum', 'style'), setSpectrumWord('trim-spectrum', 'style', 'Trim spectrum'), [{ options: catalogOptions(TRIM_SPECTRA) }])} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
 					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />
@@ -7779,7 +7815,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
 					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
 					style={{ top: startGridTop ?? 56 }}
+					// THE CLICK PUTS THE CARET, AND A TOUCH RELEASE STANDS IN WHEN NO CLICK COMES. iOS Safari sometimes withholds
+					// the click of a tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no
+					// mousedown and no click, so the editor never took the focus (three simulator runs during PR #3385, listener
+					// lag up to +288 ms; jobs 137060162549, 137066156788, 137285553830; 2026-11-17-compose-empty-deck.md). So a
+					// touch release arms a fallback that puts the caret if that tap's click has not come within
+					// START_GRID_CLICK_WAIT_MS. A tap whose click does come is handled exactly as before, by the click, so the
+					// keyboard rises as it always did. A scroll ends in pointercancel, not pointerup, so it arms nothing.
+					// (Putting the caret on the release itself was tried first: the tap's late mousedown on this plain div then
+					// took the focus away, iPhone simulator on PR #3436.)
+					onPointerUp={(e) => {
+						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
+						armStartGridFallback();
+					}}
 					onClick={(e) => {
+						cancelStartGridFallback.current();
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
 						composeRef.current?.focusEmptyLine();
 					}}
@@ -7980,7 +8030,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className={presentOpen ? 'hidden' : 'size-full'} aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader reloadSafe bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
 					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}
@@ -8230,7 +8280,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<DropdownMenuTrigger asChild>
 					{/* The chevron shows at EVERY width — below 1100 it is the whole trigger, and
 					    without it the compact launcher would be an invisible target beside the mark. */}
-					<button type="button" className={cn(BRAND_BOX, 'gap-1.5 sm:gap-2')} aria-label="Workspace launcher">
+					<button type="button" className={cn(BRAND_BOX, 'gap-1.5 sm:gap-2')} aria-label="Lattice — workspace launcher">
 						{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
 						    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
 						    decoration is the first thing to spend when the mark and the chevron
@@ -9193,7 +9243,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={(v) => (v ? setLibraryOpen(true) : collapsePane())}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onOpenDeck={importDeckFile} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader></PanelDrillBack>
 									)}
 								</ResizablePanel>
@@ -9392,6 +9442,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
+							onOpenDeck={importDeckFile}
 							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
@@ -9450,10 +9501,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
-			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
-			    Files grays out anything `accept` does not name, and `.lattice` has no
-			    registered type. What each format means is deck-import.ts's job. */}
-			<input ref={importInputRef} type="file" accept={deckImportAccept()} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
+			{/* Hidden file input for "Import deck…". NO `accept`, on every device: iOS grays out
+			    whatever an `accept` list does not name and has no type for `.lattice`, and the
+			    device sniff that dropped the list only on iOS failed on a real iPhone (2026-11-20).
+			    deck-import.ts sniffs the bytes and names a file that is not a deck. */}
+			<input ref={importInputRef} type="file" data-testid="deck-import-input" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
 			{live.lobby && (

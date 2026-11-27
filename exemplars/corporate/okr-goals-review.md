@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Tideline · OKR review Q2 2026"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `OKR review · Q2 2026`
@@ -17,7 +17,7 @@ We hit two of three objectives — and the miss tells us exactly where to focus 
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## We cleared growth and trust this quarter; supplier liquidity is where we fell short.
@@ -29,7 +29,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: short -->
 
 ## Two objectives landed green; supplier liquidity finished below the bar.
@@ -46,7 +46,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 <!-- tier: short -->
 
 `Objective 1 · Grow the buyer base`
@@ -59,7 +59,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 <!-- tier: standard -->
 
 `Objective 2 · Deepen marketplace trust`
@@ -72,7 +72,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: progress -->
+<!-- @meta{layout=progress} -->
 <!-- tier: short -->
 
 `Objective 3 · Improve supplier liquidity`
@@ -85,7 +85,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The root of the liquidity miss`
@@ -95,7 +95,7 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The liquidity gap is a category-coverage problem, not a demand problem.
@@ -107,7 +107,7 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Q2 marketplace health`
@@ -125,7 +125,7 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 <!-- tier: full -->
 
 ## Q3 keys all point at closing the supplier-liquidity gap.
@@ -142,7 +142,7 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: roadmap -->
+<!-- @meta{layout=roadmap} -->
 <!-- tier: standard -->
 
 `Q3 2026 · Liquidity plan`
@@ -157,7 +157,7 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: standard -->
 
 ## We're making supplier liquidity the single company-level objective for Q3.
@@ -169,9 +169,9 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Two wins, one focus — liquidity is Q3.

@@ -133,7 +133,7 @@ export const DEFAULT_STAMP = 'tab';
 export const DEFAULT_TONE = 'rail';
 
 const GLYPHS = {
-	/** `spectrum-edge:` (Bar placement) and `spectrum-card-edge:` (Card rail placement). */
+	/** The edge words of `spectrum:` (Spectrum edge) and `card-spectrum:` (Card spectrum edge). */
 	edge: EDGE,
 	/** `headline:` and the card tag's text alignment. */
 	align: ALIGN,
@@ -148,7 +148,7 @@ const GLYPHS = {
 		square: { icon: Square },
 		rounded: { icon: SquareRoundCorner },
 	},
-	/** `guards:` — what the engine may do to make a slide fit. */
+	/** `fit:` — what the engine may do to make a slide fit. */
 	fit: {
 		report: { icon: Flag },
 		heal: { icon: Wrench },

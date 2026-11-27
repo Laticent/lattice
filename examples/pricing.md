@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · pricing"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Plans, priced, with one to pick.
 
@@ -16,7 +16,7 @@ The plans / packages slide every commercial, membership, and procurement deck ne
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One grid, three industries' "which one?" slide.
 
@@ -27,7 +27,7 @@ A pricing table is the same shape whether you sell software, ask for a donation,
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Pick the plan that fits the team.
 
@@ -49,7 +49,7 @@ A pricing table is the same shape whether you sell software, ask for a donation,
 
 ---
 
-<!-- _class: pricing two -->
+<!-- @meta{layout=pricing, class=two} -->
 
 ## Two ways to buy.
 
@@ -68,7 +68,7 @@ A pricing table is the same shape whether you sell software, ask for a donation,
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Become a member at the level that fits.
 
@@ -90,7 +90,7 @@ A pricing table is the same shape whether you sell software, ask for a donation,
 
 ---
 
-<!-- _class: pricing -->
+<!-- @meta{layout=pricing} -->
 
 ## Three service levels for the contract.
 
@@ -112,7 +112,7 @@ A pricing table is the same shape whether you sell software, ask for a donation,
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Make the choice obvious.
 

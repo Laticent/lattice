@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · inline pills"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A pill is a property of the value.
 
@@ -15,7 +15,7 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## What changed.
 
@@ -26,8 +26,8 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "One ledger, four different statuses — no variant on the slide." -->
+<!-- @meta{layout=list-tabular, footer="One ledger, four different statuses — no variant on the slide."} -->
+
 
 ## One slide can hold four different statuses.
 
@@ -42,8 +42,8 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "The same rows, before pills — the register variant tinted every pill the same." -->
+<!-- @meta{layout=list-tabular, footer="The same rows, before pills — the register variant tinted every pill the same."} -->
+
 
 ## Before, the slide chose the look.
 
@@ -58,8 +58,8 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Eight shapes. Geometry is ours — nothing is a typed glyph." -->
+<!-- @meta{layout=list-tabular, footer="Eight shapes. Geometry is ours — nothing is a typed glyph."} -->
+
 
 ## Eight shapes cover the vocabulary.
 
@@ -74,7 +74,7 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ---
 
-<!-- _footer: "The footer is small print, so its pill is small too `{AUTO, c9}`" -->
+<!-- @meta{footer="The footer is small print, so its pill is small too `{AUTO, c9}`"} -->
 
 ## A pill sizes itself `{LIVE, c2}`
 
@@ -87,8 +87,8 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Code stays code — the escape is doing nothing at all." -->
+<!-- @meta{layout=list-tabular, footer="Code stays code — the escape is doing nothing at all."} -->
+
 
 ## Ordinary inline code is untouched.
 
@@ -105,8 +105,8 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "Brackets make a mark, braces make a pill — one vocabulary, two positions." -->
+<!-- @meta{layout=list-tabular, footer="Brackets make a mark, braces make a pill — one vocabulary, two positions."} -->
+
 
 ## A mark goes wherever inline code goes.
 
@@ -125,8 +125,8 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 
 ---
 
-<!-- _class: cards-stack compact -->
-<!-- _footer: "Anti-patterns · inline pills" -->
+<!-- @meta{layout=cards-stack, class=compact, footer=Anti-patterns · inline pills} -->
+
 
 ## When NOT to reach for a pill.
 
@@ -139,7 +139,7 @@ In a heading it is large. In body text it is the metadata size, the same as `{ST
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

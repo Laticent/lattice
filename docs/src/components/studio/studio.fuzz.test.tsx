@@ -89,7 +89,7 @@ async function railNth(u: Ctx['user'], which: 'first' | 'last') {
 // no "Reader view" dropdown and this command is a no-op on them; real reshape/clear coverage lives in
 // lenses.spec + lint.test. Kept in the command set so a future tagged seed deck exercises it for free.
 async function reshape(u: Ctx['user']) {
-	const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Reader view');
+	const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Reader view: '));
 	if (!btn) return;
 	await u.click(btn as HTMLElement);
 	const item = [...document.querySelectorAll('[role="menuitem"]')].find((m) => !/Full deck/i.test(m.textContent ?? ''));

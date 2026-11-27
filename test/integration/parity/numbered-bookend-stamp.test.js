@@ -295,7 +295,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
   // crosses the bottom of the mark, at any heading length. It measures the BLOCK, not the
   // heading — the eyebrow is the first thing up there, and an earlier cut of the authoring
   // rule measured the h2 alone and read a line late as a result.
-  const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'paginate: true', '---'].join('\n') +
+  const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'pagination: true', '---'].join('\n') +
     [3, 6, 9, 12, 15, 18, 24, 30]
       .map((n) => `\n\n<!-- _class: divider numbered -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
       .join('')

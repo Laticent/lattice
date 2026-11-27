@@ -46,7 +46,7 @@ Use to evaluate 2–4 options against the same set of criteria, with a check per
 ## Authoring
 
 ```markdown
-<!-- _class: verdict-grid -->
+<!-- @meta{layout=verdict-grid} -->
 
 ## Which option meets the criteria.
 

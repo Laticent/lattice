@@ -2,13 +2,16 @@
 # The `ios-safari-*` platform suites (.github/platform-suites.json): a probe in REAL Mobile
 # Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
-# (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
+# (focus-sync-probe.js); PROBE=playground-scroll drags a finger over the Playground's Explore preview with the map open and checks the
+# scroll holds across a window move (playground-scroll-probe.js, #3428; run through the warm harness, not a registered suite); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
 # simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
-# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=present-keepalive
-# opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
+# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=codec-support decodes and round-trips the narration codec fixtures on a blank page (codec-probe.js).
+# PROBE=present-landscape presents a 4K photo deck on an iPad Pro 13-inch and an iPhone turned sideways: the canvas, captions, memory.
+# PROBE=present-narration plays a 4K deck in Present with Guide on, voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs).
+# PROBE=present-keepalive opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
@@ -67,7 +70,7 @@ if [ "$PROBE" = office ]; then
   (cd "$page" && python3 -m http.server $PORT --bind 127.0.0.1 > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/index.json"
-elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
+elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ] || [ "$PROBE" = codec-support ]; then
   # A blank page on an http origin is all the JPEG probe needs; the photo-memory probe serves its own pages.
   page="$RUNNER_TEMP/jpeg-probe-page"
   mkdir -p "$page"
@@ -76,12 +79,14 @@ elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
   server=$!
   ready="http://localhost:$PORT/"
 elif [ "$PROBE" = player-charts ]; then
-  # Two decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck and the checker's
-  # hostile deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
+  # Three decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck, the checker's
+  # hostile deck and a 4K deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
   page="$RUNNER_TEMP/player-charts-page"
   mkdir -p "$page"
   node lattice.js examples/chart-detail-reveal.md "$page/chart-detail-reveal.html" --player -q
   node lattice.js docs/scripts/ios-safari/player-charts-hostile.md "$page/hostile.html" --player -q
+  # A 4K deck (#3304): its player must lay the slides out on HD on an iPhone or a portrait iPad, never at 3840.
+  node lattice.js docs/scripts/ios-safari/player-4k.md "$page/deck-4k.html" --player -q
   (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/chart-detail-reveal.html"
@@ -146,8 +151,15 @@ families='iPad iPhone'
 [ "$PROBE" = office ] && families='iPhone'
 # The Present memory probe stands in for the owner's iPhone, where Present on a deck of photos reloaded the tab (#3148).
 [ "$PROBE" = present-memory ] && families='iPhone'
+# The narration codec probe answers for the owner's iPhone: what Apple's media stack decodes and encodes.
+[ "$PROBE" = codec-support ] && families='iPhone'
+# The Present narration probe stands in for the owner's iPhone too, where Present with narration reloaded the tab.
+[ "$PROBE" = present-narration ] && families='iPhone'
 # The Present keep-alive probe is the owner's case too: Present on an iPhone, where full screen falls back to immersive (#3333).
 [ "$PROBE" = present-keepalive ] && families='iPhone'
+# The Present landscape probe turns the simulator sideways (#3304): the iPad Pro 13-inch, the widest iPad screen, and an
+# iPhone, where the captions ride over the slide. run.mjs turns it through Simulator.app.
+[ "$PROBE" = present-landscape ] && families='iPad iPhone'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
@@ -184,7 +196,7 @@ for family in $families; do
   device_t0=$SECONDS
   device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
-     | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
+     | (if $p == "focus-sync" or $p == "present-landscape" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
      | .deviceTypeIdentifier // empty')
   # A missing device type is a runner-image or script fault, not a simulator that would not connect: a finding, never re-run.
   if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; probe_failed=1; continue; fi

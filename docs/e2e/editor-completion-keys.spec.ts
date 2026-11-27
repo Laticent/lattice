@@ -169,15 +169,17 @@ test.describe('on a Mac', () => {
 });
 
 // Slice 3: the slide-body gaps the audit found, each driven by the key an author presses.
-test('Ctrl-Space on a blank body line offers what a line starts with, and a layout opens the component menu @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+test('Ctrl-Space on a blank body line offers what a line starts with, and a `@meta` layout opens the component menu @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '---\ntitle: Insert\n---\n\n# A heading\n\n');
 	await watchMenuOpen(page);
 	await page.keyboard.press('Control+Space');
-	await expect(menu(page).getByRole('option', { name: /^<!-- _class: -->/ })).toBeVisible();
+	// The layout insert is the `@meta` record (the one spelling, owner 2026-11-22), first in the list.
+	await expect(menu(page).getByRole('option', { name: /^<!-- @meta\{layout=\} -->/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^<!-- _class: -->/ })).toHaveCount(0);
 	await expect(menu(page).getByRole('option', { name: /^<!-- @say\{\} -->/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- _class:  -->');
+	await expect(editorText(page)).toContainText('<!-- @meta{layout=} -->');
 	// The layout names follow at once, with the caret inside the directive.
 	await expect(menu(page).getByRole('option').first()).toBeVisible();
 	await page.keyboard.type('flowch');
