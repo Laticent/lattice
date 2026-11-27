@@ -6,6 +6,21 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-27 — the owner raised two ceilings by hand, for PR 3362: playground htmlRaw to 511.9 KB, getting-started engineJsGz to 347.5 KB
+
+Owner OK 2026-11-27, in PR 3362's session: "+1.5 KB each, own PR", chosen over trimming PR 3362 (shorter panel-width samples, and cutting one of its approved engine features) and over fetching the playground catalog instead of inlining it now (`followups.d/3386-p1-playground-catalog-inline.md`, still the lasting fix).
+
+Measured locally with fresh root and docs builds, same machine:
+- playground htmlRaw: `main` at e0598ab is 506.7 KB, 3.7 KB under the 522,618 B ceiling. PR 3362 merged with it is 510.7 KB (CI read 511.0 KB), +4.0 KB: the panel-width variants and claim budgets in the inlined catalog. `main` grew about 3 KB into the 1.5 KB raised for the same PR on 2026-11-21.
+- getting-started engineJsGz: `main` is 345.1 KB, 0.9 KB under the 354,304 B ceiling. PR 3362 is 346.5 KB, +1.4 KB of engine features (the figure-caption pass, per-variant coda anatomy, the coda in split runs and charts).
+
+Both ceilings rise by 1,536 B: 522618 -> 524154 and 354304 -> 355840, which leaves about 0.9 KB and 1.0 KB after PR 3362 at CI's measurement. The soft targets are unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 524154 |
+| getting-started | engineJsGz | 310700 | 310700 | +0 | 355840 |
+
 ### 2026-11-24 — raise the studio eagerJsGz ceiling by 2,048 B (642,732 → 644,780), by hand, for PR 2988, at the owner's direction
 
 Owner OK 2026-11-24, in PR #2988's session: "Raise ceiling 2 KB", in its own PR. Written by hand, as the entries below are; soft stays 571,778.

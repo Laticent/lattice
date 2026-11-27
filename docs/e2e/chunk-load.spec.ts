@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, test, toastText } from './studio-fixture';
 
 // #1242 — a tab open across a deploy, or a dropped connection. Superseded build assets are
 // deleted (lattice.style is GitHub Pages, which serves only the current deployment), so a
@@ -58,7 +58,8 @@ test('an export whose chunk never loads blames the load, not the deck (#1242)', 
 	// the "Markdown for the boardroom" deck) matched first.
 	await page.getByRole('dialog').getByRole('button', { name: /Markdown/ }).first().click();
 
-	const toast = page.locator('[data-sonner-toaster]');
+	// The region, not a `[data-sonner-toaster]` list: a Share failure stands at the top, beside the toaster's own list.
+	const toast = toastText(page);
 	await expect(toast).toContainText(/couldn't load part of the app/i, { timeout: 15_000 });
 	// The defect this replaces: the raw engine string, hashed URL and all.
 	await expect(toast).not.toContainText(/dynamically imported module|_astro/i);
