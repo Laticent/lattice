@@ -82,4 +82,63 @@ function skipUnlessCI(missing, reason) {
   return reason;
 }
 
-module.exports = { resolveChrome, skipWithoutChrome, skipUnlessCI, flag };
+/**
+ * What the machine looked like when a Chrome launch failed, as one line of `key=value` pairs.
+ *
+ * Why it exists: `calco-chips.test.js` once failed in its `before` hook with puppeteer's "Timed out after
+ * 30000 ms while waiting for the WS endpoint URL", under a loaded run, and the hunt for the cause
+ * (engineering/decisions/2026-11-27-shared-chrome-for-tests.md, and PR #3577) could not reproduce it in
+ * 4,469 timed launches. Puppeteer's error says only that the endpoint never appeared. This records the
+ * state a cause would leave a trace in: how long the launch waited, load, free memory, how many Chrome
+ * processes were alive, and free space where puppeteer writes its temp profile.
+ *
+ * Every field is best effort: a reading that fails on this platform is left out, never thrown.
+ */
+function launchDiagnostics(elapsedMs) {
+  const os = require('node:os');
+  const parts = [`waited=${Math.round(elapsedMs)}ms`];
+  const tryAdd = (fn) => {
+    try {
+      const v = fn();
+      if (v) parts.push(v);
+    } catch {}
+  };
+  tryAdd(() => `load=${os.loadavg().map((n) => n.toFixed(2)).join('/')} cpus=${os.cpus().length}`);
+  tryAdd(() => `mem_free=${Math.round(os.freemem() / 2 ** 20)}MiB/${Math.round(os.totalmem() / 2 ** 20)}MiB`);
+  tryAdd(() => {
+    let n = 0;
+    for (const d of fs.readdirSync('/proc')) {
+      if (!/^\d+$/.test(d)) continue;
+      try {
+        if (/chrom/i.test(fs.readFileSync(`/proc/${d}/comm`, 'utf8'))) n++;
+      } catch {}
+    }
+    return `chrome_procs=${n}`;
+  });
+  tryAdd(() => {
+    const st = fs.statfsSync(os.tmpdir());
+    return `tmp_free=${Math.round((st.bavail * st.bsize) / 2 ** 20)}MiB`;
+  });
+  return `launch diagnostics: ${parts.join(' ')}`;
+}
+
+/**
+ * `puppeteer.launch(opts)`, and on failure the same error with `launchDiagnostics` appended to its
+ * message. It adds no retry and no timeout of its own (HARD RULE #33): it changes what a failure says,
+ * never whether one happens.
+ */
+async function launchOrExplain(puppeteer, opts) {
+  const t0 = process.hrtime.bigint();
+  try {
+    return await puppeteer.launch(opts);
+  } catch (e) {
+    const note = launchDiagnostics(Number(process.hrtime.bigint() - t0) / 1e6);
+    if (e && typeof e === 'object' && typeof e.message === 'string') {
+      e.message = `${e.message}\n${note}`;
+      throw e;
+    }
+    throw new Error(`${String(e)}\n${note}`);
+  }
+}
+
+module.exports = { resolveChrome, skipWithoutChrome, skipUnlessCI, flag, launchDiagnostics, launchOrExplain };

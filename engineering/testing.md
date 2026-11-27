@@ -219,6 +219,15 @@ to green, raise its timeout, or file it as a follow-up.
 If steps 1–4 find no cause after you have reproduced the failure under load, `test.fixme` it with the three-part `// disabled:` note
 (what you tried, the evidence, when to re-enable). Deleting a red test is not a fix.
 
+**A Chrome launch that times out** ("Timed out after 30000 ms while waiting for the WS endpoint URL")
+leaves no trace of its own: puppeteer says only that Chrome never printed its endpoint. Launch through
+`launchOrExplain(puppeteer, opts)` from `test/helpers/chrome.js`, which appends the machine's state at the
+failure: the wait, load, free memory, live Chrome processes and temp-dir space. It never retries and adds
+no timeout (#33). To reproduce a launch outside a test, `tools/shared-chrome-lab/launch-probe.mjs` loops
+launches across workers and reports every slow one.
+`calco-chips.test.js` uses the helper because its one timeout could not be reproduced in 4,469 timed
+launches (PR #3577).
+
 ## The evidence a test owes
 
 Every new test, and every test whose assertion or wait changed, carries three things in its PR body
