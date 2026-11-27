@@ -18,9 +18,18 @@
  *      nested) is reported missing, so a green run means the check can see a removal.
  *
  * A field path is a field NAME, never a data key: `components[].capacity.sweet` is a field, but the
- * modifier names inside `vocabularies.modifierUsage` are data, and so are slot names, so a removed
- * component or modifier never trips this test. MAPS below names the objects whose keys are data;
- * `{}` in a path stands for "any key of that map".
+ * modifier names inside `vocabularies.modifierUsage` are data, and so are slot and family names.
+ * MAPS below names the objects whose keys are data; `{}` in a path stands for "any key of that map".
+ *
+ * A FIELD MAY LEAVE WITH ITS DATA. Many fields are written only for the components that carry them
+ * (`hosts` on two, `capacity.withCompact` on one). When the last such component is retired, the field
+ * leaves the file but the builder still writes it for the next one, so that is no removal. A
+ * `components[]` path is therefore excused when the manifest schema defines it
+ * (lib/components/manifest.schema.json) and no manifest carries it any more. It is reported when a
+ * manifest still carries it and the built file does not, which is the builder dropping or renaming
+ * it. A field the builder derives (`galleryHref`, `surfaces`) is not in the schema, so it is never
+ * excused.
+ * Test 4 retires the components that carry the rarest fields and proves nothing is reported.
  *
  * Refresh after a bump (or to record new fields, which is optional and never required):
  *   UPDATE_COMPONENTS_JSON_FIELDS=1 node --test test/unit/cli/components-json-schema-version.test.js
@@ -42,6 +51,9 @@ const MAPS = new Set([
   'vocabularies.exclusiveAxes',
   'vocabularies.modifierUsage',
   'vocabularies.familyModifiers',
+  'vocabularies.modifierGroups[].follows',
+  'vocabularies.modifierGroups[].surface',
+  'components[].adapt.capacity',
   'components[].slots',
   'components[].modifierUsage',
   'components[].variantSurfaces',
@@ -77,13 +89,49 @@ function fieldPaths(value, prefix = '', out = new Set()) {
   return out;
 }
 
-/** The field paths in `fixture` that `doc` no longer has. */
-function missingFields(doc, fixture) {
-  const now = fieldPaths(doc);
-  return fixture.fields.filter((f) => !now.has(f));
+const { loadAll } = require('../../../lib/components');
+const MANIFEST_SCHEMA = require('../../../lib/components/manifest.schema.json');
+
+/**
+ * Every field path the manifest schema defines, in this file's notation, under `components[]`.
+ * `$ref`, `oneOf` and `anyOf` are followed; `items` is `[]`; a map's value schema is `{}`.
+ */
+function schemaPaths(node = MANIFEST_SCHEMA, prefix = 'components[]', out = new Set(), seen = new Set()) {
+  if (!node || typeof node !== 'object' || OPAQUE.has(prefix)) return out;
+  if (node.$ref) {
+    const key = `${prefix} ${node.$ref}`;
+    if (seen.has(key)) return out;
+    seen.add(key);
+    const target = node.$ref.replace(/^#\//, '').split('/').reduce((o, k) => o?.[k], MANIFEST_SCHEMA);
+    schemaPaths(target, prefix, out, seen);
+  }
+  for (const alt of [...(node.oneOf || []), ...(node.anyOf || [])]) schemaPaths(alt, prefix, out, seen);
+  if (node.items) schemaPaths(node.items, `${prefix}[]`, out, seen);
+  if (MAPS.has(prefix)) {
+    const values = [node.additionalProperties, ...Object.values(node.patternProperties || {})];
+    for (const v of values) if (v && typeof v === 'object') schemaPaths(v, `${prefix}{}`, out, seen);
+    return out;
+  }
+  for (const [k, v] of Object.entries(node.properties || {})) {
+    out.add(`${prefix}.${k}`);
+    schemaPaths(v, `${prefix}.${k}`, out, seen);
+  }
+  return out;
 }
 
-const built = () => JSON.parse(portal.build().json);
+/**
+ * The field paths in `fixture` that `doc` no longer has, less the manifest fields no manifest in
+ * `manifests` carries any more (a field that left with its data, see the header).
+ */
+function missingFields(doc, fixture, manifests = loadAll()) {
+  const now = fieldPaths(doc);
+  const carried = fieldPaths({ components: manifests });
+  const defined = schemaPaths();
+  const leftWithItsData = (f) => defined.has(f) && !carried.has(f);
+  return fixture.fields.filter((f) => !now.has(f) && !leftWithItsData(f));
+}
+
+const built = (manifests) => JSON.parse(manifests ? portal.renderPortalJson(manifests) : portal.build().json);
 
 if (process.env.UPDATE_COMPONENTS_JSON_FIELDS === '1') {
   const doc = built();
@@ -134,10 +182,27 @@ test('the failing arm: a deleted field is reported, at every depth', () => {
   }
 });
 
-test('data keys are not fields: dropping a component or a modifier changes nothing', () => {
-  const doc = built();
-  doc.components.pop();
+test('data keys are not fields: retiring components or a modifier reports nothing', () => {
+  // The components that carry the rarest fields (checker, round 1): kpi (adapt.capacity),
+  // q-and-a (capacity.withCompact), columns and rows (hosts, label), video, compare-code and
+  // diagram (slot match fields only they use).
+  const RETIRED = new Set(['kpi', 'q-and-a', 'columns', 'rows', 'video', 'compare-code', 'diagram']);
+  const all = loadAll();
+  for (const name of RETIRED) assert.ok(all.some((m) => m.name === name), `${name} is still a component; pick another`);
+  const kept = all.filter((m) => !RETIRED.has(m.name));
+  const doc = built(kept);
+  // A modifier renamed or dropped inside its group, and one gone from the usage counts.
+  for (const g of doc.vocabularies.modifierGroups) {
+    if (g.surface) for (const k of Object.keys(g.surface)) delete g.surface[k];
+    if (g.follows) for (const k of Object.keys(g.follows)) delete g.follows[k];
+  }
   const [first] = Object.keys(doc.vocabularies.modifierUsage);
   delete doc.vocabularies.modifierUsage[first];
-  assert.deepEqual(missingFields(doc, fixture), []);
+  assert.deepEqual(missingFields(doc, fixture, kept), []);
+});
+
+test('the builder dropping a rare field is still caught while a manifest carries it', () => {
+  const doc = built();
+  for (const c of doc.components) delete c.hosts;
+  assert.ok(missingFields(doc, fixture).includes('components[].hosts'));
 });
