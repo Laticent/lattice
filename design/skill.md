@@ -33,7 +33,8 @@ Open the relevant file before starting work. Only load what the current task nee
 
 ## Rendering Modes (quick reference)
 
-The owned engine renders every first-party path from the same `.md` source.
+The owned engine renders every first-party path from the same `.md` source. Marp's own tools (the VS Code
+preview, marp-cli) are covered in `dist/marp-kit/README.md`.
 
 | Situation | Use |
 |-----------|-----|
@@ -79,8 +80,9 @@ Full rendering pipeline (Mermaid, PPTX, image conversion): see [pipeline.md](../
 ## Dark canvas (quick reference)
 
 Lattice renders dark canvas via the native CSS `color-scheme` cascade —
-no class-list surgery, no per-renderer logic. Same recipe in the engine,
-the CLI, and the VS Code preview.
+no class-list surgery, no per-renderer logic. Same recipe in the engine and the
+CLI; in a deck Marp renders (the VS Code preview, marp-cli), put `color-mode: dark`
+in the settings block, because Marp drops the front-matter key.
 
 | Goal | Front-matter |
 |---|---|

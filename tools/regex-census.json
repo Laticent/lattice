@@ -4,7 +4,7 @@
   "backlog": {
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
-    "lib/authoring/lint-core.js": 80,
+    "lib/authoring/lint-core.js": 79,
     "lib/authoring/notes-core.js": 4,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,

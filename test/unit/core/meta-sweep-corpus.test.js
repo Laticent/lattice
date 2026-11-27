@@ -37,6 +37,7 @@ const NOT_DECKS = Object.freeze([
 const KEEP = Object.freeze({
   'kit/Sample-Deck.md': "Marp's own sample deck, shipped in the Marp kit; Marp reads only directive comments.",
   'tools/vscode-harness/decks/mermaid-click.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
+  'tools/vscode-harness/decks/runtime-off-notice.md': 'Drives the VS Code preview, which is Marp: it reads only directive comments.',
   // LFM 1.x defines the directive comment; these are its conformance cases, marked `until: LFM-2.0` by the cut (slice E),
   // so tools/lfm-conformance.js no longer runs them. Each has a twin in records (`<name>-record.md`) that it does run.
   'spec/conformance/lfm/appendix-a.md': 'An LFM-1.0 conformance case, written in the spelling LFM 1.0 defines.',
