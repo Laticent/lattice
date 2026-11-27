@@ -771,7 +771,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
   It seeds on the same blank page first, as `run.mjs` does.
-  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), on dispatch only (`on_pull_request: false`; every suite is dispatch-only since 2026-11-27):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
   minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB

@@ -788,7 +788,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   range reads fetch one test's `trace.zip` (4 MB here). `0-trace.trace` is JSON lines; the `before` / `after` pairs
   give each action's timing and every `page.evaluate` result.
 
-## A macOS platform-suite check is red on a pull request, and the job has no steps
+## A macOS platform-suite check is red on a dispatch (or, before 2026-11-27, a pull request), and the job has no steps
 
 - **Symptom:** a `Platform suites (macOS / Windows)` run on a dispatch (or, before 2026-11-27, a pull request) is red. The macOS job in it
   (`export-confine`, `os-sandbox-measure`, `wait-for-macos`) reads `cancelled` after 15–21 minutes, with 0 steps and no

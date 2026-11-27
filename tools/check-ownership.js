@@ -10169,13 +10169,14 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
       errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
-      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: never on a pull request; the workflow is dispatch-only since 2026-11-27).`);
     }
-    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // The iOS Simulator suites never run on a pull request (decisions/2026-10-29-ci-job-tiers.md; and since 2026-11-27 the
+    // whole workflow is dispatch-only). The planner derives
     // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
     // no flag; this refuses the one entry that would read as the opposite.
     if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
-      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it never runs on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
     }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);

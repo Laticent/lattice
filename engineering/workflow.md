@@ -1346,7 +1346,8 @@ are ESCAPED into visible text, and a rule whose selector LEADS with
 
 ## Iterating on an open PR — park it as a draft, then mark it ready
 
-`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (A
+`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (`platform-suites.yml`
+has had no `pull_request` trigger since 2026-11-27, so today it never runs on a PR; its draft guard stays for the undo.) (A
 few cheap workflows still run on a draft push: `pr-closing-keywords.yml`, and the path-filtered
 `apt-cache-warm.yml` and `apt-mirror-probe.yml`.) Those three heavy workflows'
 `pull_request` trigger lists `opened`, `synchronize`, `reopened` and `ready_for_review`, and each
@@ -2567,7 +2568,8 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    PR render slice (`test:integration:pr`, which PR CI no longer runs: §Merge queue — the
    facts), and, as an `optional` row, a `workflow_dispatch` of the matching macOS /
    Windows / iOS Simulator platform suites. Run every `local` row and dispatch every
-   `dispatch` row. "Not installed" is not a stop (#23).
+   `dispatch` row (none today: the platform suites, the only dispatch, are `optional`).
+   "Not installed" is not a stop (#23).
    **The platform suites are dispatch-only and never a card-grade requirement** (owner,
    2026-11-27: off the merge path, nightly paused, because they were too flaky to run
    unattended). The checker does not hold the grade below `VERY HIGH` for a suite that did
