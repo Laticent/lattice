@@ -963,6 +963,9 @@ export type ChatUsage = {
 	/** True when a figure here is ours, not the provider's: after a compaction (until the next reply) `prompt` estimates the
 	 *  smaller thread, and on a stopped or failed turn the round that never reported its usage is priced as an estimate (#3533 S01). */
 	estimated?: boolean;
+	/** True when `cost` includes a round priced by our estimate because it never reported its usage (a Stop, a dropped
+	 *  connection). Apart from `estimated`, which compaction also sets for `prompt` alone (#3533 S01). */
+	costEstimated?: boolean;
 };
 
 /** One command the agent ran: its name, the arguments it sent, and a short form of what came back. */

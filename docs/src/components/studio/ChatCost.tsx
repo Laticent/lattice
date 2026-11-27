@@ -212,8 +212,11 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 						</Row>
 						{last && (
 							<>
-								<Row label="Last reply">
-									<span className="font-semibold tabular-nums">{usd(last.cost)}</span>
+								<Row label="Last reply" hint={last.costEstimated ? 'a stopped call is our estimate' : undefined}>
+									<span className="font-semibold tabular-nums">
+										{last.costEstimated ? '≈ ' : ''}
+										{usd(last.cost)}
+									</span>
 								</Row>
 								<Row label="Model calls" hint="rounds the last reply took">
 									<span className="font-semibold tabular-nums">{last.rounds}</span>

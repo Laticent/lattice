@@ -142,7 +142,7 @@ function TraceBody({ trace, usage, renderMarkdown }: { trace: ChatTrace; usage?:
 				</section>
 				{usage && (
 					<p className={cn('text-[11px] text-muted-foreground')} data-testid="trace-total">
-						Total {usage.estimated ? '≈ ' : ''}
+						Total {rounds.some((r) => r.estimated) ? '≈ ' : ''}
 						{usd(num(usage.cost))}
 						{num(usage.reasoning) ? ` · ${fmtTok(num(usage.reasoning))} thinking tokens` : ''}
 						{rounds.length > 1 ? ` · ${inputTotals(rounds)}` : ''}

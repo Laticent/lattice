@@ -142,7 +142,7 @@ Four figures the metrics dropdown and Show work read were wrong in a way that lo
 | The cache share, when the provider sends none | `cached: 0`, shown as "0% read from cache" | `cached: null`, shown as "unknown" (`cachedOf` in `chat-agent.ts`). A thread saved before keeps its 0 |
 | The cache share on Anthropic's own key | Always 0: that key reports `cache_read_input_tokens`, and the chat read only `prompt_tokens_details.cached_tokens` | `anthropicUsage` reports both, and `cachedOf` reads either |
 | A cache write's price on a direct Anthropic key | 1.25× for every write | From Anthropic's own `cache_creation` split, 1.25× for 5-minute and 2× for 1-hour tokens; without the split, the rate the request's own marks ask for (`requestWriteRate`). The direct key writes 5-minute marks today, so its old flat 1.25× happened to be right |
-| A round stopped or failed before it reported usage | Charged only when prose or a generation id had arrived; never in the usage line or Show work | Always charged as an estimate (`chargeOpenRound`): in the spend ledger, the usage line and Show work, each marked estimated. The generation id, when one arrived, still corrects the ledger to the exact cost |
+| A round a Stop or an error ends | Charged only when prose or a generation id had arrived, and only on a Stop; never in the usage line or Show work | Settled once by `settleOpenRound`: a round that reported its usage is listed at that figure and charged nothing more; a round the provider never accepted (refused with a 429 or 402, or stopped before it was sent) is charged nothing; a round accepted and never reported (a generation id, a token, a tool call or a thought arrived) is charged as an estimate in the ledger, the usage line (`costEstimated`, shown as `≈` on "Last reply") and Show work. The generation id, when one arrived, corrects the ledger to the exact cost on a Stop and on an error alike. A Stop between two stream chunks, which ends the stream with a normal return and no usage, is settled the same way |
 | The budget gate and the Stop estimate | Left out the tool definitions, about 3K tokens a round in Review | Count them (`schemaTokens`) |
 
 **Show work's ledger.** Each call reads its cost, input with its cached share (or "cache unknown"), and output, and a stopped
@@ -152,8 +152,13 @@ largest single call: the first is what was billed, the second is how full the wi
 **What stays an estimate.** OpenRouter's `usage.cost` is the provider's own figure and is used as is. A stopped round's estimate
 prices its whole input at the full input rate, an upper bound, because the provider never said how much of it was cached.
 
-**Verified.** `architect-agent.chat.test.ts` drives the real wiring with a scripted backend (no network, no spend): a Stop
-before any token is charged and listed; a missing cache report reads as unknown. `direct-providers.test.ts` streams a
+**The maker-checker pass** caught two regressions in this change's first cut, both reproduced with a scripted backend: a round
+that reported its usage and then errored was charged twice ($0.0309 for $0.003), and a refused request was charged a permanent
+estimate about 28 times its real cost. Both are fixed and held by tests, with the Stop-before-send and Stop-between-chunks cases.
+
+**Verified.** `architect-agent.chat.test.ts` drives the real wiring with a scripted backend (no network, no spend): an accepted,
+unreported round is charged and listed as an estimate; a reported-then-failed round is charged once; a refused round and a
+round stopped before it was sent are charged nothing; a missing cache report reads as unknown. `direct-providers.test.ts` streams a
 1-hour write and a cache read through the Anthropic transport. Each test goes red with its source at `origin/main`.
 
 **The prompt trim (#3533, owner's D4: "fix the wrong instructions and any stray gunk").** The chat's static prefix described

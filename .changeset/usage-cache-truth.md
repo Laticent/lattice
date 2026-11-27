@@ -6,7 +6,7 @@ The Studio chat's cost figures now say "unknown" when a provider sends no cache 
 
 - The metrics dropdown's cache share reads "unknown" when the provider reported no figure, and Anthropic's own key now reports its cache reads, which always read 0 before.
 - A cache write on a direct Anthropic key is priced by its own 5-minute / 1-hour split: 1.25× and 2× base input.
-- A round stopped or cut off before it reported its usage is charged as an estimate, shown in the reply's usage and in Show work, and marked as one.
+- A round the provider accepted but that a Stop or an error ended before it reported its usage is charged as an estimate, shown in the reply's usage and in Show work, and marked as one. A request the provider refused, or one stopped before it was sent, costs nothing.
 - The hard-stop budget cap and the Stop estimate count the tool definitions each round carries.
 - Show work lists each model call's cost, input with its cached share, and output, and its total keeps cumulative input apart from the largest single call.
 - The chat's system prompt names 14 export, preview and raw-CSS front-matter keys instead of describing each, and folds `lexicon:` and `acronyms:` into the `terms:` row: 412 fewer tokens on every request. The model still reads each one in full on request, and read_front_matter now finds the camelCase keys (`backgroundColor` and four more), which it reported as unknown before.

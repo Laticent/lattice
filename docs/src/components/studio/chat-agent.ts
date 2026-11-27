@@ -239,12 +239,17 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// A request is in flight: set when a round is sent, cleared when it returns. A Stop
 	// prices only an open round — a finished one already reported its exact cost.
 	let roundOpen = false;
+	// What the round in flight has shown (#3533 S01): `reported` once its usage arrived (its exact cost is then in the ledger),
+	// `accepted` once the provider answered with anything at all (a generation id, a token, a tool call, a thought). A round
+	// refused before it streamed (a 429, a 402) or stopped before it was sent was never billed, so it is never charged.
+	let roundReported = false;
+	let roundAccepted = false;
 	let rounds = 0;
 	// What the rounds that FINISHED reported, for the reply's usage line and the context meter. It comes from the same
 	// `usage` block that already feeds the spend tally, so keeping it is free; an aborted round never reports and is absent.
 	// `cached` is null until a round reports it: a provider that sends no cache figure has told us nothing, and a 0 would read as
 	// "no cache hit" in the usage line and the trace (#3533 S02).
-	const used: { cost: number; prompt: number; completion: number; cached: number | null; reasoning: number; rounds: number; estimated?: boolean } = { cost: 0, prompt: 0, completion: 0, cached: null, reasoning: 0, rounds: 0 };
+	const used: { cost: number; prompt: number; completion: number; cached: number | null; reasoning: number; rounds: number; estimated?: boolean; costEstimated?: boolean } = { cost: 0, prompt: 0, completion: 0, cached: null, reasoning: 0, rounds: 0 };
 	const tally = (u: Parameters<NonNullable<Parameters<ArchitectModel['complete']>[0]['onUsage']>>[0]) => {
 		used.rounds++;
 		used.cost += Number(u?.cost) || 0;
@@ -279,6 +284,8 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
+		roundReported = false;
+		roundAccepted = false;
 		roundPrompt = convo;
 		const blk = await cloudBudgetBlock(model, convo, systemTokens + schemaTokens + docTokens + pictureTokens + attachedTokens, CHAT_MAX_TOKENS, pictureUsd);
 		if (blk) {
@@ -304,16 +311,22 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			tools: offered,
 			toolChoice: tools ? 'auto' : 'none',
 			onToolCalls: (c) => {
+				roundAccepted = true;
 				calls = c;
 			},
 			// A call's name lands long before its arguments do (a whole slide streams inside
 			// `edit_slides` with no prose), so say what is being drafted while it arrives.
-			onToolStart: (name: string) => opts?.onActivity?.(TOOL_DRAFTING[name] ?? TOOL_ACTIVITY[name] ?? THINKING),
+			onToolStart: (name: string) => {
+				roundAccepted = true;
+				opts?.onActivity?.(TOOL_DRAFTING[name] ?? TOOL_ACTIVITY[name] ?? THINKING);
+			},
 			onToken: (t: string) => {
+				roundAccepted = true;
 				streamed += t;
 				onToken(t);
 			},
 			onGenerationId: (id) => {
+				roundAccepted = true;
 				genId = id;
 			},
 			onFinishReason: (r) => {
@@ -321,28 +334,50 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			},
 			signal: opts?.signal,
 			onReasoning: (t: string) => {
+				roundAccepted = true;
 				// Kept to a bit more than the trace saves; a model that thinks for pages should not grow memory with it.
 				if (roundThinking.length < 6000) roundThinking += t;
 				opts?.onReasoning?.(t);
 			},
 			onUsage: (u) => {
+				roundReported = true;
+				roundAccepted = true;
 				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck);
 				tally(u);
 				roundUse = { cost: Number(u?.cost) || 0, prompt: Number(u?.prompt_tokens) || 0, completion: Number(u?.completion_tokens) || 0, cached: cachedOf(u) };
 			},
 		});
+		// A Stop that lands between two chunks ends the stream with a normal return and, usually, no usage block: the round was
+		// billed for what it streamed, so it is settled like any other stopped round rather than read as a finished, free one.
+		if (opts?.signal?.aborted && !roundReported) {
+			const e = new Error('aborted');
+			e.name = 'AbortError';
+			throw e;
+		}
 		roundOpen = false;
 		rounds++;
 		return { text, toolCalls: calls.filter((c) => c?.function?.name), truncated: finish === 'length' };
 	};
 	/**
-	 * Charge the round in flight as an ESTIMATE: it was sent, it never reported its usage, and a missing report is not a free
-	 * round (#3533 S01). The estimate covers the prompt and the tool definitions it carried at the full input rate (an upper
-	 * bound: part of it was likely read from cache) plus the prose seen; it goes to the spend ledger, the reply's usage line
-	 * and the trace, each marked estimated. The generation id, when one arrived, later corrects the ledger to the exact figure.
+	 * Settle the round in flight when the turn ends on a Stop or an error, once (#3533 S01):
+	 * - it reported its usage before failing: its exact cost is already in the ledger and the tally, so it is listed in the
+	 *   trace at that figure and charged nothing more;
+	 * - the provider never accepted it (refused before streaming, or stopped before it was sent): nothing was billed;
+	 * - it was accepted and never reported: a missing report is not a free round, so it is charged as an ESTIMATE in the
+	 *   ledger, the usage line and the trace, each marked estimated. The estimate prices the prompt and the tool definitions
+	 *   at the full input rate (an upper bound: part of it was likely read from cache) plus the prose seen, and the generation
+	 *   id, when one arrived, later corrects the ledger to the exact figure.
 	 */
-	const chargeOpenRound = (): number => {
+	const settleOpenRound = (): void => {
+		if (!roundOpen) return;
 		roundOpen = false;
+		const thought = roundThinking.trim() ? { reasoning: roundThinking } : {};
+		const prose = streamed.trim() ? { text: streamed } : {};
+		if (roundReported) {
+			traceRounds.push({ ...thought, ...prose, calls: [], ...roundUse });
+			return;
+		}
+		if (!roundAccepted) return;
 		const out = Math.ceil(streamed.length / 4);
 		const inTokens = estTokens(roundPrompt) + docTokens + systemTokens + schemaTokens + roundPictureTokens + attachedTokens;
 		const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, out, docTokens + systemTokens + schemaTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
@@ -353,8 +388,22 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		used.completion += out;
 		used.cached = null;
 		used.estimated = true;
-		traceRounds.push({ ...(roundThinking.trim() ? { reasoning: roundThinking } : {}), ...(streamed.trim() ? { text: streamed } : {}), calls: [], cost: est, prompt: inTokens, completion: out, cached: null, estimated: true });
-		return est;
+		used.costEstimated = true;
+		traceRounds.push({ ...thought, ...prose, calls: [], cost: est, prompt: inTokens, completion: out, cached: null, estimated: true });
+		if (genId && model.openRouterGenerationCost) {
+			void model
+				.openRouterGenerationCost(genId)
+				.then((exact) => {
+					if (exact == null || !Number.isFinite(exact)) return;
+					adjustSpend(exact - est, turnDeck);
+					try {
+						globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+					} catch {
+						/* no window */
+					}
+				})
+				.catch(() => {});
+		}
 	};
 	let reply = '';
 	const notes: string[] = [];
@@ -392,29 +441,14 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// Stop keeps what streamed AND what was staged — the author can still review it.
 			// Same estimate-then-reconcile as the one-shot path (the usage chunk never came).
 			reply = soFar();
-			// Priced whenever a round was in flight, not only when prose streamed: a round that
-			// streams only a tool call (a whole slide in `edit_slides`) streams no prose, and was
-			// recorded as $0 with the exact-cost lookup skipped (checker). The estimate covers the
-			// prompt plus the prose seen; the generation id, when it arrived, replaces it with the
-			// exact figure.
-			if (roundOpen) {
-				const est = chargeOpenRound();
-				if (genId && model.openRouterGenerationCost) {
-					void model
-						.openRouterGenerationCost(genId)
-						.then((exact) => {
-							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est, turnDeck);
-							try {
-								globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
-							} catch {
-								/* no window */
-							}
-						})
-						.catch(() => {});
-				}
-			}
+			// Priced whenever the provider had accepted the round, not only when prose streamed: a round
+			// that streams only a tool call (a whole slide in `edit_slides`) streams no prose, and was
+			// recorded as $0 with the exact-cost lookup skipped (checker). A Stop before it was sent costs
+			// nothing. The generation id, when it arrived, replaces the estimate with the exact figure.
+			settleOpenRound();
 		} else if (!rounds) {
+			// A first round that streamed and then dropped was billed too; the turn still ends blocked.
+			settleOpenRound();
 			// Nothing answered. Fall back to the one-shot chat ONLY when the model refused the
 			// tools themselves; any other failure (a bad key, no credits, a dead model, the
 			// network) would fail the one-shot the same way, and that path reports every failure
@@ -428,9 +462,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// is the likeliest) gets its own cause and remedy; anything else is a dropped
 			// connection, with the error's own words when it was not the network.
 			reply = soFar();
-			// A round that was in flight when the connection failed was sent and may be billed: count it as an estimate rather than
-			// as nothing (#3533 S01).
-			if (roundOpen) chargeOpenRound();
+			// The round in flight when the connection failed: listed at its reported cost, estimated if it was accepted and never
+			// reported, nothing if the provider refused it (#3533 S01).
+			settleOpenRound();
 			const msg = String((e as { message?: string })?.message ?? e ?? '');
 			if (MODEL_ERROR.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
 			else if (!msg || /fetch|network|load failed/i.test(msg)) notes.push('The model connection dropped partway through this turn.');
