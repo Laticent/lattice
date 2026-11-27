@@ -5,9 +5,9 @@
   "form": "split",
   "substance": "structure",
   "stage": "flow",
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",
@@ -135,12 +135,12 @@
       "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
-  "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
+  "skeleton": "<!-- @meta{layout=compare-prose} -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
   "anatomyBlock": "T11-comparison",
-  "sample": "<!-- _class: compare-prose -->\n\n## Two options, equal footing, corner tags.\n\n- The left option\n  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.\n- The right option\n  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.\n",
+  "sample": "<!-- @meta{layout=compare-prose} -->\n\n## Two options, equal footing, corner tags.\n\n- The left option\n  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.\n- The right option\n  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.\n",
   "stressDoc": {
     "summary": "Both panes at the ceiling.",
-    "sample": "<!-- _class: compare-prose vertical -->\n\n## Two full cases is the most this pair holds.\n\n- The stressed top pane\n  - A case at the hard budget runs about this long: two full sentences that state the option, its strongest argument, and the cost it accepts — and then stops.\n- The stressed bottom pane\n  - Symmetry matters most at the ceiling; when one pane runs half the other's length, the slide reads as a verdict the author did not intend to give.\n"
+    "sample": "<!-- @meta{layout=compare-prose, class=vertical} -->\n\n## Two full cases is the most this pair holds.\n\n- The stressed top pane\n  - A case at the hard budget runs about this long: two full sentences that state the option, its strongest argument, and the cost it accepts — and then stops.\n- The stressed bottom pane\n  - Symmetry matters most at the ceiling; when one pane runs half the other's length, the slide reads as a verdict the author did not intend to give.\n"
   },
   "whenToUse": [
     {
@@ -192,42 +192,42 @@
     "axis": {
       "label": "axis",
       "summary": "A lede above, numeral-led facet cards, a closing note below.",
-      "sample": "<!-- _class: compare-prose axis -->\n\n## The second axis: how far it reaches.\n\nThe verb is one axis — how you think. **Reach** is the other — how far what you make travels.\n\n1. Own the verb\n   - You can do the cognitive work — correct, clear, complete. It reaches only you.\n2. Widen the reach\n   - The work travels: team, org, field. Documented, adopted, durable.\n\n*Most engineers stall on making it travel, not on the thinking.*\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=axis} -->\n\n## The second axis: how far it reaches.\n\nThe verb is one axis — how you think. **Reach** is the other — how far what you make travels.\n\n1. Own the verb\n   - You can do the cognitive work — correct, clear, complete. It reaches only you.\n2. Widen the reach\n   - The work travels: team, org, field. Documented, adopted, durable.\n\n*Most engineers stall on making it travel, not on the thinking.*\n"
     },
     "transition": {
       "label": "transition",
       "summary": "Left reads as before, right as after.",
-      "sample": "<!-- _class: compare-prose transition -->\n\n## transition reads left as before, right as after.\n\n- Before\n  - The arrow between the panes turns comparison into change over time.\n- After\n  - Use it for state changes, not preferences — the arrow implies causation.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=transition} -->\n\n## transition reads left as before, right as after.\n\n- Before\n  - The arrow between the panes turns comparison into change over time.\n- After\n  - Use it for state changes, not preferences — the arrow implies causation.\n"
     },
     "mirror": {
       "label": "mirror",
       "summary": "Swaps the reading order.",
-      "sample": "<!-- _class: compare-prose mirror -->\n\n## mirror swaps the reading order.\n\n- Second option\n  - mirror renders this pane first — for when the deck's rhythm lands on the left.\n- First option\n  - Same anatomy, flipped; the corner tags travel with their panes.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=mirror} -->\n\n## mirror swaps the reading order.\n\n- Second option\n  - mirror renders this pane first — for when the deck's rhythm lands on the left.\n- First option\n  - Same anatomy, flipped; the corner tags travel with their panes.\n"
     },
     "chosen": {
       "label": "chosen",
       "summary": "Crowns the right pane the winner.",
-      "sample": "<!-- _class: compare-prose chosen -->\n\n## chosen crowns the right pane the winner.\n\n- The road not taken\n  - The losing option keeps its full case — an honest comparison shows real strength.\n- The verdict\n  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=chosen} -->\n\n## chosen crowns the right pane the winner.\n\n- The road not taken\n  - The losing option keeps its full case — an honest comparison shows real strength.\n- The verdict\n  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.\n"
     },
     "decision": {
       "label": "decision",
       "summary": "Stamps the verdict banner across the pair.",
-      "sample": "<!-- _class: compare-prose decision -->\n\n## decision stamps the verdict banner across the pair.\n\n- Option one\n  - Both panes stay equal; the banner above carries the call.\n- Option two\n  - Use when the decision is made and the slide is the record.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=decision} -->\n\n## decision stamps the verdict banner across the pair.\n\n- Option one\n  - Both panes stay equal; the banner above carries the call.\n- Option two\n  - Use when the decision is made and the slide is the record.\n"
     },
     "vertical": {
       "label": "vertical",
       "summary": "Stacks the panes for longer cases.",
-      "sample": "<!-- _class: compare-prose vertical -->\n\n## vertical stacks the panes for longer cases.\n\n- The top option\n  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.\n- The bottom option\n  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=vertical} -->\n\n## vertical stacks the panes for longer cases.\n\n- The top option\n  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.\n- The bottom option\n  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.\n"
     },
     "tag-band": {
       "label": "tag-band",
       "summary": "Corner tags become banners.",
-      "sample": "<!-- _class: compare-prose tag-band -->\n\n## tag-band fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=tag-band} -->\n\n## tag-band fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
     },
     "rejected": {
       "label": "Rejected",
       "summary": "Strikes the losing pane.",
-      "sample": "<!-- _class: compare-prose rejected -->\n\n## rejected strikes the losing pane.\n\n- The pick\n  - The surviving option reads at full strength.\n- The rejected pane\n  - Dimmed and struck — the record of what was considered and declined.\n"
+      "sample": "<!-- @meta{layout=compare-prose, class=rejected} -->\n\n## rejected strikes the losing pane.\n\n- The pick\n  - The surviving option reads at full strength.\n- The rejected pane\n  - Dimmed and struck — the record of what was considered and declined.\n"
     }
   },
   "commonMistakes": [

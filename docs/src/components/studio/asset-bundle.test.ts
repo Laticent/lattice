@@ -184,7 +184,7 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 
 	it('showcase deck exercises the engine range', () => {
 		const d = showcaseDeck('Harbor');
-		for (const cls of ['title', 'kpi', 'journey', 'diagram', 'split-panel', 'closing']) expect(d).toContain(`_class: ${cls}`);
+		for (const cls of ['title', 'kpi', 'journey', 'diagram', 'split-panel', 'closing']) expect(d).toContain(`@meta{layout=${cls}}`);
 		expect(d).toContain('```mermaid');
 		expect(d).toContain('# Harbor');
 	});

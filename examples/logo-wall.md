@@ -2,11 +2,11 @@
 marp: true
 size: 4K
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · logo-wall"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # The wall that vouches for you.
 
@@ -16,7 +16,7 @@ A grid of customer, partner, or funder marks — the social-proof slide every go
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## One layout, every industry's proof slide.
 
@@ -28,7 +28,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Trusted by`
 
@@ -45,7 +45,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Trusted by`
 
@@ -78,7 +78,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: logo-wall dense -->
+<!-- @meta{layout=logo-wall, class=dense} -->
 
 `Our funders`
 
@@ -99,7 +99,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: logo-wall color -->
+<!-- @meta{layout=logo-wall, class=color} -->
 
 `Participating agencies`
 
@@ -116,7 +116,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: logo-wall dark -->
+<!-- @meta{layout=logo-wall, class=dark} -->
 
 `Trusted by`
 
@@ -133,7 +133,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## Proof, not paragraphs.
 

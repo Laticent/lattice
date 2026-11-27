@@ -1,12 +1,12 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Read · Article charts"
 player: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Charts keep their color when they leave the slide.
 
@@ -16,8 +16,8 @@ Open this deck's player, switch to **Read · Article**, and each chart below kee
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Read · Article used to drop every status pill here" -->
+<!-- @meta{layout=progress, footer=Read · Article used to drop every status pill here} -->
+
 
 `H1 2026 · Phase 1 readiness`
 
@@ -33,8 +33,8 @@ The pill rule matched only a chart on a slide. It now matches the chart the arti
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "Same pill rule as progress" -->
+<!-- @meta{layout=timeline-list, footer=Same pill rule as progress} -->
+
 
 `Rollout · 2026`
 
@@ -51,8 +51,8 @@ The pill rule matched only a chart on a slide. It now matches the chart the arti
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "The header rule read a token only a slide defined" -->
+<!-- @meta{layout=roadmap, footer=The header rule read a token only a slide defined} -->
+
 
 `H2 2026 · Rollout plan`
 
@@ -66,8 +66,8 @@ The pill rule matched only a chart on a slide. It now matches the chart the arti
 
 ---
 
-<!-- _class: matrix-grid -->
-<!-- _footer: "The article used to flatten this grid to a plain table" -->
+<!-- @meta{layout=matrix-grid, footer=The article used to flatten this grid to a plain table} -->
+
 
 ## The grid keeps its filled and outlined cells.
 
@@ -88,8 +88,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: bar -->
-<!-- _footer: "Read · Article used to repeat the heading under this chart" -->
+<!-- @meta{layout=bar, footer=Read · Article used to repeat the heading under this chart} -->
+
 
 `Revenue · FY26`
 
@@ -104,8 +104,8 @@ Source: **audited** regional filings, FY26.
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "Read · Article used to drop this caption" -->
+<!-- @meta{layout=word-cloud, footer=Read · Article used to drop this caption} -->
+
 
 ## A word cloud keeps its caption too.
 
@@ -123,8 +123,8 @@ From 24 pilot retros, **unprompted**.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "check:render · copy-parity pass" -->
+<!-- @meta{layout=content, footer=check:render · copy-parity pass} -->
+
 
 ## A gate found all three causes, and now holds the line.
 
@@ -132,7 +132,7 @@ From 24 pilot retros, **unprompted**.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Lattice · one style-delivery spine`
 

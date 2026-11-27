@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One spelling per deck.
 
@@ -15,7 +15,7 @@ Raw files land in `^{bucket, c4}` storage and load into `^{database, c5}` the mo
 
 ---
 
-<!-- _class: waterfall -->
+<!-- @meta{layout=waterfall} -->
 
 ## Margin bridge.
 

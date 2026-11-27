@@ -452,6 +452,13 @@ COMPLETION
                      eval "$(lattice completion bash)" in ~/.bashrc. See
                      lattice completion --help
 
+LINT
+  lattice lint <deck.md> [more.md …] [--fix] [--strict] [--json] [--no-review]
+                     Check a deck for authoring mistakes without rendering it. --fix
+                     applies every machine fix in place: a deck written against an
+                     old key or class moves to the new spelling in one command.
+                     Exit 1 when an error is left (a warning too, under --strict).
+
 VIDEO
   lattice video <deck.md | narrated-export.html> [out.mp4]
                      Render a deck, voiced with Kokoro, or a narrated HTML export
@@ -504,6 +511,7 @@ COMMON OPTIONS
 MORE
   lattice packages …   Install and manage themes, components, finishes and motion
   lattice video …      Render a deck to an MP4 with a voice-over
+  lattice lint …       Check a deck without rendering; --fix applies the fixes
   lattice completion   Tab completion for bash, zsh, fish or PowerShell
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
@@ -562,6 +570,16 @@ if (process.argv[2] === 'fmt') {
 if (process.argv[2] === 'migrate') {
   const tool = process.argv[3] === 'notes' ? 'migrate-notes.mjs' : 'migrate-meta.mjs';
   const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli', tool), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
+// `lattice lint [--fix] [--strict] [--json] <deck.md…>` — the deck linter, the same one this repo runs as
+// `npm run lint:deck` (lib/cli/lint-deck.js), so a deck written against an old spelling migrates in one command
+// (`lint --fix`; the 2026-11 key renames, engineering/decisions/2026-11-21-plain-english-key-renames.md). Dispatched
+// as a child for the same reason as `packages`.
+if (process.argv[2] === 'lint') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/lint-deck.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -793,6 +811,18 @@ if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
 // Instrumentation, not authoring: hold the deck still so a rig can measure it (page N
 // must stay slide N). See the AUTOSPLIT comment below.
 const NO_SPLIT = !!flags['no-split'];
+// --fit-pack NAME: the measured split (2026-10-28-fit-everywhere-model.md §16). A slide splits only
+// when it overflows at its box and venue, and its members are packed onto body pages by measured
+// height with this packer (`@laticent/fluido`'s `pack`). Unset, the split is today's structural one.
+const FIT_PACK = flags['fit-pack'] || null;
+// `--fit-pack` measures any deck, so the engine draws a phone chart for the page its coda leaves (lib/engine/index.js
+// `activeMeasured`); without it the engine reads the deck's `fit:`, the same rule the split below uses.
+const MEASURED_OPT = FIT_PACK ? { measured: true } : {};
+const FIT_MEMORY = flags['fit-memory'] ? path.resolve(flags['fit-memory']) : null;
+if (FIT_PACK && !['greedy', 'balanced', 'knuth-plass'].includes(FIT_PACK)) {
+  console.error(`✗ --fit-pack must be greedy, balanced or knuth-plass (got "${FIT_PACK}")`);
+  process.exit(2);
+}
 const STRIP_NOTES = !!flags['strip-notes'];
 // --player-consent: the web origins the player may load pictures from after the reader allows it.
 // Each must be an origin (`https://host[:port]`); anything else is an error, not a silent drop.
@@ -1190,7 +1220,7 @@ const { deckClassRefusalsFromFrontMatter } = require('./lib/core/deck-class-regi
 const { frontMatterBody: deckFrontMatterBody } = require('./lib/core/resolve-color-mode');
 for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatterBody(md))) {
   console.error(reason === 'component'
-    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- _class: ${token} -->, or once for a run with <!-- class: ${token} -->.`
+    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- @meta{layout=${token}} -->, or once for a run with <!-- @meta{layout=${token}, carry} -->.`
     : `warning: deck-wide \`class: ${token}\` is superseded by \`color-mode:\` — it is dropped, not merged. Remove it from the class list.`);
 }
 
@@ -1269,7 +1299,7 @@ const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { drawIconsAsSvg, drawsIconGlyphs } = require('./lib/fonts/icon-fallback.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
-const { HOLD_UNFIT_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
+const { HOLD_UNFIT_REFLOW_SRC, FORCE_OVERFLOWING_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -1277,7 +1307,7 @@ const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_
 // `guards-strict-x` enabled the trim here and not in the runtime, and
 // `x-guards-loose guards-strict` disabled it here and not there. Same deck, two answers
 // about whether a slide is trimmable at all (HARD RULE #1). Injected from the kernel.
-const { GUARDS_ENABLED_SRC } = require('./lib/core/resolve-guards');
+const { TRIM_ENABLED_SRC } = require('./lib/core/resolve-fit');
 // The verdict half of the same measurement — extent + legibility → the
 // `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
 // 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
@@ -1287,6 +1317,8 @@ const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payload
 const { bakeDeck } = require('./lib/plugins/host-bake');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
+const { SETTLE_RUN_PLACEMENT_SRC } = require('./lib/core/run-placement');
+const { LIFT_COVER_TEXT_SRC } = require('./lib/core/cover-lift');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
@@ -2086,8 +2118,15 @@ function withInstalledComponents(source) {
   const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used, ...retiredCandidates]);
   const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
   if (doubtful.length) {
-    const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));
-    for (const t of doubtful.filter((x) => unknown.has(x))) {
+    const findings = require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class');
+    const unknown = new Set(findings.map((f) => f.classToken));
+    // A RENAMED class (lint-core `RENAMED_CLASSES`: `marks-tone` is `chart-finish-tone`) carries its new name as a
+    // fix with no fuzzy guess behind it; say that, not "install a package" (the inversion pass on #3510).
+    const renamed = new Map(findings.filter((f) => f.replace?.to && !f.didYouMean).map((f) => [f.classToken, f.replace.to]));
+    for (const t of doubtful.filter((x) => renamed.has(x))) {
+      console.error(`warning: "${t}" was renamed to "${renamed.get(t)}", and the old name now does nothing. \`lattice lint\` names each one and fixes it.`);
+    }
+    for (const t of doubtful.filter((x) => unknown.has(x) && !renamed.has(x))) {
       console.error(`warning: no component "${t}" — it is not shipped, embedded in the deck, or installed, so its slides render unstyled.`);
       console.error(`         to install one made in the Studio: lattice packages add ${t}.lattice-component.zip`);
     }
@@ -2589,7 +2628,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/cli/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize, ...MEASURED_OPT }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2605,7 +2644,7 @@ function engineSlides(deckSource = rawMd) {
     const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
     DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize, ...MEASURED_OPT });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
@@ -4036,8 +4075,16 @@ async function renderBody(browser, g, closeBrowser) {
   // equalizing here would make the overflow warning describe a layout the file does not have.
   // The fluid view and the player carry it (the runtime, or the baked DOM).
   const TAGS_REACH_DELIVERABLE = !(OUT_FORMAT === 'html' && !(FLUID_VIEW && FLUID_BEATS_READ) && !PLAYER);
+  // A split cover that runs into its footer moves its subtitle and lede to the first body page
+  // (lib/core/cover-lift.js), and a split run's pages share one placement (lib/core/run-placement.js),
+  // by the same test: a plain `.html` has no script, so its covers and pages keep their own layout.
+  // The in-page overflow watcher stamped its clip tags on the layout BEFORE these passes, and it
+  // re-checks only on `resize`: a cover whose lede moved off it still wore "Content clipped" in the
+  // PDF (examples/team-profile.md at square, fit-everywhere-model.md §25). So when any pass wrote,
+  // the watcher is asked to look again, as after the reflow hold below. The passes write only on a
+  // real change, so a settled page dispatches nothing.
   const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
-    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
+    ? g(() => page.evaluate(`(() => { const n = (${EQUALIZE_CARD_TAGS_SRC})(document) + (${LIFT_COVER_TEXT_SRC})(document) + (${SETTLE_RUN_PLACEMENT_SRC})(document); if (n) window.dispatchEvent(new Event('resize')); return n; })()`), `equalize card tags and place split runs${label}`)
     : Promise.resolve(0));
 
   // THE SETTLE BARRIER (lib/plugins/hydrate-script.js). A plugin figure drawn in the browser is
@@ -4194,7 +4241,7 @@ async function renderBody(browser, g, closeBrowser) {
   /**
    * Measure in the page, DECIDE in Node, apply in the page.
    *
-   * Only sections carrying `guards-strict` are touched, and a section that fits is
+   * Only sections carrying `fit-trim` are touched, and a section that fits is
    * never modified — so a deck without the register produces byte-identical output
    * and `golden-diff` stays green.
    */
@@ -4208,13 +4255,13 @@ async function renderBody(browser, g, closeBrowser) {
       globalThis.trimRoleOf = new Function('return (' + roleSrc + ')')();
       const measureTrim = new Function('return (' + measureSrc + ')')();
       const clearTrim = new Function('return (' + clearSrc + ')')();
-      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
+      const trimEnabled = new Function('return (' + enabledSrc + ')')();
       // The deck's own slides (lib/core/deck-slides.js), so the page numbers the trim
       // reports agree with the OVERFLOW line's on a deck that pastes slide markup.
       const deckSlideSections = new Function('return (' + slidesSrc + ')')();
       const out = [];
       deckSlideSections(document).forEach((s, i) => {
-        if (!guardsEnabled(s.className)) return;
+        if (!trimEnabled(s.className)) return;
         clearTrim(s);
         // A PER-SLIDE id namespace, matching the runtime. The export bakes one
         // document too, and an id only has to be unique where it is resolved.
@@ -4222,7 +4269,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (model.boxes.length) out.push({ index: i, model });
       });
       return out;
-    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: GUARDS_ENABLED_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
+    }, { roleSrc: TRIM_ROLE_SRC, measureSrc: TRIM_MEASURE_SRC, clearSrc: TRIM_CLEAR_SRC, clipSel: CLIP_CELL_SELECTOR, enabledSrc: TRIM_ENABLED_SRC, slidesSrc: DECK_SLIDES_SRC, tol: FRAME_TOLERANCE });
 
     const pages = [];
     const reverted = [];
@@ -4273,6 +4320,74 @@ async function renderBody(browser, g, closeBrowser) {
     return { slides: pages.length, pages, reverted, detail };
   }, 'apply guards trim');
 
+  // MEASURED LOGO-WALL COLUMNS (owner, 2026-11-15; fit-everywhere-model.md §25). The wall was stamped from
+  // the string, with estimates (lib/core/logo-wall-pack.js `stampWall`). Here the page measures every
+  // captioned wall it drew (`measureWall`); a wall whose caption runs past its cell, or whose rows run
+  // below the stage, is re-planned from the measurement with the same `planWall` and stamped again, in the
+  // deliverable string and the page alike. A wall that fits is not touched, and a deck with none costs
+  // one evaluate and no reload.
+  {
+    const measured = await g(() => page.evaluate(`(() => { const measure = ${logoWallPack.measureWall.toString()}; return [...document.querySelectorAll('section.logo-wall')].map((s) => { const ul = s.querySelector(':scope > .cell-stage > ul[data-logo-wall]'); const m = ul ? measure(ul) : null; return m && m.over ? m : null; }); })()`), 'measure logo walls') || [];
+    if (measured.some(Boolean)) {
+      const aspect = slideW / slideH;
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        const html = `${p.openTag}${p.inner}</section>`;
+        if (!` ${readClassAttr(p.openTag) || ''} `.includes(' logo-wall ')) return html;
+        k += 1;
+        return measured[k] ? logoWallPack.restampWall(html, aspect, measured[k]) : html;
+      }).join('');
+      const next = head + body;
+      if (next !== cleanDocHtml) {
+        cleanDocHtml = next;
+        fs.writeFileSync(outHtml, cleanDocHtml);
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (logo walls)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (logo walls)');
+        await settleDeferredMedia(' (logo walls)');
+        await awaitPluginFigures(' (logo walls)');
+      }
+    }
+  }
+
+  // MEASURED TABLE SWITCH (owner, 2026-11-15; fit-everywhere-model.md §25). A table whose grid runs past its
+  // width takes its narrow layout (lib/core/table-reflow-fit.js `forceOverflowingReflow`, which marks its stage
+  // `--lat-reflow-force: 1`). BEFORE the split, so the split measures the layout the reader gets, and written
+  // into the deliverable string too, so the split's reload and a plain `.html` keep it. A table that fits is
+  // not touched, and a deck with none costs one evaluate and no reload.
+  {
+    const forced = await g(() => page.evaluate(`(${FORCE_OVERFLOWING_REFLOW_SRC})(document)`), 'force overflowing tables') || [];
+    if (forced.some(Boolean)) {
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        k += 1;
+        const inner = forced[k] ? p.inner.replace('<div class="cell-stage">', '<div class="cell-stage" style="--lat-reflow-force:1">') : p.inner;
+        return `${p.openTag}${inner}</section>`;
+      }).join('');
+      // ALWAYS reload once anything was forced, even when no mark reached the string: the page then shows
+      // exactly what the file holds, so the split never measures a layout the deliverable does not have.
+      cleanDocHtml = head + body;
+      fs.writeFileSync(outHtml, cleanDocHtml);
+      {
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (tables)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (tables)');
+        await settleDeferredMedia(' (tables)');
+        await awaitPluginFigures(' (tables)');
+      }
+    }
+  }
+
   // STRUCTURAL auto-split — ONE pass, before anything is measured.
   //
   // Every enrolled slide whose collection holds more than one member becomes
@@ -4302,29 +4417,84 @@ async function renderBody(browser, g, closeBrowser) {
     // The deck chrome comes from the front matter (`md`), not from a section's
     // `data-header`/`data-footer`, which a per-slide `_footer:` also fills (railRun's header).
     const ss = require('./lib/engine/structural-split');
-    const r = ss.structuralSplit(cleanDocHtml, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP });
-    // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
-    // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
-    // slide, so keep that here rather than change a degraded install's output.
-    const splitHtml = r.applies ? r.html : ss.railRun(r.html, md, SPLIT_CAP);
-    if (splitHtml !== cleanDocHtml) {
-      cleanDocHtml = splitHtml;
-      fs.writeFileSync(outHtml, cleanDocHtml);
-      // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (split)');
-      await g(() => page.evaluate(async () => {
-        try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
-        for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
-      }), 'load fonts (split)');
-      await settleDeferredMedia(' (split)');
-      await awaitPluginFigures(' (split)');
+    const unsplit = cleanDocHtml;
+    // One split + navigation. `plan` is the measured plan (--fit-pack) or null (structural).
+    const splitOnce = async (plan) => {
+      const r = ss.structuralSplit(unsplit, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP, plan });
+      // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
+      // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
+      // slide, so keep that here rather than change a degraded install's output.
+      const splitHtml = r.applies ? r.html : ss.railRun(r.html, md, SPLIT_CAP);
+      if (splitHtml !== cleanDocHtml) {
+        cleanDocHtml = splitHtml;
+        fs.writeFileSync(outHtml, cleanDocHtml);
+        // `load` for the same measured reason as the initial navigation above.
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (split)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (split)');
+        await settleDeferredMedia(' (split)');
+        await awaitPluginFigures(' (split)');
+      }
+      return r;
+    };
+    let r;
+    // The measured split is the default on every surface (`fit:` absent or `pack`; the Studio, the
+    // Playground and the webpage export read the same key through resolve-fit.js `fitPacks`); another
+    // `fit:` name declines it. `--fit-pack` picks the packer and turns it on for any deck.
+    const fmBody = (md.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+    const packer = FIT_PACK || (require('./lib/core/resolve-fit').fitPacks(fmBody) ? 'knuth-plass' : null);
+    if (packer) {
+      // MEASURE on the whole render (already in the page), PLAN in Node with the pure packer,
+      // SPLIT, then VERIFY: a body page that still overflows tightens its slide's room by the
+      // overflow and plans again, at most three rounds. A slide still overflowing after that
+      // falls back to today's split, unless today's split fails there too and the first measured
+      // plan failed no worse (fewer pages for no loss; fit-measure.js `measuredSplit`).
+      const fm = require('./lib/core/fit-measure');
+      const { pack } = require('@laticent/fluido');
+      // The verdict is the harness's own (lib/core/fit-measure.js): overflow, a clip outside
+      // chrome, or crammed prose. A slide the overflow probe alone passed could still clip or cram.
+      const verdictCfg = { clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+      // The verdict takes its two probes as functions, written into the evaluated text as literals.
+      const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), Object.assign(${JSON.stringify(verdictCfg)}, { probe: (${PROBE_SRC}), cc: (${CONTENT_CLIPPED_SRC}) }), (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
+      // MEMORY (--fit-memory FILE): what the last render of this deck decided, so an edit keeps
+      // its split and its members a page while they still fit (§11). A missing or unreadable file
+      // is no memory; the file is rewritten with this render's decisions.
+      let memory = null;
+      if (FIT_MEMORY && fs.existsSync(FIT_MEMORY)) {
+        try { memory = JSON.parse(fs.readFileSync(FIT_MEMORY, 'utf8')); } catch (_e) { memory = null; }
+      }
+      const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
+      const t0 = performance.now();
+      const facts = await g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, ${JSON.stringify(remembered)})`), 'measure fit') || [];
+      const tMeasure = performance.now() - t0;
+      const run = await fm.measuredSplit({
+        facts, pack, packer, memory,
+        split: (plan) => splitOnce(plan),
+        verify: () => g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit'),
+        foldable: () => g(() => page.evaluate(`(${fm.FOLDABLE_SRC})((${require('./lib/core/deck-slides').DECK_SLIDES_SRC}))`), 'fold beats'),
+        // Members measured on a body page of their own, not in the unsplit slide's layout (§17).
+        remeasure: () => g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, [], true)`), 'measure on a body page'),
+      });
+      r = run.result;
+      if (FIT_MEMORY) fs.writeFileSync(FIT_MEMORY, `${JSON.stringify(fm.nextMemory(facts, run.plan))}\n`);
+      const tPlan = run.planMs;
+      const rounds = run.rounds;
+      const fellBack = run.fellBack;
+      if (!QUIET) {
+        console.log(`  auto-split (measured, ${packer}): ${r.changed} slide(s) split, ${Object.values(run.plan).filter((v) => v === 'whole').length} kept whole`);
+        console.log(`    measure ${tMeasure.toFixed(0)} ms, plan ${tPlan.toFixed(0)} ms, ${rounds} split round(s), ${fellBack} slide(s) back on today's split`);
+      }
+    } else {
+      r = await splitOnce(null);
+      if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
     }
-    if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
   }
   // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
   // the page count; this verdict feeds the author warnings and the overflow marker, which is
   // the honest terminal for a page that still does not fit at one element per page.
-  // TRIM (`guards: strict`) — BEFORE the measure, so every channel below reports
+  // TRIM (`fit: trim`) — BEFORE the measure, so every channel below reports
   // what the printed page will actually carry. A trim that ran after this would
   // leave the ring, the warnings and the exported marker describing a slide that
   // no longer exists.
@@ -4366,7 +4536,7 @@ async function renderBody(browser, g, closeBrowser) {
   // Keying on `FLUID_VIEW` alone made a `fluid: true` + `--read` deck claim its trim reached
   // the deliverable: the deliverable is the reading article, projected from a Node-side
   // string built before the page rendered, so the trim reaches nothing. Measured on a
-  // `guards: strict` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
+  // `fit: trim` deck — the console printed "✂ TRIMMED … pages 1" naming a cut present in
   // no artifact (the extracted prose is character-identical either way) AND suppressed the
   // honest "NOT APPLIED" line. That is the exact failure this constant was introduced to end.
   const FLUID_WINS = FLUID_VIEW && FLUID_BEATS_READ;
@@ -4389,15 +4559,15 @@ async function renderBody(browser, g, closeBrowser) {
   }
   if (!TRIM_REACHES_DELIVERABLE) {
     // Only worth saying on a deck that asked for it. Counted off the live DOM rather
-    // than the front matter, because a per-slide `<!-- _class: guards-strict -->` is
+    // than the front matter, because a per-slide `<!-- _class: fit-trim -->` is
     // just as much an ask and never reaches `fm`.
-    // Through the shared TRIM gate, not a selector: `fit: trim` stamps `fit-trim`, the old
-    // `guards: strict` stamps `guards-strict`, and a slide's own token can switch either
-    // off. Only `guardsEnabled` knows all of that (lib/core/resolve-guards.js).
+    // Through the shared TRIM gate, not a selector: `fit: trim` stamps `fit-trim`, and a
+    // slide's own `fit-*` token can switch it on or off. Only `trimEnabled` knows all of
+    // that (lib/core/resolve-fit.js).
     const strictSlides = await g(() => page.evaluate((enabledSrc) => {
-      const guardsEnabled = new Function('return (' + enabledSrc + ')')();
-      return [...document.querySelectorAll('section[data-lattice-slide]')].filter((s) => guardsEnabled(s.className)).length;
-    }, GUARDS_ENABLED_SRC), 'count trimmable slides');
+      const trimEnabled = new Function('return (' + enabledSrc + ')')();
+      return [...document.querySelectorAll('section[data-lattice-slide]')].filter((s) => trimEnabled(s.className)).length;
+    }, TRIM_ENABLED_SRC), 'count trimmable slides');
     if (strictSlides) {
       console.warn('  \u2702 fit: trim NOT APPLIED \u2014 an .html deliverable is written before the page renders, so it cannot carry a trim.');
       console.warn(`    Any slide that would have been trimmed clips in ${path.basename(outFile)} exactly as it would at \`fit: heal\`, and the warnings below report that file rather than a trimmed DOM.`);
@@ -4432,7 +4602,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Not a warning about the deck — a warning about the guard. It planned a cut
     // whose reflow the DOM did not deliver, so the cut was undone and the slide
     // clips honestly. Reported rather than swallowed: a silent revert would make
-    // `guards: strict` look like it simply did not apply.
+    // `fit: trim` look like it simply did not apply.
     console.warn(`  ✂ TRIM REVERTED — the planned cut did not make pages ${trimmed.reverted.join(', ')} fit; they clip unchanged.`);
   }
   // A table or a row of cards whose narrow layout makes its slide overflow is held in its
@@ -6652,7 +6822,7 @@ html,body{background:var(--bg,#fff)}
 #lat-read th,#lat-read td{border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}
 #lat-read th{background:var(--bg-alt,#f5f5f5);font-weight:600}
 #lat-read pre{background:var(--bg-alt,#f5f5f5);padding:1em;border-radius:8px;overflow:auto;font-size:.85em}
-/* Un-trim, as the player's Read view does: a slide's guards:strict clamp rides in on the
+/* Un-trim, as the player's Read view does: a slide's fit: trim clamp rides in on the
    cloned DOM, and this column scrolls, so the clamp is pure content loss here.
    display:revert, not display:block — block demotes an <li> out of display:list-item. */
 #lat-read [data-lattice-trimmed]{display:revert!important;-webkit-line-clamp:none!important;overflow:visible!important}

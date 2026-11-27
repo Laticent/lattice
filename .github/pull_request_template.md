@@ -22,10 +22,11 @@ NOT verified. A small before → after table helps when several things shifted.
 
 <!-- The fix, concretely — name the files / functions touched.
 
-     USER-VISIBLE? Add a `changelog.d/<slug>.<category>.md` fragment in the same
-     change (HARD RULE #10) — NOT a line in `CHANGELOG.md` `## Unreleased`, which
-     is the shared region that ejects PRs from the merge queue. Contract:
-     `changelog.d/README.md`. -->
+     USER-VISIBLE? Add a changeset (`npx changeset`) in the same change
+     (HARD RULE #10): it names each package and its bump, and its first line is
+     the release note. Never edit a CHANGELOG.md, the shared region that ejects
+     PRs from the merge queue. A changelog.d/ fragment still works. Contract:
+     `.changeset/README.md`. -->
 
 ## Tests
 

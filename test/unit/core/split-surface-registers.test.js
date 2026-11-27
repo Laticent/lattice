@@ -26,14 +26,14 @@ const { STAMP_STYLE_TOKENS } = require('../../../lib/core/resolve-stamp');
 const { TONE_STYLE_TOKENS } = require('../../../lib/core/resolve-tone-style');
 const spectrum = require('../../../lib/core/resolve-spectrum');
 const { CORNERS_TOKENS } = require('../../../lib/core/resolve-corners');
-const { GUARDS_TOKENS } = require('../../../lib/core/resolve-guards');
+const { FIT_TOKENS } = require('../../../lib/core/resolve-fit');
 const { RULE_TOKENS } = require('../../../lib/core/resolve-rule');
 const { EYEBROW_TOKENS } = require('../../../lib/core/resolve-eyebrow');
 const { INLINE_CODE_TOKENS } = require('../../../lib/core/resolve-inline-code');
 const { HEADLINE_TOKENS } = require('../../../lib/core/resolve-headline');
 const { LIFT_TOKENS } = require('../../../lib/core/resolve-lift');
 const { CLAIM_TOKENS } = require('../../../lib/core/resolve-claim');
-const { CARDS_TOKENS } = require('../../../lib/core/resolve-cards');
+const { ALIGN_TOKENS } = require('../../../lib/core/resolve-align');
 const { COLOR_MODE_TOKENS } = require('../../../lib/core/color-mode');
 
 const classOf = (tag) => (tag.match(/\sclass="([^"]*)"/) || ['', ''])[1].split(/\s+/);
@@ -46,7 +46,7 @@ describe('core: which registers ride a split page', () => {
   const riding = {
     mode: MODE_TOKENS, stamp: STAMP_STYLE_TOKENS, tone: TONE_STYLE_TOKENS,
     spectrum: spectrum.SPECTRUM_REGISTER.TOKENS, 'card-spectrum': spectrum.CARD_SPECTRUM_REGISTER.TOKENS,
-    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, guards: GUARDS_TOKENS,
+    'trim-spectrum': spectrum.TRIM_SPECTRUM_REGISTER.TOKENS, corners: CORNERS_TOKENS, fit: FIT_TOKENS,
     rule: RULE_TOKENS, eyebrow: EYEBROW_TOKENS, 'inline-code': INLINE_CODE_TOKENS,
     headline: HEADLINE_TOKENS, lift: LIFT_TOKENS,
     tag: require('../../../lib/core/resolve-card-tag').CARD_TAG_TOKENS,
@@ -67,7 +67,7 @@ describe('core: which registers ride a split page', () => {
   });
 
   test('the two LAYOUT registers stay behind, and so does everything that is not a register', () => {
-    for (const t of [...CLAIM_TOKENS, ...CARDS_TOKENS, 'checklist', 'content', 'cat-3', 'compact', 'form']) {
+    for (const t of [...CLAIM_TOKENS, ...ALIGN_TOKENS, 'checklist', 'content', 'cat-3', 'compact', 'form']) {
       assert.equal(isSurfaceRegisterToken(t), false, t);
     }
     // The canvas axis rides too, but through its own list — the two sets must stay disjoint so
@@ -77,7 +77,7 @@ describe('core: which registers ride a split page', () => {
 });
 
 describe('core: roleOpenTag keeps the surface registers across the class swap', () => {
-  const tag = '<section id="s1" class="split-panel cat-3 finish finish-atrium stamp-seal corners-rounded claim-hero cards-top dark form" data-lattice-slide="4">';
+  const tag = '<section id="s1" class="split-panel cat-3 finish finish-atrium stamp-seal corners-rounded claim-hero align-top dark form" data-lattice-slide="4">';
   const out = roleOpenTag(tag, 'content split-panel-split split-panel-cover form', true, 'cover', 'split-panel');
 
   test('the finish and the other surface registers ride as CLASSES', () => {
@@ -94,8 +94,8 @@ describe('core: roleOpenTag keeps the surface registers across the class swap', 
 
   test('the layout registers stay behind as data, like any other authored modifier', () => {
     const cls = classOf(out);
-    assert.ok(!cls.includes('claim-hero') && !cls.includes('cards-top'), cls.join(' '));
-    assert.deepEqual(modsOf(out).sort(), ['cards-top', 'cat-3', 'claim-hero']);
+    assert.ok(!cls.includes('claim-hero') && !cls.includes('align-top'), cls.join(' '));
+    assert.deepEqual(modsOf(out).sort(), ['align-top', 'cat-3', 'claim-hero']);
   });
 });
 

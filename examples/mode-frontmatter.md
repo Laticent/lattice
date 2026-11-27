@@ -2,10 +2,10 @@
 marp: true
 theme: carta
 mode: sketch
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `mode: sketch`
 
@@ -32,7 +32,7 @@ classes to every slide, so you never repeat `sketch` per slide.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## It composes with per-slide layouts.
 
@@ -63,7 +63,7 @@ an atrium *backdrop*, with no magic and no fighting for one key. Add a per-slide
 
 ---
 
-<!-- _class: agenda progress-2 -->
+<!-- @meta{layout=agenda, class=progress-2} -->
 
 ## How the deck is wired.
 
@@ -90,7 +90,7 @@ catches it first — the same guard covers `finish:`.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `one line to re-hand the room`
 

@@ -1,10 +1,10 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · one list contract"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # `1.` and `-` now mean one thing per layout
 
@@ -14,8 +14,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "agenda · written with - (it collapsed to plain lines before)" -->
+<!-- @meta{layout=agenda, footer="agenda · written with - (it collapsed to plain lines before)"} -->
+
 
 ## Today we cover four sections.
 
@@ -26,8 +26,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "kpi · written with - (the tiles collapsed to a plain stack before)" -->
+<!-- @meta{layout=kpi, footer="kpi · written with - (the tiles collapsed to a plain stack before)"} -->
+
 
 ## Retention held while we grew.
 
@@ -40,8 +40,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: cycle -->
-<!-- _footer: "cycle · written with 1. (the loop and its arrows vanished before)" -->
+<!-- @meta{layout=cycle, footer="cycle · written with 1. (the loop and its arrows vanished before)"} -->
+
 
 ## The loop runs every quarter.
 
@@ -56,8 +56,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "funnel · nested rows written with 1. (no chart was drawn before)" -->
+<!-- @meta{layout=funnel, footer="funnel · nested rows written with 1. (no chart was drawn before)"} -->
+
 
 ## Most of the loss happens before the demo.
 
@@ -69,8 +69,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "list-steps · written with - : the same cards, no STEP tag (plain text before)" -->
+<!-- @meta{layout=list-steps, footer="list-steps · written with - : the same cards, no STEP tag (plain text before)"} -->
+
 
 ## Onboarding has no fixed order.
 
@@ -83,8 +83,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "list-steps · written with 1. : the cards keep their STEP tags" -->
+<!-- @meta{layout=list-steps, footer=list-steps · written with 1. : the cards keep their STEP tags} -->
+
 
 ## Release runs in three steps.
 
@@ -97,8 +97,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "list takeaway · a 1. list numbers itself; no class needed" -->
+<!-- @meta{layout=list, class=takeaway, footer="list takeaway · a 1. list numbers itself; no class needed"} -->
+
 
 ## Three gates every proposal clears.
 
@@ -111,8 +111,8 @@ Each layout declares what the marker means, and the engine renders it that way b
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "list principles · written with - : a dot per principle (default pills before)" -->
+<!-- @meta{layout=list, class=principles, footer="list principles · written with - : a dot per principle (default pills before)"} -->
+
 
 ## How we work.
 

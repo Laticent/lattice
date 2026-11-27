@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: 'Sample images · one folder, every surface'
 logo: sample:logo-acme-mark.svg
 ---
 
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, header="", footer=""} -->
+
+
 
 # Sample images, one folder
 
@@ -18,7 +18,7 @@ Every picture in this deck is named `sample:<file>`. It resolves the same way in
 
 ---
 
-<!-- _class: image -->
+<!-- @meta{layout=image} -->
 
 `Image slide`
 
@@ -30,7 +30,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 ---
 
-<!-- _class: image split -->
+<!-- @meta{layout=image, class=split} -->
 
 `Raster sample`
 
@@ -42,7 +42,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 ---
 
-<!-- _class: team-profile -->
+<!-- @meta{layout=team-profile} -->
 
 `Team profile`
 
@@ -63,7 +63,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 ---
 
-<!-- _class: logo-wall -->
+<!-- @meta{layout=logo-wall} -->
 
 `Logo wall`
 
@@ -84,7 +84,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 ---
 
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 `Video poster`
 
@@ -96,9 +96,9 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 
 # One folder: lib/samples/
 

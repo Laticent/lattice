@@ -16,7 +16,7 @@ size: hd
 
 ---
 
-<!-- _class: dark -->
+<!-- @meta{class=dark} -->
 
 ## Markers stay on a dark slide
 
@@ -119,7 +119,7 @@ section[id="8"] li:nth-child(3) b { color: rgb(220, 0, 0); -webkit-text-stroke-w
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Cards`
 

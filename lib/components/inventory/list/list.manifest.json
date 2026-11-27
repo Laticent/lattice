@@ -51,14 +51,14 @@
       }
     }
   },
-  "cards": {
-    "default": "center",
+  "align": {
+    "default": "middle",
     "byFamily": {
       "square": "spread",
       "tall": "spread",
       "strip": "spread"
     },
-    "withCoda": "stretch"
+    "withCoda": "fill"
   },
   "tags": [
     "overview",
@@ -119,12 +119,12 @@
       "description": "List items. Keep each under ~12 words."
     }
   },
-  "skeleton": "<!-- _class: list -->\n\n## Slide heading.\n\n- First short bullet point.\n- Second short bullet point.\n- Third short bullet point.\n- Fourth short bullet point.\n- Fifth short bullet point.\n",
+  "skeleton": "<!-- @meta{layout=list} -->\n\n## Slide heading.\n\n- First short bullet point.\n- Second short bullet point.\n- Third short bullet point.\n- Fourth short bullet point.\n- Fifth short bullet point.\n",
   "anatomyBlock": "list",
-  "sample": "<!-- _class: list -->\n\n## The list states one point per line.\n\n- A line is a complete statement, not a fragment.\n- Fourteen words is the budget a line may spend.\n- Six lines fill the canvas comfortably.\n- Parallel openings keep the scan honest.\n- Nesting belongs to card layouts, not here.\n",
+  "sample": "<!-- @meta{layout=list} -->\n\n## The list states one point per line.\n\n- A line is a complete statement, not a fragment.\n- Fourteen words is the budget a line may spend.\n- Six lines fill the canvas comfortably.\n- Parallel openings keep the scan honest.\n- Nesting belongs to card layouts, not here.\n",
   "stressDoc": {
     "summary": "Six lines at the hard ceiling.",
-    "sample": "<!-- _class: list -->\n\n## Six lines is the most a list should carry.\n\n- A stress line may spend fourteen words, and this one shows where the wrap lands.\n- At the ceiling every line stays one complete statement with one clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or six dense lines blur into one.\n- Numbers and names hold attention better than abstractions here.\n- Six is the stop; seven becomes a memo.\n"
+    "sample": "<!-- @meta{layout=list} -->\n\n## Six lines is the most a list should carry.\n\n- A stress line may spend fourteen words, and this one shows where the wrap lands.\n- At the ceiling every line stays one complete statement with one clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or six dense lines blur into one.\n- Numbers and names hold attention better than abstractions here.\n- Six is the stop; seven becomes a memo.\n"
   },
   "whenToUse": [
     {
@@ -184,27 +184,27 @@
     "takeaway": {
       "label": "takeaway",
       "summary": "Ruled single lines for conclusions.",
-      "sample": "<!-- _class: list takeaway -->\n\n## takeaway boxes the list as findings.\n\n- The box frames the lines as conclusions.\n- Lead with the strongest finding.\n- Five lines read as a verdict.\n- Longer sets go back to plain list.\n"
+      "sample": "<!-- @meta{layout=list, class=takeaway} -->\n\n## takeaway boxes the list as findings.\n\n- The box frames the lines as conclusions.\n- Lead with the strongest finding.\n- Five lines read as a verdict.\n- Longer sets go back to plain list.\n"
     },
     "principles": {
       "label": "principles",
       "summary": "Numbered declarations at display weight.",
-      "sample": "<!-- _class: list principles -->\n\n## principles numbers the house rules.\n\n1. State each rule as an imperative.\n2. Keep rules under ten words.\n3. Order them by how often they apply.\n4. Retire a rule you keep breaking.\n"
+      "sample": "<!-- @meta{layout=list, class=principles} -->\n\n## principles numbers the house rules.\n\n1. State each rule as an imperative.\n2. Keep rules under ten words.\n3. Order them by how often they apply.\n4. Retire a rule you keep breaking.\n"
     },
     "lettered": {
       "label": "lettered",
       "summary": "Letters replace the counters.",
-      "sample": "<!-- _class: list principles lettered -->\n\n## lettered counts the rules with letters.\n\n1. Letters read as options, not sequence.\n2. Use them when order is arbitrary.\n3. Three options is a decision; six is a menu.\n"
+      "sample": "<!-- @meta{layout=list, class=principles lettered} -->\n\n## lettered counts the rules with letters.\n\n1. Letters read as options, not sequence.\n2. Use them when order is arbitrary.\n3. Three options is a decision; six is a menu.\n"
     },
     "roman": {
       "label": "roman",
       "summary": "Roman numerals replace counters.",
-      "sample": "<!-- _class: list principles roman -->\n\n## roman sets the rules in numerals.\n\n1. Numerals lend formal weight.\n2. Reserve them for charters and mandates.\n3. Past five, the gravitas becomes parody.\n"
+      "sample": "<!-- @meta{layout=list, class=principles roman} -->\n\n## roman sets the rules in numerals.\n\n1. Numerals lend formal weight.\n2. Reserve them for charters and mandates.\n3. Past five, the gravitas becomes parody.\n"
     },
     "bullet": {
       "label": "bullet",
       "summary": "Dots replace the counters.",
-      "sample": "<!-- _class: list principles bullet -->\n\n## bullet strips the markers back to dots.\n\n1. Dots drop the counting entirely.\n2. The principles frame stays.\n3. Use when rules are peers.\n"
+      "sample": "<!-- @meta{layout=list, class=principles bullet} -->\n\n## bullet strips the markers back to dots.\n\n1. Dots drop the counting entirely.\n2. The principles frame stays.\n3. Use when rules are peers.\n"
     }
   },
   "commonMistakes": [

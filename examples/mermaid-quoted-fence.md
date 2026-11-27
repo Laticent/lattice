@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · mermaid in a quote"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # A diagram inside a quote
 

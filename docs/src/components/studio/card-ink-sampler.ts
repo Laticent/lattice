@@ -1,9 +1,12 @@
 import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
+import cssTokensLib from '../../../../lib/core/css-tokens.js';
+
+const { cssUrls } = cssTokensLib;
 
 // The color of the photo behind a spotlight card, read from the live preview.
 //
 // card-ink-pick.ts reads this when an image slide opens, and the Card backing slider then asks the
-// kernel (lib/core/card-ink.mjs) which of `ink-light` / `ink-dark` reads better on it. This finds
+// kernel (lib/core/card-ink.mjs) which of `image-card-light` / `image-card-dark` reads better on it. This finds
 // the slide in the preview frame, reads where the card actually sits on that slide, maps that box
 // onto the photo and averages the pixels there. Every step can come back empty (no preview, a
 // preview still showing another slide, a photo that will not load, a cross-origin photo the canvas
@@ -114,7 +117,7 @@ export function photoMatches(ref: string | null, url: string): boolean {
 }
 
 /** The slide's classes that decide what its card looks like; the preview must already carry them. */
-export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
+export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|mirror|image-card-.+)$/;
 
 /**
  * The mean color of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
@@ -133,7 +136,7 @@ export async function sampleBehindCard(slideNumber: number, heading: string | nu
 		if (!sameSlide(heading, section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
-		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
+		const url = cssUrls(panel?.style.backgroundImage ?? '')[0]?.value;
 		if (!panel || !card || !url) return null;
 		if (!photoMatches(photoRef, url)) return null;
 		if (classes?.some((c) => CARD_CLASS.test(c) && !section.classList.contains(c))) return null;

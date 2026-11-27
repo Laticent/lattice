@@ -55,7 +55,7 @@ Use when the story is geographic — program reach, service territories, where t
 ## Authoring
 
 ```markdown
-<!-- _class: map -->
+<!-- @meta{layout=map} -->
 
 ## Where the program runs.
 
@@ -72,7 +72,7 @@ Use when the story is geographic — program reach, service territories, where t
 The US-states basemap, with insets.
 
 ```markdown
-<!-- _class: map us -->
+<!-- @meta{layout=map, class=us} -->
 
 ## us swaps in the US-states basemap.
 
@@ -91,7 +91,7 @@ The US-states basemap, with insets.
 The Basemap axis default, spelled out.
 
 ```markdown
-<!-- _class: map world -->
+<!-- @meta{layout=map, class=world} -->
 
 ## The same engine, pinned to the world basemap.
 
@@ -110,7 +110,7 @@ The Basemap axis default, spelled out.
 Category fills instead of values.
 
 ```markdown
-<!-- _class: map highlight -->
+<!-- @meta{layout=map, class=highlight} -->
 
 ## highlight fills by category, not value.
 
@@ -125,7 +125,7 @@ Category fills instead of values.
 The Robinson projection swap.
 
 ```markdown
-<!-- _class: map robinson -->
+<!-- @meta{layout=map, class=robinson} -->
 
 ## robinson swaps the projection.
 
@@ -144,7 +144,7 @@ The Robinson projection swap.
 Whole blocs fill as one.
 
 ```markdown
-<!-- _class: map highlight grouped -->
+<!-- @meta{layout=map, class=highlight grouped} -->
 
 ## grouped fills whole blocs at once.
 

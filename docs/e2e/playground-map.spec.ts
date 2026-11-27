@@ -162,9 +162,12 @@ test('in Edit the rail follows the preview and a tile scrolls it', async ({ page
 		.toBeGreaterThanOrEqual(6);
 });
 
+// `fit: heal`: this deck needs the COUNT-based split (one row a page); measuring is the default
+// (lib/core/resolve-fit.js fitPacks) and keeps a short list whole.
 const PORTRAIT = `---
 theme: indaco
 size: portrait
+fit: heal
 ---
 
 <!-- _class: title -->
@@ -281,7 +284,7 @@ test('@crosswidth Home and End on the rail keep keyboard focus on the rail', asy
 // Front matter that sets a header and page numbers puts them on every slide, a blank one too. The map has to
 // still know that slide is blank: if it does not, every tile after it lands one page early.
 const CHROME_BLANK = `---
-paginate: true
+pagination: true
 header: Quarterly review
 ---
 

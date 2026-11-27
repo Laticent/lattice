@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "SVG-native chart legends"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Four charts, four keys — each one SVG.
 
@@ -17,8 +17,8 @@ four read as one family.
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "Default — disc · spine · key, one unit" -->
+<!-- @meta{layout=piechart, footer="Default — disc · spine · key, one unit"} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -34,8 +34,8 @@ The key scales with the diagram; the spine floats in a comfortable gap.
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "Donut — same unit, hollow center" -->
+<!-- @meta{layout=piechart, class=donut, footer="Donut — same unit, hollow center"} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -51,8 +51,8 @@ Wedges, spine and key are all emitted in viewBox units.
 
 ---
 
-<!-- _class: piechart -->
-<!-- _footer: "Long tail — the key fit-scales so every row fits" -->
+<!-- @meta{layout=piechart, footer="Long tail — the key fit-scales so every row fits"} -->
+
 
 `FY2026 · the long tail`
 
@@ -74,8 +74,8 @@ No clipping: the font shrinks just enough to seat every keyed row.
 
 ---
 
-<!-- _class: piechart claim-hero -->
-<!-- _footer: "claim-hero — the whole unit scales up, key included" -->
+<!-- @meta{layout=piechart, class=claim-hero, footer="claim-hero — the whole unit scales up, key included"} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -91,8 +91,8 @@ Cover just works — the key scales up with the diagram, no special-casing.
 
 ---
 
-<!-- _class: piechart dark -->
-<!-- _footer: "Dark — every color is a palette token" -->
+<!-- @meta{layout=piechart, class=dark, footer="Dark — every color is a palette token"} -->
+
 
 `H1 2026 · dark canvas`
 
@@ -108,8 +108,8 @@ Every color flips with the canvas; nothing is a baked literal.
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Radar — same key model, no value column (labels reclaim the width)" -->
+<!-- @meta{layout=radar, footer="Radar — same key model, no value column (labels reclaim the width)"} -->
+
 
 `[{Scale, 0..10}]`
 
@@ -139,8 +139,8 @@ series color instead of a wedge.
 
 ---
 
-<!-- _class: map -->
-<!-- _footer: "Map — swatches mirror the choropleth ramp; values right-aligned" -->
+<!-- @meta{layout=map, footer="Map — swatches mirror the choropleth ramp; values right-aligned"} -->
+
 
 ## Where our programs reached — unevenly.
 
@@ -158,8 +158,8 @@ itself.
 
 ---
 
-<!-- _class: quadrant cohort -->
-<!-- _footer: "Cohort quadrant — swatch + item count, one family with the rest" -->
+<!-- @meta{layout=quadrant, class=cohort, footer="Cohort quadrant — swatch + item count, one family with the rest"} -->
+
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -180,7 +180,7 @@ itself.
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One viewBox, and it travels.
 

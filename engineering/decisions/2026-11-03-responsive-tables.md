@@ -155,6 +155,34 @@ The switch widths stay low (20em, 24em, 18em) in this change. With the fit check
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
 
+**That step was tried and reverted on 2026-11-15, and a measured switch replaced it (owner rulings;
+fit-everywhere-model.md §25).** A phone square reads about 23em at its x1.4 type, so a three-column card table
+there kept its grid and its last column ran past the slide. Raising the card width to 24em fixed those six
+pages, and also turned about 140 tables of four or fewer columns that fit as grids at 20-24em into one card per
+row (48 at square, 45 at portrait, 50 at story, across the 87 decks that hold a table): on
+`table-outer-edge.md` a readable four-column grid became four cards one a page. So the widths stay where they
+were, and a table ALSO switches when the page measures its grid running past the slide's edge
+(lib/core/table-reflow-fit.js `forceOverflowingReflow`, which marks the stage `--lat-reflow-force: 1`; each
+layout's main container query reads `… or style(--lat-reflow-force: 1)`). The boundary is the slide's edge, not
+the stage's: `table-outer-edge.md`'s grid runs 7px past its stage into the slide's margin, reads whole, and the
+clip probe does not flag it. The CLI measures before the split and writes the mark into its string, and
+always reloads once anything is forced, so the page it splits is the file it ships; the Studio's measuring frame
+forces before it measures, as the CLI does; the runtime clears and re-judges the marks on the slides it
+re-judges, so a window widened since (a rotated phone, a desktop opening a phone export) gets its grid back.
+The fit check above then judges a forced layout as it judges every switched one.
+
+Its limits, measured and stated: the mark sits on the stage, because a container query cannot ask about one
+table, so a stage holding two narrow-layout tables is never forced (that would switch a fitting one beside a
+wide one; the wide one still clips); a three-column `runs` table was not marked, because the runs blocks
+started at four columns, and it clipped (`per-slide-diagram-band.md`); since 2026-11-17 it is marked, and a forced
+three-column table takes the narrowest runs step, one value column per block, which this note's table already names
+for every runs table (owner: "we already defined what happens to tables"); a table in a
+pane is not reached; and Firefox has no style queries (Firefox 142), so it ignores the mark and keeps the
+width rules, and a live Firefox preview shows the clipped grid the export no longer has. On the 87 table decks
+the switch fired only where a grid ran past the slide (by 17px to 683px) and made no page worse; at story it
+replaced the split's own card pages with CSS cards on three decks, which now take fewer pages
+(`inline-icons.md` 22 to 19, `obligation-matrix-label-sets.md` 17 to 14, `universal-table.md` 14 to 12).
+
 ## The fluid view is a paged host
 
 Follow-up p10 asked the fluid view to declare itself continuous (`data-lattice-flow="continuous"`), so
@@ -898,6 +926,11 @@ not lay out twice. If phase bands come back, they need a measure-then-decide pas
 approves, not a better estimate.
 
 ### § 31 — one layout spine: the canvas is the box's shape, the key is chosen in the box
+
+> **Superseded in part (2026-11-22).** The chart form kernel (`2026-11-10-chart-form.md`) draws every portrait chart
+> that read the tall canvas, so `canvasAspect`, `tallCanvasH`, `fitViewToBox`, `tallGeom`, `fitsMeasuredBox` and
+> `printsAsLarge` never changed a byte and were deleted: `2026-11-22-tall-canvas-retired.md`. The key layout below
+> (`pickKeyLayout`, the column key) still stands.
 
 The owner's next look (2026-11-09) asked for one shared spine for chart layout, no smaller type, and
 charts that fill the space they have. Measured on `examples/fluid-chart-redraw.md` at 1080px wide

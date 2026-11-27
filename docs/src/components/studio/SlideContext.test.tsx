@@ -313,7 +313,7 @@ describe('SlideContextBody controls', () => {
 	});
 
 	it('reads a deck-wide paginate: false as hidden on a plain slide', async () => {
-		setup('<!-- _class: kpi -->\n\n# Hi', '---\npaginate: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		setup('<!-- _class: kpi -->\n\n# Hi', '---\npagination: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Chrome');
 		expect(screen.getByRole('switch', { name: /hide pagination/i }).getAttribute('aria-checked')).toBe('true');
 	});
@@ -394,9 +394,9 @@ describe('SlideContextBody controls', () => {
 		expect(lastReset(onResetChange)?.dirty).toBe(false);
 	});
 
-	it('shows the emitted _class line', () => {
+	it('shows the emitted @meta record, typed, for a slide written either way', () => {
 		setup('<!-- _class: kpi dark -->\n\n# Hi');
-		expect(screen.getByText(/kpi dark/)).toBeTruthy();
+		expect(screen.getByText(/layout=kpi, class=dark/)).toBeTruthy();
 	});
 
 	it('goes read-only on a non-editable class shape', () => {

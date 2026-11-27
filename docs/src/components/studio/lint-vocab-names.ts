@@ -1,4 +1,4 @@
-// The lint vocab's register VALUE lists (`guardsNames`, `cardsNames`, the spectrum
+// The lint vocab's register VALUE lists (`fitNames`, `alignNames`, the spectrum
 // family, …) packed into ONE string for the Studio page, and unpacked in the island.
 //
 // Why a string: Astro serializes an island prop array as `[1,[[0,"a"],[0,"b"]]]`, and
@@ -32,7 +32,7 @@ export function unpackVocabNames(packed: string | null | undefined): Record<stri
 
 /**
  * The island-side half: a lint vocab as the page shipped it (`packedNames` string) →
- * the shape every consumer reads (`guardsNames: [...]`, …). A vocab with no
+ * the shape every consumer reads (`fitNames: [...]`, …). A vocab with no
  * `packedNames` passes through unchanged, so a test or caller handing a plain vocab
  * needs nothing.
  */

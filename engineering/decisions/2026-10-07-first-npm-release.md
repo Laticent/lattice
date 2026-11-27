@@ -182,6 +182,16 @@ Slices D and E wait on C, so the first publish waits on this choice.
 
 ## 9. Owner rulings (2026-11-22)
 
+**2026-11-23, the current state, given in the release desk session (tracker #3449).** These
+rulings extend the 2026-11-22 table below; they do not reverse it.
+
+| Item | Ruling |
+|---|---|
+| Which packages 1.0.0 publishes | **The engine plus 12 libraries:** `segno`, `segno-languages`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra` and `lente`. The first eleven are the engine's `dependencies` that the 2026-11-22 row publishes. `segno-languages` is `segno-markdown` under its new name, with a `/markdown` subpath. `lente` is the one library on the list the engine does not depend on. |
+| Their standing | **Every published library is official** and joins the family on the docs site, with a page under `/libraries/`. None is plumbing-only. The owner plans to extend them. #3456 adds the LTT, Markup and Lastra pages; `segno-languages` gets its page after the rename, and until then `nav.test.ts` lists it as `unlisted`. |
+| Lastra's scope | **All image work belongs in `@laticent/lastra`**: in the owner's words, "all image work we do for example belongs lastra". Moving the image code that lives elsewhere today is post-1.0 work: `followups.d/3456-p1-consolidate-image-work-into-lastra.md`. |
+| Lente's scope | **Lente grows past reader lenses**: in the owner's words, "lente will become more than it is today including being able to host outline and slice and dice a deck into views logically and physically (we have had trouble with this and the export)". Post-1.0, and a design note comes before code: `followups.d/3456-p2-lente-outline-and-views.md`. |
+
 A release-audit session put the open items in §4, §5 and §8 to the owner, who answered:
 
 | Item | Ruling |
@@ -191,9 +201,21 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
 | §5 slice 0, a second owner | **Later, and not a blocker** for the first publish. |
 | §4, archive the pending fragments | **Confirmed.** |
 | §4, the libraries keep `AGPL-3.0-only` | **Confirmed.** |
-| §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
+| §5 slice B, which libraries publish | **All 11 that `@laticent/lattice` lists under `dependencies`**, the three that were `"private": true` included (`@laticent/markup`, `@laticent/lastra`, `@laticent/segno-markdown`, since renamed `@laticent/segno-languages`). A private one cannot publish, so a clean `npm i @laticent/lattice` would fail with E404. The three now meet slice B's bar; they are published without a docs-site page for now (`docs/src/lib/nav.test.ts`, `unlisted`). |
 | The 1.0.0 date | **1.0.0 ships Friday 2026-11-27**, with a merge freeze from **Wednesday 2026-11-25 23:59 UTC**. |
+| The 1.0.0 date, corrected 2026-11-23 | **Moved by the owner:** Release (prepare) is dispatched **Sunday 2026-11-29, 14:00 UTC or later**, with the merge freeze **Saturday 2026-11-28 23:59 UTC** (relayed by the release desk, issue #3449). This row replaces the one above. |
+| The 1.0.0 date, corrected again 2026-11-23 (about 20:45 UTC) | **Moved by the owner:** 1.0.0 waits until **all nine deck-key rename PRs are on `main`, likely Tuesday–Wednesday 2026-12-01–02** (relayed by the release desk, issue #3449). This row replaces both above. |
 | §5 slice C, Changesets | **Lands before 1.0.0.** The owner does not want to ship known tech debt in public, so 1.0.0 is not cut on the fragment flow with Changesets promised for later. |
+
+**2026-11-23, the libraries ship ES modules only** (owner, in the release desk session, answering a question that
+measured the cost). Every workspace library builds and publishes only its ES-module bundle and its `.d.ts`; the
+CommonJS copy, the `require` export branch and the `.cjs` files are gone. The engine, which is CommonJS, loads them
+through Node's `require(esm)`, which the engines floor (`>=22.13.0`) has. What it buys: one build per library, one
+instance of each in a process, and about 1.33 MB less across the 12 published tarballs. What it does not buy, measured
+with TypeScript 6.0.3 afterwards: a CommonJS TypeScript consumer under `module: node16` or `node18` gets TS1471 with or
+without the CommonJS copy (a `.d.cts` would have silenced it, for a Node line our floor does not support), and one under
+`node20` or `nodenext` was clean either way. The engine itself stays CommonJS for 1.0; converting it is post-release work
+the owner asked to record (`followups.d/`, the engine ES modules item).
 
 **What option A costs, measured on `main` at `ff2d32e` (2026-11-22).**
 
@@ -211,7 +233,7 @@ A release-audit session put the open items in §4, §5 and §8 to the owner, who
   copied folder must ship the same set, and `test/integration/export/installed-package.test.js`
   is the check.
 
-Status stays `proposed` until slice C lands.
+Status stays `proposed` until slice C lands (§11).
 
 ## 10. Option A, built (2026-11-22)
 
@@ -262,3 +284,115 @@ only. A workspace package (`@laticent/*`), which knip never lists as unlisted, c
 import of an engine-only package, and an engine dependency nothing loads all still count; the second
 checker reproduced the last with `@laticent/veduta`, which an earlier draft of the fold hid. Slice C (Changesets, the fragment archive, the gate, the
 HARD RULE #10 rewrite) waits for its own decisions.
+
+**Trial publish (2026-11-23).** The owner approved the local-registry trial for #3438 and then a CI job
+for it ("targeted + nightly + release"): `tools/trial-publish.js` and `.github/workflows/trial-publish.yml`.
+Before #3451 it stopped on three private engine dependencies (markup, lastra, segno-markdown); with #3451
+on `main` the whole trial passes in about 49 s. The clean install pins its third-party packages to the
+repository lockfile's versions (513 names; 36 held at several versions stay on their ranges), after a
+#3471 trial went red on a release npmjs had listed but not yet served.
+
+`trial-publish.yml` runs the release's own publish path since #3471: `TRIAL_PUBLISH_COMMAND` is
+`bash tools/release-trial.sh`, which runs `tools/release.js --prepare` (only while the engine's
+version has no CHANGELOG section) and `--publish` in a temporary worktree against the local
+registry. That is the owner's "hold until proven" (issue #3449): the publish path proven on a real
+runner before #3471 merges.
+
+## 11. Slice C, built: Changesets for thirteen packages (2026-11-23)
+
+Built on `main` at `c0fbbd9`, after §10's publish folder (#3438). The owner's 2026-11-23 rulings
+(issue #3449) set the scope: Changesets before 1.0.0; the engine plus twelve libraries, each on its
+own version line; six libraries held back; curated 1.0.0 notes; the pending fragments and the
+August `## 1.0.0` section archived; weekly releases later, in their own PR.
+
+**The publish set** lives once, in `tools/release-packages.js`: `PUBLISH_SET` (thirteen names) and
+`IGNORED` (filo, fuoco, suono, tavola, vetrina, veduta), which must equal `.changeset/config.json`
+`ignore`. `build:check` (`checkChangesets`) holds every workspace in exactly one place: published,
+ignored, or private. The release runs the same check in strict mode, which also requires all
+thirteen to exist and be public. On `main` today strict mode names four problems, each an open PR's
+job: `markup` and `lastra` are private (#3451), and `@laticent/segno-languages` does not exist yet
+while the engine still depends on `@laticent/segno-markdown` (the Segno desk's rename, B9). (Both have
+since merged: #3451 on 2026-11-23, and the rename as #3488 the same day; strict mode is clean.) So a
+release cut before those merge stops before it opens a PR.
+
+**Config choices.** `privatePackages.version: true`, `tag: false`. With `version: false`,
+Changesets refuses the whole tree while the engine depends on a private package (`Invalid tree:
+"@laticent/lattice" depends on the skipped package "@laticent/lastra"`), which is `main` until #3451
+merges; `version: true` lets it read the tree, and `tag: false` still keeps a private package off
+npm and untagged. The changelog formatter is `tools/changeset-changelog.cjs`, the default shape
+without the commit hash, because the release notes print each entry's first line.
+
+**Fragments keep working (the brief's constraint 1).** 19 open PRs carried `changelog.d/` fragments
+on the cutover day. `checkChangelogFragments` is unchanged, and Release (prepare) converts each
+pending fragment into a changeset for `@laticent/lattice` (`tools/changesets.js`), with the bump its
+category always gave it. Every open PR's change to `changelog.d/` was an addition (measured against
+all 60 open PRs; #3356 also deletes one, which merges cleanly against this PR's deletion), so the
+archive conflicts with none of them. `test/unit/release/changesets-release.test.js` runs the real
+`changeset version` on a fixture workspace to prove the conversion.
+
+**The first release bumps nothing (constraint 2).** The old tool computed 1.0.0 → 2.0.0 from a
+`**Breaking:**` fragment. `tools/release.js` treats the release as the bootstrap when the engine is
+`1.0.0`, `npm view @laticent/lattice@1.0.0` is a 404, and no `@laticent/lattice@1.0.0` tag exists:
+it archives whatever is pending (fragments and changesets that landed after this PR) and writes
+each package's first changelog section, at the versions the packages already carry. Asking npm
+rather than reading tags alone keeps a tagless local checkout from mistaking a later release for
+the first. Any other unpublished engine version is refused: the previous release never finished,
+and the fix is a Release (publish) run.
+
+**Publish (constraint 3).** `changeset publish` (3.0.3) sorts the plan into dependency rounds with
+`@pnpm/deps.graph-sequencer` and publishes each round in parallel: the eleven libraries with no
+`@laticent/*` dependency (`ltt` among them), then `cadenza`, then the engine. A failure stops
+before the next round, so the engine publishes last or not at all. Provenance comes from
+`NPM_CONFIG_PROVENANCE=true`, which Changesets passes through to `npm publish`. Tags are
+Changesets' `<name>@<version>` plus `v<version>` for the engine's GitHub Release. Before anything
+reaches npm, `--publish` refuses while `v1.0.0` already tags a commit (slice D not yet done), and
+writes the notes and builds the zip, so their failure leaves nothing half-published.
+
+**Guards the adversarial trio added.** The Munger inversion reproduced a release-day failure and
+found three more ways release day could go wrong:
+
+- The engine's `prepublishOnly` ran `npm test` inside `changeset publish`, which fails two ways
+  there (the red team and the inversion each reproduced one): npm passes `--json` to lifecycle
+  scripts, which breaks `package-nodenext-types.test.js`'s `npm pack`, and the zsh completion test
+  fails rather than skips in CI without zsh. Libraries publish before the engine, so every run would
+  have stranded twelve libraries on npm without their engine. `prepublishOnly` is gone (the release
+  commit already passed `ci`; `prepack` builds), and Release (prepare), whose gate runs `npm test`,
+  installs zsh as `ci.yml`'s unit job does.
+- Release (publish) runs on a push only for a commit titled `release: `. Before, any manifest or
+  changelog push could publish whatever `main` held once the August tag was gone.
+- A release that crosses a major version (or takes a `0.x` library to 1.0.0) does not auto-merge;
+  95 of the 1,674 archived fragments were marked breaking, many by mistake. The changeset gate
+  also rejects `major` on a `0.x` library.
+- The post-publish registry check asks up to four times, so a brand-new package's cached 404
+  cannot leave it untagged; the GitHub Release step runs even when that check finally fails
+  (`!cancelled()`), and a recovery run's notes list the packages tagged at the same commit.
+- `--publish` refuses any package whose `CHANGELOG.md` lacks its `## <version>` section, and the
+  workflow refuses when a GitHub Release named `v<version>` already exists. Both run before npm.
+- The changeset gate also runs `@changesets/parse`, the reader `changeset version` uses, so an
+  unquoted `@scope/name` key or a package named twice fails when it lands.
+- The card grader then found that this last fix broke the publish gate: `--plan` runs before
+  `npm ci`, and a top-level require of `@changesets/parse` crashed it, so a release commit would have
+  published nothing. The parser now loads on first use, and a test plans from a tree with no
+  `node_modules`. All twelve libraries list `CHANGELOG.md` in `files` (npm 10 packs it only when
+  listed, and a published 0.1.0 tarball cannot be changed later).
+- A second checker re-reviewed every post-trio fix. Release (publish) now checks every commit of a
+  push for the `release: ` title, not only the last: the merge queue lands up to three PRs as one
+  push. A registry error during the post-publish check counts as "not yet" rather than aborting
+  before the tags are pushed, and the GitHub Release name check fails unless `gh` says "release not
+  found".
+
+**Changelogs.** Each package keeps its own `CHANGELOG.md`, written by `changeset version`. The
+engine's is `packages/lattice/CHANGELOG.md`, committed; `tools/stage-engine-package.js` treats it as
+native (neither staged from the root nor removed after packing). The root `CHANGELOG.md` becomes an
+index that takes no entries. The archive gained the August section and the 1,674 fragments.
+
+**Not in this PR, each on purpose:**
+
+- **A gate that requires a changeset** on a PR that touches published source (§5 slice C). A
+  diff-aware gate is a new CI step, which is the owner's call (CLAUDE.md, SECOND FILTER row 2).
+- **Weekly releases** (slice F), and npm trusted publishing, which needs npm 11.5.1+ in the publish
+  job (Node 22 ships 10.9). Both come after 1.0.0.
+- **GitHub Releases for libraries.** Only the engine gets one; a library-only release publishes and
+  tags without one. Slice F decides whether weekly library releases need their own.
+
+Status stays `proposed` until slice E, the first publish, lands. Slices D and E happen on release day (#3449).

@@ -47,7 +47,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 - With `tiered`, keep leaf names to 14 characters and branch names to 16, and stay at 14 leaves or fewer for a layout the linter treats as proven; the kernel still draws up to 18. When a branch name has no clear lane beside its disc, the branch names move into a key band under the figure.
 - Keep the hub name under about 40 characters and its value under 12. The hub never outgrows three times the largest satellite; long text shrinks instead, and past the smallest type the linter flags it.
 - Satellite values under `sized` should share one unit and be positive; the hub value is not drawn to scale, and the linter warns only when the satellites add up to MORE than the hub.
-- Under a `marks:` (`pigment`, `etch` or `tone`), the finish repaints the group discs, the key and a status disc's level; the hub and neutral satellites carry no color, so they stay as drawn. Under `tone` a group's connectors, arrowheads and names join the one hue with its discs. On a slide with groups, `pigment` and `tone` draw the hub in the full heading ink, so no group disc reaches the hub's lightness.
+- Under a `chart-finish:` (`pigment`, `etch` or `tone`), the finish repaints the group discs, the key and a status disc's level; the hub and neutral satellites carry no color, so they stay as drawn. Under `tone` a group's connectors, arrowheads and names join the one hue with its discs. On a slide with groups, `pigment` and `tone` draw the hub in the full heading ink, so no group disc reaches the hub's lightness.
 
 ## When to use
 
@@ -67,7 +67,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 ## Authoring
 
 ```markdown
-<!-- _class: hub-spoke -->
+<!-- @meta{layout=hub-spoke} -->
 
 `Eyebrow · context`
 
@@ -103,7 +103,7 @@ Use bar or stacked-bar instead when the claim is a ranking or a share: a length 
 Disc area carries each value.
 
 ```markdown
-<!-- _class: hub-spoke sized -->
+<!-- @meta{layout=hub-spoke, class=sized} -->
 
 `FY2026 · Partner channel revenue · share of $120M`
 
@@ -123,7 +123,7 @@ Disc area carries each value.
 Arrowheads and stepped connector weight.
 
 ```markdown
-<!-- _class: hub-spoke flow-out -->
+<!-- @meta{layout=hub-spoke, class=flow-out} -->
 
 `Memphis distribution center · Pallets per week`
 
@@ -143,7 +143,7 @@ Arrowheads and stepped connector weight.
 Heads point at the hub.
 
 ```markdown
-<!-- _class: hub-spoke flow-in -->
+<!-- @meta{layout=hub-spoke, class=flow-in} -->
 
 `Data platform · Records ingested per day`
 
@@ -162,7 +162,7 @@ Heads point at the hub.
 Two-way flow on every spoke.
 
 ```markdown
-<!-- _class: hub-spoke flow-both -->
+<!-- @meta{layout=hub-spoke, class=flow-both} -->
 
 `Shared services · Tickets per month`
 
@@ -181,7 +181,7 @@ Two-way flow on every spoke.
 Branches, with leaves off each one.
 
 ```markdown
-<!-- _class: hub-spoke tiered -->
+<!-- @meta{layout=hub-spoke, class=tiered} -->
 
 `Platform organization · Service ownership · 2026`
 

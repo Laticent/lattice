@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · statute-stack"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # statute-stack
 
@@ -15,8 +15,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack -->
-<!-- _footer: "Default · statute-stack" -->
+<!-- @meta{layout=statute-stack, footer=Default · statute-stack} -->
 
 ## Three jurisdictions, one obligation each.
 
@@ -33,8 +32,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack hierarchy -->
-<!-- _footer: "hierarchy · statute-stack hierarchy — Ordered by supremacy." -->
+<!-- @meta{layout=statute-stack, class=hierarchy, footer="hierarchy · statute-stack hierarchy — Ordered by supremacy."} -->
 
 ## hierarchy orders the stack by supremacy.
 
@@ -48,8 +46,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack bands -->
-<!-- _footer: "Horizontal bands · statute-stack bands — Full-width strips." -->
+<!-- @meta{layout=statute-stack, class=bands, footer="Horizontal bands · statute-stack bands — Full-width strips."} -->
 
 ## bands strips each jurisdiction full-width.
 
@@ -63,8 +60,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack preemption -->
-<!-- _footer: "preemption · statute-stack preemption — Which law yields." -->
+<!-- @meta{layout=statute-stack, class=preemption, footer="preemption · statute-stack preemption — Which law yields."} -->
 
 ## preemption marks which law yields.
 
@@ -78,8 +74,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack lane -->
-<!-- _footer: "Markdown table · statute-stack lane — One column stack." -->
+<!-- @meta{layout=statute-stack, class=lane, footer="Markdown table · statute-stack lane — One column stack."} -->
 
 ## lane runs the stack in one column.
 
@@ -92,9 +87,8 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · statute-stack — Five jurisdictions — the ceiling." -->
+<!-- @meta{layout=statute-stack, footer="Stress test · statute-stack — Five jurisdictions — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## Five jurisdictions is the rail's hard ceiling.
 
@@ -117,8 +111,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack dark -->
-<!-- _footer: "Composition: dark · statute-stack dark" -->
+<!-- @meta{layout=statute-stack, class=dark, footer=Composition: dark · statute-stack dark} -->
 
 ## Three jurisdictions, one obligation each.
 
@@ -135,8 +128,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack compact -->
-<!-- _footer: "Composition: compact · statute-stack compact" -->
+<!-- @meta{layout=statute-stack, class=compact, footer=Composition: compact · statute-stack compact} -->
 
 ## Three jurisdictions, one obligation each.
 
@@ -153,8 +145,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: statute-stack accent -->
-<!-- _footer: "Composition: accent · statute-stack accent" -->
+<!-- @meta{layout=statute-stack, class=accent, footer=Composition: accent · statute-stack accent} -->
 
 ## Three jurisdictions, one obligation each.
 
@@ -171,8 +162,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · statute-stack" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · statute-stack} -->
 
 ## When NOT to reach for statute-stack.
 
@@ -185,7 +175,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -36,9 +36,12 @@
 // for every real stylesheet, so no snapshot's bytes move.
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
-import { MARKS_TOKENS } from '@/lib/marks-words';
+import { CHART_FINISH_TOKENS } from '@/lib/chart-finish-words';
+import cssTokensLib from '../../../lib/core/css-tokens.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+
+const { rewriteCssUrls } = cssTokensLib;
 
 export const SNAPSHOT_KEY = 'lattice-studio-last-slide';
 // The Playground's OWN key — a SEPARATE store from the Studio's. The two surfaces
@@ -102,6 +105,20 @@ export function stripPseudo(sel) {
 			}
 		}
 		if (!element && !STRIP_NAMES.has(name)) { out += sel.slice(i, end); i = end; continue; }
+		// `:is()` `:where()` `:has()` the engine evaluates itself, so only what is INSIDE them is stripped:
+		// widening each argument widens the whole, and the probe stays a superset. Stripping the wrapper
+		// whole made `section:where([data-family="square"])` probe as `section`, which every slide matches,
+		// so venue rules for a shape the slide is not rode into every snapshot (#2988 took the default Edit
+		// deck past half MAX_UNITS that way). `:not()` is still stripped whole: widening its argument would
+		// NARROW the selector, and the probe must never match less than the rule. A wrapper whose argument
+		// still nests a function after stripping (`:where(:is(.a, .b)[x])`) is stripped whole as before:
+		// jsdom's engine answers that shape wrongly (no match where Chromium finds one), so keeping it
+		// would make the unit tests a different engine from the page.
+		const open = i + 1 + name.length;
+		if (!element && (name === 'is' || name === 'where' || name === 'has') && sel[open] === '(') {
+			const inner = stripPseudo(sel.slice(open + 1, end - 1)).trim();
+			if (inner && !inner.includes('(')) { out += `:${name}(${inner})`; i = end; continue; }
+		}
 		// Strip it. An emptied compound becomes `*` so `a > :is(b) c` probes as `a > * c`.
 		const before = out.length ? out[out.length - 1] : ' ';
 		const after = end < sel.length ? sel[end] : ' ';
@@ -120,30 +137,30 @@ export function stripPseudo(sel) {
 // class `lat-pane-host` is a slide's own class, not a pane arm.
 const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 
-// A CHART-FINISH arm (`section.marks-tone :where(…)`, tools/build-marks-css.js)
+// A CHART-FINISH arm (`section.chart-finish-tone :where(…)`, tools/build-chart-finish-css.js)
 // can only match under an element carrying that finish's class. Its mark part nests `:is()`
 // inside `:where()`, which the regex strip this file used before `stripPseudo` could not undo, so
 // the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = new RegExp(`(?<![\\w-])(${MARKS_TOKENS.join('|')})(?![\\w-])`, 'g');
-// An arm may name several finishes (`:is(.marks-etch, .marks-tone)`), and any ONE of them on the page
+const FINISH_ARM = new RegExp(`(?<![\\w-])(${CHART_FINISH_TOKENS.join('|')})(?![\\w-])`, 'g');
+// An arm may name several finishes (`:is(.chart-finish-etch, .chart-finish-tone)`), and any ONE of them on the page
 // can make it match, so it is absent only when none is.
 const finishArmAbsent = (doc, sel) => {
 	const names = [...sel.matchAll(FINISH_ARM)].map((m) => m[1]);
 	return names.length > 0 && names.every((name) => !doc.querySelector(`.${name}`));
 };
 
-// EVERY slide wears a finish class now (resolve-marks.js: a look with no absent state), so the
+// EVERY slide wears a finish class now (resolve-chart-finish.js: a look with no absent state), so the
 // class test above no longer says whether a slide holds a mark the arm reaches. Left at that, all ~160
 // rules of the deck's finish rode into every snapshot, which on a bar slide roughly doubled it
 // (53K to 100K units against a 246K cap, 174 finish rules kept against 2) and left heavy chart slides
 // unable to store. The arm is exactly
-// `section.marks-X :where(<marks>)` (X one finish or an `:is()` of several), and the marks are an ordinary selector, so ask the page
+// `section.chart-finish-X :where(<marks>)` (X one finish or an `:is()` of several), and the marks are an ordinary selector, so ask the page
 // whether any exists. Any other shape, or a selector the engine refuses, stays conservatively kept.
-// The head is one finish (`section.marks-etch`) or a set of them (`section:is(.marks-etch, .marks-tone)`): the shared
+// The head is one finish (`section.chart-finish-etch`) or a set of them (`section:is(.chart-finish-etch, .chart-finish-tone)`): the shared
 // mark rules serve every finish and read its --finish-* values, so most heads name all three.
-const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)(?:\\.(?:${MARKS_TOKENS.join('|')})|:is\\((?:\\.(?:${MARKS_TOKENS.join('|')})(?:, )?)+\\)) :where\\(`);
+const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)(?:\\.(?:${CHART_FINISH_TOKENS.join('|')})|:is\\((?:\\.(?:${CHART_FINISH_TOKENS.join('|')})(?:, )?)+\\)) :where\\(`);
 const finishMarksAbsent = (doc, sel) => {
 	const lead = FINISH_MARK_ARM.exec(sel);
 	if (!lead) return false;
@@ -377,7 +394,7 @@ export function captureFromFrame(frame, meta) {
 		// against `/studio/` (→ 404) when the snapshot is replayed into the top
 		// document. Rewrite to the absolute served themes/ base so the replayed slide
 		// uses the real faces (same fix as the build-time front-A shell).
-		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		if (meta.themeUrlBase) css = rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? meta.themeUrlBase + raw : undefined));
 		// The stylesheet channel of the same chokepoint (#22) — see the header. Applied AFTER
 		// the font-URL rewrite so the stored string is the one the replay actually sinks.
 		css = sanitizeStyleText(css);
@@ -475,7 +492,7 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		if (!html || !css) return null;
 		// Same relative-font-URL rewrite as captureFromFrame: the replayed CSS lives in
 		// the TOP document (`/playground/`), so `url(fonts/…)` must be made absolute.
-		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		if (meta.themeUrlBase) css = rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? meta.themeUrlBase + raw : undefined));
 		// Stylesheet channel (#22), same as captureFromFrame — see the header.
 		css = sanitizeStyleText(css);
 		return { v: 2, srcHash: meta.srcHash || '', html, css, w: meta.w || 1280, h: meta.h || 720, fit, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };

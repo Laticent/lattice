@@ -8,6 +8,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { SOURCE_CTX } = require('../../../lib/engine/source-hooks.js');
 const { compileSource } = require('../../../lib/plugins/meta/meta.source.mjs');
+const { engineTokens } = require('../../../lib/engine/test-seams.js');
 const door = { ...require('../../../lib/core/meta-door.mjs'), compileMetaSource: (s) => compileSource(s, SOURCE_CTX) };
 const { readDirectiveComment, readDirectiveEntries } = require('../../../lib/core/comment-directive.mjs');
 const { mulberry32 } = require('../../helpers/regex-differential');
@@ -345,7 +346,7 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
   });
 
   test('every block the expansion writes carries its provenance (`latticeRecord`), so the cut can tell it from an authored comment', () => {
-    const tokens = engine._tokens('# A\n\n<!-- {layout=cards, footer="r"} -->\n\n<!-- _footer: authored -->\n');
+    const tokens = engineTokens(engine, '# A\n\n<!-- {layout=cards, footer="r"} -->\n\n<!-- _footer: authored -->\n');
     // A directive block is consumed (emptied) by `lattice_directives`; the mark and the line survive.
     const marked = tokens.filter((t) => t.meta?.latticeRecord);
     assert.deepEqual(marked.map((t) => t.map?.[0]), [2, 2], 'the class and the footer, both on the record\'s line');

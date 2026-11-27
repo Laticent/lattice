@@ -8,7 +8,7 @@
 // separate means a future TRANSLATION LENS gets its source (document) vs target
 // (AI-output) distinction for free — no un-fusing of callers. Either way this governs
 // natural-language prose ONLY: theme and component generation stay canonical English
-// (a structural contract — slugs, CSS, manifest keys, `_class` invokes — that must
+// (a structural contract — slugs, CSS, manifest keys, `@meta{layout=…}` names — that must
 // stay ASCII/English to pass the gates and resolve at render time).
 //
 // We support English only for now. The end goal is any language plus that lens; the
@@ -114,8 +114,8 @@ export function detectLanguage(nav: NavLike | undefined = typeof navigator === '
 
 /**
  * The system-prompt clause that pins the AI's prose to `code`. Scoped to
- * natural-language content (and explicit about leaving code / component names /
- * `_class` directives alone) so it never fights the deck's structural markup.
+ * natural-language content (and explicit about leaving code / layout names /
+ * `@meta{…}` records alone) so it never fights the deck's structural markup.
  * Always returns a non-empty directive — languageFor always resolves.
  */
 export function languageDirective(code: string | null | undefined): string {
@@ -124,6 +124,6 @@ export function languageDirective(code: string | null | undefined): string {
 	return (
 		`Write all natural-language prose — slide titles, body copy, speaker notes, and your chat replies — in ${lang.label}.${note} ` +
 		"Match that language's grammar, idiom, punctuation, and number/date conventions. Do not switch languages unless the author explicitly asks. " +
-		'Leave code, Lattice component names, and `_class` directives exactly as given — do not translate them.'
+		'Leave code, Lattice layout names, and `@meta{…}` records exactly as given — do not translate them.'
 	);
 }

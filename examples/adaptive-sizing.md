@@ -2,10 +2,10 @@
 marp: true
 theme: indaco
 size: story
-paginate: true
+pagination: true
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Adaptive by box, not by size.
 
@@ -15,7 +15,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## What "box-local" changes.
 
@@ -27,7 +27,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 
 `Atlas · Q4 2026`
 
@@ -48,7 +48,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 ---
 
-<!-- _class: matrix-2x2 -->
+<!-- @meta{layout=matrix-2x2} -->
 
 ## Where the next two quarters get spent.
 
@@ -65,7 +65,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Four pilots, four lessons.
 
@@ -80,7 +80,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Decision required`
 
@@ -99,7 +99,7 @@ Both paths are viable. The difference is where we spend the next eighteen months
 
 ---
 
-<!-- _class: list principles -->
+<!-- @meta{layout=list, class=principles} -->
 
 ## How the reflow decides.
 
@@ -110,7 +110,7 @@ Both paths are viable. The difference is where we spend the next eighteen months
 
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # One contract, every frame.
 

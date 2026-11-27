@@ -2,14 +2,14 @@
 marp: true
 theme: a11y-achromatopsia
 size: hd
-paginate: true
+pagination: true
 header: "Lattice · risk matrix on an a11y palette"
 footer: "Critical is the darkest band on the dark face"
 ---
 
-<!-- _class: title dark -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, class=dark, header="", footer=""} -->
+
+
 
 # Critical is now the darkest band on the dark face.
 
@@ -17,7 +17,7 @@ footer: "Critical is the darkest band on the dark face"
 
 ---
 
-<!-- _class: risk-matrix dark -->
+<!-- @meta{layout=risk-matrix, class=dark} -->
 
 `Enterprise risk register · Q4 2026`
 
@@ -32,7 +32,7 @@ footer: "Critical is the darkest band on the dark face"
 
 ---
 
-<!-- _class: risk-matrix dark -->
+<!-- @meta{layout=risk-matrix, class=dark} -->
 
 `Product launch · H2 2026`
 
@@ -46,7 +46,7 @@ footer: "Critical is the darkest band on the dark face"
 
 ---
 
-<!-- _class: risk-matrix dark -->
+<!-- @meta{layout=risk-matrix, class=dark} -->
 
 `Vendor risk · Q1 2027`
 
@@ -60,7 +60,7 @@ footer: "Critical is the darkest band on the dark face"
 
 ---
 
-<!-- _class: risk-matrix dark compact -->
+<!-- @meta{layout=risk-matrix, class=dark compact} -->
 
 `Plant safety · FY27`
 
@@ -73,9 +73,9 @@ footer: "Critical is the darkest band on the dark face"
 
 ---
 
-<!-- _class: title dark -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=title, class=dark, header="", footer=""} -->
+
+
 
 # On the dark face: low, medium, high, then the dark exception.
 

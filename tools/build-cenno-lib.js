@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Build the Cenno library's consumable dist/: the ESM + CJS entries + type declarations that make
+ * Build the Cenno library's consumable dist/: the ESM entries + type declarations that make
  * it a publishable unit (engineering/decisions/2026-11-16-cenno-popover-library.md).
- *   docs/src/lib/cenno/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
+ *   docs/src/lib/cenno/*.ts  →  dist/index.mjs + dist/*.d.ts
  * One entrypoint, the framework-free core. Cenno has no dependencies; Lattice's chart reveal lives
  * outside the package (lib/runtime/chart-reveal) and is not part of this build.
  * Flags:

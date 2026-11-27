@@ -107,15 +107,15 @@ describe('deck-preset — Reset never reaches into a `style: |` block (followups
 });
 
 // P0 of engineering/decisions/2026-11-20-deck-preset-study.md: a preset RECOMMENDS `theme`, `color-mode`, `mode`,
-// `marks` and `backdrop` (D1). No shipped preset sets them yet, so the arms below run on a probe preset.
-const PROBE = { label: 'Probe', desc: 'test only', values: { theme: 'cuoio', 'color-mode': 'dark', marks: 'etch vivid', backdrop: '40 clear', rule: 'short' } };
+// `chart-finish`, `color-intensity` and `backdrop` (D1). No shipped preset sets them yet, so the arms below run on a probe preset.
+const PROBE = { label: 'Probe', desc: 'test only', values: { theme: 'cuoio', 'color-mode': 'dark', 'chart-finish': 'tone ink', 'color-intensity': 'vivid', backdrop: '40 clear', rule: 'short' } };
 const withProbe = <T,>(fn: () => T): T => withPresetTable({ ...PRESETS, probe: PROBE }, fn);
 const bare = (...fm: string[]) => ['---', ...fm, '---', '', '# Hi'].join('\n');
 
 describe('deck-preset — the recommendation keys (P0)', () => {
 	it('reads a multi-word value whole, and a theme in its own case', () => {
-		expect(registerValue(bare('marks: etch vivid'), 'marks')).toBe('etch vivid');
-		expect(registerValue(bare('marks: "etch  Vivid"  # house'), 'marks')).toBe('etch vivid');
+		expect(registerValue(bare('chart-finish: tone ink'), 'chart-finish')).toBe('tone ink');
+		expect(registerValue(bare('chart-finish: "tone  Ink"  # house'), 'chart-finish')).toBe('tone ink');
 		expect(registerValue(bare('backdrop: 40 clear'), 'backdrop')).toBe('40 clear');
 		expect(registerValue(bare('theme: NoirStudio'), 'theme')).toBe('NoirStudio');
 		// Control: a single-word key still reads as the bare, lower-cased name it always did.
@@ -129,12 +129,13 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 			const src = bare('preset: probe');
 			expect(registerValue(src, 'theme')).toBe('cuoio');
 			expect(registerValue(src, 'color-mode')).toBe('dark');
-			expect(registerValue(src, 'marks')).toBe('etch vivid');
+			expect(registerValue(src, 'chart-finish')).toBe('tone ink');
+			expect(registerValue(src, 'color-intensity')).toBe('vivid');
 			expect(registerValue(src, 'backdrop')).toBe('40 clear');
 			expect(registerValue(bare('preset: probe', 'theme: indaco'), 'theme')).toBe('indaco');
-			// The old `chart-finish:` key still speaks for `marks:` and beats the preset, as in the engine.
-			expect(registerValue(bare('preset: probe', 'chart-finish: tone'), 'marks')).toBe('tone');
-			expect(registerValue(bare('preset: probe', 'marks: pigment', 'chart-finish: tone'), 'marks')).toBe('pigment');
+			expect(registerValue(bare('preset: probe', 'chart-finish: etch'), 'chart-finish')).toBe('etch');
+			// The retired `marks:` speaks for nothing, as in the engine.
+			expect(registerValue(bare('preset: probe', 'marks: pigment'), 'chart-finish')).toBe('tone ink');
 		});
 	});
 
@@ -173,8 +174,8 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 	it('Reset and the drift count never touch the author theme or color mode', () => {
 		expect(AUTHOR_KEYS).toEqual(['theme', 'color-mode']);
 		withProbe(() => {
-			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'marks: tone', 'rule: none');
-			expect(presetChanges(src)).toEqual(['rule', 'marks']);
+			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'chart-finish: etch', 'rule: none');
+			expect(presetChanges(src)).toEqual(['rule', 'chart-finish']);
 			expect(clearPresetOverrides(src)).toBe(bare('preset: probe', 'theme: indaco', 'color-mode: light'));
 		});
 		// Control: with no preset at all, Reset still keeps them.
@@ -182,11 +183,11 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 	});
 
 	it('a picker tile keeps the deck theme and color mode, and drops every other override', () => {
-		const fm = '---\ntheme: indaco\ncolor-mode: dark\nmarks: tone\nbackdrop: 80\n---';
+		const fm = '---\ntheme: indaco\ncolor-mode: dark\nchart-finish: tone\nbackdrop: 80\n---';
 		const tile = presetSampleDeck(fm, 'editorial');
 		expect(tile).toContain('theme: indaco');
 		expect(tile).toContain('color-mode: dark');
-		expect(tile).not.toContain('marks:');
+		expect(tile).not.toContain('chart-finish:');
 		expect(tile).not.toContain('backdrop:');
 	});
 });

@@ -326,7 +326,7 @@ describe('themeValuePosition — the theme: value slot (Tier 1)', () => {
 
 	test('null on non-theme lines or once a value + trailing content exists', async () => {
 		const { themeValuePosition } = await load();
-		assert.equal(themeValuePosition('paginate: true'), null);
+		assert.equal(themeValuePosition('pagination: true'), null);
 		assert.equal(themeValuePosition('  header: "Q4 review"'), null);
 	});
 });
@@ -342,7 +342,7 @@ describe('finishValuePosition — the finish: register slot (Tier 1)', () => {
 	test('null on non-finish lines', async () => {
 		const { finishValuePosition } = await load();
 		assert.equal(finishValuePosition('theme: indaco'), null);
-		assert.equal(finishValuePosition('paginate: true'), null);
+		assert.equal(finishValuePosition('pagination: true'), null);
 	});
 });
 

@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · map"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # map
 
@@ -15,8 +15,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map -->
-<!-- _footer: "Default · map" -->
+<!-- @meta{layout=map, footer=Default · map} -->
 
 ## The map fills regions by value.
 
@@ -34,8 +33,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map us -->
-<!-- _footer: "us · map us — The US-states basemap, with insets." -->
+<!-- @meta{layout=map, class=us, footer="us · map us — The US-states basemap, with insets."} -->
 
 ## us swaps in the US-states basemap.
 
@@ -51,8 +49,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map world -->
-<!-- _footer: "world · map world — The Basemap axis default, spelled out." -->
+<!-- @meta{layout=map, class=world, footer="world · map world — The Basemap axis default, spelled out."} -->
 
 ## The same engine, pinned to the world basemap.
 
@@ -68,8 +65,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map highlight -->
-<!-- _footer: "highlight · map highlight — Category fills instead of values." -->
+<!-- @meta{layout=map, class=highlight, footer="highlight · map highlight — Category fills instead of values."} -->
 
 ## highlight fills by category, not value.
 
@@ -81,8 +77,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map robinson -->
-<!-- _footer: "robinson · map robinson — The Robinson projection swap." -->
+<!-- @meta{layout=map, class=robinson, footer="robinson · map robinson — The Robinson projection swap."} -->
 
 ## robinson swaps the projection.
 
@@ -98,8 +93,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map highlight grouped -->
-<!-- _footer: "grouped · map grouped — Whole blocs fill as one." -->
+<!-- @meta{layout=map, class=highlight grouped, footer="grouped · map grouped — Whole blocs fill as one."} -->
 
 ## grouped fills whole blocs at once.
 
@@ -111,9 +105,8 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map us -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · map — A wide-range choropleth — the ceiling." -->
+<!-- @meta{layout=map, class=us, footer="Stress test · map — A wide-range choropleth — the ceiling."} -->
+<!-- @meta{stress-slide} -->
 
 ## A wide spread across fifteen states.
 
@@ -136,8 +129,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map dark -->
-<!-- _footer: "Composition: dark · map dark" -->
+<!-- @meta{layout=map, class=dark, footer=Composition: dark · map dark} -->
 
 ## The map fills regions by value.
 
@@ -155,8 +147,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map compact -->
-<!-- _footer: "Composition: compact · map compact" -->
+<!-- @meta{layout=map, class=compact, footer=Composition: compact · map compact} -->
 
 ## The map fills regions by value.
 
@@ -174,8 +165,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: map accent -->
-<!-- _footer: "Composition: accent · map accent" -->
+<!-- @meta{layout=map, class=accent, footer=Composition: accent · map accent} -->
 
 ## The map fills regions by value.
 
@@ -193,8 +183,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · map" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · map} -->
 
 ## When NOT to reach for map.
 
@@ -207,7 +196,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

@@ -1,14 +1,14 @@
 ---
 marp: true
 theme: crepuscolo
-paginate: true
+pagination: true
 header: "Lattice · Form"
 footer: "Laticent · The composition model"
 meta: "Composition Model · 2026-06-15 | Owner · S. Aden"
 logo: ../lib/base/_logo/lattice-mark-min.svg
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Author once. Read anywhere.
 
@@ -18,7 +18,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 01`
 
@@ -26,7 +26,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 
 ## Every slide resolves to the same three Cells.
 
@@ -39,7 +39,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Ten Tiles fill those Cells — sourced, not placed.
 
@@ -54,7 +54,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 02`
 
@@ -62,7 +62,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: piechart donut -->
+<!-- @meta{layout=piechart, class=donut} -->
 
 `H1 FY26 · 1,840 person-hours`
 
@@ -76,7 +76,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: radar -->
+<!-- @meta{layout=radar} -->
 
 `[{Scale, 0..10}]`
 
@@ -97,7 +97,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Why this is the proof`
 
@@ -107,7 +107,7 @@ The old flex column made the content box content-driven — its height was whate
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 03`
 
@@ -115,27 +115,27 @@ The old flex column made the content box content-driven — its height was whate
 
 ---
 
-<!-- _class: content fill-center -->
+<!-- @meta{layout=content, class=align-middle} -->
 
-`fill-center · the Tile sits in the center of its Cell`
+`align-middle · the Tile sits in the center of its Cell`
 
 ## Fill discipline puts a short Tile where the eye expects it.
 
-A short occupant given `fill-center` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centers what it holds. This is the board-deck read — composed, not pinned.
+A short occupant given `align-middle` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centers what it holds. This is the board-deck read — composed, not pinned.
 
 ---
 
-<!-- _class: content fill-anchor -->
+<!-- @meta{layout=content, class=align-bottom} -->
 
-`fill-anchor · the same Tile, the fill rule changed`
+`align-bottom · the same Tile, the fill rule changed`
 
 ## The same Tile, the same box, a different fill.
 
-`fill-anchor` pins the very same occupant to the foot of the stage Cell. Nothing about the geometry moved — the Cell is the identical box. Fill is a property the Cell carries and the author selects, which is the difference between a grid of correct boxes and a board deck.
+`align-bottom` pins the very same occupant to the foot of the stage Cell. Nothing about the geometry moved — the Cell is the identical box. Fill is a property the Cell carries and the author selects, which is the difference between a grid of correct boxes and a board deck.
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 04`
 
@@ -143,7 +143,7 @@ A short occupant given `fill-center` sits in the middle of the stage Cell. The c
 
 ---
 
-<!-- _class: content confidential watermark -->
+<!-- @meta{layout=content, class=confidential watermark} -->
 
 `Context · The bay and the watermark`
 
@@ -153,7 +153,7 @@ This slide is marked `confidential`, so a status chip docks in the masthead bay 
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 
 `Evidence · One source, three paths`
 
@@ -170,7 +170,7 @@ This slide is marked `confidential`, so a status chip docks in the masthead bay 
 
 ---
 
-<!-- _class: divider silent -->
+<!-- @meta{layout=divider, class=silent} -->
 
 `Section 05`
 
@@ -178,7 +178,7 @@ This slide is marked `confidential`, so a status chip docks in the masthead bay 
 
 ---
 
-<!-- _class: content no-note -->
+<!-- @meta{layout=content, class=no-note} -->
 
 `The payoff · One block of content`
 
@@ -190,7 +190,7 @@ The next three slides carry this exact claim. Nothing in the words changes. Only
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `Frame · standard`
 
@@ -202,8 +202,8 @@ Read as a working slide. The full chrome orients a reader paging through the dec
 
 ---
 
-<!-- _class: content no-progress -->
-<!-- _footer: "" -->
+<!-- @meta{layout=content, class=no-progress, footer=""} -->
+
 
 `Frame · minimal`
 
@@ -215,8 +215,8 @@ Same Tiles, a quieter Frame. The consumer chose to suppress the progress rail �
 
 ---
 
-<!-- _class: split-panel -->
-<!-- _footer: "" -->
+<!-- @meta{layout=split-panel, footer=""} -->
+
 
 `Net Revenue Retention`
 
@@ -233,7 +233,7 @@ A sovereign Frame: the masthead and footer Cells are suppressed and the canvas i
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Author once; read anywhere.
 

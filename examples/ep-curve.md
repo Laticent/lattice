@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · EP curve"
 meta: "EP curve"
 acronyms:
@@ -9,7 +9,7 @@ acronyms:
   AEP: aggregate exceedance probability
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Charts · ep-curve`
 
@@ -19,7 +19,7 @@ Write each point as `{return period, loss}`. The return period runs across on a 
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 `[{Return period}, {Loss}]`
 
@@ -40,7 +40,7 @@ Write each point as `{return period, loss}`. The return period runs across on a 
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 ## One curve prints its losses.
 
@@ -52,7 +52,7 @@ Write each point as `{return period, loss}`. The return period runs across on a 
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 `[{Return period, 5..1000}, {Loss}]`
 
@@ -75,7 +75,7 @@ Above 1-in-250 the tower is exhausted, and net climbs with gross again.
 
 ---
 
-<!-- _class: ep-curve dark -->
+<!-- @meta{layout=ep-curve, class=dark} -->
 
 `[{Return period}, {Loss}]`
 
@@ -96,7 +96,7 @@ Above 1-in-250 the tower is exhausted, and net climbs with gross again.
 
 ---
 
-<!-- _class: ep-curve -->
+<!-- @meta{layout=ep-curve} -->
 
 ## Four curves, eight return periods.
 

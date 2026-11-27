@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · redline"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # redline
 
@@ -15,22 +15,20 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline -->
-<!-- _footer: "Default · redline" -->
+<!-- @meta{layout=redline, footer=Default · redline} -->
 
 ## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
-> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
 - **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
 
-<!-- _class: redline annotated -->
-<!-- _footer: "annotated · redline annotated — Adds the why beside each edit." -->
+<!-- @meta{layout=redline, class=annotated, footer="annotated · redline annotated — Adds the why beside each edit."} -->
 
 ## annotated adds the why beside each edit.
 
@@ -45,8 +43,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline three-col -->
-<!-- _footer: "three-col · redline three-col — Old, new, and why side by side." -->
+<!-- @meta{layout=redline, class=three-col, footer="three-col · redline three-col — Old, new, and why side by side."} -->
 
 ## three-col sets old, new, and why side by side.
 
@@ -63,8 +60,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline split -->
-<!-- _footer: "split · redline split — Before and after in parallel." -->
+<!-- @meta{layout=redline, class=split, footer="split · redline split — Before and after in parallel."} -->
 
 ## split shows before and after in parallel.
 
@@ -79,8 +75,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline stacked -->
-<!-- _footer: "stacked · redline stacked — Prior text struck above the current." -->
+<!-- @meta{layout=redline, class=stacked, footer="stacked · redline stacked — Prior text struck above the current."} -->
 
 ## stacked strikes the prior text above the current.
 
@@ -95,9 +90,8 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · redline — The marking ceiling for one clause." -->
+<!-- @meta{layout=redline, footer="Stress test · redline — The marking ceiling for one clause."} -->
+<!-- @meta{stress-slide} -->
 
 ## Edit density has a ceiling too.
 
@@ -108,50 +102,46 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: redline dark -->
-<!-- _footer: "Composition: dark · redline dark" -->
+<!-- @meta{layout=redline, class=dark, footer=Composition: dark · redline dark} -->
 
 ## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
-> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
 - **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
 
-<!-- _class: redline compact -->
-<!-- _footer: "Composition: compact · redline compact" -->
+<!-- @meta{layout=redline, class=compact, footer=Composition: compact · redline compact} -->
 
 ## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
-> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
 - **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
 
-<!-- _class: redline accent -->
-<!-- _footer: "Composition: accent · redline accent" -->
+<!-- @meta{layout=redline, class=accent, footer=Composition: accent · redline accent} -->
 
 ## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
-> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
 - **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · redline" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · redline} -->
 
 ## When NOT to reach for redline.
 
@@ -164,7 +154,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

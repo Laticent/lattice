@@ -12,7 +12,7 @@ argument-hint: "[sweep | <#PR>]"
 # 🧹 Stale-PR desk
 
 Read first, by section: `engineering/workflow.md` §Desks, §Keeping an open PR mergeable
-while it waits, §Session branch ownership and §The handoff issue. Tag this session
+while it waits, §Relay and §The handoff issue. Tag this session
 `desk:stale` and `ui:pinned`.
 
 **Read your lane first** (`engineering/workflow.md` §Desks): `npm run followups` and the open issues for this lane, the live `claim:` tags, and this lane's gotcha file. Start from that queue; when done, delete the follow-up a fix closes and write new traps and leftovers back through a session you start.
@@ -26,14 +26,16 @@ while it waits, §Session branch ownership and §The handoff issue. Tag this ses
    - **Revive:** its session is alive. `send_message` it the PR, what its last card said
      was next, and the current check state.
    - **Hand over:** its session is archived or finished, and the work still matters
-     (no merged PR does the same thing). Draft a 🎯 continuation brief for a new session,
-     with its `Owner:` line left as `still active: read only`. Archived is not finished:
-     only the owner may write `finished: takeover allowed` (#31). Write
-     `takeover: pending owner` on the brief.
+     (no merged PR does the same thing). Point a new session at the PR's living handoff
+     comment, or draft a 🎯 brief if it has none. The new session continues the same branch
+     once `npm run baton -- take <branch>` finds the baton released and claims it (#31,
+     `workflow.md` §Relay). A stale PR's session usually never released, and no clock frees
+     a branch, so most hand-overs need the owner's "take over `<branch>`" typed in the new
+     session. Starting it is the owner's call (a numbered action below).
    - **Close:** a merged PR or `main` already does it, or the owner abandoned it. Name
      the PR or commit that superseded it. The owner closes it, never you.
 3. **Report** to the command center: one fleet item per PR with its sort and the
-   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`.
+   evidence, hand-overs and closes as numbered actions, and `budget: N/10 today`, with its `meter:` ledger, which also rides on every gate message to the command center (a card announcement, a 🧱 line).
 
 ## Lane
 

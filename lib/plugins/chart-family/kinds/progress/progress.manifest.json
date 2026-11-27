@@ -82,12 +82,12 @@
       "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note=\"Q4 slip\"}`` (the record's note first, then the nested bullets)."
     }
   },
-  "skeleton": "<!-- _class: progress -->\n\n`Eyebrow · context`\n\n## Progress by item.\n\n- First item `80%` `on-track`\n- Second item `55%` `at-risk`\n- Third item `30%` `blocked`\n",
+  "skeleton": "<!-- @meta{layout=progress} -->\n\n`Eyebrow · context`\n\n## Progress by item.\n\n- First item `80%` `on-track`\n- Second item `55%` `at-risk`\n- Third item `30%` `blocked`\n",
   "anatomyBlock": "progress-canvas",
-  "sample": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\nSnapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n- Adoption `12%` `blocked`\n",
+  "sample": "<!-- @meta{layout=progress} -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\nSnapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n- Adoption `12%` `blocked`\n",
   "stressDoc": {
     "summary": "A full wall of tracks — the ceiling.",
-    "sample": "<!-- _class: progress -->\n\n## Stress test — eight workstreams, full status range, one honest pill.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Per-team calibration `34%` `deferred`\n- Adoption `12%` `blocked`\n- Decision-log audit trail `100%` `done`\n- Recalibration playbook `45%` `deferred`\n- Auditor export rollout `73%` `on-track`\n"
+    "sample": "<!-- @meta{layout=progress} -->\n\n## Stress test — eight workstreams, full status range, one honest pill.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Per-team calibration `34%` `deferred`\n- Adoption `12%` `blocked`\n- Decision-log audit trail `100%` `done`\n- Recalibration playbook `45%` `deferred`\n- Auditor export rollout `73%` `on-track`\n"
   },
   "whenToUse": [
     {
@@ -238,5 +238,11 @@
       }
     }
   },
-  "venueProbe": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n"
+  "venueProbe": "<!-- @meta{layout=progress} -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n",
+  "split": {
+    "strategy": "progress-rows",
+    "perPage": 4,
+    "intro": "Where each one stands",
+    "note": "A list of bars read off one shared baseline. It splits only when it overflows, and a page holds as many bars as fit: up to 4 without a measured plan, the measured count under `fit: pack`, spread so no page holds a lone bar. Every bar is drawn against the same section-relative track, so bars on different pages stay comparable. Owner's direction 2026-11-06 (fit-everywhere-model.md §18); lib/core/carousel.js progress-rows."
+  }
 }

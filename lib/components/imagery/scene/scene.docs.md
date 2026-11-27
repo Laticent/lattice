@@ -49,7 +49,7 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 ## Authoring
 
 ```markdown
-<!-- _class: scene gallery -->
+<!-- @meta{layout=scene, class=gallery} -->
 
 ## What the mechanism does.
 
@@ -98,7 +98,7 @@ The rotor spins inside its housing — a relationship a single still can only im
 A card shaped to the still, beside its point.
 
 ```markdown
-<!-- _class: scene clean -->
+<!-- @meta{layout=scene, class=clean} -->
 
 ## clean seats the scene beside its claim.
 
@@ -112,7 +112,7 @@ The still floats in a card; the argument runs alongside.
 A tall scene gets its own column.
 
 ```markdown
-<!-- _class: scene split -->
+<!-- @meta{layout=scene, class=split} -->
 
 ## split gives a tall scene its full column.
 
@@ -126,7 +126,7 @@ A portrait scene wants its height; the claim leads beside it.
 A wide scene owns the frame.
 
 ```markdown
-<!-- _class: scene spotlight -->
+<!-- @meta{layout=scene, class=spotlight} -->
 
 ## spotlight lets a wide scene carry the slide.
 
@@ -140,7 +140,7 @@ When the scene already matches the canvas, let it own the frame.
 The whole still contained on a matte.
 
 ```markdown
-<!-- _class: scene gallery -->
+<!-- @meta{layout=scene, class=gallery} -->
 
 ## gallery mats the scene like an exhibit.
 
@@ -154,7 +154,7 @@ The whole scene on a matte — the default when the shape is the point.
 The title rides an editorial band below the scene.
 
 ```markdown
-<!-- _class: scene statement -->
+<!-- @meta{layout=scene, class=statement} -->
 
 ## statement rides the title below the scene.
 
@@ -168,7 +168,7 @@ The still sits on a matte stage; the title rides an editorial band beneath it.
 The scene lands on the left.
 
 ```markdown
-<!-- _class: scene mirror -->
+<!-- @meta{layout=scene, class=mirror} -->
 
 ## mirror lands the scene on the left.
 

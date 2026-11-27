@@ -47,7 +47,7 @@ import { createFocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partStart, partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
-import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente-host';
 import { fillFromConnections, SELECTION_FILLED_EVENT } from '@/lib/model-selection.js';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
@@ -78,15 +78,17 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { type AgendaAxis, agendaLabel, agendaOptions, agendaValue, parseAgenda } from './agenda';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL, readAlign, writeAlign } from './align-catalog';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import type { ChatApplyOpts, ChatDraft } from './change-card-types';
+import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
+import { chartFinishValue, deckChartFinish } from './chart-finish-value';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -113,7 +115,7 @@ import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
-import { activeGuards, GUARDS } from './guards-catalog';
+import { activeFit, FIT } from './fit-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -137,8 +139,6 @@ import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
-import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
-import { marksValue, parseMarksValue } from './marks-value';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
@@ -190,7 +190,7 @@ import type { UndoDoorbell } from './undo-doorbell';
 import { useRowFit } from './use-row-fit';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
-import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
+import { defaultVenue, familyForAspect, deckVenue as readDeckVenue, smallerVenue, type VenueName, venueOption, venueOptionsFor, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
@@ -368,6 +368,10 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
+/** How long the start grid waits for a touch tap's click before putting the caret itself. On the iPhone simulator the
+ *  click came 142 ms after the release (PR #3436, job 137343373196), with listener lag up to +288 ms on a busy page; a
+ *  click later than this still runs and puts the caret again, which is harmless. */
+const START_GRID_CLICK_WAIT_MS = 500;
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -1984,6 +1988,28 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// first slide would otherwise unmount a live editor and rebuild it later.
 	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
+	/** The start grid's fallback for a touch tap whose click never comes (the grid's `onPointerUp`). */
+	const startGridTapTimer = React.useRef(0);
+	const cancelStartGridFallback = React.useRef<() => void>(() => {});
+	/** Arm it: put the caret after START_GRID_CLICK_WAIT_MS unless the click comes first, or the person presses anywhere
+	 *  else first (a menu, the top bar, another deck), which must not have its focus taken by a timer (the checker on
+	 *  #3436). Once per tap; a new arm replaces the old. */
+	const armStartGridFallback = React.useCallback(() => {
+		cancelStartGridFallback.current();
+		const cancel = () => {
+			window.clearTimeout(startGridTapTimer.current);
+			document.removeEventListener('pointerdown', cancel, true);
+			cancelStartGridFallback.current = () => {};
+		};
+		startGridTapTimer.current = window.setTimeout(() => {
+			cancel();
+			composeRef.current?.focusEmptyLine();
+		}, START_GRID_CLICK_WAIT_MS);
+		// Added after this tap's own pointerdown has passed, so only the NEXT press cancels it.
+		document.addEventListener('pointerdown', cancel, true);
+		cancelStartGridFallback.current = cancel;
+	}, []);
+	React.useEffect(() => () => cancelStartGridFallback.current(), []);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
 	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
@@ -2171,7 +2197,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
 	
-	// Deck-level front-matter (size / paginate / header / footer) is split off the
+	// Deck-level front-matter (size / pagination / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
@@ -2701,8 +2727,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
-	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
-	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
+	// Page numbers are on unless the front matter says `pagination: false` (the owner's ruling, 2026-10-20).
+	const pageNumbers = paginateOn(getFrontMatter(source, 'pagination'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
 	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
 	// override it in the source. (resolve-lift.js.)
@@ -2857,17 +2883,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
 	const corners = registerValue(source, 'corners');
 	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'corners', value));
-	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
-	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
-	// baseline ''.
-	// The value carries one word per axis (`tone vivid ink`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity, and tone's source while the finish stays tone. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
-	// (the old line goes, so the deck never carries both).
-	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
-	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
+	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
+	// nothing wears it, and writeRegister drops a line only at the baseline ''.
+	// The value carries one word per axis (`tone ink`), so it is read by axis, and choosing a finish keeps tone's
+	// source while the finish stays tone. The intensity is its own key, `color-intensity:`, which this picker leaves alone.
+	const marks = deckChartFinish((k) => getFrontMatter(source, k)).finish || DEFAULT_CHART_FINISH;
 	const setMarks = (value: string) =>
-		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
-			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity, parseMarksValue(marksOf(s)).source) || null), 'chart-finish', null),
+		settingsWrite(`Marks → ${activeChartFinish(value).label}`, (s) =>
+			writeFrontMatterLine(s, 'chart-finish', chartFinishValue(value, deckChartFinish((k) => getFrontMatter(s, k)).source) || null),
 		);
 	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
 	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.
@@ -2880,17 +2903,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
-	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
-	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
-	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
-	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
-	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
-	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
-	// key. Writing the new key also drops the old one, so a deck never carries both.
-	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
-	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
+	// Align (`align:`) — where content sits, up and down and side to side. lib/core/resolve-align.js.
+	// Each axis's Auto is NOT any one word (each component decides), so Auto drops that word, and
+	// both Autos remove the key.
+	const deckAlign = readAlign(getFrontMatter(source, 'align'));
+	const setAlignAxis = (axis: 'v' | 'h') => (value: string) => {
+		const pick = value === AUTO_VALUE ? null : value;
+		const v = axis === 'v' ? pick : (deckAlign.v?.name ?? null);
+		const h = axis === 'h' ? pick : (deckAlign.h?.name ?? null);
+		const next = writeAlign(v, h);
+		settingsWrite(next ? `Align → ${next}` : 'Align → auto', (s) => writeFrontMatterLine(s, 'align', next));
+	};
+	// Fit (`fit:`) — what the engine may do to make a slide fit: pack / heal / trim / report.
+	// lib/core/resolve-fit.js `fitPacks`; `pack` (measure and split) is the DEFAULT and writes no
+	// key, and every other level, `heal` included, is written by name (an absent key measures, so
+	// heal must be explicit). Writing it also drops a `guards:` line, the retired spelling the
+	// engine no longer reads (lint `key-renamed`).
+	const fit = activeFit(getFrontMatterName(source, 'fit')).name;
+	const setFit = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
-		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'pack' ? null : value);
 	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
@@ -3218,7 +3250,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// through the preset-aware helpers (typography.ts).
 	const deckType = deckTypography(source);
 	const setDeckType = (value: string) => settingsWrite(`Typography → ${TYPOGRAPHY_OPTIONS.find((o) => o.value === value)?.label ?? value}`, (s) => withTypography(s, value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
+	// The retired `paginate:` line goes too: the engine ignores it, and lint calls it an error (`key-renamed`).
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => {
+		const withoutOld = writeFrontMatterLine(s, 'paginate', null);
+		return writeFrontMatterLine(withoutOld, 'pagination', pageNumbers ? 'false' : null);
+	});
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);
@@ -5339,6 +5375,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// observer and the stale one is torn down with it.
 	const previewRatio = sizeRatio(deckSize);
 	const previewRatioValue = previewRatio[0] / previewRatio[1];
+	// The deck's shape family: a square, tall or strip deck reads at the `phone` venue by default (venue.ts).
+	const deckFamily = familyForAspect(previewRatioValue);
 	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
 	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
 	// The zoom controller rides the SAME callback ref as the observer, and for the
@@ -5732,6 +5770,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	// WHILE PRESENT IS UP the editor's preview is not only parked but `display: none` (the FocusedPreview below): a parked
+	// frame still holds its drawing layers, and on a 4K deck WebKit sizes those by the slide's own 3840x2160 box times the
+	// screen's pixel density, so Present ran with two 4K frames' worth (the iPhone reload, 2026-11-20). Hidden, the frame
+	// keeps its document and re-lays out on return; it does not re-render.
 	// A preview that is not on screen never paints, so nothing would release the first-slide gate (`first-slide.ts`) but
 	// its backstop: an author who collapsed the preview to write would wait for lint. Release it as soon as it is hidden.
 	React.useEffect(() => {
@@ -5830,14 +5872,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// notice: that is where a clip comes from the room size the author picked, and where a smaller
 	// room is a fix. Every other overflow keeps the ring it always had.
 	const [slideClipped, setSlideClipped] = React.useState(false);
-	const clipVenue = venueOption(deckVenue);
+	// The venue the slide renders at: the deck's own, or its shape's default (phone on a social deck).
+	const clipVenue = venueOption(deckVenue ?? defaultVenue(deckFamily), deckFamily);
 	// Which smaller room to offer. Lint already knows the answer for a slide it has a budget for
 	// (`capacity-scale` names the largest venue that holds it, and says "Split" alone when no venue
 	// would), so the button follows lint and never offers a room the slide still clips in. With no
 	// finding for this slide (a clip lint has no budget for), it offers the next room down.
 	const clipLint = findings.find((f) => f.rule === 'capacity-scale' && f.slide === curIndex + 1);
 	const lintRoom = clipLint?.fix?.match(/set `venue: (laptop|huddle|conference|hall)`/)?.[1] as VenueName | undefined;
-	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom) : smallerVenue(deckVenue);
+	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom, deckFamily) : smallerVenue(deckVenue, deckFamily);
 	const opSplitForVenue = (split: (source: string, index: number) => { source: string; active: number } | null) => {
 		const prev = sourceRef.current;
 		const r = split(prev, curIndex);
@@ -5887,6 +5930,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
 	const [startGridMounted, setStartGridMounted] = React.useState(false);
 	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// The grid went away (a letter typed, Source, Read, another deck): a tap's pending fallback has nothing left to do.
+	React.useEffect(() => {
+		if (!startGridShown) cancelStartGridFallback.current();
+	}, [startGridShown]);
 	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
 	// editor pane that hosts the grid.
 	const editPaneRef = React.useRef<HTMLElement>(null);
@@ -6795,13 +6842,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</Field>
 	);
 	const venueField = (
-		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop scale" help={<>The type size for the room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
+		<Field label="Venue" desc="Where it is seen." find="venue room projector hall conference huddle laptop phone tablet social scale" help={<>The type size for where the deck is seen. A 16:9 deck is sized for a room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A square, portrait or story deck is read in a hand, so it defaults to Phone, and its steps are set for its shape. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
 			<CatalogSelect
 				ariaLabel="Choose deck venue"
 				className="w-full"
 				value={deckVenue ?? AUTO_VALUE}
 				onValueChange={(v) => setDeckVenue(v === AUTO_VALUE ? null : (v as VenueName))}
-				groups={withAutoHead([{ options: VENUES.map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: 'Designed size' })}
+				groups={withAutoHead([{ options: venueOptionsFor(deckFamily).map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: deckFamily === 'wide' ? 'Designed size' : `Phone · ${venueOption('phone', deckFamily)?.scale}x` })}
 			/>
 		</Field>
 	);
@@ -6902,9 +6949,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
 				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
-				    overrides it from its own settings (`_class: marks-*`). */}
-				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: marks-*</code>.</>}>
-					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeMarks(marks).name, DEFAULT_MARKS, setMarks, [{ options: catalogOptions(MARKS_FINISHES) }])} />
+				    overrides it from its own settings (`_class: chart-finish-*`). */}
+				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
+					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeChartFinish(marks).name, DEFAULT_CHART_FINISH, setMarks, [{ options: catalogOptions(CHART_FINISHES) }])} />
 				</Field>
 				{/* The deck `agenda:` register — ONE line, two axes, so two rows (the Card tags pattern). */}
 				<SubGroup label="Agenda">
@@ -6948,11 +6995,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" className="w-full" {...autoField(activeClaim(claim).name, 'framed', setClaim, [{ options: catalogOptions(CLAIMS) }])} />
 					</Field>
-					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
-						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
+					<Field label="Align up and down" desc="Where content sits between the title and the floor." find="align vertical top middle bottom spread fill cards rows center" help={<><strong>Auto</strong> lets each layout choose. Written as <code>align: bottom</code>; a slide overrides it with <code>_class: align-top</code>.</>}>
+						<CatalogSelect ariaLabel="Choose vertical alignment" value={deckAlign.v?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('v')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_VERTICAL, glyphs('alignV')) }], { label: "Layout's own" }, { title: 'Each layout decides (no up-and-down word in align:).' })} />
 					</Field>
-					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
+					<Field label="Align side to side" desc="Where content sits between the edges." find="align horizontal left center right full" help={<><strong>Auto</strong> lets each layout choose. <code>align: center</code> alone centers both ways; a slide overrides it with <code>_class: align-right</code>.</>}>
+						<CatalogSelect ariaLabel="Choose horizontal alignment" value={deckAlign.h?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('h')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_HORIZONTAL, glyphs('alignH')) }], { label: "Layout's own" }, { title: 'Each layout decides (no side-to-side word in align:).' })} />
+					</Field>
+					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose measure pack" help={<><strong>Measure and split</strong> (the default) measures each slide: one that fits stays one page, and one that overflows splits into as many items a page as fit. It never changes the type size — a venue is a fixed setting. <strong>Split by count</strong> splits by a set number of items a page, without measuring. <strong>Split by count and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(fit, 'pack', setFit, [{ options: catalogOptions(FIT, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>
@@ -7777,7 +7827,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
 					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
 					style={{ top: startGridTop ?? 56 }}
+					// THE CLICK PUTS THE CARET, AND A TOUCH RELEASE STANDS IN WHEN NO CLICK COMES. iOS Safari sometimes withholds
+					// the click of a tap that reached the grid: pointerdown, touchstart, pointerup and touchend arrived, then no
+					// mousedown and no click, so the editor never took the focus (three simulator runs during PR #3385, listener
+					// lag up to +288 ms; jobs 137060162549, 137066156788, 137285553830; 2026-11-17-compose-empty-deck.md). So a
+					// touch release arms a fallback that puts the caret if that tap's click has not come within
+					// START_GRID_CLICK_WAIT_MS. A tap whose click does come is handled exactly as before, by the click, so the
+					// keyboard rises as it always did. A scroll ends in pointercancel, not pointerup, so it arms nothing.
+					// (Putting the caret on the release itself was tried first: the tap's late mousedown on this plain div then
+					// took the focus away, iPhone simulator on PR #3436.)
+					onPointerUp={(e) => {
+						if (e.pointerType !== 'touch' || !e.isPrimary || (e.target as Element).closest('button, a, input, [role="button"]')) return;
+						armStartGridFallback();
+					}}
 					onClick={(e) => {
+						cancelStartGridFallback.current();
 						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
 						composeRef.current?.focusEmptyLine();
 					}}
@@ -7978,7 +8042,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className={presentOpen ? 'hidden' : 'size-full'} aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader reloadSafe bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
 					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}

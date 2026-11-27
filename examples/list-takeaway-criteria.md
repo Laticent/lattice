@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · list takeaway over 1."
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Criteria live in `list` now
 
@@ -15,8 +15,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Four criteria · the common case" -->
+<!-- @meta{layout=list, class=takeaway, footer=Four criteria · the common case} -->
+
 
 ## Every "verified" names the surface it ran on and carries proof from it.
 
@@ -31,8 +31,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Three criteria · the number stays the same size" -->
+<!-- @meta{layout=list, class=takeaway, footer=Three criteria · the number stays the same size} -->
+
 
 ## Criteria are gates: clear them in order.
 
@@ -45,8 +45,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Five criteria at the density ceiling · the gloss wraps" -->
+<!-- @meta{layout=list, class=takeaway, footer=Five criteria at the density ceiling · the gloss wraps} -->
+
 
 ## Five gates is the most one decision should clear.
 
@@ -63,8 +63,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Numbered by the 1. marker, not by a class" -->
+<!-- @meta{layout=list, class=takeaway, footer="Numbered by the 1. marker, not by a class"} -->
+
 
 ## Four requirements every decision system must meet.
 
@@ -79,8 +79,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Unnumbered takeaway · the gloss stacks without a counter" -->
+<!-- @meta{layout=list, class=takeaway, footer=Unnumbered takeaway · the gloss stacks without a counter} -->
+
 
 ## What the pilot showed.
 
@@ -93,8 +93,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway dark -->
-<!-- _footer: "Composition: dark" -->
+<!-- @meta{layout=list, class=takeaway dark, footer=Composition: dark} -->
+
 
 ## Criteria are gates: clear them in order.
 
@@ -107,8 +107,8 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway compact -->
-<!-- _footer: "Composition: compact" -->
+<!-- @meta{layout=list, class=takeaway compact, footer=Composition: compact} -->
+
 
 ## Criteria are gates: clear them in order.
 

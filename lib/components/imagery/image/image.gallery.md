@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · image"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # image
 
@@ -15,8 +15,7 @@ Image as the slide's anchor, with optional text alongside — composition adapts
 
 ---
 
-<!-- _class: image -->
-<!-- _footer: "Default · image" -->
+<!-- @meta{layout=image, footer=Default · image} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -27,8 +26,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: image clean -->
-<!-- _footer: "clean · image clean — Drops the caption chrome." -->
+<!-- @meta{layout=image, class=clean, footer="clean · image clean — Drops the caption chrome."} -->
 
 ## clean drops the caption chrome.
 
@@ -39,8 +37,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 
 ---
 
-<!-- _class: image split -->
-<!-- _footer: "split · image split — A portrait gets its full column." -->
+<!-- @meta{layout=image, class=split, footer="split · image split — A portrait gets its full column."} -->
 
 ## split gives a portrait its full column.
 
@@ -51,8 +48,7 @@ A portrait photo wants its full height. We give it a column and let the argument
 
 ---
 
-<!-- _class: image spotlight -->
-<!-- _footer: "spotlight · image spotlight — A panorama owns the frame." -->
+<!-- @meta{layout=image, class=spotlight, footer="spotlight · image spotlight — A panorama owns the frame."} -->
 
 ## spotlight lets a panorama own the frame.
 
@@ -63,8 +59,7 @@ When the photo already matches the canvas, let it carry the slide — the messag
 
 ---
 
-<!-- _class: image gallery -->
-<!-- _footer: "gallery · image gallery — The exhibit on a matte with a placard." -->
+<!-- @meta{layout=image, class=gallery, footer="gallery · image gallery — The exhibit on a matte with a placard."} -->
 
 ## gallery mats the exhibit with a placard.
 
@@ -75,8 +70,7 @@ The whole asset on a matte with a placard. For diagrams and screenshots where th
 
 ---
 
-<!-- _class: image statement -->
-<!-- _footer: "statement · image statement — The title rides the photo on a scrim." -->
+<!-- @meta{layout=image, class=statement, footer="statement · image statement — The title rides the photo on a scrim."} -->
 
 ## statement rides the title on a scrim.
 
@@ -87,8 +81,7 @@ The title rides the photo on a scrim — a deliberate, editorial choice.
 
 ---
 
-<!-- _class: image mirror -->
-<!-- _footer: "mirror · image mirror — The image lands on the left." -->
+<!-- @meta{layout=image, class=mirror, footer="mirror · image mirror — The image lands on the left."} -->
 
 ## mirror lands the image on the left.
 
@@ -99,10 +92,9 @@ Text leads from the right; image anchors from the left.
 
 ---
 
-<!-- _class: image spotlight at-tl -->
-<!-- _footer: "Top left · image at-tl — The text card sits in the top-left corner." -->
+<!-- @meta{layout=image, class=spotlight image-card-top-left, footer="Top left · image image-card-top-left — The text card sits in the top-left corner."} -->
 
-## at-tl lifts the card to the top left.
+## image-card-top-left lifts the card to the top left.
 
 Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
@@ -111,10 +103,9 @@ Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
 ---
 
-<!-- _class: image statement at-top -->
-<!-- _footer: "Top center · image at-top — The text card sits centered along the top." -->
+<!-- @meta{layout=image, class=statement image-card-top, footer="Top center · image image-card-top — The text card sits centered along the top."} -->
 
-## at-top centers the title up high.
+## Top center lifts the title up high.
 
 The scrim follows the words to the top edge.
 
@@ -123,10 +114,9 @@ The scrim follows the words to the top edge.
 
 ---
 
-<!-- _class: image spotlight at-tr -->
-<!-- _footer: "Top right · image at-tr — The text card sits in the top-right corner." -->
+<!-- @meta{layout=image, class=spotlight image-card-top-right, footer="Top right · image image-card-top-right — The text card sits in the top-right corner."} -->
 
-## at-tr parks the card top right.
+## image-card-top-right parks the card top right.
 
 The subject sits low and left, so the words take the open sky.
 
@@ -135,10 +125,9 @@ The subject sits low and left, so the words take the open sky.
 
 ---
 
-<!-- _class: image statement at-center -->
-<!-- _footer: "Center · image at-center — The text card sits in the middle of the slide." -->
+<!-- @meta{layout=image, class=statement image-card-center, footer="Center · image image-card-center — The text card sits in the middle of the slide."} -->
 
-## at-center puts the title dead center.
+## The center placement puts the title dead center.
 
 A radial scrim darkens only the middle.
 
@@ -147,10 +136,9 @@ A radial scrim darkens only the middle.
 
 ---
 
-<!-- _class: image spotlight at-bl -->
-<!-- _footer: "Bottom left · image at-bl — The text card sits in the bottom-left corner — the default." -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom-left, footer="Bottom left · image image-card-bottom-left — The text card sits in the bottom-left corner — the default."} -->
 
-## at-bl is the default corner.
+## Bottom left is the default corner.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
@@ -159,10 +147,9 @@ Name it to return a slide to bottom left inside a deck that moved it.
 
 ---
 
-<!-- _class: image spotlight at-bottom -->
-<!-- _footer: "Bottom center · image at-bottom — The text card sits centered along the bottom." -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom, footer="Bottom center · image image-card-bottom — The text card sits centered along the bottom."} -->
 
-## at-bottom centers the card low.
+## image-card-bottom centers the card low.
 
 A caption band under the subject, centered on the slide.
 
@@ -171,10 +158,9 @@ A caption band under the subject, centered on the slide.
 
 ---
 
-<!-- _class: image statement at-br -->
-<!-- _footer: "Bottom right · image at-br — The text card sits in the bottom-right corner." -->
+<!-- @meta{layout=image, class=statement image-card-bottom-right, footer="Bottom right · image image-card-bottom-right — The text card sits in the bottom-right corner."} -->
 
-## at-br anchors the title bottom right.
+## Bottom right anchors the title in the corner.
 
 The scrim flips to darken the right side.
 
@@ -183,10 +169,9 @@ The scrim flips to darken the right side.
 
 ---
 
-<!-- _class: image spotlight card-solid -->
-<!-- _footer: "Solid backing · image card-solid — The card or scrim at full strength — the default." -->
+<!-- @meta{layout=image, class=spotlight image-card-solid, footer="Solid backing · image image-card-solid — The card or scrim at full strength — the default."} -->
 
-## card-solid keeps the card opaque.
+## image-card-solid keeps the card opaque.
 
 Full legibility over any photo. This is the default.
 
@@ -195,10 +180,9 @@ Full legibility over any photo. This is the default.
 
 ---
 
-<!-- _class: image spotlight card-soft -->
-<!-- _footer: "Soft backing · image card-soft — The card or scrim at 80%, so the photo glows through." -->
+<!-- @meta{layout=image, class=spotlight image-card-soft, footer="Soft backing · image image-card-soft — The card or scrim at 80%, so the photo glows through."} -->
 
-## card-soft lets the photo glow through.
+## image-card-soft lets the photo glow through.
 
 The panel drops to 80% and loses its lift shadow.
 
@@ -207,10 +191,9 @@ The panel drops to 80% and loses its lift shadow.
 
 ---
 
-<!-- _class: image spotlight card-sheer ink-light -->
-<!-- _footer: "Sheer backing · image card-sheer — The card or scrim at 55%, a tint more than a panel." -->
+<!-- @meta{layout=image, class=spotlight image-card-sheer image-card-light, footer="Sheer backing · image image-card-sheer — The card or scrim at 55%, a tint more than a panel."} -->
 
-## card-sheer turns the card into a tint.
+## image-card-sheer turns the card into a tint.
 
 At 55% the photo reads through; pair it with an ink that suits the photo.
 
@@ -219,10 +202,9 @@ At 55% the photo reads through; pair it with an ink that suits the photo.
 
 ---
 
-<!-- _class: image statement card-clear -->
-<!-- _footer: "Clear backing · image card-clear — No card and no scrim: the words ride the photo." -->
+<!-- @meta{layout=image, class=statement image-card-clear, footer="Clear backing · image image-card-clear — No card and no scrim: the words ride the photo."} -->
 
-## card-clear drops the scrim.
+## image-card-clear drops the scrim.
 
 Only for a photo with a calm, dark patch where the words land.
 
@@ -231,10 +213,9 @@ Only for a photo with a calm, dark patch where the words land.
 
 ---
 
-<!-- _class: image spotlight ink-light -->
-<!-- _footer: "Light ink · image ink-light — White words on a dark backing." -->
+<!-- @meta{layout=image, class=spotlight image-card-light, footer="Light ink · image image-card-light — White words on a dark backing."} -->
 
-## ink-light sets white words on a dark card.
+## image-card-light sets white words on a dark card.
 
 The card turns dark to match, whatever the deck palette.
 
@@ -243,10 +224,9 @@ The card turns dark to match, whatever the deck palette.
 
 ---
 
-<!-- _class: image statement ink-dark -->
-<!-- _footer: "Dark ink · image ink-dark — Near-black words on a light backing." -->
+<!-- @meta{layout=image, class=statement image-card-dark, footer="Dark ink · image image-card-dark — Near-black words on a light backing."} -->
 
-## ink-dark sets dark words on a light scrim.
+## image-card-dark sets dark words on a light scrim.
 
 For a bright photo: the scrim turns light and the title goes dark.
 
@@ -255,10 +235,9 @@ For a bright photo: the scrim turns light and the title goes dark.
 
 ---
 
-<!-- _class: image spotlight card-sm at-tr -->
-<!-- _footer: "Small card · image card-sm — A narrower card with smaller type, so the photo breathes." -->
+<!-- @meta{layout=image, class=spotlight image-card-sm image-card-top-right, footer="Small card · image image-card-sm — A narrower card with smaller type, so the photo breathes."} -->
 
-## card-sm keeps the card discreet.
+## image-card-sm keeps the card discreet.
 
 Smaller type and a narrower card leave the photo the slide.
 
@@ -267,10 +246,9 @@ Smaller type and a narrower card leave the photo the slide.
 
 ---
 
-<!-- _class: image spotlight card-md -->
-<!-- _footer: "Medium card · image card-md — The default card width and type." -->
+<!-- @meta{layout=image, class=spotlight image-card-md, footer="Medium card · image image-card-md — The default card width and type."} -->
 
-## card-md is the default size.
+## image-card-md is the default size.
 
 Name it to return a slide to the default inside a deck that resized it.
 
@@ -279,10 +257,9 @@ Name it to return a slide to the default inside a deck that resized it.
 
 ---
 
-<!-- _class: image spotlight card-lg -->
-<!-- _footer: "Large card · image card-lg — A wider card with larger type, for a message that leads." -->
+<!-- @meta{layout=image, class=spotlight image-card-lg, footer="Large card · image image-card-lg — A wider card with larger type, for a message that leads."} -->
 
-## card-lg lets the message lead.
+## image-card-lg lets the message lead.
 
 Wider card, bigger heading, room for a longer line.
 
@@ -291,10 +268,9 @@ Wider card, bigger heading, room for a longer line.
 
 ---
 
-<!-- _class: image spotlight card-regular -->
-<!-- _footer: "Regular density · image card-regular — The default card spacing, so one slide can step out of a deck-wide compact." -->
+<!-- @meta{layout=image, class=spotlight image-card-regular, footer="Regular density · image image-card-regular — The default card spacing, so one slide can step out of a deck-wide compact."} -->
 
-## card-regular keeps the default spacing.
+## image-card-regular keeps the default spacing.
 
 In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
@@ -303,10 +279,20 @@ In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
 ---
 
-<!-- _class: image spotlight at-bottom band -->
-<!-- _footer: "Full-width band · image band — Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear." -->
+<!-- @meta{layout=image, class=spotlight image-card-compact, footer="Compact card · image image-card-compact — Tightens the card's padding and pulls it closer to the slide edge, at any size."} -->
 
-## band keeps the middle of the photo clear.
+## image-card-compact tightens the card.
+
+Less padding and a smaller inset from the edge, so the photo keeps more of the frame.
+
+![A figure by a lake under a low sun](sample:photo-wide.svg)
+
+
+---
+
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-band, footer="Full-width band · image image-card-band — Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear."} -->
+
+## image-card-band keeps the middle of the photo clear.
 
 The heading takes the left column and the text the right, in one short strip along the edge.
 
@@ -315,10 +301,9 @@ The heading takes the left column and the text the right, in one short strip alo
 
 ---
 
-<!-- _class: image spotlight at-bottom card-float -->
-<!-- _footer: "Floating card · image card-float — The default floating card, so one slide can step out of a deck-wide band." -->
+<!-- @meta{layout=image, class=spotlight image-card-bottom image-card-float, footer="Floating card · image image-card-float — The default floating card, so one slide can step out of a deck-wide band."} -->
 
-## card-float keeps the card a card.
+## image-card-float keeps the card a card.
 
 In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
 
@@ -327,8 +312,7 @@ In a deck that sets `image-card: bottom band`, this slide keeps the floating car
 
 ---
 
-<!-- _class: image dark -->
-<!-- _footer: "Composition: dark · image dark" -->
+<!-- @meta{layout=image, class=dark, footer=Composition: dark · image dark} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -339,8 +323,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: image compact -->
-<!-- _footer: "Composition: compact · image compact" -->
+<!-- @meta{layout=image, class=compact, footer=Composition: compact · image compact} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -351,8 +334,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: image accent -->
-<!-- _footer: "Composition: accent · image accent" -->
+<!-- @meta{layout=image, class=accent, footer=Composition: accent · image accent} -->
 
 ## The image layout reads the asset’s shape.
 
@@ -363,8 +345,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
-<!-- _footer: "Anti-patterns · image" -->
+<!-- @meta{layout=cards-grid, class=three claim-hero, footer=Anti-patterns · image} -->
 
 ## When NOT to reach for image.
 
@@ -377,7 +358,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

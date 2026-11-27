@@ -766,7 +766,7 @@ describe('core: split-envelope — footerCell / stripChrome', () => {
     assert.match(cellHtml, /<span class="lat-pagination">3<\/span>/);
   });
 
-  test('a `paginate: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
+  test('a `pagination: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
     const cellHtml = footerCell('<section class="x">', chrome);
     assert.doesNotMatch(cellHtml, /lat-pagination/);
     assert.match(cellHtml, /<footer>F<\/footer>/);
@@ -836,7 +836,7 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
     );
   });
 
-  test('docks at the END of the cell when the deck is `paginate: false`', () => {
+  test('docks at the END of the cell when the deck is `pagination: false`', () => {
     const inner = '<div class="cell-footer"><footer>F</footer></div>';
     assert.equal(dockInFooterCell(inner, mark), `<div class="cell-footer"><footer>F</footer>${mark}</div>`);
   });
@@ -848,7 +848,7 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
   test('finds the cell wherever it sits — a NESTED, non-terminal band never drops the mark', () => {
     // The `$`-anchored regex both call sites used to carry only matched a `.cell-footer`
     // whose `</div>` ended the section. kanban-lanes docks the band INSIDE the board, so on a
-    // `paginate: false` kanban page neither branch matched and the k-of-N rail vanished.
+    // `pagination: false` kanban page neither branch matched and the k-of-N rail vanished.
     const inner = '<div class="board"><div class="cell-footer"><footer>F</footer></div><div class="col">c</div></div>';
     const out = dockInFooterCell(inner, mark);
     assert.equal(
@@ -1043,21 +1043,21 @@ describe('core: the CLOSING page carries a two-beat coda without losing or break
 // safe: an attribute cannot collide with any selector already in the bundle, so a component adds
 // `[data-split-mods~="cat-3"]` to its own stylesheet and nothing else in the tree moves.
 // The card-row stamp was resolved from the AUTHORED class, which the swap replaces: an `inventory`
-// slide's `data-cards="center"` rode onto a `content` cover no card-row component governs. The live
+// slide's `data-align="middle"` rode onto a `content` cover no card-row component governs. The live
 // runtime drops it (`stampCardsAlign`), so the Studio's export (which runs the runtime) and the CLI's
 // (which does not) disagreed on every split cover (decisions/2026-10-16-player-as-library-audit.md
 // §11.9). A page the swap leaves governed keeps the engine's stamp, author's choice and all.
 describe('core: roleOpenTag drops a card-row stamp the swapped class no longer earns', () => {
-  const tag = '<section class="inventory form" data-family="tall" data-cards="center" data-cards-coda="stretch">';
+  const tag = '<section class="inventory form" data-family="tall" data-align="middle" data-align-coda="fill">';
 
   test('a content cover loses both attributes, as the runtime would leave it', () => {
     const out = roleOpenTag(tag, 'content lat-split-cover form split-cover-inventory', true, 'cover', 'inventory');
-    assert.doesNotMatch(out, /\sdata-cards(-coda)?=/);
+    assert.doesNotMatch(out, /\sdata-align(-coda)?=/);
   });
 
   test('a page still governed by the component keeps the engine stamp untouched', () => {
-    const out = roleOpenTag('<section class="inventory cards-spread form" data-family="tall" data-cards="spread">', 'inventory form lat-split-native', false, 'body', 'inventory');
-    assert.match(out, /\sdata-cards="spread"/);
+    const out = roleOpenTag('<section class="inventory align-spread form" data-family="tall" data-align="spread">', 'inventory form lat-split-native', false, 'body', 'inventory');
+    assert.match(out, /\sdata-align="spread"/);
   });
 });
 

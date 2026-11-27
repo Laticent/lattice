@@ -1,7 +1,10 @@
 ---
 size: portrait
+# `venue: laptop`: a slide read in a hand drops its footer text (fit-everywhere-model.md §24), so the band this
+# fixture contends prints on a portrait deck at laptop and the room venues, where its rules still bite.
+venue: laptop
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · footer band"
 footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not distribute outside the Audit Committee · ÅÉÀÖ"
 # Dots by name, and on at any length: eleven sections would otherwise draw as a bar (progress.transform.js
@@ -10,8 +13,8 @@ footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not dis
 progress-rail: dots on
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 01 · The annexes and their approved decoration, at length`
 
@@ -24,7 +27,7 @@ reproduces the original defect rather than a mild version of it.
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 ## The band is contended on an AUTHORED slide, and it has three marks.
 
@@ -53,8 +56,8 @@ or ink measurement could see it.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 02 · Another named section`
 
@@ -62,7 +65,7 @@ or ink measurement could see it.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 2.
 
@@ -72,8 +75,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 03 · Another named section`
 
@@ -81,7 +84,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 3.
 
@@ -91,7 +94,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content no-pagination -->
+<!-- @meta{layout=content, class=no-pagination} -->
 
 ## A railed body page with no page number.
 
@@ -100,7 +103,7 @@ page stands exactly where it stands on every numbered page (footer-band.test.js)
 
 ---
 
-<!-- _class: content compact -->
+<!-- @meta{layout=content, class=compact} -->
 
 ## A railed compact body page.
 
@@ -109,7 +112,7 @@ on this page stands exactly where it stands on every other page (footer-band.tes
 
 ---
 
-<!-- _footer: "CONFIDENTIEL ![mark](sample:logo-acme-mark.svg) Société Générale — an inline image in the running footer" -->
+<!-- @meta{footer="CONFIDENTIEL ![mark](sample:logo-acme-mark.svg) Société Générale — an inline image in the running footer"} -->
 
 ## A railed body page whose footer carries an image.
 
@@ -118,8 +121,8 @@ stand exactly where they stand on every other page (footer-band.test.js).
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 04 · Another named section`
 
@@ -127,7 +130,7 @@ stand exactly where they stand on every other page (footer-band.test.js).
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 4.
 
@@ -137,8 +140,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 05 · Another named section`
 
@@ -146,7 +149,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 5.
 
@@ -156,8 +159,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 06 · Another named section`
 
@@ -165,7 +168,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 6.
 
@@ -175,8 +178,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 07 · Another named section`
 
@@ -184,7 +187,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 7.
 
@@ -194,8 +197,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 08 · Another named section`
 
@@ -203,7 +206,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 8.
 
@@ -213,8 +216,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 09 · Another named section`
 
@@ -222,7 +225,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 9.
 
@@ -232,8 +235,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 10 · Another named section`
 
@@ -241,7 +244,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 10.
 
@@ -251,8 +254,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
+<!-- @meta{layout=divider, header=""} -->
+
 
 `Section 11 · Another named section`
 
@@ -260,7 +263,7 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A railed body page in section 11.
 
@@ -270,8 +273,8 @@ and a split page carries no band for this suite to measure.
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Acme<sup>®</sup> Holdings — internal <img src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjYzAwIi8+PC9zdmc+' width='80' height='80'>" -->
+<!-- @meta{layout=content, footer="Acme<sup>®</sup> Holdings — internal <img src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjYzAwIi8+PC9zdmc+' width='80' height='80'>"} -->
+
 
 ## A footer carrying a TALL inline run.
 
@@ -286,7 +289,7 @@ having a footer to test.
 
 ---
 
-<!-- _class: content silent -->
+<!-- @meta{layout=content, class=silent} -->
 
 ## `silent` must still hide the footer text.
 
@@ -295,7 +298,7 @@ bundle file order alone.
 
 ---
 
-<!-- _class: content no-footer -->
+<!-- @meta{layout=content, class=no-footer} -->
 
 ## `no-footer` must still hide the footer text.
 

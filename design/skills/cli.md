@@ -159,6 +159,8 @@ npx @laticent/lattice deck.md deck.pdf --packages ./team-packages
 npx @laticent/lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
 
 # Pretty-print the code blocks (Prettier, ruff, sql-formatter; optional deps)
+npx @laticent/lattice lint deck.md                               # authoring mistakes, no render
+npx @laticent/lattice lint --fix deck.md                         # apply every machine fix, in place
 npx @laticent/lattice fmt deck.md
 npx @laticent/lattice fmt deck.md --check                        # exit 1 if a block would change
 

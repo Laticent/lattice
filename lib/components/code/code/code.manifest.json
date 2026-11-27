@@ -1,9 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "code",
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "adapt": {
     "mode": "native",
@@ -43,12 +43,12 @@
       "description": "Fenced code block — language tag drives syntax highlighting."
     }
   },
-  "skeleton": "<!-- _class: code -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
+  "skeleton": "<!-- @meta{layout=code} -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
   "anatomyBlock": "code-canvas",
-  "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Ten lines reads from the back row; fourteen is the wall.\n  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';\n}\n```\n",
+  "sample": "<!-- @meta{layout=code} -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Ten lines reads from the back row; fourteen is the wall.\n  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';\n}\n```\n",
   "stressDoc": {
     "summary": "Fourteen lines — the wall for one block.",
-    "sample": "<!-- _class: code -->\n\n## Fourteen lines is the wall.\n\n```js\n// At the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 14;      // the hard wall\n  const readable = 10;    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';\n  // Between comfort and the wall, trim:\n  //  - drop imports and boilerplate\n  //  - elide with ... what survives\n  //  - keep the line the talk is about\n  const keep = ['signature', 'branch'];\n  return keep.join(' + ');\n}\n// The frame does not scroll.\n```\n"
+    "sample": "<!-- @meta{layout=code} -->\n\n## Fourteen lines is the wall.\n\n```js\n// At the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 14;      // the hard wall\n  const readable = 10;    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';\n  // Between comfort and the wall, trim:\n  //  - drop imports and boilerplate\n  //  - elide with ... what survives\n  //  - keep the line the talk is about\n  const keep = ['signature', 'branch'];\n  return keep.join(' + ');\n}\n// The frame does not scroll.\n```\n"
   },
   "whenToUse": [
     {
@@ -119,7 +119,7 @@
       "cover",
       "body"
     ],
-    "note": "Two seams, tried in order. More than one fenced block -> one <pre> per page, source-sliced so code.styles.css is reused whole. Exactly one block longer than `perPage` -> line-runs of that many lines, each continuation marked (cont.). The single-block case is the one that actually clips, because the canonical code slide IS one block. NO `capacity` BLOCK, DELIBERATELY. `capacity` is an authoring advisory with one consumer, `lint:deck`, and declaring one here is a separate decision about what authors are TOLD: the first version of this manifest carried the component's own documented numbers (8 sweet / 10 soft / 14 hard, from its docs' \"ten lines reads from the back row; fourteen is the wall\") and immediately warned `capacity-crowd` on two committed decks, which is a real finding and not this change's to make. The split reads `split.perPage` and needs no capacity at all. `perPage` is 12 because a SPLIT page also carries the run's heading, its k-of-N rail and its forward pointer: measured at portrait on a short-line listing, 13 lines is clean and 14 overflows, so 12 leaves one line for a heading that wraps to two. What no line cut can fix is a listing whose LINES are too long for the box -- that clips horizontally and rings, which is the honest terminal. Built 2026-09-13; the treatment had said 'PROPOSED' since the catalog was written."
+    "note": "Two seams, tried in order. More than one fenced block -> one <pre> per page, source-sliced so code.styles.css is reused whole. Exactly one block longer than `perPage` -> line-runs of that many lines, each continuation marked (cont.). Under the measured split (the default), the runs follow the measured plan instead: under an authored `venue: phone` every line wraps (at the phone default a code slide keeps laptop type and its narrow-canvas wrap, owner 2026-11-16, lib/core/resolve-venue.js `laptopKeepingToken`), so the split reads each line's height and a block that overflows splits between its lines however few it has (owner, 2026-11-13; fit-everywhere-model.md §23). The single-block case is the one that actually clips, because the canonical code slide IS one block. NO `capacity` BLOCK, DELIBERATELY. `capacity` is an authoring advisory with one consumer, `lint:deck`, and declaring one here is a separate decision about what authors are TOLD: the first version of this manifest carried the component's own documented numbers (8 sweet / 10 soft / 14 hard, from its docs' \"ten lines reads from the back row; fourteen is the wall\") and immediately warned `capacity-crowd` on two committed decks, which is a real finding and not this change's to make. The split reads `split.perPage` and needs no capacity at all. `perPage` is 12 because a SPLIT page also carries the run's heading, its k-of-N rail and its forward pointer: measured at portrait on a short-line listing, 13 lines is clean and 14 overflows, so 12 leaves one line for a heading that wraps to two. What no line cut can fix is a listing whose LINES are too long for the box -- that clips horizontally and rings, which is the honest terminal. Built 2026-09-13; the treatment had said 'PROPOSED' since the catalog was written."
   },
   "pane": {
     "side": false,

@@ -2,11 +2,11 @@
 marp: true
 size: 4k
 theme: indaco
-paginate: true
+pagination: true
 header: "Customer Success · Proposal"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 <!-- tier: short -->
 
 `Proposal · 9 June 2026`
@@ -17,7 +17,7 @@ Three hires to stop the churn that's quietly costing us $1.2M a year.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: short -->
 
 ## The ask: fund three Customer Success roles, starting this quarter.
@@ -26,7 +26,7 @@ We are proposing three Customer Success hires at roughly $400K fully loaded. The
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: standard -->
 
 ## The problem: our biggest accounts leave because no one owns them.
@@ -38,7 +38,7 @@ Accounts over $50K have no dedicated owner after the sale. They onboard themselv
 
 ---
 
-<!-- _class: big-number -->
+<!-- @meta{layout=big-number} -->
 <!-- tier: standard -->
 
 `The cost of doing nothing`
@@ -48,7 +48,7 @@ Accounts over $50K have no dedicated owner after the sale. They onboard themselv
 
 ---
 
-<!-- _class: list takeaway -->
+<!-- @meta{layout=list, class=takeaway} -->
 <!-- tier: short -->
 
 ## What a Customer Success team would own.
@@ -64,7 +64,7 @@ Accounts over $50K have no dedicated owner after the sale. They onboard themselv
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 <!-- tier: full -->
 
 ## Why three, and why now.
@@ -76,7 +76,7 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 ---
 
-<!-- _class: kpi -->
+<!-- @meta{layout=kpi} -->
 <!-- tier: short -->
 
 `Proposal · year-one targets`
@@ -95,7 +95,7 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 ---
 
-<!-- _class: stats -->
+<!-- @meta{layout=stats} -->
 <!-- tier: full -->
 
 `Benchmark · companies our size`
@@ -115,7 +115,7 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 <!-- tier: full -->
 
 ## How we'd stand the team up in ninety days.
@@ -131,7 +131,7 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 ---
 
-<!-- _class: decision -->
+<!-- @meta{layout=decision} -->
 <!-- tier: short -->
 
 ## The ask again: approve three CS hires this quarter.
@@ -143,9 +143,9 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 ---
 
-<!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=closing, header="", footer=""} -->
+
+
 <!-- tier: short -->
 
 ## Three hires to protect $1.2M — let's fund them now.

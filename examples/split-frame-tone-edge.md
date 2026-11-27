@@ -1,7 +1,7 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · split frames + tone-edge"
 ---
 
@@ -9,7 +9,7 @@ header: "Lattice · split frames + tone-edge"
      the tone color recolors the supporting-zone segment and the frame keeps ONE bar -- as `accent`
      does. Before the fix a full-width tone border sat above the ribbon and the bar read doubled.} -->
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `A fix demo`
 
@@ -19,7 +19,7 @@ header: "Lattice · split frames + tone-edge"
 
 ---
 
-<!-- _class: split-panel -->
+<!-- @meta{layout=split-panel} -->
 
 `Control`
 
@@ -34,7 +34,7 @@ The bar across the supporting zone is the deck spectrum.
 
 ---
 
-<!-- _class: split-panel tone-pass tone-edge -->
+<!-- @meta{layout=split-panel, class=tone-pass tone-edge} -->
 
 `Pass`
 
@@ -49,7 +49,7 @@ The supporting zone's bar is the pass color. There is no second bar above it.
 
 ---
 
-<!-- _class: split-panel tone-fail tone-edge -->
+<!-- @meta{layout=split-panel, class=tone-fail tone-edge} -->
 
 `Fail`
 
@@ -64,7 +64,7 @@ The failure color carries the edge.
 
 ---
 
-<!-- _class: split-compare -->
+<!-- @meta{layout=split-compare} -->
 
 `Control`
 
@@ -83,7 +83,7 @@ Reference bar for the compare frame.
 
 ---
 
-<!-- _class: split-compare tone-warn tone-edge -->
+<!-- @meta{layout=split-compare, class=tone-warn tone-edge} -->
 
 `Warn`
 

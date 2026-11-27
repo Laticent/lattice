@@ -2,7 +2,7 @@
 theme: indaco
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 `Lattice · Video plugin`
 
@@ -12,7 +12,7 @@ Four providers, three layouts, one line of Markdown each.
 
 ---
 
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## YouTube — the clip leads, a code lets the room follow.
 
@@ -22,7 +22,7 @@ Ninety seconds of a first-day admin going from signup to a published deck. Scan 
 
 ---
 
-<!-- _class: video companion -->
+<!-- @meta{layout=video, class=companion} -->
 
 ## Vimeo — the same slide, without the code.
 
@@ -32,7 +32,7 @@ The poster is a plain link when you do not opt into `qr`. It still opens the cli
 
 ---
 
-<!-- _class: video companion qr -->
+<!-- @meta{layout=video, class=companion qr} -->
 
 ## TikTok — a vertical clip keeps its own shape.
 
@@ -42,7 +42,7 @@ Short vertical video plays in a tall player. The poster is cropped to the slide'
 
 ---
 
-<!-- _class: video gallery qr -->
+<!-- @meta{layout=video, class=gallery qr} -->
 
 ## Instagram — the exhibit, matted.
 
@@ -50,7 +50,7 @@ Short vertical video plays in a tall player. The poster is cropped to the slide'
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## Paste the address you already have.
 
@@ -65,7 +65,7 @@ It accepts the spelling you copy from a browser bar.
 
 ---
 
-<!-- _class: video gallery -->
+<!-- @meta{layout=video, class=gallery} -->
 
 ## No poster? A drawn stand-in holds the place.
 
@@ -73,7 +73,7 @@ It accepts the spelling you copy from a browser bar.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- @meta{layout=cards-grid, class=three} -->
 
 ## The address comes only from your record.
 
@@ -88,7 +88,7 @@ It accepts the spelling you copy from a browser bar.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 `New · the shared display layer`
 
@@ -98,7 +98,7 @@ It accepts the spelling you copy from a browser bar.
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 `Next`
 

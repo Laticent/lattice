@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: cuoio
-paginate: true
-header: "Lattice · cards register"
+pagination: true
+header: "Lattice · align register"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 `Feature demo · the cards: register`
 
@@ -15,7 +15,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## The default row now centers short steps.
 
@@ -28,7 +28,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: list-steps phase -->
+<!-- @meta{layout=list-steps, class=phase} -->
 
 ## Phase cards stop carrying empty space.
 
@@ -41,7 +41,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## A closing insight keeps the cards stretched.
 
@@ -56,7 +56,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: list-steps cards-stretch -->
+<!-- @meta{layout=list-steps, class=align-fill} -->
 
 ## One slide can still ask for the old stretch.
 
@@ -69,7 +69,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## Two short panes sit at the height of their text.
 
@@ -80,7 +80,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: compare-prose chosen -->
+<!-- @meta{layout=compare-prose, class=chosen} -->
 
 ## The chosen variant centers too.
 
@@ -91,7 +91,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- @meta{layout=compare-prose} -->
 
 ## A coda under the panes works the same way.
 
@@ -104,7 +104,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: cards-stack horizontal -->
+<!-- @meta{layout=cards-stack, class=horizontal} -->
 
 ## A horizontal stack reads the register.
 
@@ -117,7 +117,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: cards-stack horizontal cards-top -->
+<!-- @meta{layout=cards-stack, class=horizontal align-top} -->
 
 ## A per-slide override pins the row to the top.
 

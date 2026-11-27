@@ -235,26 +235,28 @@ distinct, stable ID.
 | `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
 | `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
-| `fonts-renamed` | warning | ✓ | `fonts:`, the old spelling of `font-embedding:`. The exports no longer read it. The fix renames the key and keeps the words. When the deck also sets `font-embedding:` to a tier, it deletes the old line; when that line names no tier (empty, a comment, unknown words), there is no fix, because either edit would lose the words. |
+| `key-renamed` | error | ✓ | A deck key renamed with no alias, one row per rename in `KEY_RENAMES` (lib/authoring/lint-core.js): `paginate:` → `pagination:`, `fonts:` → `font-embedding:` and `guards:` → `fit:` (`strict` becomes `trim`; any other value, the default, drops the line). The engine reads only the new key. The fix renames the key and keeps the value; when the deck also sets the new key and it decides, it deletes the old line; when the new key is there but decides nothing (empty, a comment, or for `font-embedding:` no tier), there is no fix, because either edit would lose the words. |
 | `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
 | `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
 | `unknown-corners` | warning | — | A `corners:` value the engine does not know; corners render square. |
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
+| `handheld-chrome-hidden` | info | — | A square, portrait or story deck read in a hand (the phone venue by default, or `venue: phone` / `tablet`) that writes `footer:` or `header:`: a phone page hides that running text, so only chart, code and math pages show it. `venue: laptop` or the deck class `with-footer` / `with-header` keeps it. |
 | `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
-| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
-| `marks-source-needs-tone` | warning | — | A `marks:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `marks: tone ink`, or drop the word. |
-| `unknown-cards` | warning | ✓ | A `cards:` value the engine does not know; each layout keeps its own card spacing. |
+| `unknown-chart-finish` | warning | ✓ | A `chart-finish:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
+| `unknown-color-intensity` | warning | ✓ | A `color-intensity:` value other than `muted` or `vivid`; the deck wears `muted`. |
+| `chart-finish-source-needs-tone` | warning | — | A `chart-finish:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `chart-finish: tone ink`, or drop the word. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
-| `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, `unknown-cover`, the three spectrum keys `unknown-spectrum`, `unknown-card-spectrum` and `unknown-trim-spectrum`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
+| `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-align`, `unknown-spark`, `unknown-cover`, the three spectrum keys `unknown-spectrum`, `unknown-card-spectrum` and `unknown-trim-spectrum`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
 | `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-typography`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
 | `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
-| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `image-card-light` or `image-card-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
+| `image-card-renamed` | error / warning / info | ✓ | An image card's old per-slide class. `card-*` (`card-soft`, `card-o65`, `card-sm`, `card-regular`, `card-float`) and `ink-light` / `ink-dark` are an error on any slide; `band` is an error on any `image` slide, and `at-*` is one on an `image` slide with no `tint-corner` or `tint-edge` (the slide's own or the deck's `class:`). Each names its `image-card-<word>` class, and the fix rewrites it. Beside a tint, `at-*` still places the tint but no longer moves the card: a warning on a `spotlight` or `statement` slide, info on one that names no composition, whose fix adds the card's word next to it (`at-tr image-card-top-right`); with two `at-*` words the finding carries no fix, because the stylesheet, not the author, picked the card's corner. `compact` on an `image` slide without `image-card-compact` still tightens the slide's spacing but no longer the card: a warning on a slide that names `spotlight` or `statement`, info on one that names no composition (the engine picks it from the photo, which lint cannot see), and nothing on `clean`, `split` or `gallery`, which have no card. The fix adds `image-card-compact` so the slide renders as before. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
@@ -262,8 +264,7 @@ distinct, stable ID.
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
-| `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
-| `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
+| `marks-split` | error | ✓ | The old `marks:` key, which split into `chart-finish:` (finish and tone's source) and `color-intensity:` (muted, vivid); the engine reads neither from it. The fix writes the new lines in its place, leaving out an intensity the deck already sets with `color-intensity:`. A deck that also sets the old `chart-finish:` rendered `marks:` before the split, so the fix first deletes that line and then splits `marks:`. A `marks:` written as a YAML block list has no fix. Also an intensity word under `chart-finish:` (the spelling before #2887), which sets nothing; the fix moves it to `color-intensity:`, or drops it when that key already decides. An old `marks-*` or `chart-finish-muted` / `-vivid` slide class is an `unknown-class` error whose fix writes the new class. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
@@ -271,8 +272,8 @@ distinct, stable ID.
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
 | `asset-missing` | warning | — | An `asset:<name>` picture reference that names no file in `assets/` beside the deck (or whose file is a symlink out of the deck folder), so the CLI draws the missing-picture stand-in. Checked by `tools/lint-deck.js`, which has the file system; the linter core does not. |
-| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold` in front matter, Marp values Lattice treats as `false`. |
-| `paginate-comment-retired` | warning | ✓ | A `paginate:` or `_paginate:` slide comment, which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
+| `pagination-unsupported-value` | suggestion | — | `pagination: skip` or `pagination: hold` in front matter, Marp values Lattice treats as `false`. |
+| `pagination-comment-retired` | warning | ✓ | A `paginate:` or `pagination:` slide comment (with or without `_`), which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
 
@@ -509,13 +510,18 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   `line`, which §1 lists as required: the review tier's slide- and deck-level
   findings and the CLI's `--discover` findings carry no `line`. And three
   front-matter findings (`autosplit-retired`, `note-key-retired`,
-  `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
+  `pagination-unsupported-value`) report `slide: 1`, where §1 says front matter is
   `slide: 0`. Specifying these is the
   next minor version's work.
 
 ## 7. Change log
 
-- **Unreleased.** §3.1 adds `agenda-empty` and `agenda-retired-style`
+- **Unreleased.** §3.4 adds `image-card-renamed`, the image card's old per-slide classes
+  (`engineering/decisions/2026-11-21-plain-english-key-renames.md` D2). §3.4 adds `key-renamed`,
+  one rule over a table of renamed deck keys (`paginate:` → `pagination:` first); `fonts-renamed`
+  and `guards-renamed` become two of its rows, both errors with a fix. `paginate-unsupported-value`
+  and `paginate-comment-retired` are now `pagination-unsupported-value` and `pagination-comment-retired`.
+  §3.1 adds `agenda-empty` and `agenda-retired-style`
   (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and

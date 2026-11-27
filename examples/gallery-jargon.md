@@ -2,13 +2,13 @@
 marp: true
 size: 4K
 theme: crepuscolo
-paginate: true
+pagination: true
 header: "Lattice · Decision Framework Gallery"
 logo: lattice
 ---
 
-<!-- _class: title -->
-<!-- _footer: "Title slide · title" -->
+<!-- @meta{layout=title, footer=Title slide · title} -->
+
 
 # From Signal to Strategy
 
@@ -18,8 +18,8 @@ A 59-slide answer to the question "have you considered writing things down"
 
 ---
 
-<!-- _class: agenda -->
-<!-- _footer: "Agenda, one item per section · agenda" -->
+<!-- @meta{layout=agenda, footer="Agenda, one item per section · agenda"} -->
+
 
 ## What this deck covers, in order
 
@@ -30,8 +30,8 @@ A 59-slide answer to the question "have you considered writing things down"
 
 ---
 
-<!-- _class: divider light -->
-<!-- _footer: "Section 1 opener, centered · divider light" -->
+<!-- @meta{layout=divider, class=light, footer="Section 1 opener, centered · divider light"} -->
+
 
 `Section 01 · Why This Exists`
 
@@ -41,8 +41,8 @@ Three workshops in. The definition gets socialized in a fifth before anyone can 
 
 ---
 
-<!-- _class: content -->
-<!-- _footer: "Single-idea prose · content" -->
+<!-- @meta{layout=content, footer=Single-idea prose · content} -->
+
 
 `Context · Competitive Dynamics`
 
@@ -52,8 +52,8 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 
 ---
 
-<!-- _class: quote -->
-<!-- _footer: "Pull quote · quote" -->
+<!-- @meta{layout=quote, footer=Pull quote · quote} -->
+
 
 > The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
 
@@ -61,8 +61,8 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "KPI numbers · stats" -->
+<!-- @meta{layout=stats, footer=KPI numbers · stats} -->
+
 
 `Impact · Pilot Results`
 
@@ -81,8 +81,8 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 
 ---
 
-<!-- _class: big-number -->
-<!-- _footer: "Hero stat · big-number" -->
+<!-- @meta{layout=big-number, footer=Hero stat · big-number} -->
+
 
 `Calibration Result · 6-Month Pilot`
 
@@ -91,8 +91,8 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 
 ---
 
-<!-- _class: divider numbered -->
-<!-- _footer: "Section 2 opener · divider numbered" -->
+<!-- @meta{layout=divider, class=numbered, footer=Section 2 opener · divider numbered} -->
+
 
 `Section 02 · The Framework`
 
@@ -100,8 +100,8 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 
 ---
 
-<!-- _class: diagram -->
-<!-- _footer: "Component diagram · diagram" -->
+<!-- @meta{layout=diagram, footer=Component diagram · diagram} -->
+
 
 `Architecture · Signal Pipeline`
 
@@ -122,8 +122,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "2×2 card grid · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="2×2 card grid · cards-grid"} -->
+
 
 ## The framework has four components
 
@@ -138,8 +138,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "2 top + 1 bottom · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="2 top + 1 bottom · cards-grid"} -->
+
 
 ## Signal Intake produces three outputs
 
@@ -152,8 +152,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-grid three -->
-<!-- _footer: "Three-column grid · cards-grid three" -->
+<!-- @meta{layout=cards-grid, class=three, footer=Three-column grid · cards-grid three} -->
+
 
 ## The three things the framework connects
 
@@ -166,8 +166,8 @@ flowchart LR
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Vertical card stack · cards-stack" -->
+<!-- @meta{layout=cards-stack, footer=Vertical card stack · cards-stack} -->
+
 
 ## Two failure modes the framework is designed to prevent
 
@@ -178,8 +178,8 @@ flowchart LR
 
 ---
 
-<!-- _class: split-panel watermark -->
-<!-- _footer: "Dark panel + content · split-panel watermark" -->
+<!-- @meta{layout=split-panel, class=watermark, footer="Dark panel + content · split-panel watermark"} -->
+
 
 ## Scoring Model Deep Dive
 
@@ -198,8 +198,8 @@ The most configurable component — a feature or a warning sign, depending on yo
 
 ---
 
-<!-- _class: list-tabular flex-meta -->
-<!-- _footer: "Tabular list · list-tabular" -->
+<!-- @meta{layout=list-tabular, class=flex-meta, footer=Tabular list · list-tabular} -->
+
 
 ## The six signal dimensions
 
@@ -224,8 +224,8 @@ The most configurable component — a feature or a warning sign, depending on yo
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "Two options + connector · compare-prose" -->
+<!-- @meta{layout=compare-prose, footer="Two options + connector · compare-prose"} -->
+
 
 ## Scoring model: before and after the calibration loop
 
@@ -238,8 +238,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Side-by-side cards · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer=Side-by-side cards · cards-grid} -->
+
 
 ## Two intake modes for different signal types
 
@@ -250,8 +250,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list-steps timeline -->
-<!-- _footer: "Horizontal timeline · timeline" -->
+<!-- @meta{layout=list-steps, class=timeline, footer=Horizontal timeline · timeline} -->
+
 
 ## How a decision moves through the framework
 
@@ -268,8 +268,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Card list stack · list" -->
+<!-- @meta{layout=list, footer=Card list stack · list} -->
+
 
 ## What the framework does not do
 
@@ -281,8 +281,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list -->
-<!-- _footer: "Numbered list · list" -->
+<!-- @meta{layout=list, footer=Numbered list · list} -->
+
 
 ## Four things that must be true before you begin
 
@@ -293,8 +293,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: funnel -->
-<!-- _footer: "Pipeline drop-off · funnel" -->
+<!-- @meta{layout=funnel, footer=Pipeline drop-off · funnel} -->
+
 
 ## How a week of signals narrows to one logged decision
 
@@ -306,8 +306,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Section close · closing" -->
+<!-- @meta{layout=closing, footer=Section close · closing} -->
+
 
 `Section 02 of 04 complete`
 
@@ -317,8 +317,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: divider -->
-<!-- _footer: "Section opener · divider" -->
+<!-- @meta{layout=divider, footer=Section opener · divider} -->
+
 
 `Section 03 · The Evaluation`
 
@@ -326,8 +326,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Numbered criteria · list takeaway over 1." -->
+<!-- @meta{layout=list, class=takeaway, footer=Numbered criteria · list takeaway over 1.} -->
+
 
 ## Four requirements every decision system must meet
 
@@ -342,8 +342,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _footer: "2×2 verdict grid · verdict-grid" -->
+<!-- @meta{layout=verdict-grid, footer="2×2 verdict grid · verdict-grid"} -->
+
 
 ## We evaluated four intake tools against the criteria
 
@@ -374,8 +374,8 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _footer: "Comparison table · table" -->
+<!-- @meta{layout=table, class=state-cells, footer=Comparison table · table} -->
+
 
 ## The four tools side by side
 
@@ -391,8 +391,8 @@ _Criteria defined by the team building Sprig + Log. We're transparent about it. 
 
 ---
 
-<!-- _class: radar -->
-<!-- _footer: "Spider comparison · radar" -->
+<!-- @meta{layout=radar, footer=Spider comparison · radar} -->
+
 
 `[{Scale, 0..10}]`
 
@@ -421,8 +421,8 @@ _Criteria defined by the team building Sprig + Log. We're transparent about it. 
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "Two-axis vendor sort · matrix-2x2" -->
+<!-- @meta{layout=matrix-2x2, footer=Two-axis vendor sort · matrix-2x2} -->
+
 
 ## How we sort the four tools against our two axes
 
@@ -440,8 +440,8 @@ _Criteria defined by the team building Sprig + Log. We're transparent about it. 
 
 ---
 
-<!-- _class: compare-prose decision -->
-<!-- _footer: "Build vs buy, DECISION chrome · compare-prose decision" -->
+<!-- @meta{layout=compare-prose, class=decision, footer="Build vs buy, DECISION chrome · compare-prose decision"} -->
+
 
 ## The evaluation came down to one question the vendors could not answer
 
@@ -454,8 +454,8 @@ The left card is struck through; the DECISION connector is bold. The conclusion 
 
 ---
 
-<!-- _class: decision -->
-<!-- _footer: "Committed decision · decision" -->
+<!-- @meta{layout=decision, footer=Committed decision · decision} -->
+
 
 ## We are building, not buying
 
@@ -470,8 +470,8 @@ The left card is struck through; the DECISION connector is bold. The conclusion 
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "Declarative principles · principles" -->
+<!-- @meta{layout=list, class=principles, footer=Declarative principles · principles} -->
+
 
 ## How we make calls when the spec is silent
 
@@ -481,8 +481,8 @@ The left card is struck through; the DECISION connector is bold. The conclusion 
 
 ---
 
-<!-- _class: split-panel watermark mirror -->
-<!-- _footer: "Section opener, panel right · split-panel watermark mirror" -->
+<!-- @meta{layout=split-panel, class=watermark mirror, footer="Section opener, panel right · split-panel watermark mirror"} -->
+
 
 ## Three phases ship the architecture, the operations, and the scale — and Phase 01 has shipped
 
@@ -501,8 +501,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: roadmap -->
-<!-- _footer: "Workstream × phase grid · roadmap" -->
+<!-- @meta{layout=roadmap, footer="Workstream × phase grid · roadmap"} -->
+
 
 ## What ships in each phase
 
@@ -515,8 +515,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: gantt -->
-<!-- _footer: "Schedule by workstream · gantt" -->
+<!-- @meta{layout=gantt, footer=Schedule by workstream · gantt} -->
+
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
 
@@ -537,8 +537,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Status board · kanban" -->
+<!-- @meta{layout=kanban, footer=Status board · kanban} -->
+
 
 `Workstream board · today`
 
@@ -560,8 +560,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: actors -->
-<!-- _footer: "Ownership roles · actors" -->
+<!-- @meta{layout=actors, footer=Ownership roles · actors} -->
+
 
 ## Who owns each part of the framework lifecycle
 
@@ -576,8 +576,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: list-steps phase -->
-<!-- _footer: "Three-phase plan · list-steps phase" -->
+<!-- @meta{layout=list-steps, class=phase, footer=Three-phase plan · list-steps phase} -->
+
 
 ## Three phases get us from decision to org-wide adoption
 
@@ -590,8 +590,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: list-steps milestone lettered -->
-<!-- _footer: "Lettered milestones · list-steps milestone lettered" -->
+<!-- @meta{layout=list-steps, class=milestone lettered, footer=Lettered milestones · list-steps milestone lettered} -->
+
 
 ## Three milestones mark Phase 01 complete
 
@@ -604,8 +604,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: checklist -->
-<!-- _footer: "Phase acceptance checklist · checklist" -->
+<!-- @meta{layout=checklist, footer=Phase acceptance checklist · checklist} -->
+
 
 ## Phase 01 acceptance — what shipped, what slipped, what stayed open
 
@@ -618,8 +618,8 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 
 ---
 
-<!-- _class: compare-prose transition -->
-<!-- _footer: "State change over time · compare-prose transition" -->
+<!-- @meta{layout=compare-prose, class=transition, footer=State change over time · compare-prose transition} -->
+
 
 ## Decisions used to require a quarterly re-litigation
 
@@ -634,8 +634,8 @@ The architecture change is the calibration loop. The culture change is still in 
 
 ---
 
-<!-- _class: list-steps -->
-<!-- _footer: "Horizontal rollout steps · list-steps" -->
+<!-- @meta{layout=list-steps, footer=Horizontal rollout steps · list-steps} -->
+
 
 ## How to roll this out across your organization
 
@@ -650,8 +650,8 @@ The architecture change is the calibration loop. The culture change is still in 
 
 ---
 
-<!-- _class: list-steps vertical compact -->
-<!-- _footer: "Vertical process steps · list-steps vertical compact" -->
+<!-- @meta{layout=list-steps, class=vertical compact, footer=Vertical process steps · list-steps vertical compact} -->
+
 
 ## The weekly practice in three moves
 
@@ -664,8 +664,8 @@ The architecture change is the calibration loop. The culture change is still in 
 
 ---
 
-<!-- _class: cards-stack horizontal -->
-<!-- _footer: "Horizontal evidence stack · cards-stack horizontal" -->
+<!-- @meta{layout=cards-stack, class=horizontal, footer=Horizontal evidence stack · cards-stack horizontal} -->
+
 
 ## The case for the framework in three moves
 
@@ -678,8 +678,8 @@ The architecture change is the calibration loop. The culture change is still in 
 
 ---
 
-<!-- _class: code -->
-<!-- _footer: "Single code block · code" -->
+<!-- @meta{layout=code, footer=Single code block · code} -->
+
 
 `Implementation · Decision Pipeline`
 
@@ -702,8 +702,8 @@ const entry = await framework.decisions.log(decision, { signals: [signal.id], ra
 
 ---
 
-<!-- _class: compare-code -->
-<!-- _footer: "Two code blocks · compare-code" -->
+<!-- @meta{layout=compare-code, footer=Two code blocks · compare-code} -->
+
 
 `Before & After · Scoring Mechanics`
 
@@ -742,8 +742,8 @@ for signal in calibrator.intake.unscored():
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Section close · closing" -->
+<!-- @meta{layout=closing, footer=Section close · closing} -->
+
 
 `Section 03 of 04 complete`
 
@@ -753,8 +753,8 @@ for signal in calibrator.intake.unscored():
 
 ---
 
-<!-- _class: divider dark -->
-<!-- _footer: "Section opener, dark canvas · divider dark" -->
+<!-- @meta{layout=divider, class=dark, footer="Section opener, dark canvas · divider dark"} -->
+
 
 `Section 04 · The Results`
 
@@ -764,8 +764,8 @@ The pilot team measured what the pilot team built.
 
 ---
 
-<!-- _class: list takeaway -->
-<!-- _footer: "Section recap before the data · list takeaway over 1." -->
+<!-- @meta{layout=list, class=takeaway, footer=Section recap before the data · list takeaway over 1.} -->
+
 
 `Recap · Sections 01 through 03`
 
@@ -779,8 +779,8 @@ The pilot team measured what the pilot team built.
 
 ---
 
-<!-- _class: kpi -->
-<!-- _footer: "KPIs against targets · kpi" -->
+<!-- @meta{layout=kpi, footer=KPIs against targets · kpi} -->
+
 
 ## Where we are against quarter targets
 
@@ -799,8 +799,8 @@ The pilot team measured what the pilot team built.
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "Horizontal bars with status pills · progress" -->
+<!-- @meta{layout=progress, footer=Horizontal bars with status pills · progress} -->
+
 
 `H1 2026 · Phase 01 readiness`
 
@@ -818,8 +818,8 @@ Source: Linear · "blocked" means blocked, we are working on the wording
 
 ---
 
-<!-- _class: piechart donut -->
-<!-- _footer: "SVG donut with legend · piechart donut" -->
+<!-- @meta{layout=piechart, class=donut, footer=SVG donut with legend · piechart donut} -->
+
 
 `H1 2026 · 1,840 person-hours`
 
@@ -837,8 +837,8 @@ Last updated 2026-05-07 · the 9% is probably higher
 
 ---
 
-<!-- _class: timeline-list -->
-<!-- _footer: "Horizontal timeline spine · timeline-list" -->
+<!-- @meta{layout=timeline-list, footer=Horizontal timeline spine · timeline-list} -->
+
 
 `Framework arc`
 
@@ -857,8 +857,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _footer: "Finding + key insight · cards-grid" -->
+<!-- @meta{layout=cards-grid, footer="Finding + key insight · cards-grid"} -->
+
 
 `Finding 01 · Structured Intake`
 
@@ -873,8 +873,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: cards-stack compact -->
-<!-- _footer: "3 full-width cards · cards-stack compact" -->
+<!-- @meta{layout=cards-stack, class=compact, footer=3 full-width cards · cards-stack compact} -->
+
 
 ## Three scoring failure modes found in the pilot
 
@@ -887,8 +887,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: quadrant -->
-<!-- _footer: "Two-axis scatter · quadrant" -->
+<!-- @meta{layout=quadrant, footer=Two-axis scatter · quadrant} -->
+
 
 `[{Confidence, 0..10}, {Impact, 0..10}]`
 
@@ -906,8 +906,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: word-cloud -->
-<!-- _footer: "Weighted terms · word-cloud" -->
+<!-- @meta{layout=word-cloud, footer=Weighted terms · word-cloud} -->
+
 
 ## The reasons logged for not adopting the framework
 
@@ -920,8 +920,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: journey -->
-<!-- _footer: "Emotional journey · journey" -->
+<!-- @meta{layout=journey, footer=Emotional journey · journey} -->
+
 
 ## A product manager's first month with the framework
 
@@ -937,8 +937,8 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 
 ---
 
-<!-- _class: closing -->
-<!-- _footer: "Final ask · closing" -->
+<!-- @meta{layout=closing, footer=Final ask · closing} -->
+
 
 `What Would Help Us Move Forward`
 

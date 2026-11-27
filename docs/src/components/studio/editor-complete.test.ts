@@ -45,7 +45,8 @@ describe('makeStudioCompletion', () => {
 	it('completes front-matter keys inside the --- block', () => {
 		const r = complete('---\nsi', 6);
 		expect(labels(r)).toContain('size');
-		expect(labels(r)).toContain('paginate');
+		expect(labels(r)).toContain('pagination');
+		expect(labels(r)).not.toContain('paginate');
 	});
 
 	it('completes the finish-override + mode keys in the --- block', () => {
@@ -182,7 +183,7 @@ describe('makeStudioCompletion', () => {
 				{ name: 'chrome', label: 'Chrome', tokens: ['silent', 'no-footer'] },
 				{ name: 'rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
 				{ name: 'table', label: 'Table', tokens: ['table-fill'], surface: 'table' },
-				{ name: 'cards', label: 'Card spacing', tokens: ['cards-spread'], surface: 'card-row' },
+				{ name: 'cards', label: 'Card spacing', tokens: ['align-spread'], surface: 'card-row' },
 			],
 			exclusiveAxes: {},
 			modifierUsage: { silent: 200, 'no-footer': 1 },
@@ -198,8 +199,8 @@ describe('makeStudioCompletion', () => {
 			expect(labels('<!-- _class: big-number ')).toContain('silent');
 			expect(labels('<!-- _class: big-number ')).not.toContain('no-heading-rule');
 			expect(labels('<!-- _class: content ')).toContain('no-heading-rule');
-			expect(labels('<!-- _class: content ')).not.toContain('cards-spread');
-			expect(labels('<!-- _class: cards-grid ')).toContain('cards-spread');
+			expect(labels('<!-- _class: content ')).not.toContain('align-spread');
+			expect(labels('<!-- _class: cards-grid ')).toContain('align-spread');
 		});
 
 		it('turns on a content surface when the slide actually contains it', () => {
@@ -239,7 +240,7 @@ describe('makeStudioCompletion', () => {
 		it('offers every group on a component with no surface data (a local component)', () => {
 			const local = makeStudioCompletion([{ name: 'mine', bucket: 'local', description: '' }], [], [], { vocab: VOCAB });
 			const r = local(new CompletionContext(EditorState.create({ doc: '<!-- _class: mine ' }), 18, true));
-			expect(r?.options.map((o) => o.label)).toContain('cards-spread');
+			expect(r?.options.map((o) => o.label)).toContain('align-spread');
 		});
 	});
 
@@ -393,14 +394,16 @@ describe('front-matter registers — keys and values', () => {
 
 	it('offers the keys that had no route but knowing they exist', () => {
 		const keys = done('---\n', 4);
-		for (const k of ['fit', 'cards', 'player-motion', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
+		for (const k of ['fit', 'align', 'player-motion', 'ai-lang', 'color', 'backgroundColor', 'backgroundSize']) {
 			expect(keys, `${k} missing from key completion`).toContain(k);
 		}
 	});
 
-	it('completes fit: and cards: values from the engine vocabulary', () => {
-		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
-		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
+	it('completes fit: and align: values from the engine vocabulary', () => {
+		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim', 'pack']);
+		expect(done('---\nalign: ')).toEqual(['top', 'middle', 'bottom', 'spread', 'fill', 'left', 'center', 'right', 'full']);
+		// One word per axis: after an up-and-down word, only side-to-side words are offered.
+		expect(done('---\nalign: bottom ')).toEqual(['left', 'center', 'right', 'full']);
 		expect(done('---\nclaim: ')).toContain('bleed');
 		expect(done('---\ntrim-spectrum: ')).toContain('mono');
 	});
@@ -462,10 +465,8 @@ describe('front-matter registers — keys and values', () => {
 	// vocabulary. It must be wired for value completion or named here as handled by its
 	// own branch, so a register can't ship with values the editor never offers.
 	it('every register value list in the lint vocab is wired for completion', () => {
-		// `guardsNames` is the old spelling of `fit:` — lint still reads it to name the new key
-		// (`guards-renamed`), and the editor offers `fit:` instead of it.
 		// finish, pace and theme complete from their own sources (built-in + saved finishes, the pace catalog, built-in + saved palettes).
-		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'guardsNames', 'themeNames']);
+		const HANDLED_ELSEWHERE = new Set(['finishNames', 'paceNames', 'themeNames']);
 		const wired = new Set(Object.values(VOCAB_VALUE_FIELDS));
 		const unwired = Object.keys(vocab).filter((f) => f.endsWith('Names') && !wired.has(f) && !HANDLED_ELSEWHERE.has(f));
 		expect(unwired, 'add these to VOCAB_VALUE_FIELDS (or HANDLED_ELSEWHERE with a reason)').toEqual([]);
@@ -473,7 +474,7 @@ describe('front-matter registers — keys and values', () => {
 
 	// The gate above reads the FULL vocab, but the Studio receives what studio.astro
 	// serializes. That page used to hand-pick a few `*Names` lists, so this suite passed
-	// while the real editor had no `guards:` values at all. Pin the pass-everything spread.
+	// while the real editor had no `fit:` values at all. Pin the pass-everything spread.
 	it('the Studio page passes every register value list to the editor', () => {
 		const page = readFileSync(new URL('../../pages/studio.astro', import.meta.url), 'utf8');
 		expect(page).toMatch(/packedNames: packVocabNames\(v\)/);
@@ -486,9 +487,8 @@ describe('front-matter registers — keys and values', () => {
 	// editor, so the two surfaces can't offer different front-matter vocabularies.
 	it('every front-matter key the Studio Inspector writes is in autocomplete', () => {
 		const shell = readFileSync(new URL('./StudioShell.tsx', import.meta.url), 'utf8');
-		// A write whose value is a literal `null` only DELETES a key (the Fit field drops the old
-		// `guards:` spelling when it writes `fit:`), so it offers nothing to autocomplete. The Fit
-		// field's own `fit` write is a separate statement precisely so this pattern still sees it.
+		// A write whose value is a literal `null` only DELETES a key, so it offers nothing to
+		// autocomplete. The Fit field's `fit` write must stay visible to this pattern.
 		const written = new Set([...shell.matchAll(/writeFrontMatterLine\(\w+, '([\w-]+)', (?!null\))/g)].map((m) => m[1]));
 		expect(written.size).toBeGreaterThan(20);
 		expect(written.has('fit'), 'the Fit field\'s write must stay visible to this check').toBe(true);
@@ -799,13 +799,13 @@ describe('frontMatterKeyAt — the hover over a front-matter key', () => {
 	});
 });
 
-describe('marks: completes one word per axis', () => {
-	it('after a finish word, offers the intensities and not a second finish', async () => {
+describe('chart-finish: completes one word per axis', () => {
+	it('after a finish word, offers the sources and not a second finish', async () => {
 		const { nextAxisWords } = await import('./editor-complete');
-		const words = ['pigment', 'etch', 'tone', 'muted', 'vivid'];
-		expect(nextAxisWords('marks', 'pigment ', words)).toEqual(['muted', 'vivid']);
-		expect(nextAxisWords('marks', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
-		expect(nextAxisWords('marks', 'etch vivid', words)).toEqual([]);
+		const words = ['pigment', 'etch', 'tone', 'ink', 'accent'];
+		expect(nextAxisWords('chart-finish', 'tone ', words)).toEqual(['ink', 'accent']);
+		expect(nextAxisWords('chart-finish', 'ink ', words)).toEqual(['pigment', 'etch', 'tone']);
+		expect(nextAxisWords('chart-finish', 'tone ink', words)).toEqual([]);
 	});
 });
 
@@ -841,7 +841,7 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
 		// Slice 3.
-		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a slide directive value', `${FM}<!-- _pagination: `, 'false', null],
 		['a note after <!--', `${FM}<!-- @sa`, '@say{', null],
 		['the slide record after <!--', `${FM}<!-- @me`, '@meta{', null],
 		['a record field inside @meta, never inside the bare spelling', `${FM}<!-- @meta{lay`, 'layout', null],

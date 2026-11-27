@@ -87,12 +87,12 @@
       "description": "Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
     }
   },
-  "skeleton": "<!-- _class: risk-matrix -->\n\n## Where our top risks sit.\n\n- Risk one `{4, 5}`\n- Risk two `{3, 3}`\n- Risk three `{2, 4}`\n",
+  "skeleton": "<!-- @meta{layout=risk-matrix} -->\n\n## Where our top risks sit.\n\n- Risk one `{4, 5}`\n- Risk two `{3, 3}`\n- Risk three `{2, 4}`\n",
   "anatomyBlock": "funnel",
-  "sample": "<!-- _class: risk-matrix -->\n\n`Enterprise risk register · Q4 2026`\n\n## Cyber and hurricane risk sit in the red; both have a plan.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n",
+  "sample": "<!-- @meta{layout=risk-matrix} -->\n\n`Enterprise risk register · Q4 2026`\n\n## Cyber and hurricane risk sit in the red; both have a plan.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n",
   "stressDoc": {
     "summary": "Ten risks, three sharing one cell, two with a planned move.",
-    "sample": "<!-- _class: risk-matrix -->\n\n## Ten risks, three in the same cell.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Ransomware `{4, 5}`\n- Cloud provider failure `{4, 5}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- Regulatory fine `{2, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n- Office flood `{1, 2}`\n"
+    "sample": "<!-- @meta{layout=risk-matrix} -->\n\n## Ten risks, three in the same cell.\n\n- Cyber outage `{4, 5}` `{2, 4}`\n- Ransomware `{4, 5}`\n- Cloud provider failure `{4, 5}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- Regulatory fine `{2, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`\n- Pandemic `{1, 5}`\n- Office flood `{1, 2}`\n"
   },
   "whenToUse": [
     {

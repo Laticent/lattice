@@ -157,6 +157,16 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     script. `frame-agents.test.ts` parses `buildSrcdoc`'s and the Stage's documents and fails an
     inline one; the single-slide builder's document is internal to its host, so `site-csp.spec.ts`
     is its guard (an inline script put back there turned the component-page cell red).
+  - **The measured split's probes are a file too** (added 2026-11-23 with PR #2988). The Studio and
+    the Playground measure a non-16:9 deck in a hidden `srcdoc` frame (`docs/src/lib/measured-split.ts`),
+    which inherits this policy. The measure first reached that frame as source text run with
+    `contentWindow.eval`, and the verdict built its two probes with `Function(…)`: under the policy
+    both throw, and the CSP check left every page that can load the measuring chunk without a policy
+    (78 of 199). `docs/src/lib/fit-probes.mjs` now gives the asset sync `lattice-fit-probes.js`, written
+    beside the runtime; the measuring document names it with a `src` tag, it sets one frozen global in
+    the frame's realm, and the host calls those functions directly. `fitVerdict` takes the probes as
+    functions, so no live surface evaluates a string; the CLI builds them inside its own
+    `page.evaluate` text, which no page policy governs.
   - **The two sandboxes load through a shell.** The code-package runner and the draw host build a
     whole document with its own strict policy and the hash of its one script, and function-plot's
     frame needs `'unsafe-eval'`, which no page policy grants. As `srcdoc` both were refused. The frame
@@ -276,6 +286,21 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   `summary_large_image`. No `twitter:image`: X reads `og:image` when it is absent, and every
   byte is on every page, while the landing page's HTML sits about 1 KB under its route-budget
   ceiling. The gate reads the PNG's own header, so a re-draw at another size fails.
+
+- **The agent entry, from the homepage and every page** (#3522 E2-S01, PR #3556, 2026-11-27). The
+  landing page's "Point your copilot at Lattice" band links "Instructions for your agent" straight to
+  `/agents/start.md` (`AGENT_ENTRY`) in server-rendered HTML, and its `<head>` carries
+  `<link rel="help" type="text/markdown">` to the same file. Every built page, 404 included, carries
+  one `<link rel="describedby" type="text/plain" href="/llms.txt">` (59 bytes), the relation the
+  llms.txt proposal recommends for "the llms.txt that covers this page". `md-twins.mjs` writes it
+  after the build (`withDescribedBy`), because about 40 routes write their own `<head>` and an Astro
+  integration can inject only scripts. No `<meta>` tag and no HTTP `Link:` header: the proposal names
+  neither as a `<meta>`, and only Cloudflare reads `_headers`. The tag assumes the site base is `/`,
+  which it is in every environment. `check-discovery.mjs` check 5 reads both through
+  `scripts/home-agent-entry.mjs`, which parses with `hast-util-from-html`, not patterns: CodeQL
+  flagged the first, regex version (bad HTML filtering), and the parser also ignores a tag in a
+  comment, `<template>`, `<noscript>` or script string. It parses only each page's `<head>` for
+  the site-wide tag (the whole page cost the build 2.4 s; the head costs about 0.27 s).
 
 ## 3. What was left out, and why
 

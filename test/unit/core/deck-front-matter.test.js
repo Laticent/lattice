@@ -212,7 +212,7 @@ describe('deck front matter — a producer that cannot carry local files', () =>
 describe('deck front matter — the export bundle carries it', () => {
   test('Marp keys stay on top, Lattice keys move into the settings block under it', () => {
     const out = withRuntimeScripts(DECK);
-    // The one addition on top is `paginate: true`: Lattice numbers by default and Marp does not, so the Marp
+    // The one addition on top is Marp's `paginate: true` (the deck's `pagination:`, in Marp's spelling): Lattice numbers by default and Marp does not, so the Marp
     // bridge says so (lib/core/marp-bundle-scope.js).
     assert.ok(out.startsWith([
       '---', 'marp: true', 'theme: indaco', 'paginate: true', '---',
@@ -220,7 +220,7 @@ describe('deck front matter — the export bundle carries it', () => {
     ].join('\n')), out.slice(0, 200));
     assert.match(out, /<script src="lattice-runtime-min\.js"><\/script>/);
     // A deck that already says, either way, is left as written.
-    const off = DECK.replace('theme: indaco', 'theme: indaco\npaginate: false');
+    const off = DECK.replace('theme: indaco', 'theme: indaco\npagination: false');
     assert.match(withRuntimeScripts(off), /^---\nmarp: true\ntheme: indaco\npaginate: false\n---\n/);
   });
 
@@ -238,12 +238,36 @@ describe('deck front matter — the export bundle carries it', () => {
     const out = withRuntimeScripts(DECK);
     const folded = foldSettingsBlock(out);
     const fm = readFrontMatterBlock(folded);
-    for (const k of ['marp: true', 'theme: indaco', 'paginate: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
+    for (const k of ['marp: true', 'theme: indaco', 'pagination: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
       assert.match(fm, new RegExp(`^${k}$`, 'm'), k);
-      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k), `${k} keeps its line`);
+      // Marp's `paginate:` comes back as `pagination:`, on the same line.
+      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k.replace(/^pagination/, 'paginate')), `${k} keeps its line`);
     }
     assert.equal(folded.split('\n').indexOf('# A'), out.split('\n').indexOf('# A'), 'the first slide keeps its line');
     assert.equal(foldSettingsBlockCompact(out).split('\n').slice(0, 7).join('\n'),
-      '---\nmarp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
+      '---\nmarp: true\ntheme: indaco\npagination: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
+  });
+});
+
+// The page-number key survives a Marp round trip whether or not the bundle has a settings block (#3506's checker found a
+// no-block deck whose `pagination: false` came back as an ignored `paginate: false`, numbers on).
+describe('pagination: a Marp round trip keeps the deck\'s setting', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const engine = createEngine();
+  const numbered = (src) => (engine.render(src).html.match(/data-lattice-pagination="\d+"/g) || []).length;
+  const body = '\n\n# A\n\n---\n\n# B\n\n---\n\n# C\n';
+  for (const fm of ['theme: indaco\npagination: false', 'theme: indaco\npagination: false\nfit: report', 'theme: indaco\npagination: true\npagination: false']) {
+    test(JSON.stringify(fm), () => {
+      const deck = `---\n${fm}\n---${body}`;
+      const out = withRuntimeScripts(deck);
+      assert.match(out, /\npaginate: false\n/, 'the export writes Marp\'s key');
+      assert.equal(numbered(foldSettingsBlock(out)), numbered(deck), 'reopened in Lattice, the same slides are numbered');
+      assert.equal(numbered(deck), 0);
+      assert.match(withRuntimeScripts(foldSettingsBlockCompact(out)), /\npaginate: false\n/, 'a re-export keeps it off');
+    });
+  }
+  test('a plain Marp deck is not an export: its paginate: stays for lint to report', () => {
+    const marp = '---\nmarp: true\npaginate: false\n---\n\n# A\n';
+    assert.equal(foldSettingsBlock(marp), marp);
   });
 });

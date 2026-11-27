@@ -314,17 +314,23 @@ console.log(`wrote ${file} and .scratch/out/player-input-{light,dark}.png`);
 // went unexercised, and those are the ones the no-JS ladder change actually bites. The
 // no-JS floor is checked with JAVASCRIPT DISABLED, because that ladder is the only part of
 // this fix the scripted path never touches — it had no real-surface coverage of any kind.
+//
+// THE SCREEN CANVAS (lib/core/screen-canvas.mjs, #3304) gives 4K two rows. At 1440 CSS px and 1x the slide is shown at
+// 1,440 device px across, under FOUR_K_FROM (2,560), so the player lays a 4K deck out on HD: WebKit pays every layer in a
+// frame at the frame's own box, and a 4K frame reloaded an iPhone tab. At 2x the same window shows 2,880 device px, so
+// the deck keeps its own 3840 canvas. Without the second row, a player that put every 4K deck on HD would pass.
 const CANVASES = [
-	['4K', 'examples/gallery-jargon.md', '3840px x 2160px'],
-	['story', 'examples/adaptive-sizing.md', '1080px x 1920px'],
-	['portrait', 'examples/social-portrait.md', '1080px x 1350px'],
-	['mobile', 'examples/social-mobile.md', '1080px x 2340px'],
+	['4K at 1x, laid out on HD', 'examples/gallery-jargon.md', '1280px x 720px', 1],
+	['4K at 2x, its own canvas', 'examples/gallery-jargon.md', '3840px x 2160px', 2],
+	['story', 'examples/adaptive-sizing.md', '1080px x 1920px', 1],
+	['portrait', 'examples/social-portrait.md', '1080px x 1350px', 1],
+	['mobile', 'examples/social-mobile.md', '1080px x 2340px', 1],
 ];
-for (const [label, deck, expected] of CANVASES) {
-	const szOut = path.resolve(`.scratch/out/player-size-${label}`);
+for (const [label, deck, expected, dsf] of CANVASES) {
+	const szOut = path.resolve(`.scratch/out/player-size-${label.split(' ')[0]}`);
 	execFileSync(process.execPath, ['lattice.js', deck, szOut, '--player'], { stdio: 'pipe' });
 
-	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+	const szCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: dsf });
 	const sz = await szCtx.newPage();
 	await sz.goto(`file://${szOut}.html`);
 	await sz.waitForSelector('#lp-stage');
@@ -350,7 +356,7 @@ for (const [label, deck, expected] of CANVASES) {
 			frame: `${Math.round(frame.width)}x${Math.round(frame.height)}`,
 		};
 	});
-	check(`${label}: the deck keeps its OWN canvas in the player`, m.box === expected, m.box);
+	check(`${label}: the player lays the deck out on the canvas this screen shows`, m.box === expected, m.box);
 	check(`${label}: the scaled slide fills its frame exactly`, m.sized, m.secVsFrame);
 	check(`${label}: and the scaled frame fits the stage`, m.fits, m.frame);
 	await szCtx.close();

@@ -11,6 +11,7 @@
 
 import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
+import { mayWantMeasuredSplit } from './fit-pack-wanted';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
@@ -18,6 +19,7 @@ import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
 import { createStyleLoader, type FetchMode, type StyleLoader } from './style-loader';
 import { createThemeFetcher } from './theme-fetch';
+import { LAZY_LOAD_MS, withinMs } from './within-ms';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
 
@@ -92,6 +94,8 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 
 	/** True once both irreducible globals are present (engine bundle + bridge). */
 	let backstopArmed = false;
+	// The measured split's memory (§11), carried from one render of this Playground's deck to the next.
+	let fitMemory: Record<string, { split: boolean; sizes?: number[] }> | null = null;
 	const BACKSTOP_MS = 4000;
 
 	function ready(): boolean {
@@ -193,7 +197,12 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
-			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			// The engine loads its splitter on demand: `splitReady` returns nothing at landscape, so only a real load waits.
+			// Bounded: a load that never settles renders this pass unsplit (splitForPreview warns), never a preview held on its placeholder.
+			const splitLoad = PGref.splitReady?.(geom.w, geom.h);
+			if (splitLoad) await withinMs(splitLoad, LAZY_LOAD_MS);
+			const cut = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h) : null;
+			let html = cut ? cut.html : out.html;
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
 			// lacks re-registers the base, and the engine recomposes the sheet so it has the
 			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
@@ -213,6 +222,54 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			if (styles && !backstopArmed) {
 				backstopArmed = true;
 				setTimeout(() => void themes.backstop(), BACKSTOP_MS);
+			}
+			// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16), once the sheet is complete:
+			// the CLI's measure, plan and verify, in a hidden frame built and sanitized exactly as the filmstrip's
+			// own (the page's `measureDoc`, sanitizeSlideHtml), with the §11 memory so an edit does not re-split the deck.
+			// Loaded only for a deck that asks for it; a failed load or an unmeasurable frame keeps today's split.
+			// A fresh deck (a load, an example, a reset) starts with no memory: decisions belong to one deck.
+			if (fresh) fitMemory = null;
+			// Only a render the split changed, or one whose chart coda may move, has anything to measure: the gate the
+			// Studio uses (single-slide-render.ts `mayMeasure`). NOT `html !== out.html`: the split stamps every slide's
+			// number, 16:9 included, so that was true on every render and measured every 16:9 deck in a hidden frame at
+			// each keystroke and tab switch (a phone's Edit tab waited out the 9 s reveal backstop, docs e2e 2026-11-23).
+			const mayMeasure = !!cut && (cut.changed > 0 || (cut.applies === true && PGref.codaMayMove?.(cut.html) === true));
+			if (PGref.splitForPreview && mayMeasure && mayWantMeasuredSplit(source)) {
+				const [ms, sz] = (await withinMs(Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]), LAZY_LOAD_MS).catch(() => null)) ?? [null, null];
+				const measureDoc = DPref.measureDoc;
+				// Did this render get its measured split? A deck that wants one and does not get it (the module did not
+				// load, no frame builder, or the measure failed) keeps the structural split, with its insight on the slide.
+				let measuredOk = false;
+				const wanted = !ms || ms.measuredSplitWanted(source);
+				if (ms && sz && measureDoc && wanted) {
+					const measured = await ms
+						.measuredSplitInFrame({
+							html: out.html,
+							split: (h, plan) => (PGref.splitForPreview as NonNullable<typeof PGref.splitForPreview>)(h, source, geom.w, geom.h, { plan }),
+							verdictConfig: PGref.fitVerdictConfig?.(),
+							runtimeUrl,
+							buildDoc: (h) => measureDoc({ html: sz.sanitizeSlideHtml(h), css: out.css, mode: deckMode, geom, runtimeUrl, ...(assets.dagreUrl ? { dagreUrl: assets.dagreUrl } : {}), ...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}), previewFonts: true, gap: 16 }),
+							width: geom.w,
+							height: geom.h,
+							memory: fitMemory,
+						})
+						.catch((e) => {
+							console.warn('lattice: the measured split failed, so this deck keeps the structural split', e);
+							return null;
+						});
+					if (measured) {
+						html = measured.html;
+						fitMemory = measured.memory;
+						measuredOk = true;
+					}
+				}
+				if (wanted && !measuredOk) {
+					// The engine drew each chart for the room a moved insight frees (`data-coda-moves`, chart-phone.js
+					// `codaMoves`), but without the measured split the insight stays on its slide: draw the deck again for
+					// the room the insight takes. One more render, on this failure path only.
+					out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, measured: false });
+					html = (PGref.splitForPreview as NonNullable<typeof PGref.splitForPreview>)(out.html, source, geom.w, geom.h).html;
+				}
 			}
 			// Which authored slide and part each page of this render is: built once per render, and only when
 			// asked (rendered-index.ts). The focus sync asks after every render, so the outline is parsed a second

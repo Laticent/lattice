@@ -12,7 +12,7 @@ differently than the engine it was written against.
 
 ---
 
-<!-- _class: content no-form -->
+<!-- @meta{layout=content, class=no-form} -->
 
 ## A slide that opted out
 

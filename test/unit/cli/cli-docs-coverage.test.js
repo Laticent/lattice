@@ -42,7 +42,7 @@ function flagsBetween(src, start, end, file) {
   return new Set([...src.slice(from, to).matchAll(FLAG_LITERAL)].map((m) => m[1]));
 }
 
-/** The options the `lattice` render command, `lattice packages`, `lattice video` and `lattice fmt` accept. */
+/** The options the `lattice` render command, `lattice packages`, `lattice video`, `lattice fmt`, `lattice migrate notes` and `lattice lint` accept. */
 function latticeCliFlags() {
   // parseArgs reads its options from one table (lib/cli/options.js); the literals left in its
   // body are the special cases, such as the retired --strip-captions.
@@ -63,13 +63,17 @@ function latticeCliFlags() {
   const migrateList = /\[('--[a-z-]+'(?:,\s*'--[a-z-]+')*)\]\.includes\(a\)/.exec(read('lib/cli/migrate-notes.mjs'));
   assert.ok(migrateList, 'lib/cli/migrate-notes.mjs keeps its switches in one `[…].includes(a)` list');
   const migrate = new Set([...migrateList[1].matchAll(/'(--[a-z-]+)'/g)].map((m) => m[1]));
-  return { render, packages, video: new Set([...video, ...fmt, ...migrate]) };
+  // `lattice lint` reads its switches as `flags.has('--x')` (lib/cli/lint-deck.js). `--all` is left out: it lints a
+  // Lattice checkout's own decks, and the published command refuses it (the repo's `npm run lint:deck` owns it).
+  const lint = new Set([...read('lib/cli/lint-deck.js').matchAll(/flags\.has\('(--[a-z-]+)'\)/g)].map((m) => m[1]).filter((f) => f !== '--all'));
+  assert.ok(lint.has('--fix') && lint.has('--strict'), 'lib/cli/lint-deck.js reads --fix and --strict as flags.has(...)');
+  return { render, packages, video: new Set([...video, ...fmt, ...migrate, ...lint]) };
 }
 
 /** The options of the repo helper scripts the docs also teach. */
 function helperFlags() {
   const out = new Set();
-  for (const f of ['tools/lint-deck.js', 'tools/new-slide.js', 'tools/export-marp.js']) {
+  for (const f of ['tools/lint-deck.js', 'lib/cli/lint-deck.js', 'tools/new-slide.js', 'tools/export-marp.js']) {
     for (const m of read(f).matchAll(FLAG_LITERAL)) out.add(m[1]);
   }
   return out;

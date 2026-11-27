@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Anima"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Motion that carries meaning
 
@@ -15,9 +15,9 @@ A `scene` slide freezes an Anima poster into the PDF — and on the HTML/present
 
 ---
 
-<!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- @meta{layout=divider, header="", footer=""} -->
+
+
 
 `The premise`
 
@@ -25,8 +25,8 @@ A `scene` slide freezes an Anima poster into the PDF — and on the HTML/present
 
 ---
 
-<!-- _class: scene -->
-<!-- _footer: "built · Zdog — a rotor spinning inside its fixed housing" -->
+<!-- @meta{layout=scene, footer="built · Zdog — a rotor spinning inside its fixed housing"} -->
+
 
 ## The rotor turns inside its fixed housing.
 
@@ -52,8 +52,8 @@ A relationship a single still can only imply: on screen the rotor spins and a be
 
 ---
 
-<!-- _class: scene gallery -->
-<!-- _footer: "svg · the flow draws itself, node by node" -->
+<!-- @meta{layout=scene, class=gallery, footer="svg · the flow draws itself, node by node"} -->
+
 
 ## The pipeline assembles in order.
 
@@ -79,8 +79,8 @@ The drawing ORDER is the meaning — node, arrow, node — which a static diagra
 
 ---
 
-<!-- _class: scene mirror -->
-<!-- _footer: "reduced-motion falls back to the poster; the deck respects the reader" -->
+<!-- @meta{layout=scene, class=mirror, footer="reduced-motion falls back to the poster; the deck respects the reader"} -->
+
 
 ## Every scene reduces to its still.
 
@@ -105,7 +105,7 @@ Under `prefers-reduced-motion`, the vestibular spin doesn't autoplay — a scene
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## One markdown. A poster in print, a living scene on screen.
 

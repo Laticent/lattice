@@ -10,7 +10,7 @@ Frontmatter `class: dark` should apply here.
 
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Slide Two
 

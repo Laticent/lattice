@@ -44,7 +44,7 @@ A slide that fits.
 
 ---
 
-<!-- _class: content -->
+<!-- @meta{layout=content} -->
 
 ## A slide that does not fit.
 

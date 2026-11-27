@@ -39,7 +39,7 @@ Printed QR gift card. `tools/gift-cards.mjs` writes one card per slide at the `c
 ## Authoring
 
 ```markdown
-<!-- _class: gift-card -->
+<!-- @meta{layout=gift-card} -->
 
 `A deck on us`
 

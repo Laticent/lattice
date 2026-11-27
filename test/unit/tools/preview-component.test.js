@@ -17,7 +17,7 @@ describe('preview-component — faithful assembly', () => {
 
   test('buildDeck wraps a bare skeleton in deck front-matter', () => {
     const deck = buildDeck('<!-- _class: cards -->\n\n## H\n', { theme: 'indaco' });
-    assert.match(deck, /^---\nmarp: true\ntheme: indaco\npaginate: true\n---\n/);
+    assert.match(deck, /^---\nmarp: true\ntheme: indaco\npagination: true\n---\n/);
     assert.match(deck, /<!-- _class: cards -->/);
   });
 

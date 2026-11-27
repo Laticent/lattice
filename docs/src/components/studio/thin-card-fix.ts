@@ -36,9 +36,9 @@ export function applyFixAt(source: string, slideIndex: number, fix: Fix, part = 
 	return applyFixToSlide(source, slideIndex, part, fix);
 }
 
-/** The deck with `ink-<ink>` set on slide `slideIndex`, or null (see `applyFixAt`). */
+/** The deck with `image-card-<ink>` set on slide `slideIndex`, or null (see `applyFixAt`). */
 export function addCardInk(source: string, slideIndex: number, ink: 'light' | 'dark'): string | null {
-	return applyFixAt(source, slideIndex, `ink-${ink}`);
+	return applyFixAt(source, slideIndex, `image-card-${ink}`);
 }
 
 /**

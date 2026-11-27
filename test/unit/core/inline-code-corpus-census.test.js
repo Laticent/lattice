@@ -63,6 +63,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/hub-spoke-icons.md', 'the demo deck for icons on hub-spoke (HARD RULE #9). Its `{icon=…}` records are counted here but render as disc icons, not pills — the census reads spans without their slide, and hub-spoke owns the rows it reads (lib/core/resolve-inline-code.js `ownedRowDepth`); the table slide escapes its examples'],
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
+  ['examples/split-header-hall.md', 'the demo deck for split headers at a hall venue (HARD RULE #9): statute-stack\'s citation and status pills, and the roadmap\'s phase dates, are the header pills whose wrapping and naming it shows'],
   ['examples/pills-plugin.md', 'the demo deck for the embedded pills plugin: one pill, placed and tinted by seven components (HARD RULE #9)'],
   ['examples/checks.md', 'the demo deck for the embedded checks plugin: the `[x]` shortcuts and the `@check{…}` full form beside them, inline and in a pill (HARD RULE #9)'],
   ['examples/plugin-sandbox-tour.md', 'the demo deck for every plugin in the Studio and Playground, inline ones included: an icon, an avatar, a spark and a pill on one slide, so typing near them can be tried (HARD RULE #9)'],
@@ -89,6 +90,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
+  ['examples/logo-wall-first-paint.md', 'logo-wall: a `{tier}` pill under each mark, on the captions slide'],
   ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['examples/venue-budgets.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
@@ -140,9 +142,12 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/imagery/video/video.gallery.md', 'the video gallery: every slide names its clip with a `@video{…}` record'],
   ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],
   ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
+  ['examples/fit-text-room.md', 'statute-stack bands: a `{citation}` and a `{status}` pill on each jurisdiction label'],
+  ['examples/carousel-split.md', 'statute-stack bands: a `{citation}` and a `{status}` pill on each jurisdiction label'],
   ['examples/chart-finishes-continuation.md', 'roadmap slides: a `{date}` pill on each phase header'],
   ['examples/chart-phone-responsive.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
+  ['examples/logo-wall-measured.md', 'logo-wall marks with a `{tier}` caption pill: the pill widths are what the measured columns read'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */

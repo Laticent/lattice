@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · Card tag placements"
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # A card tag can sit anywhere on its card.
 
@@ -13,7 +13,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: decision tag-foot -->
+<!-- @meta{layout=decision, class=tag-foot} -->
 
 ## tag-foot moves every tag to the bottom corner.
 
@@ -26,7 +26,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: cards-grid four tag-notch -->
+<!-- @meta{layout=cards-grid, class=four tag-notch} -->
 
 ## tag-notch straddles each card's top edge.
 
@@ -41,7 +41,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: decision tag-band tag-center -->
+<!-- @meta{layout=decision, class=tag-band tag-center} -->
 
 ## A band may wrap to two lines, and every band matches it.
 
@@ -54,7 +54,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: compare-prose transition tag-inline -->
+<!-- @meta{layout=compare-prose, class=transition tag-inline} -->
 
 ## tag-inline sets the label above the text as a chip.
 
@@ -65,7 +65,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: list-steps tag-corner -->
+<!-- @meta{layout=list-steps, class=tag-corner} -->
 
 ## On list-steps, tag-corner boxes the step label.
 
@@ -80,7 +80,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: cards-stack tag-band tag-end -->
+<!-- @meta{layout=cards-stack, class=tag-band tag-end} -->
 
 ## tag-end sets the text at the far end of the band.
 
@@ -91,7 +91,7 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: decision tag-notch tag-bare -->
+<!-- @meta{layout=decision, class=tag-notch tag-bare} -->
 
 ## With tag-bare, a notch reads as a legend.
 

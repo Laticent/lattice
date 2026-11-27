@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · stacked-bar"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # stacked-bar
 
@@ -15,8 +15,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar -->
-<!-- _footer: "Default · stacked-bar" -->
+<!-- @meta{layout=stacked-bar, footer=Default · stacked-bar} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -36,8 +35,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar share -->
-<!-- _footer: "share · stacked-bar share — Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar." -->
+<!-- @meta{layout=stacked-bar, class=share, footer="share · stacked-bar share — Every bar normalized to 100 %, so only the mix is comparable — the absolute total moves to a caption above the bar."} -->
 
 ## share normalizes every bar, so only the mix is compared.
 
@@ -57,8 +55,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar row -->
-<!-- _footer: "row · stacked-bar row — The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar." -->
+<!-- @meta{layout=stacked-bar, class=row, footer="row · stacked-bar row — The stack runs horizontally, so long category names sit in a left column instead of wrapping under a bar."} -->
 
 ## row turns the stack on its side for long category names.
 
@@ -78,9 +75,8 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar share -->
-<!-- stress-slide -->
-<!-- _footer: "Stress test · stacked-bar — Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar." -->
+<!-- @meta{layout=stacked-bar, class=share, footer="Stress test · stacked-bar — Six parts across six categories — the perceptual cap on both axes at once, with a 2 % sliver in every bar."} -->
+<!-- @meta{stress-slide} -->
 
 ## Six parts, six periods, one sliver that should have been folded in.
 
@@ -130,8 +126,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar dark -->
-<!-- _footer: "Composition: dark · stacked-bar dark" -->
+<!-- @meta{layout=stacked-bar, class=dark, footer=Composition: dark · stacked-bar dark} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -151,8 +146,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar compact -->
-<!-- _footer: "Composition: compact · stacked-bar compact" -->
+<!-- @meta{layout=stacked-bar, class=compact, footer=Composition: compact · stacked-bar compact} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -172,8 +166,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: stacked-bar accent -->
-<!-- _footer: "Composition: accent · stacked-bar accent" -->
+<!-- @meta{layout=stacked-bar, class=accent, footer=Composition: accent · stacked-bar accent} -->
 
 ## Each bar is a total; the bands inside it are the mix.
 
@@ -193,8 +186,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · stacked-bar · 1 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · stacked-bar · 1 of 2} -->
 
 ## When NOT to reach for stacked-bar.
 
@@ -205,8 +197,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · stacked-bar · 2 of 2" -->
+<!-- @meta{layout=cards-grid, class=claim-hero, footer=Anti-patterns · stacked-bar · 2 of 2} -->
 
 ## When NOT to reach for stacked-bar.
 
@@ -217,7 +208,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: closing silent index -->
+<!-- @meta{layout=closing, class=silent index} -->
 
 ## See also.
 

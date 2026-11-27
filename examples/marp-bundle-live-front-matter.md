@@ -1,13 +1,13 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Deck settings · one rule everywhere"
 footer: "Lattice · switches"
 class: no-progress no-footer
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # One deck class, every slide
 
@@ -17,7 +17,7 @@ This deck says `class: no-progress no-footer` once, in its front matter.
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 01`
 
@@ -35,7 +35,7 @@ _A deck class reaches every slide that names no class of its own._
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 `Its own _class`
 
@@ -48,7 +48,7 @@ _A deck class reaches every slide that names no class of its own._
 
 ---
 
-<!-- _class: content with-progress with-footer -->
+<!-- @meta{layout=content, class=with-progress with-footer} -->
 
 `with-progress · with-footer`
 
@@ -60,7 +60,7 @@ _A slide's `with-X` wins over the deck's `no-X`, for every switch._
 
 ---
 
-<!-- _class: content silent with-pagination -->
+<!-- @meta{layout=content, class=silent with-pagination} -->
 
 `silent with-pagination`
 
@@ -86,7 +86,7 @@ _The old `callout-off`, `motion-on` and `finish-none` spellings are retired; `li
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Section 02`
 
@@ -112,7 +112,7 @@ _Edit that block and marp-cli, the VS Code preview and VS Code's Export command 
 
 ---
 
-<!-- _class: closing -->
+<!-- @meta{layout=closing} -->
 
 ## One class, every slide
 

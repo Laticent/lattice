@@ -55,7 +55,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 ## Authoring
 
 ```markdown
-<!-- _class: policy-recommendation adopt -->
+<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 ## The recommendation as a complete sentence.
 
@@ -78,7 +78,7 @@ One line naming the problem or the stakes.
 Support — green verdict badge and rail.
 
 ```markdown
-<!-- _class: policy-recommendation adopt -->
+<!-- @meta{layout=policy-recommendation, class=adopt} -->
 
 `HB 214 · Consumer Data Protection`
 
@@ -99,7 +99,7 @@ Consumers now learn of a breach 78 days late on average.
 Conditional support — amber badge and rail.
 
 ```markdown
-<!-- _class: policy-recommendation amend -->
+<!-- @meta{layout=policy-recommendation, class=amend} -->
 
 `SB 88 · Algorithmic Hiring`
 
@@ -120,7 +120,7 @@ Post-hoc audits catch bias only after applicants are screened out.
 Against — red verdict badge and rail.
 
 ```markdown
-<!-- _class: policy-recommendation oppose -->
+<!-- @meta{layout=policy-recommendation, class=oppose} -->
 
 `AB 402 · Encryption Backdoors`
 
@@ -141,7 +141,7 @@ A state-held decryption key is a single point of failure for every resident's da
 Study first — neutral badge and rail.
 
 ```markdown
-<!-- _class: policy-recommendation defer -->
+<!-- @meta{layout=policy-recommendation, class=defer} -->
 
 `HR 19 · Municipal Facial Recognition`
 

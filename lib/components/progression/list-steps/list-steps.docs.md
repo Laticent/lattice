@@ -61,7 +61,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 ## Authoring
 
 ```markdown
-<!-- _class: list-steps -->
+<!-- @meta{layout=list-steps} -->
 
 ## How to roll this out.
 
@@ -98,7 +98,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 Steps stack down the page.
 
 ```markdown
-<!-- _class: list-steps vertical compact -->
+<!-- @meta{layout=list-steps, class=vertical compact} -->
 
 ## vertical stacks the steps down the page.
 
@@ -115,7 +115,7 @@ Steps stack down the page.
 Down-chevron tabs cascade into keyed description cards.
 
 ```markdown
-<!-- _class: list-steps chevron -->
+<!-- @meta{layout=list-steps, class=chevron} -->
 
 ## Make the case, one stage at a time.
 
@@ -134,7 +134,7 @@ Down-chevron tabs cascade into keyed description cards.
 Tapering bands narrow onto the final stage (a qualitative funnel).
 
 ```markdown
-<!-- _class: list-steps converge -->
+<!-- @meta{layout=list-steps, class=converge} -->
 
 ## Many concerns narrow onto one plan.
 
@@ -151,7 +151,7 @@ Tapering bands narrow onto the final stage (a qualitative funnel).
 Faint chevron watermark, eyebrow label, hero description — editorial.
 
 ```markdown
-<!-- _class: list-steps ghost -->
+<!-- @meta{layout=list-steps, class=ghost} -->
 
 ## The argument, stated plainly.
 
@@ -168,7 +168,7 @@ Faint chevron watermark, eyebrow label, hero description — editorial.
 Steps string along a line.
 
 ```markdown
-<!-- _class: list-steps timeline -->
+<!-- @meta{layout=list-steps, class=timeline} -->
 
 ## timeline strings the steps along a line.
 
@@ -185,7 +185,7 @@ Steps string along a line.
 Each step blocks as an era.
 
 ```markdown
-<!-- _class: list-steps phase -->
+<!-- @meta{layout=list-steps, class=phase} -->
 
 ## phase blocks each step as an era.
 
@@ -202,7 +202,7 @@ Each step blocks as an era.
 Steps mark as checkpoints.
 
 ```markdown
-<!-- _class: list-steps milestone lettered -->
+<!-- @meta{layout=list-steps, class=milestone lettered} -->
 
 ## milestone marks the steps as checkpoints.
 
@@ -219,7 +219,7 @@ Steps mark as checkpoints.
 Letters count the steps.
 
 ```markdown
-<!-- _class: list-steps lettered -->
+<!-- @meta{layout=list-steps, class=lettered} -->
 
 ## lettered counts the steps with letters.
 
@@ -236,7 +236,7 @@ Letters count the steps.
 Stage tags prefix each step.
 
 ```markdown
-<!-- _class: list-steps stage -->
+<!-- @meta{layout=list-steps, class=stage} -->
 
 ## stage prefixes each step with its stage tag.
 
@@ -253,7 +253,7 @@ Stage tags prefix each step.
 Numbers read as standings.
 
 ```markdown
-<!-- _class: list-steps rank -->
+<!-- @meta{layout=list-steps, class=rank} -->
 
 ## rank reads the numbers as standings.
 
@@ -270,7 +270,7 @@ Numbers read as standings.
 Steps render as service tiers.
 
 ```markdown
-<!-- _class: list-steps tier roman -->
+<!-- @meta{layout=list-steps, class=tier roman} -->
 
 ## tier renders the steps as service tiers.
 
@@ -287,7 +287,7 @@ Steps render as service tiers.
 Numerals count the phases.
 
 ```markdown
-<!-- _class: list-steps phase roman -->
+<!-- @meta{layout=list-steps, class=phase roman} -->
 
 ## roman counts the phases in numerals.
 
@@ -304,7 +304,7 @@ Numerals count the phases.
 Centered, editorial: pill badges, serif titles, no connectors.
 
 ```markdown
-<!-- _class: list-steps capsule -->
+<!-- @meta{layout=list-steps, class=capsule} -->
 
 ## Turn the framework into a habit.
 

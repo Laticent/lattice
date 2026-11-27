@@ -6,7 +6,7 @@
 
 **Tags** `citation` · `quotation` · `contract`
 
-Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
+Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it. On a phone or tablet a card that does not fit splits instead of clipping: a cover takes the heading, the cite and the quote take the next page, and the gloss list moves to the page after. A quote longer than a page continues at the end of a sentence, with the cite above it again; a single sentence longer than a page still clips.
 
 ## Agent contract
 
@@ -50,7 +50,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 ## Authoring
 
 ```markdown
-<!-- _class: citation-card -->
+<!-- @meta{layout=citation-card} -->
 
 ## Headline framing what this citation establishes.
 
@@ -86,7 +86,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 The operative phrase, lifted.
 
 ```markdown
-<!-- _class: citation-card pull-quote -->
+<!-- @meta{layout=citation-card, class=pull-quote} -->
 
 ## pull-quote lifts the operative phrase.
 
@@ -103,7 +103,7 @@ The operative phrase, lifted.
 Quote beside plain reading.
 
 ```markdown
-<!-- _class: citation-card split -->
+<!-- @meta{layout=citation-card, class=split} -->
 
 ## split pairs the quote with its plain reading.
 
@@ -120,7 +120,7 @@ Quote beside plain reading.
 The cite in the gutter.
 
 ```markdown
-<!-- _class: citation-card margin -->
+<!-- @meta{layout=citation-card, class=margin} -->
 
 ## margin hangs the cite in the gutter.
 
@@ -137,7 +137,7 @@ The cite in the gutter.
 Three authorities abreast.
 
 ```markdown
-<!-- _class: citation-card triptych -->
+<!-- @meta{layout=citation-card, class=triptych} -->
 
 ## triptych sets three authorities abreast.
 

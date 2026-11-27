@@ -1,7 +1,7 @@
 {
-  "name": "@laticent/segno-markdown",
+  "name": "@laticent/segno-languages",
   "version": "0.1.0",
-  "description": "The deck model for Lattice-flavored Markdown: one CommonMark block pass (markdown-it's block rules, matched token for token) writing a flat tape, with slides, slide boundaries, front matter, directive, fence and leaf ranges read off it, and an incremental re-parse that re-reads only the edited slide. Zero dependencies, no DOM, no Node.",
+  "description": "Standard languages for Lattice decks, one subpath each. ./markdown is the deck model for Lattice-flavored Markdown: one CommonMark block pass and inline pass (markdown-it's rules, matched token for token) writing flat tapes, with slides, slide boundaries, front matter, directive, fence and leaf ranges and each leaf's inline structure read off them, and an incremental re-parse that re-reads only the edited slide. Zero dependencies, no DOM, no Node.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
@@ -18,20 +18,11 @@
   },
   "type": "module",
   "sideEffects": false,
-  "types": "./dist/index.d.ts",
-  "module": "./dist/index.mjs",
-  "main": "./dist/index.cjs",
   "exports": {
-    ".": {
+    "./markdown": {
       "@laticent/source": "./index.ts",
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -41,7 +32,8 @@
     "!*.test.ts",
     "README.md",
     "LICENSE",
-    "LICENSE.markdown-it.md"
+    "LICENSE.markdown-it.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "prepack": "node ../../../../tools/library-prepack.js"

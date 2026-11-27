@@ -49,7 +49,7 @@ test('the trailing Key Insight and below-note belong to the slide, not to pane 2
 });
 
 test('the host never gains `content` or keeps a component class, and keeps its own classes', () => {
-  assert.equal(hostClass(render(DECK)), 'lat-pane-host marks-pigment marks-muted form'); // the HOST carries the finish; a pane cell below never does
+  assert.equal(hostClass(render(DECK)), 'lat-pane-host chart-finish-pigment color-intensity-muted form'); // the HOST carries the finish; a pane cell below never does
   // A spot directive placed AFTER the panes still applies to the slide.
   const late = hostClass(render(`## T\n\n${PANES}\n\n<!-- _class: invert -->\n`));
   assert.match(late, /\binvert\b/);
@@ -415,18 +415,18 @@ test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a sl
   const cards = '- Alpha\n  - One line.\n- Beta\n  - One line.';
   const paneOf = (md) => (md.match(/<lat-pane class="cards-grid[^"]*"[^>]*>/) || [''])[0];
   const slideOf = (md) => (md.match(/<section[^>]*class="cards-grid[^"]*"[^>]*>/) || [''])[0];
-  for (const v of ['top', 'center', 'stretch', 'spread']) {
-    const deck = e.render(`---\ncards: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-    assert.match(paneOf(deck), new RegExp(`data-cards="${v}"`), `deck cards: ${v}`);
-    const spot = e.render(`## T\n\n<!-- _class: cards-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-    assert.match(paneOf(spot), new RegExp(`data-cards="${v}"`), `_class: cards-${v}`);
+  for (const v of ['top', 'middle', 'bottom', 'fill', 'spread']) {
+    const deck = e.render(`---\nalign: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(deck), new RegExp(`data-align="${v}"`), `deck align: ${v}`);
+    const spot = e.render(`## T\n\n<!-- _class: align-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(spot), new RegExp(`data-align="${v}"`), `_class: align-${v}`);
   }
   // Nothing set: the pane takes the component's own default, the value a slide of it gets.
   const slide = e.render(`<!-- _class: cards-grid -->\n\n## T\n\n${cards}\n`).html;
   const pane = e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-  assert.equal(paneOf(pane).match(/data-cards="(\w+)"/)[1], slideOf(slide).match(/data-cards="(\w+)"/)[1]);
+  assert.equal(paneOf(pane).match(/data-align="(\w+)"/)[1], slideOf(slide).match(/data-align="(\w+)"/)[1]);
   // The tokens a pane needs are in the sheet, keyed on the pane.
-  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-cards="top"\]\s*\{\s*--cards-align:\s*flex-start/);
+  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-align="top"\]\s*\{\s*--align-v:\s*flex-start/);
 });
 
 test('a pane\'s chart canvas has the shape Chromium lays the pane out at', () => {
@@ -481,8 +481,8 @@ test('on a square, portrait, story or mobile deck a panes slide splits into one 
     assert.doesNotMatch(html, /pane: bar|panes: 40\/60/);
   }
   // A spot `_class` the author wrote rides on every page, beside the pane's component.
-  const s = sections(e.render(deck('portrait', '<!-- _class: cards-top -->\n\n')).html);
-  assert.ok(s.every((c) => c.includes('cards-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
+  const s = sections(e.render(deck('portrait', '<!-- _class: align-top -->\n\n')).html);
+  assert.ok(s.every((c) => c.includes('align-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
   // A 16:9 deck (and 4:3 and 4K, all `wide`) keeps the panes.
   for (const size of ['hd', 'standard', '4K']) {
     const { html } = e.render(deck(size));
@@ -630,7 +630,7 @@ test('widenStyleBlocks slices the document it scans: a length-changing lower-cas
 });
 
 test('a pane carries no footer Cell or page number of its own — the host slide owns them (#2826 regression)', () => {
-  const html = render(`---\npaginate: true\n---\n\n${DECK}`);
+  const html = render(`---\npagination: true\n---\n\n${DECK}`);
   const paneHtml = [...html.matchAll(/<lat-pane\b[\s\S]*?<\/lat-pane>/g)].map((m) => m[0]);
   assert.ok(paneHtml.length >= 2, 'the deck renders its panes');
   for (const p of paneHtml) {
@@ -640,7 +640,7 @@ test('a pane carries no footer Cell or page number of its own — the host slide
 });
 
 test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author wrote in a comment', () => {
-  const md = `---\npaginate: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
+  const md = `---\npagination: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
   const html = render(md);
   const list = html.match(/<lat-pane class="list form"[\s\S]*?<\/lat-pane>/)[0];
   assert.match(list, /<li>two<\/li>/);

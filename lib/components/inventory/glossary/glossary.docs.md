@@ -42,7 +42,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 ## Authoring
 
 ```markdown
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary
 

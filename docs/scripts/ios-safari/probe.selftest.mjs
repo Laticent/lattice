@@ -8,11 +8,15 @@
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
+ *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  *   PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs   # Present stays awake, immersive tap, captions, Next keeps playing
+ *   PROBE=present-landscape [SHAPES=<label,…>] [NO_TURN=1] node scripts/ios-safari/probe.selftest.mjs   # the 4K photo deck presented sideways: canvas, captions
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
+ *   PROBE=logo-wall node scripts/ios-safari/probe.selftest.mjs   # a logo wall's first paint: never the unpacked grid
+ *   PROBE=playground-scroll [ENGINE=chromium] [TRIALS=10] node scripts/ios-safari/probe.selftest.mjs   # the preview keeps a scroll across a window move
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -116,7 +120,7 @@ if (process.env.PROBE === 'player-charts') {
 		const context = await browser.newContext(shape.options);
 		const page = await context.newPage();
 		const result = await runPlayerCharts({
-			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}` },
+			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}`, k4: `file://${players.k4}` },
 			go: (url) => page.goto(url),
 			// In a function scope of its own, as WebDriver's execute-script runs it, so a second call never redeclares a const.
 			call: (expr) => page.evaluate(`(() => {\n${PLAYER_CHARTS_SOURCE}\nreturn ${expr};\n})()`),
@@ -147,12 +151,38 @@ if (process.env.PROBE === 'player-charts') {
 	process.exit(failed ? 1 : 0);
 }
 
+if (process.env.PROBE === 'codec-support') {
+	// The narration codec probe, as run.mjs runs it, in each of Playwright's engines (the iPhone answer needs the Mac's
+	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
+	const { chromium, firefox } = await import('@playwright/test');
+	const { codecChecks } = await import('./codecs.mjs');
+	// Suono's Opus encoder and Ogg writer (docs/src/lib/suono/opus.ts), the code the Studio ships, bundled by esbuild into
+	// one plain script that puts them on `SuonoOpus`.
+	const { buildSync } = await import('esbuild');
+	const muxer = buildSync({ entryPoints: [path.join(here, '../../src/lib/suono/opus.ts')], bundle: true, format: 'iife', globalName: 'SuonoOpus', write: false }).outputFiles[0].text;
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await browser.close();
+	for (const [name, engine] of Object.entries({ chromium, webkit, firefox })) {
+		const b = await engine.launch();
+		const page = await b.newPage();
+		await page.route('https://codec.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>codec</title>' }));
+		await page.goto('https://codec.test/');
+		const r = await page.evaluate(`${probe}\nlatticeCodecProbe(${JSON.stringify(files)})`);
+		for (const [k, v] of Object.entries(r.roundTrip)) console.log(`  ${name} round trip ${k}: ${v.ok ? `${v.kbps} kbps, ${v.extraMs} ms longer` : `NO (${v.error})`}${v.ogg ? `; our Ogg ${v.ogg.ok ? `${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
+		const steps = codecChecks(r);
+		report(name, 'codec-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: '-', steps });
+		await b.close();
+	}
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'present-narration') {
 	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
 	// Present with Guide on, voice on and then off. The voice arm walks to slide NARRATION_TARGET_SLIDE (15), as run.mjs does,
 	// with NARRATION_PLAY_S (300 s) only a ceiling; NARRATION_SILENT_S, when set, adds a reported voice-off arm.
 	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
-	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const NARRATION = withEditorHelper(fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8'));
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const arm = async (voice, seconds, untilSlide = 0) => {
@@ -185,6 +215,8 @@ if (process.env.PROBE === 'present-narration') {
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.alive = out.samples.at(-1)?.mark === played.mark;
+			out.pressure = await call('latticeNarrationPressure()');
+			console.log(`  ${out.arm} after collection pressure: ${out.pressure.beforeMB} -> ${out.pressure.afterMB} MB of decoded audio uncollected (${out.pressure.clips} clips, ${out.pressure.decodedMB} MB decoded in all)`);
 		} catch (e) {
 			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
 		}
@@ -200,6 +232,70 @@ if (process.env.PROBE === 'present-narration') {
 	process.exit(failed ? 1 : 0);
 }
 
+if (process.env.PROBE === 'playground-scroll') {
+	// The Playground scroll probe, as run.mjs runs it, with a WHEEL where run.mjs drags a finger: Playwright has no touch
+	// drag. The page side (psPrepare, psAfter) is the same file. ENGINE=chromium runs it where the drop was first measured,
+	// which is how this probe shows it can fail: against a build without the guard in `applyWindow`, Chromium trials go red.
+	const PS = fs.readFileSync(path.join(here, 'playground-scroll-probe.js'), 'utf8');
+	const engine = process.env.ENGINE === 'chromium' ? (await import('@playwright/test')).chromium : webkit;
+	const own = engine === webkit ? browser : await engine.launch();
+	const trials = Number(process.env.TRIALS ?? 5);
+	for (const { label, options } of [shapes[0], shapes.at(-1)]) {
+		const steps = [];
+		for (let i = 1; i <= trials; i++) {
+			// Chromium refuses WebKit's device descriptor, so it gets the viewport alone.
+			const context = await own.newContext(engine === webkit ? options : { viewport: options.viewport });
+			const page = await context.newPage();
+			const call = (expr) => page.evaluate(`${PS}\n${expr}`);
+			try {
+				await page.goto(`${BASE}/playground/?c=kpi&view=read`, { waitUntil: 'domcontentloaded' });
+				// ARM=drop plays the browser's move, as the unit test does: the first swap after the scroll puts the frame back
+				// where it started. Installed on the frame's prototype BEFORE psPrepare, so psPrepare's own hook wraps it and
+				// counts the drop. Green only where `applyWindow` writes the scroll back.
+				if (process.env.ARM === 'drop') {
+					await page.waitForFunction(() => document.getElementById('preview')?.contentDocument?.querySelector('.lattice'), null, { timeout: 150000 });
+					await page.evaluate(() => {
+						const win = document.getElementById('preview').contentWindow;
+						const native = win.Node.prototype.replaceChild;
+						win.Node.prototype.replaceChild = function (fresh, old) {
+							const y0 = win.scrollY;
+							const out = native.call(this, fresh, old);
+							if (window.__armDrop && win.scrollY > y0 - 1 && window.__armDrop.from < y0) {
+								window.__armWhere = `parent ${this.className || this.tagName}, old ${old.tagName}${old.hasAttribute?.('data-lv-ph') ? ' ph' : ''} lfT=${!!old.__lfT}, fresh lfT=${!!fresh.__lfT}`;
+								win.scrollTo({ top: window.__armDrop.from, behavior: 'instant' });
+								window.__armDrop = null;
+							}
+							return out;
+						};
+					});
+				}
+				const ready = await call(`psPrepare(${Number(process.env.BURN ?? 150)})`);
+				if (process.env.ARM === 'drop') await page.evaluate((from) => (window.__armDrop = { from }), ready.start.y);
+				// Mobile WebKit in Playwright takes no wheel: there a script scrolls the frame, which checks the page side only. A
+				// script's scroll carries no reader input, so the walk's re-land after the map opens rightly outranks it (the e2e
+				// spec's wheel note says the same); it waits for that land, where run.mjs's real finger drag need not.
+				if (engine === webkit && options.isMobile) {
+					await page.waitForFunction(() => document.documentElement.dataset.pgLand === 'done', null, { timeout: 30000 });
+					await page.evaluate((dy) => document.getElementById('preview').contentWindow.scrollBy(0, dy), 3 * ready.pane);
+				}
+				else {
+					await page.mouse.move(ready.drag.x, ready.drag.bottom);
+					await page.mouse.wheel(0, 3 * ready.pane);
+				}
+				const after = await call('psAfter()');
+				const where = await page.evaluate(() => window.__armWhere ?? '');
+				for (const s of after.steps) steps.push({ ...s, name: `trial ${i}: ${s.name}`, detail: `${s.detail}; drops ${after.drops.join(' ') || 'none'}${where ? `; arm hit ${where}` : ''}` });
+			} catch (e) {
+				steps.push({ name: `trial ${i}: the probe ran to the end`, pass: false, detail: String(e.message || e).split('\n')[0].slice(0, 300) });
+			}
+			await context.close();
+		}
+		report(`${label} (${engine === webkit ? 'webkit' : 'chromium'})`, 'playground-scroll-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: options.viewport?.width ?? '', steps });
+	}
+	if (own !== browser) await own.close();
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'present-keepalive') {
 	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
 	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.
@@ -235,17 +331,78 @@ if (process.env.PROBE === 'present-keepalive') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+if (process.env.PROBE === 'present-landscape') {
+	// The landscape probe, as run.mjs runs it, minus the footprint and the turn (the page here starts sideways): send the
+	// 4K photo deck with spoken notes, import it, reload, open Present, read the canvas, play the captions on the phones,
+	// step six slides. The iPad Pro 13-inch as Safari shows it sideways (1376 CSS px at 2x, less its bars), and the two
+	// iPhone sizes, because the larger one is the closest a phone comes to the FOUR_K_FROM line.
+	const { buildPresentDeck, PRESENT_TITLE_LANDSCAPE, presentChecks, landscapeChecks } = await import('./present-memory.mjs');
+	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const PIECE = 4_000_000;
+	const deck = await buildPresentDeck(undefined, undefined, '4k', PRESENT_TITLE_LANDSCAPE, true);
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	// Each device starts upright and is turned once Present is open, as a person does it and as run.mjs turns the
+	// simulator: a phone held sideways shows the Studio no Present button at all.
+	const sideways = [
+		{ label: 'iPad-13-landscape', expect: process.env.IPAD_EXPECT || 'hd', captions: false, options: { viewport: { width: 1032, height: 1302 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, turned: { width: 1376, height: 958 } },
+		{ label: 'iPhone-15-Pro-landscape', expect: 'hd', captions: true, options: { ...devices['iPhone 15 Pro'] }, turned: devices['iPhone 15 Pro landscape'].viewport },
+		{ label: 'iPhone-15-Pro-Max-landscape', expect: 'hd', captions: true, options: { ...devices['iPhone 15 Pro Max'] }, turned: devices['iPhone 15 Pro Max landscape'].viewport },
+	];
+	const only = process.env.SHAPES ? process.env.SHAPES.split(',') : null;
+	for (const shape of sideways.filter((x) => !only || only.includes(x.label))) {
+		const out = { wantHeading: `${PRESENT_TITLE_LANDSCAPE}.`, rotatedBy: 'the viewport' };
+		const context = await browser.newContext(shape.options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${PRESENT}\n${expr}`);
+		try {
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			const n = Math.ceil(b64.length / PIECE);
+			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)}, ${deck.slides})`);
+			Object.assign(out, { importMs: imported.importMs, width: imported.width });
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call(`latticePresentReady(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)})`);
+			const opened = await call('latticePresentOpen()');
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading, box: opened.box });
+			// NO_TURN=1 leaves the page upright: the failing arm for "the simulator is turned to landscape".
+			await call('latticePresentWatchTurn()');
+			if (!process.env.NO_TURN) await page.setViewportSize(shape.turned);
+			out.geo = await call('latticePresentGeometry()');
+			out.box = out.geo.box;
+			if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `${shape.label}-open.png`) });
+			if (shape.captions) out.captions = await call('latticePresentCaptions()');
+			if (process.env.SHOTS && shape.captions) await page.screenshot({ path: path.join(process.env.SHOTS, `${shape.label}-captions.png`) });
+			const stepped = await call('latticePresentStep(6)');
+			Object.assign(out, { stepsMs: stepped.steps.map((x) => x.ms), photos: stepped.steps.every((x) => x.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		const g = out.geo || {};
+		console.log(`${shape.label}: viewport ${g.innerW}x${g.innerH} at ${g.dpr}x, host ${g.hostW} px, slide ${g.slideW} px on screen, laid out ${g.box}`);
+		if (process.env.TURN_TRACE) console.log(`  turn: ${g.turn}`);
+		const steps = [...presentChecks(out, { slides: deck.slides, memory: false }), ...landscapeChecks(out, { expect: shape.expect, captions: shape.captions })];
+		report(shape.label, 'present-memory-probe.js', { ok: steps.every((x) => x.pass), error: steps.filter((x) => !x.pass).map((x) => x.name).join('; '), width: out.width, steps });
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'present-memory') {
 	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
 	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second
 	// arm that is reported and not judged, as PRESENT_BASELINE_URL does on the Mac.
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const arm = async (name, base) => {
-		const out = { arm: name };
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		return { deck, b64: Buffer.from(deck.bytes).toString('base64'), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arm = async (name, base, { deck, b64, title } = hd) => {
+		const out = { arm: name, wantHeading: `${title}.` };
 		const context = await browser.newContext(shapes.at(-1).options);
 		const page = await context.newPage();
 		await page.addInitScript(SEED);
@@ -254,12 +411,12 @@ if (process.env.PROBE === 'present-memory') {
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
 			const n = Math.ceil(b64.length / PIECE);
 			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
-			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(title)}, ${deck.slides})`);
 			Object.assign(out, { importMs: imported.importMs, width: imported.width });
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
-			await call('latticePresentReady()');
+			await call(`latticePresentReady(${JSON.stringify(title)})`);
 			const opened = await call('latticePresentOpen()');
-			Object.assign(out, { openMs: opened.openMs, slides: opened.total });
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading, box: opened.box });
 			const stepped = await call('latticePresentStep(6)');
 			Object.assign(out, { stepsMs: stepped.steps.map((s) => s.ms), photos: stepped.steps.every((s) => s.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
 		} catch (e) {
@@ -269,7 +426,11 @@ if (process.env.PROBE === 'present-memory') {
 		return out;
 	};
 	const mine = await arm('this build', BASE);
-	const steps = presentChecks(mine, { slides: deck.slides, memory: false });
+	const mine4k = await arm('this build, 4K deck', BASE, k4);
+	const steps = [
+		...presentChecks(mine, { slides: hd.deck.slides, memory: false }),
+		...presentChecks(mine4k, { slides: k4.deck.slides, memory: false, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	report('iPhone-sized', 'present-memory-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: mine.width, steps });
 	if (process.env.BASELINE_URL) {
 		const b = await arm('baseline', process.env.BASELINE_URL.replace(/\/$/, ''));
@@ -338,6 +499,22 @@ if (process.env.PROBE === 'empty-deck') {
 		}
 		const result = { ok: !error && steps.every((s) => s.pass), error, width: page.viewportSize()?.width, steps };
 		report(label, 'empty-deck-probe.js', result);
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'logo-wall') {
+	// The logo wall's first paint, as run.mjs runs it: a fresh page, the probe pastes its deck and steps onto the wall.
+	// Its failing arm is in logo-wall-probe.js's header: it needs a source change and a rebuild, not a page-side knob.
+	const WALL = withEditorHelper(fs.readFileSync(path.join(here, 'logo-wall-probe.js'), 'utf8'));
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: WALL });
+		report(label, 'logo-wall-probe.js', await page.evaluate(() => globalThis.latticeLogoWallProbe()));
 		await context.close();
 	}
 	await browser.close();

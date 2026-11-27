@@ -67,8 +67,8 @@
       "description": "Optional: the record's `title=\"…\"`, shown under the poster."
     }
   },
-  "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`\n",
-  "sample": "<!-- _class: video companion -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\"}`\n",
+  "skeleton": "<!-- @meta{layout=video, class=companion} -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`\n",
+  "sample": "<!-- @meta{layout=video, class=companion} -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\"}`\n",
   "whenToUse": [
     {
       "title": "A clip makes the point better than a screenshot",
@@ -115,17 +115,17 @@
     "companion": {
       "label": "companion",
       "summary": "The player beside the claim it proves.",
-      "sample": "<!-- _class: video companion -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\", poster=\"sample:video-poster.svg\"}`\n"
+      "sample": "<!-- @meta{layout=video, class=companion} -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\", poster=\"sample:video-poster.svg\"}`\n"
     },
     "gallery": {
       "label": "gallery",
       "summary": "A contained, matted exhibit.",
-      "sample": "<!-- _class: video gallery -->\n\n## gallery mats the player like an exhibit.\n\n`@video{\"https://vimeo.com/1084537\", title=\"The reference onboarding walkthrough, contained on its matte.\", poster=\"sample:video-poster.svg\"}`\n"
+      "sample": "<!-- @meta{layout=video, class=gallery} -->\n\n## gallery mats the player like an exhibit.\n\n`@video{\"https://vimeo.com/1084537\", title=\"The reference onboarding walkthrough, contained on its matte.\", poster=\"sample:video-poster.svg\"}`\n"
     },
     "qr": {
       "label": "qr",
       "summary": "Adds a scannable code; combines with any look.",
-      "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Scan to watch\", poster=\"sample:video-poster.svg\"}`\n"
+      "sample": "<!-- @meta{layout=video, class=companion qr} -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Scan to watch\", poster=\"sample:video-poster.svg\"}`\n"
     }
   },
   "commonMistakes": [

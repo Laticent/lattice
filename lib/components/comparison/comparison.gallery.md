@@ -1,4 +1,4 @@
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # comparison
 
@@ -9,8 +9,7 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: compare-prose -->
-<!-- _footer: "compare-prose · comparison survey" -->
+<!-- @meta{layout=compare-prose, footer=compare-prose · comparison survey} -->
 
 ## Two options, equal footing, corner tags.
 
@@ -21,8 +20,7 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: decision -->
-<!-- _footer: "decision · comparison survey" -->
+<!-- @meta{layout=decision, footer=decision · comparison survey} -->
 
 ## The decision slide names the chosen path.
 
@@ -33,8 +31,7 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "matrix-2x2 · comparison survey" -->
+<!-- @meta{layout=matrix-2x2, footer=matrix-2x2 · comparison survey} -->
 
 ## The matrix places items on two named axes.
 
@@ -53,8 +50,7 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: pricing -->
-<!-- _footer: "pricing · comparison survey" -->
+<!-- @meta{layout=pricing, footer=pricing · comparison survey} -->
 
 ## Three tiers, one recommended column.
 
@@ -76,21 +72,19 @@ Comparison — how two or more options differ.
 
 ---
 
-<!-- _class: redline -->
-<!-- _footer: "redline · comparison survey" -->
+<!-- @meta{layout=redline, footer=redline · comparison survey} -->
 
 ## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
-> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out. <ins>The method shall include, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices."</ins> Consumers use it to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
 - **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 ---
 
-<!-- _class: split-compare -->
-<!-- _footer: "split-compare · comparison survey" -->
+<!-- @meta{layout=split-compare, footer=split-compare · comparison survey} -->
 
 `comparison · split-compare`
 
@@ -109,8 +103,7 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: table -->
-<!-- _footer: "table · comparison survey" -->
+<!-- @meta{layout=table, footer=table · comparison survey} -->
 
 ## The table compares rows on consistent columns.
 
@@ -122,8 +115,7 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: verdict-grid -->
-<!-- _footer: "verdict-grid · comparison survey" -->
+<!-- @meta{layout=verdict-grid, footer=verdict-grid · comparison survey} -->
 
 ## The grid scores options against shared criteria.
 

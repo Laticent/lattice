@@ -1,30 +1,30 @@
 ---
 theme: indaco
-paginate: true
+pagination: true
 progress-rail: on
 ---
 
-<!-- _class: agenda agenda-pages -->
+<!-- @meta{layout=agenda, class=agenda-pages} -->
 
 ## Agenda
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## A
 
 ---
 
-<!-- _class: divider -->
-<!-- _hide: true -->
+<!-- @meta{layout=divider, hide=true} -->
+
 
 ## Hidden B
 
 ---
 
-<!-- _class: split-panel proof -->
-<!-- hide -->
+<!-- @meta{layout=split-panel, class=proof, hide} -->
+
 
 ## Hidden proof
 
@@ -33,13 +33,13 @@ progress-rail: on
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## C
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- @meta{layout=split-panel, class=proof} -->
 
 ## Shown proof
 
@@ -48,6 +48,6 @@ progress-rail: on
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## D

@@ -2,11 +2,11 @@
 marp: true
 size: 16:9
 theme: brina
-paginate: true
+pagination: true
 footer: "Brina · secondary + label tiers, light & dark"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Structural Text Tokens
 
@@ -16,7 +16,7 @@ Eyebrow, subtitle, caption, table header, sub-label and attribution — each on 
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 `Part 01 · Light canvas`
 
@@ -37,7 +37,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: kpi compact -->
+<!-- @meta{layout=kpi, class=compact} -->
 
 ## KPI labels and the footnote both use secondary ink.
 
@@ -55,7 +55,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: glossary -->
+<!-- @meta{layout=glossary} -->
 
 ## Glossary — the column header rides the secondary token.
 
@@ -68,7 +68,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: quote -->
+<!-- @meta{layout=quote} -->
 
 > The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
 
@@ -76,7 +76,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: split-panel pullquote -->
+<!-- @meta{layout=split-panel, class=pullquote} -->
 
 > The best product does not win. The most understood product does.
 
@@ -89,7 +89,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: split-panel metric -->
+<!-- @meta{layout=split-panel, class=metric} -->
 
 `Net Revenue Retention`
 
@@ -104,7 +104,7 @@ Measured across all customers active for 12+ months. The unit-label eyebrow and 
 
 ---
 
-<!-- _class: divider dark -->
+<!-- @meta{layout=divider, class=dark} -->
 
 `Part 02 · Dark canvas`
 
@@ -112,7 +112,7 @@ Measured across all customers active for 12+ months. The unit-label eyebrow and 
 
 ---
 
-<!-- _class: dark -->
+<!-- @meta{class=dark} -->
 
 `Section 02 · Eyebrow + subtitle`
 
@@ -127,7 +127,7 @@ Body text at full strength for comparison. On the dark canvas the eyebrow and su
 
 ---
 
-<!-- _class: kpi dark compact -->
+<!-- @meta{layout=kpi, class=dark compact} -->
 
 ## KPI labels and footnote on the dark canvas.
 
@@ -145,7 +145,7 @@ Body text at full strength for comparison. On the dark canvas the eyebrow and su
 
 ---
 
-<!-- _class: glossary dark -->
+<!-- @meta{layout=glossary, class=dark} -->
 
 ## Glossary on the dark canvas.
 
@@ -158,7 +158,7 @@ Body text at full strength for comparison. On the dark canvas the eyebrow and su
 
 ---
 
-<!-- _class: quote dark -->
+<!-- @meta{layout=quote, class=dark} -->
 
 > The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
 
@@ -166,7 +166,7 @@ Body text at full strength for comparison. On the dark canvas the eyebrow and su
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 ## The hierarchy holds on both canvases.
 

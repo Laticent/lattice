@@ -5,7 +5,7 @@ theme: indaco
 color-mode: dark
 ---
 
-<!-- _class: diagram -->
+<!-- @meta{layout=diagram} -->
 
 ## A component class is not an opt-out of the deck's color mode.
 
@@ -19,7 +19,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram light -->
+<!-- @meta{layout=diagram, class=light} -->
 
 ## A slide's own `light` token does opt out.
 
@@ -33,7 +33,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram dark -->
+<!-- @meta{layout=diagram, class=dark} -->
 
 ## A slide's own `dark` token agrees with the deck.
 

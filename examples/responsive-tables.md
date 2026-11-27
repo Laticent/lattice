@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 header: "Lattice · responsive tables"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Responsive tables
 
@@ -15,8 +15,8 @@ A table that runs out of width changes shape instead of squeezing.
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Records · a narrow pane turns each row into a card" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Records · a narrow pane turns each row into a card} -->
+
 
 ## A record list in a narrow pane becomes one card per row.
 
@@ -34,8 +34,8 @@ Each row is one person, so each becomes a card. The first cell is the card's tit
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Key-value · a narrow pane puts each label above its value" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Key-value · a narrow pane puts each label above its value} -->
+
 
 ## A two-column table puts each label above its value.
 
@@ -54,8 +54,8 @@ A spec sheet reads in pairs. Side by side, the value column would be a few chara
 
 ---
 
-<!-- _class: columns -->
-<!-- _footer: "Half pane · wide enough, so the table stays a table" -->
+<!-- @meta{layout=columns, footer="Half pane · wide enough, so the table stays a table"} -->
+
 
 ## In a half pane the same table stays a table.
 
@@ -73,8 +73,8 @@ A slide does not grow, and a card is taller than the row it replaces. So a table
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Measure over time · the row labels repeat beside each run of columns" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Measure over time · the row labels repeat beside each run of columns} -->
+
 
 ## A quarterly table splits into runs of columns, labels repeated.
 
@@ -91,8 +91,8 @@ Each row is a measure and each column a quarter, so the reader compares both way
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Option comparison · one block per option" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Option comparison · one block per option} -->
+
 
 ## An option table becomes one block per option.
 
@@ -109,8 +109,8 @@ Each column is an option, and the reader weighs one option at a time against the
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Ranked list · a two-line row keeps rank, name and figure together" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer="Ranked list · a two-line row keeps rank, name and figure together"} -->
+
 
 ## A ranked list keeps rank, name and figure on one line.
 
@@ -128,8 +128,8 @@ The reader scans a ranking down the rank, the name and the figure. Those three s
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Schedule · the date sits above its item" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Schedule · the date sits above its item} -->
+
 
 ## A schedule puts each date above its milestone.
 
@@ -147,8 +147,8 @@ A schedule reads as a sequence of dates. Each date becomes a small heading over 
 
 ---
 
-<!-- _class: columns ratio-30-70 table-lists -->
-<!-- _footer: "Independent lists · table-lists turns each column into a list" -->
+<!-- @meta{layout=columns, class=ratio-30-70 table-lists, footer=Independent lists · table-lists turns each column into a list} -->
+
 
 ## Three lists in one table become three lists.
 
@@ -165,12 +165,12 @@ The columns share nothing but the row they happen to sit on, so each becomes its
 
 ---
 
-<!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Override · no-table-reflow on the pane marker keeps the table" -->
+<!-- @meta{layout=columns, class=ratio-30-70, footer=Override · no-table-reflow on the pane marker keeps the table} -->
+
 
 ## An author can keep the table with one word.
 
-<!-- _pane: content no-table-reflow -->
+<!-- @meta{pane=content no-table-reflow} -->
 ### The team
 
 | Name | Team | Since |

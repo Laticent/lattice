@@ -153,14 +153,14 @@ test.describe('compose images', () => {
 		// The engine draws it in the text now, and the control says so; a placement turns it into the slide's photo.
 		await expect(panel(page).getByRole('radio', { name: 'Placement: In the text' })).toHaveAttribute('aria-checked', 'true');
 		await panel(page).getByRole('radio', { name: 'Placement: Left side' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- _class: image mirror -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
+		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- @meta{layout=image, class=mirror} -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
 		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Left$/);
 		// The preview draws it as the slide's photo panel, on the left.
 		await expect(livePreview(page).locator('section.image .lattice-bg-left[data-lattice-media="image"]').first()).toBeAttached({ timeout: 30_000 });
 		await panel(page).getByRole('radio', { name: 'Placement: Full slide' }).click();
-		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- _class: content bleed -->/);
+		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- @meta\{layout=content, class=bleed\} -->/);
 		await panel(page).getByRole('radio', { name: 'Placement: In the text' }).click();
-		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- _class: content -->/);
+		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- @meta\{layout=content\} -->/);
 		expect(await savedDeck(page)).not.toMatch(/!\[bg/);
 	});
 

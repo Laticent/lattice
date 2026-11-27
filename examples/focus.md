@@ -1,11 +1,11 @@
 ---
 marp: true
 theme: indaco
-paginate: true
+pagination: true
 footer: "Laticent · focus & highlighting"
 ---
 
-<!-- _class: title silent -->
+<!-- @meta{layout=title, class=silent} -->
 
 # Focus one thing.
 
@@ -15,7 +15,7 @@ A dense slide is a reading slide. When you present it live, you focus the room o
 
 ---
 
-<!-- _class: divider -->
+<!-- @meta{layout=divider} -->
 
 ## The slide stays dense. The attention does not.
 
@@ -23,8 +23,8 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: row 4 -->
+<!-- @meta{layout=table, class=state-cells, focus=row 4} -->
+
 
 ## `_focus: row 4` — ring the deciding criterion.
 
@@ -38,8 +38,8 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: col 5 -->
+<!-- @meta{layout=table, class=state-cells, focus=col 5} -->
+
 
 ## `_focus: col 5` — read one option, top to bottom.
 
@@ -53,8 +53,8 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: cell 4,5 -->
+<!-- @meta{layout=table, class=state-cells, focus="cell 4,5"} -->
+
 
 ## `_focus: cell 4,5` — the single decisive cell.
 
@@ -68,8 +68,8 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
+<!-- @meta{layout=cards-grid, focus=item 3} -->
+
 
 ## `_focus: item 3` — spotlight the card that matters.
 
@@ -84,8 +84,8 @@ You don't simplify the data — you direct the eye. One ordinal grammar addresse
 
 ---
 
-<!-- _class: code -->
-<!-- _focus: line 8 -->
+<!-- @meta{layout=code, focus=line 8} -->
+
 
 ## `_focus: line 8` — the line that matters.
 
@@ -102,9 +102,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focus: item 3 -->
-<!-- _focusStyle: blur -->
+<!-- @meta{layout=cards-grid, focus=item 3, focus-style=blur} -->
+
+
 
 ## `_focusStyle: blur` — defocus the rest, the camera way.
 
@@ -119,9 +119,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: table state-cells -->
-<!-- _focus: row 4 -->
-<!-- _focusStyle: highlight -->
+<!-- @meta{layout=table, class=state-cells, focus=row 4, focus-style=highlight} -->
+
+
 
 ## `_focusStyle: highlight` — tint the row, dim nothing.
 
@@ -135,8 +135,8 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: cards-grid -->
-<!-- _focusSteps: item 1 | item 2 | item 3 | item 4 -->
+<!-- @meta{layout=cards-grid, focus-steps="item 1 | item 2 | item 3 | item 4"} -->
+
 
 ## `_focusSteps` — one slide, walked a card per click.
 
@@ -151,7 +151,7 @@ const entry = await framework.decisions.log(decision, { signals });
 
 ---
 
-<!-- _class: closing silent -->
+<!-- @meta{layout=closing, class=silent} -->
 
 # Direct the eye.
 

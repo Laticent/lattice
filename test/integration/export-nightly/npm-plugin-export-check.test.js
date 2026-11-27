@@ -138,6 +138,18 @@ after(async () => {
 const ACCEPTED_EXITS = ['navigate', 'windowopen', 'webrtc', 'metarefresh', 'blanklink'];
 const MAY_MISS = { chromium: [], webkit: ['prefetch', 'blanklink'], firefox: ['prefetch', 'ping'] };
 
+/**
+ * Firefox gathers WebRTC candidates on its default-route interface only, and it will not send to a TURN server on
+ * 127.0.0.1 from a non-loopback interface. The listener's TURN port is on 127.0.0.1, so on a machine where Firefox
+ * finds its default address (a cloud sandbox: eth0, 192.0.2.2), the control's WebRTC never reached it and 4 of 12
+ * cells failed with "the witness never heard webrtc". Measured 2026-11-22, Firefox 1572 (Playwright 1.65.1): TURN on
+ * 127.0.0.1 got 0 datagrams; TURN on 192.0.2.2 got 6; TURN on 127.0.0.1 with this pref got 6. The nightly runner was
+ * green because there Firefox fails to find a default address (docs/e2e/filo-live.spec.ts, "failed to find default
+ * addresses") and takes another path. This pref only ADDS the loopback interface, so it cannot hide an exit: the
+ * export's policy is what the walled run measures, and a real TURN server is not on loopback.
+ */
+const GECKO_PREFS = { 'media.peerconnection.ice.loopback': true };
+
 /** The engines this run can reach: name → launch. */
 function engines() {
   const list = [
@@ -156,53 +168,131 @@ function engines() {
     list.push({
       name,
       needs: pw ? null : 'set LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright',
-      launch: async () => require(pw)[name].launch(),
+      launch: async () => require(pw)[name].launch(name === 'firefox' ? { firefoxUserPrefs: GECKO_PREFS } : {}),
     });
   }
   return list;
 }
 
-/** Open `file` once per vector in `browser`, run each vector against `log`, and return whether each vector RAN. */
-async function attempt(browser, file, log) {
-  return Promise.all(
-    Object.entries(vectors(log)).map(async ([name, body]) => {
-      const page = await browser.newPage();
-      await page.goto(`file://${file}`, { waitUntil: 'load' }).catch(() => {});
-      // Each vector first records that it RAN, so a zero is never a script that did not execute.
-      const ran = await page.evaluate(`(function(){ try { ${body}; return true; } catch (e) { return 'threw:' + e.name; } })()`).catch(() => 'navigated');
-      return { page, name, ran };
-    }),
-  );
+/**
+ * How many vectors run at once in one browser. Each lane holds one walled page and at most one witness page at a
+ * time (plus a popup per opened window, and the MAY_MISS pages, which stay open), so a run keeps about 2 × this many
+ * pages. Two layouts failed under 4 runs at once on a 4-CPU sandbox (measured 2026-11-22, WebKit 2388):
+ *   - all 20 vectors at once, walled and witness together: 40 pages in one browser, 151 web processes, a load
+ *     average of 150 to 181, and 4 of 4 runs red;
+ *   - every walled page held open to the end of the run: about 24 pages a run, and the kernel's memory limit killed
+ *     WebKit web processes (about 180 MB each), so a page never finished loading.
+ * The bound is on pages, not on time: each wait keeps `until`'s 60 s deadline.
+ */
+const AT_ONCE = 4;
+
+
+/**
+ * After its own witness, each walled pair witnesses REWITNESS_VECTOR this many more times, one after another, before
+ * its walled page closes. Each round is a real page load of the control export and a real hit, so the slack it buys
+ * grows with the machine's load, as the old wait's did: that wait kept all 20 walled pages open while 20 witness pages
+ * loaded and were heard. The page load is most of a round, so the vector is a plain image load that fires on every
+ * engine. Not the slowest vector by measurement: that picked `windowopen` (each popup outlives its page, about 80 a
+ * run) or `webrtc` (64 peer connections a run, and WebKit then failed to send one), and it made the slack vary between
+ * runs. Measured 2026-11-23, Chromium, the walled run pointed at the policy-free control with every vector deferred by
+ * a setTimeout, exits seen (player / plain): 500 ms, main 20/20 and 6 rounds 20/20; 1 s, main 20/20, 6 rounds 20/20,
+ * 4 rounds 18/20; 2 s, main 0/3, 6 rounds 0/20. So 6 rounds match or beat the old wait at every delay measured.
+ */
+const REWITNESS = 6;
+const REWITNESS_VECTOR = 'img';
+
+/** Open `file` in a fresh page of `browser`, run vector `name` against `log`, and return whether it RAN. */
+async function attempt(browser, file, log, name) {
+  const page = await browser.newPage();
+  let loaded = true;
+  await page.goto(`file://${file}`, { waitUntil: 'load' }).catch((e) => {
+    loaded = `goto failed: ${String(e.message).split('\n')[0]}`;
+  });
+  // Each vector first records that it RAN, so a zero is never a script that did not execute.
+  const ran = await page.evaluate(`(function(){ try { ${vectors(log)[name]}; return true; } catch (e) { return 'threw:' + e.name; } })()`).catch(() => 'navigated');
+  return { page, name, ran, loaded };
+}
+
+/** Run `work` over `items`, at most `limit` at a time, keeping their order in the result. */
+async function pool(items, limit, work) {
+  const out = new Array(items.length);
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await work(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  return out;
 }
 
 /**
  * Run every vector in `file`, each in its own page, and return the vectors that reached the listener. Waits on
- * signals, never on a quiet period (HARD RULE #32; test/helpers/request-log.js):
- *   - the CONTROL (`witness` unset) waits until the listener has heard every vector this engine can fire;
- *   - a walled run opens the export's pages first and only then runs a WITNESS, the control file against a second
- *     listener. Once the witness has heard every fireable vector, any attempt the walled pages made has had at least
- *     that long to land. A quiet period of 2 s, repeated until the count stopped moving, was the old wait.
- * Then every page closes and the listener is drained, so an attempt already on the wire is counted.
+ * signals, never on a quiet period (HARD RULE #32; test/helpers/request-log.js). Vectors run AT_ONCE at a time:
+ *   - the CONTROL (`witness` unset) waits until the listener has heard the vector, when this engine can fire it;
+ *   - a walled run makes the vector's attempt first and only then runs its WITNESS, the same vector in the control
+ *     file against a second listener. Once the witness has heard it, the walled attempt has had at least that long to
+ *     land. Then it witnesses REWITNESS_VECTOR REWITNESS more times, each against a listener of its own,
+ *     and only then closes the walled page. That keeps a walled leak that is slower than its own control in reach
+ *     for as long as the old wait did (all 20 walled pages open until all 20 witnesses had heard): see REWITNESS for
+ *     the measurement. A leak held back for longer than that needs its own signal, as request-log.js says; neither
+ *     wait covers a 3 s setTimeout leak.
+ * A vector this engine may not fire (MAY_MISS) has no signal to wait on, so it goes first and its page stays open to
+ * the end of the run. Then the browser closes and the listener is drained, so an attempt already on the wire is
+ * counted.
  */
 async function reached(eng, file, { witness = null } = {}) {
   main.reset();
-  const fireable = Object.keys(vectors()).filter((v) => !MAY_MISS[eng.name].includes(v));
-  const heardAll = (log) => log.until((h) => fireable.every((v) => vectorsHit(h).includes(v)));
+  const names = Object.keys(vectors());
+  const fireable = (v) => !MAY_MISS[eng.name].includes(v);
+  // Each wait keeps `until`'s 60 s deadline. A walled run stops waiting after its first miss: the run has already
+  // failed, and waiting 60 s for each remaining vector would let an engine that fires nothing reach the test TIMEOUT,
+  // which reports a bare timeout instead of the "witness never heard" message that names the vectors. (A deadline
+  // shared by the whole run was tried and failed: REWITNESS multiplies a run's work, and under load a healthy Firefox
+  // walled run used up 120 s, so its last waits got no time; measured 2026-11-23.)
+  let gaveUp = false;
+  const heard = async (log, v) => {
+    if (gaveUp) return null; // skipped: not a miss of its own
+    const ok = await log.until((h) => vectorsHit(h).includes(v));
+    if (!ok && witness) gaveUp = true;
+    return ok;
+  };
   // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
   // idle socket in its pool after the page that opened it has closed.
   const browser = await eng.launch();
+  const w = witness ? await listener() : null;
+  const missed = [];
   let pages = [];
-  let w = null;
   try {
-    pages = await attempt(browser, file, main);
-    if (witness) {
-      w = await listener();
-      await attempt(browser, witness, w);
-      assert.ok(await heardAll(w), `the witness never heard ${fireable.filter((v) => !vectorsHit(w.hits).includes(v)).join(' ')}, so the walled run's zero proves nothing`);
-    } else {
-      // A vector the control cannot fire leaves the wait at its deadline; the harness test names it.
-      await heardAll(main);
-    }
+    // The vectors with no signal go first, so the rest of the run is the time they get.
+    const order = [...names.filter((v) => !fireable(v)), ...names.filter(fireable)];
+    pages = await pool(order, AT_ONCE, async (name) => {
+      const walled = await attempt(browser, file, main, name);
+      if (!fireable(name)) return walled;
+      if (w) {
+        const own = await attempt(browser, witness, w, name);
+        if ((await heard(w, name)) === false) missed.push(`${name} (witness ran: ${own.ran}, loaded: ${own.loaded}, url: ${own.page.url().slice(0, 60)})`);
+        await own.page.close().catch(() => {});
+        for (let round = 0; round < REWITNESS; round++) {
+          const sl = await listener();
+          try {
+            const again = await attempt(browser, witness, sl, REWITNESS_VECTOR);
+            if ((await heard(sl, REWITNESS_VECTOR)) === false) missed.push(`${REWITNESS_VECTOR}, witnessed again for ${name} (ran: ${again.ran}, loaded: ${again.loaded})`);
+            await again.page.close().catch(() => {});
+          } finally {
+            await sl.close();
+          }
+        }
+      } else {
+        // A vector the control cannot fire leaves the wait at its deadline; the harness test names it. The control
+        // makes no absence claim, so its page may close once heard.
+        await heard(main, name);
+      }
+      await walled.page.close().catch(() => {});
+      return walled;
+    });
+    assert.deepEqual(missed, [], `the witness never heard ${missed.join(' ')}, so the walled run's zero proves nothing`);
   } finally {
     await browser.close();
     await w?.close();
@@ -213,8 +303,10 @@ async function reached(eng, file, { witness = null } = {}) {
   // throws is not a wall, plugin code can fetch the original from a fresh frame). Only a vector that
   // navigates the page away may lose its answer.
   // A SecurityError is the engine enforcing a policy synchronously (WebKit's SecurityError, Firefox's NS_ERROR_CONTENT_BLOCKED, and Firefox's blank error for a form post that `form-action 'none'` refuses), which is a wall.
+  // A page that did not load ran its vector in about:blank, outside the export's policy, so its result means nothing.
+  const unloaded = pages.filter((p) => p.loaded !== true).map((p) => `${p.name}:${p.loaded}`);
   const unrun = pages.filter((p) => p.ran !== true && !/^threw:(SecurityError|NS_ERROR_CONTENT_BLOCKED)$/.test(p.ran) && !(p.name === 'form' && p.ran === 'threw:') && !(p.ran === 'navigated' && NAVIGATES.includes(p.name))).map((p) => `${p.name}:${p.ran}`);
-  return { got, unrun };
+  return { got, unrun: [...unloaded, ...unrun] };
 }
 
 /**

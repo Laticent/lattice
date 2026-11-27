@@ -67,7 +67,7 @@ marp: true
 theme: indaco
 header: "Lattice · a running header long enough to reach well past any panel seam"
 footer: "Confidential · Laticent · a running footer long enough to run past any panel seam on any variant"
-paginate: true
+pagination: true
 ---
 
 ${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
@@ -150,11 +150,14 @@ describe('split chrome budget (real render)', () => {
 // ran on under the rail's lane.
 const LONG_FOOTER = 'Confidential · board pre-read · do not forward outside the org';
 const points = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}\n  - Detail ${i + 1}.`).join('\n');
+// `fit: heal` (the COUNT-based split): measuring is the default (lib/core/resolve-fit.js fitPacks)
+// and keeps the 3-point slide whole, and this file needs both of its runs to split, one per rail form.
 const PORTRAIT_DECK = `---
 marp: true
 size: portrait
+fit: heal
 theme: indaco
-paginate: true
+pagination: true
 ---
 
 ${[1, 3, 14].map((n) => `<!-- _class: split-panel pullquote -->\n<!-- _footer: "${LONG_FOOTER}" -->\n\n> A quotation.\n\n\`Someone\`\n\n${points(n)}`).join('\n\n---\n\n')}

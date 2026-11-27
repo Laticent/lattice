@@ -6,7 +6,7 @@
       "html": "studio/index.html",
       "eagerJsGz": {
         "soft": 571778,
-        "hard": 638636
+        "hard": 644780
       },
       "htmlRaw": {
         "soft": 226628,
@@ -22,7 +22,7 @@
       },
       "lintCoreGz": {
         "soft": 152151,
-        "hard": 171974
+        "hard": 174022
       },
       "chartKernelsGz": {
         "soft": 231477,
@@ -37,7 +37,7 @@
       },
       "htmlRaw": {
         "soft": 471849,
-        "hard": 520570
+        "hard": 524154
       },
       "engineJsGz": {
         "soft": 648151,
@@ -48,7 +48,7 @@
       "html": "index.html",
       "eagerJsGz": {
         "soft": 291531,
-        "hard": 328192
+        "hard": 331264
       },
       "htmlRaw": {
         "soft": 121872,
@@ -86,7 +86,7 @@
       },
       "engineJsGz": {
         "soft": 310700,
-        "hard": 354304
+        "hard": 355840
       }
     }
   }

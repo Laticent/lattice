@@ -1,46 +1,28 @@
 #!/usr/bin/env node
 /**
- * Deterministic changelog → semver-bump engine.
+ * The `changelog.d/` fragment format, and the category → semver mapping a fragment carries.
  *
- * The single source of truth for "what kind of release is this?" is the
- * `## Unreleased` section of CHANGELOG.md, kept in Keep-a-Changelog form
- * (### Added / Changed / Deprecated / Removed / Fixed / Security). This
- * module maps the categories present there to a bump level — no commit
- * parsing, no guessing — so a human writes the notes and the machine reads
- * the bump back out.
+ * SINCE THE CHANGESETS CUTOVER (decision 2026-10-07-first-npm-release §11) this module no longer
+ * versions anything. Changesets does: each `.changeset/*.md` names its packages and bumps, and the
+ * release (`tools/release.js`) runs `changeset version`. Fragments are still accepted, because open
+ * PRs carried them on the cutover day (issue #3449); `tools/changesets.js` converts each pending one
+ * into an engine changeset, with the bump this module's mapping always gave it:
  *
- * Mapping (highest wins):
- *   major  — a `### Removed` section with content, OR any bullet flagged
- *            breaking (`**Breaking:**` lead, or the `BREAKING CHANGE` token).
- *            Matches the documented contract policy: removed/renamed exports,
- *            dropped themes, a raised Node floor, or a breaking change to a
- *            stable layout/token surface.
- *   minor  — `### Added`, `### Changed`, or `### Deprecated` with content.
- *            New components/themes/modifiers, additive exports, deprecations.
- *   patch  — only `### Fixed` / `### Security`. Bug/security fixes, internal
- *            (Mermaid CSS) churn.
+ *   major  — the `removed` category, OR any bullet flagged breaking (`**Breaking:**` lead, or the
+ *            `BREAKING CHANGE` token).
+ *   minor  — `added`, `changed` or `deprecated`.
+ *   patch  — `fixed` or `security`.
  *
- * An empty `## Unreleased` is an error — there is nothing to release.
- *
- * WHERE NEW ENTRIES GO — `changelog.d/`, not this file's `## Unreleased`.
- * Appending to one shared section is what made `CHANGELOG.md` conflict on every
- * rebase and eject PR after PR from the merge queue (#1593: seven ejections in
- * one evening, every one a mechanical "keep both entries"). New entries are
- * written as per-PR FRAGMENT files — `changelog.d/<slug>.<category>.md` — which
- * two PRs never both touch, so the conflict cannot occur. The fragments are
- * folded into `## Unreleased` and deleted by the RELEASE, which is serialized;
- * nothing regenerates `CHANGELOG.md` per-PR, so this does not trade one
- * generated-from-everything artifact (#1594) for another.
- *
- * Everything below reads the two sources as ONE body: the bump, the notes and
- * the `--check` all see `## Unreleased` plus every pending fragment.
+ * What still lives here: the fragment reader and its gate (`readFragments`, `fragmentProblems`,
+ * used by check-ownership's `checkChangelogFragments`), the mapping (`levelForCategory`,
+ * `hasBreakingMarker`), `extractVersion` and `fitReleaseBody` for the release notes. The
+ * `## Unreleased` assemblers are kept, tested, for reading the archive's history; the root
+ * CHANGELOG.md is an index with no `## Unreleased` any more.
  *
  * CLI:
- *   node tools/changelog.js --bump          # print: major|minor|patch
- *   node tools/changelog.js --notes         # print the release notes (Unreleased + fragments)
- *   node tools/changelog.js --check         # exit 0 if there is releasable content, else 1
  *   node tools/changelog.js --fragments     # list the pending fragments, one per line
- *   node tools/changelog.js --next <semver> # print the next version for the computed bump
+ *   (the old --bump / --notes / --check / --next read `## Unreleased`, which no longer exists;
+ *    `npx changeset status --verbose` previews the next release)
  *
  * Exports the pure functions for tools/release.js, tools/check-ownership.js and
  * the unit tests.
@@ -115,8 +97,8 @@ function fragmentProblems(dir = FRAGMENT_DIR) {
   const problems = [];
   if (!fs.existsSync(dir)) {
     problems.push(
-      `${FRAGMENT_DIRNAME}/ is missing — it is where every changelog entry now goes ` +
-      `(HARD RULE #10). Restore it with its README; do not append to CHANGELOG.md \`## Unreleased\`.`,
+      `${FRAGMENT_DIRNAME}/ is missing — open PRs still write fragments there and the release ` +
+      `converts them (HARD RULE #10). Restore it with its README; never edit a CHANGELOG.md.`,
     );
     return problems;
   }
@@ -373,10 +355,6 @@ function rollUnreleased(md, version, dateStr) {
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────
-function readChangelog() {
-  const p = path.join(__dirname, '..', 'CHANGELOG.md');
-  return fs.readFileSync(p, 'utf8');
-}
 
 function main(argv) {
   const problems = fragmentProblems();
@@ -392,37 +370,10 @@ function main(argv) {
     return 0;
   }
 
-  const md = readChangelog();
-  // Every reader below sees ONE body: `## Unreleased` plus the pending fragments.
-  const section = extractUnreleased(assembleUnreleased(md, fragments));
-  if (!section) { console.error('error: no ## Unreleased section in CHANGELOG.md'); return 1; }
-
-  if (argv.includes('--check')) {
-    try { computeBump(section.body); return 0; }
-    catch (e) { console.error(e.message); return 1; }
-  }
-  if (argv.includes('--bump')) {
-    // `--check` has always caught this; --bump and --next threw a raw stack trace at
-    // whoever ran them on an empty changelog. Now that adding an entry means adding a
-    // FILE rather than editing one, "nothing to release" is a state a human reaches by
-    // ordinary means, and it deserves the same one-line answer.
-    try { process.stdout.write(`${computeBump(section.body)}\n`); }
-    catch (e) { console.error(`error: ${e.message}`); return 1; }
-    return 0;
-  }
-  if (argv.includes('--notes')) {
-    process.stdout.write(releaseNotes(section.body));
-    return 0;
-  }
-  const nextIdx = argv.indexOf('--next');
-  if (nextIdx !== -1) {
-    const cur = argv[nextIdx + 1];
-    if (!cur) { console.error('error: --next requires a current version'); return 1; }
-    try { process.stdout.write(`${nextVersion(cur, computeBump(section.body))}\n`); }
-    catch (e) { console.error(`error: ${e.message}`); return 1; }
-    return 0;
-  }
-  console.error('usage: changelog.js [--bump | --notes | --check | --fragments | --next <version>]');
+  console.error(
+    'changelog.js no longer versions releases: Changesets does (decision 2026-10-07-first-npm-release §11).\n'
+    + 'Preview the next release with `npx changeset status --verbose`, or `npm run release:dry`.',
+  );
   return 1;
 }
 
