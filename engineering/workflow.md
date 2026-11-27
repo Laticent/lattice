@@ -205,12 +205,15 @@ center triggers it from each session's reported `external_metadata.context_usage
 (`get_session`), so neither the owner nor the session has to remember.
 
 **Steps.**
-1. **The old session pushes and writes its brief** in the PR's living comment (`npm run card -- --living
-   <PR>`), with the six sections below. A desk with no PR writes it in its last report.
+1. **The old session pushes, writes its brief and releases the baton** in the PR's living comment
+   (`npm run card -- --living <PR>`, with the six sections below, then `baton: released`). HARD RULE #31
+   frees a baton only by that explicit act, so without it step 2 is refused. A desk with no PR writes the
+   brief in its last report.
 2. **The command center starts a fresh session from that brief.** It takes the baton on the same branch
    (`npm run baton -- take`, HARD RULE #31): no new branch, ever.
-3. **First turn: read back.** Before it acts, the fresh session sends the command center its read of the
-   brief's open items and caveats. The command center compares that with the brief and with what it knows,
+3. **First turn: read back.** Before it acts, the fresh session answers the command center's start
+   message (a reply, as §Desks "A worker messages the command center only at a gate" allows, not a fifth
+   gate) with its read of the brief's open items and caveats. The command center compares that with the brief and with what it knows,
    and catches anything that got dropped.
 4. **The old session is archived** only when it passes the auto-archive checks (§Desks, "Auto-archive"):
    no unpushed work, no owner question waiting on it, and its PR has a new owner. An archived session stays

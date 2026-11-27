@@ -1,7 +1,9 @@
 # HARD RULES — the full text
 
 The binding text of every HARD RULE, moved here word for word from `CLAUDE.md` on 2026-11-27
-(`engineering/decisions/2026-11-27-claude-md-index.md`). `CLAUDE.md` keeps each rule's number, title and
+(`engineering/decisions/2026-11-27-claude-md-index.md`). One later edit, on the same PR: #31's
+rebase and force-push sentence, narrowed to a branch two sessions pushed (D5 A, census row 2,
+`2026-11-27-rule-contradictions.md`). `CLAUDE.md` keeps each rule's number, title and
 operative core as a one-line anchor; this file holds the full text, its evasion envelope and its gate, and
 **this text binds**. Read one rule at a time: `grep -n '^### #' engineering/hard-rules.md`, then
 `sed -n 'A,Bp'`.
