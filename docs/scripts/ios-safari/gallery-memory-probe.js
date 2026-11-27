@@ -188,3 +188,94 @@ async function latticeGalleryCycle(cycle) {
 		return { ok: false, cycle, error: String(e?.message || e), docs: window.__latticeDocs ?? 0, rewrites: window.__latticeRewrites ?? 0 };
 	}
 }
+
+/**
+ * (e) What a reopen SHOWS, MR-8's shape (docs/e2e/gallery-preview-metamorphic.spec.ts): open at the top, wait for every
+ * tile on screen to show its slide, return to the top and close. The cycles above flick to the bottom before each close,
+ * and the tiles there still hold their frames when the gallery reopens, so they cannot see a reopen that leaves the top
+ * tiles blank: the pool deciding who gets a frame while the phone sheet is still sliding up (preview-pool.tsx, the pass
+ * when the surface stops moving). The Blank tile draws no slide by design and is left out. Returns the labels of the
+ * tiles on screen still showing no slide after 20 s, or an empty list.
+ */
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
+async function latticeGalleryShows(open) {
+	const sel = LATTICE_GALLERY_SCROLLER;
+	const frame = () =>
+		new Promise((r) => {
+			const t = setTimeout(r, 100);
+			requestAnimationFrame(() => {
+				clearTimeout(t);
+				r();
+			});
+		});
+	const scroller = () => document.querySelectorAll(sel)[0];
+	const shown = () => {
+		const sc = document.querySelector(sel);
+		return !!sc && sc.getClientRects().length > 0;
+	};
+	const until = async (fn, ms, what) => {
+		const t0 = performance.now();
+		for (;;) {
+			const v = fn();
+			if (v) return v;
+			if (performance.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+			await frame();
+			await frame();
+		}
+	};
+	const visibleButton = (name) =>
+		[...document.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') || b.textContent || '').trim() === name && b.getClientRects().length > 0 && !b.closest('[inert]'));
+	// The tiles on screen that show no slide: a pooled frame sits OVER its tile (same top-left), not inside it.
+	const unpainted = () => {
+		const sc = scroller();
+		if (!sc) return ['(no gallery)'];
+		const r = sc.getBoundingClientRect();
+		const frames = [...document.querySelectorAll('iframe.live')];
+		const out = [];
+		for (const box of sc.querySelectorAll('.aspect-video')) {
+			const b = box.getBoundingClientRect();
+			if (b.bottom <= r.top || b.top >= r.bottom || b.height < 4) continue;
+			const label = box.closest('[aria-label]')?.getAttribute('aria-label') || '';
+			if (label.startsWith('Insert Blank')) continue;
+			const fr = frames.find((f) => {
+				const q = f.getBoundingClientRect();
+				return q.width > 4 && Math.abs(q.top - b.top) < 3 && Math.abs(q.left - b.left) < 3;
+			});
+			let painted = false;
+			try {
+				painted = !!fr?.contentDocument?.querySelector('.lattice, section[data-lattice-slide]');
+			} catch {
+				painted = false;
+			}
+			if (!painted) out.push(label.split(' — ')[0] || '(unlabeled)');
+		}
+		return out;
+	};
+	try {
+		(await until(() => visibleButton('New slide'), open === 0 ? 150000 : 30000, 'the New slide button')).click();
+		(await until(() => visibleButton('New slide after'), 10000, 'New slide after')).click();
+		await until(shown, 30000, 'the gallery');
+		const sc = scroller();
+		if (sc) sc.scrollTop = 0;
+		const t0 = performance.now();
+		let blank = unpainted();
+		while (blank.length && performance.now() - t0 < 20000) {
+			await frame();
+			blank = unpainted();
+		}
+		const target = document.activeElement || document.body;
+		target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+		const t1 = performance.now();
+		while (shown() && performance.now() - t1 < 3000) await frame();
+		if (shown()) {
+			const dialog = scroller()?.closest('[role="dialog"]');
+			const close = dialog && [...dialog.querySelectorAll('button')].find((b) => (b.textContent || '').trim() === 'Close');
+			if (close) close.click();
+		}
+		await until(() => !shown(), 20000, 'the gallery to close');
+		return { ok: true, open, blank };
+	} catch (e) {
+		return { ok: false, open, error: String(e?.message || e) };
+	}
+}
+

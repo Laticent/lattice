@@ -762,6 +762,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   desktop, iPad and iPhone size. Its failing arm: rebuild with `main`'s `preview-pool.tsx` (before #3441) and run it again.
   LITE then rewrites 2, 3 and 6 kept frames in 3 reopens at 1440, 1180 and 1032 px, while the iPhone stays green
   with or without the fix.
+  It also opens and closes the gallery three times at the TOP (`latticeGalleryShows`, MR-8's shape) and fails when a
+  tile on screen still shows no slide 20 s after a reopen (check (e)). That is a real-device READING, not the gate: the
+  blank-tile race needs the pool's pass to land while the phone sheet still slides, and Playwright's WebKit at full speed
+  does not lose it, so (e) stays green locally with the fix taken out. MR-8 in `gallery-preview-metamorphic.spec.ts`
+  holds the fix (red 3 of 3 without it).
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the

@@ -1114,6 +1114,9 @@ async function runGalleryMemoryProbe(id) {
 				if (!c?.ok) break;
 				out.memoryMB.push(mac ? null : totalMB(await simulatorWebContentMB()));
 			}
+			// (e) MR-8's shape, on the same page: three opens closed at the top, each read for blank tiles.
+			out.shows = [];
+			for (let i = 0; i < 3 && out.cycles.every((c) => c?.ok); i++) out.shows.push(await call(`latticeGalleryShows(${i})`));
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 		}

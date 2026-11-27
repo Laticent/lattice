@@ -532,6 +532,8 @@ if (process.env.PROBE === 'gallery-memory') {
 					arm.cycles.push(c);
 					if (!c.ok) break;
 				}
+				arm.shows = [];
+				for (let i = 0; i < 3 && arm.cycles.every((c) => c.ok); i++) arm.shows.push(await page.evaluate((n) => globalThis.latticeGalleryShows(n), i));
 				const steps = galleryChecks(arm);
 				const ok = steps.every((s) => s.pass);
 				console.log(`${label} ${gallerySummary(`${name} (${tier})`, arm)}`);

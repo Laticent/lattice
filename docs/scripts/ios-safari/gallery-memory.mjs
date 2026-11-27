@@ -53,6 +53,16 @@ export function galleryChecks(arm) {
 	step('(d) the reopens rewrote no kept preview frame', rewrote === 0, `${rewrote} rewrites in ${cycles.length - 1} reopens`);
 	const opened = cycles.map((c) => c.opened);
 	step('opening is the same each time, within the slack', Math.abs(opened[0] - opened[opened.length - 1]) <= SLACK, `mounted after the flick: ${opened.join(', ')}`);
+	// (e) MR-8's relation: opened and closed at the top, every tile on screen shows its slide after each reopen.
+	if (arm.shows) {
+		const broke = arm.shows.find((o) => !o.ok);
+		const blank = arm.shows.filter((o) => o.ok && o.blank.length);
+		step(
+			'(e) every tile on screen shows its slide after each reopen at the top',
+			arm.shows.length >= 3 && !broke && blank.length === 0,
+			broke ? `open ${broke.open + 1}: ${broke.error}` : blank.length ? blank.map((o) => `open ${o.open + 1}: ${o.blank.join(', ')}`).join('; ') : `${arm.shows.length} opens, no blank tile`,
+		);
+	}
 	return steps;
 }
 
