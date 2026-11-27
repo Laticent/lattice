@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: in-progress
 summary: Map of initiative #3540 (licensing, document runtime, Desktop) and its 7 epics, checked against main at 4bf25e86 by the trio; the 1.0 gate clash with rc.1, owner decisions, and a before/after-release sequence.
 ---
 
@@ -8,7 +8,22 @@ summary: Map of initiative #3540 (licensing, document runtime, Desktop) and its 
 **Date:** 2026-11-27 · **Asked by:** the owner, through the command center ("understand the initiative
 and epics in full and run the trio and make any corrections. then … sequence it two buckets, before and
 after release") · **Desk:** 🧭 Initiative desk (Kirk) · **Pinned to:** `main` at `4bf25e86` ·
-**Status:** blocked on the owner's decisions in §4. Nothing on GitHub has been edited.
+**Status:** in progress. The owner decided C1 and the Sunday publish on 2026-11-27 (§0).
+
+## 0. The owner's decisions (2026-11-27)
+
+Typed in this desk's session. The options were put in plain English, with pros and cons.
+
+| # | Question | Answer |
+|---|---|---|
+| D1 | What happens to 1.0? | **C: hold npm 1.0.0 until the Apache work is done.** The initiative's "before 1.0" gates stand as written. The Dec 1–2 date is off |
+| — | Does Sunday's rc.1 publish still happen? | **No: publish nothing yet.** No rc.1, no library publish and no tag moves on Sun Nov 29. Each library's first public version can be Apache (question tool, about 23:25 UTC) |
+| D2 | Fix the over-claiming license wording? | **A: one session drafts accurate README §License and `/comparison` wording; the owner approves it.** No freeze deadline, since nothing publishes |
+| D3 | What starts next? | **A: start A-1, A-4 and A-5 in parallel** (rights inventory, the license-file CI gate, the runtime, library and byte inventories) |
+| C2–C6 | Issue corrections | "fix everything that is inaccurate": applied to #3542 (plugin count, 12 of 18 on npm), #3544 (six venue rungs) and #3546 (link to #2354). No labels or holds added |
+
+The release desk (#3449) has both release answers. With 1.0 held, "before release" in §5 now means before the
+held 1.0, not before Sunday. §1 below is the analysis as written before these decisions.
 
 ## 1. The one thing to know first
 
