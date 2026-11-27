@@ -67,7 +67,6 @@
 // line, not the invariant. The whole state table is enumerated in
 // `asset-save-states.test.ts`.
 
-import { removeVaultFile } from '../media-vault';
 import { ASSET_STORE, HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 import { deleteAssetVersions, newestFirst, planSnapshot } from './asset-history.js';
 
@@ -397,5 +396,6 @@ export async function deleteAsset(id) {
     store.transaction.onerror = store.transaction.onabort = () => reject(store.transaction.error);
   });
   await deleteAssetVersions(id);
-  if (row && typeof row.vault === 'string') await removeVaultFile(row.vault);
+  // Loaded only for a vault row, so the Studio's eager bundle does not carry the vault (check:route-budget).
+  if (row && typeof row.vault === 'string') await (await import('../media-vault')).removeVaultFile(row.vault);
 }

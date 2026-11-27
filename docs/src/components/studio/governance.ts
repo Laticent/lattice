@@ -32,7 +32,6 @@ import { disconnectAllProviders } from './api-key';
 import { chatsSettled, hydrateAllChats, lastChatClear } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { type LocalStorageUse, localStorageUse } from './local-quota';
-import { clearMediaFolders } from './media-vault';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
@@ -180,7 +179,7 @@ export async function clearLibraryAssets(): Promise<void> {
 	await Promise.all(all.map((a: { id: string }) => deleteAsset(a.id)));
 	// A save that died between its file and its row leaves a file no row names (media-store `saveMedia`). Clearing
 	// the Library means every photo, so the media folders are emptied too, not only the files rows name.
-	await clearMediaFolders();
+	await (await import('./media-vault')).clearMediaFolders();
 }
 
 export async function clearDownloadedModels(): Promise<void> {

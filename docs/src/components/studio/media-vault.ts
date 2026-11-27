@@ -15,8 +15,9 @@
 //
 // NO VAULT, NO MOVE. Where the vault cannot open, a photo is stored the old way, in its row, and every
 // reader below still reads that. A row is one or the other: `vault` (a path) or `blob` / `data` (the bytes).
-// Only types and the small lock helper load with this module. The vault itself is imported on first use, so the
-// Studio's eager bundle does not carry it (check:route-budget, studio eagerJsGz).
+// This module is itself loaded on first use (media-store, asset-store, governance import it dynamically), and the
+// vault behind it is imported on first use again, so the Studio's eager bundle carries none of either
+// (check:route-budget, studio eagerJsGz).
 import type { BrowserVault } from '@/lib/vault';
 import { defaultLocks } from '@/lib/vault/backing';
 

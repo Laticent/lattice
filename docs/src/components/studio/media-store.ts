@@ -21,7 +21,10 @@ import { deleteAsset } from '@/components/studio/library/asset-store.js';
 // A DEFAULT import: a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import limits from '../../../../lib/packages/limits.js';
 import { cleanCaption } from './agent-assets';
-import { mediaPath, removeVaultFile, studioVault, vaultBlob } from './media-vault';
+
+// The vault's Studio module loads on first use: the Studio's eager bundle carries none of it (check:route-budget,
+// studio eagerJsGz). A save, a read of a vault row and a refused save are the only paths that reach it.
+const mediaVault = () => import('./media-vault');
 
 export type MediaKind = 'image' | 'video';
 /** `'library'` — every deck — or the id of the one deck that owns the asset. */
@@ -170,6 +173,7 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 	}
 	const id = newId();
 	const roomless = () => new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
+	const { mediaPath, removeVaultFile, studioVault } = await mediaVault();
 	const vault = await studioVault();
 	if (vault) {
 		// Bytes first, then the row. A tab that dies between the two leaks one file no row names (nothing sweeps
@@ -296,7 +300,7 @@ export function readable(row: MediaRow): MediaRecord {
  *  hiding a photo the person still has a record of. */
 export async function hydrate(row: MediaRow): Promise<MediaRecord> {
 	if (!row.vault || row.blob || row.data) return readable(row);
-	const blob = (await vaultBlob(row.vault, row.mime)) ?? new Blob([], { type: row.mime });
+	const blob = (await (await mediaVault()).vaultBlob(row.vault, row.mime)) ?? new Blob([], { type: row.mime });
 	return { ...row, blob } as MediaRecord;
 }
 
