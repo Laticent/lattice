@@ -558,3 +558,28 @@ heading ink on a fill. Adopting the core colors therefore needs, per Mermaid set
 actually sits on: the map's job, checked by the contrast pairs the plugin declares (§8.3). It is work in Mermaid's
 plugin file, not a reason against the core colors: the swap's failures are all ink choices, never a fill that cannot
 carry text.
+
+### 9.7 Re-cut to fit 12 agents (owner, 2026-11-27)
+
+**The owner's answers** (the command center's question tool, about 06:16 UTC, not typed): on raising the ceiling to
+about 43, "gtfoh. group and be efficient. stack wins. one commit per pr. no settling. no hank. no broken windows. no
+tech debt"; on the freeze, "Treat color renames as renames": the freeze exempts renames, so the token renames and the
+moves into plugin files may land after Saturday 23:59 and before 1.0. THEME 1.0 ships at launch. The work still
+starts last (§9.5), and building waits for the owner's typed go.
+
+**Two PRs, one commit per item, for all the spec and token work.**
+
+| PR | Commits, in order | Review |
+|---|---|---|
+| **A, the specs** (#3554, this branch) | the design notes; EXTENDING 1.0; LFM 1.0 consolidated (after @meta E merges); Diagnostics 1.0 with the finding schema; LTT 1.0 with its added cases; LATTICE-FILE 1.0 | one adversarial trio over everything A ships, one card grader |
+| **B, the token system** (one branch, one worker session for its whole life) | T1 registry and names; T2 plumbing; T3 move plugin colors; T4 categories and ramps; T5 rewire renderers; T6 rename sweep; T7 THEME 1.0 | one adversarial trio over the renames and the rewiring (T3, T5, T6) and THEME, one card grader |
+
+**Agents, against 12.** PR A: trio 3 + grader 1. PR B: trio 3 + grader 1, plus 1 worker session. That is 9. The
+remaining 3 are the raise loop's re-grades (CLAUDE.md: up to three rounds per card), spent only if a card comes back
+below VERY HIGH. Nothing else spawns: maker work is this desk's and the one worker's, and a checker's job inside B is
+done by B's trio, not by a separate maker-checker per commit.
+
+**What the grouping costs, said plainly.** A single trio reviewing six commits must read more; each commit stays small
+and self-contained so the reviewers can take them one at a time. One PR per line also means one merge: if one commit
+in B is not ready, B waits, or that commit moves out to a later PR. The sign-off rounds stay two (T4 and T5 together,
+then T6 with T7), both on PR B.
