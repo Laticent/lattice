@@ -2705,13 +2705,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// if the gesture turns out to have been a step. See `onDeckTouchEnd`.
 		if (t) touchRef.current = { x: t.clientX, y: t.clientY, multi: false, driveWas: driveAtRef.current };
 	}, []);
-	/** A press held in the frame while it scrolls: the reader dragging the deck, by a scrollbar of any kind (classic,
-	 *  overlay, left-hand in a right-to-left frame) or anything else they hold. `onDeckScroll` stamps the input clock
-	 *  while this is set, so a walk scroll still on its way stands down (`walkEnRoute`). A press alone stamps nothing:
-	 *  a click on a slide during a land must not tell the land the reader took over (`done()`'s `oursInFlight`). */
-	const pressingRef = React.useRef(false);
+	/** A press held in the frame and MOVED while it scrolls: the reader dragging the deck, by a scrollbar of any kind
+	 *  (classic, overlay, left-hand in a right-to-left frame) or anything else they hold. `onDeckScroll` stamps the input
+	 *  clock once the held pointer has moved, so a walk scroll still on its way stands down (`walkEnRoute`). A press
+	 *  alone, held still, stamps nothing: a click on a slide during a land must not tell the land the reader took over
+	 *  (`done()`'s `oursInFlight`), however long the click is held while the land scrolls. */
+	const pressRef = React.useRef<{ x: number; y: number; moved: boolean } | null>(null);
 	const onDeckPress = React.useCallback((e: PointerEvent) => {
-		pressingRef.current = e.type === 'pointerdown' || (e.type === 'pointermove' && e.buttons !== 0);
+		if (e.type === 'pointerdown') pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
+		else if (e.type === 'pointermove' && e.buttons !== 0 && pressRef.current) {
+			if (Math.hypot(e.clientX - pressRef.current.x, e.clientY - pressRef.current.y) > 3) pressRef.current.moved = true;
+		} else pressRef.current = null;
 	}, []);
 	/** A wheel or a finger actually moving the deck. Separate from the swipe rule above: a
 	 *  drag that never clears the swipe threshold is still the reader scrolling. */
@@ -2848,8 +2852,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	const scrollRafRef = React.useRef<number | null>(null);
 	const onDeckScroll = React.useCallback(() => {
-		// A scroll under a held press is the reader dragging the deck (`onDeckPress`).
-		if (pressingRef.current) userInputAtRef.current = Date.now();
+		// A scroll under a held, moved press is the reader dragging the deck (`onDeckPress`).
+		if (pressRef.current?.moved) userInputAtRef.current = Date.now();
 		if (scrollRafRef.current != null) return; // one read per frame
 		scrollRafRef.current = requestAnimationFrame(() => {
 			scrollRafRef.current = null;

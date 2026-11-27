@@ -610,14 +610,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (flat >= 0 && flat !== caretFlat) hub.go('preview-pick', { flat, grab: false });
 		},
 		previewScrolled() {
+			landEcho(echo.preview, ports.previewScroll());
 			// The reader took the preview from a pick: it is past where the pick was going, or back past where it began.
-			// The pick no longer owns the preview, and a load in the next moments must not send it back there.
-			if (ownUntil && ownTrip) {
+			// The pick no longer owns the preview, and a load in the next moments must not send it back there. Not for our
+			// own write (its echo). A load's re-fit can also clamp the scroll out of the trip, but `onFrameLoad` re-fits and
+			// pays the debt (`loaded`) in one task, so the pick has been re-sent before that scroll event arrives.
+			if (ownUntil && ownTrip && !isEcho(echo.preview)) {
 				const y = ports.previewScroll();
 				const { from, to } = ownTrip;
 				if (y < Math.min(from, to) - 1 || y > Math.max(from, to) + 1) ownUntil = 0;
 			}
-			landEcho(echo.preview, ports.previewScroll());
 			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
 			if (!isEcho(echo.preview)) noteScroll();
 			lastPreviewScroll = ports.now();
