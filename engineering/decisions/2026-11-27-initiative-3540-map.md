@@ -153,7 +153,7 @@ externally visible) · ⚖️ needs counsel.
 | B-1 | **Licensing copy that ships Sunday.** README §License (in the tarball) and `/comparison` say only what the Output Exception grants; "the engine is at v1" becomes true under either C1 answer. Wording follows the owner's choice in `2026-08-04-marp-render-output-exception.md` (extend the grant, or narrow the claim). The home page's AGPL lines stay; no Apache, freeware or Desktop claim. Screenshots at 1440, 820, 390 | E2, E5 | 🔒 (npm README, legal wording) ⚖️ |
 | B-2 | **This note** lands, with C1 left as a choice | all | none |
 | B-3 | **Stale MIT pointer** in the Tauri note (lines 258, 318, 2487): "Superseded: the repo is AGPL-3.0-only; Desktop licensing is under #3541/#3546." Coordinate with #2354, which edits the same file | E1, E6 | 🔒 licensing text |
-| B-4 | **Check the rc.1 tarballs** (verification only): pack the 12 libraries and the engine; confirm `LICENSE`, `license`, the third-party notices (segno-markdown's markdown-it, lastra's libjpeg-turbo and IJG) and the engine's `LICENSE-EXCEPTIONS` and `dist/THIRD-PARTY-LICENSES.txt`. For the release desk's dry run | E2, E7 | none |
+| B-4 | ✅ **Done 2026-11-27** by the release desk (`npm pack --dry-run` of all 13 packages from the rc.1 release commit): every library carries `LICENSE` and `license: AGPL-3.0-only`; segno-languages ships `LICENSE.markdown-it.md`; lastra ships `decode/LICENSE.libjpeg-turbo.md` (with the IJG terms); the engine ships `LICENSE`, `LICENSE-EXCEPTIONS`, `dist/THIRD-PARTY-LICENSES.txt` and the vendor notices. The packed README carries the B-1 line | E2, E7 | none |
 
 ### After release, ordered by what each one unblocks
 
