@@ -1610,14 +1610,22 @@ The contract, and its limits — be precise about what it does and doesn't cover
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
   after a queue ejection, ask again before merging or re-arming auto-merge.
+- **The command center merges** (owner, 2026-11-27: question-tool answer `936bdb2b-bed3-48b2-a7b1-4618b957d937`
+  asked "what is the most token efficient way?", and the owner typed "i'm aligned",
+  `dfbec808-2354-44c2-b144-69aa4409db93`, to the answer: the command center). The owner clicks or names
+  PRs in the 🚦 digest in the command center; the command center checks each PR's head against the head the
+  digest listed and squash-merges or enqueues it, one GitHub call per PR. It never relays the merge to the
+  PR's own session: waking an idle session to merge reloads its whole context (250k tokens or more) for one
+  API call. Still one owner decision per head: a new head needs a fresh click.
 - **While a merge desk is live, the desk's digest is the ask** (owner's decision,
   2026-11-20). A session still posts its 🚦 card on its PR, but does not ask the
   owner in chat; `/desk-merge` sends one digest of every ready PR, each at its head
   commit. The owner answers in the command center, and the command center merges each
   named PR whose head still matches; a moved head is asked again. After each merge
   the command center tells that PR's session, which posts its 📋 standup and 🎯
-  brief as after any merge. With no live
-  `desk:merge` session, each session asks as below.
+  brief as after any merge. With no live `desk:merge` session, the command center builds the digest
+  itself from the cards on the PRs (§Where the cards go); a session never asks in chat for a merge it
+  cannot answer itself.
 - **Batch the ask when more than one PR is green.** The authorization itself does
   not change — a human still authorizes every merge, and one PR's approval is
   never license for the next. What changes is the *delivery*: when several PRs
