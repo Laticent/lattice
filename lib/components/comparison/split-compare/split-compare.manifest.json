@@ -203,7 +203,7 @@
     },
     {
       "mistake": "Setting a long deck-level `header:` or `footer:` on a deck that uses this layout.",
-      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
+      "fix": "The running header and footer stay on the dark rail they start on. Each holds one line; past that it ends in an ellipsis and the export reports it as a chrome cut (author-only, no reader pill). Measured at 16:9 the rail holds about 37 characters of header and 39 of footer; `panel-narrow` scales the rail and its chrome to about 30 and 31, `panel-wide` to about 49 and 50. Shorten it, or set a shorter one on these slides with `<!-- @meta{header=\"…\"} -->` / `<!-- @meta{footer=\"…\"} -->`."
     },
     {
       "mistake": "Expecting a split-compare slide to drop the deck's `finish:`, or to show it on one side only.",
