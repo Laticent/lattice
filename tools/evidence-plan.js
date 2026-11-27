@@ -5,14 +5,14 @@
  * The pre-merge card's `ran` row and its confidence level rest on artifacts from the surfaces a change
  * reaches (HARD RULE #23). Before this, which surfaces to drive was the agent's memory: per-PR CI runs
  * Chromium and one WebKit player job, while the Gecko and WebKit e2e projects run nightly and the
- * macOS / Windows / iOS-Simulator suites only on a path match, so a session got that evidence only if
- * it remembered to go and get it. This prints the plan from the diff, so the raise loop starts from a
+ * macOS / Windows / iOS-Simulator suites run only on dispatch (since 2026-11-27), so a session got that
+ * evidence only if it remembered to go and get it. This prints the plan from the diff, so the raise loop starts from a
  * list rather than a recollection (engineering/workflow.md §The raise loop).
  *
  * It REUSES the selectors that already exist rather than restating them (HARD RULE #15):
  *   - platform suites: tools/platform-suites-plan.js `plan()` over .github/platform-suites.json, the same
- *     path rule the platform-suites workflow applies to a pull request, but counting the suites a PR run skips
- *     (`on_pull_request: false`), since a dispatch is how those run before the merge;
+ *     path rule the platform-suites workflow used for a pull request, counting every suite (`everySuite`), since
+ *     the workflow is dispatch-only and the row is `optional`: it never sets the card's grade;
  *   - unit tests: tools/affected-tests.js, named as a command (it runs the tests itself).
  * The browser-engine and owner-stop rows are the only rules defined here.
  *
@@ -35,7 +35,8 @@ const ROOT = path.resolve(__dirname, '..');
 
 // One row per surface. `match` takes a repo-relative path. A row fires when any changed file matches.
 // `kind` says who acts: `local` runs here, `dispatch` is a workflow_dispatch, `read` is a check the PR already runs, `owner` is the one
-// legitimate stop (export bytes need the owner's sign-off; the Quality Bar's single exception).
+// legitimate stop (export bytes need the owner's sign-off; the Quality Bar's single exception), and `optional` is a dispatch that
+// never sets the card's grade (the platform suites, dispatch-only since 2026-11-27).
 const SURFACES = [
 	{
 		surface: 'docs site: Chromium at desktop, tablet and mobile',
@@ -120,30 +121,16 @@ function evidencePlan(changed, registry = JSON.parse(fs.readFileSync(path.join(R
 		const hits = changed.filter(s.match);
 		if (hits.length) steps.push({ surface: s.surface, kind: s.kind, command: s.command, why: s.why, files: hits });
 	}
-	// Every suite the change reaches, including those off pull requests (the iOS Simulator suites): the PR run skips
-	// them, so the dispatch below is the only way they run before the merge.
-	const names = (p) => [...new Set(p.include.map((i) => i.suite))];
-	const suites = names(platformPlan(registry, { event: 'pull_request', changed, everySuite: true }));
-	// The suites the PR's own platform-suites run already starts for this diff. Dispatching them as well queued a second
-	// copy of the same job on the same commit, which competes for the same scarce macOS runners: two sessions did it within a
-	// minute of their own PR run, and those copies got no runner (engineering/decisions/2026-11-04-ci-flake-audit.md §5).
-	const onPr = new Set(names(platformPlan(registry, { event: 'pull_request', changed })));
-	const ridden = suites.filter((n) => onPr.has(n));
-	const dispatch = suites.filter((n) => !onPr.has(n));
-	if (ridden.length) {
+	// Every suite the change reaches. Since 2026-11-27 platform-suites.yml is dispatch-only (owner decision: no PR run, no
+	// nightly), so this is one `optional` row: a dispatch someone MAY run, never a row the card's grade waits on. Without a
+	// green dispatched run, a claim about a real macOS / Windows / iOS device stays UNVERIFIED (HARD RULE #23).
+	const suites = [...new Set(platformPlan(registry, { event: 'pull_request', changed, everySuite: true }).include.map((i) => i.suite))];
+	if (suites.length) {
 		steps.push({
-			surface: `real macOS / Windows: ${ridden.join(', ')} (the PR run)`,
-			kind: 'read',
-			command: 'read the "Platform suites (macOS / Windows)" check on the PR head; do not dispatch these again',
-			why: 'the PR run already starts these for this diff. A second copy on the same commit only competes for the same runners. If its job ran no steps, GitHub gave it no runner: re-run that job once (engineering/gotchas/ci.md)',
-		});
-	}
-	if (dispatch.length) {
-		steps.push({
-			surface: `real macOS / Windows / iOS Simulator: ${dispatch.join(', ')}`,
-			kind: 'dispatch',
-			command: `workflow_dispatch platform-suites.yml on this branch with suites=${dispatch.join(',')}`,
-			why: 'the PR run skips these (the iOS Simulator suites run nightly only), so a dispatch is the only way they run before the merge; read the result before the card',
+			surface: `real macOS / Windows / iOS Simulator: ${suites.join(', ')} (dispatch-only, optional)`,
+			kind: 'optional',
+			command: `workflow_dispatch platform-suites.yml on this branch with suites=${suites.join(',')}`,
+			why: 'no PR run or nightly starts these suites (dispatch-only since 2026-11-27), and they never set the card\'s grade. Dispatch one only if you want the evidence; without a green run, mark any device claim UNVERIFIED (#23)',
 		});
 	}
 	return { changed, steps, ownerStop: steps.some((s) => s.kind === 'owner') };
@@ -159,6 +146,7 @@ function format({ changed, steps, ownerStop }) {
 	out.push(ownerStop
 		? 'One row needs the owner: send the artifacts and stop there. Everything else is yours to run before the card.'
 		: 'Nothing here needs the owner. Run every row, then put the artifacts on the card.');
+	if (steps.some((s) => s.kind === 'optional')) out.push('Except: [optional] rows never set the card\'s grade. Skip them, or run them and attach the result.');
 	return out.join('\n');
 }
 
@@ -183,4 +171,4 @@ if (require.main === module) {
 	console.log(flags.includes('--json') ? JSON.stringify(result, null, 2) : format(result));
 }
 
-module.exports = { evidencePlan, SURFACES };
+module.exports = { evidencePlan, format, SURFACES };

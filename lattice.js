@@ -452,6 +452,13 @@ COMPLETION
                      eval "$(lattice completion bash)" in ~/.bashrc. See
                      lattice completion --help
 
+LINT
+  lattice lint <deck.md> [more.md …] [--fix] [--strict] [--json] [--no-review]
+                     Check a deck for authoring mistakes without rendering it. --fix
+                     applies every machine fix in place: a deck written against an
+                     old key or class moves to the new spelling in one command.
+                     Exit 1 when an error is left (a warning too, under --strict).
+
 VIDEO
   lattice video <deck.md | narrated-export.html> [out.mp4]
                      Render a deck, voiced with Kokoro, or a narrated HTML export
@@ -504,6 +511,7 @@ COMMON OPTIONS
 MORE
   lattice packages …   Install and manage themes, components, finishes and motion
   lattice video …      Render a deck to an MP4 with a voice-over
+  lattice lint …       Check a deck without rendering; --fix applies the fixes
   lattice completion   Tab completion for bash, zsh, fish or PowerShell
 
   lattice --help all   Every option (image sets, captions, the player, plugins, …)
@@ -562,6 +570,16 @@ if (process.argv[2] === 'fmt') {
 if (process.argv[2] === 'migrate') {
   const tool = process.argv[3] === 'notes' ? 'migrate-notes.mjs' : 'migrate-meta.mjs';
   const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli', tool), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
+// `lattice lint [--fix] [--strict] [--json] <deck.md…>` — the deck linter, the same one this repo runs as
+// `npm run lint:deck` (lib/cli/lint-deck.js), so a deck written against an old spelling migrates in one command
+// (`lint --fix`; the 2026-11 key renames, engineering/decisions/2026-11-21-plain-english-key-renames.md). Dispatched
+// as a child for the same reason as `packages`.
+if (process.argv[2] === 'lint') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/lint-deck.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }

@@ -439,6 +439,7 @@ The options, one per line:
 npm run lint:deck -- 'decks/*.md'          # every deck matching a glob (keep the quotes)
 npm run lint:deck -- --strict deck.md      # warnings fail too
 npm run lint:deck -- --fix deck.md         # apply every automatic fix, in place
+npm run lint:deck -- --fix --rule bold-lead deck.md   # apply only one rule's fixes
 npm run lint:deck -- --json deck.md        # machine-readable, for scripts and agents
 ```
 
@@ -634,6 +635,20 @@ npx lattice video talk.html talk.mp4 --lead-in 2000 --outro 3000
 
 Video needs a Chrome that can encode H.264, such as Chrome for Testing. Point
 `CHROME_PATH` at it if Lattice picks the wrong browser.
+
+### Check a deck, and move it to new spellings
+
+`lattice lint` checks a deck without rendering it, and `--fix` rewrites what it
+can, in place. Run it after an upgrade that renames a key or a class:
+
+```sh
+npx lattice lint deck.md
+npx lattice lint --fix deck.md
+```
+
+Each finding names the slide, the rule and the fix. The exit code is 1 when an
+error is left, so it also works as a check in CI (`--strict` fails on warnings
+too).
 
 ### Format the code in a deck
 

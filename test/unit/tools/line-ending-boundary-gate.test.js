@@ -288,7 +288,7 @@ describe('the shipped tree', () => {
 			'.gitattributes',
 			'lib/engine/index.js',
 			'lattice.js',
-			'tools/lint-deck.js',
+			'lib/cli/lint-deck.js',
 			'lib/core/resolve-palette.js',
 			'docs/src/lib/normalize-source-text.ts',
 			'docs/src/components/studio/ai/architect-edits.js',

@@ -4422,9 +4422,17 @@ function decodeCssEscapes(value) {
  * introduced this gate was open, and three published measurements went stale during one
  * session. That is the argument for the gate, and the reason it now derives the number at
  * run time rather than carrying a calibration somebody has to re-check.
+ *
+ * RE-SET 2026-11-27 (owner, D3 A on #3575; `2026-11-27-claude-md-index.md`). CLAUDE.md became a
+ * 3,757-token index: each HARD RULE is a one-line anchor, and the full text moved word for word
+ * to `engineering/hard-rules.md` and `engineering/operating-mode.md`. The owner chose that trade
+ * over the "zero reads" argument above, because every session AND every subagent pays the
+ * resident text, while a rule's section is one `sed -n` of a median 282 tokens. The ceiling is
+ * the index plus the owner's usual +20% headroom: 4,500. Growth past it means rule text is
+ * creeping back into the index; it belongs in the pointed-to doc.
  */
 const ROUTER_FILE = 'CLAUDE.md';
-const ROUTER_TOKEN_CEILING = 16500;
+const ROUTER_TOKEN_CEILING = 4500;
 
 /** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
 function routerTokenCount(text) {
@@ -4440,11 +4448,11 @@ function checkRouterBudget(errors) {
   if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
     `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
-    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
-    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
-    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
-    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
-    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896, re-set on #3575). Every session and every ` +
+    'subagent pays this file unconditionally, before any tool call. CLAUDE.md is an index: put the ' +
+    'rule text in the pointed-to doc (engineering/hard-rules.md, engineering/operating-mode.md) and ' +
+    'keep a one-line anchor here. Raise the ceiling in the PR WITH the trade it buys, and only on ' +
+    "the owner's word. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.",
   );
 }
 
@@ -7203,8 +7211,9 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pass or fail a preset nobody chose.',
   },
   {
-    file: 'tools/lint-deck.js',
-    why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
+    file: 'lib/cli/lint-deck.js',
+    why: 'the file read behind `lattice lint` and `npm run lint:deck` (it moved out of tools/ so the '
+       + 'published CLI ships it). Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
   },
   {
@@ -10198,13 +10207,14 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
       errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
-      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: never on a pull request; the workflow is dispatch-only since 2026-11-27).`);
     }
-    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // The iOS Simulator suites never run on a pull request (decisions/2026-10-29-ci-job-tiers.md; and since 2026-11-27 the
+    // whole workflow is dispatch-only). The planner derives
     // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
     // no flag; this refuses the one entry that would read as the opposite.
     if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
-      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it never runs on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
     }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);

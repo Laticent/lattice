@@ -57,9 +57,9 @@ describe('the L0 router budget (#1896)', () => {
     assert.equal(errors.length, 1);
     assert.match(errors[0], /o200k_base tokens .* over the \d+-token ceiling/);
     assert.match(errors[0], /Raise the ceiling in the PR WITH the trade/);
-    // The one wrong fix, named in the message on purpose: routing resident text behind a
-    // pointer buys tokens by spending a read, which is the expensive half (#1897).
-    assert.match(errors[0], /do not "fix" it by routing text behind a pointer/);
+    // The right fix, named in the message on purpose since the 2026-11-27 index (#3575):
+    // rule text goes in the pointed-to doc, and CLAUDE.md keeps a one-line anchor.
+    assert.match(errors[0], /put the rule text in the pointed-to doc/);
   });
 
   // This asserted the gate's count against `require('gpt-tokenizer').encode` and called that
@@ -97,7 +97,7 @@ describe('the L0 router budget (#1896)', () => {
   // shape was right for it; this file is ALLOWED to be its size, so a zero-slack gate here is
   // the "a bad gate is a permanent tax" case from CLAUDE.md's own second filter. Growth past
   // the ceiling is the GATE's job to report, and only the gate's.
-  const BASELINE_AT_CHOOSING = 15117; // CLAUDE.md when the owner set the +10% headroom
+  const BASELINE_AT_CHOOSING = 3757; // CLAUDE.md as the index, when the owner set the +20% headroom (#3575)
   test('the ceiling was not pinned at zero slack over the file it was set against', () => {
     assert.ok(
       ROUTER_TOKEN_CEILING >= Math.round(BASELINE_AT_CHOOSING * 1.05),
