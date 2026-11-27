@@ -16,7 +16,7 @@ is and how a reader turns it into a tree, so that any tool can read a span the w
 
 It covers the **syntax and its tree** only. What a value means is the host's business: whether `c4` is
 a color, whether `5` is a number, what the `~` tag draws. LFM says that for the spans it hosts
-([LFM 1.1 §3.6](./LFM-1.1.md), inline notation; LFM's record section, for `@meta`).
+(LFM's inline-notation section, for code spans; LFM's record section, for `@meta`).
 
 The owner chose on 2026-11-27 to freeze the notation as a 1.0 spec (D2 on #3441). So the notation
 changes only under §8: a later version may add to it and never change or remove what 1.0 reads.
@@ -168,10 +168,18 @@ with the grammar LL(1), a reader's work grows in proportion to the span's length
 
 The notation leaves these to the host that reads a span, and a host's own spec states them:
 
-- Whether a piece of text is a span at all. For inline code, LFM 1.1 §3.6 says so. Its rule is that a
-  span is notation only when it opens with `{` and then neither space nor `}`, optionally after one
-  tag character, and that a backslash before that opener keeps the whole span as code. The backslash
-  is the host's escape: it is not part of the span this spec reads.
+- Whether a piece of text is a span at all. For inline code, LFM's inline-notation section says so.
+  Its rule is that a span is notation only when it opens with `{` and then neither space nor `}`,
+  optionally after one tag character, and that a backslash before that opener keeps the whole span as
+  code. The backslash is the host's escape: it is not part of the span this spec reads.
+- What it does to its text before a reader sees it. A host MAY undo its own escapes and MAY join
+  wrapped lines, as long as it states each step. For example, an `@meta` comment first decodes the
+  comment escape `--\>` and then joins each line break outside quotes, with the next line's indent,
+  into one space. The span this spec reads is the text after those steps. Without such a step, a line
+  break inside a bare value stays in it (§2).
+- Forms it reads itself, outside the notation. A host MAY accept a form that this spec refuses, if
+  it reads that form itself and never hands it to a Segno reader. For example, an `@meta` record
+  accepts `{}` as an empty record, which §5 refuses. LFM states such forms as its own.
 - What each tag, word, name and value means, and which items a form accepts.
 - Which kinds a place accepts. An `@meta` record, for one, accepts only scalar fields and refuses
   lists and nested records in them; LFM states that subset.
@@ -186,7 +194,8 @@ A change that would alter or refuse a span 1.0 reads is a 2.0, and needs a new m
 spec and the owner's sign-off.
 
 A host MAY accept only part of the notation (a **profile**). LFM's `@meta` record is one. A profile
-MUST read every span it accepts exactly as this spec does.
+MUST read every span it hands a Segno reader exactly as this spec does. The steps and forms §7 lets a
+host state for itself are outside that rule, because the notation never reads them.
 
 ## 9. Security
 
