@@ -153,14 +153,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `/Photo-*` XObjects) under the vector layer, and some text lands in it. Skia
   rasterizes through CPU-dispatched code paths, so a sandbox render drifts from a
   golden blessed on a GitHub runner by about 0.1–0.3% of a page with no source
-  change. On `examples/card-tag-placements`, every content stream and all seven
+  change above the floor. The nightly of 89405b4 kept `examples/card-tag-placements`,
+  while this sandbox drifted 0.11% from it at the same code. In that deck every content stream and all seven
   embedded fonts matched the golden byte for byte. Only three photo XObjects
   differed, as a one-pixel shift of the "STEP 0N" tag text. **It is not the Chrome
   version:** CI's pinned 157.0.8103.50 and the sandbox's 158.0.8127.36 wrote
   byte-identical PDFs, and both drifted the same way. Don't triage this by hand:
-  `node tools/regression-gate.mjs --only <golden> --control` re-renders the golden
-  at the commit its nightly bless rendered from, on this machine. It then says
-  "cross-machine band" or "source drift".
+  `node tools/regression-gate.mjs --only examples/<name> --control` re-renders the
+  golden at the commit its nightly bless rendered from, on this machine. It then says
+  "cross-machine band", "source drift" or "unavailable". In a shallow clone it says
+  "unavailable" until `git fetch --unshallow --filter=blob:none`. Its limits are in
+  `engineering/development.md`, after the `regress` spot-check.
 - **Lesson:** a stale artifact is not a broken renderer. Exclude the boring cause
   before relitigating a settled design decision.
 

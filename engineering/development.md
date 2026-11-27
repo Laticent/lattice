@@ -327,14 +327,29 @@ version: measured 2026-11-27, Chrome 157 (CI's pinned build) and 158 wrote
 byte-identical PDFs here. `regress` prints the host's Chrome and CPU on every run.
 `--control` re-renders each drifting golden at the commit its nightly bless rendered
 from (the sha in the bless commit's subject), on this machine, and compares the two
-fresh renders. Same machine, so an unchanged source renders identically. **Cross-machine
-band** means no source change, and the run passes. **Source drift** means the render
-path changed since that bless: on `main` the nightly will bless it, on a branch look at
-it. **Unavailable** means the control could not run and is never a pass. It costs about
-50 s to build each distinct commit's tree (shared with `golden-diff`,
-`tools/lib/base-tree.mjs`) plus two renders per drifting golden, so point it at a few
-goldens with `--only`, not the whole corpus. To find which merged PR moved a golden,
-use `tools/golden-bisect.mjs`.
+fresh renders with the gate's own per-page floor. Same machine, so an unchanged source
+renders identically. The verdicts:
+
+- **Cross-machine band**: no source change above the floor. The run passes, but only when a
+  nightly bless wrote the golden and `package.json` / `package-lock.json` are unchanged since
+  its source.
+- **Source drift**: the render path changed since that bless. On `main` the nightly will
+  bless it; on a branch, look at it.
+- **Unavailable**: never a pass. It means the golden has local changes, or the clone is
+  shallow and lacks the source commit (run `git fetch --unshallow --filter=blob:none`, about
+  3 s), or the old tree would not build or render.
+
+Three limits, all on the safe side. The control tree borrows this checkout's
+`node_modules`, so it cannot see a dependency change: a "band" verdict then does not pass,
+and an old tree may not render at all (measured: a bless from #3118 imported a package
+`main` no longer has). A golden that no nightly bless wrote (a hand bless, a revert of a
+bless) has a guessed source, so its "band" does not pass either. And a source change under
+the floor reads as band.
+
+Cost: about 50 s to build each distinct commit's tree (shared with `golden-diff`,
+`tools/lib/base-tree.mjs`), plus two renders per drifting golden, one at a time. So point
+it at a few goldens with `--only examples/<name>`, not the whole corpus. To find which
+merged PR moved a golden, use `tools/golden-bisect.mjs`.
 
 Each test file wraps its body in `describe('<file-basename>', () => {…})`
 so TAP output groups by file. Source of truth: `package.json` scripts

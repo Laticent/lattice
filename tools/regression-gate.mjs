@@ -60,9 +60,11 @@
 //                                                       # every golden that drifted (the nightly bless)
 //   node tools/regression-gate.mjs --only examples/x --control
 //                                                       # re-render each drift at the commit its golden was
-//                                                       # rendered from, HERE: "cross-machine band" (passes)
-//                                                       # or "source drift" (fails). ~50 s per commit tree +
-//                                                       # two renders per drift; tools/lib/regress-control.mjs
+//                                                       # rendered from, HERE: "cross-machine band" (passes
+//                                                       # only for a nightly bless with unchanged deps),
+//                                                       # "source drift" or "unavailable" (fail). ~50 s per
+//                                                       # commit tree + two renders per drift, one at a time
+//                                                       # (it ignores --jobs); tools/lib/regress-control.mjs
 //
 // `--jobs N` runs each gallery or deck golden in its own child process, N at a time. Each
 // render launches its own browser, so the units are independent; measured 2026-11-08 in the
@@ -73,7 +75,7 @@
 // .scratch/regression/.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { cpus } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -94,7 +96,7 @@ import {
   THEMES,
 } from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
-import { controlLine, controlVerdict, groupByBlessCommit, hostLine } from './lib/regress-control.mjs';
+import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine } from './lib/regress-control.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -504,28 +506,64 @@ function hostInfo() {
   let chrome = '';
   try {
     const bin = detectChromeExecutable();
-    if (bin) chrome = execFileSync(bin, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (bin) chrome = execFileSync(bin, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim();
   } catch { /* reported as unknown */ }
   const list = cpus();
   return { chrome, cpu: list[0]?.model?.trim() || '', cores: list.length };
 }
 
-// The commit whose SOURCE rendered a golden. A nightly bless commit names it in its subject
-// ("nightly bless of <sha>"): the bless renders main at that sha and merges later, so the merge
-// commit can already carry a render change the golden never saw, and controlling against it would
-// call real drift "machine". Any other commit that last wrote the golden (a hand bless) is taken
-// as having rendered from its own tree, and the verdict says so. '' when the golden was never
-// committed or has local changes (a local --bless), because then no commit rendered what is on disk.
-function renderedFromOf(golden) {
+// The commit whose SOURCE rendered a golden: { sha, nightly } or { error }. A nightly bless
+// commit names it in its subject ("nightly bless of <sha>"): the bless renders main at that sha
+// and merges later, so the merge commit can already carry a render change the golden never saw.
+// Any other commit that last wrote the golden (a hand bless, a revert of a bless) is taken as
+// its own source with nightly: false, and such a control never counts as a pass (controlPasses).
+// It is { error } when no commit here can answer honestly:
+//   · the golden has local changes, or was never committed;
+//   · the clone is SHALLOW and the lookup lands on its cut-off commit, which only looks as if it
+//     wrote every file (measured in the sandbox: 614 of 655 committed PDFs);
+//   · the bless's source sha is older than a shallow clone's history.
+// It also reports depsChanged when package.json or package-lock.json moved since that sha. The
+// control tree borrows this checkout's node_modules (tools/lib/base-tree.mjs), so a dependency's
+// effect is invisible to it: a "source" verdict still holds (only source differs between the two
+// renders), but a "machine" verdict cannot clear the drift (controlPasses).
+function git(args) {
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+function shallowCutoffs() {
   try {
-    if (execFileSync('git', ['status', '--porcelain', '--', golden], { cwd: ROOT, encoding: 'utf8' }).trim()) return '';
-    const line = execFileSync('git', ['log', '-1', '--format=%H%x09%s', '--', golden], { cwd: ROOT, encoding: 'utf8' }).trim();
-    if (!line) return '';
-    const [sha, ...subject] = line.split('\t');
-    const from = lastBlessRenderedFrom([{ sha, subject: subject.join('\t') }]);
-    return from ? execFileSync('git', ['rev-parse', '--verify', `${from}^{commit}`], { cwd: ROOT, encoding: 'utf8' }).trim() : `${sha}*`;
+    const file = git(['rev-parse', '--git-path', 'shallow']);
+    const path = file.startsWith('/') ? file : join(ROOT, file);
+    return new Set(existsSync(path) ? readFileSync(path, 'utf8').split('\n').filter(Boolean) : []);
   } catch {
-    return '';
+    return new Set();
+  }
+}
+const UNSHALLOW = 'run `git fetch --unshallow` and try again';
+function resolveSource(golden, cutoffs) {
+  try {
+    if (git(['status', '--porcelain', '--', golden])) return { error: 'the golden has local changes (a local --bless), so no commit rendered it' };
+    const line = git(['log', '-1', '--format=%H%x09%s', '--', golden]);
+    if (!line) return { error: 'the golden was never committed' };
+    const [last, ...subject] = line.split('\t');
+    if (cutoffs.has(last)) return { error: `this clone's history stops at ${last.slice(0, 8)}, so the commit that rendered the golden is not here; ${UNSHALLOW}` };
+    const from = lastBlessRenderedFrom([{ sha: last, subject: subject.join('\t') }]);
+    let sha = last;
+    if (from) {
+      try {
+        sha = git(['rev-parse', '--verify', `${from}^{commit}`]);
+      } catch {
+        return { error: `its bless rendered from ${from.slice(0, 8)}, which this clone does not have; ${UNSHALLOW}` };
+      }
+    }
+    let depsChanged = false;
+    try {
+      git(['diff', '--quiet', sha, 'HEAD', '--', 'package.json', 'package-lock.json']);
+    } catch {
+      depsChanged = true;
+    }
+    return { sha, nightly: Boolean(from), depsChanged };
+  } catch (err) {
+    return { error: `git could not answer (${String(err.message || err).split('\n')[0]})` };
   }
 }
 
@@ -559,14 +597,16 @@ function runControl(report) {
       if (tr.status === 'DRIFT') items.push({ row: r, theme, tr, md: r.deck, golden: tr.golden });
     }
   }
-  for (const [key, list] of groupByBlessCommit(items, renderedFromOf)) {
-    // A trailing * marks a golden last written by a commit that is not a nightly bless.
-    const sha = key.replace(/\*$/, '');
-    const dir = join(OUT, `control-${sha.slice(0, 12) || 'none'}`);
-    const tree = sha ? buildBaseTree({ repoRoot: ROOT, ref: sha, dir }) : { error: 'no commit rendered this golden (never committed, or changed locally)' };
+  const cutoffs = shallowCutoffs();
+  for (const [key, list] of groupByBlessCommit(items, (g) => JSON.stringify(resolveSource(g, cutoffs)))) {
+    const src = JSON.parse(key);
+    const dir = join(OUT, `control-${src.sha ? src.sha.slice(0, 12) : 'none'}`);
+    const tree = src.error ? { error: src.error } : buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir });
     for (const item of list) {
       const c = tree.error ? { verdict: 'unavailable', error: tree.error } : controlOne(tree.root, item);
-      item.tr.control = { sha, nightly: !key.endsWith('*'), ...c };
+      // An old tree runs on this checkout's node_modules, so a package it imports may be gone.
+      if (c.verdict === 'unavailable' && src.depsChanged) c.error += `; dependencies changed since ${src.sha.slice(0, 8)}, so its tree may import a package this checkout no longer has`;
+      item.tr.control = { sha: src.sha || '', nightly: Boolean(src.nightly), depsChanged: Boolean(src.depsChanged), ...c };
     }
     rmSync(dir, { recursive: true, force: true });
   }
@@ -723,7 +763,7 @@ async function main() {
     controlled = runControl(report);
     for (const r of report) {
       if (!r.fail || r.blessed) continue;
-      r.fail = Object.values(r.themes).some((t) => t.status !== 'ok' && t.control?.verdict !== 'machine');
+      r.fail = Object.values(r.themes).some((t) => t.status !== 'ok' && !controlPasses(t.control));
     }
     anyFail = report.some((r) => r.fail && !r.blessed);
   }
@@ -741,7 +781,7 @@ async function main() {
     }
     process.stdout.write(`\n${parts.join(' + ')}. `);
     if (blessed.length) process.stdout.write(`${blessed.length} re-blessed (the nightly bless commits PDFs; a PR does not). `);
-    const band = controlled.filter((i) => i.tr.control?.verdict === 'machine').length;
+    const band = controlled.filter((i) => controlPasses(i.tr.control)).length;
     if (band) process.stdout.write(`${band} drift(s) are the cross-machine band (same render as their bless commit here). `);
     process.stdout.write(anyFail ? `${failed.length} DRIFTED: ${failed.map((r) => r.name).join(', ')}\n` : band ? 'No source drift.\n' : 'all match committed goldens.\n');
     if (anyFail) {

@@ -53,14 +53,28 @@ describe('groupByBlessCommit', () => {
 
 describe('controlLine', () => {
   test('each verdict says what to do with the drift', () => {
-    assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, verdict: 'machine' }), /@68f1cd04: same render here → cross-machine band/);
+    assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, verdict: 'machine' }), /@68f1cd04: same render here → cross-machine band \(within the floor\)/);
     assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, verdict: 'source', worst: 0.0123 }), /worst 1\.23%\) → source drift/);
     assert.match(m.controlLine({ sha: '', verdict: 'unavailable', error: 'never committed' }), /unavailable \(never committed\); treat the drift as unexplained/);
   });
 
-  test('a golden not written by a nightly bless says the rendered-from commit is assumed', () => {
-    assert.match(m.controlLine({ sha: 'bcc7c55c00', nightly: false, verdict: 'machine' }), /not a nightly bless; assumed/);
-    assert.doesNotMatch(m.controlLine({ sha: 'bcc7c55c00', nightly: true, verdict: 'machine' }), /assumed/);
+  test('a golden not written by a nightly bless says its source is a guess', () => {
+    assert.match(m.controlLine({ sha: 'bcc7c55c00', nightly: false, verdict: 'machine' }), /is a guess; not counted as a pass/);
+    assert.doesNotMatch(m.controlLine({ sha: 'bcc7c55c00', nightly: true, verdict: 'machine' }), /guess/);
+    assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, depsChanged: true, verdict: 'machine' }), /dependencies changed since @68f1cd04.*not counted as a pass/);
+  });
+});
+
+describe('controlPasses', () => {
+  test('only a machine verdict against a nightly bless clears the drift', () => {
+    assert.equal(m.controlPasses({ verdict: 'machine', nightly: true }), true);
+    // Dependencies moved since the source: the control borrows this checkout's node_modules.
+    assert.equal(m.controlPasses({ verdict: 'machine', nightly: true, depsChanged: true }), false);
+    // A guessed source (hand bless, revert of a bless) never passes, whatever it rendered.
+    assert.equal(m.controlPasses({ verdict: 'machine', nightly: false }), false);
+    assert.equal(m.controlPasses({ verdict: 'source', nightly: true }), false);
+    assert.equal(m.controlPasses({ verdict: 'unavailable', nightly: false, error: 'shallow' }), false);
+    assert.equal(m.controlPasses(undefined), false);
   });
 });
 

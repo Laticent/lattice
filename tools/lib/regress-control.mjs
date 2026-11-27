@@ -9,14 +9,17 @@
 // the raster photo XObjects different. The browser version was not the cause; the machine was.
 //
 // The control renders each drifting golden again at the commit its nightly bless RENDERED FROM
-// (named in the bless commit's subject; any other writer's own commit), here, and
-// compares the two fresh renders. Same machine, so an unchanged source gives an identical render:
-//   · 'machine': the fresh render matches its bless commit's render. The drift against the
-//     golden is the cross-machine band, not a change in the source.
+// (named in the bless commit's subject), here, and compares the two fresh renders with the
+// gate's own per-page floor. Same machine, so an unchanged source renders identically:
+//   · 'machine': the fresh render matches its bless commit's render within the floor. The drift
+//     against the golden is the cross-machine band, not a source change above the floor. It
+//     passes only for a nightly bless's source (controlPasses).
 //   · 'source': the fresh render moved from its bless commit's render. Something on the render
 //     path changed since that bless; on main the nightly will bless it, on a branch look at it.
-//   · 'unavailable': the control could not run (the golden was never committed, or that
-//     commit's tree would not build or render). Never read as a pass.
+//   · 'unavailable': the control could not answer honestly: the golden was never committed or
+//     has local changes, a shallow clone lacks the source commit, dependencies changed since it
+//     (the control tree borrows this checkout's node_modules), or its tree would not build or
+//     render. Never read as a pass.
 
 // One verdict from the per-page comparison of the two fresh renders.
 //   pages: pixelDiff's perPage rows ({ pixels, total }), pixels === -1 for a page-count change.
@@ -39,12 +42,23 @@ export function groupByBlessCommit(items, shaOf) {
   return groups;
 }
 
+// Whether a control clears its drift. Only a 'machine' verdict against a NIGHTLY bless's source
+// does: a golden last written by any other commit (a hand bless, a revert) has a guessed source,
+// and a guess cannot pass a gate (the #3589 maker-checker, finding 2).
+// Nor does one whose dependencies moved since that source: both renders borrow this checkout's
+// node_modules, so a dependency's effect cannot show (finding 3).
+export function controlPasses(c) {
+  return c?.verdict === 'machine' && c.nightly === true && !c.depsChanged;
+}
+
 // The line printed under a drifting row.
 export function controlLine(c) {
-  const at = c.sha ? `${c.sha.slice(0, 8)}${c.nightly === false ? ' (last written by a commit that is not a nightly bless; assumed to have rendered from its own tree)' : ''}` : '—';
-  if (c.verdict === 'machine') return `   ↳ control @${at}: same render here → cross-machine band, not a source change`;
+  const at = c.sha ? c.sha.slice(0, 8) : '—';
+  if (c.verdict === 'machine' && c.nightly && c.depsChanged) return `   ↳ control @${at}: same render here, but dependencies changed since @${at} and the control cannot see them; not counted as a pass`;
+  if (c.verdict === 'machine' && c.nightly) return `   ↳ control @${at}: same render here → cross-machine band (within the floor), not a source change`;
+  if (c.verdict === 'machine') return `   ↳ control @${at}: same render here, but no nightly bless wrote this golden, so @${at} is a guess; not counted as a pass`;
   if (c.verdict === 'source') return `   ↳ control @${at}: render moved since this bless (worst ${(c.worst * 100).toFixed(2)}%) → source drift; on a branch, look at it`;
-  return `   ↳ control @${at}: unavailable (${c.error}); treat the drift as unexplained`;
+  return `   ↳ control: unavailable (${c.error}); treat the drift as unexplained`;
 }
 
 // The host the run rendered on: the two facts a drift number depends on.
