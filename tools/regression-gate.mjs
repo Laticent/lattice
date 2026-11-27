@@ -61,8 +61,8 @@
 //   node tools/regression-gate.mjs --only examples/x --control
 //                                                       # re-render each drift at the commit its golden was
 //                                                       # rendered from, HERE: "cross-machine band" (passes
-//                                                       # only for a nightly bless with unchanged deps and
-//                                                       # workspace packages),
+//                                                       # only for a nightly bless with unchanged deps;
+//                                                       # refused under stale workspace builds or LATTICE_PDF_*),
 //                                                       # "source drift" or "unavailable" (fail). ~50 s per
 //                                                       # commit tree + two renders per drift, one at a time
 //                                                       # (it ignores --jobs); tools/lib/regress-control.mjs
@@ -76,7 +76,7 @@
 // .scratch/regression/.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { cpus } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
@@ -97,7 +97,7 @@ import {
   THEMES,
 } from './lib/golden-render.mjs';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
-import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, resolveSource } from './lib/regress-control.mjs';
+import { controlLine, controlPasses, controlVerdict, groupByBlessCommit, hostLine, renderEnvOverrides, resolveSource } from './lib/regress-control.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
@@ -522,16 +522,22 @@ function sourceContext() {
   let cutoffs = new Set();
   try {
     isShallow = git(['rev-parse', '--is-shallow-repository']) === 'true';
+  } catch {
+    // An old git without the flag: the cut-off file below still says so.
+  }
+  try {
     const file = git(['rev-parse', '--git-path', 'shallow']);
     const path = isAbsolute(file) ? file : join(ROOT, file);
-    if (existsSync(path)) cutoffs = new Set(readFileSync(path, 'utf8').split('\n').filter(Boolean));
+    if (existsSync(path)) {
+      isShallow = true;
+      cutoffs = new Set(readFileSync(path, 'utf8').split('\n').filter(Boolean));
+    }
   } catch {
     // resolveSource fails closed on a shallow clone with no readable cut-off list.
   }
-  // The render inputs the control tree cannot carry: the lockfile and every workspace package,
-  // which node_modules links back to this checkout.
-  const { workspaces = [] } = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-  const renderInputs = ['package.json', 'package-lock.json', ...workspaces];
+  // The render inputs the control tree cannot carry: the installed packages, read through the
+  // lockfile. Workspace packages are carried: the tree links and builds its own (ownWorkspaces).
+  const renderInputs = ['package.json', 'package-lock.json'];
   const blessFrom = (subject) => lastBlessRenderedFrom([{ sha: '', subject }]);
   return { git, cutoffs, isShallow, renderInputs, blessFrom };
 }
@@ -560,6 +566,23 @@ function controlOne(treeRoot, item) {
   }
 }
 
+// Why the control cannot run at all here, or ''. The workspace check is each builder's own
+// `--check` (tools/build-*-lib.js), about 17 s for all of them.
+function controlRefusal() {
+  const env = renderEnvOverrides(process.env);
+  if (env.length) return `render settings in the environment (${env.join(', ')}) would reach both renders alike; unset them and run again`;
+  const stale = [];
+  for (const f of readdirSync(join(ROOT, 'tools')).filter((n) => /^build-.+-lib\.js$/.test(n)).sort()) {
+    try {
+      execFileSync(process.execPath, [join('tools', f), '--check'], { cwd: ROOT, stdio: 'ignore' });
+    } catch {
+      stale.push(f.replace(/^build-|-lib\.js$/g, ''));
+    }
+  }
+  if (stale.length) return `this checkout's workspace builds are stale (${stale.join(', ')}); run \`npm run build\` and try again`;
+  return '';
+}
+
 // Attach a control verdict to every drifting mood in the report. One tree per bless commit.
 function runControl(report) {
   const items = [];
@@ -568,15 +591,24 @@ function runControl(report) {
       if (tr.status === 'DRIFT') items.push({ row: r, theme, tr, md: r.deck, golden: tr.golden });
     }
   }
+  // Two things this checkout's render carries that the control's tree does not, and that the
+  // control would therefore read as "machine": render settings in the environment, and stale
+  // workspace builds (the HEAD render loads this checkout's gitignored docs/src/lib/*/dist, while
+  // the tree builds its own fresh). Either one makes every control unavailable.
+  const refusal = controlRefusal();
+  if (refusal) {
+    for (const item of items) item.tr.control = { sha: '', nightly: false, depsChanged: false, verdict: 'unavailable', error: refusal };
+    return items;
+  }
   const ctx = sourceContext();
   for (const [key, list] of groupByBlessCommit(items, (g) => JSON.stringify(resolveSource(g, ctx)))) {
     const src = JSON.parse(key);
     const dir = join(OUT, `control-${src.sha ? src.sha.slice(0, 12) : 'none'}`);
-    const tree = src.error ? { error: src.error } : buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir });
+    const tree = src.error ? { error: src.error } : buildBaseTree({ repoRoot: ROOT, ref: src.sha, dir, ownWorkspaces: true });
     for (const item of list) {
       const c = tree.error ? { verdict: 'unavailable', error: tree.error } : controlOne(tree.root, item);
       // An old tree runs on this checkout's node_modules, so a package it imports may be gone.
-      if (c.verdict === 'unavailable' && src.depsChanged) c.error += `; dependencies or workspace packages changed since ${src.sha.slice(0, 8)}, so its tree may import a package this checkout no longer has`;
+      if (c.verdict === 'unavailable' && src.depsChanged) c.error += `; dependencies changed since ${src.sha.slice(0, 8)}, so its tree may import a package this checkout no longer has`;
       item.tr.control = { sha: src.sha || '', nightly: Boolean(src.nightly), depsChanged: Boolean(src.depsChanged), ...c };
     }
     rmSync(dir, { recursive: true, force: true });

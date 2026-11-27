@@ -332,27 +332,33 @@ an unchanged source renders identically (measured on three real controls, decks 
 galleries: no pixel past the fuzz). The verdicts:
 
 - **Cross-machine band**: the two renders match. The run passes, but only when a nightly
-  bless wrote the golden and nothing the control tree cannot carry changed since its source:
-  `package.json`, `package-lock.json` and every workspace package (`docs/src/lib/*`,
-  `packages/lattice`), compared with the working tree.
+  bless wrote the golden and `package.json` / `package-lock.json` are unchanged since its
+  source, compared with the working tree.
 - **Source drift**: the render path changed since that bless. On `main` the nightly will
   bless it; on a branch, look at it.
 - **Unavailable**: never a pass. It means one of these:
+  - render settings are in the environment (`LATTICE_PDF_*`, or `NODE_TEST_CONTEXT`, which
+    `node --test` sets);
+  - this checkout's workspace builds (`docs/src/lib/*/dist`) are stale: run `npm run build`
+    (the check runs each `tools/build-*-lib.js --check`, about 17 s);
   - the golden has local changes, or was never committed;
   - the clone is shallow and lacks the source commit, or its cut-off list cannot be read
     (run `git fetch --unshallow --filter=blob:none`);
   - git failed;
   - the old tree would not build or render.
 
-Why those cases cannot pass: the control tree borrows this checkout's `node_modules`, and
-`node_modules` links each `@laticent/*` workspace package back to this checkout's own source.
-So neither a dependency change nor a workspace change can show in the control. A "band"
-verdict therefore does not pass after either one. An old tree may not render at all: a bless
-from #3118 imports a package `main` has since renamed. A golden that no nightly bless wrote (a
-hand bless, a revert of a bless) has a guessed source, so its "band" does not pass either.
-One gap remains: an installed `node_modules` that differs from the committed lockfile (a
-local `npm install`, a stale install after a pull) cannot be seen. Run `npm ci` before
-trusting a "band".
+What the control tree carries and what it borrows. It is the source commit's files plus a
+`node_modules` folder of its own (`buildBaseTree({ ownWorkspaces: true })`, in
+`tools/lib/base-tree.mjs`). Each `@laticent/*` workspace links to the tree's own copy, which
+the tree builds. Everything else links to this checkout's installed packages. So:
+
+- A workspace change since the source shows up as source drift, like any other source.
+- An old tree finds its own packages, even ones a later rename removed.
+- A dependency change cannot show, so a "band" verdict then does not pass.
+- A golden that no nightly bless wrote (a hand bless, a revert of a bless) has a guessed
+  source, so its "band" does not pass either.
+- One gap remains: an installed `node_modules` that differs from the committed lockfile (a
+  local `npm install`, a stale install after a pull). Run `npm ci` before trusting a "band".
 
 Cost: about 50 s to build each distinct commit's tree (shared with `golden-diff`,
 `tools/lib/base-tree.mjs`), plus two renders per drifting golden, one at a time. So point

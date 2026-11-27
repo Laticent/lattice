@@ -61,7 +61,7 @@ describe('controlLine', () => {
   test('a golden not written by a nightly bless says its source is a guess', () => {
     assert.match(m.controlLine({ sha: 'bcc7c55c00', nightly: false, verdict: 'machine' }), /is a guess; not counted as a pass/);
     assert.doesNotMatch(m.controlLine({ sha: 'bcc7c55c00', nightly: true, verdict: 'machine' }), /guess/);
-    assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, depsChanged: true, verdict: 'machine' }), /dependencies or workspace packages changed since @68f1cd04.*not counted as a pass/);
+    assert.match(m.controlLine({ sha: '68f1cd042d9a', nightly: true, depsChanged: true, verdict: 'machine' }), /dependencies changed since @68f1cd04.*not counted as a pass/);
   });
 });
 
@@ -134,4 +134,10 @@ describe('resolveSource', () => {
     assert.match(m.resolveSource('x.pdf', ctx({ ...ok, log: '' })).error, /never committed/);
     assert.match(m.resolveSource('x.pdf', ctx({ ...ok, status: fail })).error, /git could not answer/);
   });
+});
+
+test('renderEnvOverrides names every render setting that would reach both control renders', () => {
+  const env = { PATH: '/bin', LATTICE_PDF_PHOTO_QUALITY: '60', LATTICE_ACTOR: 'kirk', NODE_TEST_CONTEXT: 'child', LATTICE_PDF_PHOTO_FAST: '1' };
+  assert.deepEqual(m.renderEnvOverrides(env), ['LATTICE_PDF_PHOTO_FAST', 'LATTICE_PDF_PHOTO_QUALITY', 'NODE_TEST_CONTEXT']);
+  assert.deepEqual(m.renderEnvOverrides({ PATH: '/bin', LATTICE_ACTOR: 'kirk' }), []);
 });

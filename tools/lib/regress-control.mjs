@@ -35,10 +35,9 @@
 //   · the bless's source sha is older than a shallow clone's history;
 //   · git itself fails.
 // depsChanged: any of `renderInputs` differs between that sha and the WORKING TREE. They are
-// the files the control tree cannot carry: it borrows this checkout's node_modules
-// (tools/lib/base-tree.mjs), and that holds the lockfile's packages AND links to this
-// checkout's own workspace packages (@laticent/markup, segno, lastra, …). So a change in any
-// of them reaches both control renders and cannot show. Compared with the working tree, not
+// the files the control tree cannot carry: it borrows this checkout's installed packages
+// (tools/lib/base-tree.mjs), so the lockfile is the input. Workspace packages are not: the tree
+// links its own copies (ownWorkspaces) and builds them. Compared with the working tree, not
 // HEAD, because the renders run what is on disk.
 export function resolveSource(golden, { git, cutoffs, isShallow, renderInputs, blessFrom }) {
   try {
@@ -67,6 +66,14 @@ export function resolveSource(golden, { git, cutoffs, isShallow, renderInputs, b
   } catch (err) {
     return { error: `git could not answer (${String(err?.message || err).split('\n')[0]})` };
   }
+}
+
+// Environment settings that change a render and would reach BOTH control renders alike, so the
+// control could not see them: the PDF photo layer's speed, quality and scale switches, and the
+// test runner's marker, which turns the fast photo on (lattice.js PDF_PHOTO_FAST). The control
+// refuses to run under any of them (the third review of #3589, finding 2).
+export function renderEnvOverrides(env) {
+  return Object.keys(env).filter((k) => k.startsWith('LATTICE_PDF_') || k === 'NODE_TEST_CONTEXT').sort();
 }
 
 // One verdict from the per-page comparison of the two fresh renders.
@@ -102,7 +109,7 @@ export function controlPasses(c) {
 // The line printed under a drifting row.
 export function controlLine(c) {
   const at = c.sha ? c.sha.slice(0, 8) : '—';
-  if (c.verdict === 'machine' && c.nightly && c.depsChanged) return `   ↳ control @${at}: same render here, but dependencies or workspace packages changed since @${at} and the control cannot see them; not counted as a pass`;
+  if (c.verdict === 'machine' && c.nightly && c.depsChanged) return `   ↳ control @${at}: same render here, but dependencies changed since @${at} and the control cannot see them; not counted as a pass`;
   if (c.verdict === 'machine' && c.nightly) return `   ↳ control @${at}: same render here → cross-machine band (no pixel past the anti-aliasing fuzz), not a source change`;
   if (c.verdict === 'machine') return `   ↳ control @${at}: same render here, but no nightly bless wrote this golden, so @${at} is a guess; not counted as a pass`;
   if (c.verdict === 'source') return `   ↳ control @${at}: render moved since this bless (worst ${(c.worst * 100).toFixed(2)}%) → source drift; on a branch, look at it`;
