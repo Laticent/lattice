@@ -1,16 +1,15 @@
 /**
- * The `cover-layout:` register: the composition of the front and back cover (lib/core/resolve-cover.js).
- * engineering/decisions/2026-11-23-cover-layout.md.
+ * The `cover-layout:` register (named `cover:` until 2026-11-27) — the surface of the front and back cover (lib/core/resolve-cover-layout.js).
  *
- *   1. the kernel maps a composition word to `cover-<word>`, stamps nothing for the default `plain`,
- *      and knows no surface word: a cover's color is the slide's color mode, like every slide;
- *   2. BOTH render paths (the engine here, the real runtime bundle below) stamp the class on TITLE and
- *      CLOSING slides only, and a slide's own composition or `cover-plain` evicts the deck's;
- *   3. the linter warns on an unknown word and turns the retired `cover:` / `cover-light` /
- *      `cover-inverse` into errors with a fix;
- *   4. the CSS forces no scheme on a bookend and paints each from a `light-dark()` pair (source shape
- *      here; the computed values are the finish-canvas matrix's and bookend-ink's job, in real Chromium);
- *   5. `stage` / `poster` grow down, never up.
+ *   1. the kernel maps `light` to `cover-light`, stamps nothing for the default `inverse`, and
+ *      drops what it does not know;
+ *   2. BOTH render paths (the engine here, the real runtime bundle below) stamp the class on
+ *      TITLE and CLOSING slides only, and a slide's own `cover-inverse` keeps its panel;
+ *   3. the linter warns on an unknown word;
+ *   4. the CSS repaints a light cover and leaves the old `title light` meaning alone (source
+ *      shape here; the computed values are the finish-canvas matrix's job, in real Chromium);
+ *   5. the composition axis: seven words, each a variant of both cover components, a slide's own
+ *      word or `cover-plain` evicting the deck's, and `stage` / `poster` growing down, never up.
  */
 
 const test = require('node:test');
@@ -21,9 +20,8 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
-const { lintText, buildVocab } = require(path.join(ROOT, 'lib/authoring/lint.js'));
-const { applyAllFixes } = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
+const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover-layout.js'));
+const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 
 const TITLE = (cls = '') => `<!-- _class: title ${cls} -->\n\n# A deck.\n\n\`Eyebrow\`\n\nA subtitle.`;
@@ -36,32 +34,38 @@ const classesOf = (fm, slides) => {
   return [...doc.querySelectorAll('section')].map((s) => s.className.split(/\s+/).filter(Boolean));
 };
 
+test('kernel: `light` stamps cover-light; `inverse`, unknown and absent stamp nothing', () => {
+  assert.deepEqual(coverClasses('light'), ['cover-light']);
+  assert.deepEqual(coverClasses('  LIGHT '), ['cover-light']);
+  assert.deepEqual(coverClasses('inverse'), [], 'the default is the absence of a token, so old decks stay byte-identical');
+  assert.deepEqual(coverClasses('pale'), []);
+  assert.deepEqual(coverClassesFromFrontMatter('theme: indaco'), []);
+  assert.deepEqual(coverClassesFromFrontMatter('cover-layout: light'), ['cover-light']);
+  assert.deepEqual(COVER_REGISTER.TOKENS.slice(0, 2), ['cover-inverse', 'cover-light']);
+});
+
+/* ── The composition axis (plan step N1) ─────────────────────────────────────────────── */
+
 const COMPOSITIONS = ['masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'];
 
-test('kernel: a composition word stamps cover-<word>; plain, a surface word, unknown and absent stamp nothing', () => {
+test('kernel: a composition word stamps cover-<word>, with or without a surface, in either order', () => {
   for (const c of COMPOSITIONS) {
     assert.deepEqual(coverClasses(c), [`cover-${c}`]);
-    assert.deepEqual(coverClassesFromFrontMatter(`cover-layout: ${c}`), [`cover-${c}`]);
+    assert.deepEqual(coverClasses(`light ${c}`), ['cover-light', `cover-${c}`]);
+    assert.deepEqual(coverClasses(`${c} light`), ['cover-light', `cover-${c}`], 'axis order, not word order');
   }
-  assert.deepEqual(coverClasses('  POSTER '), ['cover-poster']);
   assert.deepEqual(coverClasses('plain'), [], 'the default composition stamps nothing deck-wide');
-  assert.deepEqual(coverClasses('poster stage'), ['cover-poster'], 'one word for the one axis: the first wins');
-  for (const w of ['light', 'inverse', 'dark', 'pale']) assert.deepEqual(coverClasses(w), [], `${w} is not a composition`);
-  assert.deepEqual(coverClassesFromFrontMatter('theme: indaco'), []);
-  assert.deepEqual(coverClassesFromFrontMatter('cover: light poster'), [], 'the retired key is not read');
-  assert.equal(COVER_REGISTER.AXES.length, 1, 'composition is the only axis');
-  assert.ok(!COVER_REGISTER.TOKENS.includes('cover-light') && !COVER_REGISTER.TOKENS.includes('cover-inverse'));
+  assert.deepEqual(coverClasses('inverse plain'), []);
+  assert.deepEqual(coverClasses('poster stage'), ['cover-poster'], 'one word per axis: the first wins');
   assert.deepEqual(COVER_COMPOSITION_CLASSES, COMPOSITIONS.map((c) => `cover-${c}`));
 });
 
-test('kernel: a slide\'s own composition (or cover-plain) evicts the deck\'s, and only title and closing take it', () => {
-  assert.deepEqual(coverDeckTokens(['title'], ['cover-poster']), ['cover-poster']);
-  assert.deepEqual(coverDeckTokens(['closing', 'silent'], ['cover-poster']), ['cover-poster']);
-  assert.deepEqual(coverDeckTokens(['closing', 'cover-plain'], ['cover-poster']), []);
+test('kernel: a slide\'s own composition (or cover-plain) evicts the deck\'s on that axis only', () => {
+  assert.deepEqual(coverDeckTokens(['title'], ['cover-light', 'cover-poster']), ['cover-light', 'cover-poster']);
+  assert.deepEqual(coverDeckTokens(['closing', 'cover-plain'], ['cover-light', 'cover-poster']), ['cover-light']);
   assert.deepEqual(coverDeckTokens(['closing', 'cover-stage'], ['cover-poster']), []);
-  assert.deepEqual(coverDeckTokens(['title', 'dark'], ['cover-poster']), ['cover-poster'], 'the color mode is another axis');
-  for (const l of ['content', 'divider', 'topic']) assert.deepEqual(coverDeckTokens([l], ['cover-poster']), [], l);
-  assert.deepEqual(coverDeckTokens(['title'], []), []);
+  assert.deepEqual(coverDeckTokens(['title', 'cover-inverse'], ['cover-light', 'cover-poster']), ['cover-poster']);
+  assert.deepEqual(coverDeckTokens(['content'], ['cover-poster']), []);
 });
 
 test('manifests: title and closing declare exactly the seven compositions as variants, in one exclusive axis', () => {
@@ -75,31 +79,19 @@ test('manifests: title and closing declare exactly the seven compositions as var
   }
 });
 
-test('engine: `cover-layout: poster` stamps title and closing only, cover-plain opts one out, and nothing without the key', () => {
-  const [t, c, d, e] = classesOf(['cover-layout: poster'], [TITLE(), CONTENT, DIVIDER, CLOSING('cover-plain')]);
-  assert.ok(t.includes('cover-poster'), t.join(' '));
+test('engine: `cover-layout: light poster` stamps both words on title and closing, and cover-plain opts one out', () => {
+  const [t, c, e] = classesOf(['cover-layout: light poster'], [TITLE(), CONTENT, CLOSING('cover-plain')]);
+  assert.ok(t.includes('cover-light') && t.includes('cover-poster'), t.join(' '));
   assert.ok(!c.some((x) => x.startsWith('cover-')), c.join(' '));
-  assert.ok(!d.some((x) => x.startsWith('cover-')), d.join(' '));
-  assert.ok(e.includes('cover-plain') && !e.includes('cover-poster'), e.join(' '));
-  for (const s of classesOf([], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
-  for (const s of classesOf(['cover-layout: plain'], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
-});
-
-test('engine: a cover takes the slide\'s own color mode word, and no surface class is stamped', () => {
-  const [t, e] = classesOf(['cover-layout: masthead'], [TITLE('dark'), CLOSING()]);
-  assert.ok(t.includes('dark') && t.includes('cover-masthead'), t.join(' '));
-  assert.ok(!t.includes('cover-light') && !t.includes('cover-inverse') && !e.includes('cover-light'), `${t.join(' ')} / ${e.join(' ')}`);
+  assert.ok(e.includes('cover-light') && e.includes('cover-plain') && !e.includes('cover-poster'), e.join(' '));
 });
 
 test('lint: a composition word is known on the register and as a slide class', () => {
   const unknown = (v) => lintText(deck([`cover-layout: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover-layout');
-  for (const c of ['plain', ...COMPOSITIONS]) assert.equal(unknown(c).length, 0, c);
+  assert.equal(unknown('light column').length, 0);
   assert.equal(unknown('collumn').length, 1);
-  assert.equal(unknown('light').length, 1, 'a surface word is not a layout');
-  assert.equal(lintText(deck(['cover-layout: column'], [TITLE()])).filter((f) => f.rule === 'unknown-key').length, 0);
   const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
   for (const c of [...COVER_COMPOSITION_CLASSES, 'cover-plain']) assert.equal(unknownClass(c).length, 0, c);
-  assert.equal(unknownClass('cover-lite').length, 1, 'a misspelling is still flagged');
 });
 
 test('css: every composition is scoped to its own component, and the size changes are role tokens', () => {
@@ -118,69 +110,39 @@ test('css: every composition is scoped to its own component, and the size change
   }
 });
 
-/* ── The retired surface axis: errors with one fix ────────────────────────────────────── */
-
-const retired = (src) => lintText(src).filter((f) => f.rule === 'retired-cover-key');
-
-test('lint: the retired `cover:` key and the per-slide cover-light / cover-inverse are errors', () => {
-  const key = retired(deck(['cover: light column'], [TITLE()]));
-  assert.deepEqual(key.map((f) => [f.slide, f.severity]), [[0, 'error'], [1, 'error']],
-    'the key, and the title the fix gives `light` so the cover keeps its look');
-  const slides = retired(deck([], [TITLE('cover-light'), CONTENT, CLOSING('cover-inverse')]));
-  assert.deepEqual(slides.map((f) => [f.slide, f.classToken]), [[1, 'cover-light'], [3, 'cover-inverse']]);
-  assert.equal(retired(deck(['cover-layout: column'], [TITLE('dark'), DIVIDER.replace('divider', 'divider light')])).length, 0,
-    '`title dark` and `divider light` are the color mode, valid on any slide');
+test('kernel: the token never collides with the `light` mood token or the narration `bookends`', () => {
+  for (const t of COVER_REGISTER.TOKENS) assert.notEqual(t, 'light');
+  assert.ok(isSurfaceRegisterToken('cover-light'), 'a decorating register rides a split page');
 });
 
-test('fix: one pass migrates a deck, keeps its look, and lints clean of the rule', () => {
-  const src = deck(['cover: inverse masthead'], [TITLE(), CONTENT, '<!-- @meta{layout=closing, class=cover-light} -->\n\n## Bye.']);
-  const fixed = applyAllFixes(src, buildVocab());
-  assert.match(fixed, /^cover-layout: masthead$/m);
-  assert.doesNotMatch(fixed, /^cover:/m);
-  assert.match(fixed, /_class: title dark|layout=title, class=dark/, '`inverse` keeps the dark cover');
-  assert.match(fixed, /layout=closing, class=light/, 'a slide that said cover-light keeps its light cover');
-  assert.equal(retired(fixed).length, 0);
+test('kernel: deck classes ride title and closing only, and never an axis the slide fills', () => {
+  assert.deepEqual(coverDeckTokens(['title'], ['cover-light']), ['cover-light']);
+  assert.deepEqual(coverDeckTokens(['closing', 'silent'], ['cover-light']), ['cover-light']);
+  assert.deepEqual(coverDeckTokens(['content'], ['cover-light']), []);
+  assert.deepEqual(coverDeckTokens(['divider'], ['cover-light']), [], 'dividers keep their own surface');
+  assert.deepEqual(coverDeckTokens(['topic'], ['cover-light']), [], 'topic keeps its own surface');
+  assert.deepEqual(coverDeckTokens(['title', 'cover-inverse'], ['cover-light']), [], 'a slide opts out with cover-inverse');
+  assert.deepEqual(coverDeckTokens(['title'], []), []);
 });
 
-test('fix: a quoted value keeps its words, and a contradicting mode word yields to the old surface', () => {
-  for (const q of ['"light poster"', "'light poster'"]) {
-    const src = deck([`cover: ${q}`], [TITLE(), CLOSING()]);
-    const fixed = applyAllFixes(src, buildVocab());
-    assert.match(fixed, /^cover-layout: poster$/m, `${q}: the composition survives`);
-    assert.match(fixed, /_class: title light|layout=title, class=light/, `${q}: the light cover survives`);
-  }
-  const both = applyAllFixes(deck([], [TITLE('cover-light dark'), CLOSING('cover-inverse light')]), buildVocab());
-  assert.match(both, /title, class=light\b(?! dark)|_class: title light -->/, '`cover-light dark` becomes `light`');
-  assert.doesNotMatch(both, /title[^\n]*light dark|title[^\n]*dark light/);
-  assert.match(both, /closing, class=dark\b|_class: closing dark -->/, '`cover-inverse light` becomes `dark`');
+test('engine: stamps cover-light on title and closing only, and nothing without the key', () => {
+  const [t, c, d, e] = classesOf(['cover-layout: light'], [TITLE(), CONTENT, DIVIDER, CLOSING()]);
+  assert.ok(t.includes('cover-light'), t.join(' '));
+  assert.ok(!c.includes('cover-light'), c.join(' '));
+  assert.ok(!d.includes('cover-light'), d.join(' '));
+  assert.ok(e.includes('cover-light'), e.join(' '));
+  for (const s of classesOf([], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
+  for (const s of classesOf(['cover-layout: inverse'], [TITLE(), CLOSING()])) assert.ok(!s.some((x) => x.startsWith('cover-')), s.join(' '));
 });
 
-test('fix: a key with no surface word meant the dark panel, and the fix keeps it', () => {
-  const fixed = applyAllFixes(deck(['cover: masthead'], [TITLE(), CLOSING()]), buildVocab());
-  assert.match(fixed, /^cover-layout: masthead$/m);
-  assert.match(fixed, /layout=title, class=dark|_class: title dark/, 'the default surface was inverse');
-  assert.match(fixed, /layout=closing, class=dark|_class: closing dark/);
-});
-
-test('fix: the key waits while a slide it depends on cannot be fixed by machine, and a block value gets none', () => {
-  const multi = deck(['cover: inverse'], ['<!--\n_class: title\n-->\n\n# A deck.', CLOSING()]);
-  const key = retired(multi).find((f) => f.slide === 0);
-  assert.ok(key && !key.autofixable && !('replaceLine' in key), 'no machine fix on the key while a slide needs a hand edit');
-  const fixed = applyAllFixes(multi, buildVocab());
-  assert.match(fixed, /^cover: inverse$/m, 'the key survives the fix pass, so the slide stays reported');
-  assert.ok(retired(fixed).some((f) => f.slide === 1), 'and the slide is still named');
-  const block = deck(['cover: |', '  inverse masthead'], [TITLE()]);
-  const bk = retired(block).find((f) => f.slide === 0);
-  assert.ok(bk && !bk.autofixable, 'a block scalar is reported without a machine fix');
-  assert.equal(retired(block).filter((f) => f.slide > 0).length, 0, 'and asks no slide edit (the engine never read it)');
-});
-
-test('lint: slides are counted the way the engine splits them (a `***` break, a `---` inside a fence)', () => {
-  const src = deck([], ['## One', '```yaml\n---\ncover: light\n---\n```', TITLE('cover-light')]).replace('\n\n---\n\n## One', '\n\n## One').replace(/\n\n---\n\n```yaml/, '\n\n***\n\n```yaml');
-  assert.deepEqual(retired(src).map((f) => f.slide), [3]);
+test('engine: a slide\'s cover-inverse keeps its panel in a `cover-layout: light` deck', () => {
+  const [t, e] = classesOf(['cover-layout: light'], [TITLE(), CLOSING('cover-inverse')]);
+  assert.ok(t.includes('cover-light'), t.join(' '));
+  assert.ok(e.includes('cover-inverse') && !e.includes('cover-light'), e.join(' '));
 });
 
 /* ── The runtime's own mirror, from a baked block (the export path) ──────────────────── */
+
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
 const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
 
@@ -189,8 +151,8 @@ const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter
  *  mutation that satisfies `ready` means the pass has run over all of them. */
 function renderRuntimeBaked(deckSource, markup, ready) {
   const bundle = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
-  assert.ok(bundle.includes('cover-layout'),
-    'dist/lattice-runtime.js predates the cover-layout register — run `npm run build` and re-run.');
+  assert.ok(bundle.includes('cover-light'),
+    'dist/lattice-runtime.js predates the cover register — run `npm run build` and re-run.');
   const dom = new JSDOM(
     `<!DOCTYPE html><html><head></head><body>${markup}${frontMatterBlock(deckSource)}</body></html>`,
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
@@ -211,38 +173,48 @@ function renderRuntimeBaked(deckSource, markup, ready) {
 
 // The timeout is a deadline for a regression, not a timing assertion: the test waits on a signal, and
 // without a deadline a broken wiring would hang the run instead of failing it.
-test('runtime: stamps title and closing only from a baked block, and a slide\'s cover-plain opts out', { timeout: 60_000 }, async () => {
+test('runtime: stamps title and closing only from a baked block, and honors cover-inverse', { timeout: 60_000 }, async () => {
   const markup = '<section class="title"><h1>One</h1></section>'
     + '<section class="content"><h2>Two</h2></section>'
-    + '<section class="closing cover-plain"><h2>Three</h2></section>'
-    + '<section class="closing dark"><h2>Four</h2></section>';
-  const doc = await renderRuntimeBaked(deck(['cover-layout: poster'], ['## x']), markup,
-    (d) => d.querySelector('section.title')?.classList.contains('cover-poster'));
+    + '<section class="closing cover-inverse"><h2>Three</h2></section>'
+    + '<section class="closing"><h2>Four</h2></section>';
+  const doc = await renderRuntimeBaked(deck(['cover-layout: light'], ['## x']), markup,
+    (d) => d.querySelector('section.title')?.classList.contains('cover-light'));
   const [a, b, c, e] = [...doc.querySelectorAll('section')].map((s) => s.className.split(/\s+/));
-  assert.ok(a.includes('cover-poster'), a.join(' '));
-  assert.ok(!b.includes('cover-poster'), b.join(' '));
-  assert.ok(!c.includes('cover-poster'), c.join(' '));
-  assert.ok(e.includes('cover-poster') && e.includes('dark'), e.join(' '));
+  assert.ok(a.includes('cover-light'), a.join(' '));
+  assert.ok(!b.includes('cover-light'), b.join(' '));
+  assert.ok(!c.includes('cover-light'), c.join(' '));
+  assert.ok(e.includes('cover-light'), e.join(' '));
+});
+
+/* ── lint ────────────────────────────────────────────────────────────────────────────── */
+
+test('lint: an unknown word warns; a known one and the key itself do not', () => {
+  const rules = (v) => lintText(deck([`cover-layout: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover-layout');
+  assert.equal(rules('light').length, 0);
+  assert.equal(rules('inverse').length, 0);
+  assert.equal(rules('pale').length, 1);
+  assert.equal(lintText(deck(['cover-layout: light'], [TITLE()])).filter((f) => f.rule === 'unknown-key').length, 0);
+  const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
+  assert.equal(unknownClass('cover-light').length, 0, 'the per-slide class is in the vocabulary');
+  assert.equal(unknownClass('cover-inverse').length, 0, 'and so is the opt-out');
+  assert.equal(unknownClass('cover-lite').length, 1, 'a misspelling is still flagged');
 });
 
 /* ── CSS ─────────────────────────────────────────────────────────────────────────────── */
 
-test('css: no bookend forces a color scheme, and each paints its field from a light-dark() pair', () => {
+test('css: the light cover repaints the canvas and the ink tokens, and `title light` is untouched', () => {
   const mods = fs.readFileSync(path.join(ROOT, 'lib/base/base.modifiers.css'), 'utf8');
-  for (const name of ['title', 'closing', 'divider']) {
-    const css = fs.readFileSync(path.join(ROOT, `lib/components/anchor/${name}/${name}.styles.css`), 'utf8');
-    assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ''), /color-scheme:\s*dark/, `${name}.styles.css forces no scheme`);
+  const finish = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const block = mods.match(/section:is\(\.title, \.closing\)\.cover-light:not\(\.print\) \{([^}]*)\}/);
+  assert.ok(block, 'the light-cover block exists');
+  for (const decl of ['background: var(--bg)', 'color-scheme: light', '--text-display: var(--text-heading)',
+    '--on-dark-secondary: var(--text-secondary)', '--deck-logo-filter: initial']) {
+    assert.ok(block[1].includes(decl), `the light cover declares ${decl}`);
   }
-  const code = mods.replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.doesNotMatch(code, /cover-light|cover-inverse/, 'the retired surface classes are gone from the engine');
-  assert.doesNotMatch(code, /section:is\(\.title, \.closing\)[^{]*\{[^}]*color-scheme:\s*dark/, 'no force-dark rule on the covers');
-  assert.match(code, /section:is\(\.title, \.closing\):not\(\.print\) \{\s*background-color: light-dark\(var\(--bg\), var\(--surface-inverse\)\);/,
-    'a cover paints the canvas in light and the brand panel in dark (D4b)');
-  assert.match(code, /section\.divider:not\(\.print\) \{\s*background-color: light-dark\(var\(--accent\), color-mix\(in oklab, var\(--accent\) \d+%, var\(--bg\)\)\);/,
-    'a divider paints the accent in light and the dimmed accent in dark (D12)');
-});
-
-test('kernel: the composition tokens never collide with the `light` mood token', () => {
-  for (const t of COVER_REGISTER.TOKENS) assert.notEqual(t, 'light');
-  assert.ok(isSurfaceRegisterToken('cover-poster'), 'a decorating register rides a split page');
+  // The dark-panel re-assert and the inverse --fin-canvas carve out ONLY cover-light — never `.light`,
+  // whose bookend meaning (a scheme, not a surface) is pinned elsewhere.
+  assert.ok(mods.includes('section:is(.title, .closing):not(.print, .cover-light),'));
+  assert.ok(finish.includes('section:is(.title, .closing):not(.print, .cover-light),'));
+  assert.ok(!/section:is\(\.title, \.closing\):not\([^)]*\.light\b(?!-)/.test(mods.replace(/\.cover-light/g, '')), 'no `.light` carve-out on the bookend rule');
 });

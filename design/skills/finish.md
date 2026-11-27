@@ -83,9 +83,9 @@ that composes freely (`mode: sketch` + `finish: atrium`). Don't conflate them.
 encodes large alpha-fading gradients toward transparent-black → a muddy gray cloud.
 **Mix toward `var(--fin-canvas)`, never `var(--bg)` directly.** `--fin-canvas` is the
 surface THIS SLIDE paints, and it defaults to `var(--bg)` — so on an ordinary slide the
-two are the same value and nothing changes. They differ on the bookends, which follow
-the mode on a field of their own: `title` and `closing` paint `--surface-inverse` in dark,
-and a `divider` paints the accent (dimmed in dark). A finish written against `var(--bg)` composites a
+two are the same value and nothing changes. They differ on the three inverse bookends
+(`title`, `closing`, a non-`light` `divider`), which paint `--surface-inverse` while
+keeping `color-scheme: light`. A finish written against `var(--bg)` composites a
 light-canvas wash over those dark surfaces and the white display text disappears — a
 `finish:` deck's title slide exported as a nearly blank page (#1656). Using the canvas
 token is the whole of the fix, and it costs nothing anywhere else.

@@ -58,7 +58,7 @@ Three of the nine paths route to a team that no longer owns the service.
 ## When NOT to reach for topic.
 
 - A section with one topic, or with ten
-  - Below two the track is suppressed and the slide is a `divider subsection` with extra chrome — use `divider subsection`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`.
+  - Below two the track is suppressed and the slide is a `divider light` with extra chrome — use `divider light`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`.
 - A full sentence as the heading
   - The heading is also this topic's label in every sibling slide's track. A sentence reads as a headline here and overflows its column there. Short noun phrase; put the sentence in the claim.
 

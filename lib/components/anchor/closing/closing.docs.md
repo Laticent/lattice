@@ -1,12 +1,12 @@
 # closing
 
-> Final slide. The mirror of title, in the same color mode.
+> Final slide. Dark canvas mirror of title.
 
 **Function** anchor · **Form** bookend · **Substance** prose
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the cover's return signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. A cover follows the color mode like every slide: the deck's light canvas in light, the theme's brand panel (`--surface-inverse`) in dark, so one dark cover in a light deck is a `title dark` slide (lib/base/base.registers.docs.md § cover-layout). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with `cover-layout: column` so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover-layout: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover-layout: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -42,7 +42,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 
 ## When to use
 
-- **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The return of the cover tells the audience visually that the presentation is over.
+- **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The dark canvas tells the audience visually that the presentation is over.
 - **Single takeaway line.** The h2 is the slide. Keep it to one editorial line that summarizes the whole deck or names the action the audience should take. The eyebrow can carry a sub-line or link.
 - **Accent modifier for emphasis.** Pair with the universal `accent` modifier to recolor the focal heading. Useful when the closing line is a quote or a key decision the deck has been building toward.
 
@@ -214,8 +214,8 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 ## Related components
 
-- [`title`](../../anchor/title/title.docs.md) — opens the deck — the same cover, in the same mode
-- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — the bookend on the accent field
+- [`title`](../../anchor/title/title.docs.md) — opens the deck — same dark-bookend chrome
+- [`divider`](../../anchor/divider/divider.docs.md) — mid-deck section breaks — same dark canvas
 - [`big-number`](../../statement/big-number/big-number.docs.md) — single emphatic statement mid-deck without the bookend signal
 
 ## Demo deck

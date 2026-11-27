@@ -11,13 +11,13 @@ header: "Lattice · closing"
 
 `Anchor · Bookend · Prose`
 
-Final slide. The mirror of title, in the same color mode.
+Final slide. Dark canvas mirror of title.
 
 ---
 
 <!-- @meta{layout=closing, class=silent, footer=Default · closing} -->
 
-## The closing mirrors the title, with one last claim.
+## The closing mirrors the title — dark canvas, one last claim.
 
 `anchor · closing`
 
@@ -142,6 +142,6 @@ The payload bullet renders as a QR code sized for the back row.
 
 `Related components`
 
-- `title` — opens the deck — the same cover, in the same mode
-- `divider` — mid-deck section breaks — the bookend on the accent field
+- `title` — opens the deck — same dark-bookend chrome
+- `divider` — mid-deck section breaks — same dark canvas
 - `big-number` — single emphatic statement mid-deck without the bookend signal

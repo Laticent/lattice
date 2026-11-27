@@ -49,7 +49,7 @@ stays off the slide — exactly the way Marp has always treated it.
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## A slide with no note stays exactly as it was.
 

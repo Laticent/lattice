@@ -92,8 +92,8 @@ section.closing :is(h1, h2) + p:has(> code:only-child):not(:where([data-prose]))
 /* divider.light is the bright-canvas variant (former subtopic) — the dark-canvas
  * eyebrow color above would render near-invisible on it, so reset to the
  * standard muted ink and center it. */
-section.divider.subsection h1 + p:has(> code:only-child):not(:where([data-prose])),
-section.divider.subsection h2 + p:has(> code:only-child):not(:where([data-prose])) { text-align: var(--headline-align, center); }
+section.divider.light h1 + p:has(> code:only-child):not(:where([data-prose])),
+section.divider.light h2 + p:has(> code:only-child):not(:where([data-prose])) { color: var(--text-secondary); text-align: var(--headline-align, center); }
 /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
  * section.dark flips color-scheme:dark — so it resolves to its dark-canvas value
  * automatically. No extra rule needed. (The bookends above hardcode
@@ -123,8 +123,8 @@ section.divider.subsection h2 + p:has(> code:only-child):not(:where([data-prose]
  * component styling its own table. Written with `:is()` rather than a class
  * chained onto `section`, which is the form checkUniversalTableGuard reads as a
  * claim; see that gate's coverage boundary. */
-section:is(.title, .divider, .closing) > table thead th { color: var(--on-dark-secondary); }
-section:is(.title, .divider, .closing) > table td { color: var(--on-dark-primary); }
+section:is(.title, .divider:not(.light), .closing) > table thead th { color: var(--on-dark-secondary); }
+section:is(.title, .divider:not(.light), .closing) > table td { color: var(--on-dark-primary); }
 
 
 /* ── EYEBROW (inline-code paragraph) ─────────────────────────────────────────
@@ -201,9 +201,11 @@ section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > cod
 section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
 section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
 section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
-section.divider:not(.subsection) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
-section.divider:not(.subsection) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
-/* A subsection divider's eyebrow takes the field's ink from the tokens, like every divider's. */
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
+/* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
+section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--text-secondary); }
 /* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
  * It used to name --on-dark-ghost, the documented "very muted decorative chrome"
  * rung, for a real content label: measured 2.49:1 on indaco and 2.67–2.91:1 on
@@ -1263,123 +1265,115 @@ section.color-inherited {
 }
 
 
-/* ── THE BOOKENDS FOLLOW THE COLOR MODE (covers: title, closing; and divider) ─────────────
- * engineering/decisions/2026-11-23-cover-layout.md (D4a, D4b, D12). The bookends used to FORCE
- * `color-scheme: dark`, so a light deck opened on a dark panel, and `cover: light` / `divider light`
- * were a second way to set a slide's mode. Now they take the slide's own scheme, like every slide:
- * the deck's `color-mode:`, the slide's `light` / `dark`, the player's toggle.
+/* ── A DARK PANEL RE-ASSERTS ITS SCHEME, AFTER the canvas registers ──────────────────
+ * THE POSITION OF THIS BLOCK IS THE WHOLE POINT. It must stay below every rule above.
  *
- * THE INKS ARE TOKENS, SO THE REMAP IS ONE PLACE. Every bookend ink is named through a token rather
- * than a color: `--text-display` for the heading, the `--on-dark-*` tier for subtitle, eyebrow, list,
- * chip and eyebrow rebinds. Those tokens were written for a panel that was always dark. Each gets a
- * `light-dark()` pair here: the dark arm is the theme's own value (so a dark bookend is byte-identical
- * to the panel it always was), and the light arm is the light-canvas ink a content slide uses for
- * the same role (the pairs the light cover used: display → heading, primary → heading, secondary →
- * secondary, ghost → muted).
+ * The bookend components declare `color-scheme: dark` beside the `--surface-inverse` they
+ * paint, which is the honest place for it. But `section.title` and `section.color-light`
+ * are both (0,1,1), and the bundle emits this file AFTER the component sheets — so at
+ * equal specificity, source order hands the win to the register. Measured before this
+ * block: a deck with `color-mode: light`, `system`, or `inherited`, or a slide written
+ * `<!-- _class: title light -->`, rendered bold body text at 1.61:1 and a link at 1.20:1
+ * on the dark panel — bit-for-bit the defect 2026-08-17-dark-surface-ink.md was written
+ * to close. The first fix for that defect fell into the SAME equal-specificity trap it
+ * had just diagnosed one token over.
  *
- * WHY A CAPTURE, THEN THE CHILDREN. A custom property cannot name itself, and themes declare these
- * tokens at :root, so the section first CAPTURES each theme value under a private name, and its
- * children (which is where every consumer sits) redefine the public token from the capture.
- * `light-dark()` resolves where the value is used, under the inherited scheme.
+ * Why the register must lose here, rather than the panel following it: `.light` and the
+ * `color-*` registers set a SCHEME and paint nothing (see base.finish.css — a
+ * `title light` deliberately keeps its inverse panel). The panel is therefore still dark
+ * no matter which register is on, so on-dark ink is not a preference, it is the only
+ * legible answer. `--surface-inverse` is a constant dark hex in all 32 shipped themes,
+ * verified — there is no theme where deferring to the register would be right.
  *
- * `.print` keeps winning: it remaps these tokens to paper itself. No font size, margin or hex:
- * HARD RULES #3, #4, #20. */
-section:is(.title, .closing, .divider):not(.print) {
-  --_bk-display: var(--text-display);
-  --_bk-on-primary: var(--on-dark-primary);
-  --_bk-on-secondary: var(--on-dark-secondary);
-  --_bk-on-ghost: var(--on-dark-ghost);
-  --_bk-on-muted: var(--on-inverse-muted, var(--text-muted));
-}
-section:is(.title, .closing):not(.print) > * {
-  --text-display: light-dark(var(--text-heading), var(--_bk-display));
-  --on-dark-primary: light-dark(var(--text-heading), var(--_bk-on-primary));
-  --on-dark-secondary: light-dark(var(--text-secondary), var(--_bk-on-secondary));
-  --on-dark-ghost: light-dark(var(--text-muted), var(--_bk-on-ghost));
-}
-/* A COVER IN DARK PAINTS THE BRAND PANEL (D4b), in light the canvas. (0,2,1) beats the component
- * sheets' `section.title` / `section.closing` (0,1,1) canvas. */
-section:is(.title, .closing):not(.print) {
-  background-color: light-dark(var(--bg), var(--surface-inverse));
-}
-/* A DIVIDER IS A FIELD OF THE THEME'S ACCENT (D12, "D-dim"): the accent in light, inked with the
- * theme's curated `--on-accent`; in dark, the accent mixed 40% into the canvas, inked with the
- * panel's light ink, so a dimmed room gets a chapter break and no flash. Measured on all 33 themes
- * before the build: light ink 5.5–21:1, the jump from the content canvas 5.2–21:1; the dark arm's
- * contrast is gated in tools/contrast-audit.js. Every ink tier rides the field's PRIMARY ink in both arms:
- * on the light accent, `--on-accent`'s 70% derivative is sub-AA on half the palettes (base.tokens.css,
- * the accent rail); on the dimmed field the panel's 76% secondary measured 3.6–4.3:1 (ardesia,
- * carbone, concrete), and a theme's `--on-inverse-muted` (indaco's, tuned for its navy) 2.6:1. */
-section.divider:not(.print) {
-  background-color: light-dark(var(--accent), color-mix(in oklab, var(--accent) 40%, var(--bg)));
-  /* TEXT INHERITS ITS INK: a paragraph with no color of its own (a subsection lede, a body line)
-   * takes the color this section computed, so the children's token remap below never reaches it.
-   * The section takes the field's primary ink itself, in both modes: `--text-body` measured
-   * 1.33-2.10:1 on the light accent and 3.17:1 on concrete's dimmed field (bookends-follow-mode). */
-  color: light-dark(var(--on-accent), var(--_bk-on-primary));
-  /* THE MARK TAKES THE INVERSE TREATMENT IN BOTH MODES. A filter cannot ride `light-dark()`, and
-   * it does not need to: the field is a dark ground in both. Measured on the 19 base themes, the
-   * light accent carries a light `--on-accent` on every one, and the dimmed field is dark by
-   * construction. The light-canvas mark (brightness 0.4) all but vanished on indaco's accent.
-   * (0,2,1) beats the `.light` reset (0,1,1) on purpose: `divider light` is this same dark field.
-   * A theme whose accent is pale enough to take a DARK `--on-accent` would want the light-canvas
-   * mark here; none ships, and a `logo-finish:` color word overrides this per deck. */
+ * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
+ * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
+ * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
+ * the light scheme it declares beside that background. `cover-light` (the `cover-layout: light`
+ * register, lib/core/resolve-cover-layout.js) does the same for title and closing, so it is carved out
+ * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
+ * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
+section:is(.title, .closing):not(.print, .cover-light),
+section.divider:not(.light):not(.print) {
+  color-scheme: dark;
+  /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
+   * `section.title, section.divider, section.closing, section.dark`, a selector list that
+   * named LAYOUT CLASSES while its own comment claimed to name DARK CANVASES. The two
+   * agree only while those layouts are always dark, and they are not: `divider.light`
+   * REPLACES the canvas with `--bg` (divider.styles.css), and `.print` remaps the whole
+   * band to paper. On `<!-- _class: divider light -->` the mark therefore got the
+   * light-gray on-dark treatment on a light ground and vanished — present in the DOM,
+   * correctly positioned, invisible, and silent by construction: nothing errors and
+   * nothing is missing, which is why it took a pixel gate disagreeing with an element
+   * count to find it (#2149, #2142).
+   * Declaring the flip HERE, in the rule that already decides which bookend canvases are
+   * dark, means there is one predicate rather than two copies free to drift. */
   --deck-logo-filter: var(--deck-logo-filter-inverse);
   --deck-logo-opacity: var(--deck-logo-opacity-inverse);
 }
-section.divider:not(.print) > * {
-  /* The content-canvas inks too: text outside the named slots (a body line, a subsection lede, a
-   * link's currentColor) rides the field's primary ink in both modes, like the tiers below. Their
-   * own values are content-canvas inks: 1.33-3.31:1 on the light accent, 3.17:1 dimmed. */
-  --text-body: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --text-secondary: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --text-muted: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --text-display: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --on-dark-primary: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --on-dark-secondary: light-dark(var(--on-accent), var(--_bk-on-primary));
-  /* THE HAIRLINE RIDES THE SECONDARY RUNG, not the ghost. The ghost tier paints one thing on a
-   * divider, the `numbered` masthead's rule, and the repo holds a rule to 3:1 (contrast-audit.js).
-   * Measured on the 19 base themes: `--on-accent-ghost` on the light accent 1.82–2.9:1 (all below),
-   * the panel's ghost on the dimmed field 2.40–3.41:1 (9 below); the secondary rung clears it,
-   * 3.51:1 (indaco, light) and 4.18:1 (concrete, dark) at the lowest. */
-  --on-dark-ghost: light-dark(var(--on-accent-secondary), var(--_bk-on-secondary));
+/* CHROME ON THE DARK PANEL takes the panel's muted ink, when the theme names one. The bands read the
+ * Marp chrome colors, which base.tokens.css maps to `--text-muted`, and on these panels that resolves
+ * to the theme's dark-scheme muted ink, tuned for its dark CANVAS. Every theme but one paints the panel
+ * near-black, so the two agree. Indaco paints it brand navy (#003D66, the lightest --surface-inverse in
+ * the repo), where its dark muted ink measured 3.5:1, under AA for 15 px text (found by
+ * tools/type-voice-audit.mjs, 2026-11-09). Lifting that ink everywhere was measured and rejected: the
+ * first passing value sits 1.01:1 from the theme's secondary ink, so muted and secondary would merge on
+ * every dark surface. So a theme may name `--on-inverse-muted`, read only here, and a theme that names
+ * nothing renders exactly as before (the fallback is the mapping base.tokens.css already makes). The
+ * print block above remaps the same three tokens the same way; `.print` is excluded here as there.
+ * Gated by test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes.
+ *
+ * SPECIFICITY (0,1,1), ON PURPOSE: the panel predicate sits in `:where()`, so the rule weighs exactly
+ * what an author's `section.my-class { --marp-slide-footer-color: … }` weighs, and the author's style,
+ * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
+ * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
+ * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
+section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {
+  --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
 }
-/* THE CHROME follows the same pairs: the band's muted ink in light, the panel's in dark (a theme
- * may name `--on-inverse-muted` for its panel; indaco does, for its navy). On the divider's light
- * accent field the band takes `--on-accent`. `:where()` keeps (0,1,1), so an author's
- * `section.my-class { --marp-slide-footer-color: … }`, which loads later, still wins. Gated by
- * test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes. */
-section:where(.title, .closing):not(.print) {
-  --marp-slide-header-color: light-dark(var(--text-muted), var(--_bk-on-muted));
-  --marp-slide-footer-color: light-dark(var(--text-muted), var(--_bk-on-muted));
-  --marp-slide-pagination-color: light-dark(var(--text-muted), var(--_bk-on-muted));
-}
-/* A LINK ON A BOOKEND takes the slide's ink, underlined. Lattice colors no link anywhere, so a link
- * took the browser's own blue: 9.4:1 on a white canvas and on the old dark panel (the dark-scheme
- * blue), 1.72:1 on indaco's light accent, and 1.20:1 on a cover in the player after a toggle to dark
- * (the player repaints the cover but cannot move the browser's link color). `currentColor` follows
- * whichever ink the text around it resolved, in both modes and both player schemes. */
-section:is(.title, .closing, .divider):not(.print) a {
-  color: currentColor;
-}
-/* AN INLINE CHIP ON THE DIMMED FIELD drops its wash. The chip's ground is a 10% wash of its own
- * light ink, which lifts the dimmed accent toward the ink: 4.33:1 on concrete's dark divider. Without
- * the wash the ink sits on the field itself (5.27:1 there, the lowest theme). The border still draws
- * the chip; the light arm keeps the wash. */
-section.divider:not(.print) code {
-  --code-inline-bg: light-dark(color-mix(in srgb, currentColor 10%, transparent), transparent);
-}
-/* `**bold**` and a heading below the slot's own read `--text-heading`, a diagram
- * token the Mermaid scope keys on the section's class list, so it cannot be remapped from the `> *`
- * rule above (the build's diagram-token scope gate); each element takes the field's ink itself, as
- * the section does. An `h3` on a light divider measured 1.00:1 on concrete before this. */
-section.divider:not(.print) :is(strong, h3, h4, h5, h6) {
-  color: light-dark(var(--on-accent), var(--_bk-on-primary));
-}
-section:where(.divider):not(.print) {
-  --marp-slide-header-color: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --marp-slide-footer-color: light-dark(var(--on-accent), var(--_bk-on-primary));
-  --marp-slide-pagination-color: light-dark(var(--on-accent), var(--_bk-on-primary));
+
+/* ── THE LIGHT COVER (`cover-layout: light` → `cover-light`, title and closing only) ────────────────
+ * The front and back cover on the deck's own light canvas instead of the inverse panel. The
+ * register is lib/core/resolve-cover-layout.js, which also says why this is a register of its own and not
+ * the `light` mood token.
+ *
+ * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
+ * named through a token rather than a color: the heading reads `--text-display` (a constant
+ * light ink in every theme), and the subtitle, eyebrow, closing list, inline-code chip and the
+ * eyebrow rebinds above all read the `--on-dark-*` tier. Repointing those tokens on the section
+ * reaches every one of them at once, the way `section.print` remaps the same tokens to the print
+ * band, so no element rule is copied and none can be missed. Each points at the light-canvas
+ * ink a content slide uses for the same role: display → heading, primary → heading, secondary →
+ * secondary, ghost → muted.
+ *
+ * `background: var(--bg)` with `color-scheme: light`, the pair `section.divider.light` paints, so
+ * the light cover and the bright divider are the same surface. THE SAME IN BOTH COLOR MODES: in a
+ * dark deck a light cover is still the light canvas, because the scheme travels with the surface
+ * (2026-08-17-dark-surface-ink.md) and `--bg` is a `light-dark()` pair that resolves to its light
+ * side under `color-scheme: light`. A dark deck that wants dark covers leaves the key out.
+ *
+ * The CHROME and the LOGO go back to the light canvas's own: the two blocks above carve
+ * `cover-light` out of their panel predicate, so the bands keep the `--text-muted` mapping from
+ * base.tokens.css, and the logo filter is reset here because a `-dark` theme or a `.dark` deck
+ * sets the inverse mark on every section at (0,1,1). `--fin-canvas` is repointed in
+ * base.finish.css, beside the rule that points it at the panel.
+ *
+ * `:not(.print)`: a printed cover is paper already, and print's own remap of these tokens must
+ * keep winning, so a `cover-light` slide under print renders exactly as a printed title does.
+ *
+ * (0,3,1) beats the component sheets' `section.title` / `section.closing` (0,1,1) canvas, the
+ * `.dark` / `.color-*` scheme registers (0,1,1), and the inverse-logo rules (0,1,1). No font
+ * size, no margin, no hex: HARD RULES #4, #20 and #3. */
+section:is(.title, .closing).cover-light:not(.print) {
+  background: var(--bg);
+  color-scheme: light;
+  --text-display: var(--text-heading);
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+  --on-dark-ghost: var(--text-muted);
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
@@ -1389,8 +1383,7 @@ section:where(.divider):not(.print) {
  * light-canvas value, so without help the chip reads as a bright box on a dark field.
  *
  * THE BOOKENDS AND THE RAILS ARE NOT THE SAME CASE, though they look it. A bookend is a
- * SECTION and takes its slide's scheme (it declared `color-scheme: dark` until 2026-11-23; it
- * follows the color mode now), which fixes its inks generally. A rail is a
+ * SECTION and now declares `color-scheme: dark`, which fixes its inks generally. A rail is a
  * DESCENDANT, and that cannot work for it: `light-dark()` in a custom property resolves at
  * computed-value time where the property is DECLARED, and the ink tokens are declared on
  * `section` — so by the time a rail could flip its own scheme, what it inherits is already a
@@ -1463,6 +1456,10 @@ section:is(.decision-cover, .compare-code-cover, .compare-split-cover,
  * `data-split-mods` stamp, the only way the modifier reaches a split page. */
 section.split-panel-cover:is([data-split-mods~="cat-1"], [data-split-mods~="cat-2"], [data-split-mods~="cat-3"], [data-split-mods~="cat-4"], [data-split-mods~="cat-5"], [data-split-mods~="cat-6"], [data-split-mods~="cat-7"], [data-split-mods~="cat-8"]) code {
   --code-inline-fg: var(--cat-on-fill);
+}
+/* divider.light is the bright-canvas variant — keep the brand-accent ink. */
+section.divider.light code {
+  --code-inline-fg: var(--accent);
 }
 
 
@@ -2424,6 +2421,12 @@ section.divider.numbered :is(h1, h2)::after {
   z-index: var(--z-content);
 }
 
+/* `divider.light` is the bright-canvas variant, so both rungs reset to their light-canvas
+ * equivalents — the same tokens the eyebrow and the engine's hairlines already take. */
+section.divider.light.numbered :is(h1, h2)::after {
+  color: var(--text-secondary);
+  border-bottom-color: var(--border);
+}
 
 section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(data-lat-section); }
 

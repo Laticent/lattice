@@ -11,7 +11,7 @@ header: "Lattice · divider"
 
 `Anchor · Divider · Prose`
 
-Section boundary slide. A single heading on the theme's accent, dimmed in dark.
+Section boundary slide. Dark canvas with a single heading.
 
 ---
 
@@ -33,11 +33,11 @@ Section boundary slide. A single heading on the theme's accent, dimmed in dark.
 
 ---
 
-<!-- @meta{layout=divider, class=subsection, footer="subsection · divider subsection — A finer, sentence-length break: centered, a tier smaller, no rail."} -->
+<!-- @meta{layout=divider, class=light, footer="light · divider light — Bright canvas, sentence-length waypoint."} -->
 
-`divider subsection`
+`divider light`
 
-## A subsection divider marks a finer turn with a full-sentence waypoint.
+## The light divider trades the dark canvas for a bright, full-sentence waypoint.
 
 
 ---
@@ -61,7 +61,7 @@ Section boundary slide. A single heading on the theme's accent, dimmed in dark.
 - More than five per deck
   - Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
 - Section title that doesn't earn a section
-  - If the next few slides aren't one unit, use the `subsection` variant. Keep the default divider for real section starts.
+  - If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
 - Header or footer overrides
   - Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
 
@@ -73,5 +73,5 @@ Section boundary slide. A single heading on the theme's accent, dimmed in dark.
 
 `Related components`
 
-- `title` — opens the deck — a bookend that follows the color mode too
+- `title` — opens the deck — same dark-bookend chrome
 - `closing` — closes the deck — completes the bookend trio

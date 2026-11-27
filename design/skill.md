@@ -90,10 +90,9 @@ the CLI, and the VS Code preview.
 
 The first-class `color-mode:` key is the way. The legacy `class: dark`/`class: light`
 still works on a deck that sets nothing else — but where a deck carries both, **the key
-wins and the alias is dropped**, not merged. Default is light. The bookends follow the mode like every slide (since
-2026-11-23): `title` and `closing` paint the canvas in light and the theme's brand
-panel in dark, and a `divider` paints the accent, dimmed in dark. One dark cover in a
-light deck is a `title dark` slide.
+wins and the alias is dropped**, not merged. Default is light. Layout classes that always want a dark canvas
+(`section.title`, `section.divider`, `section.closing`) keep their dark
+chrome regardless of the deck's color-scheme.
 
 For the architectural detail (why `light-dark()` + `:where(:root)`),
 see [theming.md § Dark mode](./theming.md#dark-mode).

@@ -252,8 +252,7 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     // takes the canvas of any frame that paints its own. `background-image: none` says only
     // the part that was meant. The assertion is now the negative one as well, because the
     // shorthand is what the fix removed.
-    // `:not(.subsection)` since 2026-11-23: the small layout has no rail (it was `divider light`).
-    assert.match(block, /section\.divider:not\(\.subsection\)\.no-spectrum\s*\{\s*background-image:\s*none/);
+    assert.match(block, /section\.divider:not\(\.light\)\.no-spectrum\s*\{\s*background-image:\s*none/);
     assert.doesNotMatch(
       block, /section\.(dark|divider[^{]*)\.no-spectrum\s*\{\s*background:\s/,
       'a no-spectrum rule must not use the `background:` shorthand — it restates the color '

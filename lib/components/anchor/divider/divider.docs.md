@@ -1,6 +1,6 @@
 # divider
 
-> Section boundary slide. A single heading on the theme's accent, dimmed in dark.
+> Section boundary slide. Dark canvas with a single heading.
 
 **Function** anchor · **Form** divider · **Substance** prose
 
@@ -21,28 +21,28 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ### Variant decision rule
 
-- **default (no modifier).** A standard mid-deck section start — the accent field, one heading, no extra chrome.
-- **`numbered`.** The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider subsection` share one series, so mixing them does not restart it.
-- **`subsection`.** A narrower re-focus within a section rather than a full section start — sits between a divider and a run of content slides. Reserve the default for genuine section starts.
+- **default (no modifier).** A standard mid-deck section start — dark canvas, one heading, no extra chrome.
+- **`numbered`.** The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider light` share one series, so mixing them does not restart it.
+- **`light`.** A narrower re-focus within a section rather than a full section start — sits between a dark divider and a run of content slides. Reserve the dark default for genuine section starts.
 - **`qr`.** The divider itself should carry a scannable link — a resource specific to the section it's opening.
 
 ### Common mistakes
 
 - **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
 - **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended eyebrow kicker.
-- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `subsection` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
+- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
 
 ## When to use
 
-- **Major section starts.** Marks the boundary between two themed sections of the deck. The accent field is a strong context-switch signal — use it when the audience needs to re-orient.
+- **Major section starts.** Marks the boundary between two themed sections of the deck. The dark canvas is a strong context-switch signal — use it when the audience needs to re-orient.
 - **Sparingly.** A 30-slide deck typically has 3-5 dividers. More becomes navigation noise; the signal weakens if every third slide is a divider.
 - **With an eyebrow.** An inline-code paragraph above the heading stamps a section number or category label. Useful for serialized decks where the audience needs to remember which section they're in.
-- **The subsection variant for sub-section orientation.** The `subsection` variant centers the heading at h2 weight with no rail — a lighter context switch for narrowing focus within a section, between a divider and the content slides. It takes every divider's field, so it follows the color mode. (Absorbed the standalone `subtopic` component on 2026-06-07; named `divider light` until 2026-11-23.)
+- **Light variant for sub-section orientation.** The `light` variant keeps the bright body-slide canvas and centers the heading at h2 weight — a lighter context switch for narrowing focus within a section, between a dark divider and the content slides. (Absorbed the standalone `subtopic` component on 2026-06-07.)
 
 ## When NOT to use
 
 - **More than five per deck.** Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
-- **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `subsection` variant. Keep the default divider for real section starts.
+- **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
 - **Header or footer overrides.** Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
 
 ## Authoring
@@ -84,16 +84,16 @@ Masthead — the running section number over a hairline, top-left.
 ## The stamp counts this divider for you.
 ```
 
-### `subsection` — subsection
+### `light` — light
 
-A finer, sentence-length break: centered, a tier smaller, no rail.
+Bright canvas, sentence-length waypoint.
 
 ```markdown
-<!-- @meta{layout=divider, class=subsection} -->
+<!-- @meta{layout=divider, class=light} -->
 
-`divider subsection`
+`divider light`
 
-## A subsection divider marks a finer turn with a full-sentence waypoint.
+## The light divider trades the dark canvas for a bright, full-sentence waypoint.
 ```
 
 ### `qr` — qr
@@ -117,7 +117,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 ## Related components
 
-- [`title`](../../anchor/title/title.docs.md) — opens the deck — a bookend that follows the color mode too
+- [`title`](../../anchor/title/title.docs.md) — opens the deck — same dark-bookend chrome
 - [`closing`](../../anchor/closing/closing.docs.md) — closes the deck — completes the bookend trio
 
 ## Demo deck

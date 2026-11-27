@@ -68,7 +68,7 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
 // run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
 // (108,060 -> +483 bytes = 108,543). Both hosts agree.
-// Re-blessed 2026-11-20 for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js): the
+// Re-blessed 2026-11-20 for the light cover (`cover-layout: light` → `cover-light`, lib/core/resolve-cover-layout.js): the
 // player script's `pinsOpposite` also leaves a `cover-light` slide alone on a toggle, so a light cover is not
 // restamped with the deck's dark class. Script only, `||el.classList.contains('cover-light')`
 // (108,543 -> +38 bytes = 108,581); the fixture has no cover-light slide, so its rendering is unchanged. Both hosts agree.
@@ -84,11 +84,8 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // other's bytes), measured on the merged tree. Both hosts produce it.
 // Merged again 2026-11-21 with the four notes (main): 108,804 + 2,184 (#3304) = 110,988 bytes, measured on the merged
 // tree. Both hosts produce it.
-// Re-blessed 2026-11-27 for cover-layout (2026-11-23-cover-layout.md): the bookends follow the color mode, so
-// `cover-light` is gone and `pinsOpposite` drops `||el.classList.contains('cover-light')`, the exact 38 bytes the
-// 2026-11-20 entry above added (110,988 -> 110,950). Script only; both hosts produce the new SHA.
-const GOLDEN_SHA = 'ba41e926afadb429579bad0789be981f04feb2fea89044cf96af1107f69847c7';
-const GOLDEN_BYTES = 110950;
+const GOLDEN_SHA = '10914d4686da74cd59741872d7ba70705bc723d66a989faac9cc1ce72b1ffbbb';
+const GOLDEN_BYTES = 110988;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

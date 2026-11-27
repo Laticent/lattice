@@ -5,7 +5,7 @@ recorded: 2026-11-27
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-11-23-cover-layout.md §7
-deferred: off-path — the fix sets the link color on every slide of every deck, a visual design call for the owner; #3517 fixed it on the bookends it touches
+deferred: off-path — found while building #3517, which ships only the cover-layout rename; the fix sets the link color on every slide of every deck, a visual design call for the owner
 source: https://github.com/Laticent/lattice/pull/3517
 ---
 
@@ -17,8 +17,8 @@ why now   — Lattice colors no link, so a link takes the browser's own color. T
             `node tools/check-player-contrast.js` on a one-link content slide (2026-11-27):
             indaco `color-mode: system` toggled to dark 1.83:1 (rgb(0,0,238) on rgb(0,29,51)),
             concrete 1.85:1, indaco-dark toggled to light 2.39:1 (rgb(158,158,255) on white).
-            Pre-existing on `main`. #3517 gave links on title, closing and divider `currentColor`
-            (base.modifiers.css, "A LINK ON A BOOKEND"), which passes in both player schemes.
+            Pre-existing on `main`. A withdrawn #3517 build gave bookend links `currentColor`, which
+            passed in both player schemes; that fix did not ship.
 where     — lib/base/base.elements.css (no `a` rule today); lib/export/player-core.mjs
 done when — a link on any slide clears 4.5:1 in the export as shipped and after the toggle,
             in both directions, and the owner has chosen the link treatment (currentColor and an

@@ -779,18 +779,8 @@ const PROBE = () => {
   // returns the raw token text (`light-dark(#6B7F9A, …)`), which no color parser
   // can read. Assigning it to `color` makes the browser resolve light-dark(),
   // var() chains and the section's own color-scheme for us.
-  // PER SECTION, AND NEVER THE SLIDE'S OWN BODY INK (2026-11-27). The set used to be one for the
-  // whole deck, so a token one slide remaps exempted that color on EVERY slide. When dividers began
-  // to follow the color mode (2026-11-23-cover-layout.md), a divider's `--text-muted` resolved to its
-  // field's white ink, and white body text on every dark content slide left the measurement: 830
-  // exempt runs on `gallery @ indaco-dark` against a ceiling of 340. A token that resolves to the
-  // section's own body color is not a decorative tier on that slide, so it exempts nothing there.
-  const exemptBySection = new Map();
+  const exemptInks = new Set();
   for (const sec of document.querySelectorAll('section[data-lattice-slide]')) {
-    const exemptInks = new Set();
-    exemptBySection.set(sec, exemptInks);
-    const body = parse(getComputedStyle(sec).color);
-    const bodyKey = body ? body.rgb.map(Math.round).join(',') : '';
     const probe = document.createElement('span');
     probe.style.display = 'none';
     sec.appendChild(probe);
@@ -804,8 +794,7 @@ const PROBE = () => {
     for (const tok of ['--text-muted', '--muted-mark', '--border']) {
       probe.style.color = `var(${tok})`;
       const v = parse(getComputedStyle(probe).color);
-      const key = v && v.a > 0 ? v.rgb.map(Math.round).join(',') : '';
-      if (key && key !== bodyKey) exemptInks.add(key);
+      if (v && v.a > 0) exemptInks.add(v.rgb.map(Math.round).join(','));
     }
     probe.remove();
   }
@@ -897,7 +886,7 @@ const PROBE = () => {
         text: t.slice(0, 44), fs: +fs.toFixed(1), w,
         fg: fgc.map(Math.round), bg: bg.map(Math.round),
         r: +ratio(fgc, bg).toFixed(2), need: AA,
-        exempt: exemptBySection.get(sec)?.has(fgc.map(Math.round).join(',')) ?? false,
+        exempt: exemptInks.has(fgc.map(Math.round).join(',')),
         imgBackdrop: rasterUnder(el, trect),
         // The glyphs' own box in viewport coordinates, carried so a caller that samples
         // the backdrop from RENDERED PIXELS rather than from the ancestor chain knows
@@ -942,7 +931,7 @@ const PROBE = () => {
           text: content.replace(/^"|"$/g, '').slice(0, 44), fs: +fs.toFixed(1), w,
           fg: fgc.map(Math.round), bg: bg.map(Math.round),
           r: +ratio(fgc, bg).toFixed(2), need: AA,
-          exempt: exemptBySection.get(sec)?.has(fgc.map(Math.round).join(',')) ?? false,
+          exempt: exemptInks.has(fgc.map(Math.round).join(',')),
           imgBackdrop: rasterUnder(el),
           // The OWNER's box, not the pseudo's — CSS exposes no rect for a pseudo-element.
           // Flagged as such so a pixel-sampling caller knows this one box is an

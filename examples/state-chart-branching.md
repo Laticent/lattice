@@ -16,7 +16,7 @@ A chain keeps its reading order. A fan-out gets a real graph layout.
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## The rule
 

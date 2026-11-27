@@ -181,7 +181,7 @@
       "",
       "`Optional eyebrow`"
     ],
-    "description": "Final slide. The mirror of title, in the same color mode."
+    "description": "Final slide. Dark canvas mirror of title."
   },
   "lattice: code": {
     "scope": "markdown",
@@ -376,7 +376,7 @@
       "",
       "## Section name"
     ],
-    "description": "Section boundary slide. A single heading on the theme's accent, dimmed in dark."
+    "description": "Section boundary slide. Dark canvas with a single heading."
   },
   "lattice: ep-curve": {
     "scope": "markdown",
@@ -1352,7 +1352,7 @@
       "",
       "One-line subtitle that frames the deck."
     ],
-    "description": "Opening slide. Centered, no chrome; follows the color mode, on the brand panel in dark."
+    "description": "Opening slide. Dark canvas, centered, no chrome."
   },
   "lattice: topic": {
     "scope": "markdown",

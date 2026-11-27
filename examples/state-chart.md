@@ -16,7 +16,7 @@ A list of states, arrows to a state's name, palette-blind SVG. The flowchart's g
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## What this deck shows.
 

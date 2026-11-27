@@ -1,11 +1,8 @@
 /**
- * A BOOKEND'S EYEBROW STAYS LEGIBLE AT EITHER HEADING LEVEL, IN EITHER MODE — measured in real
+ * A DARK BOOKEND'S EYEBROW STAYS LEGIBLE AT EITHER HEADING LEVEL — measured in real
  * Chromium against the real bundle.
  *
- * SINCE 2026-11-23 the bookends follow the color mode (engineering/decisions/2026-11-23-cover-layout.md):
- * `title` and `closing` paint the canvas in light and `--surface-inverse` in dark, a `divider` the
- * accent in light and the dimmed accent in dark. Each case below runs in both modes. When this file
- * was written they were always the dark panel, which is what the history that follows describes. The inline-code
+ * `title`, `closing`, and a non-`light` `divider` paint `--surface-inverse`. The inline-code
  * eyebrow was named per-component AND per-heading-level — `title h1`, `divider h2`,
  * `closing h2` — which is each component's grammar-correct level and nothing else. Write
  * the OTHER level and the selector stopped matching, so the eyebrow fell through to
@@ -63,16 +60,6 @@ function contrast(fg, bg) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Resolve a computed color in the page the way it PAINTS (one canvas pixel), as `rgba(r, g, b, a)`.
- *  Chromium reports a color-mix() as `oklab(…)`, which `parseColor` cannot read: the dimmed divider
- *  field came back as black, so its ratios were measured against the wrong ground. */
-const RESOLVE = `window.__paint = (c) => {
-  const x = (window.__ctx ||= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true }));
-  x.clearRect(0, 0, 1, 1); x.fillStyle = '#000'; x.fillStyle = c; x.fillRect(0, 0, 1, 1);
-  const [r, g, b, a] = x.getImageData(0, 0, 1, 1).data;
-  return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + a / 255 + ')';
-};`;
-
 const BOOKENDS = ['title', 'closing', 'divider'];
 const LEVELS = ['h1', 'h2'];
 
@@ -87,17 +74,16 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
     const theme = fs.readFileSync(path.join(ROOT, 'themes', 'indaco', 'indaco.css'), 'utf8');
     cases = [];
-    for (const c of BOOKENDS) for (const m of ['', 'dark']) for (const h of LEVELS) cases.push([`${c}${m ? ` ${m}` : ''}`, h]);
+    for (const c of BOOKENDS) for (const h of LEVELS) cases.push([c, h]);
     const html =
       `<style>${theme}\n${bundle}</style><article class="lattice">` +
       cases
         .map(([c, h], i) => `<section id="s${i}" class="${c}"><${h}>Heading</${h}><p id="c${i}"><code>Label text</code></p></section>`)
         .join('') +
-      // The small centered layout on the light accent (it was `divider light` until 2026-11-23).
-      '<section id="light" class="divider subsection light"><h2>Heading</h2><p id="lightc"><code>Label text</code></p></section>' +
+      // The bright variant must NOT take the on-dark ink.
+      '<section id="light" class="divider light"><h2>Heading</h2><p id="lightc"><code>Label text</code></p></section>' +
       '</article>';
     await page.setContent(html);
-    await page.addScriptTag({ content: RESOLVE });
   });
 
   after(async () => {
@@ -109,12 +95,12 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
       (cs) =>
         cs.map(([c, h], i) => ({
           cls: `${c} ${h}`,
-          ink: window.__paint(getComputedStyle(document.getElementById(`c${i}`)).color),
-          surface: window.__paint(getComputedStyle(document.getElementById(`s${i}`)).backgroundColor),
+          ink: getComputedStyle(document.getElementById(`c${i}`)).color,
+          surface: getComputedStyle(document.getElementById(`s${i}`)).backgroundColor,
         })),
       cases,
     );
-    assert.equal(rows.length, BOOKENDS.length * 2 * LEVELS.length);
+    assert.equal(rows.length, BOOKENDS.length * LEVELS.length);
     const failures = rows
       .map((r) => ({ ...r, ratio: contrast(r.ink, r.surface) }))
       .filter((r) => r.ratio < AA)
@@ -197,7 +183,6 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     // shipped document. Every real render writes a doctype (lattice.js).
     await probe.setContent(`<!DOCTYPE html><style>${theme}\n${bundle}</style><article class="lattice">${blocks.join('')}</article>`);
 
-    await probe.addScriptTag({ content: RESOLVE });
     const mode = await probe.evaluate(() => document.compatMode);
     assert.equal(mode, 'CSS1Compat', 'the probe must render in standards mode, as the engine does');
 
@@ -211,9 +196,9 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
         let surface = 'rgba(0, 0, 0, 0)';
         for (let node = p; node; node = node.parentElement) {
           const bg = getComputedStyle(node).backgroundColor;
-          if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { surface = window.__paint(bg); break; }
+          if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { surface = bg; break; }
         }
-        out.push({ i, ink: window.__paint(getComputedStyle(el).color), surface });
+        out.push({ i, ink: getComputedStyle(el).color, surface });
       }
       return out;
     }, combos.length);
@@ -236,13 +221,13 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     );
   });
 
-  test('divider subsection light clears AA on the accent and centers its eyebrow', async () => {
+  test('divider.light keeps the muted light-canvas ink, not the on-dark one', async () => {
     const r = await page.evaluate(() => ({
-      ink: window.__paint(getComputedStyle(document.getElementById('lightc')).color),
-      surface: window.__paint(getComputedStyle(document.getElementById('light')).backgroundColor),
+      ink: getComputedStyle(document.getElementById('lightc')).color,
+      surface: getComputedStyle(document.getElementById('light')).backgroundColor,
       align: getComputedStyle(document.getElementById('lightc')).textAlign,
     }));
-    assert.ok(contrast(r.ink, r.surface) >= AA, `divider subsection light eyebrow is ${contrast(r.ink, r.surface).toFixed(2)}:1`);
-    assert.equal(r.align, 'center', 'the subsection layout centers its eyebrow');
+    assert.ok(contrast(r.ink, r.surface) >= AA, `divider.light eyebrow is ${contrast(r.ink, r.surface).toFixed(2)}:1`);
+    assert.equal(r.align, 'center', 'the bright variant centers its eyebrow');
   });
 });

@@ -62,7 +62,7 @@ meta: "numbered · the divider section mark"
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light numbered} -->
+<!-- @meta{layout=divider, class=light numbered} -->
 
 `divider light numbered`
 

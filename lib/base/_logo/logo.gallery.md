@@ -17,7 +17,7 @@ A grayscale watermark in the top-right corner — brightness adapts to dark and 
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 `How it works`
 

@@ -928,57 +928,8 @@
    }
   },
   {
-   "name": "cover-layout: plain",
-   "source": "---\ncover-layout: plain\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: masthead",
-   "source": "---\ncover-layout: masthead\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: ledger",
-   "source": "---\ncover-layout: ledger\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: column",
-   "source": "---\ncover-layout: column\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: label",
-   "source": "---\ncover-layout: label\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: stage",
-   "source": "---\ncover-layout: stage\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: frame",
-   "source": "---\ncover-layout: frame\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "cover-layout: poster",
-   "source": "---\ncover-layout: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: light",
+   "source": "---\ncover-layout: light\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
@@ -997,16 +948,31 @@
    }
   },
   {
-   "name": "cover: light column (retired: the surface is the color mode)",
-   "source": "---\ncover: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "cover-layout: inverse",
+   "source": "---\ncover-layout: inverse\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
-    "findings": [
-     {
-      "rule": "retired-cover-key",
-      "severity": "error",
-      "slide": 0
-     }
-    ]
+    "findings": []
+   }
+  },
+  {
+   "name": "cover-layout: light column",
+   "source": "---\ncover-layout: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover-layout: poster (composition alone)",
+   "source": "---\ncover-layout: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover-layout: masthead light (either order)",
+   "source": "---\ncover-layout: masthead light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
    }
   },
   {

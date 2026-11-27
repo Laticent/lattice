@@ -28,7 +28,7 @@ A decision framework for product leaders navigating market uncertainty, quarterl
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light, header="", footer=Centered orientation · divider subsection light} -->
+<!-- @meta{layout=divider, class=light, header="", footer=Centered orientation · divider light} -->
 
 
 
@@ -927,7 +927,7 @@ Somebody renumbered this deck at one in the morning, once. The sections number t
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light numbered, header="", footer="Modifier — divider subsection light numbered · divider subsection light numbered"} -->
+<!-- @meta{layout=divider, class=light numbered, header="", footer="Modifier — divider light numbered · divider light numbered"} -->
 
 
 

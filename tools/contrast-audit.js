@@ -19,7 +19,6 @@
 
 
 const fs   = require('fs');
-const { mix: oklabMix } = require('../lib/core/color.js');
 const { themeEntries } = require('../lib/theme/files.js');
 const path = require('path');
 
@@ -192,69 +191,6 @@ function _wcagGrade(ratio) {
 
 // Each entry: [fgToken, bgToken, context, minRatio]
 // minRatio defaults to 4.5 (AA body text). Large/decorative text passes at 3.0.
-// ── The divider's field (engineering/decisions/2026-11-23-cover-layout.md, D12) ───────────
-//
-// A divider follows the color mode on the theme's accent: the accent itself in light, inked with
-// `--on-accent`; in dark the accent mixed into the canvas, inked with the panel's light ink. The
-// dark field is a DERIVED color no theme declares, so this reads the mix from base.modifiers.css
-// (never a copy of the number) and adds three pseudo-tokens the rows below score. The secondary
-// rung is the hairline's ink (base.modifiers.css, "THE HAIRLINE RIDES THE SECONDARY RUNG").
-const DIVIDER_DIM = (() => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'base', 'base.modifiers.css'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-  const m = src.match(/section\.divider:not\(\.print\) \{\s*background-color: light-dark\(var\(--accent\), color-mix\(in oklab, var\(--accent\) (\d+(?:\.\d+)?)%, var\(--bg\)\)\);/);
-  if (!m) {
-    throw new Error('contrast-audit: could not read the divider field from lib/base/base.modifiers.css. '
-      + 'Update this reader; do not re-hardcode the mix.');
-  }
-  return parseFloat(m[1]) / 100;
-})();
-
-// WHICH RUNG the divider's hairline names, read from the CSS like the mix, so the row below scores
-// what ships: `--on-dark-ghost: light-dark(var(--on-accent-<rung>), var(--_bk-on-<rung>))` on the
-// divider's children. Light rungs are alphas of `--on-accent` (base.tokens.css); dark ones name the
-// on-dark ramp the section captured.
-const DIVIDER_RULE_RUNG = (() => {
-  const mods = fs.readFileSync(path.join(__dirname, '..', 'lib', 'base', 'base.modifiers.css'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-  const tokens = fs.readFileSync(path.join(__dirname, '..', 'lib', 'base', 'base.tokens.css'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-  const block = mods.match(/section\.divider:not\(\.print\) > \* \{([^}]*)\}/);
-  const decl = block?.[1].match(/--on-dark-ghost:\s*light-dark\(var\(--(on-accent(?:-[a-z]+)?)\), var\(--_bk-(on-[a-z]+)\)\)/);
-  if (!decl) throw new Error('contrast-audit: could not read the divider hairline rung from lib/base/base.modifiers.css.');
-  let lightAlpha = 1;
-  if (decl[1] !== 'on-accent') {
-    const a = tokens.match(new RegExp(`--${decl[1]}:\\s*color-mix\\(in srgb, var\\(--on-accent\\) (\\d+(?:\\.\\d+)?)%, transparent\\)`));
-    if (!a) throw new Error(`contrast-audit: --${decl[1]} is not an alpha of --on-accent in base.tokens.css.`);
-    lightAlpha = parseFloat(a[1]) / 100;
-  }
-  return { lightAlpha, dark: decl[2].replace(/^on-/, 'on-dark-') };
-})();
-
-function compositeOver(fgHex, alpha, bgHex) {
-  const fg = parseHex(fgHex);
-  const bg = parseHex(bgHex);
-  if (!fg || !bg) return null;
-  return rgbToHex({ r: alpha * fg.r + (1 - alpha) * bg.r, g: alpha * fg.g + (1 - alpha) * bg.g, b: alpha * fg.b + (1 - alpha) * bg.b });
-}
-
-function deriveDividerSurface(vars, isDark) {
-  const bg = parseHex(vars.bg) ? vars.bg : null;
-  const accent = parseHex(vars.accent) ? vars.accent : null;
-  if (!bg || !accent) return;
-  if (isDark) {
-    const field = oklabMix(bg, accent, DIVIDER_DIM);
-    vars['divider-field'] = field;
-    vars['divider-ink'] = parseHex(vars['on-dark-primary']) ? vars['on-dark-primary'] : resolveTranslucent('on-dark-primary', vars, field);
-    const rung = DIVIDER_RULE_RUNG.dark;
-    vars['divider-rule'] = parseHex(vars[rung]) ? vars[rung] : resolveTranslucent(rung, vars, field);
-  } else if (parseHex(vars['on-accent'])) {
-    vars['divider-field'] = accent;
-    vars['divider-ink'] = vars['on-accent'];
-    vars['divider-rule'] = compositeOver(vars['on-accent'], DIVIDER_RULE_RUNG.lightAlpha, accent);
-  }
-}
-
 const PAIRS = [
   // ── Slide layout (baseline) ──────────────────────────────────────────
   ['text-heading',   'bg',       'slide: heading on canvas'],
@@ -293,13 +229,6 @@ const PAIRS = [
   ['text-body',      'accent-soft', 'slide: body prose on accent-soft (key-insight / split-compare verdict / converge)'],
   ['accent',         'accent-soft', 'slide: accent ink on accent-soft (verdict-grid / pricing / glossary / compare-prose winner)'],
   ['on-accent',    'accent',     'slide: on-accent on accent'],
-  // ── The divider's field, in this theme's own scheme (derived above) ──
-  ['divider-ink',   'divider-field', 'divider: heading / eyebrow / chrome on its field (the accent; dimmed in dark)'],
-  ['divider-rule',  'divider-field', 'divider: the numbered masthead hairline on its field', 3.0],
-  // THE CHAPTER JUMP: how far the field stands off the content canvas, so a divider reads as a
-  // break. A floor, not a legibility bar: light measures 5.2-21:1, the dimmed dark field 1.66:1
-  // (burgundy) to 2.98:1 (concrete). 1.6 holds every theme at today's value or better.
-  ['divider-field', 'bg', 'divider: the field against the content canvas (the chapter jump)', 1.6],
   // --accent AS INK ON THE TWO PLAIN CANVASES. It was scored on `accent-soft`, and scored
   // as a BACKDROP under `--on-accent` — but never as the foreground it most often is. This
   // engine inks a lot of small text with it: the glossary term, the stats figure, every
@@ -432,7 +361,6 @@ function auditTheme(theme) {
   const fails = [];
   const missing = [];
   let checks = 0;
-  deriveDividerSurface(vars, /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')));
 
   for (const [fg, bg, ctx, minRatio = 4.5] of PAIRS) {
     // Every PAIRS backdrop (bg) is theme-owned (or resolved via its @import chain
@@ -463,21 +391,6 @@ function auditTheme(theme) {
 
   const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
     .test(css.replace(/\/\*[\s\S]*?\*\//g, ''));
-
-  // THE DIVIDER'S LOGO ASSUMES A DARK FIELD. base.modifiers.css gives a divider the inverse
-  // (lightened) mark in both modes, which is right only while the light accent carries a LIGHT
-  // `--on-accent`: true on every shipped theme. A theme with a pale accent and dark ink would get a
-  // white mark on a pale field, so the assumption fails here, loudly, instead of on a slide.
-  // engineering/decisions/2026-11-23-cover-layout.md §7.
-  if (!isDark && parseHex(vars['on-accent']) && parseHex(vars.accent)) {
-    checks++;
-    if (luminance(vars['on-accent']) < luminance(vars.accent)) {
-      fails.push({
-        ctx: 'divider: --on-accent must be the LIGHT ink (the divider logo takes the inverse mark)',
-        fgHex: vars['on-accent'], bgHex: vars.accent, ratio: contrastRatio(vars['on-accent'], vars.accent), minRatio: 0,
-      });
-    }
-  }
 
   return { theme, fails, missing, checks, isDark };
 }

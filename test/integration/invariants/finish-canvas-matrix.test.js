@@ -35,19 +35,12 @@ const puppeteer = require('puppeteer');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-// The dark divider's field, read from the CSS that paints it (never a copy of the mix).
-const DIVIDER_FIELD_DARK = (() => {
-  const css = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.modifiers.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const m = css.match(/section\.divider:not\(\.print\) \{\s*background-color: light-dark\(var\(--accent\), (color-mix\(in oklab, var\(--accent\) [\d.]+%, var\(--bg\)\))\);/);
-  if (!m) throw new Error('could not read the divider field from base.modifiers.css');
-  return m[1];
-})();
 
 // The canvas modifiers a slide can carry alongside a component class. `''` = none.
-// `subsection` is the divider's small layout (it was `divider light` until 2026-11-23, when the
-// bookends began to follow the color mode); it rides every component here so a layout class that
-// is not a mode is measured too. `cover-light` left this list with the class itself.
-const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'subsection', 'subsection dark', 'subsection print'];
+// `cover-light` is the light cover (`cover-layout: light`, lib/core/resolve-cover-layout.js): unlike `light` it
+// REPLACES the title and closing canvas with `var(--bg)`, as `divider light` does. Its pairs with the
+// scheme registers are listed so a dark deck's light cover is measured too.
+const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'cover-light', 'cover-light dark', 'cover-light print', 'cover-light color-system'];
 // The three inverse bookends plus an ordinary prose control that must never move.
 const COMPONENTS = ['title', 'closing', 'divider', 'content'];
 
@@ -103,26 +96,21 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
     );
   });
 
-  test('each bookend paints the field its mode names, so the matrix cannot pass by everything being `--bg`', async () => {
-    // Since 2026-11-23 (2026-11-23-cover-layout.md) the bookends follow the color mode: a cover
-    // paints the deck canvas in light and the brand panel in dark; a divider the accent in light and
-    // the dimmed accent in dark. Until then this asserted the opposite: a plain bookend was always the
-    // inverse panel. The guard it carried still matters (#1656): the matrix above compares each
-    // finish canvas to the surface, which would pass if every row resolved to `--bg`.
+  test('the bookends really are inverse without a canvas modifier — the case #1656 fixed', async () => {
     const rows = await page.evaluate(
       (cases) =>
         cases.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`p${i}`)).backgroundColor })),
       page.__cases,
     );
     const byCls = Object.fromEntries(rows.map((r) => [r.cls, r.canvas]));
-    assert.equal(byCls.title, byCls.content, 'a light title paints the deck canvas');
-    assert.equal(byCls.closing, byCls.content, 'a light closing paints the deck canvas');
-    assert.notEqual(byCls['title dark'], byCls['content dark'], 'a dark title paints the brand panel, not the dark canvas');
-    assert.notEqual(byCls['closing dark'], byCls['content dark'], 'a dark closing paints the brand panel, not the dark canvas');
-    assert.notEqual(byCls.divider, byCls.content, 'a light divider paints the accent, not the canvas');
-    assert.notEqual(byCls['divider dark'], byCls['content dark'], 'a dark divider paints the dimmed accent, not the canvas');
-    assert.equal(byCls['divider light'], byCls.divider, '`divider light` is the light mode: the same field as a plain divider');
-    assert.equal(byCls['divider subsection'], byCls.divider, 'the subsection layout takes every divider\'s field');
+    // Guards against the matrix passing trivially by everything resolving to `--bg`.
+    assert.notEqual(byCls.title, byCls.content, 'a plain title must NOT composite against the deck canvas');
+    assert.notEqual(byCls.closing, byCls.content, 'a plain closing must NOT composite against the deck canvas');
+    assert.notEqual(byCls.divider, byCls.content, 'a plain divider must NOT composite against the deck canvas');
+    assert.equal(byCls['divider light'], byCls.content, 'a light divider DOES take the deck canvas');
+    assert.equal(byCls['title cover-light'], byCls.content, 'a light title cover DOES take the deck canvas');
+    assert.equal(byCls['closing cover-light'], byCls.content, 'a light closing cover DOES take the deck canvas');
+    assert.notEqual(byCls['title light'], byCls.content, '`title light` keeps its inverse panel — its meaning is unchanged');
   });
 });
 
@@ -1111,21 +1099,18 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       const resolved = {};
       for (const n of names) {
         const sw = document.createElement('span');
-        sw.style.backgroundColor = n.startsWith('--') ? `var(${n})` : n;
+        sw.style.backgroundColor = `var(${n})`;
         probe.appendChild(sw);
         resolved[n] = getComputedStyle(sw).backgroundColor;
       }
       probe.remove();
       return resolved;
-    }, ['--surface-inverse', '--accent', '--bg', DIVIDER_FIELD_DARK]);
+    }, ['--surface-inverse', '--accent', '--bg']);
     assert.notEqual(out['--surface-inverse'], out['--bg'], '--surface-inverse must differ from --bg under dark');
     assert.notEqual(out['--accent'], out['--bg'], '--accent must differ from --bg under dark');
 
     const EXPECT = Object.fromEntries([
-      // A dark cover paints the brand panel; a dark divider the accent mixed into the canvas
-      // (2026-11-23-cover-layout.md D4b, D12); topic keeps the panel in every mode.
-      ...['title', 'closing', 'topic'].map((f) => [f, '--surface-inverse']),
-      ['divider', DIVIDER_FIELD_DARK],
+      ...['title', 'closing', 'divider', 'topic'].map((f) => [f, '--surface-inverse']),
       ...['decision-cover', 'compare-code-cover', 'compare-split-cover', 'list-tabular-cover', 'split-panel-cover'].map(
         (f) => [f, '--accent'],
       ),

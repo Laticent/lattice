@@ -48,7 +48,7 @@ The header and footer on indaco's title, divider and closing slides now read cle
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 `Part three`
 

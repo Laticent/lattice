@@ -110,13 +110,10 @@ describe('resolve-stamp', () => {
   // Non-flipping dark bookends (title/closing/dark divider) keep color-scheme:light, so
   // the marker ::before must flip its OWN color-scheme to dark or the light-dark()
   // --stamp-color reads faint on the dark field (pinned/revised bug). Guard the rebind.
-  test('a bookend marker ::before takes the slide\'s scheme: no rule forces one on it', () => {
-    // Until 2026-11-23 the bookends forced `color-scheme: dark`, and this rule forced the marker pseudo
-    // dark with them (and carved the light cover back to light). The bookends follow the color mode now
-    // (engineering/decisions/2026-11-23-cover-layout.md), so a forced pseudo would draw a dark-canvas
-    // stamp on a light cover. Comments are stripped: the note that replaced the rule names it.
-    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const forced = css.match(/section[^{}]*\.(title|closing|divider)[^{}]*::before[^{}]*\{[^}]*color-scheme:[^}]*\}/);
-    assert.equal(forced, null, `no bookend ::before forces a scheme: ${forced?.[0]}`);
+  test('the marker ::before flips color-scheme:dark on the non-flipping dark bookends', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    const rule = css.match(/section:is\(\.title, \.closing\)::before,\s*section\.divider:not\(\.light\)::before\s*\{[^}]*\}/);
+    assert.ok(rule, 'expected a color-scheme rebind on the title/closing/divider marker ::before');
+    assert.match(rule[0], /color-scheme:\s*dark/, 'the bookend marker ::before should flip color-scheme to dark');
   });
 });

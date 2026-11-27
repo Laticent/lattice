@@ -1,9 +1,11 @@
 ---
-status: in-progress
-summary: Covers (title, closing) follow the deck's and the slide's color mode like every other slide. `cover:` loses its surface axis (`light`, `inverse`) and becomes `cover-layout:`, a composition-only key. A dark cover paints the theme's brand panel. Old spellings are lint errors with a --fix.
+status: shipped
+summary: Only the rename ships. `cover:` becomes `cover-layout:` with the same words and the same look (2026-11-27). The design below, where covers and dividers follow the color mode, was built, compared against main in renders, and withdrawn by the owner the same day because the anchors lost their signal and their theme identity. §8 records the cut, the measurements and what the redesign must keep.
 ---
 
-# Covers follow the color mode; `cover:` becomes `cover-layout:` (2026-11-23)
+# `cover:` becomes `cover-layout:`; the follow-the-mode design is withdrawn (2026-11-23, cut 2026-11-27)
+
+> **Read §8 first.** Sections 1 to 7 describe a design that was built and then withdrawn. Only the rename in §8 shipped.
 
 **Decided by the owner** in the presets-desk session on 2026-11-23: D4a A, D4b A, D10 A, D12 D-dim. This note
 records the model and the build plan so the PR can point here.
@@ -172,3 +174,43 @@ Each was fixed in this change, because each broke a surface that worked before i
 front-matter key and maps whole values. `cover:` → `cover-layout:` drops one of two words, and keeping a
 deck's look means writing `dark` (or `light`) onto its title and closing slides. A table row cannot edit
 slides, so the rename keeps its own rule.
+
+
+## 8. Cut to the rename only (2026-11-27)
+
+**What ships.** `cover:` is renamed `cover-layout:`. The words, their meaning and the slide classes
+(`cover-light`, `cover-inverse`, `cover-<composition>`) are unchanged, so a migrated deck renders
+byte-identical to `main`. `cover:` is a `key-renamed` row in `KEY_RENAMES`
+(`lib/authoring/lint-core.js`), an error that `lint:deck --fix` rewrites. The resolver is
+`lib/core/resolve-cover-layout.js`, and the lint vocab field is `coverLayoutNames`. Every anchor
+(title, closing, divider, topic) looks exactly as it does on `main`. `divider light` keeps its `main`
+meaning, the small light divider, and `divider subsection` does not exist.
+
+**Why the rest was withdrawn.** The owner signed off the export bytes, then reviewed the anchors in
+renders of real decks and stopped the merge: "all anchors are special. they are a signal. they have to
+stand out." Measured on one six-slide deck, as the contrast of each anchor's background against a
+content slide's background (1.0 is no difference):
+
+| Anchor | Light deck, `main` → built design | Dark deck, `main` → built design |
+|---|---|---|
+| Title and closing | 8.8–20.8 → 1.0 | 1.0–1.5 → 1.0–1.5 |
+| Divider | 8.8–20.8 → 5.5–20.8 | 1.0–1.5 → 2.3–3.0 |
+
+The built design took the covers' signal away in light decks. A preview of the next idea (brand panel
+for covers in light mode, the divider's dimmed accent for every anchor in dark mode) fixed the numbers
+but failed by eye: the dimmed-accent mixes turned each theme's deep brand panel into muddy mid-tones
+("we have made things more sterile"), the full-accent light divider read garish on carbone, and
+carbone's light-mode cover lost its heading (its `--text-display` resolves per scheme, so a light-mode
+slide on a dark panel picked the dark ink). Renders: the comparison sheet and per-theme PDFs were sent
+to the owner in session `session_015KSkL75gwJQLV9nzsYbFfx`.
+
+**What the redesign must keep** (the owner's rules, 2026-11-27, for the post-freeze round):
+
+1. **A deck has one color mode, and a slide may override it.** Nothing forces a mode. `main` breaks
+   this today: a bookend forces dark, so `title light` does nothing. That bug stays until the redesign.
+2. **Each anchor has its own look for each mode, and stands out from content in that mode.**
+3. **The theme's brand panel is the anchors' identity.** `main`'s deep panel per theme is what reads
+   as "great"; a mix that washes it out is a regression even when it measures well.
+
+The freeze locks names, not colors, so the redesign can land after 1.0. It starts with renders of real
+decks on every theme in both modes, put to the owner before any code.

@@ -499,7 +499,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `color-mode:` | — | Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood). |
 | `finish:` | — | Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name. |
 | `image-card:` | — | Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js). |
-| `cover-layout:` | — | Stamps `cover-<composition>` on title and closing slides only, which the cover-layout register owns (lib/core/resolve-cover.js). |
+| `cover-layout:` | — | Stamps `cover-*` on title and closing slides only, which the cover-layout register owns (lib/core/resolve-cover-layout.js). |
 | `player-motion:` | — | Read by the player, not stamped on a slide. |
 | `pace:` | — | Read by the narrated guide, not stamped on a slide. |
 | `delivery:` | — | Read by the narrated guide, not stamped on a slide. |

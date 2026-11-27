@@ -27,10 +27,7 @@ function code(file) {
 }
 
 test('base.finish.css routes every layer through --fin-canvas, never a bare --bg', () => {
-  // A bookend's canvas is a `light-dark()` pair whose arms ARE the field each mode paints (`--bg`, or
-  // the accent the dimmed divider mixes toward `--bg`), not a layer mixing toward the wrong ground,
-  // so those declarations are set aside (2026-11-23-cover-layout.md); the next tests pin them.
-  const css = code(FINISH_CSS).replace(/--fin-canvas:\s*light-dark\([^;]*;/g, '');
+  const css = code(FINISH_CSS);
   // The ONE legitimate `var(--bg)` is the token's own default.
   const bare = css.match(/var\(--bg\)/g) || [];
   assert.strictEqual(
@@ -65,9 +62,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // out when this test was renamed from "the three inverse bookends" to "every frame
   // that paints an inverse panel" — the name grew, the list did not, and a mutant
   // deleting both topic arms passed this file 4/4.
-  // The bookends (title, closing, divider) left this list on 2026-11-23: they follow the color mode
-  // and paint a different field per mode, which a test below pins. `topic` still paints the panel.
-  for (const frame of ['.topic']) {
+  for (const frame of ['.title', '.closing', '.divider', '.topic']) {
     assert.ok(selector.includes(frame), `${frame} paints --surface-inverse, so its finish canvas must follow it`);
   }
   // EVERY SELECTOR IN THE LIST MUST EXCLUDE `print`, and the bookends must also exclude
@@ -347,29 +342,8 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
 
   // …but `light` is carved out for the DIVIDER ONLY: `section.light` paints nothing, so
   // a `title light` keeps its inverse panel while `divider.light` takes the deck canvas.
-  for (const frame of ['.title', '.closing', '.divider']) {
-    assert.ok(!selector.includes(frame), `${frame} follows the color mode, so it must not be pinned to the panel`);
-  }
-});
-
-test('a bookend\'s finish canvas is the field it paints, in both modes', () => {
-  // The finish composites toward `--fin-canvas`, so it must be the very field the slide paints:
-  // a cover's canvas in light and the brand panel in dark (D4b), a divider's accent in light and
-  // the dimmed accent in dark (D12). The two files spell each pair once; this pins them equal, so
-  // a retune of the divider's mix in one cannot leave the finish mixing toward the old field.
-  const mods = code(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'));
-  const css = code(FINISH_CSS);
-  const norm = (v) => v.replace(/\s+/g, ' ').trim();
-  for (const [sel, re] of [
-    ['section:is(.title, .closing):not(.print)', /section:is\(\.title, \.closing\):not\(\.print\) \{\s*([^}]*)\}/g],
-    ['section.divider:not(.print)', /section\.divider:not\(\.print\) \{\s*([^}]*)\}/g],
-  ]) {
-    const field = [...mods.matchAll(re)].map((m) => m[1].match(/background-color:\s*(light-dark\([^;]*\));/)).find(Boolean);
-    const canvas = [...css.matchAll(re)].map((m) => m[1].match(/--fin-canvas:\s*(light-dark\([^;]*\));/)).find(Boolean);
-    assert.ok(field, `${sel} paints its field with a light-dark() pair in base.modifiers.css`);
-    assert.ok(canvas, `${sel} sets --fin-canvas with a light-dark() pair in base.finish.css`);
-    assert.equal(norm(canvas[1]), norm(field[1]), `${sel}: the finish canvas is the painted field`);
-  }
+  assert.match(selector, /section\.divider:not\(\.light\)/, 'divider must exclude .light');
+  assert.doesNotMatch(selector, /section:is\([^)]*\):not\(\.light\)/, 'title/closing must NOT exclude .light');
 });
 
 // The assertions above are about SOURCE SHAPE, and that is all they can be — the CSS is

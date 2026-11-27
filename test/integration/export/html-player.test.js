@@ -541,7 +541,7 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // stayed on-dark — white on white, 1.00:1, in the as-exported view.
 //
 // Then it grew `:not(.cover-light)`, on the pin arm and on both bookend arms: a light cover
-// (`cover: light`, lib/core/resolve-cover.js) paints the light canvas, so it is pinned light, and
+// (`cover-layout: light`, lib/core/resolve-cover-layout.js) paints the light canvas, so it is pinned light, and
 // a `title cover-light dark` slide is not a dark panel.
 // THE SCOPE IS THREE ARMS, AND THIS FILE MUST CHECK ALL THREE. An earlier cut pinned the
 // single-compound `:where(:not(.light):not(.color-light), .title, .closing)` spelling. That
@@ -562,12 +562,10 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // Written against the SHIPPED export, which is minified — no spaces after the commas — while
 // the unit tests read `themeDualMode`'s unminified return. A pattern taken from the unminified
 // form passes upstairs and fails here, which is exactly what happened once already.
-//
-// And on 2026-11-23 it went back to ONE arm: the bookends follow the color mode
-// (2026-11-23-cover-layout.md), so no bookend is re-admitted dark and `cover-light` is gone. The list
-// stays a list and each entry is still asserted for its suffix, so an arm added back is held to it.
 const DARK_SLIDE_ARMS = [
-	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\)`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title:not\(\.cover-light\)`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing:not\(\.cover-light\)`,
 ];
 
 describe('html-player export — nothing shipped depends on light-dark()', () => {

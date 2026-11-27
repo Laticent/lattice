@@ -55,7 +55,7 @@ The `dark` modifier declares `color-scheme: dark` and paints the canvas dark, so
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light} -->
+<!-- @meta{layout=divider, class=light} -->
 
 ## A `divider light` is not
 

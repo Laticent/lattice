@@ -152,7 +152,7 @@ system, "Frame" names the slicer. A component therefore *selects a Frame* and
 binds Substance into the Cells it produces. `design/forms.md` owns the Form
 vocabulary; this doc owns how a *component* selects a Form. (No human word is
 coined for "Frame" — it is a structural, designer-facing system word; an author
-selects one via `form: <name>`.)
+selects one with the `form: <name>` field of a component manifest.)
 
 The **authored-part → Cell map** — which slot (eyebrow, title, lede, content,
 key-insight, below-note, caption, footer, …) hoists into which Cell — is owned by
@@ -205,8 +205,8 @@ from `dist/docs/components.json`); for the other 41 the bucket diverges to keep 
 
 | Form         | Description                                                 | Used by |
 |--------------|-------------------------------------------------------------|---------|
-| **bookend**  | Centered, no chrome — full-canvas anchor; follows the mode   | Anchor (title, closing) |
-| **divider**  | Accent field marking a section boundary; dimmed in dark     | Anchor |
+| **bookend**  | Dark, centered, no chrome — full-canvas anchor              | Anchor (title, closing) |
+| **divider**  | Dark band or full slide marking a section boundary          | Anchor |
 | **canvas**   | One element fills the working area, centered                | Statement, Evidence, Imagery |
 | **grid**     | N cells in M columns × K rows, each cell parallel           | Inventory, Comparison |
 | **stack**    | N cells stacked vertically (or horizontally), each parallel | Inventory |

@@ -43,7 +43,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 ---
 
-<!-- @meta{layout=divider, class=subsection light, header=""} -->
+<!-- @meta{layout=divider, class=light, header=""} -->
 
 
 ## Where it sits
