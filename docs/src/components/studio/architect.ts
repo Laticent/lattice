@@ -96,9 +96,9 @@ function loadedAuthoring(): AuthoringDoor {
 	if (!authoring) throw new Error('architect: the deck canon is not loaded; await loadArchitectAuthoring() first');
 	return authoring;
 }
-// The canon's size in tokens, for the readout before the lint core lands (measured 2026-11-06 with
-// estTokens: DECK_CANON 1021, DECK_CANON_SHORT 283; architect.test.ts holds these to the real text).
-export const CANON_TOKENS_EST = { cloud: 1021, short: 283 };
+// The canon's size in tokens, for the readout before the lint core lands (measured 2026-11-27 with
+// estTokens: DECK_CANON 1024, DECK_CANON_SHORT 283; architect.test.ts holds these to the real text).
+export const CANON_TOKENS_EST = { cloud: 1024, short: 283 };
 
 export function deckSystem(generation: string): string {
 	const { deckCanon } = loadedAuthoring();
@@ -111,7 +111,7 @@ export function deckSystem(generation: string): string {
 // system turn of every DECK-CONTENT call (runArchitect / refineSelection /
 // chatComplete / requestFindingFix). DELIBERATELY NOT applied to theme/component
 // generation: that output is a structural contract (slugs, CSS, manifest keys,
-// `_class` invokes) that must stay canonical English to pass the gates and resolve
+// `@meta{layout=…}` names) that must stay canonical English to pass the gates and resolve
 // at render time. Read live, so a change takes effect on the next turn. The language
 // is the deck's AI-OUTPUT language (`deckOutputLang`): its `ai-lang:` override, else
 // its document `lang:`, else the workspace default — DISTINCT from the document

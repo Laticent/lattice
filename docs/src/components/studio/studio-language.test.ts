@@ -51,10 +51,12 @@ describe('studio-language — directive + labels', () => {
 		expect(us).toContain('American spelling');
 		expect(languageDirective('en-GB')).toContain('British spelling');
 	});
-	it('directive protects code / component names / _class from translation', () => {
+	it('directive protects code / layout names / @meta records from translation', () => {
 		const d = languageDirective('en-GB');
 		expect(d).toContain('English (United Kingdom)');
-		expect(d).toContain('_class');
+		// Writers emit `@meta` records since #3433; the directive named the retired `_class` comment (#3531).
+		expect(d).toContain('`@meta{…}` records');
+		expect(d).not.toContain('_class');
 	});
 	it('always returns a non-empty directive, even for an unknown code', () => {
 		expect(languageDirective(null).length).toBeGreaterThan(0);

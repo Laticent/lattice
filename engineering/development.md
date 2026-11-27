@@ -582,20 +582,24 @@ say what the new measured duration is — don't delete the line.
 The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
 **platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
 One suite runs on Linux: `android-chrome-chooser` boots an Android emulator on `ubuntu-24.04`, the image that exposes KVM, and
-drives Chrome on it through adb (`docs/scripts/android/`). Like the iOS suites it is off pull requests: it runs nightly and on
-dispatch (about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
+drives Chrome on it through adb (`docs/scripts/android/`). Like every suite it runs on dispatch only
+(about 6 Linux minutes a run, free here). `tools/check-ownership.js` admits `ubuntu-24.04` only for a suite whose `run`
 is under `docs/scripts/android/`; a Linux check that needs no emulator belongs in `ci.yml`. A failure before its probe runs (no
 AVD, no boot, no Chrome) writes the `no-session` mark, so triage reads it as infra and the nightly re-runs it once before alerting.
 The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
-- **When it runs:** nightly, every suite; a manual dispatch (`gh workflow run platform-suites.yml -f suites=export-confine`, or
-  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed),
-  **except a suite marked `"on_pull_request": false`, which never runs on a pull request.** The iOS Simulator suites carry it
-  (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the simulator, gating nothing. Their
-  `paths` still say when a change reaches them, and `npm run evidence` prints the dispatch to run before the merge.
+- **When it runs: on dispatch only, since 2026-11-27.** The owner took the suites off the merge path and paused the nightly
+  (the iOS Simulator and Windows suites were too flaky to run unattended), so `platform-suites.yml` has no `pull_request` and no
+  `schedule` trigger; its header says how to undo that. Dispatch with `gh workflow run platform-suites.yml -f suites=export-confine`,
+  or empty for all. A suite is **never a card-grade requirement**: `npm run evidence` lists the suites a diff reaches as an
+  `optional` row, and without a green dispatched run a claim about a real macOS, Windows or iOS device stays UNVERIFIED (#23).
+  The planner's pull-request rule is kept for that row and for the undo: a PR selects the suites whose `paths` match its diff
+  (and all of them if the registry, planner or workflow changed), except a suite marked `"on_pull_request": false`. The iOS
+  Simulator suites carry it (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the
+  simulator, gating nothing.
 - **Add one:** an entry in the registry with `name`, `os`, `paths`, `run`, a `why` that names the OS-dependent behavior Linux cannot
-  show, and `on_pull_request: false` if it should run only nightly and on dispatch; then `npm run build:check` (`checkPlatformSuites`
+  show, and `on_pull_request: false` if it should stay off pull requests if their trigger is ever re-added; then `npm run build:check` (`checkPlatformSuites`
   rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite that says `on_pull_request: true`).
   An iOS Simulator suite, one whose `run` calls `docs/scripts/ios-safari/run.sh`, is off pull requests by its command,
   with or without the flag, so a new one cannot land on PRs by forgetting it.
@@ -783,7 +787,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
   It seeds on the same blank page first, as `run.mjs` does.
-  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), on dispatch only (`on_pull_request: false`; every suite is dispatch-only since 2026-11-27):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
   minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB

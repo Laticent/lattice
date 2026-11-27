@@ -586,7 +586,7 @@
   "test/unit/parsing/markdown-it-plugins.test.js": 0.9,
   "test/unit/parsing/match-section.test.js": 0.3,
   "test/unit/parsing/ordered-list-start.test.js": 1.4,
-  "test/unit/parsing/resolve-cards.test.js": 0.5,
+  "test/unit/parsing/resolve-align.test.js": 0.5,
   "test/unit/parsing/resolve-color-mode.test.js": 1.2,
   "test/unit/parsing/resolve-component.test.js": 1.5,
   "test/unit/parsing/resolve-corners.test.js": 0.5,

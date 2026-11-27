@@ -1,0 +1,1 @@
+- **An authority chain's `bracket` variant no longer clips on a phone.** On a square, portrait or story deck at the phone default, a long citation now wraps inside its card instead of running past it, and every tier's citation starts at the same place on the page instead of shifting with the width of each tier's label.

@@ -1,4 +1,4 @@
-// The lint vocab's register VALUE lists (`fitNames`, `cardsNames`, the spectrum
+// The lint vocab's register VALUE lists (`fitNames`, `alignNames`, the spectrum
 // family, …) packed into ONE string for the Studio page, and unpacked in the island.
 //
 // Why a string: Astro serializes an island prop array as `[1,[[0,"a"],[0,"b"]]]`, and

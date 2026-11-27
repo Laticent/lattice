@@ -24,6 +24,8 @@ const engine = require('../../../lib/engine');
 const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.modifiers.css'), 'utf8');
 const VENUES = ['huddle', 'conference', 'hall'];
 const REF = { title: 38, eyebrow: true, subtitle: 0, caption: false };
+// The room venues: each has a back row. The handheld ones (phone, tablet) are read in a hand and draw charts as designed.
+const ROOMS = VENUE_NAMES.filter((v) => !['phone', 'tablet'].includes(v));
 
 test('the lifts this module reads are the ones the venue CSS sets', () => {
   for (const v of VENUES) {
@@ -32,12 +34,20 @@ test('the lifts this module reads are the ones the venue CSS sets', () => {
     assert.equal(VENUE_META_LIFT[v], read('venue-meta-lift'), `${v} meta lift`);
     assert.equal(VENUE_COMPACT_LIFT[v], read('venue-compact-lift'), `${v} compact lift`);
   }
-  assert.deepEqual(Object.keys(VENUE_BACK_ROW), VENUE_NAMES);
+  assert.deepEqual(Object.keys(VENUE_BACK_ROW), ROOMS);
+});
+
+test('a handheld venue draws charts as designed: no back row, factor 1', () => {
+  for (const v of ['phone', 'tablet']) {
+    assert.ok(VENUE_NAMES.includes(v), v);
+    assert.equal(chartTextGrowth(v), 1, v);
+    assert.equal(chartTextScale(['bar', `venue-${v}`], REF), 1, v);
+  }
 });
 
 test('the label floor is 8 arcminutes of x-height at each venue back row', () => {
   const want = { laptop: 10.05, huddle: 15.08, conference: 20.10, hall: 26.81 };
-  for (const v of VENUE_NAMES) {
+  for (const v of ROOMS) {
     assert.equal(Number(labelFloorPx(v).toFixed(2)), want[v], v);
     assert.ok(Math.abs(arcminutes(labelFloorPx(v), VENUE_BACK_ROW[v]) - LABEL_ARCMIN) < 1e-9, v);
   }
@@ -116,7 +126,9 @@ test('a bar chart at hall draws on the venue canvas with its labels the same siz
   ].join('\n');
   const viewBox = (html) => html.match(/class="cart-svg bar-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
   const laptop = engine.render(deck(null)).html;
-  assert.equal(engine.render(deck('laptop')).html, laptop, 'venue: laptop is the default drawing');
+  // A named `venue: laptop` stamps `venue-laptop` (so a narrow deck can ask for the designed size,
+  // lib/core/resolve-venue.js); on 16:9 that token draws exactly what the default draws.
+  assert.equal(engine.render(deck('laptop')).html.replace(' venue-laptop', ''), laptop, 'venue: laptop is the default drawing');
   assert.deepEqual(viewBox(laptop), [320, 180]);
   const hall = engine.render(deck('hall')).html;
   const [w, h] = viewBox(hall);

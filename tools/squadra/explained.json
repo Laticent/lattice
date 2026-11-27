@@ -90,15 +90,6 @@
       "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
     }
   ],
-  "unknown-cards": [
-    {
-      "kind": "fix",
-      "match": ".",
-      "text": "^cards[ \\t]+:",
-      "lintCoreNoop": true,
-      "why": "lint-core reports a typo on a `key :` line (a blank before the colon, which the engine and YAML read as the key) but names the line as `key: value`, because `lastFrontMatterMatch` normalizes the blank away. That is not a line of the source, so its Fix all cannot place the fix and leaves the deck unchanged. The port fixes the value in place. Found by the edge table in test/unit/authoring/squadra-front-matter-registers.test.js."
-    }
-  ],
   "unknown-split": [
     {
       "kind": "fix",

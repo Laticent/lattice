@@ -26,7 +26,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- @meta{layout=content, footer="Stress test · content — Two paragraphs and a list — the ceiling."} -->
+<!-- @meta{layout=content, class=venue-laptop, footer="Stress test · content — Two paragraphs and a list — the ceiling."} -->
 <!-- @meta{stress-slide} -->
 
 ## This is as much text as one slide should ever carry.
