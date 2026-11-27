@@ -34,10 +34,10 @@ describe('search by meaning: the everyday-words floor', () => {
 		expect(manifest.components.filter((c) => !c.searchTerms?.length).map((c) => c.name)).toEqual([]);
 	});
 
-	it('the tuning set: an everyday word finds a right component (measured 89.3% top-1, 97.3% top-3)', () => {
+	it('the tuning set: an everyday word finds a right component (measured 90.7% top-1, 100% top-3)', () => {
 		const r = score(load('queries-everyday.json'));
-		expect(r.top1, r.misses.join('\n')).toBeGreaterThanOrEqual(0.89);
-		expect(r.top3, r.misses.join('\n')).toBeGreaterThanOrEqual(0.97);
+		expect(r.top1, r.misses.join('\n')).toBeGreaterThanOrEqual(0.9);
+		expect(r.top3, r.misses.join('\n')).toBeGreaterThanOrEqual(1);
 	});
 
 	it('the held-out set, never tuned on (measured 68.8% top-1, 71.9% top-3; it was 21.9% / 31.3%)', () => {
