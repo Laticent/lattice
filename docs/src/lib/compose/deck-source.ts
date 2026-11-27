@@ -107,7 +107,8 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 	const kept = new Set<string>();
 	for (const line of [...readings.keys()].sort((a, b) => a - b)) {
 		const r = readings.get(line);
-		if (!r || r.kind === 'comment') continue;
+		// An old directive comment (`legacy`) applies nothing since the cut, so it neither moves nor pins a field.
+		if (!r || r.kind === 'comment' || r.kind === 'legacy') continue;
 		const text = matched.get(line);
 		// A directive nested in a list moves too, as it always did: left in place, Compose's parser reads it as list text
 		// and escapes its underscore, and the slide loses it (the checker on #3136). Lifting it changes no field.
@@ -118,7 +119,7 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		// paragraph), so lifting the comment would draw the list tight. Kept, the slide opens in Markdown.
 		const loosensList = /^[ \t]/.test(chunkLines[line - 1] ?? '') && kinds[line - 2] === 'blank' && listAbove(kinds, line);
 		const movable =
-			(r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') &&
+			(r.kind === 'record' || r.kind === 'nested') &&
 			text !== undefined &&
 			!parsePaneMarker(text.trim())?.pane &&
 			line < firstPane &&
@@ -338,12 +339,10 @@ function listBelow(kinds: LineKind[], last: number): boolean {
 }
 
 /** A field's key in the walk's `kept` set. `class` is scoped: a slide's own class beats a carried one (`carry` on the
- *  record, or the old bare `class:` comment) in either order, so a carried one kept in place does not pin a later local
+ *  record) in either order, so a carried one kept in place does not pin a later local
  *  one (the checker on #3136). Every other field is last-comment-wins, whatever its scope. */
 function scopedKey(key: string, kind: string, source: string): string {
-	if (key !== 'class') return key;
-	if (kind === 'directive') return /^\s*<!--\s*class\s*:/.test(source) ? 'class:global' : key;
-	if (kind !== 'record') return key;
+	if (key !== 'class' || kind !== 'record') return key;
 	// Since the cut a carried class is a record with `carry` (record note §15); read the record the line opens.
 	const open = source.indexOf('<!--');
 	const close = source.indexOf('-->', open);

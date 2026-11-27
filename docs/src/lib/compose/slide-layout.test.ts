@@ -79,10 +79,11 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 		expect(applySlideLayout(locked, 0, { tokens: ['big-number'], starter: null })).toBeNull();
 		const src = '<!-- _class: stats\n_paginate: false -->\n\n## By the numbers.\n\n1. 80\n   - components\n';
 		const compound = stateOf(src);
-		// A class comment that also holds `_paginate` is not Compose's to rewrite: the change would drop the other key.
-		expect(applySlideLayout(compound, 0, { tokens: ['big-number'], starter: null })).toBeNull();
-		// …and the button says so rather than doing nothing.
-		expect(layoutBlocker(compound.doc.child(0))).toMatch(/shares a comment/);
+		// An old compound comment sets nothing since the cut (record note §15, slice E), so it blocks nothing either: the
+		// button writes the slide's record, and the dead comment is left for the linter to name.
+		const tr = applySlideLayout(compound, 0, { tokens: ['big-number'], starter: null });
+		expect(tr).not.toBeNull();
+		expect(layoutBlocker(compound.doc.child(0))).toBeNull();
 		expect(layoutBlocker(locked.doc.child(0))).toMatch(/edited in Source/);
 		expect(layoutBlocker(stateOf(STATS).doc.child(0))).toBeNull();
 		expect(src).toContain('_paginate: false');
