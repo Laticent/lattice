@@ -145,7 +145,7 @@ export function numberSlides(source) {
 // The contract handed to the cloud model (rich tier only).
 //
 // TILDE fences, not backticks. The payload is a SLIDE, and Lattice slides routinely
-// carry ```mermaid / ```chart blocks — so the wrapper has to differ from the payload
+// carry ```mermaid / ```math blocks — so the wrapper has to differ from the payload
 // in MARKER, not merely in length. Length is the fragile axis: it asks the model to
 // hold a counting invariant (four ticks out, three in) against its single strongest
 // habit, and CommonMark then lets the payload's own bare ``` legally close a

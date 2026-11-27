@@ -114,8 +114,8 @@ export function detectLanguage(nav: NavLike | undefined = typeof navigator === '
 
 /**
  * The system-prompt clause that pins the AI's prose to `code`. Scoped to
- * natural-language content (and explicit about leaving code / component names /
- * `_class` directives alone) so it never fights the deck's structural markup.
+ * natural-language content (and explicit about leaving code / layout names /
+ * `@meta{…}` records alone) so it never fights the deck's structural markup.
  * Always returns a non-empty directive — languageFor always resolves.
  */
 export function languageDirective(code: string | null | undefined): string {

@@ -21,7 +21,7 @@ const BUCKET_ORDER = [
 export const AUTHORING_RULES = [
   'Author every slide as plain Markdown. Choose a layout with `<!-- @meta{layout=NAME} -->` at the top of the slide (modifiers go in `class=`, e.g. `<!-- @meta{layout=cards-grid, class=compact} -->`); separate slides with a line containing only `---`.',
   'Use each layout’s skeleton VERBATIM as the structure — match its heading levels and bullet nesting exactly. Do not invent a structure.',
-  'A variant can change a layout’s authoring STRUCTURE, not just its look. When a variant shows its OWN skeleton, match THAT skeleton for that variant — not the base one (e.g. `list-tabular` rows are `1. Name` + a nested description, but `list-tabular metric` is `1. Name \\`value\\`` with no description row).',
+  'A variant can change a layout’s authoring STRUCTURE, not just its look. When a variant shows its OWN skeleton, match THAT skeleton for that variant — not the base one (e.g. `list-tabular` rows are `1. Name` + a nested description, but with `class=metric` they are `1. Name \\`value\\`` with no description row).',
   'Card-style layouts (cards-grid, cards-stack, compare-prose, matrix-2x2, verdict-grid, decision, citation-card, pricing, q-and-a, cycle, policy-recommendation, team-profile) and the panel-split layouts (split-panel, split-compare) take NESTED bullets — a top-level bullet is the card title, a nested bullet is its body. NEVER write inline `- **Title.** body` on these; the body would inherit the title’s bold. Indent a nested bullet to match its parent’s marker width: 2 spaces under a `-` parent, 3 under a `1.` parent. Any layout whose skeleton shows `1.` rows (premise, timeline-list, kpi, list-tabular, …) needs 3.',
   'Two components on one slide is a HOST component, `columns` or `rows`, whose body is two other components: `<!-- @meta{layout=columns, class=ratio-60-40} -->` (side by side; ratio optional, 25–75) or `<!-- @meta{layout=rows} -->` (stacked), the slide’s `## title` first, then each pane as a slide one heading level down — `<!-- @meta{pane=bar} -->` (optional; default content) above a `### Pane title`, a short label of five words or fewer (it renders as small capitals; no eyebrow pill above it). Every top-level `###` on such a slide is a pane’s title. A trailing `>` Key Insight is the slide’s, set below both panes. Two panes per slide.',
   'Title slides: `<!-- @meta{layout=title, class=silent} -->`, then an `# H1`, then a backtick-wrapped `eyebrow` paragraph, then a single plain subtitle paragraph — that order exactly, nothing more. The eyebrow is matched as the paragraph IMMEDIATELY after the h1, so authoring the subtitle first silently renders the eyebrow as a second subtitle line instead.',
@@ -114,7 +114,7 @@ export function layoutBlock(c) {
   // catalog-build time; finish-only variants are dropped, so this stays lean.
   for (const v of c.variantSkeletons || []) {
     if (!v?.sample) continue;
-    lines.push(`\`${c.name} ${v.name}\` is authored differently${v.caption ? ` — ${v.caption}` : ''}:`);
+    lines.push(`\`${c.name}\` with \`class=${v.name}\` is authored differently${v.caption ? ` — ${v.caption}` : ''}:`);
     lines.push(`\`\`\`\`\n${String(v.sample).trim()}\n\`\`\`\``);
   }
   return lines.join('\n');
