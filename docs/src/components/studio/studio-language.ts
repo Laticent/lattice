@@ -8,7 +8,7 @@
 // separate means a future TRANSLATION LENS gets its source (document) vs target
 // (AI-output) distinction for free — no un-fusing of callers. Either way this governs
 // natural-language prose ONLY: theme and component generation stay canonical English
-// (a structural contract — slugs, CSS, manifest keys, `_class` invokes — that must
+// (a structural contract — slugs, CSS, manifest keys, `@meta{layout=…}` names — that must
 // stay ASCII/English to pass the gates and resolve at render time).
 //
 // We support English only for now. The end goal is any language plus that lens; the

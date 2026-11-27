@@ -111,7 +111,7 @@ export function deckSystem(generation: string): string {
 // system turn of every DECK-CONTENT call (runArchitect / refineSelection /
 // chatComplete / requestFindingFix). DELIBERATELY NOT applied to theme/component
 // generation: that output is a structural contract (slugs, CSS, manifest keys,
-// `_class` invokes) that must stay canonical English to pass the gates and resolve
+// `@meta{layout=…}` names) that must stay canonical English to pass the gates and resolve
 // at render time. Read live, so a change takes effect on the next turn. The language
 // is the deck's AI-OUTPUT language (`deckOutputLang`): its `ai-lang:` override, else
 // its document `lang:`, else the workspace default — DISTINCT from the document
