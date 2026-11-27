@@ -277,6 +277,21 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   byte is on every page, while the landing page's HTML sits about 1 KB under its route-budget
   ceiling. The gate reads the PNG's own header, so a re-draw at another size fails.
 
+- **The agent entry, from the homepage and every page** (#3522 E2-S01, PR #3556, 2026-11-27). The
+  landing page's "Point your copilot at Lattice" band links "Instructions for your agent" straight to
+  `/agents/start.md` (`AGENT_ENTRY`) in server-rendered HTML, and its `<head>` carries
+  `<link rel="help" type="text/markdown">` to the same file. Every built page, 404 included, carries
+  one `<link rel="describedby" type="text/plain" href="/llms.txt">` (59 bytes), the relation the
+  llms.txt proposal recommends for "the llms.txt that covers this page". `md-twins.mjs` writes it
+  after the build (`withDescribedBy`), because about 40 routes write their own `<head>` and an Astro
+  integration can inject only scripts. No `<meta>` tag and no HTTP `Link:` header: the proposal names
+  neither as a `<meta>`, and only Cloudflare reads `_headers`. The tag assumes the site base is `/`,
+  which it is in every environment. `check-discovery.mjs` check 5 reads both through
+  `scripts/home-agent-entry.mjs`, which parses with `hast-util-from-html`, not patterns: CodeQL
+  flagged the first, regex version (bad HTML filtering), and the parser also ignores a tag in a
+  comment, `<template>`, `<noscript>` or script string. It parses only each page's `<head>` for
+  the site-wide tag (the whole page cost the build 2.4 s; the head costs about 0.27 s).
+
 ## 3. What was left out, and why
 
 - **A referrer meta tag.** `strict-origin-when-cross-origin` is already every current browser's default, so

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { homeAgentEntryProblems } from './home-agent-entry.mjs';
+import { describedbyProblems, homeAgentEntryProblems } from './home-agent-entry.mjs';
 
 describe('homeAgentEntryProblems', () => {
 	const BUILT = new Set(['agents/start.md', 'llms.txt']);
@@ -53,6 +53,35 @@ describe('homeAgentEntryProblems', () => {
 	it('does not accept another origin that happens to end in the same path', () => {
 		expect(homeAgentEntryProblems(page.replace('href="/llms.txt"', 'href="https://elsewhere.example/llms.txt"'), exists)).toEqual([
 			'expected one <link rel="describedby" href="…/llms.txt">, found 0',
+		]);
+	});
+	it('does not count tags inside a <noscript>', () => {
+		const hidden = page.replace(/(<a [^>]*>Instructions<\/a>)/, '<noscript>$1</noscript>');
+		expect(homeAgentEntryProblems(hidden, exists)).toEqual(['expected one <a data-agent-entry> to /agents/start.md, found 0']);
+	});
+});
+
+describe('describedbyProblems', () => {
+	const TAG = '<link rel="describedby" type="text/plain" href="/llms.txt">';
+	const doc = (head, body = '') => `<!doctype html><html><head><title>t</title>${head}</head><body>${body}</body></html>`;
+	it('passes a page with the one tag md-twins writes', () => {
+		expect(describedbyProblems(doc(TAG))).toEqual([]);
+	});
+	it('fails a page without it, and one with a second written another way', () => {
+		expect(describedbyProblems(doc(''))).toEqual([
+			'has 0 <link rel="describedby"> (want exactly 1, to /llms.txt; scripts/md-twins.mjs writes it)',
+		]);
+		expect(describedbyProblems(doc(`${TAG}<link href="/llms.txt" rel="describedby" type="text/plain">`))[0]).toMatch(/^has 2 /);
+	});
+	it('does not count a tag inside a script string or a comment', () => {
+		expect(describedbyProblems(doc(`<script>var s = '${TAG}';</script><!-- ${TAG} -->`))[0]).toMatch(/^has 0 /);
+	});
+	it('fails a wrong target or type', () => {
+		expect(describedbyProblems(doc('<link rel="describedby" type="text/plain" href="https://elsewhere.example/llms.txt">'))).toEqual([
+			'<link rel="describedby"> points at https://elsewhere.example/llms.txt, not /llms.txt',
+		]);
+		expect(describedbyProblems(doc('<link rel="describedby" type="text/html" href="/llms.txt">'))).toEqual([
+			'<link rel="describedby"> has type text/html, want text/plain',
 		]);
 	});
 });

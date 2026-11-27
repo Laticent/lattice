@@ -27,9 +27,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DESCRIBEDBY_TAG, isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
+import { isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
-import { homeAgentEntryProblems } from './home-agent-entry.mjs';
+import { describedbyProblems, homeAgentEntryProblems } from './home-agent-entry.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
@@ -73,10 +73,9 @@ if (!fs.existsSync(DIST)) {
 	process.exit(1);
 }
 
-/** Check 5, first half: one llms.txt describedby tag, exactly as md-twins.mjs writes it. */
-function describedbyProblem(route, head) {
-	const n = head.split(DESCRIBEDBY_TAG).length - 1;
-	if (n !== 1) fail(`${route} has ${n} ${DESCRIBEDBY_TAG} (want exactly 1; scripts/md-twins.mjs writes it)`);
+/** Check 5, first half: one live llms.txt describedby link (home-agent-entry.mjs). */
+function describedbyProblem(route, html) {
+	for (const p of describedbyProblems(html)) fail(`${route} ${p}`);
 }
 
 // ── 1 + 3: every route's own signals ─────────────────────────────────────────
@@ -84,13 +83,13 @@ const indexable = new Set();
 let checked = 0;
 for (const file of walk(DIST)) {
 	const route = routeOf(file);
-	if (route === '/404.html') describedbyProblem(route, fs.readFileSync(file, 'utf8').split('</head>')[0]);
+	if (route === '/404.html') describedbyProblem(route, fs.readFileSync(file, 'utf8'));
 	if (route === '/404.html' || route.startsWith('/playground/v/')) continue;
 	const html = fs.readFileSync(file, 'utf8');
 	const head = html.split('</head>')[0];
 	if (/<meta http-equiv="refresh"/i.test(head)) continue; // a redirect stub
 	checked++;
-	describedbyProblem(route, head);
+	describedbyProblem(route, html);
 	const noindex = /<meta name="robots" content="[^"]*noindex/i.test(head);
 	const want = isIndexable(route);
 	if (noindex && want) fail(`${route} says noindex, but discovery.mjs lists it as indexable — add it to NOINDEX_PREFIXES or drop the meta`);
