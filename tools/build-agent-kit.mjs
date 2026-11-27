@@ -1586,6 +1586,17 @@ function PROFILE_NAMES() {
  * lint-core's ledger/split and statement layouts as code lists, limited to `only` when given:
  * the solo text names just its 19, the full-catalog texts name every one.
  */
+/**
+ * A layout whose list contract (lib/core/list-contract.js) reads ONE level: a nested body is dropped
+ * (`list-depth-unsupported`). Where lint also forbids `- **Title.** body` there (`agenda`, a
+ * LEDGER_LAYOUTS member), the rows are one plain line. Eval run 46032981944 nested a body under
+ * each `agenda` row.
+ */
+function isOneLevel(name) {
+  const { listContractFor } = require(path.join(ROOT, 'lib', 'core', 'list-contract.js'));
+  const c = listContractFor([name]);
+  return !!c && c.depths === 1 && c.lists !== 'prose';
+}
 function listShapes(only) {
   const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
   const solo = { has: (n) => !only || only.includes(n) };
@@ -1601,13 +1612,16 @@ function listShapes(only) {
   // checks CARD_STYLE_LAYOUTS and LEDGER_LAYOUTS), less `agenda`, whose rows take no body at all.
   // Named, not "card layouts": list-steps, list-tabular and timeline-list are ledgers, not cards,
   // and a model told only about cards wrote inline bold on them.
-  const nested = [...ls.CARD_STYLE_LAYOUTS, ...ls.LEDGER_LAYOUTS].filter((n) => n !== 'agenda' && solo.has(n));
-  return { ledger: fmt(ledger), nested: fmt(nested), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
+  const inlineBoldError = [...ls.CARD_STYLE_LAYOUTS, ...ls.LEDGER_LAYOUTS];
+  const nested = inlineBoldError.filter((n) => !isOneLevel(n) && solo.has(n));
+  // The one-level layouts lint also holds to no inline bold: their rows are one plain line each.
+  const plain = inlineBoldError.filter((n) => isOneLevel(n) && solo.has(n));
+  return { ledger: fmt(ledger), nested: fmt(nested), plain: fmt(plain), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
 const essentials = (only) => [
   'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
   'Slides are separated by a line containing only `---`, with a blank line each side.',
-  `Rows on ${listShapes(only).nested} nest the body under the title, never \`- **Title.** body\`.`,
+  `Rows on ${listShapes(only).nested} nest the body under the title, never \`- **Title.** body\`${listShapes(only).plain ? `; ${listShapes(only).plain} rows are one plain line` : ''}.`,
   'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
   // Name the layouts: "a ledger row" and "a statement layout" meant nothing to a small model
   // (the stand-in eval, 2026-11-19). The sets are lint-core's own, from lib/core/list-shapes.js.
@@ -3293,7 +3307,7 @@ const START_TOKEN_MAX = 990;
  * Why 990 and not 1,500. The gate counts offline with o200k_base (OpenAI's tokenizer, the one
  * this repo ships); the build makes no network call. Claude is the main reader, and Claude 5's
  * own counter (Anthropic's free count_tokens endpoint, 2026-11-27) read this file at 1.51 to
- * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,455 for the 981-token file.
+ * 1.54 times its o200k count: 1,956 for the 1,273-token draft, 1,457 for the 983-token file.
  * Gemini 3.x read 1.06 to 1.07 times. So 990 o200k is about 1,495 Claude tokens, the owner's
  * 1,500. The ratio is this file's, measured; re-count start.md on Claude's and Gemini's
  * counters in the per-release check (2026-11-17-agent-pack.md §4.9), and move this number if
@@ -3386,8 +3400,10 @@ function startRules(rules) {
   const nest = rules.findIndex((r) => /^Rows on .* nest the body/.test(r));
   const bodied = rules.findIndex((r) => /^A row on .* always has a body/.test(r));
   if (nest < 0 || bodied < 0) throw new Error('build-agent-kit: start.md folds the bodied-row rule into the nest rule, and one of them is gone.');
-  const on = rules[bodied].match(/^A row on (.*) always has a body/)[1];
-  const merged = `${rules[nest].replace(/\.$/, '')}; a row on ${on} always has a body.`;
+  // The number-row example (slotShapeRule) already shows NUMBER_SLOT_LAYOUTS rows with a body.
+  const { NUMBER_SLOT_LAYOUTS } = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const on = [...rules[bodied].match(/^A row on (.*) always has a body/)[1].matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]).filter((n) => !NUMBER_SLOT_LAYOUTS.includes(n));
+  const merged = `${rules[nest].replace(/\.$/, '')}${on.length ? `; a row on ${on.map((n) => `\`${n}\``).join(', ')} always has a body` : ''}.`;
   return rules.map((r, i) => (i === nest ? merged : r)).filter((_, i) => i !== bodied);
 }
 

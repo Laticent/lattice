@@ -1101,6 +1101,15 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.ok(nestLine, 'start.md carries the nest rule');
 		const missing = want.filter((n) => !nestLine.includes(`\`${n}\``));
 		assert.deepEqual(missing, [], 'a listed layout where inline bold is a lint error is not in the nest rule');
+		// And the one-level layouts in that set (list contract depth 1, e.g. agenda) are named as
+		// plain rows: a nested body is dropped there, and inline bold is still an error.
+		const { listContractFor } = require(path.join(ROOT, 'lib', 'core', 'list-contract.js'));
+		const oneLevel = listedHere.filter((n) => inlineError.has(n) && listContractFor([n])?.depths === 1);
+		assert.ok(oneLevel.includes('agenda'), `one-level: ${oneLevel.join(', ')}`);
+		const plainClause = nestLine.match(/; ((?:`[a-z0-9-]+`(?:, )?)+) rows are one plain line/);
+		assert.ok(plainClause, 'the nest rule says which rows are one plain line');
+		const unplain = oneLevel.filter((n) => !plainClause[1].includes(`\`${n}\``));
+		assert.deepEqual(unplain, [], 'a one-level layout is not named as plain rows');
 		assert.doesNotMatch(solo, /statement layout|ledger or split row/, 'no rule names a class of layout it never lists');
 	});
 });

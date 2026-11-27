@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 981 today (Claude 1,455). Was 48,000 characters |
+| Start | `/agents/start.md` | The file shape with a whole three-slide deck, the short deck canon, the rules, the 19 common layouts one line each, one modifier from each of three groups, the notes, check and render, and links on (§4.9) | **1,500 tokens** (owner, 2026-11-27) on Claude's count: gated at 990 o200k; 983 today (Claude 1,457). Was 48,000 characters |
 | All layouts | `/agents/layouts.md` | What `start.md` held until 2026-11-27, less the full canon: the rules in detail, the parts any slide can carry, the registers, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts and 2 charts | none; read on demand (10,700 o200k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
@@ -205,7 +205,7 @@ So the pack has two layers where it had one. `start.md` is the short contract an
 the reference behind it: everything `start.md` used to carry, moved whole, with the structure
 gates that guarded it (gates 4 and 5). The full canon (its traps, rhythm and chrome budgets) stays
 in `authoring/deck-canon.md`, linked from `start.md`. `start.md` keeps only what a deck cannot be
-written without (981 o200k tokens, measured):
+written without (983 o200k tokens, measured):
 
 | Section | Source | o200k tokens |
 |---|---|---|
@@ -260,7 +260,8 @@ Gemini's `countTokens`, both free count-only endpoints, no generation), the gues
 | after eval run 2 (big-number rule) | 984 | 1,042 | 1,460 |
 | after the general rule | 983 | 1,040 | 1,458 |
 | after eval run 3 (bodied-row fix) | 966 | 1,022 | 1,429 |
-| as merged (nest rule names its layouts) | 981 | 1,034 | 1,455 |
+| nest rule names its layouts | 981 | 1,034 | 1,455 |
+| as merged (agenda rows named plain) | 983 | 1,036 | 1,457 |
 
 Claude counts this file at **1.51×** o200k (1.54× on the draft); Gemini at 1.06–1.07×. So the gate
 is 990 o200k, about 1,495 on Claude's count (the desk picked this over keeping 1,300, 2026-11-27).
@@ -315,8 +316,11 @@ that kept `list-steps`, `list-tabular` and `timeline-list` off inline bold, whic
 on them (`card-style-inline-title` checks `CARD_STYLE_LAYOUTS` and `LEDGER_LAYOUTS`), while the
 canon says only "CARD-style layouts". So the shared nest rule now names its layouts from those two
 sets (less `agenda`, whose rows take no body), `start.md` folds the bodied-row rule into it as one
-line, and drops the canon's CARD-style bullet, which the named rule replaces. A test pins the named
-set to lint's.
+line, and drops the canon's CARD-style bullet, which the named rule replaces. The layouts in that
+set whose list contract reads one level (`lib/core/list-contract.js`, today `agenda`) are named
+instead as "rows are one plain line": a nested body is dropped there, and inline bold is still an
+error. Where the number-row example already shows `kpi` and `stats` with a body, `start.md`'s
+bodied clause names only `split-panel`. A test pins both sets to lint's and the list contract's.
 
 **The engine version is stamped** into `start.md`, `layouts.md` and `/llms.txt`, read from
 `packages/lattice/package.json`. `publish-kits.yml` now republishes on a change to that file, so a
