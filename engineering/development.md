@@ -749,6 +749,19 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   where each tap landed and which mark it hit, so a tap that missed and a card that did not open read differently.
   `PROBE=player-charts node docs/scripts/ios-safari/probe.selftest.mjs` runs the same sequence in Playwright's WebKit with its
   touchscreen, at iPad and iPhone size.
+  `PROBE=gallery-memory` (#3441) opens and closes the Add slide gallery `GALLERY_CYCLES` times (default 6) with MR-3's
+  steps (`docs/e2e/gallery-preview-metamorphic.spec.ts`): a stepped walk on the first open, so the preview pool reaches its
+  high-water mark, then a flick and a close each cycle. `gallery-memory-probe.js` counts every preview document the page
+  makes and every rewrite of a frame that already held one, and `run.mjs` reads the simulator's WebKit footprint after
+  each close. The verdict is `gallery-memory.mjs` `galleryChecks`: after the first close, no rewrite and at most `SLACK`
+  new documents. Memory is reported, never judged. Each tier in `GALLERY_TIERS` (default `lite,full`) is pinned with
+  `?tier=`. It runs on the 13-inch iPad, an iPhone and Mac Safari at 1440×900, because the leak needs about a dozen tiles
+  on screen and a phone shows three. `GALLERY_BASELINE_URL` adds reported arms on another site. It has no registry suite:
+  run it on the warm harness, e.g. `PROBE=gallery-memory DEVICES=iPad,Mac bash docs/scripts/ios-safari/run.sh`.
+  `PROBE=gallery-memory node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in Playwright's WebKit at
+  desktop, iPad and iPhone size. Its failing arm: rebuild with `main`'s `preview-pool.tsx` (before #3441) and run it again.
+  LITE then rewrites 2, 3 and 6 kept frames in 3 reopens at 1440, 1180 and 1032 px, while the iPhone stays green
+  with or without the fix.
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the

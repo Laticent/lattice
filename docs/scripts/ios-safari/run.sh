@@ -160,6 +160,8 @@ families='iPad iPhone'
 # The Present landscape probe turns the simulator sideways (#3304): the iPad Pro 13-inch, the widest iPad screen, and an
 # iPhone, where the captions ride over the slide. run.mjs turns it through Simulator.app.
 [ "$PROBE" = present-landscape ] && families='iPad iPhone'
+# The gallery reopen probe (#3441) runs on the widest iPad (the 13-inch, as above), an iPhone, and Mac Safari at
+# 1440x900: the leak needs a dozen tiles on screen, which only the Mac shows. GALLERY_BASELINE_URL adds main's site.
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
@@ -179,7 +181,7 @@ if [ -n "${DEVICES:-}" ]; then
     esac
   done
   # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
-  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+  if [ -z "${families// /}" ] && { { [ "$PROBE" != undo ] && [ "$PROBE" != gallery-memory ]; } || [ "$run_mac" = 0 ]; }; then
     echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
     exit 1
   fi
@@ -196,7 +198,7 @@ for family in $families; do
   device_t0=$SECONDS
   device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
-     | (if $p == "focus-sync" or $p == "present-landscape" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
+     | (if $p == "focus-sync" or $p == "present-landscape" or $p == "gallery-memory" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
      | .deviceTypeIdentifier // empty')
   # A missing device type is a runner-image or script fault, not a simulator that would not connect: a finding, never re-run.
   if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; probe_failed=1; continue; fi
@@ -313,6 +315,15 @@ done
 if [ "$PROBE" = undo ] && [ "$run_mac" = 1 ]; then
   xcrun simctl shutdown all || true
   if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
+    status=1
+    probe_failed=1
+  fi
+fi
+# The gallery reopen probe's desktop half (#3441): Mac Safari at 1440x900, the one shape that puts a LITE pool's twelve
+# frames on screen at once. run.mjs sizes the window; vmmap is not read for the Mac's own Safari.
+if [ "$PROBE" = gallery-memory ] && [ "$run_mac" = 1 ]; then
+  xcrun simctl shutdown all || true
+  if ! PROBE=gallery-memory SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1
     probe_failed=1
   fi
