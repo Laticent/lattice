@@ -315,3 +315,16 @@ test('the token ceiling counts ASCII at half a token and every other byte at a w
   assert.equal(tokenCeiling('日本'), 6, 'two 3-byte characters');
   assert.equal(tokenCeiling('ab日'), 4);
 });
+
+test('a probe makes one max_tokens-1 call, judges nothing, and the table shows no pass count', async (t) => {
+  const { run, parseArgs } = await load();
+  const calls = [];
+  const out = tmpDir(t);
+  const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--probe', '--max-usd', '0.05', '--out', out]), deps(t, calls));
+  assert.equal(code, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].maxTokens, 1);
+  const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
+  assert.equal(summary.aggregate.table[0].passed, null);
+  assert.match(fs.readFileSync(path.join(out, 'summary.md'), 'utf8'), /\| test\/cheap \| retrieval \| current \| 1 \| — \|/);
+});

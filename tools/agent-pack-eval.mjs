@@ -541,7 +541,8 @@ export function aggregate(rows) {
     arm: g[0].arm,
     variant: g[0].variant,
     n: g.length,
-    passed: g.filter((r) => r.pass).length,
+    // A probe judges no deck: its group has no pass count, and the table prints a dash, not 0.
+    passed: g.every((r) => r.pass === null) ? null : g.filter((r) => r.pass).length,
     meanErrors: mean(g.map((r) => r.errors ?? 0)),
     meanWarnings: mean(g.map((r) => r.warnings ?? 0)),
     meanTokensIn: mean(g.map((r) => r.tokensIn)),
@@ -579,7 +580,7 @@ export function markdownTable(summary) {
     '|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
     ...summary.aggregate.table.map(
       (g) =>
-        `| ${g.model} | ${g.arm} | ${g.variant ?? 'current'} | ${g.n} | ${g.passed} | ${g.meanErrors.toFixed(1)} | ${g.meanWarnings.toFixed(1)} | ${Math.round(g.meanTokensIn)} | ${Math.round(g.meanTokensOut)} | ${g.fetchedAny} | ${usd(g.cost)} | ${(g.medianLatencyMs / 1000).toFixed(1)} |`,
+        `| ${g.model} | ${g.arm} | ${g.variant ?? 'current'} | ${g.n} | ${g.passed ?? '—'} | ${g.meanErrors.toFixed(1)} | ${g.meanWarnings.toFixed(1)} | ${Math.round(g.meanTokensIn)} | ${Math.round(g.meanTokensOut)} | ${g.fetchedAny} | ${usd(g.cost)} | ${(g.medianLatencyMs / 1000).toFixed(1)} |`,
     ),
   ];
   const p = summary.aggregate.paired;
