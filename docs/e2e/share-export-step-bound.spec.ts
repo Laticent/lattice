@@ -36,10 +36,13 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a Webpage export whose the
 	// Time flows as normal until `fastForward`; the clock only lets the test reach the bound without waiting it out.
 	await page.clock.install();
 	await gotoStudio(page);
-	// What is under test is the export's waits, not a layout: every project drives it at a desktop box, where the editor is in
-	// view (a phone box hides it behind the Read pane), as share-narration-rate-limit.spec.ts does. The engines stay real.
+	// The deck is typed at a desktop box, where the editor is in view (a phone box hides it behind the Read pane), as
+	// share-narration-rate-limit.spec.ts does. The Share sheet is then driven at the project's OWN box, because where the
+	// failure toast lands against the sheet's button is the thing the last check reads.
+	const own = page.viewportSize();
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await setEditorContent(page, DECK);
+	if (own) await page.setViewportSize(own);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await page.getByRole('button', { name: /Webpage/ }).click();
 	await page.getByRole('button', { name: /Download webpage/ }).click();
@@ -47,15 +50,30 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a Webpage export whose the
 	await expect.poll(() => progress.some((l) => l.includes('load the theme: started')), { message: 'the export reached its theme step' }).toBe(true);
 	// The step logs its start BEFORE it fetches, so the request may land a moment after the log line: poll, don't read once.
 	await expect.poll(() => held.length, { message: 'the export asked for the whole base sheet' }).toBeGreaterThan(0);
-	await page.clock.fastForward(61_000);
-
-	await expect(page.getByText(/Webpage failed: the step “load the theme” did not finish within 60 s/)).toBeVisible();
+	// Jump past the bound and hold the page's clock there, in ONE call. The bound's timer was armed when the step logged
+	// its start, before `now` is read below, so `now + 61 s` is past it. Pausing in the same call matters: the toast closes
+	// itself after its dwell (2.6 s), the boxes below must be read while it is up, and a separate pause after a separate
+	// jump raced the machine (a loaded run spent more than the gap between the two calls). Stepped by hand from here, the
+	// dwell cannot run out between the toast appearing and the read (HARD RULE #32: wait for a signal, never race a timer).
+	const now = await page.evaluate(() => Date.now());
+	await page.clock.pauseAt(now + 61_000);
+	const toast = page.locator('[data-sonner-toast][data-mounted="true"]').filter({ hasText: /Webpage failed: the step “load the theme” did not finish within 60 s/ });
+	await expect
+		.poll(async () => {
+			await page.clock.runFor(50);
+			return toast.count();
+		}, { message: 'the failure toast is up' })
+		.toBe(1);
 	expect(progress.some((l) => /load the theme: failed/.test(l)), 'the progress log names the stalled step').toBe(true);
 	expect(progress.some((l) => l.includes('render the deck: started')), 'nothing past the stalled step ran').toBe(false);
 	expect(exporterRequests, 'the exporter was never loaded').toEqual([]);
-	// The message says to try again, so the button must be free to press: enabled, and not under the toast. A trial click
-	// runs Playwright's actionability checks, including that nothing covers the point it would press.
+	// The message says to try again, so the button must be free to press: enabled, and not under the toast at this box. At
+	// the toaster's own bottom-center place it was not: on a 390-wide phone the toast overlapped the button and a press
+	// missed, and at 820 it covered the label's start. ShareSheet raises its failures at the top.
 	const again = page.getByRole('button', { name: /Download webpage/ });
 	await expect(again).toBeEnabled();
-	await again.click({ trial: true });
+	await expect(toast).toHaveAttribute('data-y-position', 'top');
+	const [b, t] = [await again.boundingBox(), await toast.boundingBox()];
+	expect(b && t, 'both boxes are on screen').toBeTruthy();
+	if (b && t) expect(t.y + t.height <= b.y || t.y >= b.y + b.height || t.x + t.width <= b.x || t.x >= b.x + b.width, 'the toast clears the button').toBe(true);
 });
