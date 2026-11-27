@@ -5,7 +5,7 @@ recorded: 2026-11-27
 area: website
 severity: low
 swimlane: engineering/development.md
-deferred: off-path — the Studio-wide toast placement (`docs/src/components/ui/sonner.tsx`, `position="bottom-center"`), shared by every toast on every surface; PR 3559 only adds one message to it
+deferred: blocked — the owner's call on where the Studio-wide Toaster sits on narrow screens (`docs/src/components/ui/sonner.tsx`, `position="bottom-center"`, shared by every toast in the Studio and the Playground); asked on PR 3559 as decision D1
 source: https://github.com/Laticent/lattice/pull/3559
 ---
 
@@ -14,9 +14,10 @@ source: https://github.com/Laticent/lattice/pull/3559
 why now   — PR 3559 adds "Webpage failed: the step … did not finish within 60 s … Try again", and on a 390×844 phone
             box the toast that carries it overlaps the Share sheet's "Download webpage" button: button y 682–728,
             toast y 716–828 (desktop Chromium emulating the width). A Playwright trial click on the button timed out
-            while the toast showed. The toast leaves on its own after a few seconds (about 3 s measured at 820 wide),
-            and at 820×900 it does not overlap, so the author can retry once it goes. Every Share failure toast has
-            had the same placement before this PR.
+            while the toast showed. At 820×900 it overlaps too: the toast (x about 232–588) covers the button's left
+            part (x 401–800), cutting its label to "ownload webpage"; a trial click passes there only because the
+            button's center is clear. The toast leaves on its own after a few seconds (about 3 s at 820 wide), so the
+            author can retry once it goes. Every Share failure toast has had the same placement before this PR.
 where     — docs/src/components/ui/sonner.tsx (the one Toaster's `position` and offset), the Share sheet's
             bottom-anchored action rows (WebpageOptionsPanel.tsx and its siblings).
 done when — at 390 wide, no toast overlaps the Share sheet's primary button, and the button takes a click while the
