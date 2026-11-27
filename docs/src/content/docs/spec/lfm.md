@@ -10,13 +10,17 @@ This page is generated from [`spec/LFM-1.0.md`](https://github.com/Laticent/latt
 :::
 
 <!-- spec-parts
-schema: tools/build-docs-portal.js lib/components/index.js
-reference: lib/engine/index.js lib/authoring/lint-core.js
+schema: tools/build-docs-portal.js lib/components/index.js tools/build-front-matter-schema.js
+reference: lib/engine/index.js lib/authoring/lint-core.js lib/core/meta-door.mjs lib/core/note-grammar.mjs docs/src/lib/segno/ docs/src/lib/lente/tags.ts
 tests: spec/conformance/lfm/ tools/lfm-conformance.js
 -->
 
-**Version:** 1.0 · **Status:** Ratified · **Date:** 2026-10-08 · **Owner:** @saden1
-**License:** [CC-BY-4.0](#12-governance--license)
+**Version:** 1.0 · **Status:** Draft, for the owner's ratification at Lattice 1.0 · **Date:** 2026-11-27 · **Owner:** @saden1
+**Replaces:** the 2026-10-08 text of LFM 1.0 and the unratified 1.1 and 2.0 drafts, which this document consolidates
+(owner, 2026-11-27: one LFM, version 1.0, at release). Their history is kept in §13.
+**Follows:** [How the Lattice specs version and extend](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md) (core, profiles, registries, prefixed
+names, unknown things, the version line).
+**License:** [CC-BY-4.0](#13-governance-and-license)
 
 LFM (Lattice-Flavored Markdown) is the authoring dialect of the
 [Lattice](/overview/) slide engine. Its name follows *GitHub-Flavored
@@ -28,7 +32,7 @@ A document written in LFM is a valid Markdown document. Every LFM extension
 MUST render readably in a CommonMark viewer that has **no knowledge of
 Lattice** — GitHub, GitLab, Bitbucket, and Confluence included. That property is
 **graceful degradation**, the governing rule of the standard and the criterion
-for adopting any future extension (§5).
+for adopting any future extension (§7).
 
 This document specifies what LFM adds to Markdown, how each addition degrades,
 and what makes a document *conformant*. It does not specify a parser: LFM rides
@@ -37,86 +41,175 @@ below is a conformant LFM implementation.
 
 ---
 
-## 1. Conformance levels
+## 1. Conformance: the core and the profiles
 
-LFM defines three levels so a tool can advertise precisely what it supports.
+LFM has a **core** every reader implements, and **profiles** a reader opts into
+([EXTENDING §1–§2](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
 
-| Level | Name | What it means |
-|---|---|---|
-| **L0** | *Markdown-faithful* | The document is valid CommonMark + GFM. An LFM-unaware renderer produces a readable result. **Every conformant LFM document is L0.** |
-| **L1** | *Lattice-structured* | The renderer understands the **slide** and **block** extensions (§2–§3): `_class` directives, front-matter directives, the card grammar, and state markers. It produces Lattice layouts. |
-| **L2** | *Lattice-diagnostic* | The tool additionally implements the [Diagnostic Protocol](/spec/diagnostics/): it validates a document, reports findings with stable rule IDs, and offers machine-applicable fixes. |
+| Part | What it covers | Sections | Who needs it |
+|---|---|---|---|
+| **Core** | front matter and its rules, slides, the slide record, the four notes, the card grammar, state markers, fences as a rule | §2, §3 | every reader |
+| **Presentation** | the component and modifier vocabulary, the front-matter registers and settings | §4 | a renderer that draws slides |
+| **Notation** | pills, state marks, sparks and icons inside inline code | §5 | a renderer that draws them |
+| **Lens** | which slides an audience sees | §6.1 | a tool that projects a deck for an audience |
+| **Timing** | how `@say` is voiced and timed; specified by [LTT](/spec/ltt/) | §6.2 | a narrator, a video export |
+| **Diagnostics** | findings with stable rule IDs and fixes; specified by the [Diagnostic Protocol](/spec/diagnostics/) | — | a linter, an editor |
 
-A **conformant LFM document** is valid at L0 and follows the grammar in §2–§4
-for every Lattice construct it uses. A **conformant LFM renderer** declares the
-highest level it implements.
+A **conformant LFM document** is valid CommonMark + GFM (it degrades, §7) and follows this document's grammar for every
+Lattice construct it uses. A **conformant LFM reader** implements the core and states the profiles it implements, each
+with its version: "LFM 1.0 Core + Presentation, Diagnostics 1.0". A search indexer that implements the core alone reads
+every slide, record and note correctly; it has nothing to do with charts, themes or timing.
 
-## 2. Slide-level extensions
+In this document, *a renderer* is a reader that draws slides, and *an L2 tool* is one that implements the Diagnostics
+profile. (The 2026-10-08 text's levels map as: L0 is degradation, §7; L1 is Core + Presentation + Notation; L2 adds
+Diagnostics.)
 
-### 2.1 The `_class` directive
+## 2. The document (core)
 
-A slide selects a Lattice component with a Marpit class directive — an **HTML
-comment**, so it is invisible in every Markdown renderer:
+### 2.1 Front matter
 
-```markdown
-<!-- _class: split-compare -->
-```
+A leading YAML front-matter block carries deck-wide settings. The settings a reader may meet are listed in the
+**settings registry**, `dist/schemas/front-matter.schema.json`, generated from the reference implementation's
+`lib/core/deck-settings.js`; each entry names its key, its values, the profile it belongs to and, for a retired key,
+its replacement. This document states the rules every key follows; the registry lists the keys (§4.2).
 
-The value is a space-separated list of one **component name** plus zero or more
-**modifier tokens** (§4). The complete, machine-readable vocabulary of names,
-modifiers, slots, and skeletons is published in
-[`dist/docs/grammar.json`](https://github.com/Laticent/lattice/blob/main/dist/docs/grammar.json), generated from the
-component manifests.
+- **The version line.** A deck MAY state the LFM version it was written for: `lfm: 1.0`. A deck that states none is
+  read as LFM 1.0. A reader MUST read any 1.x deck, applying the unknown-key rule below to what it does not know, and
+  MUST refuse a deck whose major version it does not implement, with a message that says a newer reader is needed
+  ([EXTENDING §6](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
+- **An unknown key** (one neither this spec nor its registries name) MUST NOT change the render. A tool that writes
+  the deck back (an editor, an export, a migration) MUST keep it as it found it. An L2 tool SHOULD report it as
+  `unknown-key`, a warning, because that is how a misspelled key (`finsh: halo`) is caught.
+- **A prefixed key** (`acme.tally: 3`) belongs to the plugin of that name and is reserved for it
+  ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)); an L2 tool does not report it. In LFM 1.0 a reader MAY ignore every prefixed
+  key: reading one is a 1.x addition.
+- **A host application** MAY read its own keys (the Lattice Studio reads `title:` to name a deck); they are
+  application metadata, listed in the registry so they do not warn.
+- **A retired key** (`paginate:`, `marks:`) is listed in the registry with its replacement. A renderer ignores it; an L2
+  tool reports it as `key-renamed`, with a fix that renames it.
 
-- **Degrades to:** nothing visible (HTML comment). **L0-clean.**
+- **Degrades to:** front matter is hidden or shown as a metadata table, depending on the
+  host. **L0-clean.**
 
-### 2.2 Slide separators
+### 2.2 Slides
 
 Slides are separated by a thematic break on its own line (`---`). This is
 CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
 
-A renderer MAY also start a slide at a heading. The reference implementation does by
-default: within each `---`-separated section, every `#` or `##` after the section's first
-heading starts a new slide. A deck sets `split: rule` to divide at `---` only; LFM 1.1
-specifies this. A deck whose every `---`-separated section holds at most one `#` or `##`
-heading has the same slides either way, so a 1.0 deck that wants to render the same
-everywhere is written that way.
+A renderer also starts a slide at a heading unless the deck sets `split: rule` (§2.1): within
+each `---`-separated section, every `#` or `##` after the section's first heading starts a new
+slide; `###` and deeper never do. A `---` still divides with headings on. So a deck whose every
+`---`-separated section holds at most one `#` or `##` has the same slides either way, and a deck
+with more does not. A slide's lead-in (its record, and an eyebrow written above the
+heading) belongs to the heading's slide, not the one before.
 
 - **Degrades to:** horizontal rules. **L0-clean.**
 
-### 2.3 Front-matter directives
+### 2.3 The slide record
 
-A leading YAML front-matter block carries deck-wide directives. LFM recognizes,
-in addition to Marpit's own (`theme`, `paginate`, `_class`, …):
+A slide's settings are one **record**: an HTML comment, on its own line at the top level of the slide (not in a list
+item, a blockquote or another HTML block), whose body starts `@meta{`:
 
-| Key | Value | Effect |
+```markdown
+<!-- @meta{layout=split-compare, class=dark, footer="Q3 review", lens="brief -evidence"} -->
+```
+
+- `layout` names one component (§4.1) and `class` the modifier tokens after it; the slide's class is the two joined,
+  as a 1.0-rc `_class` directive was. The other fields are the slide's other settings, named as the front-matter keys are
+  (`footer`, `header`, `background-image`, `focus-steps`, `pane`, `lens`, …).
+- A record sets its own slide. `carry` makes it run on to every later slide, as a Marpit directive without `_` does.
+- `lens` is the slide's reader-lens tag, with the Lens profile's value (§6.1). Two records that set one field on a slide resolve as
+  any repeated field does: the last one wins, and the L2 linter reports the repeat.
+- **Not read:** a directive comment (`<!-- _class: … -->`, `<!-- footer: … -->`, `<!-- _lens: … -->`, a bare flag
+  such as `<!-- hide -->`), a pane marker in comment form (`<!-- _pane: … -->`), the bare marker `<!-- stress-slide -->`
+  and the bare record `<!-- {…} -->`. A conformant renderer MUST NOT apply any of them, and a conformant L2 tool
+  MUST report each one as an error with the record that replaces it.
+- **Degrades to:** nothing visible (HTML comment). **L0-clean.**
+
+**The record's syntax** is a profile of [Segno 1.0](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md): the body from `{` to the brace that balances it
+is a Segno record whose items are `name=value` pairs and bare words, each value a bare word or quoted text. A record
+field holds one value: a list or a nested record in a field is refused (`meta-field-type`). The host does three things
+outside the notation, before or around it:
+
+1. It decodes the comment escape first: `--\>` reads as `-->` and `--!\>` as `--!>` (§2.4 states the same rule for
+   notes).
+2. It joins a record that spans lines: a line break outside quoted text, with the next line's indentation, reads as
+   one space.
+3. It accepts `@meta{}`, the empty record, which sets nothing. Space directly after `@meta{` is refused.
+
+After the closing brace, a record may carry **block lines** until the comment ends: `key: value`, or `key: |` followed
+by indented lines (dedented by the first line's indentation, blank lines kept, trailing ones trimmed). A value that
+starts with `"` is a JSON string. Any other line is a finding (`meta-block-line`). Block-line keys are lowercase:
+a letter, then letters, digits and hyphens.
+
+**Unknown fields.** A field this spec and its registries do not name is ignored by a renderer and kept by a writer
+(§2.1). A field with a prefix (`acme.tally=3`) is reserved for the plugin of that name ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
+
+The field registry is `dist/schemas/front-matter.schema.json`: a record field and a front-matter key are one name
+for one setting, so a deck-wide setting and a one-slide override use the same word. The shared cases are
+`spec/conformance/lfm/*-record`.
+
+
+### 2.4 Notes
+
+A slide carries up to four **notes**. A note is an HTML comment whose whole body, after
+whitespace is trimmed, is `@name{…}` with `name` one of four lowercase words. The name is
+where the note shows up:
+
+| Note | What it is for | A renderer that offers the surface SHOULD put it in |
 |---|---|---|
-| `mode:` | `boardroom` \| `sketch` \| `sketch-clean` | The deck's rendering mode. `boardroom` is the default. |
-| `finish:` | a finish name, or `none` | The backdrop drawn behind every slide. The names are the finishes the engine ships (`FINISH_NAMES` in `lib/core/resolve-finish.js`). Unknown values are a diagnostic (§ `unknown-finish`); so are `boardroom`, `sketch` and `sketch-clean`, which are modes. |
-| `logo:` | path | Deck logo injected into the masthead. |
+| `@note{…}` | the presenter, while presenting | its presenter channel (speaker notes) |
+| `@say{…}` | someone listening | its narration and captions; it replaces any narration the renderer generates for the slide |
+| `@alt{…}` | someone who cannot see the slide | the slide's text alternative (WCAG 1.1.1) |
+| `@handout{…}` | someone reading the deck alone, later | its reading surface, and after the speaker note where the format has one notes field |
 
-These three keys are the complete LFM-added front-matter surface in 1.0; every
-other recognized key belongs to Marpit. The many other settings the engine reads
-(`lib/base/base.registers.docs.md`) arrive in LFM 1.1.
+```markdown
+## Where the pipeline leaks.
 
-A **delivery** register is a third category, and 1.0 does not define one: `pace:`
-(2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking, and
-how long to let a slide's last sentence land before the next appears. It
-changes no rendered pixel, so a conforming renderer ignores it exactly as it ignores application
-metadata — but unlike application metadata it belongs to the DECK and must survive an export.
-See `lib/core/resolve-pace.mjs`.
+<!-- @note{Open on the drop.} -->
+<!-- @say{The pipeline holds until activation, then loses seventy percent before paid.} -->
+<!-- @alt{Funnel chart: 12,000 visitors narrowing to 620 paid.} -->
+<!-- @handout{Activation-to-paid is measured over 30 days.} -->
+```
 
-Note that a *host application* may read its own front-matter keys that LFM does not
-define and a conforming renderer ignores — the Lattice Studio reads `title:` to name
-a deck in its UI and in export filenames, for instance. Such keys are application
-metadata, not language surface: a conforming implementation may ignore them and
-still render the deck correctly.
+**The body** runs from the `{` after the name to the brace that balances it, and MUST be the
+end of the comment: text after that brace makes the comment not a note. The body MAY span
+lines and paragraphs; the note's text is the body with the indentation its non-blank lines
+share removed, then trimmed. Inside the body:
 
-- **Degrades to:** front matter is hidden or shown as a metadata table,
-  depending on the host. **L0-clean** (it is YAML front matter, which every
-  GFM host already special-cases).
+- A comment cannot contain `-->` (or `--!>`, which ends it in a browser). A note that needs one
+  writes `--\>` (`--!\>`), and each further backslash before the `>` is a literal one: a reader
+  removes one backslash, before it reads the escapes below.
+- `\\` is a literal backslash, and `\{` and `\}` a literal brace that does not count toward the
+  balance. A backslash before any other character is itself, so a hand-written `C:\Users` reads as
+  written. A writer escapes every backslash, and every brace when the braces do not balance, so
+  any text round-trips and no body can escape its own closing brace.
 
-## 3. Block-level extensions
+**Several notes of one name** on a slide join in source order: `@note` and `@handout` as
+paragraphs (separated by a blank line), `@say` and `@alt` into one line (separated by a space).
+
+**Not a note:** a comment whose name is not exactly one of the four (`@Say{…}`, `@speaker{…}`),
+whose braces never balance, or that holds text after the closing brace; a record (§2.3); a tooling pragma (`markdownlint-*`, `prettier-ignore[-start|-end]`,
+`lint disable|enable|ignore …`); and a **plain comment**. A comment that is not a note MUST NOT
+reach a renderer's presenter channel, narration, captions, text alternative or reading surface.
+A comment inside a code fence, an indented code block or an inline code span is slide text,
+never a note.
+
+**Degradation.** Every note is an HTML comment, so a CommonMark viewer that has no knowledge of
+Lattice shows nothing (§7's governing rule holds unchanged). A Marp renderer reading an LFM deck directly shows
+every comment as a speaker note, `@say{…}` and plain comments included; an implementation's export to
+Marp should write `@note` and `@handout` as Marp notes and drop the rest.
+
+**Retired spellings, with no alias.** A conformant L2 linter SHOULD report each as an error that
+names its replacement: a `say:`, `describe:` or `reader:` comment key (now `@say`, `@alt`,
+`@handout`), and a front-matter `say:` map keyed by slide number (each line goes on its slide as
+`@say`). The reference linter's rules are `note-key-retired` and `note-malformed`.
+
+The reference implementation is `lib/core/note-grammar.mjs` (the grammar) and
+`lib/authoring/notes-core.js` (the notes a rendered slide carries). The shared test case is
+`spec/conformance/lfm/four-notes`. Design record: `engineering/decisions/2026-11-20-four-notes.md`.
+
+## 3. Block-level extensions (core)
 
 ### 3.1 The card grammar (nested-list slots)
 
@@ -165,7 +258,7 @@ opposite of what a cross suggests, so LFM leaves it literal.
 
 - **`[x]` / `[ ]` degrade to:** real checkboxes in any GFM host. **L0-clean.**
 - **`[-]` / `[!]` / `[?]` / `[/]` degrade to:** literal text (`[-] …`). Readable
-  but not a checkbox — LFM 1.0's only non-GFM-clean construct (§5.1).
+  but not a checkbox — LFM's only non-GFM-clean construct (§5.1).
 
 ### 3.3 Fenced sub-languages (charts, diagrams & motion)
 
@@ -202,6 +295,9 @@ with that library, so this prose spec stays stable as those options evolve.
 > and will be removed in a future major version. See the
 > `2026-06-13-lfm-standard` decision note.
 
+A fence whose language this spec and its registries do not name stays a code block: an unknown fence is never an
+error. The list of fences is published in `dist/docs/grammar.json`.
+
 ### 3.4 Other inline conventions
 
 - **Eyebrow / subtitle / hero number** and similar slot conventions are
@@ -210,63 +306,19 @@ with that library, so this prose spec stays stable as those options evolve.
   documented per component in `grammar.json`, and are **L0-clean** by
   construction.
 
-### 3.5 Speaker notes
+## 4. The Presentation profile
 
-An **HTML comment on a slide that is neither a directive nor a tooling pragma**
-is that slide's speaker note. This is Marp's own semantics, unchanged:
+### 4.1 The component and modifier vocabulary
 
-```markdown
-# The slide title
-
-<!-- Open cold. Pause two seconds before the first word. -->
-```
-
-A slide may carry several note comments; they are concatenated in order. Two
-comment kinds are **not** notes, matching Marpit exactly:
-
-- **Directives** — `<!-- _class: … -->`, `<!-- paginate: true -->`, and any
-  comment that parses as a block of known directive keys (§2.1, §2.3).
-- **Tooling pragmas** — `markdownlint-*`, `prettier-ignore[-start|-end]`, and
-  `lint disable|enable|ignore …` (the editor/formatter control comments). The
-  recognized set is Marpit's `magicCommentMatchers`, mirrored in the reference
-  implementation `lib/authoring/notes-core.js` so every render path agrees on
-  the note/non-note boundary.
-
-A conformant L1 renderer SHOULD surface notes through whatever presenter channel
-it offers. How a note is *presented* is implementation-defined; *what counts as a
-note* is the contract above, and that boundary is what conformance fixes. Among
-the reference render paths today, **Lattice's emulator** materialises notes — a
-per-page PDF text annotation plus a hidden `aside.lattice-notes` element in the
-HTML sidecar; under marp-cli the same comments are marp-core's native notes
-(surfaced by `marp --pdf-notes` or a PPTX export); the VS Code preview does not
-surface them yet.
-
-The **directive and tooling-pragma exclusions** above are the pinned part of the
-contract: they are identical across implementations (the reference
-implementation pins them against marp-core's documented comment-collection
-behavior — hardcoded expected outputs, not a live marp-core comparison; see
-`test/unit/authoring/notes-core.test.js`). A few rare
-comment-*placement* cases are explicitly **not** guaranteed identical, because
-they depend on how a given parser segments comments rather than on the note
-boundary: a comment buried inside a raw HTML block, two comments with no blank
-line between them, and a single comment that mixes a directive with prose. A
-conformant tool MAY collect these differently; authors should keep a note in its
-own comment, on its own line.
-
-- **Degrades to:** nothing visible — an HTML comment is invisible in every
-  Markdown renderer, and on GitHub/GitLab a comment is already how an author
-  leaves an out-of-band remark. **L0-clean.**
-
-## 4. The component & modifier vocabulary
-
-`_class` tokens are one **component name** plus modifier tokens. The full list
+A record's `layout` field names one **component**, and its `class` field the **modifier** tokens (§2.3). The full list
 is generated, not enumerated here, so it cannot drift:
 
 - **Component names** — `dist/docs/components.json` (`vocabularies.buckets` and
   the per-component entries) and the human catalog `dist/docs/components.md`.
 - **Per-component grammar** — `dist/docs/grammar.json`: for each component, its
-  `_class` token, its required and optional **slots** (CSS selector +
-  description), its **skeleton**, and the **fences/state-markers** it reads.
+  component name, its required and optional **slots** (CSS selector +
+  description), its **skeleton**, the **fences/state-markers** it reads, and its
+  **data slots** (`dataSlots`, §5.1 rule 4).
 - **Modifiers** — recognized by set membership or by these prefix families:
   `tint-`, `mark-`, `with-`, `at-`, `no-`, `tone-`, `treatment-`, `checks-`,
   plus the universal/semi-universal variant sets. The authoritative prefix list
@@ -279,17 +331,151 @@ An unrecognised token is a diagnostic (`unknown-class`) with a did-you-mean
 suggestion, never a hard parse error — an LFM document with a typo is still a
 valid Markdown document.
 
-## 5. Graceful degradation — the governing rule
+### 4.2 Registers and settings
+
+The registers and settings a renderer applies are listed, with their values and their rule IDs, in the settings
+registry (§2.1). A register's own key and words change only through the registry ([EXTENDING §3](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)):
+a new register or word is a registry minor version; a renamed one keeps its old spelling as a retired entry with its
+replacement.
+
+**Registers** set one deck-wide choice from a list of values. Each value is a word, matched
+without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
+slide. A single-word register whose value is not in the list MUST NOT change the render. A
+register that takes one word per axis (`backdrop:`, `tag:`, `spark:`, `icon:`) applies each word
+it knows and ignores the rest, so `tag: corner foot` places tags in the corner. Either way, an L2
+tool reports an unknown word, or a second word for one axis, as `unknown-<key>` (the registry names the rule ID for each register).
+
+Many registers also have a per-slide token a slide's `class` field can carry (`lifted`, `corners-rounded`,
+`inline-code-literal`). Those tokens are listed in `lib/base/base.registers.docs.md`; the registry lists them, and `split:` and `preset:` have none.
+
+**`header` and `footer` are set for every slide only in front matter.** In a slide's record (`header=`,
+`footer=`) they apply to that slide only, unless the record carries `carry`. This differs from Marpit,
+where the plain spelling carries onto every later slide. A slide drops the deck's chrome with the `no-header`
+or `no-footer` class. A renderer that exports to Marpit MUST write the result as Marpit's own
+directives, so the exported deck renders the same.
+
+**`pagination` is a front-matter key only, and on unless it says off.** It replaces Marpit's `paginate`, which an L2
+tool reports as `key-renamed` with a fix that renames it. A record field cannot set it. A slide drops its page number
+with the `no-pagination` class and keeps it with `with-pagination`; a
+component may opt out in its manifest. A renderer that exports to Marpit MUST write the result as Marpit's own
+`paginate:` front matter and `_paginate` comments, so the exported deck numbers the same slides.
+
+**Settings** carry a value that is not one word from a list (`logo:`, `plugins:`); the registry gives each
+one's shape. `plugins:` names the plugins a deck needs loaded; it only adds, and a renderer that loads more by default
+still does.
+
+- **Degrades to:** front matter, as §2.1. **L0-clean.**
+
+## 5. The Notation profile
+
+### 5.1 Inline notation (pills, marks, sparks and icons)
+
+A **single-backtick inline code span** whose whole content matches one of the forms below
+renders as a drawn element instead of code. Every form shares one notation
+([Segno](https://github.com/Laticent/lattice/blob/main/docs/src/lib/segno/README.md)): an opening sigil and brace, a comma-separated
+list of words, a closing brace. The first item is the subject; the rest are modifier words
+in any order, each also writable by name (`shape=tag`). An item that holds a comma, `|`,
+`=`, `[`, `]`, `{`, `}` or `"` is quoted (`{"Cost, excluding tax"}`).
+
+| Form | Example | Renders as |
+|---|---|---|
+| `{LABEL, …}` | `` `{BETA, tag, c4}` `` | A **pill**: a label in a shape and a color. |
+| `[x]` `[-]` `[!]` `[?]` `[ ]` `[/]` | `` `[x]` `` | A **state mark** carrying the §3.2 answer. |
+| `~{DATA, …}` | `` `~{12 14 17, end}` `` | A **spark**: a chart the size of a word. |
+| `^{NAME, …}` | `` `^{database, c3}` `` | An **icon** (the `icons` plugin). |
+
+**Pill words.** A shape (`tag` `tag-bordered` `chip` `circle` `chevron-right`
+`chevron-left` `diamond`; none gives the capsule `pill`), a color slot (`c1` … `c12`), a
+size (`sm` `md` `lg`), and `icon=NAME` to lead the label with an icon.
+
+**Spark data and words.** The data is a series of 2 to 48 numbers, space-separated and
+oldest first, or a ratio (`72/80`, or `72%` for 72 of 100). The words are a type (`line`
+`area` `bar` `step` `winloss` for a series, `line` by default; `ring` `bullet` for a ratio,
+`ring` by default), a size (`sm` `md` `lg` `fill`), `zero`, markers (`end` `minmax`), a color
+slot (`c1` … `c12`), and the frame, look and corner words of the `spark:` register (§4.2).
+
+**Icon words.** A color slot, a size (`sm` `md` `lg`), the frame, look and corner words of the
+`icon:` register (§4.2), and `label="…"` for what a screen reader says.
+
+Four rules hold for every form:
+
+1. **All or nothing.** A span that does not parse, or that names a word the form does not
+   know or names one twice, renders as the code it is. A renderer MUST NOT draw a partial
+   element. An L2 tool reports a pill that quoting would fix (`pill-literal`), a spark that
+   does not parse (`spark-literal`) and a plugin kind's equivalent (`<kind>-literal`); 1.0 does
+   not require a finding for a pill with an unknown or repeated word.
+2. **An escape keeps it literal.** A backslash before the sigil (`` `\{LIVE}` ``,
+   `` `\[x]` ``) renders the span as code without the backslash. A backslash anywhere else is
+   left alone.
+3. **Only inline code.** A fenced or indented code block is never read as notation, and
+   neither is any span when the deck sets `inline-code: literal` (§4.2).
+4. **A data slot owns its spans.** A component MAY declare a **data slot**: a place in its
+   content, today its list rows, where a span is that component's data rather than inline
+   notation. A span in a declared data slot MUST NOT render as a pill, mark, spark or icon,
+   even when it would parse as one: on a flowchart, `` - Start `{diamond, c2}` `` styles the
+   node and draws no pill. The slot's grammar reads the span, and a span it cannot read is
+   that grammar's finding, not a `pill-literal` one. A span the component does not consume
+   stays the code it is. A span outside every declared slot is notation as above. Rule 2
+   still applies first: an escaped span is code in a data slot too.
+   `grammar.json` publishes each component's slots as `dataSlots` (§4.1). `sits` names where
+   the slot reads: `list-rows` is every list item on the slide, at any depth. An optional
+   `rowDepth` narrows that: the slot owns only the slide's first list, and only to the depth
+   it names, counting a top-level item as depth 1. `rowDepth` gives a `default` and may give
+   a depth per modifier (`{ "default": 2, "tiered": 3 }`); a modifier present on the slide
+   wins over the default. A row below that depth is not in the slot, so its spans are
+   notation. Which components declare a slot, and what each slot reads, belongs to the
+   component grammar, which `grammar.json` publishes from the reference implementation's
+   manifests. Declaring a slot on a component that already ships changes what existing spans
+   render, so the engine's changelog carries it as `**Breaking:**`; LFM's own rules do not
+   change.
+
+The full behavior of each form is documented in `lib/base/base.docs.md` (§ Inline pills,
+§ Inline state marks), `lib/plugins/sparks/sparks.docs.md` and `lib/plugins/icons/icons.docs.md`.
+
+- **Degrades to:** inline code showing the span as written. A reader of the raw Markdown
+  sees `{BETA, tag, c4}` or `~{12 14 17}`. **L0-clean.**
+
+## 6. The Lens and Timing profiles
+
+### 6.1 Lens
+
+A slide's `lens` record field (§2.3) names the reader lenses it belongs to:
+
+```markdown
+<!-- @meta{layout=cards-grid, lens="brief ask"} -->
+<!-- @meta{lens="-evidence"} -->
+```
+
+The value is a space-separated list of lens ids. A bare id or `+id` puts the slide **in** that lens; `-id` takes it
+**out**. Ids are compared exactly as written, so authors write them in lowercase. A value that both includes and
+excludes one id carries both, and what that means is the host's call. A front-matter `lenses:` key may name the lenses
+a deck defines; its shape is in the settings registry (§4.2).
+
+A lens tag says who a slide is for, which an exported deck should not reveal: a renderer MUST NOT copy it into rendered
+or exported output. What a lens *does* (which slides a reader sees) belongs to the host. LFM fixes only the tag. The
+reference implementation is `parseSlideTags` in `@laticent/lente`.
+
+- **Degrades to:** nothing visible (HTML comment). **L0-clean.**
+
+### 6.2 Timing
+
+The Timing profile is how a narrated deck is spoken and paced. Its file format is
+[LTT 1.0](/spec/ltt/). From LFM it reads three things: the `@say` notes (§2.4), which replace any narration a
+renderer generates for the slide; the delivery keys in front matter (`pace:`, `delivery:`, `greeting:`, `closing:`,
+listed in the settings registry); and the deck's language. Delivery keys change no rendered pixel, so a renderer that
+does not implement Timing ignores them, but an export MUST keep them (§2.1).
+
+## 7. Graceful degradation — the governing rule
 
 **Every LFM extension MUST render as readable Markdown in an LFM-unaware
 renderer.** This is the property that makes LFM safe for a host like GitHub to
 render, and safe for an author to write without lock-in.
 
 **Rule for future extensions:** no construct may be added to LFM without a row
-in the degradation table (§2–§3) stating exactly what an unaware renderer
+in the degradation table (§2–§6) stating exactly what an unaware renderer
 shows. If a construct cannot degrade readably, it is rejected or redesigned.
 
-### 5.1 Known non-GFM-clean constructs
+### 7.1 Known non-GFM-clean constructs
 
 LFM 1.0 has exactly one: the **`[-]`, `[!]`, `[?]` and `[/]` state markers**
 (§3.2). GFM task-list syntax covers only `[x]` and `[ ]`, so the other four
@@ -299,58 +485,47 @@ literal-text fallback is readable.
 A future LFM version MAY introduce GFM-clean aliases. Until then, this is a
 documented exception, not a conformance failure.
 
-## 6. Relationship to other standards
+## 8. Relationship to other standards
 
 - **CommonMark** — LFM is a strict superset. Every CommonMark document is a
   valid (if Lattice-inert) LFM document.
-- **GFM** — LFM adopts GFM task lists and tables. The only divergence is §5.1.
-- **Marpit / Marp** — LFM's slide model (`_class`, `---` separators, front
-  matter) is Marpit-compatible; Lattice's own engine natively re-implements
+- **GFM** — LFM adopts GFM task lists and tables. The only divergence is §7.1.
+- **Marpit / Marp** — LFM's slide model (`---` separators, front matter) comes from Marpit, and an
+  export to Marp writes a Marp deck back (§2.3, §4.2); Lattice's own engine natively re-implements
   that model (zero `@marp-team` runtime dependency — see
   `engineering/marp-independence.md`), it isn't a Marp wrapper. Marpit gives
   you slides and a directive syntax; LFM adds what Marpit does not specify — a
   named, versioned, conformance-levelled contract, the degradation guarantee
-  (§5), a fixed component/modifier vocabulary (§4), and a stable diagnostic
+  (§7), a fixed component/modifier vocabulary (§4.1), and a stable diagnostic
   protocol. LFM names and constrains the subset that produces boardroom layouts.
 - **Mermaid** — embedded as a fenced sub-language (§3.3), unchanged.
+- **Segno** — a record's body is a profile of [Segno 1.0](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md) notation (§2.3), and so is the
+  inline notation (§5.1).
 
-## 7. Versioning
+## 9. Versioning
 
-LFM follows SemVer at the *standard* level, tracking the engine's stability
-contract: layouts and tokens are stable surfaces (see `CHANGELOG.md`).
+LFM follows [EXTENDING §7](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md):
 
-- **Major** — removing or breaking an extension, or breaking degradation.
-- **Minor** — adding an extension (with its degradation row) or a component.
-- **Patch** — clarifications and editorial fixes.
+- **Patch** (1.0.1) — wording that changes nothing a conforming reader does.
+- **Minor** (1.1) — an optional construct, a profile, or a rule within a profile, each with its degradation row (§7).
+- **Major** (2.0) — a change to the core, a removal, or an optional thing made required.
 
-The machine-readable surface (`grammar.json`, `components.json`) is regenerated
-from the manifests on every build, so it always matches the engine that ships
-alongside this document.
+A new component, modifier, register, record field or fence is a **registry** change, not a version of this document.
+The registries (`dist/docs/grammar.json`, `dist/docs/components.json`, `dist/schemas/front-matter.schema.json`) are
+generated from the reference implementation on every build, so they always match the engine that ships beside this
+document.
 
-## 8. Conformance testing
+## 10. Conformance testing
 
-Conformance is verifiable at each level, with a distinct test shape per level:
+The shared test cases live in [`spec/conformance/lfm/`](https://github.com/Laticent/lattice/blob/main/spec/conformance/lfm/README.md): small decks, each with the result
+it must produce, in JSON a second implementation can read. Each case names the part it tests (Core, Presentation,
+Notation, Lens) so a reader runs the cases for the parts it claims. A degradation case pairs a fragment with the
+readable Markdown a Lattice-unaware renderer shows; a structure case pairs a deck with the components, slots, records
+and notes a reader MUST resolve; a diagnostics case pairs a deck with the exact findings an L2 tool MUST emit. The
+reference adapter, `tools/lfm-conformance.js`, runs them against the Lattice engine in the unit tier. Where a case and
+this prose disagree, the disagreement is a defect in one of them, and the owner decides which.
 
-- **L0 (degradation).** A fixture pairs an LFM source fragment with the readable
-  Markdown a Lattice-unaware renderer MUST produce. The degradation rows in
-  §2–§3 are the normative seed for this corpus.
-- **L1 (structure).** A fixture pairs an LFM document with the components and
-  slots a renderer MUST resolve from it — the `_class` token, the card-grammar
-  reads, the state-marker semantics. The per-component grammar in
-  [`dist/docs/grammar.json`](https://github.com/Laticent/lattice/blob/main/dist/docs/grammar.json) is the oracle.
-- **L2 (diagnostics).** A fixture pairs an LFM document with the exact set of
-  findings (diagnostics §1) a tool MUST emit: rule ID, severity, slide, and any
-  autofix result. The reference implementation's lint fixtures are the seed and
-  its output is the v1 oracle.
-
-The shared test cases live in [`spec/conformance/lfm/`](https://github.com/Laticent/lattice/blob/main/spec/conformance/lfm/README.md):
-small decks, each with the L0, L1 and L2 results it must produce, in JSON a second
-implementation can read. They cover §2 and §3. The reference adapter,
-`tools/lfm-conformance.js`, runs them against the Lattice engine in the unit tier.
-Where a case and this prose disagree, the disagreement is a defect in one of them,
-and the owner decides which.
-
-## 9. Security considerations
+## 11. Security considerations
 
 LFM itself executes nothing: the prose layer is CommonMark, and every extension
 degrades to valid Markdown. The security surface is the fenced **sub-languages a
@@ -364,42 +539,31 @@ them as it treats any embedded renderer.
 - **Bound the work.** A fence body is attacker-controllable. A host SHOULD cap
   render time and output size to resist denial-of-service from a pathological
   config.
-- **Resolve asset paths under the host's policy.** The `logo:` directive (§2.3)
+- **Resolve asset paths under the host's policy.** The `logo:` setting (§4.2)
   and any local-file reference resolve against the host's asset policy, not
   LFM's; a host MUST NOT widen its file-access surface to render LFM. The
   Lattice reference engine gates local files behind an explicit
   `--allow-local-files` flag.
+- **Treat a prefixed value as untrusted.** A front-matter key, record field or note with a prefix
+  (§2.1) reaches only the plugin that owns it, and whatever that plugin returns passes the host's
+  markup and stylesheet sanitizers before it reaches a rendered document
+  ([EXTENDING §4.1](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
+- **Keep private notes private.** A comment that is not one of the four notes (§2.4), and a note a
+  surface does not show, MUST NOT reach a rendered or exported surface.
 
-## 10. Adding to the vocabulary
-
-The component, modifier, and fence vocabulary is **closed to the manifest set**
-in LFM 1.0: a third party cannot register a new `_class` component, modifier
-prefix, or fence into the standard at authoring time. New vocabulary enters LFM
-the way every current entry did — a component manifest (or a fence
-registration) is added to the engine, and the build projects it into
-`grammar.json`, so the published grammar and the linter vocabulary update
-together and cannot drift (§4).
-
-An unrecognised token is therefore a diagnostic (`unknown-class`), never a parse
-error: an author who reaches for vocabulary that does not exist is warned, not
-blocked. A registration path for out-of-tree vocabulary — an org-private
-modifier family, a third-party fence such as `vega-lite` — is deferred (§11).
-
-## 11. Non-goals (LFM 1.0)
+## 12. Non-goals (LFM 1.0)
 
 LFM 1.0 deliberately does **not**:
 
-- **Define a parser or a formal grammar (ABNF/EBNF) for the prose layer.** LFM
-  rides CommonMark; the parser is CommonMark's. `grammar.json` is a structural
-  projection (selectors + skeletons), not a parser grammar.
-- **Re-encode the `[-]` / `[!]` / `[?]` / `[/]` state markers** into GFM-clean glyphs (§5.1).
-  The current glyphs are documented, not changed, in 1.0.
-- **Open a registration path** for out-of-tree components, modifiers, or fences
-  (§10).
-- **Ship a Language Server or character-precise diagnostic ranges.** The
-  diagnostic protocol is their foundation; see diagnostics §6.
+- **Define a parser or a formal grammar for the prose layer.** LFM rides CommonMark. `grammar.json` is a structural
+  projection (selectors and skeletons), not a parser grammar. The one formal grammar LFM relies on is Segno's (§2.3).
+- **Re-encode the `[-]` / `[!]` / `[?]` / `[/]` state markers** into GFM-clean glyphs (§7.1).
+- **Read prefixed names.** They are reserved for plugins (§2.1); reading them is a 1.x addition.
+- **Open a registration path** for out-of-tree components, modifiers or fences: new vocabulary enters through the
+  registries, which the reference implementation generates.
+- **Ship a Language Server or character-precise diagnostic ranges**; the Diagnostic Protocol is their foundation.
 
-## 12. Governance & license
+## 13. Governance and license
 
 - **License.** This specification — the prose under `spec/` — is published under
   **[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)**. Anyone may
@@ -411,19 +575,32 @@ LFM 1.0 deliberately does **not**:
 - **Steward.** The Laticent project stewards LFM. The spec is the owned
   asset; conformant implementations are interchangeable, and a second
   implementation is an explicit adoption goal.
-- **Amendments.** Changes follow the SemVer rules in §7 and land through the
+- **Amendments.** Changes follow the rules in §9 and land through the
   project's normal review — a PR against `spec/`, recorded in the history below
   and in `CHANGELOG.md`. Any change to a normative MUST/MAY requires a version
   bump per §7.
 
 ### Document history
 
+Section numbers in a row refer to the draft that row changed.
+
 | Version | Date | Change |
 |---|---|---|
 | 1.0-draft | 2026-06-13 | Initial draft. Formalises the existing extension set, conformance levels, degradation table, and the companion diagnostic protocol. |
 | 1.0-draft | 2026-09-24 | §3.3 registers the `anima` fence (JSON body, read by `scene`). The engine already rendered it; the table and `grammar.json` now say so. Additive — a new extension with its degradation row (§7). |
 | 1.0-draft | 2026-09-24 | §3.2 state markers: six answers, one meaning each in every component. Adds `[!]` (no) and `[?]` (unknown); `[ ]` is "open" everywhere, where verdict-grid used to read it as "not met". §5.1 lists the new non-GFM markers. A breaking change to a normative meaning, landed in the pre-ratification draft per §7; the engine's changelog carries the `Breaking:` line. Record: `engineering/decisions/2026-09-24-six-state-marks.md`. |
-| **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default, and when that changes nothing. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
+| **1.0** | 2026-10-08 | **Ratified** as the core it describes, with an owner. §2.3 now matches the engine: `boardroom`, `sketch` and `sketch-clean` are `mode:` values (they moved off `finish:` before ratification), and `finish:` names a backdrop. §2.2 notes that a renderer may also divide at headings, as the reference implementation does by default. §3.3 lists the `math` fence, which `grammar.json` already recorded. §8: the shared test cases ship in `spec/conformance/lfm/`. Owner ruling: `engineering/decisions/2026-10-08-spec-audit.md` §8.2. |
+| 1.1-draft | 2026-10-08 | §2.3 lists every front-matter register the reference implementation reads, each with its values and its `unknown-<key>` diagnostic, plus the settings (`logo:`, `plugins:`) and the delivery keys (`pace:`, `delivery:`, `greeting:`, `closing:`). §2.2 specifies the heading split. §2.4 adds the `_lens` tag. §3.6 adds the inline notation: pills, marks, sparks and icons. Each has shared test cases in `spec/conformance/lfm/`. Additive (a minor version, §7). Waits on the owner's sign-off. 2026-11-01: `icon:` gains a fourth axis, draw (`font` `svg`), also additive. |
+| 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
+| 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
+| 1.1-draft | 2026-10-20 | §2.3: `header` and `footer` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. `paginate` is front matter only, on by default, and a slide comment for it has no effect (classes decide, audit §11s). A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
+| 1.1-draft | 2026-10-29 | The header line no longer says nothing in 1.0 changes meaning. It names what 1.1 changes from 1.0: the `header`/`footer` and `paginate` keys (§2.3), which 1.0 left to Marpit, and the heading split (§2.2), which 1.0 left optional. Editorial: it states what the 2026-10-08 and 2026-10-20 rows already landed. |
+| 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
+| 1.1-draft | 2026-11-20 | §2.3 adds two `backdrop:` masks, `clear-footer` and `clear-hero`: the finish keeps running behind the content and clears only the footer band, or the footer band and a big-number's hero stack. `clear` keeps its meaning. Additive. Shared cases: `spec/conformance/lfm/front-matter-registers.json`. |
+| 1.1-draft | 2026-11-21 | §2.3 replaces the five spectrum registers with three, each named thing first and taking one word per axis: `spectrum:` (style, edge and a new weight axis), `card-spectrum:` (replacing `spectrum-card:` and `spectrum-card-edge:`) and `trim-spectrum:` (replacing `spectrum-trim:`, its words now styles: `quiet`, `rainbow`, `solid`, `duo`, `mono`). No key follows another: the old card `auto` and trim `on`, which copied the slide edge, have no successor word. `spectrum: on` is `spectrum: rainbow`, and `spectrum-edge:` folds into `spectrum:`, its `off` into `spectrum: off`. **Breaking** for a deck that writes an old key: a renderer ignores it, and the reference L2 tool reports it as `retired-spectrum-key` with a fix that rewrites it. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-11-21-spectrum-keys.md`. |
+| 1.1-draft | 2026-11-23 | §2.3: the page-number key is `pagination:`, Marpit's `paginate:` renamed so the key and its `no-pagination` / `with-pagination` classes share one word. **Breaking** for a deck that writes `paginate:`: a renderer ignores it, and the reference L2 tool reports it as `key-renamed` with a fix that renames it. A renderer that exports to Marpit writes `paginate:` back. Record: `engineering/decisions/2026-11-21-plain-english-key-renames.md` §D2. |
+| 2.0-draft | 2026-11-20 | §3.5: a slide carries four named notes, `@note`, `@say`, `@alt` and `@handout`; a plain comment is not a note. Record: `engineering/decisions/2026-11-20-four-notes.md`. Folded into the consolidated 1.0. |
+| **1.0** | 2026-11-27 | **Consolidated** into one LFM 1.0 for the Lattice 1.0 release, replacing the 2026-10-08 text and the 1.1 and 2.0 drafts (owner, 2026-11-27). Core and profiles replace L0/L1/L2 (§1). The slide record `@meta{…}` replaces directive comments (§2.3, after the @meta cut). The four notes replace plain-comment speaker notes (§2.4). Front-matter keys and register values move to the settings registry (§2.1, §4.2). Adds the version line, the unknown-key and prefixed-key rules (§2.1). `paginate:` is `pagination:`; `marks:` is `chart-finish:` and `color-intensity:` (#3510). Design record: `engineering/decisions/2026-11-27-specs-1-0.md`. Waits on the owner's ratification. |
 
 ## Appendix A — A worked example (informative)
 
@@ -433,10 +610,10 @@ A three-slide LFM deck, and how the same source reads in each environment:
 ---
 theme: indaco
 mode: boardroom
-paginate: true
+lfm: 1.0
 ---
 
-<!-- _class: title -->
+<!-- @meta{layout=title} -->
 
 # Q3 Strategy
 
@@ -444,9 +621,11 @@ paginate: true
 
 How we get to plan by year-end.
 
+<!-- @note{Open on the number, not the plan.} -->
+
 ---
 
-<!-- _class: checklist -->
+<!-- @meta{layout=checklist} -->
 
 ## Readiness
 
@@ -456,7 +635,7 @@ How we get to plan by year-end.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- @meta{layout=cards-grid} -->
 
 ## Bets
 
@@ -469,19 +648,20 @@ How we get to plan by year-end.
 **In a Lattice-unaware viewer (GitHub, plain CommonMark):**
 
 - The front matter is hidden or shown as a metadata table.
-- The `_class` comments are invisible.
+- The `@meta` records and the `@note` are HTML comments, so they are invisible.
 - `---` renders as horizontal rules between sections.
 - `[x]` and `[ ]` render as real checkboxes; `[-]` renders as the literal text
-  `[-]` (§5.1).
+  `[-]` (§7.1).
 - The eyebrow code-span and the "Bets" nested list render as ordinary inline
   code and a nested bullet list.
 
 A reviewer on GitHub sees a titled, sectioned checklist and a list of bets — the
 document is **completely readable** with no Lattice support.
 
-**In Lattice (L1+):**
+**In Lattice (Core and Presentation):**
 
-- Slide 1 renders the `title` component: display headline, eyebrow, standfirst.
+- Slide 1 renders the `title` component: display headline, eyebrow, standfirst. Its
+  `@note` reaches the presenter view and nowhere else.
 - Slide 2 renders `checklist`, mapping `[x]` / `[-]` / `[ ]` to pass / partial /
   todo states.
 - Slide 3 renders `cards-grid`, lifting each card's first line to a bold title
