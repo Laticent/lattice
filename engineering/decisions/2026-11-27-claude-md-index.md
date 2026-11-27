@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Proposal to cut CLAUDE.md from 16,444 to 3,672 o200k tokens (63,211 to 13,794 bytes) by keeping
   each HARD RULE as a one-line anchor with its operative core, and moving the full rule text, the
@@ -12,7 +12,14 @@ summary: >
 # CLAUDE.md as a ~4k-token index: a proposal
 
 **Date:** 2026-11-27 · **Asked by:** the owner, through the command center (item c of this PR) ·
-**Status:** proposed, waiting on the owner. **CLAUDE.md is not edited in this PR.**
+**Status:** shipped on this PR. The owner answered D3 A, typed in the command center, event
+`304a47dc-6353-404a-84c4-5b84e3888db4` ("D3 A"), as drafted, without the optional guard of keeping
+five rules in full. As built: CLAUDE.md is 3,757 o200k tokens (14,081 bytes). The rebuilt appendix picks
+up the D4 and D5 wording. `engineering/hard-rules.md` (9,346 tokens) and `engineering/operating-mode.md`
+(4,880) hold the moved text, checked line by line against the pre-cut CLAUDE.md: 0 lines missing or
+reordered. `ROUTER_TOKEN_CEILING` is 4,500, the index plus 20%. The ladder row (§F of the contradictions
+note) and the #7/#28/#31 lines for relay authority are NOT in the index: both wait on D1, which the
+safety classifier refused.
 
 ## The answer
 
@@ -118,7 +125,7 @@ approves it.
 
 Lattice is a Marp-based slide-deck engine that renders boardroom-quality PDFs from Markdown, the
 engine layer of the **Laticent** org. The Laticent desktop app (Tauri, not built yet) will live **in
-this repository**; there is no separate desktop repo.
+this repository**; it has no repository other than this one.
 
 **We DEVELOP Lattice here; we never CONSUME it.** Measure, test, render and audit only on this repo's
 own install and `npm run build`: never a published package, CDN copy, foreign `dist/` or a stub. If

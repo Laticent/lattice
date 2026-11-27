@@ -4401,9 +4401,17 @@ function decodeCssEscapes(value) {
  * introduced this gate was open, and three published measurements went stale during one
  * session. That is the argument for the gate, and the reason it now derives the number at
  * run time rather than carrying a calibration somebody has to re-check.
+ *
+ * RE-SET 2026-11-27 (owner, D3 A on #3575; `2026-11-27-claude-md-index.md`). CLAUDE.md became a
+ * 3,757-token index: each HARD RULE is a one-line anchor, and the full text moved word for word
+ * to `engineering/hard-rules.md` and `engineering/operating-mode.md`. The owner chose that trade
+ * over the "zero reads" argument above, because every session AND every subagent pays the
+ * resident text, while a rule's section is one `sed -n` of a median 282 tokens. The ceiling is
+ * the index plus the owner's usual +20% headroom: 4,500. Growth past it means rule text is
+ * creeping back into the index; it belongs in the pointed-to doc.
  */
 const ROUTER_FILE = 'CLAUDE.md';
-const ROUTER_TOKEN_CEILING = 16500;
+const ROUTER_TOKEN_CEILING = 4500;
 
 /** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
 function routerTokenCount(text) {
@@ -4419,11 +4427,11 @@ function checkRouterBudget(errors) {
   if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
     `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
-    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
-    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
-    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
-    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
-    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896, re-set on #3575). Every session and every ` +
+    'subagent pays this file unconditionally, before any tool call. CLAUDE.md is an index: put the ' +
+    'rule text in the pointed-to doc (engineering/hard-rules.md, engineering/operating-mode.md) and ' +
+    'keep a one-line anchor here. Raise the ceiling in the PR WITH the trade it buys, and only on ' +
+    "the owner's word. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.",
   );
 }
 
