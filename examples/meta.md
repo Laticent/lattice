@@ -108,11 +108,13 @@ The second one says the arrow --\> needs an escape inside a comment.} -->
 $ lattice migrate meta deck.md
 rewrote deck.md: 12 comments → records
 
-<!-- _class: cards dark -->          <!-- @meta{layout=cards,
-<!-- _footer: Q3 review -->     →         class=dark, footer=Q3 review} -->
+before   <!-- _class: cards dark -->
+         <!-- _footer: Q3 review -->
+
+after    <!-- @meta{layout=cards, class=dark, footer=Q3 review} -->
 ```
 
-The same pass runs from `lint:deck --fix` and from the fix button in the Studio. A deck is never converted when it is opened.
+The same pass runs from `lattice lint --fix` and from the fix button in the Studio. A deck is never converted when it is opened.
 
 ---
 
