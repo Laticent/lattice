@@ -52,8 +52,12 @@ const SANCTIONED = {
     keys: { form: 1 },
   },
   'design/forms.md': {
-    why: "`form:` here is a component manifest's Frame field, the subject of the doc, not the retired deck key",
+    why: "`form:` is mostly a component manifest's Frame field, the subject of the doc; two mentions (:5, :780) say the deck key is gone",
     keys: { form: 6 },
+  },
+  'design/design-principles.md': {
+    why: 'names the `paginate:` slide comment as ignored, with the lint pointing at what to write instead',
+    keys: { paginate: 1 },
   },
   'design/concepts.md': {
     why: "`form:` here is a component manifest's Frame field, not the retired deck key",
@@ -85,7 +89,7 @@ const SANCTIONED = {
 // "before" or "old" on its own appears in plenty of current instructions, and a cue that broad excused
 // `` `guards: loose` is the default `` (lib/base/base.docs.md) because "before #2308" sat in the same paragraph.
 const RETIREMENT_CUE =
-  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing|(?:is|are) ignored)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
+  /\b(?:retired|retirement|renamed|was called|replaced|no longer|legacy|migrat\w*|rewrites?|deprecated|(?:the|an?) old(?:er)? (?:name|names|key|keys|form|forms|spelling|one|note|syntax|classes)|old names|LFM 1\.x|reaches nothing)\b|\b(?:was|formerly) `|→|`[^`]+`[ \t]*(?:becomes|is now|instead of)[ \t]+`/i;
 
 const RETIRED = DECK_SETTINGS.filter((r) => r.kind === 'retired').map((r) => r.key);
 const ALT = RETIRED.map((k) => k.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|');
@@ -120,7 +124,8 @@ function retiredKeys(text) {
   });
   let inFence = false;
   let inYaml = false; // inside a ```yaml fence: every line is a settings line, with or without `---`
-  let inDeck = false; // inside an unlabeled, ```md or ```markdown fence: a key at column 0 is a settings line
+  let inDeck = false; // inside an unlabeled, ```md or ```markdown fence: a key at the fence's indent is a settings line
+  let fenceIndent = '';
   let inFm = false;
   // True at the top of the file and right after a fence opens: the only places a `---` line opens front matter.
   let atStart = true;
@@ -134,7 +139,7 @@ function retiredKeys(text) {
       }
       return;
     }
-    if (inDeck && !FENCE.test(line) && /^[^ \t]/.test(line)) {
+    if (inDeck && !FENCE.test(line) && line.startsWith(fenceIndent) && /^[^ \t]/.test(line.slice(fenceIndent.length))) {
       const m = FM_LINE.exec(line);
       if (m) out.push({ line: i + 1, key: m[1], shape: 'front-matter' });
     }
@@ -145,6 +150,7 @@ function retiredKeys(text) {
       inFence = !inFence;
       inYaml = inFence && YAML_FENCE.test(line);
       inDeck = inFence && !inYaml && SETTINGS_FENCE.test(line);
+      fenceIndent = inFence ? /^[ \t]*/.exec(line)[0] : '';
       atStart = inFence;
     } else atStart = false;
   });
@@ -227,6 +233,10 @@ test('a mention its paragraph marks as history passes; a front-matter block neve
   assert.deepEqual(retiredKeys('Add:\n\n```yaml\npaginate: true\n```\n'), [{ line: 4, key: 'paginate', shape: 'front-matter' }]);
   // A deck fence with no `---` still teaches a bare key line.
   assert.deepEqual(retiredKeys('```markdown\npaginate: true\n\n## A\n```\n'), [{ line: 2, key: 'paginate', shape: 'front-matter' }]);
+  // A deck fence indented under a list item: the key sits at the fence's own indent.
+  assert.deepEqual(retiredKeys('1. Start with:\n   ```markdown\n   paginate: true\n   ```\n'), [{ line: 3, key: 'paginate', shape: 'front-matter' }]);
+  // A loose phrase elsewhere in the sentence is not a cue.
+  assert.equal(retiredKeys('Unknown keys are ignored, so set `fonts: used` on every deck.\n').length, 1);
   // "becomes", "is now" and "instead of" are cues only between two code spans: old `a:` becomes new `b:`.
   assert.equal(retiredKeys('A new deck becomes numbered with `paginate: true`.\n').length, 1);
   assert.equal(retiredKeys('Use `paginate: true` instead of a page-number comment.\n').length, 1);
