@@ -101,13 +101,13 @@ async function latticeGalleryCycle(cycle) {
 	const live = () => document.querySelectorAll('iframe.live').length;
 	// Settled: the count unchanged across six reads 300 ms apart, as MR-3's `quiesced` polls. Memory and the window have no
 	// "settled" event; stability is the signal.
-	const quiesced = async (read, ms = 25000) => {
+	const quiesced = async (read, ms = 25000, reads = 5, gap = 300) => {
 		let last = -1;
 		let stable = 0;
 		const t0 = performance.now();
-		while (stable < 5) {
+		while (stable < reads) {
 			if (performance.now() - t0 > ms) throw new Error('the preview window never stopped changing');
-			await new Promise((r) => setTimeout(r, 300));
+			await new Promise((r) => setTimeout(r, gap));
 			const n = read();
 			stable = n === last ? stable + 1 : 0;
 			last = n;
@@ -135,11 +135,17 @@ async function latticeGalleryCycle(cycle) {
 		if (cycle === 0) {
 			// PRIME the pool to its high-water mark, as MR-3 does: a stepped walk rests on every row, so every tile shape
 			// (Mermaid, a local component's CSS) gets its frame before the first close is counted.
+			// The pool's ceiling follows the tiles PARTLY on screen, so its high-water mark is the most tiles any offset shows:
+			// 16 at 1440x900, at 79 of 475 offsets 10 px apart (the first at 2100 px; 9 to 15 everywhere else). The walk
+			// steps well under a row, and at each rest it waits for the pool to SETTLE, not for a number of frames: Mac
+			// Safari had not run the pass within 8 frames, so its prime stopped at 13 and the pool reached 16 in cycle 4,
+			// which counted as 6 new documents in 3 reopens (harness #3 on #3441, run 46014889905).
 			const el = scroller();
 			const bottom = el ? el.scrollHeight - el.clientHeight : 0;
-			for (let y = 0; y <= bottom; y += 300) {
+			for (let y = 0; y <= bottom; y += 100) {
 				jumpTo(y);
-				await frames(8);
+				await frames(2);
+				await quiesced(mounted, 25000, 2, 150);
 			}
 			jumpTo(bottom);
 			jumpTo(0);
