@@ -466,17 +466,30 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
 Copyright © 2025–2026 Sharmarke Aden, doing business as Laticent.
 
-Lattice is free and open source, and everyday use carries no copyleft
-obligations: rendering decks on your laptop or in CI is not distribution, and
-every deck you render is yours outright — PDFs and PPTX are uncovered output,
-and the [Lattice Output Exception](LICENSE-EXCEPTIONS) waives the AGPL for
-the engine CSS/JS that exported HTML decks embed, so publishing a deck on a
-web server imposes nothing on you. The AGPL's conditions attach to the engine
-itself — if you redistribute it, serve it to browsers (shipping the JS/CSS
-bundles in a web app counts), or run a modified version as a network service,
-your engine source must be available under the same license. To embed Lattice
-in a closed-source product under different terms, contact Laticent about a
-commercial license: <sharmarke.aden@gmail.com>.
+Lattice is free and open source. Running it on your own laptop or in CI is not
+distribution, so that use carries no copyleft obligation. The content of your
+decks (your text, images and data) was never covered by the AGPL. A PDF or
+PowerPoint export carries no engine code, so it needs no exception.
+
+An HTML export is different: Lattice embeds the engine and theme CSS in it, and
+a fluid HTML export also inlines the runtime JavaScript. The [Lattice Output Exception](LICENSE-EXCEPTIONS) lets you convey
+those embedded assets as part of that deck, under terms of your choice, with no
+obligation to offer their source. It covers only assets that Lattice's own
+export pipeline embeds. It does not cover:
+
+- the engine or its assets, conveyed any way other than inside a rendered deck;
+- assets extracted from a rendered deck for reuse;
+- a modified engine, or embedded assets changed beyond what the export pipeline
+  does;
+- a deck that another tool builds from Lattice's files. A `marp --html` render
+  is one: marp-cli, not Lattice, embeds the CSS and rewrites it on the way in.
+
+Outside the exception, the AGPL's conditions apply to the engine code a file
+carries. They also attach to the engine itself: if you redistribute it, serve it
+to browsers (shipping the JS/CSS bundles in a web app counts), or run a modified
+version as a network service, your engine source must be available under the
+same license. To embed Lattice in a closed-source product under different
+terms, contact Laticent about a commercial license: <sharmarke.aden@gmail.com>.
 
 The "Lattice" and "Laticent" names and logos are trademarks — the license
 does not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).
