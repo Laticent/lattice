@@ -2574,10 +2574,16 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.
-4. **Stop after three rounds**, or earlier when the only thing left is out of your reach:
+4. **Stop after three rounds — two for a docs-only or test-only PR** (owner, 2026-11-27,
+   relayed from the command center) — or earlier when the only thing left is out of your reach:
    a taste call on a visual, the export sign-off, something irreversible, or a surface
    no runner here or in CI can reach. Past 75% of the weekly usage, stop after one round
    (§Relay, usage checkpoints). Name which one in `raised`.
+   A PR is **docs-only** when every changed file is prose that renders no slide (`*.md` outside
+   `examples/` and the galleries, plus a `.changeset/` file) and **test-only** when every changed file is
+   under `test/` or `docs/e2e/` (plus a changeset). A PR that touches anything else, a `*.docs.md` a
+   build step reads included, keeps three. A third grading round on prose re-reads the same text, and
+   the owner judged it not worth a full checker turn.
 
 The card's `raised` row lists the rounds and what stopped them, e.g. `2 rounds: MEDIUM
 to HIGH (webkit-phone), HIGH to VERY HIGH (iOS sim)`. `npm run card` refuses `raised:
