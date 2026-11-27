@@ -342,7 +342,7 @@ test('complete sends the effort it is given, none by default, and reads the reas
       }),
     };
   };
-  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: 'low' }, { fetchImpl, now: () => 0 });
+  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: { effort: 'low' } }, { fetchImpl, now: () => 0 });
   assert.deepEqual(bodies[0].reasoning, { effort: 'low' });
   assert.equal(r.reasoningTokens, 5990);
   await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }] }, { fetchImpl, now: () => 0 });
@@ -362,25 +362,27 @@ test('a reply that reasoned through the whole budget fails as "no deck was writt
   };
   const code = await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--limit', '1', '--reasoning', 'medium', '--out', out]), { ...deps(t, calls), complete: empty });
   assert.equal(code, 1);
-  assert.equal(calls[0].reasoning, 'medium');
+  assert.deepEqual(calls[0].reasoning, { effort: 'medium' });
   const summary = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
   assert.equal(summary.reasoning, 'medium');
   assert.equal(summary.rows[0].reasoningTokens, 6000);
   assert.match(summary.rows[0].problems[0], /reasoning spent the whole max_tokens budget \(6000 of 6000 tokens\): no deck was written/);
 });
 
-test('auto sends low only to a model that reasons by default, and a probe never asks for reasoning', async (t) => {
-  const { effortFor, MODELS, run, parseArgs } = await load();
-  assert.equal(effortFor(MODELS.deepseek, 'auto'), 'low');
-  assert.equal(effortFor(MODELS.haiku, 'auto'), 'default', 'Haiku thinks only when asked: auto must not switch it on');
-  assert.equal(effortFor(MODELS.haiku, 'high'), 'high');
-  assert.equal(effortFor(MODELS.deepseek, 'high', true), 'default', 'a probe allows 1 output token');
+test('auto bounds reasoning the way each provider honors it, and a probe never asks for reasoning', async (t) => {
+  const { reasoningFor, REASONING_BUDGET, MODELS, run, parseArgs } = await load();
+  assert.deepEqual(reasoningFor(MODELS.haiku, 'auto'), { max_tokens: REASONING_BUDGET }, 'Anthropic takes an exact budget');
+  assert.deepEqual(reasoningFor(MODELS.deepseek, 'auto'), { effort: 'minimal' }, 'an effort-only model gets the lowest effort');
+  assert.ok(REASONING_BUDGET >= 1024 && REASONING_BUDGET <= 3000, 'Anthropic needs 1,024; the deck needs the rest of max_tokens');
+  assert.deepEqual(reasoningFor(MODELS.haiku, 'high'), { effort: 'high' });
+  assert.equal(reasoningFor(MODELS.haiku, 'default'), null);
+  assert.equal(reasoningFor(MODELS.deepseek, 'high', true), null, 'a probe allows 1 output token');
   // The stub prices every model like test/cheap, so the run reaches its calls.
   const anyPrice = async () => ({ ok: true, json: async () => ENDPOINTS });
   const calls = [];
   await run(parseArgs(['--arm', 'start', '--model', MODELS.haiku, '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, calls), fetchImpl: anyPrice });
-  assert.equal(calls[0].reasoning, 'default');
+  assert.deepEqual(calls[0].reasoning, { max_tokens: REASONING_BUDGET });
   const probe = [];
   await run(parseArgs(['--arm', 'retrieval', '--model', MODELS.deepseek, '--probe', '--out', tmpDir(t)]), { ...deps(t, probe), fetchImpl: anyPrice });
-  assert.equal(probe[0].reasoning, 'default');
+  assert.equal(probe[0].reasoning, null);
 });

@@ -40,7 +40,7 @@ on:
         required: false
         default: '0'
       reasoning:
-        description: 'Reasoning effort: auto (low for a model that reasons by default, none sent to the rest), low, minimal, medium, high, or default.'
+        description: 'Reasoning: auto (a 1,500-token budget for Anthropic, effort minimal for others), low, minimal, medium, high, or default (send none).'
         required: false
         default: 'auto'
       max_usd:

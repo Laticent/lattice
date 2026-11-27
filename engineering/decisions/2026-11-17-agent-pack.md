@@ -217,16 +217,25 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
 - **Records.** Every deck's row holds model, arm, old or new, brief, repeat, lint errors and
   warnings, pass or fail, tokens in and out, OpenRouter's cost and latency, in `summary.json`, and
   `summary.md` tabulates them with each row's sample size.
-- **A fixed reasoning effort.** `--reasoning auto`, the default, sends `reasoning: { effort: 'low' }`
-  to a model that reasons by default (`REASONS_BY_DEFAULT`, today DeepSeek V4.1 Flash) and no
-  reasoning object to the rest. Asking Haiku for an effort would switch its thinking on, which
-  Anthropic refuses at temperature 0, and would change what earlier Haiku nights measured. A probe
-  never sends one: it allows a single output token. The workflow takes a `reasoning` input. Reasoning tokens come out of `max_tokens`, and the first live DeepSeek V4.1 Flash
-  run (46068425702, 2026-11-27) spent all 6,000 of them reasoning on every deck and returned no
-  text: ten FAILs for USD 0.0193, with nothing judged. A fixed effort also keeps old and new
-  `start.md` on equal terms. `none` is refused, because a model that must reason rejects it. A row
+- **A bounded reasoning budget.** Reasoning tokens come out of `max_tokens`, and both nightly
+  models reason without being asked. Left alone, they spent the whole 6,000-token budget and wrote
+  no deck. Three runs on 2026-11-27 measured it, all on the retrieval arm, ten decks each:
+
+  | run | model | reasoning sent | passed | decks out of budget | USD |
+  |---|---|---|---:|---:|---:|
+  | 46068425702 | DeepSeek V4.1 Flash | none | 0 | 10 | 0.0193 |
+  | 46073230172 | DeepSeek V4.1 Flash | `effort: low` | 1 | 8 | 0.0123 |
+  | 46073233625 | Haiku 5.5 | none | 3 | 7 | 0.0473 |
+
+  So `--reasoning auto`, the default, now gives an Anthropic model a hard budget,
+  `reasoning: { max_tokens: 1500 }`. OpenRouter passes that to Anthropic exactly (minimum 1,024).
+  Every other model gets `effort: 'minimal'`, because for an effort-only model OpenRouter only picks
+  an effort from a token budget. The decks that passed wrote their text in about 800 to 1,500
+  tokens, so 4,500 is enough room. `max_tokens` stays at 6,000, so the cost ceiling does not move.
+  `none` is refused, because a model that must reason rejects it. A probe never sends a setting.
+  Old and new `start.md` always get the same one. The workflow takes a `reasoning` input, a row
   records its reasoning tokens, and a reply that reasoned through its whole budget fails as "no deck
-  was written".
+  was written". Whether `minimal` holds DeepSeek inside the budget is UNVERIFIED until the next run.
 
 The nightly now runs only the retrieval arm, Haiku on even days since the epoch and DeepSeek on odd
 ones, capped at USD 0.25. The small arm's default model is Haiku 5.5 (it was gpt-4o-mini). A capable
