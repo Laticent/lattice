@@ -114,7 +114,7 @@ const ALLOWED = [
   ['docs/src/components/studio/split-slide.ts', 1, 'guard', "picks the directive comment lines to repeat on a split's second half; records are carried beside it through meta-door `isRecordOpener` (deck-ops.test.ts)"],
   ['docs/src/lib/compose/comment-block.ts', 2, 'guard', "Compose's security guard: refuses any pasted `_name`, `{` or `@meta{` comment, a strict pane marker excepted; slice C owns Compose and its pane marker form"],
   ['docs/src/lib/compose/deck-doc.ts', 1, 'guard', "a shape check that a directive line joined into the source cannot open a boundary or a front-matter fence; it reads no value"],
-  ['docs/src/lib/compose/deck-source.ts', 2, 'grammar', "Compose's directive-line finder (records included) and the global-scope test of a comment the walk already parsed through meta-edit `commentReadings`"],
+  ['docs/src/lib/compose/deck-source.ts', 1, 'grammar', "Compose's directive-line finder (records included) and the global-scope test of a comment the walk already parsed through meta-edit `commentReadings`"],
   ['docs/src/lib/compose/image-objects.ts', 1, 'writer', "Compose rewrites a slide's class comment when a picture is placed (only when the comment holds the class alone), and skips `_` comments when it reads a running global class; slice C moves Compose's writers to the record"],
   ['docs/src/lib/compose/markdown-clipboard.ts', 1, 'guard', "a paste heuristic, 'does this text look like Markdown': a directive or an `@name{` comment is one signal among many; it reads no value"],
   ['docs/src/lib/compose/pane-model.ts', 1, 'writer', "tells a directive line from a pane pill in a component skeleton when Compose builds a pane; slice C writes the skeletons and decides their record form"],

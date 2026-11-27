@@ -1225,13 +1225,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('option', { name: option }));
 	}
 
-	it('Marks writes and clears the `marks:` register', async () => {
+	it('Marks writes and clears the `chart-finish:` key', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose marks', /^Tone/);
-		await waitFor(() => expect(source()).toMatch(/marks: tone/));
-		await pick(user, 'Choose marks', 'Auto — Pigment'); // the default → no key, never `marks: pigment`
-		await waitFor(() => expect(source()).not.toMatch(/marks:/));
+		await waitFor(() => expect(source()).toMatch(/chart-finish: tone/));
+		await pick(user, 'Choose marks', 'Auto — Pigment'); // the default → no key, never `chart-finish: pigment`
+		await waitFor(() => expect(source()).not.toMatch(/chart-finish:/));
 	});
 
 	it('Corners writes and clears the `corners:` register', async () => {

@@ -146,8 +146,8 @@ function readStamps(page, sectionSelector) {
         // the filter was inert — and worse than inert: had anyone reintroduced it,
         // this suite would have accepted it silently instead of reporting the change.
         // `form` is the Frame's own hook and `marks-*` is the finish every section wears (a look
-        // with no absent state, resolve-marks.js); neither is a class the author wrote.
-        cls: [...s.classList].filter((c) => c !== 'form' && !c.startsWith('marks-')).join(' '),
+        // with no absent state, resolve-chart-finish.js); neither is a class the author wrote.
+        cls: [...s.classList].filter((c) => c !== 'form' && !/^(chart-finish|color-intensity)-/.test(c)).join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',
         footer: footer ? getComputedStyle(footer).display : '<no footer>',

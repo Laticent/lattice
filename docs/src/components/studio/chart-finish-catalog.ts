@@ -1,16 +1,16 @@
-// The Studio marks catalog — DISPLAY metadata for the `marks:` register (how
+// The Studio chart-finish catalog — DISPLAY metadata for the `chart-finish:` key (how
 // every chart on the deck spends its color). Sibling of corners-catalog.ts / rule-catalog.ts.
-// The engine's single source of truth is MARKS_NAMES (lib/core/resolve-marks.js);
-// THIS file adds only the human layer the picker needs. Rot-guard: marks-catalog.test.ts.
+// The engine's single source of truth is CHART_FINISH_NAMES (lib/core/resolve-chart-finish.js);
+// THIS file adds only the human layer the picker needs. Rot-guard: chart-finish-catalog.test.ts.
 //
-// Authored deck-wide via `marks:` or per-slide via `_class: marks-<name>`. Like
+// Authored deck-wide via `chart-finish:` or per-slide via `_class: chart-finish-<name>`. Like
 // `icon:` and `spark:` it is a look with no absent state: a deck that says nothing wears
-// DEFAULT_MARKS (the engine's MARKS_DEFAULT; marks-catalog.test.ts pins them).
+// DEFAULT_CHART_FINISH (the engine's CHART_FINISH_DEFAULT; chart-finish-catalog.test.ts pins them).
 
-import { DEFAULT_MARKS } from '../../lib/marks-words';
+import { DEFAULT_CHART_FINISH } from '../../lib/chart-finish-words';
 
 export type MarksEntry = {
-	/** the `marks:` register value (and engine MARKS_NAMES member) */
+	/** the `chart-finish:` value (and engine CHART_FINISH_NAMES member) */
 	name: string;
 	label: string;
 	blurb: string;
@@ -49,10 +49,10 @@ function chip(layers: Layer[]): MarksEntry['swatch'] {
 const bar = (image: string, b: (typeof BARS)[number], inset = 0): Layer =>
 	({ image, left: b.left + inset, bottom: FLOOR + inset, w: W - 2 * inset, h: b.h - 2 * inset });
 
-export { DEFAULT_MARKS };
+export { DEFAULT_CHART_FINISH };
 
 // Ordered as the picker shows them.
-export const MARKS_FINISHES: MarksEntry[] = [
+export const CHART_FINISHES: MarksEntry[] = [
 	{
 		name: 'pigment', label: 'Pigment',
 		blurb: 'Identity in the body: full-strength, flat color under a fine edge. The colorful one, and the default.',
@@ -75,21 +75,21 @@ export const MARKS_FINISHES: MarksEntry[] = [
 	},
 ];
 
-/** Tone's SOURCE, the register's third axis (the engine's MARKS_SOURCES): which one hue tone draws in. A deck that
+/** Tone's SOURCE, `chart-finish:`'s second axis (the engine's CHART_FINISH_SOURCES): which one hue tone draws in. A deck that
  *  names none draws chart color one. Display metadata only, so the words the editor completes carry a human label;
- *  the deck picker shows no source control (the simplicity budget): a deck names it in `marks:`. */
+ *  the deck picker shows no source control (the simplicity budget): a deck names it in `chart-finish:`. */
 export type MarksSourceEntry = { name: string; label: string; blurb: string };
-export const MARKS_SOURCE_ENTRIES: MarksSourceEntry[] = [
+export const CHART_FINISH_SOURCE_ENTRIES: MarksSourceEntry[] = [
 	{ name: 'ink', label: 'Ink', blurb: 'Tone in the heading ink: every chart in the deck\'s own ink, in stepped shades.' },
 	{ name: 'accent', label: 'Accent', blurb: 'Tone in the theme\'s accent: every chart in the brand color, in stepped shades.' },
 ];
 
 export const MARKSES_BY_NAME: Record<string, MarksEntry> = Object.fromEntries(
-	MARKS_FINISHES.map((s) => [s.name, s]),
+	CHART_FINISHES.map((s) => [s.name, s]),
 );
 
 /** The active marks entry for a value; unknown / empty → the default finish. */
-export function activeMarks(value: string | undefined | null): MarksEntry {
+export function activeChartFinish(value: string | undefined | null): MarksEntry {
 	const key = (value ?? '').trim().toLowerCase();
-	return MARKSES_BY_NAME[key] ?? MARKSES_BY_NAME[DEFAULT_MARKS];
+	return MARKSES_BY_NAME[key] ?? MARKSES_BY_NAME[DEFAULT_CHART_FINISH];
 }

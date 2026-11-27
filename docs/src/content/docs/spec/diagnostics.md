@@ -251,8 +251,9 @@ distinct, stable ID.
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
 | `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
-| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
-| `marks-source-needs-tone` | warning | — | A `marks:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `marks: tone ink`, or drop the word. |
+| `unknown-chart-finish` | warning | ✓ | A `chart-finish:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. Also a second word on an axis already filled. |
+| `unknown-color-intensity` | warning | ✓ | A `color-intensity:` value other than `muted` or `vivid`; the deck wears `muted`. |
+| `chart-finish-source-needs-tone` | warning | — | A `chart-finish:` source (`ink`, `accent`) under a finish other than `tone`. Only tone draws one hue, so the word changes nothing; write `chart-finish: tone ink`, or drop the word. |
 | `unknown-cards` | warning | ✓ | A `cards:` value the engine does not know; each layout keeps its own card spacing. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
@@ -271,7 +272,7 @@ distinct, stable ID.
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
-| `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
+| `marks-split` | error | ✓ | The old `marks:` key, which split into `chart-finish:` (finish and tone's source) and `color-intensity:` (muted, vivid); the engine reads neither from it. The fix writes the new lines in its place, leaving out an intensity the deck already sets with `color-intensity:`. A deck that also sets the old `chart-finish:` rendered `marks:` before the split, so the fix first deletes that line and then splits `marks:`. A `marks:` written as a YAML block list has no fix. Also an intensity word under `chart-finish:` (the spelling before #2887), which sets nothing; the fix moves it to `color-intensity:`, or drops it when that key already decides. An old `marks-*` or `chart-finish-muted` / `-vivid` slide class is an `unknown-class` error whose fix writes the new class. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-spectrum-key` | error | ✓ | `spectrum-edge:`, `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` or `spectrum: on`, which no longer render (LFM-1.1 §2.3). The fix moves each word onto `spectrum:`, `card-spectrum:` or `trim-spectrum:` (`auto` and the trim's `on`, which copied the slide edge, become the style the deck was showing; the trim's `off` / `restrained` become `quiet` / `mono`) and deletes the old keys. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |

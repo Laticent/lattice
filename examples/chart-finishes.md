@@ -13,7 +13,7 @@ Tone edges take the category ink; tone heatmaps keep their range; etch hubs stop
 
 ---
 
-<!-- @meta{layout=piechart, class=marks-tone, footer=piechart · marks-tone} -->
+<!-- @meta{layout=piechart, class=chart-finish-tone, footer=piechart · chart-finish-tone} -->
 
 
 `H1 2026 · 1,840 person-hours`
@@ -32,7 +32,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=tower, class=marks-tone, footer=tower · marks-tone} -->
+<!-- @meta{layout=tower, class=chart-finish-tone, footer=tower · chart-finish-tone} -->
 
 
 `Property catastrophe program · 2027`
@@ -54,7 +54,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=heatmap, class=marks-tone, footer=heatmap · marks-tone} -->
+<!-- @meta{layout=heatmap, class=chart-finish-tone, footer=heatmap · chart-finish-tone} -->
 
 
 `Retention · 2026 cohorts`
@@ -70,7 +70,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=heatmap, class=marks-etch, footer=heatmap · marks-etch} -->
+<!-- @meta{layout=heatmap, class=chart-finish-etch, footer=heatmap · chart-finish-etch} -->
 
 
 `Retention · 2026 cohorts`
@@ -86,7 +86,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=hub-spoke, class=marks-etch, footer=hub-spoke · marks-etch} -->
+<!-- @meta{layout=hub-spoke, class=chart-finish-etch, footer=hub-spoke · chart-finish-etch} -->
 
 
 `Transformation program · Workstream status · Q3`
@@ -106,7 +106,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=hub-spoke, class=marks-tone, footer=hub-spoke · marks-tone} -->
+<!-- @meta{layout=hub-spoke, class=chart-finish-tone, footer=hub-spoke · chart-finish-tone} -->
 
 
 `Transformation program · Workstream status · Q3`
@@ -126,7 +126,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=gantt, class=marks-pigment, footer=gantt · marks-pigment} -->
+<!-- @meta{layout=gantt, class=chart-finish-pigment, footer=gantt · chart-finish-pigment} -->
 
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
@@ -144,7 +144,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=word-cloud, class=marks-tone, footer=word-cloud · marks-tone} -->
+<!-- @meta{layout=word-cloud, class=chart-finish-tone, footer=word-cloud · chart-finish-tone} -->
 
 
 ## Weight is meaning in a word cloud.
@@ -161,7 +161,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- @meta{layout=line, class=marks-tone, footer=line · marks-tone} -->
+<!-- @meta{layout=line, class=chart-finish-tone, footer=line · chart-finish-tone} -->
 
 
 ## Under tone a series is a step of one ink, told apart by its dash.

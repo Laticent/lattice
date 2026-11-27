@@ -211,7 +211,7 @@ test('math completes TeX commands, and a command with arguments puts the caret i
 
 test('a slide directive completes its values, and <!-- @ offers the four notes @crosswidth @webkit-phone @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n<!-- _paginate: ');
+	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n<!-- _pagination: ');
 	await page.keyboard.press('Control+Space');
 	await expect(menu(page).getByRole('option', { name: /^false/ })).toBeVisible();
 	await page.keyboard.press('Escape');

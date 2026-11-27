@@ -17,7 +17,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=roadmap, class=marks-etch, footer=etch · the discs take etch's pale status wash and keep their status-colored edge} -->
+<!-- @meta{layout=roadmap, class=chart-finish-etch, footer=etch · the discs take etch's pale status wash and keep their status-colored edge} -->
 
 
 `Etch · roadmap`
@@ -32,7 +32,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=gantt, class=marks-etch, footer="etch · the gantt beside it, for the level the roadmap now matches"} -->
+<!-- @meta{layout=gantt, class=chart-finish-etch, footer="etch · the gantt beside it, for the level the roadmap now matches"} -->
 
 
 `[{Timeline, 2026 Q1 .. 2026 Q4}]`
@@ -51,7 +51,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=roadmap, class=marks-tone, footer="tone · the discs take tone's status step, the same as a tone gantt bar"} -->
+<!-- @meta{layout=roadmap, class=chart-finish-tone, footer="tone · the discs take tone's status step, the same as a tone gantt bar"} -->
 
 
 `Tone · roadmap`
@@ -66,7 +66,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=roadmap, class=status marks-etch, footer="etch · status · the corner disc moves too; the cell ground and ribbon are unchanged"} -->
+<!-- @meta{layout=roadmap, class=status chart-finish-etch, footer="etch · status · the corner disc moves too; the cell ground and ribbon are unchanged"} -->
 
 
 `Etch · roadmap status`
@@ -81,7 +81,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=roadmap, class=marks-tone dark, footer="tone · dark · the dark ladder's status step, mixed toward the slide"} -->
+<!-- @meta{layout=roadmap, class=chart-finish-tone dark, footer="tone · dark · the dark ladder's status step, mixed toward the slide"} -->
 
 
 `Tone · roadmap · dark`
@@ -96,7 +96,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=roadmap, class=marks-pigment, footer=pigment · the default is unchanged: its status level is the solid} -->
+<!-- @meta{layout=roadmap, class=chart-finish-pigment, footer=pigment · the default is unchanged: its status level is the solid} -->
 
 
 `Pigment · roadmap`
@@ -111,7 +111,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=kanban, class=marks-etch, footer="etch · the card wash is capped at 8% on a light slide, so inline code clears 4.5:1 on every theme"} -->
+<!-- @meta{layout=kanban, class=chart-finish-etch, footer="etch · the card wash is capped at 8% on a light slide, so inline code clears 4.5:1 on every theme"} -->
 
 
 `Etch · kanban`
@@ -129,7 +129,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=slope, class=marks-etch, footer="etch · a status line keeps its color at etch's line weight, and each dot takes etch's wash and ink edge"} -->
+<!-- @meta{layout=slope, class=chart-finish-etch, footer="etch · a status line keeps its color at etch's line weight, and each dot takes etch's wash and ink edge"} -->
 
 
 `Etch · slope`
@@ -151,7 +151,7 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 ---
 
-<!-- @meta{layout=slope, class=signal marks-etch dark, footer="etch · dark · a signal line keeps the member's status ink, which clears 6:1 against the slide on every theme"} -->
+<!-- @meta{layout=slope, class=signal chart-finish-etch dark, footer="etch · dark · a signal line keeps the member's status ink, which clears 6:1 against the slide on every theme"} -->
 
 
 `Etch · slope · dark`
