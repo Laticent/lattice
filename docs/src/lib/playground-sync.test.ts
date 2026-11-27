@@ -502,7 +502,8 @@ describe('a pick moves the caret', () => {
 		r.sync.loaded();
 		r.frame();
 		expect(r.log.filter((l) => l.startsWith('preview-scroll'))).toEqual([]);
-		expect(r.state.pv).toBe(300);
+		// …and the load re-fit the deck, so the pick is sent again, aimed in the geometry it will land in.
+		expect(r.log).toContain('page 3 instant=false');
 	});
 
 	it('a frame stall in the middle of a pick does not let the slide it is passing take the focus', async () => {
