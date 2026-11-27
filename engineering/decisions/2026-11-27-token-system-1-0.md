@@ -279,17 +279,18 @@ fill and mark are two tiers of one hue, and indaco's categories 2 and 3 break it
 
 No hover, selected or muted state token exists in the chart family's CSS.
 
-**Past the curated set.** Charts pick 8 series colors, but grouped bars and slope charts repeat after 6
-(`bar.transform.js:427`, `slope.transform.js:393`: `i % 6`), so series 7 and 8 never show there. Nothing anywhere
-goes past 12. There is one sequential ramp (the heatmap's) and no curated diverging scale.
+**Past the curated set.** Charts pick 8 series colors, but the Cartesian charts cap at six series on purpose
+(`parseSeries`, `cartesian.js:881`, citing Wong 2011), and a grouped bar or slope chart DROPS series 7 and up from the
+slide: no bar, no key entry, no lint finding; only the chart's text description names them (rendered and checked,
+`followups.d/3554-p2-chart-series-past-six-vanish.md`). An earlier draft of this note said they repeat; they vanish.
+Nothing anywhere goes past 12. There is one sequential ramp (the heatmap's) and no curated diverging scale.
 
 **Recommendation.** Categories: the theme picks, per category, a fill and a mark of one hue in both modes, and the
 chart solids become the category's "solid" job, so charts and the rest of the deck draw category 3 from the same
 family. Ramps: a theme picks one 5-step sequential ramp and one diverging scale (two ends and a middle), each step a
 real color plus its ink, written once by a solver and committed for review, the way chart solids already are; nothing
 mixes at render time. Past 12 series: no invented colors. A chart repeats the cycle and adds the texture channel the
-a11y themes already ship (`--cat-N-texture`), and lint tells the author to group the tail into "Other". The `i % 6`
-repeat is a defect to fix on its own.
+a11y themes already ship (`--cat-N-texture`), and lint tells the author to group the tail into "Other". The silent drop past six is a defect to fix on its own.
 
 **Token counts under the model** (measured where marked; "about" where the answer depends on the choices above).
 
