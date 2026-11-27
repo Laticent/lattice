@@ -4265,10 +4265,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		} catch {
 			/* no Storage API here */
 		}
-		// (3) Library photos and videos move into the storage vault once, behind one automatic backup
-		// (media-vault-move.ts). Off the boot path: it waits for an idle moment, and every photo still reads
+		// (3) Library photos and videos move into the storage vault once, behind one automatic backup, or back out
+		// on the undo path (media-vault-move.ts `settleMediaStorage`). Off the boot path: it waits for an idle moment, and every photo still reads
 		// from where it is until its own move lands, so nothing on screen waits for it.
-		const move = () => void import('./media-vault-move').then((m) => m.moveMediaIntoVault()).catch(() => {});
+		const move = () => void import('./media-vault-move').then((m) => m.settleMediaStorage()).catch(() => {});
 		const ric = (globalThis as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
 		if (typeof ric === 'function') ric(move, { timeout: 5000 });
 		else setTimeout(move, 0);

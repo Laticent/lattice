@@ -116,3 +116,28 @@ export async function clearMediaFolders(): Promise<void> {
 		for (const e of await v.list(dir).catch(() => [])) await v.remove(e.path).catch(() => {});
 	}
 }
+
+/**
+ * WHICH WAY LIBRARY PHOTOS GO: the undo path for vault slice 2 (owner's answer, 2026-11-27, on #3582).
+ *
+ * `'vault'` is the shipped direction: new photos are saved into the vault, and photos in rows move in at boot.
+ * `'rows'` is the way back: new photos are saved in their rows as before slice 2, and photos in the vault move
+ * BACK into their rows at boot (`media-vault-move.ts` `moveMediaOutOfVault`). Undoing slice 2 is two releases,
+ * never one revert: first a release with `MEDIA_DIRECTION = 'rows'`, which puts every photo back as people open
+ * the Studio; then the code revert, which no photo depends on any more. A revert alone would strand every moved
+ * photo at a vault path the old code cannot read.
+ *
+ * `lattice-media-storage: rows` in localStorage turns the way back on for one browser: for support, and for the
+ * e2e that proves the move-back on real engines.
+ */
+export const MEDIA_DIRECTION: 'vault' | 'rows' = 'vault';
+export const MEDIA_DIRECTION_KEY = 'lattice-media-storage';
+
+export function mediaDirection(): 'vault' | 'rows' {
+	try {
+		if (localStorage.getItem(MEDIA_DIRECTION_KEY) === 'rows') return 'rows';
+	} catch {
+		/* no localStorage: the shipped direction */
+	}
+	return MEDIA_DIRECTION;
+}

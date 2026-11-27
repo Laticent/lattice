@@ -74,6 +74,23 @@ not carry it to Drive or to other devices; the vault README records that as a co
 a photo makes a new record. So the only way to invalidate a file-backed read is to delete the photo, and a
 deleted photo is not on the shelf.
 
+## Undo: the move-back
+
+A code revert alone would strand every moved photo: its row names a vault path the old code cannot read. So this slice
+also ships the way back (owner's answer on #3582, 2026-11-27, chosen over keeping each row's bytes until slice 3, which
+would have doubled photo storage and reversed design §8).
+
+- **`MEDIA_DIRECTION`** in `media-vault.ts`, `'vault'` as shipped. Set to `'rows'`, the Studio saves new photos in
+  their rows as before this slice, and at boot `settleMediaStorage()` runs `moveMediaOutOfVault()` instead of the move.
+- **The move-back**, per photo: read the vault file, check its size against the row's `bytes` and its SHA-256 against
+  the vault's record, write the bytes back into the row (a Blob, or an ArrayBuffer where the engine refuses one, the
+  two shapes the old save wrote), then remove the file. The row is written before the file goes, so a tab that dies in
+  between leaves a file no row names, never a row without bytes. A file that does not check out stays, and its row
+  keeps naming it. Rerunning is safe.
+- **Undoing the slice** is two releases: one with `MEDIA_DIRECTION = 'rows'`, then, once people have opened the
+  Studio, the code revert. `lattice-media-storage: rows` in localStorage turns the way back on for one browser, for
+  support and for the e2e that proves it.
+
 ## The move, step by step
 
 | Step | What it does | If the tab dies here |
@@ -137,6 +154,11 @@ in-tab lock stands in.
   | The one move, from the first reload | — | 4.58–4.64 s, off the boot path; long tasks unchanged |
 
   The move adds one workspace backup (about the size of the photos) until the person deletes it.
+- **Move-back:** unit (4 in `media-vault.test.ts`: Blob and buffer rows back with the same bytes, files removed,
+  idempotent; an engine that refuses a Blob; a file that does not check out stays; the way back at boot and in a new
+  save), each with a failing arm. e2e `library-images-durability.spec.ts` "the move-back puts a vault photo back in
+  its row": 4/4 on desktop, mobile, webkit-tablet and gecko; 10/10 alone and 5/5 under four workers on desktop, gecko
+  and webkit-tablet; red when boot ignores the direction.
 - **Review:** the adversarial trio (red team, Munger inversion, independent checker) ran on the diff; every
   finding that changed code is named where it landed. Not changed: a tab left open from before the deploy
   reads a moved photo as having no bytes (deploy skew, which ends at its next reload); AVIF and HEIC are

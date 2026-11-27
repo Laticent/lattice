@@ -378,3 +378,36 @@ test('a photo saved before the vault moves into it on the next start, behind one
 	expect(zip.file('workspace.json'), 'the backup is a workspace zip Restore reads').not.toBeNull();
 	expect(Object.keys(zip.files).some((f) => f.startsWith('media/')), 'and it carries the photo').toBe(true);
 });
+
+test('the move-back puts a vault photo back in its row, and it still draws @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	// The undo path for vault slice 2 (media-vault.ts MEDIA_DIRECTION): a release that runs the move-back, then the
+	// code revert. `lattice-media-storage: rows` turns the way back on for this browser.
+	await gotoStudio(page);
+	await openLibraryImages(page);
+	await addPhoto(page, 'Window.png', { w: 180, h: 90 });
+	await expect(page.locator('[data-media-card="window"]')).toBeVisible();
+	const path = (await rawRow(page, 'window'))?.vault;
+	expect(path, 'saved into the vault first').toMatch(/^Library\/Images\//);
+	await page.evaluate(() => localStorage.setItem('lattice-media-storage', 'rows'));
+	await page.reload();
+	// The move-back runs at the first idle moment after boot: wait for its result, not for a duration (#32).
+	await expect.poll(async () => (await rawRow(page, 'window'))?.vault ?? 'moved back', { timeout: 30_000 }).toBe('moved back');
+	const back = await rawRow(page, 'window');
+	expect(back?.hasBlob || back?.hasData, 'the row holds its bytes again').toBe(true);
+	const fileLeft = await page.evaluate(async (p) => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-vault');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rec = await new Promise<{ deleted?: boolean } | undefined>((res) => {
+			const q = db.transaction('entries').objectStore('entries').get(p as string);
+			q.onsuccess = () => res(q.result);
+		});
+		db.close();
+		return !!rec && !rec.deleted;
+	}, path);
+	expect(fileLeft, 'the vault file is removed').toBe(false);
+	await openLibraryImages(page);
+	expect(await cardDecoded(page, 'window')).toBe(180);
+});

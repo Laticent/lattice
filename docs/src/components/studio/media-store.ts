@@ -173,8 +173,9 @@ export async function saveMedia(input: NewMedia, addedAt: number): Promise<Media
 	}
 	const id = newId();
 	const roomless = () => new Error(`${MEDIA_REFUSAL_PREFIX} this browser has no room left to store photos or videos. Delete some photos, videos or other saved items and try again.`);
-	const { mediaPath, removeVaultFile, studioVault } = await mediaVault();
-	const vault = await studioVault();
+	const { mediaDirection, mediaPath, removeVaultFile, studioVault } = await mediaVault();
+	// On the way back (`mediaDirection() === 'rows'`, the undo path) a new photo is saved in its row as before slice 2.
+	const vault = mediaDirection() === 'vault' ? await studioVault() : null;
 	if (vault) {
 		// Bytes first, then the row. A tab that dies between the two leaks one file no row names (nothing sweeps
 		// such files: media-vault-move.ts says why); a refused row (a name clash) deletes its file here.

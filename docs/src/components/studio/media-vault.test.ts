@@ -10,8 +10,8 @@ import { openDB, reqAsPromise } from './library/asset-db.js';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { renameMedia } from './media-edit';
 import { LIBRARY_SCOPE, listMedia, type NewMedia, saveMedia, setMediaCaption, setMediaScope } from './media-store';
-import { mediaPath, studioVault } from './media-vault';
-import { BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, moveMediaIntoVault, preMoveBackup } from './media-vault-move';
+import { MEDIA_DIRECTION_KEY, mediaPath, studioVault } from './media-vault';
+import { BACKUP_PATH, deletePreMoveBackup, MAX_DEAD_ATTEMPTS, MAX_MOVE_BYTES, moveMediaIntoVault, moveMediaOutOfVault, preMoveBackup, settleMediaStorage } from './media-vault-move';
 import { packMedia } from './workspace-media';
 
 // Node has no localStorage; the move's crash-loop guard keeps one mark there.
@@ -44,6 +44,7 @@ const vaultFiles = async () => {
 };
 
 async function empty() {
+	localStorage.removeItem(MEDIA_DIRECTION_KEY);
 	localStorage.removeItem('lattice-media-move-backed-up');
 	localStorage.removeItem('lattice-media-move-attempt');
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -243,6 +244,69 @@ describe('the one move into the vault', () => {
 		};
 		expect(await moveMediaIntoVault({ vault: racing, pack: async () => new Blob(['zip']) })).toMatchObject({ moved: 0, failed: 0 });
 		expect(await raw('m_a')).toBeUndefined();
+		expect(await vaultFiles()).toEqual([]);
+	});
+});
+
+describe('the move-back: the undo path', () => {
+	const legacy = (id: string, name: string, b: Uint8Array) => ({
+		id, kind: 'image', name, scope: LIBRARY_SCOPE, mime: 'image/png', bytes: b.length, width: 4, height: 4, sourceName: `${name}.png`,
+		original: true, addedAt: 1, blob: new Blob([b as BlobPart], { type: 'image/png' }),
+	});
+
+	it('puts every vault photo back in its row with the same bytes, removes the files, and changes nothing the second time', async () => {
+		const a = await saveMedia(photo('one', bytes(300, 30)), 5);
+		await put(legacy('m_old', 'two', bytes(200, 31)));
+		await moveMediaIntoVault({ pack: async () => new Blob(['zip']) });
+		expect(await vaultFiles()).toHaveLength(2);
+		expect(await moveMediaOutOfVault()).toEqual({ movedBack: 2, failed: 0 });
+		for (const [id, b] of [[a.id, bytes(300, 30)], ['m_old', bytes(200, 31)]] as const) {
+			const row = await raw(id);
+			expect(row?.vault ?? row?.vaultId).toBeUndefined();
+			const held = row?.blob instanceof Blob ? new Uint8Array(await (row.blob as Blob).arrayBuffer()) : new Uint8Array(row?.data as ArrayBuffer);
+			expect(held).toEqual(b);
+		}
+		expect(await vaultFiles()).toEqual([]);
+		expect(new Uint8Array(await (await listMedia()).find((m) => m.id === 'm_old')!.blob.arrayBuffer())).toEqual(bytes(200, 31));
+		expect(await moveMediaOutOfVault()).toEqual({ movedBack: 0, failed: 0 });
+	});
+
+	it('stores an ArrayBuffer where the engine refuses a Blob, as the old save did', async () => {
+		const a = await saveMedia(photo('one', bytes(64, 32)), 5);
+		const real = globalThis.structuredClone;
+		globalThis.structuredClone = ((v: unknown, o?: StructuredSerializeOptions) => {
+			if (v && typeof v === 'object' && (v as { blob?: unknown }).blob instanceof Blob && (v as { kind?: unknown }).kind === 'image') {
+				throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataCloneError');
+			}
+			return real(v, o);
+		}) as typeof structuredClone;
+		try {
+			expect(await moveMediaOutOfVault()).toEqual({ movedBack: 1, failed: 0 });
+		} finally {
+			globalThis.structuredClone = real;
+		}
+		const row = await raw(a.id);
+		expect(row?.blob).toBeUndefined();
+		expect(new Uint8Array(row?.data as ArrayBuffer)).toEqual(bytes(64, 32));
+	});
+
+	it('leaves a photo in the vault, still named by its row, when its file does not check out', async () => {
+		const a = await saveMedia(photo('one', bytes(64, 33)), 5);
+		const v = await studioVault();
+		const torn = Object.create(v) as typeof v;
+		torn!.read = async () => new Blob([bytes(10, 33) as BlobPart]);
+		expect(await moveMediaOutOfVault(torn)).toEqual({ movedBack: 0, failed: 1 });
+		expect((await raw(a.id))?.vault).toBe(mediaPath(a.id, 'image', 'image/png'));
+		expect(await vaultFiles()).toHaveLength(1);
+		expect(new Uint8Array(await (await listMedia())[0].blob.arrayBuffer())).toEqual(bytes(64, 33));
+	});
+
+	it('on the way back, boot runs the move-back and a new photo is saved in its row', async () => {
+		const a = await saveMedia(photo('one', bytes(40, 34)), 5);
+		localStorage.setItem(MEDIA_DIRECTION_KEY, 'rows');
+		expect(await settleMediaStorage()).toEqual({ movedBack: 1, failed: 0 });
+		const b = await saveMedia(photo('two', bytes(40, 35)), 6);
+		for (const id of [a.id, b.id]) expect((await raw(id))?.vault).toBeUndefined();
 		expect(await vaultFiles()).toEqual([]);
 	});
 });

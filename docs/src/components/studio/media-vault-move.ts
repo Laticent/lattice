@@ -23,7 +23,7 @@ import type { Vault } from '@/lib/vault';
 import { sha256 } from '@/lib/vault/path';
 import { ASSET_STORE, openDB, reqAsPromise } from './library/asset-db.js';
 import { KINDS, type MediaRow } from './media-store';
-import { mediaPath, studioVault, withMediaLock } from './media-vault';
+import { mediaDirection, mediaPath, studioVault, withMediaLock } from './media-vault';
 
 /** Where the move's one backup lives. Under `.lattice/`, Lattice's own records (design §6.1). */
 export const BACKUP_PATH = '.lattice/backups/before-vault.zip';
@@ -171,6 +171,78 @@ export function moveMediaIntoVault(deps: MoveDeps = {}): Promise<MoveReport> {
 }
 
 /** The move's backup, if this device has one: its size, for Privacy & Data. */
+export type MoveBackReport = {
+	stopped?: 'no-vault';
+	/** Photos whose bytes are back in their rows and whose vault file is removed. */
+	movedBack: number;
+	/** Photos whose file could not be read or checked; they stay in the vault and are retried next start. */
+	failed: number;
+};
+
+/** Put `bytes` back into one row that still names `path`, as a Blob or, where the engine refuses a Blob (a Safari
+ *  private window), as an ArrayBuffer: the two shapes the Studio wrote before slice 2. Resolves whether it did. */
+async function restoreRow(id: string, path: string, bytes: Uint8Array, asBuffer: boolean): Promise<boolean> {
+	const db = await openDB();
+	return new Promise<boolean>((resolve, reject) => {
+		const t = db.transaction(ASSET_STORE, 'readwrite');
+		const store = t.objectStore(ASSET_STORE);
+		let done = false;
+		t.oncomplete = () => resolve(done);
+		t.onabort = t.onerror = () => reject(t.error || new Error('the move-back could not update the photo'));
+		const get = store.get(id);
+		get.onsuccess = () => {
+			const row = get.result as MediaRow | undefined;
+			// Gone, or already moved back by another tab: not ours to touch.
+			if (!row || row.vault !== path) return;
+			const { vault: _v, vaultId: _id, blob: _b, data: _d, ...meta } = row;
+			const own = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+			try {
+				store.put(asBuffer ? { ...meta, data: own } : { ...meta, blob: new Blob([own], { type: row.mime }) });
+				done = true;
+			} catch (err) {
+				t.abort();
+				reject(err);
+			}
+		};
+	});
+}
+
+/**
+ * THE MOVE-BACK: the undo path for this slice (see `MEDIA_DIRECTION` in media-vault.ts). Every photo row that names
+ * a vault file gets its bytes back, checked against the size the row recorded and the SHA-256 the vault recorded,
+ * then its vault file is removed. Per photo, the row is written before the file goes, so a tab that dies in between
+ * leaves a file no row names (Clear Library empties those), never a row without bytes. A file that cannot be read
+ * or does not check out stays where it is, and the row keeps naming it. Rerunning is safe.
+ */
+export function moveMediaOutOfVault(vaultIn?: Vault | null): Promise<MoveBackReport> {
+	return withMediaLock('exclusive', async () => {
+		const report: MoveBackReport = { movedBack: 0, failed: 0 };
+		const vault = vaultIn !== undefined ? vaultIn : await studioVault();
+		if (!vault) return { ...report, stopped: 'no-vault' };
+		for (const row of (await rawRows()).filter((r) => typeof r.vault === 'string' && !holdsBytes(r))) {
+			const path = row.vault as string;
+			try {
+				const entry = (await vault.list(path.slice(0, path.lastIndexOf('/')))).find((e) => e.path === path);
+				const bytes = new Uint8Array(await (await vault.read(path)).arrayBuffer());
+				if (!entry || bytes.byteLength !== Number(row.bytes) || (await sha256(bytes)) !== entry.sha256) throw new Error('the vault file does not match its row');
+				// A Blob first, as `saveMedia` did; an ArrayBuffer where the engine refuses a Blob.
+				const back = await restoreRow(row.id, path, bytes, false).catch(() => restoreRow(row.id, path, bytes, true));
+				if (!back) continue;
+				await vault.remove(path).catch(() => {});
+				report.movedBack++;
+			} catch {
+				report.failed++;
+			}
+		}
+		return report;
+	});
+}
+
+/** What boot runs: the move into the vault, or, on the way back (`mediaDirection() === 'rows'`), the move-back. */
+export function settleMediaStorage(): Promise<MoveReport | MoveBackReport> {
+	return mediaDirection() === 'rows' ? moveMediaOutOfVault() : moveMediaIntoVault();
+}
+
 export async function preMoveBackup(vault?: Vault | null): Promise<{ bytes: number } | null> {
 	const v = vault !== undefined ? vault : await studioVault();
 	if (!v) return null;
