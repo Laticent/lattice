@@ -13,7 +13,7 @@ describe('fit-grace: adding a claim to a slide', () => {
     assert.equal(g.withClaim('<!-- @meta{layout=gantt} -->\n\n## T', 'claim-hero'),
       '<!-- @meta{layout=gantt} -->\n\n## T\n\n<!-- @meta{layout=gantt, class=claim-hero} -->\n');
     assert.equal(g.withClaim('<!-- _class: split-panel cat-8 -->\n\n## T', 'claim-quiet'),
-      '<!-- _class: split-panel cat-8 -->\n\n## T\n\n<!-- @meta{layout=split-panel, class="cat-8 claim-quiet"} -->\n');
+      '<!-- _class: split-panel cat-8 -->\n\n## T\n\n<!-- @meta{layout=split-panel, class=cat-8 claim-quiet} -->\n');
   });
   test('the record it adds is the class the slide renders with (the last class directive wins)', () => {
     const out = g.withClaim('<!-- @meta{layout=kpi, footer=F} -->\n\n## T', 'claim-hero');
@@ -25,6 +25,15 @@ describe('fit-grace: adding a claim to a slide', () => {
     assert.equal(g.hasSpotClass('<!-- @meta{class=gantt, carry} -->\n\n## T'), false);
     assert.equal(g.hasSpotClass('<!-- class: gantt -->\n\n## T'), false);
     assert.equal(g.hasSpotClass('## T'), false);
+  });
+  test('a record value that needs quoting is quoted, and reads back whole (checker on #3362, merge review)', () => {
+    assert.equal(g.classRecord(['kpi', 'a,b']), '<!-- @meta{layout=kpi, class="a,b"} -->');
+    assert.equal(g.classInForce(g.classRecord(['kpi', 'a,b', 'claim-hero'])), 'kpi a,b claim-hero');
+  });
+  test('the short record form and a quoted value with `carry` in it are spot classes; a `_` in a class name is not', () => {
+    assert.equal(g.hasSpotClass('<!-- {layout=kpi} -->\n\n## T'), true);
+    assert.equal(g.hasSpotClass('<!-- @meta{layout=kpi, footer="x,carry,y"} -->\n\n## T'), true);
+    assert.equal(g.hasSpotClass('<!-- class: my_class-x -->\n\n## T'), false);
   });
   test('reads the slide\'s own classes in either spelling', () => {
     assert.deepEqual(g.slideClasses('<!-- @meta{layout=bar, class=claim-quiet} -->'), ['bar', 'claim-quiet']);
@@ -132,6 +141,22 @@ describe('fit-grace: reads the deck the way the engine does', () => {
     const tutorial = '## How to\n\n```markdown\n<!-- @meta{class=quote, carry} -->\n<!-- class: quote -->\n```';
     assert.equal(g.classInForce(g.standalone([tutorial, '## Next'], 1)), '');
     assert.deepEqual(g.slideClasses('```md\n<!-- @meta{layout=quote} -->\n```\n\n## T'), []);
+  });
+  test('a class quoted in inline code, a paragraph or an HTML block on an earlier slide is not a running class', () => {
+    for (const quoted of ['Write `<!-- class: kpi -->` above a slide.', 'Prose <!-- class: kpi --> mid-paragraph.', '<div>\n<!-- class: kpi -->\n</div>']) {
+      const slides = [`## Setting a class\n\n${quoted}`, '## Next\n\n- a'];
+      assert.equal(g.classInForce(g.standalone(slides, 1)), '', quoted);
+    }
+  });
+  test('a slide framed through a running class gets no claim (checker on #3362, merge review)', () => {
+    for (const running of ['<!-- @meta{class="cards-grid claim-framed", carry} -->', '<!-- class: cards-grid claim-framed -->']) {
+      const deck = `---\ntheme: indaco\n---\n\n${running}\n\n## One\n\n---\n\n## Two clips\n`;
+      const p = g.plan(deck, { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 2, overflow: [2], clipped: [], footerOnly: [] } });
+      assert.deepEqual(p.perSlide, [{ slide: 2, claim: null, had: null, framed: true }], running);
+    }
+  });
+  test('a bare CR deck keeps its front matter', () => {
+    assert.equal(g.deckParts('---\rtheme: indaco\r---\r\r# A\r').yaml, 'theme: indaco');
   });
   test('a byte-order mark does not hide the front matter', () => {
     assert.equal(g.deckParts('﻿---\nsize: 9:16\n---\n\n# A\n').yaml, 'size: 9:16');
