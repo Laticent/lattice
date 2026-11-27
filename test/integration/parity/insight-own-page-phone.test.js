@@ -106,11 +106,14 @@ let widePages;
 // A figure's drawn size on slide `n` of an exported HTML: the SVG letterboxes inside its box, so its scale is the
 // smaller of its two ratios, times the viewBox height (the drawn height in px).
 async function drawnScale(file, n = '1') {
-  const { chromium } = require('playwright');
-  const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+  // puppeteer, as every other render test here: `playwright` is not a root dependency, so CI cannot load it.
+  const puppeteer = require('puppeteer');
+  const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
+  const browser = await puppeteer.launch({ executablePath: resolveChrome?.() || process.env.CHROME_PATH || undefined, args: ['--no-sandbox'] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1080, height: 1080 } });
-    await page.goto(`file://${file}`);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1080, height: 1080 });
+    await page.goto(`file://${file}`, { waitUntil: 'load' });
     await page.waitForFunction(() => document.fonts.status === 'loaded');
     return await page.evaluate((slide) => {
       const svg = document.querySelector(`section[data-lattice-slide="${slide}"] .cell-stage svg[viewBox]`);
