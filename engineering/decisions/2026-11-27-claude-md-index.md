@@ -25,6 +25,10 @@ implementing it takes".
 
 ## Measured, before and after
 
+*Measured at `14fcd931`. Since then this PR applied D4 and D5 to CLAUDE.md, which is now 16,495 tokens. If the
+owner picks the index, its appendix is rebuilt from that text: the #18, #25, #28, #31 and #33 anchors pick up
+the new wording, and the size stays within a few tokens of 3,672.*
+
 Counted with `gpt-tokenizer/encoding/o200k_base`, the same tokenizer `checkRouterBudget` uses
 (`tools/check-ownership.js`). Claude's own tokenizer is not available here. The 2026-08 snapshot read
 CLAUDE.md at ~13,400 Claude tokens when o200k counted the same bytes at 16,491, a ratio of 0.81. The

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   A census of 11 places where CLAUDE.md, engineering/workflow.md and the desk skills disagree,
   ranked by what a session would do wrong. Also the drafted wording for the owner's flake-ownership
@@ -14,7 +14,7 @@ summary: >
 **Date:** 2026-11-27 · **Asked by:** the owner, through the command center ("workflow.md and
 claude.md disagree on things like who fixes a flake… i feel like there are more friction and
 contradictions we need to iron out"; "we need conflict resolution escalation rules when there is
-disagreement") · **Status:** proposed, waiting on the owner's ❓ card on this PR.
+disagreement") · **Status:** D (flake ownership) and E (all 10 census fixes) are applied on this PR, on the owner's answers D4 A and D5 A (question tool, command center event `88d90479-f243-4134-acc8-7edab93aaaf2`). G (relay authority) and its settings rule were refused twice by the safety classifier and wait on the owner.
 
 ## The answer
 
