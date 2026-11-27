@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: A study of more deck presets, scored by two independent judges over six rounds. Rounds 1 and 2 tuned recipes from today's registers and topped out at 8/10, because presets collapse into each other once the palette changes. The owner set a ship floor of 8.5 (target 9) and asked for the limiting factors to be found and solved. Rounds 3 to 6 prototyped new ingredients as deck CSS through the real engine (light covers, heavy and double rules, rail weight, one-ink charts, grid, halftone, ruled paper), and seven presets cleared 8.5 with both judges (Earnings, Annual Report, Strategy House, Museum, Keynote, Editorial, Blueprint), plus Riso with one. Every remaining workaround traces to one of eleven engine limits (§7), each with its root cause, the presets it blocks and the fix; one of them, the PDF photographing every page background at 96 ppi, changes export bytes and waits for the owner's sign-off.
+status: blocked
+summary: A study of more deck presets, scored by two independent judges over six rounds. Rounds 1 and 2 tuned recipes from today's registers and topped out at 8/10, because presets collapse into each other once the palette changes. The owner set a ship floor of 8.5 (target 9) and asked for the limiting factors to be found and solved. Rounds 3 to 6 prototyped new ingredients as deck CSS through the real engine (light covers, heavy and double rules, rail weight, one-ink charts, grid, halftone, ruled paper), and seven presets cleared 8.5 with both judges (Earnings, Annual Report, Strategy House, Museum, Keynote, Editorial, Blueprint), plus Riso with one. Every remaining workaround traces to one of eleven engine limits (§7), each with its root cause, the presets it blocks and the fix; one of them, the PDF photographing every page background at 96 ppi, changes export bytes and waited for the owner's sign-off, since given: #3336 draws a finish's backdrop instead (§7, L9). Wave 1 is parked until after 1.0 (D15, §9).
 companion:
   - ./2026-09-26-deck-presets-and-settings-tiers.md
   - ./2026-11-20-slide-and-share-presets.md
@@ -8,7 +8,7 @@ companion:
 
 # A study of more deck presets
 
-**Date:** 2026-11-20 · **Status:** proposed; the four decisions in §5 are owner-settled (one round, 2026-11-20); nothing is built
+**Date:** 2026-11-20 · **Status:** parked. The owner parked Wave 1 until after 1.0 (D15, 2026-11-24; §9), and draft PR #3470 holds it. The §5 decisions are owner-settled (2026-11-20), and §9 records the owner's later decisions (21 to 24 Nov). Some engine steps shipped before the park, for example #3349 (WP-marks) and #3410 (the spectrum keys)
 
 The ask: *"I wonder if we can have more presets. Let's think about it and future out the art of
 the possible, then evaluate and score each. I want 10 killer 10/10 presets that are boardroom
@@ -84,7 +84,7 @@ Classic stays the default under all ten. "Today" is Judge A's latest OVERALL.
 - Signal: Brand-forward in green.
 - Chalkboard: Field Notes on slate. It returns with ingredient 3.
 
-Round-1 scores for all 21, from both judges, are in the study gallery (see Reproduce).
+Round-1 scores for all 21, from both judges, were in the study gallery. **That gallery is lost** (see Reproduce), and this table is the only copy of the round-2 scores.
 
 ## 4. The six ingredients
 
@@ -113,7 +113,7 @@ The sizes are estimates made before any code was read for them.
 | D8. Cadence (re-decided after the trio) | **Waves.** Wave 1: Earnings, Annual Report, Strategy House, Museum and the raised Editorial. Wave 2: Keynote and Blueprint. Wave 3: Riso, Field Notes, Chalkboard, the paper finish and the playful preset. Each wave launches in one PR | All presets together, which stalled every preset behind the slowest item and contradicted §8 in three places |
 | D10. Simplicity budget (owner, after the trio) | **Strict.** The picker shows at most five tiles at once (grouped). The Basic settings tier gains no controls. New ingredients (rule weight, rail weight, cover composition) are set by presets internally and are not public author settings until someone asks for one | Expose every ingredient as a public setting |
 | D11. Changing shipped presets (owner) | Change them in place: the product is not generally available, so the only decks are the repo's and the owner's. **Guard:** no deck may start to overflow; every repo deck that names an affected preset is rendered before and after and its overflow count must not rise | New names with the old recipes kept |
-| D12. Agent budget (owner) | Approved past the 10-agent session budget (HARD RULE #25): parallel sessions for the independent Phase-1 packages, each with its own checker and card grader, about 20 agents in all | One session; or checkers on the riskier packages only |
+| D12. Agent budget (owner) | Approved past the 10-agent session budget (HARD RULE #25): parallel sessions for the independent Phase-1 packages, each with its own checker and card grader, about 20 agents in all. **Superseded:** on 2026-11-21 the owner set 15 more for the rest of the build (§9) | One session; or checkers on the riskier packages only |
 | D9. WebKit and Gecko testing | In CI, which installs both; no change to this environment | Allow the Playwright download hosts here |
 
 **What D5 means today.** No preset clears it. The best two (Strategy House and Field Notes) score
@@ -151,7 +151,7 @@ instead of their selector workarounds.
 | Field Notes | 8 | 8 | below; capped by L7 and L8 |
 | Minimal | 7.5 | 8 | below, allowed |
 
-**What each preset's prototype adds** (all recipes in the study's round-6 `candidates.json`):
+**What each preset's prototype adds.** The full recipes were in the study's round-6 `candidates.json`, which is **lost** (see Reproduce). This list and the renders in the "Ten Deck Presets" artifact are all that remain:
 
 - Editorial: a light cover under a heavy rule, a 4px masthead rule and no finish.
 - Strategy House: a 22px accent edge, 10px card rails, square cards, and a light cover with a
@@ -192,16 +192,16 @@ the cited line on 2026-11-20. "Blocks" lists the presets that need it.
 | L4 | Card rail width is fixed | `--sp-card-w: calc(… * 0.35)` on `section:is(.with-spectrum-card, …)`, `lib/base/base.accent-finish.css:197-198` | Strategy House | `--sp-card-w: var(--rail-w, calc(…))`, set by presets internally, not a public word (D10) | token |
 | L5 | Heading rule weight and style are fixed | `section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border) }`, `lib/base/base.accent-finish.css:22`; short and accent rules at `:37-56` | Editorial, Annual Report | `--rule-w`, `--rule-style` and `--rule-color` tokens defaulting to today's values, set by the preset | token |
 | L6 | A finish cannot step aside for the footer or the hero | **Corrected:** `backdrop: clear` and the `spot-*` masks already clear the content box under a finish (`resolve-backdrop.js:9, :41`; `base.finish.css:257-310`). They do not cover the footer box or the hero stack | Blueprint, Riso, Field Notes | Extend the existing clear mask to the footer box and the hero stack | register value |
-| L7 | No pattern finishes at the needed strength | **Corrected:** `lib/finishes/finish-generate.js:35` `TEXTURE_TYPES` already has `grid`, `dots`, `ruled`, `hatch` and `lattice`, and `ledger` is a ruled finish. Shipped finishes must be generator recipes (`checkFinishPackages`, `tools/check-ownership.js:1013`). Missing: dots sized by tone, a dark-only glow, line-height snapping | Blueprint, Riso, Field Notes | New `lib/finishes/<name>/` recipes, extending the generator only where it lacks a feature | recipe + generator |
+| L7 | No pattern finishes at the needed strength | **Corrected:** `lib/finishes/finish-generate.js:35` `TEXTURE_TYPES` already has `grid`, `dots`, `ruled`, `hatch` and `lattice`, and `ledger` is a ruled finish. Shipped finishes must be generator recipes (`checkFinishPackages`, `tools/check-ownership.js:1013`). Missing: dots sized by tone, a dark-only glow, line-height snapping | Blueprint, Riso, Field Notes | New `lib/finishes/<name>/` recipes, extending the generator only where it lacks a feature. **Superseded:** the owner banned generated CSS (S8 in `2026-11-21-spectrum-keys.md`), and `followups.d/3410-p2` retires the finish generator, so new finishes are hand-written CSS that a gate keeps in step with their data | recipe + generator (superseded) |
 | L8 | Sketch mode stops at the chart | The prototype's `feTurbulence` filter is the effect `lib/core/rough-ink.js:27-29` records a veto against (it collapsed Marp's print transform). The owned CLI PDF did not shrink in round 5; export-to-Marp, PPTX, WebKit and Gecko are unverified | Field Notes | Extend `rough-ink.js`, which already draws filter-free rough paths, to chart marks | fix |
-| L9 | The PDF photographs the page background at 1× | Every CLI PDF page carries its background as one 1280×720 image at 96 ppi; measured on the shipped `classic` and `editorial` presets as well as the prototypes. The text and drawings stay vector (`engineering/pipeline.md` §3, "The page itself") | Every preset with a pattern or finish, in the exported PDF | Photograph the background at 2× or more, or emit pattern finishes as vector. **This changes the bytes of every exported PDF, so it needs the owner's export sign-off (Quality Bar)** | export |
+| L9 | The PDF photographs the page background at 1× | Every CLI PDF page carries its background as one 1280×720 image at 96 ppi; measured on the shipped `classic` and `editorial` presets as well as the prototypes. The text and drawings stay vector (`engineering/pipeline.md` §3, "The page itself") | Every preset with a pattern or finish, in the exported PDF | Photograph the background at 2× or more, or emit pattern finishes as vector. **This changes the bytes of every exported PDF, so it needs the owner's export sign-off (Quality Bar).** **Superseded:** #3336 shipped that change with the owner's sign-off and merged on 2026-11-21. The PDF writer now draws a finish's glow, textures and fades (`engineering/pipeline.md` §4a0). Only a layer it cannot draw, such as a ghost numeral, stays in the photo, together with everything painted above it (`followups.d/3335-p14`) | export (shipped) |
 | L10 | Card radius is not driven by `corners:` | `corners:` shapes only the slide surface (`lib/base/base.modifiers.css:4214`); cards read `--radius-md` from `lib/base/base.tokens.css:224`, which no register sets | Strategy House | A separate card-radius hook (`--card-radius`) that presets set; `corners: square` is the default and stamps nothing, so it cannot carry this | token |
 | L11 | No second-ink token | Riso borrows `--cat-2-mark` and mixes it per mode | Riso | `--ink-2` with light and dark arms in the palette contract | token |
 
 **Order.** L1, L2 and L3 first: together they remove every selector workaround in seven of the
 eight presets that clear the floor, so each ships as a plain preset. Then L4, L5 and L10, which are
 small tokens. Then L6 and L7 together, since the pattern finishes are built on the keep-out hook.
-Then L8 and L11. L9 waits for the owner's export sign-off, rendered in dark and light.
+Then L8 and L11. L9 waited for the owner's export sign-off, rendered in dark and light. **Superseded:** #3336 merged with that sign-off on 2026-11-21 (L9 above).
 
 ## 8. The build plan (revised after the adversarial trio)
 
@@ -241,7 +241,7 @@ corrections are listed at the end.
 
 | Step | What ships | Why |
 |---|---|---|
-| P0 | A reader that falls back to the preset for top-level keys (`theme`, `color-mode`, `backdrop`), threaded through the palette (`resolve-palette.js:45`), the CLI theme pick (documented in `lattice.js` PALETTE RESOLUTION), export-to-Marp (`bundle-front-matter.js`, `tools/export-marp.js:417`), `register-factory.js` reads, the Playground (`deck-config.js:266`) and the legacy `chart-finish:` alias. **Preset tokens:** a preset can set internal tokens (rule weight, rail weight, cover composition) through a stamped `preset-<name>` class with generated CSS, which reverses "a preset is not a class token" in `resolve-preset.js` (D10). The Studio mirror (`deck-preset.ts`, `deck-preset.test.ts`, `preset-register.test.js`) learns multi-word values, never strips the author's `theme:` from a tile or on Reset, and keeps tiles rendering in the deck's own theme | D1 is not "the table": `theme` and `backdrop` never reach the render through a preset today, and widening `PRESET_KEYS` alone breaks the Studio |
+| P0 | A reader that falls back to the preset for top-level keys (`theme`, `color-mode`, `backdrop`), threaded through the palette (`resolve-palette.js:45`), the CLI theme pick (documented in `lattice.js` PALETTE RESOLUTION), export-to-Marp (`bundle-front-matter.js`, `tools/export-marp.js:417`), `register-factory.js` reads, the Playground (`deck-config.js:266`) and the legacy `chart-finish:` alias. **Preset tokens:** a preset can set internal tokens (rule weight, rail weight, cover composition) through a stamped `preset-<name>` class with generated CSS (**superseded:** the owner banned generated CSS, S8 in `2026-11-21-spectrum-keys.md`; each preset now owns `lib/presets/<name>/<name>.css` beside its `<name>.preset.json`, as #3470 builds it), which reverses "a preset is not a class token" in `resolve-preset.js` (D10). The Studio mirror (`deck-preset.ts`, `deck-preset.test.ts`, `preset-register.test.js`) learns multi-word values, never strips the author's `theme:` from a tile or on Reset, and keeps tiles rendering in the deck's own theme | D1 is not "the table": `theme` and `backdrop` never reach the render through a preset today, and widening `PRESET_KEYS` alone breaks the Studio |
 
 ### Phase 1: fix the limits
 
@@ -262,7 +262,7 @@ construction; rebase on that real conflict (HARD RULE #16).
 | Step | New | What it is | Depends on |
 |---|---|---|---|
 | N1 | Cover compositions | Declared as `variants` in the title and closing manifests, which `checkTypeSizeModifiers` exempts (a modifier may not set `font-size`): `masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`. Presets set them (D10). They graduate into the anchor galleries in a separate commit (HARD RULE #8) | WP-cover, WP-tokens, P0 |
-| N2 | Finish recipes `grid`, `halftone`, `ruled`, `glow` | Generator recipes. The generator gains dots sized by tone, a dark-only glow and line-height snapping. Patterns are drawn as **vector**, so an exported PDF keeps them sharp without changing any existing PDF's bytes (L9) | WP-clear |
+| N2 | Finish recipes `grid`, `halftone`, `ruled`, `glow` | Generator recipes (**superseded:** no script writes CSS, S8 and `followups.d/3410-p2`, so these become hand-written finish stylesheets). The generator gains dots sized by tone, a dark-only glow and line-height snapping. Patterns are drawn as **vector**, so an exported PDF keeps them sharp without changing any existing PDF's bytes (L9) | WP-clear |
 | N3 | Marks `sketch` and `print` | `sketch`: rough, hatched marks from `lib/core/rough-ink.js` on every chart kind, never an SVG filter. `print`: a second-ink plate offset sideways. The names avoid `color-mode: print` in the build | N4 for `print` |
 | N4 | `--ink-2` | A second ink in the palette contract, satisfying `checkNoSafeDefaultTokens` and `checkThemeTokenParity` (`lib/theme/derive.js` REQUIRED_TOKENS) | none |
 | N5 | Finish recipe `paper` | A paper grain that reads at thumbnail size and stays off the words | WP-clear |
@@ -273,7 +273,7 @@ construction; rebase on that real conflict (HARD RULE #16).
 
 | Step | Verifies |
 |---|---|
-| V1 | The PDF background photo (L9). The new patterns avoid it by being vector (N2). Whether today's finishes should also leave the 96-ppi photo is a separate export change that needs the owner's sign-off in dark and light; it does not block any wave |
+| V1 | The PDF background photo (L9). The new patterns avoid it by being vector (N2). Whether today's finishes should also leave the 96-ppi photo is a separate export change that needs the owner's sign-off in dark and light; it does not block any wave. **Superseded:** #3336 is that change, signed off and merged on 2026-11-21, so V1 now checks that each new finish is drawn, not photographed |
 | V2 | Every new register, recipe and mark in PDF, PPTX, ODP (`engineering/pipeline.md` §4a0 and its table), export-to-Marp (`lib/export/marp-bundle.js`), and the HTML player |
 | V3 | Playwright Chromium, WebKit and Gecko in CI (D9) on the Studio picker and the preset corpus deck |
 | V4 | The Studio picker within the five-in-view budget (D10): tiles render live in the deck's theme and mode, and show a cover as well as a content slide, since covers are where presets differ most; screenshots at 390, 820 and 1440 px; WebKit's retained preview frames stay bounded |
@@ -427,7 +427,79 @@ went in, so Brand-forward was left out.
 - Cadence, simplicity, the shipped presets and the agent budget were put back to the owner
   (D8, D10, D11, D12).
 
+## 9. Owner decisions, 22–24 Nov
+
+The owner made these decisions after §8, in sessions that were not this note's. Until now they
+lived only in draft PR #3470's body, its comments and its commits. **Where the words come from:**
+the presets desk (`session_01DPMMjEgrcv6brmaXooaAX9`) ran on Picard's account, and the session
+that wrote this section runs on Kirk's account, which cannot read that transcript. So the G and
+marks rows below quote the presets desk's own record of each answer in #3470, not the owner's
+typing. The D15 and budget rows quote the owner directly.
+
+**The presets desk numbered its own decisions.** Its D1, D2 and D3 are not §5's D1, D2 and D3, so
+this section calls its marks decisions "marks D1" and "marks D2".
+
+| Decision | What the owner decided | Source, as recorded |
+|---|---|---|
+| G2. Heading size and weight | A preset changes a heading's weight, never its size: a `--heading-weight` preset hook on the base `h1`/`h2` rule. Annual Report ships at 400. The commit first set 500, but Newsreader ships only 400 and 700, so 500 rendered as 400, "which is the weight the owner chose in G2" (`3f2996d`) | #3470 body, item 2: "G2, a `--heading-weight` preset hook on the base `h1`/`h2` rule (Annual Report 500), weight only, never size"; commit `ae181a0` dates the gap answers 2026-11-22 |
+| G3. Museum's palette | Museum uses the `cuoio` theme | #3470 body, item 2: "G3, Museum on cuoio" |
+| G4. Cover sizes | Covers use the three cover sizes that exist today; no new size | #3470 body, item 2: "G4, the three existing cover sizes" |
+| Marks D1. The 3:1 floor under `marks: tone` | A mark passes on its fill **or** its ink edge. Every other finish is still held to its fill. Museum's palest wedge fills at 1.41:1 and its edge measures 5.19:1 | #3470 body, item 3(b): "Under `marks: tone`, a mark passes on its fill **or** its ink edge (owner's D1)"; commit `33f3a72` dates it 2026-11-23 |
+| Marks D2. Which presets chart in tone | Strategy House and Annual Report use palette colors instead of tone. Tone stays on Earnings and Museum, where it is the preset's identity | #3470 body, item 3: "Strategy House and Annual Report move from tone to palette colors (owner's D2); tone stays on Earnings and Museum" |
+| D15. Wave 1's timing | **Wave 1 is parked until after 1.0.** #3470 stays a draft, and its baton is released. When work resumes, #3470 first takes in #3517 (cover-layout), because its presets set `cover:` | The owner, in the presets-desk chat on 2026-11-23: "D14 keep working / D15 B", then "d15 do now". The command center relayed it as "tier C = park #3470 Wave 1 presets until after 1.0" (#3470's handoff comment, 2026-11-24). Issue #3518 lists #3470 under "Parked until after 1.0" |
+| Agent budget for the presets lane | **15 more agents** for the rest of the preset build: the cover layouts, Wave 1's five presets and Waves 2 and 3. The coordinator asked when the lane had spent about 23, past D12's 20 | The owner, 2026-11-21 17:45 UTC, answering an AskUserQuestion in the coordinator session (`session_015KSkL7nmyGLB3eqQgaSLAb`) that asked "how many more agents may the sessions use in total?": "you are authorized for 15 but be efficient and effective." |
+
+**Four budget figures disagree, and the owner's 15 is the one that governs.**
+
+- D12 in §5 says about 20 in all (2026-11-20).
+- The owner's 15 more for the whole lane came on 2026-11-21, on top of the roughly 23 already
+  spent.
+- `followups.d/3410-p1` gives Wave 1 a budget of 5, of which #3410 used 3 (2026-11-22).
+- #3470's decision card gives the presets desk session 13 in total (its own D2, 2026-11-23).
+
+The 5 and the 13 are caps on one wave and on one session. Neither raises the lane's 15. A
+session that resumes the work counts what the lane has spent against the 15 and asks the owner
+before going past it.
+
+**Open from #3470, not decided:** the presets desk's D3, about Mermaid edge labels in the
+exported player. It changes export bytes and needs the owner's sign-off (#3470 body, Caveats).
+The cover-layout decisions (dividers follow the mode, D16, D17) land with #3517 and are recorded there.
+
+**What `main` lacks for marks D1.** `tools/preset-gate.js` on `main` checks the 3:1 floor against
+the fill only. #3470's commit `33f3a72` adds the edge rule, but it has not merged.
+`followups.d/3470-p2-preset-gate-tone-edge.md` tracks this.
+
 ## Reproduce
 
-The candidates are front-matter recipes on the four-slide deck in §1. The ten recipes are the
-table in §3. The cut ones are recorded in the study gallery, together with every score.
+**Most of the study's working files are lost.** The round-6 `candidates.json` (every recipe and
+its prototype deck CSS), the `gen*.mjs` scripts that built the candidates and their review
+sheets, and the study gallery with the 21 round-1 scores from both judges sat in a session
+scratchpad. That session ended, and none of them was committed. What survives:
+
+- This note: the §1 method, the §3 recipes and round-2 scores, the §6 summary of each prototype
+  and its round-6 scores, and the §7 limits.
+- The only copy of the renders is in two private artifacts the owner can open:
+  - [Ten Deck Presets](https://claude.ai/artifact/Vgt34JQTsneQAvMa18zFuB). It shows 33 round-6
+    renders (11 presets, 3 slides each) and stores 30 earlier-round renders beside them, 63 images
+    in all. It predates the trio's §7 and §8 corrections, so its limits list disagrees with §7 on
+    seven points:
+    - **L1:** it proposes a `--deck-backdrop` hook. §7 needs no fix, because engine finishes paint
+      on `.backdrop`.
+    - **L2:** it proposes a `cover: light` register. §7 has a `cover:` register for title and
+      closing that stamps its own `cover-light` token and leaves `light` alone.
+    - **L3:** it proposes a `marks: mono` value. §7 adds an ink-source word on `marks: tone`.
+    - **L4:** it exposes rail weight as a public `rail: hair|bold` word. §7 keeps `--rail-w`
+      internal to presets (D10).
+    - **L6:** it proposes a new keep-out hook. §7 extends the existing `backdrop: clear` mask.
+    - **L7:** it says no pattern finishes exist. §7 finds them in the generator.
+    - **L10:** it has `corners: square` zero the card radii. §7 adds a separate `--card-radius`
+      hook, because `corners: square` is the default.
+  - [Studio Presets Prototype](https://claude.ai/artifact/MivFdXxULa8BJiYTe1wxKy): 24 renders of
+    Classic and Editorial under the slide looks, from the companion study
+    `2026-11-20-slide-and-share-presets.md`.
+
+To rerun a candidate, write its §3 recipe as front matter on a four-slide deck (`title`,
+`cards-grid`, `bar`, `big-number`) and render it with `node dist/lattice.js` at 2560×1440 in own,
+flip and house (§1). A prototype's deck CSS cannot be rebuilt from this note. The build replaces
+it anyway (§8), and the judging gate runs on `test/fixtures/preset-corpus.md` through
+`node tools/preset-gate.js`, not on these recipes.
