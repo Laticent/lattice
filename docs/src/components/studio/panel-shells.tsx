@@ -169,13 +169,16 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 
 // ── Library ──────────────────────────────────────────────────────────────────
 
-// Four sections, then a second row of kinds inside Design and Media. Eight flat pills wrapped
+// Sections, then a second row of kinds inside Design and Media. Eight flat pills wrapped
 // onto a second row at 390px and made the person pick a kind before they could see anything.
 // `LibraryFilter` is the fine-grained value; `sectionOf` says which pill it lives under.
-export type LibraryFilter = 'all' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
-export type LibrarySection = 'all' | 'design' | 'media' | 'files' | 'plugins';
+// Decks is its own section (followups.d/3356-p1, design §7 of 2026-11-22-local-first-drive-storage.md): a kept
+// deck is something you open, not a file you cite, so it no longer hides under Files.
+export type LibraryFilter = 'all' | 'deck' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
+export type LibrarySection = 'all' | 'decks' | 'design' | 'media' | 'files' | 'plugins';
 export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string }> = [
 	{ value: 'all', label: 'All' },
+	{ value: 'decks', label: 'Decks' },
 	{ value: 'design', label: 'Design' },
 	{ value: 'media', label: 'Media' },
 	{ value: 'files', label: 'Files' },
@@ -198,17 +201,18 @@ export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: Librar
 };
 export function sectionOf(f: LibraryFilter): LibrarySection {
 	if (f === 'all') return 'all';
+	if (f === 'deck') return 'decks';
 	if (f === 'refdoc') return 'files';
 	if (f === 'plugin') return 'plugins';
 	if (f === 'media' || f === 'image' || f === 'video') return 'media';
 	return 'design';
 }
 /** The filter a section opens on. */
-export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files' ? 'refdoc' : s === 'plugins' ? 'plugin' : s);
+export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'decks' ? 'deck' : s === 'files' ? 'refdoc' : s === 'plugins' ? 'plugin' : s);
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	searchPlaceholder: 'Search themes, components, finishes, images, videos, files & plugins…',
+	searchPlaceholder: 'Search decks, themes, components, finishes, images, videos, files & plugins…',
 } as const;
 
 export function LibraryShell({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {

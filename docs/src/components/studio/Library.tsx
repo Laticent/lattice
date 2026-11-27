@@ -1,4 +1,4 @@
-import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, FolderOpen, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Presentation, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -22,6 +22,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import type { ImportRefusal } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
+import { deckIdsOf } from './library-decks';
 import { MediaCard } from './MediaCard';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
 import { classifyMedia, importVideo, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
@@ -125,7 +126,9 @@ export function landingFilter(c: { zips: File[]; decks?: File[]; docs: File[]; i
 	const photos = c.images.length - clips;
 	const kinds: LibraryFilter[] = [];
 	if (c.zips.length) kinds.push('design');
-	if (c.docs.length || c.decks?.length) kinds.push('refdoc');
+	// A deck lands on Decks. A Markdown file lands on Files until it is read: it may be notes (library-decks.ts).
+	if (c.decks?.length) kinds.push('deck');
+	if (c.docs.length) kinds.push('refdoc');
 	if (photos && clips) kinds.push('media');
 	else if (photos) kinds.push('image');
 	else if (clips) kinds.push('video');
@@ -286,6 +289,8 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const [components, setComponents] = React.useState<StudioComponent[]>([]);
 	const [finishes, setFinishes] = React.useState<StudioFinish[]>([]);
 	const [docs, setDocs] = React.useState<RefDocRecord[]>([]);
+	// The kept files that are decks, listed under Decks rather than Files (library-decks.ts). Set in the same render as `docs`.
+	const [deckIds, setDeckIds] = React.useState<Set<string>>(() => new Set());
 	const [media, setMedia] = React.useState<MediaRecord[]>([]);
 	// Where the NEXT add goes. Defaults to the shared shelf: the Library is shared assets,
 	// and a deck-only image is the deliberate choice.
@@ -353,11 +358,14 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
 		listShippedScenes().then(setShipped);
-		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes(), listMedia(), listStudioPlugins()]).then(([t, c, f, d, m, md, pl]) => {
+		// Decks are sorted from files before anything paints, so a Markdown deck never shows under Files for a frame first.
+		const docsAndDecks = listRefDocs().then(async (d) => ({ d, ids: await deckIdsOf(d) }));
+		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), docsAndDecks, listStudioScenes(), listMedia(), listStudioPlugins()]).then(([t, c, f, { d, ids }, m, md, pl]) => {
 			setThemes(t);
 			setComponents(c);
 			setFinishes(f);
 			setDocs(d);
+			setDeckIds(ids);
 			setScenes(m);
 			setMedia(md);
 			setPlugins(pl);
@@ -440,7 +448,11 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 	const kindCount = (k: LibraryFilter) => ({ design: themes.length + components.length + finishes.length + scenes.length, theme: themes.length, component: components.length, finish: finishes.length, motion: scenes.length, media: shownMedia.length, image: shownMedia.length - videoCount, video: videoCount } as Partial<Record<LibraryFilter, number>>)[k];
 	const mediaWord = filter === 'video' ? 'videos' : filter === 'image' ? 'images' : 'photos or videos';
 	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
-	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
+	const docMatch = (d: RefDocRecord) => !q || d.name.toLowerCase().includes(q);
+	const deckCount = docs.filter((d) => deckIds.has(d.id)).length;
+	const decksTab = filter === 'deck';
+	const vDecks = filter === 'all' || decksTab ? docs.filter((d) => deckIds.has(d.id) && docMatch(d)) : [];
+	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !deckIds.has(d.id) && docMatch(d)) : [];
 	// The shipped scenes show on the Motion tab only. "All" is the user's own shelf, and four
 	// read-only cards there would bury what they saved under what they did not.
 	const vShipped = filter === 'motion' ? shipped.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
@@ -577,12 +589,13 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 		let n = 0;
 		const notes: string[] = [];
 		const failed: string[] = [];
+		const saved: RefDocRecord[] = [];
 		try {
 			const { readDeckReference, readLibraryReference } = await import('./library-deck-ref');
 			const one = async (file: File, asDeck: boolean) => {
 				try {
 					const r = asDeck ? await readDeckReference(file) : await readLibraryReference(file);
-					await saveRefDoc(r.doc, Date.now(), { deck: r.deck, sourceExact: r.sourceExact });
+					saved.push(await saveRefDoc(r.doc, Date.now(), { deck: r.deck, sourceExact: r.sourceExact }));
 					if (r.note) notes.push(r.note);
 					n++;
 				} catch (e) {
@@ -592,6 +605,9 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			for (const file of decks) await one(file, true);
 			for (const file of files) await one(file, false);
 			reload();
+			// A Markdown file is a deck or notes only once it is read, so a batch of Markdown decks opened Files
+			// (landingFilter). Now that it is known, a batch that held only decks moves on to Decks; a mixed one stays.
+			if (saved.length && (await deckIdsOf(saved)).size === saved.length) React.startTransition(() => setFilter((f) => (f === 'refdoc' ? 'deck' : f)));
 			const detail = [...notes, ...failed].join('\n') || undefined;
 			if (n) notify(`Added ${n} reference ${n === 1 ? 'file' : 'files'}.`, { description: detail });
 			else notify(failed.length === 1 ? failed[0] : 'Could not add those files.', { description: failed.length > 1 ? detail : undefined });
@@ -1266,7 +1282,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			<div key={`refdoc:${d.id}`} className={cn('relative overflow-hidden rounded-xl border bg-card', isFresh(d.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
 				<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card font-mono text-[11px] font-bold text-[var(--accent)]">{d.deck ? 'DECK' : d.docKind === 'pdf' ? 'PDF' : (/\.([a-z0-9]+)$/i.exec(d.name)?.[1] || 'txt').slice(0, 4).toUpperCase()}</span></div>
 				<div className="p-2.5">
-					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
+					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">{deckIds.has(d.id) ? 'Deck' : 'File'}</span></div>
 					<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.deck ? 'deck · text' : d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
 					{(d.deck || (d.sourceExact && d.docKind === 'text')) && onOpenDeck && (
 						<button type="button" onClick={() => openDoc(d)} aria-label={`Open ${d.name} as a deck`} className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><FolderOpen className="size-3.5" />Open as deck</button>
@@ -1289,6 +1305,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 		...vFinishes.map((f) => ({ at: f.addedAt ?? 0, node: renderFinish(f) })),
 		...vScenes.map((m) => ({ at: m.addedAt ?? 0, node: renderScene(m) })),
 		...vMedia.map((a) => ({ at: a.addedAt, node: renderMedia(a) })),
+		...vDecks.map((d) => ({ at: d.addedAt, node: renderDoc(d) })),
 		...vDocs.map((d) => ({ at: d.addedAt, node: renderDoc(d) })),
 		...vPlugins.map((p) => ({ at: p.addedAt ?? 0, node: renderPlugin(p) })),
 	];
@@ -1360,7 +1377,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
-					{total === 0 && vShipped.length === 0 && !mediaTab && !pluginTab ? (
+					{total === 0 && vShipped.length === 0 && !mediaTab && !pluginTab && !decksTab && filter !== 'refdoc' ? (
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
@@ -1375,6 +1392,20 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 							<div className="grid place-items-center py-10">
 								<PanelEmpty icon={<Plug />} title={q ? 'No plugins match' : 'No plugins yet'}>
 									{q ? 'Try a different search.' : <>A plugin is a zip that draws a fence or an <code className="font-mono">@kind{'{…}'}</code> span in a sandbox. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Import a plugin zip</button>; it stays in this browser until you approve it.</>}
+								</PanelEmpty>
+							</div>
+						)}
+						{decksTab && vDecks.length === 0 && (
+							<div className="grid place-items-center py-10">
+								<PanelEmpty icon={<Presentation />} title={q ? 'No decks match' : 'No decks kept yet'}>
+									{q ? 'Try a different search.' : <>Keep a deck here to open it again later: <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>import a .lattice, a PowerPoint, a Lattice PDF or a Markdown deck</button>, or drop one on this panel.</>}
+								</PanelEmpty>
+							</div>
+						)}
+						{filter === 'refdoc' && vDocs.length === 0 && (
+							<div className="grid place-items-center py-10">
+								<PanelEmpty icon={<FileText />} title={q ? 'No files match' : 'No files yet'}>
+									{q ? 'Try a different search.' : <>A file you add here (a PDF, a Markdown or text file) can ground the chat. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Add a file</button>, or drop one on this panel.</>}
 								</PanelEmpty>
 							</div>
 						)}
@@ -1446,7 +1477,8 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 							finishes.length && `${finishes.length} finish${finishes.length === 1 ? '' : 'es'}`,
 							shownMedia.length - videoCount && `${shownMedia.length - videoCount} image${shownMedia.length - videoCount === 1 ? '' : 's'}`,
 							videoCount && `${videoCount} video${videoCount === 1 ? '' : 's'}`,
-							docs.length && `${docs.length} file${docs.length === 1 ? '' : 's'}`,
+							deckCount && `${deckCount} deck${deckCount === 1 ? '' : 's'}`,
+							docs.length - deckCount && `${docs.length - deckCount} file${docs.length - deckCount === 1 ? '' : 's'}`,
 							plugins.length && `${plugins.length} plugin${plugins.length === 1 ? '' : 's'}`,
 						].filter(Boolean).join(' · ') || 'nothing saved yet'}
 					</span>

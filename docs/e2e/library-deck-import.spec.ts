@@ -94,10 +94,10 @@ async function importsADeck(page: Page, testInfo: TestInfo) {
 	await page.getByRole('button', { name: 'Import files', exact: true }).click();
 	await (await chooser).setFiles({ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes });
 
-	// It lands on Files as a deck, with the action to open it.
+	// It lands on Decks, with the action to open it (followups.d/3356-p1).
 	const open = page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' });
 	await expect(open).toBeVisible({ timeout: 30_000 });
-	await expect(page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Decks', exact: true })).toHaveAttribute('aria-selected', 'true');
 
 	await page.screenshot({ path: testInfo.outputPath('library-deck-card.png') });
 
@@ -112,11 +112,11 @@ async function importsADeck(page: Page, testInfo: TestInfo) {
 	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
 }
 
-test('a .lattice imported through the Library lands on Files and opens as a deck @gecko', async ({ page }, testInfo) => {
+test('a .lattice imported through the Library lands on Decks and opens as a deck @gecko', async ({ page }, testInfo) => {
 	await importsADeck(page, testInfo);
 });
 
-test('a .lattice imported through the Library lands on Files and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
+test('a .lattice imported through the Library lands on Decks and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
 	// This project reports an iPhone, the case the old sniff already answered with no `accept`: so this arm checks the
 	// Library flow in WebKit, not the picker fix (the `@gecko` arm is the one the old code fails).
 	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
@@ -177,7 +177,7 @@ test('a deck attached to the chat is kept like a Library import, and opens as a 
 	// Both wait in the Library with the action to open them; the .lattice opens as itself.
 	await page.keyboard.press('Escape');
 	await openLibrary(page);
-	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true }).click();
+	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Decks', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible({ timeout: 30_000 });
 	await page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' }).click();
 	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
@@ -242,4 +242,56 @@ test('a deck kept in the Library survives a workspace backup and opens as itself
 
 test('a deck kept in the Library survives a workspace backup, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
 	await backsUpAndRestoresADeck(page, browser);
+});
+
+/**
+ * DECKS IS ITS OWN SECTION (followups.d/3356-p1). A `.lattice` and a Markdown deck, imported through the one Import
+ * button, both list under Decks and open as decks; neither shows under Files. A Markdown file with no slides is notes:
+ * it stays under Files and never under Decks (the owner's call on #3356). The Import button still takes any file.
+ */
+async function decksSection(page: Page, testInfo: TestInfo) {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	await openLibrary(page);
+	const tabs = page.getByRole('tablist', { name: 'Library sections' });
+	const importFiles = async (files: { name: string; mimeType: string; buffer: Buffer }[]) => {
+		const chooser = page.waitForEvent('filechooser');
+		await page.getByRole('button', { name: 'Import files', exact: true }).click();
+		await (await chooser).setFiles(files);
+	};
+
+	// An empty Decks section says how to keep one.
+	await tabs.getByRole('tab', { name: 'Decks', exact: true }).click();
+	await expect(page.getByText('No decks kept yet')).toBeVisible();
+
+	await importFiles([{ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes }]);
+	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible({ timeout: 30_000 });
+	// A Markdown deck lands on Files until it is read, then on Decks once it is known to have slides.
+	await importFiles([{ name: 'Halcyon.md', mimeType: 'text/markdown', buffer: Buffer.from(DECK) }]);
+	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible({ timeout: 30_000 });
+	await expect(tabs.getByRole('tab', { name: 'Decks', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await importFiles([{ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n\nNo slides here.\n') }]);
+	await expect(tabs.getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByText('notes.md')).toBeVisible({ timeout: 30_000 });
+	// Files holds the notes and no deck.
+	await expect(page.getByRole('button', { name: /^Open Halcyon\.(md|lattice) as a deck$/ })).toHaveCount(0);
+
+	// Decks holds both decks and not the notes.
+	await tabs.getByRole('tab', { name: 'Decks', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible();
+	await expect(page.getByText('notes.md')).toHaveCount(0);
+	await page.screenshot({ path: testInfo.outputPath('library-decks-section.png') });
+
+	// The Markdown deck opens as itself.
+	await page.getByRole('button', { name: 'Open Halcyon.md as a deck' }).click();
+	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
+}
+
+test('Decks lists a .lattice and a Markdown deck, and Files keeps only the notes @smoke @gecko', async ({ page }, testInfo) => {
+	await decksSection(page, testInfo);
+});
+
+test('Decks lists a .lattice and a Markdown deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
+	await decksSection(page, testInfo);
 });
