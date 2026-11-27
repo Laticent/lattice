@@ -596,6 +596,23 @@
       "title": "The first grammar fault left to right wins",
       "input": "{d|e, a=b=c}",
       "refuse": "reserved-pipe"
+    },
+    {
+      "section": "4.7",
+      "title": "A pipe and a quote inside a description are text",
+      "input": "{>a|b \"c}",
+      "item": {
+        "value": {
+          "kind": "description",
+          "text": "a|b \"c"
+        }
+      }
+    },
+    {
+      "section": "5",
+      "title": "A named code comes before syntax",
+      "input": "{a}|",
+      "refuse": "reserved-pipe"
     }
   ]
 }

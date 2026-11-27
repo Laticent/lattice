@@ -152,11 +152,13 @@ picks, so two readers agree on every span:
 2. **Then the tree.** Only a span that matches §3 is checked against §4.2 and §4.5, and the first
    fault left to right gives `bad-name` or `named-in-list`. So `{x.y=1|2}` is `reserved-pipe`, not
    `bad-name`.
+3. **The named code before `syntax`.** `syntax` is reported only when no other code in the table
+   names the fault, so `{a}|` is `reserved-pipe`, not `syntax`.
 
 | Code | When |
 |---|---|
-| `reserved-pipe` | a `|` outside quotes. It is reserved so a later version can give it a meaning (§8) |
-| `unclosed-quote` | a `"` that is never closed |
+| `reserved-pipe` | a `|` outside quotes and descriptions. It is reserved so a later version can give it a meaning (§8) |
+| `unclosed-quote` | a `"` outside a description that is never closed |
 | `stray-equals` | an `=` with no name before it, or a second `=` in one item (`a=b=c`) |
 | `space-after-brace` | space directly after a record's `{` |
 | `unclosed-bracket` | a `{` or `[` that is never closed |
