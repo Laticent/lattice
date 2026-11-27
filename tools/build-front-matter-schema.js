@@ -35,10 +35,30 @@ const OUT = path.join(ROOT, 'dist', 'schemas', 'front-matter.schema.json');
 const OPEN_VALUES = new Set(['theme', 'finish']);
 const KINDS = new Set(['register', 'axis', 'flag', 'text', 'number', 'path', 'css', 'list', 'map', 'directive', 'marp', 'retired']);
 
+/**
+ * The LFM 1.0 part (spec/LFM-1.0.md §1) each key belongs to, published as `x-lattice-profile` so a reader that
+ * implements only some parts knows which keys are its business. Core keys change how a deck is read; Lens and Timing
+ * keys belong to those profiles; `application` keys are a host's own (the Studio, the Coach, Marp metadata), which a
+ * conforming renderer ignores. Every other key is Presentation.
+ */
+const PROFILE_BY_KEY = {
+  lfm: 'core', split: 'core', lang: 'core', 'inline-code': 'notation',
+  lenses: 'lens', 'lens-default': 'lens', 'lens-defaults': 'lens',
+  pace: 'timing', delivery: 'timing', greeting: 'timing', closing: 'timing', terms: 'timing', lexicon: 'timing', acronyms: 'timing', say: 'timing', captions: 'timing', track: 'timing',
+  title: 'application', 'ai-lang': 'application', profile: 'application', validate: 'application', description: 'application', author: 'application', keywords: 'application', url: 'application', image: 'application',
+};
+const PROFILE_BY_GROUP = { raw: 'application', developer: 'application' };
+function profileOf(row) {
+  return PROFILE_BY_KEY[row.key] || (row.kind === 'marp' ? 'application' : PROFILE_BY_GROUP[row.group]) || 'presentation';
+}
+
+/** A prefixed key (`acme.tally`) belongs to the plugin of that name (spec/EXTENDING-1.0.md §4): allowed, not listed. */
+const PREFIXED_KEY = '^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*$';
+
 /** One property's schema for a row. Throws on a row the schema cannot express. */
 function propertyFor(row, lists) {
   if (!KINDS.has(row.kind)) throw new Error(`${row.key}: unknown kind '${row.kind}'`);
-  const base = { description: row.info, ...(row.default && row.default !== 'none' ? { $comment: `default: ${row.default}` } : {}) };
+  const base = { description: row.info, 'x-lattice-profile': profileOf(row), ...(row.default && row.default !== 'none' ? { $comment: `default: ${row.default}` } : {}) };
   const names = settingValues(row, lists);
   switch (row.kind) {
     case 'register':
@@ -61,7 +81,7 @@ function propertyFor(row, lists) {
     case 'map':
       return { ...base, type: 'object' };
     case 'retired':
-      return { ...base, deprecated: true };
+      return { ...base, deprecated: true, ...(row.replacement ? { 'x-lattice-replacement': row.replacement } : {}) };
     case 'marp':
       return base;
     default:
@@ -82,6 +102,7 @@ function buildSchema() {
     description: 'The keys a Lattice deck\'s leading YAML block may carry. Generated from lib/core/deck-settings.js by tools/build-front-matter-schema.js; do not edit.',
     type: 'object',
     properties,
+    patternProperties: { [PREFIXED_KEY]: {} },
     additionalProperties: false,
   };
 }
@@ -106,4 +127,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildSchema, propertyFor };
+module.exports = { buildSchema, propertyFor, profileOf, PREFIXED_KEY };

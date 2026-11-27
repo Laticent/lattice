@@ -21,3 +21,24 @@ test('each probe is refused', () => {
 test('theme: and finish: stay open for installed and saved ones, as the readers are', () => {
   assert.ok(validate({ theme: 'my-brand', finish: 'finish-my-saved' }));
 });
+
+// LFM 1.0 §2.1 and spec/EXTENDING-1.0.md §3–§4: the schema is the settings registry. A prefixed key belongs to a
+// plugin and validates; an unprefixed unknown key still does not. Each key names its LFM part, and a retired key its
+// replacement. Failing arms: drop `patternProperties` and the first test fails; drop `x-lattice-replacement` and the
+// second fails.
+test('a prefixed plugin key validates; a dotless or uppercase one does not', () => {
+  assert.ok(validate({ theme: 'indaco', 'acme.tally': 3, 'acme.notes': { a: 1 } }), JSON.stringify(validate.errors));
+  for (const bad of [{ acmetally: 3 }, { 'Acme.tally': 3 }, { 'a.b.c': 1 }]) assert.equal(validate(bad), false, JSON.stringify(bad));
+});
+
+test('every key names its LFM part, and every renamed key its replacement', () => {
+  const schema = buildSchema();
+  const parts = new Set(['core', 'presentation', 'notation', 'lens', 'timing', 'application']);
+  for (const [key, prop] of Object.entries(schema.properties)) assert.ok(parts.has(prop['x-lattice-profile']), `${key}: ${prop['x-lattice-profile']}`);
+  assert.equal(schema.properties.lfm['x-lattice-profile'], 'core');
+  assert.equal(schema.properties.pace['x-lattice-profile'], 'timing');
+  assert.equal(schema.properties.paginate['x-lattice-replacement'], 'pagination');
+  assert.equal(schema.properties.fonts['x-lattice-replacement'], 'font-embedding');
+  assert.equal(schema.properties.marks['x-lattice-replacement'], 'chart-finish color-intensity');
+  assert.equal(schema.properties.say['x-lattice-replacement'], '@say');
+});

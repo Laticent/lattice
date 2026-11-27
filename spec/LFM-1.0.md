@@ -61,8 +61,10 @@ Diagnostics.)
 
 A leading YAML front-matter block carries deck-wide settings. The settings a reader may meet are listed in the
 **settings registry**, `dist/schemas/front-matter.schema.json`, generated from the reference implementation's
-`lib/core/deck-settings.js`; each entry names its key, its values, the profile it belongs to and, for a retired key,
-its replacement. This document states the rules every key follows; the registry lists the keys (§4.2).
+`lib/core/deck-settings.js`; each entry names its key, its values, the part of LFM it belongs to
+(`x-lattice-profile`: `core`, `presentation`, `notation`, `lens`, `timing`, or `application` for a host's own key)
+and, for a retired key, `deprecated` with its replacement (`x-lattice-replacement`). A prefixed key matches the
+registry's `patternProperties` and is otherwise unlisted. This document states the rules every key follows; the registry lists the keys (§4.2).
 
 - **The version line.** A deck MAY state the LFM version it was written for: `lfm: 1.0`. A deck that states none is
   read as LFM 1.0. A reader MUST read any 1.x deck, applying the unknown-key rule below to what it does not know, and
