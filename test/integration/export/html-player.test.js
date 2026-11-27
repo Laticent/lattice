@@ -562,10 +562,12 @@ describe('html-player export — a baked diagram follows the toggle', () => {
 // Written against the SHIPPED export, which is minified — no spaces after the commas — while
 // the unit tests read `themeDualMode`'s unminified return. A pattern taken from the unminified
 // form passes upstairs and fails here, which is exactly what happened once already.
+//
+// And on 2026-11-23 it went back to ONE arm: the bookends follow the color mode
+// (2026-11-23-cover-layout.md), so no bookend is re-admitted dark and `cover-light` is gone. The list
+// stays a list and each entry is still asserted for its suffix, so an arm added back is held to it.
 const DARK_SLIDE_ARMS = [
-	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\):not\(\.cover-light\)`,
-	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.title:not\(\.cover-light\)`,
-	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\)\.closing:not\(\.cover-light\)`,
+	String.raw`section\[data-lattice-slide\]\.dark:not\(\.print\):not\(\.light\):not\(\.color-light\)`,
 ];
 
 describe('html-player export — nothing shipped depends on light-dark()', () => {

@@ -15,7 +15,7 @@
  * divider's hairline 3:1 (the rule floor tools/contrast-audit.js holds). Each slide must take the
  * scheme of its mode, its `::before` (the spectrum bar, a stamp) too, and paint the field the model
  * names. Measured on palettes that span the range: brand navy (indaco), warm (cuoio), achromatic
- * (onyx, a11y-base), mid-gray (concrete) and a pale accent (mustard).
+ * (onyx, a11y-protanopia), mid-gray (concrete) and a pale accent (mustard).
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -24,9 +24,12 @@ const path = require('node:path');
 const fs = require('node:fs');
 const puppeteer = require('puppeteer');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
+// The theme WITH its import chain (a11y-base is a partial the a11y palettes import), flattened the way
+// every analytic contrast gate reads it (tools/contrast-audit.js).
+const { paletteChainCss } = require('../../../tools/contrast-audit.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const THEMES = ['indaco', 'cuoio', 'onyx', 'a11y-base', 'concrete', 'mustard'];
+const THEMES = ['indaco', 'cuoio', 'onyx', 'a11y-protanopia', 'concrete', 'mustard'];
 const MODES = ['light', 'dark'];
 
 const FOOTER = '<span data-probe="footer" style="color:var(--marp-slide-footer-color)">Footer</span>';
@@ -61,16 +64,21 @@ describe('the bookends follow the color mode, and every ink clears its bar on th
   for (const theme of THEMES) {
     test(`${theme}: title, closing, divider and subsection, light and dark`, async () => {
       const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
-      const css = fs.readFileSync(path.join(ROOT, 'themes', theme, `${theme}.css`), 'utf8');
+      const css = paletteChainCss(theme);
       const body = REFS + MODES.map((m) => Object.values(SLIDES).map((f) => f(m)).join('')).join('');
       await page.setContent(`<style>${css}\n${bundle}</style><article class="lattice">${body}</article>`);
       const res = await page.evaluate(() => {
-        // Composite an rgba ink over the section's opaque background, then the WCAG ratio.
-        // `rgb(r g b / a)` carries 0-255 channels; `color(srgb r g b / a)` (what Chromium reports for a
-        // color-mix() ink) carries 0-1 ones, so scale those.
+        // Resolve any computed color the way the browser PAINTS it: draw one pixel and read it back.
+        // Chromium reports a color-mix() as `oklab(…)` or `color(srgb …)`, so a regex over the numbers
+        // reads the dimmed divider field as black (it did, and every dark-divider ratio with it).
+        const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
         const parse = (c) => {
-          const n = (c.match(/[\d.]+/g) || []).map(Number);
-          return c.startsWith('color(srgb') ? [n[0] * 255, n[1] * 255, n[2] * 255, n[3]] : n;
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillStyle = '#000';
+          ctx.fillStyle = c;
+          ctx.fillRect(0, 0, 1, 1);
+          const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+          return [r, g, b, a / 255];
         };
         const lum = ([r, g, b]) => {
           const f = (v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };

@@ -63,6 +63,16 @@ function contrast(fg, bg) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** Resolve a computed color in the page the way it PAINTS (one canvas pixel), as `rgba(r, g, b, a)`.
+ *  Chromium reports a color-mix() as `oklab(…)`, which `parseColor` cannot read: the dimmed divider
+ *  field came back as black, so its ratios were measured against the wrong ground. */
+const RESOLVE = `window.__paint = (c) => {
+  const x = (window.__ctx ||= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true }));
+  x.clearRect(0, 0, 1, 1); x.fillStyle = '#000'; x.fillStyle = c; x.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = x.getImageData(0, 0, 1, 1).data;
+  return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + a / 255 + ')';
+};`;
+
 const BOOKENDS = ['title', 'closing', 'divider'];
 const LEVELS = ['h1', 'h2'];
 
@@ -87,6 +97,7 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
       '<section id="light" class="divider subsection light"><h2>Heading</h2><p id="lightc"><code>Label text</code></p></section>' +
       '</article>';
     await page.setContent(html);
+    await page.addScriptTag({ content: RESOLVE });
   });
 
   after(async () => {
@@ -98,8 +109,8 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
       (cs) =>
         cs.map(([c, h], i) => ({
           cls: `${c} ${h}`,
-          ink: getComputedStyle(document.getElementById(`c${i}`)).color,
-          surface: getComputedStyle(document.getElementById(`s${i}`)).backgroundColor,
+          ink: window.__paint(getComputedStyle(document.getElementById(`c${i}`)).color),
+          surface: window.__paint(getComputedStyle(document.getElementById(`s${i}`)).backgroundColor),
         })),
       cases,
     );
@@ -186,6 +197,7 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
     // shipped document. Every real render writes a doctype (lattice.js).
     await probe.setContent(`<!DOCTYPE html><style>${theme}\n${bundle}</style><article class="lattice">${blocks.join('')}</article>`);
 
+    await probe.addScriptTag({ content: RESOLVE });
     const mode = await probe.evaluate(() => document.compatMode);
     assert.equal(mode, 'CSS1Compat', 'the probe must render in standards mode, as the engine does');
 
@@ -199,9 +211,9 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
         let surface = 'rgba(0, 0, 0, 0)';
         for (let node = p; node; node = node.parentElement) {
           const bg = getComputedStyle(node).backgroundColor;
-          if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { surface = bg; break; }
+          if (bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { surface = window.__paint(bg); break; }
         }
-        out.push({ i, ink: getComputedStyle(el).color, surface });
+        out.push({ i, ink: window.__paint(getComputedStyle(el).color), surface });
       }
       return out;
     }, combos.length);
@@ -226,8 +238,8 @@ describe("a dark bookend's inline-code eyebrow is legible at either heading leve
 
   test('divider subsection light clears AA on the accent and centers its eyebrow', async () => {
     const r = await page.evaluate(() => ({
-      ink: getComputedStyle(document.getElementById('lightc')).color,
-      surface: getComputedStyle(document.getElementById('light')).backgroundColor,
+      ink: window.__paint(getComputedStyle(document.getElementById('lightc')).color),
+      surface: window.__paint(getComputedStyle(document.getElementById('light')).backgroundColor),
       align: getComputedStyle(document.getElementById('lightc')).textAlign,
     }));
     assert.ok(contrast(r.ink, r.surface) >= AA, `divider subsection light eyebrow is ${contrast(r.ink, r.surface).toFixed(2)}:1`);

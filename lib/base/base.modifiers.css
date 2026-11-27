@@ -1312,8 +1312,19 @@ section:is(.title, .closing):not(.print) {
  * carbone, concrete), and a theme's `--on-inverse-muted` (indaco's, tuned for its navy) 2.6:1. */
 section.divider:not(.print) {
   background-color: light-dark(var(--accent), color-mix(in oklab, var(--accent) 40%, var(--bg)));
+  /* TEXT INHERITS ITS INK: a paragraph with no color of its own (a subsection lede, a body line)
+   * takes the color this section computed, so the children's token remap below never reaches it.
+   * The section takes the field's primary ink itself, in both modes: `--text-body` measured
+   * 1.33-2.10:1 on the light accent and 3.17:1 on concrete's dimmed field (bookends-follow-mode). */
+  color: light-dark(var(--on-accent), var(--_bk-on-primary));
 }
 section.divider:not(.print) > * {
+  /* The content-canvas inks too: text outside the named slots (a body line, a subsection lede, a
+   * link's currentColor) rides the field's primary ink in both modes, like the tiers below. Their
+   * own values are content-canvas inks: 1.33-3.31:1 on the light accent, 3.17:1 dimmed. */
+  --text-body: light-dark(var(--on-accent), var(--_bk-on-primary));
+  --text-secondary: light-dark(var(--on-accent), var(--_bk-on-primary));
+  --text-muted: light-dark(var(--on-accent), var(--_bk-on-primary));
   --text-display: light-dark(var(--on-accent), var(--_bk-on-primary));
   --on-dark-primary: light-dark(var(--on-accent), var(--_bk-on-primary));
   --on-dark-secondary: light-dark(var(--on-accent), var(--_bk-on-primary));
@@ -1333,6 +1344,19 @@ section:where(.title, .closing):not(.print) {
   --marp-slide-header-color: light-dark(var(--text-muted), var(--_bk-on-muted));
   --marp-slide-footer-color: light-dark(var(--text-muted), var(--_bk-on-muted));
   --marp-slide-pagination-color: light-dark(var(--text-muted), var(--_bk-on-muted));
+}
+/* A LINK ON A DIVIDER takes the field's ink, underlined. Lattice colors no link anywhere, so a link
+ * took the browser's own blue: 9.4:1 on a white canvas and on the old dark panel (the dark-scheme
+ * blue), 1.72:1 on indaco's light accent. `currentColor` follows whichever ink the text around it
+ * resolved, in both modes. */
+section.divider:not(.print) a {
+  color: currentColor;
+}
+/* `**bold**` reads `--text-heading`, a diagram token the Mermaid scope keys on the section's class
+ * list, so it cannot be remapped from the `> *` rule above (the build's diagram-token scope gate);
+ * the element takes the field's ink itself, as the section does. */
+section.divider:not(.print) strong {
+  color: light-dark(var(--on-accent), var(--_bk-on-primary));
 }
 section:where(.divider):not(.print) {
   --marp-slide-header-color: light-dark(var(--on-accent), var(--_bk-on-primary));
