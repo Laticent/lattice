@@ -129,9 +129,9 @@ async function latticeGalleryCycle(cycle) {
 		if (!el) return;
 		const box = el.getBoundingClientRect();
 		let n = 0;
-		// A tile is a cell of a grid in the scroller, filled or not: what the pool's `seen` counts, not the frames it holds.
-		const cells = [...el.querySelectorAll('*')].filter((g) => g.children.length > 1 && getComputedStyle(g).display === 'grid').flatMap((g) => [...g.children]);
-		for (const tile of cells) {
+		// A tile is the THUMB the pool registers (PooledThumbFace's span, as LayoutMenu.tsx renders it): what the pool's
+		// `seen` measures. A whole grid cell is taller, its label shows first, and counting cells over-read by 3.
+		for (const tile of el.querySelectorAll('span.block.aspect-video')) {
 			const r = tile.getBoundingClientRect();
 			if (Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top) > 1 && Math.min(r.right, box.right) - Math.max(r.left, box.left) > 1) n++;
 		}
@@ -139,6 +139,7 @@ async function latticeGalleryCycle(cycle) {
 			peak.n = n;
 			peak.y = Math.round(el.scrollTop);
 		}
+		return n;
 	};
 	const takePeak = () => {
 		const out = `${peak.n}@${peak.y}`;
@@ -159,22 +160,21 @@ async function latticeGalleryCycle(cycle) {
 		await until(shown, cold, 'the gallery');
 		await until(() => mounted() > 1, cold, 'the gallery to mount a preview');
 		if (cycle === 0) {
-			// PRIME the pool to its high-water mark, as MR-3 does: a stepped walk rests on every row, so every tile shape
-			// (Mermaid, a local component's CSS) gets its frame before the first close is counted.
-			// The pool's ceiling follows the tiles PARTLY on screen, so its high-water mark is the most tiles any offset shows:
-			// 16 at 1440x900, at 79 of 475 offsets 10 px apart (the first at 2100 px; 9 to 15 everywhere else). The walk
-			// steps well under a row, and at each rest it waits for the pool to SETTLE, not for a number of frames: Mac
-			// Safari had not run the pass within 8 frames, so its prime stopped at 13 and the pool reached 16 in cycle 4,
-			// which counted as 6 new documents in 3 reopens (harness #3 on #3441, run 46014889905).
+			// PRIME the pool to its high-water mark, as MR-3 does, so every tile shape (Mermaid, a local component's CSS)
+			// has its frame before the first close is counted. The pool's ceiling follows how many THUMBS are partly on
+			// screen (preview-pool.tsx `seen`), and a pool never releases a frame, so the high-water mark is the most
+			// thumbs any one offset shows. At 1440x900 that is 16, in three windows 40 to 60 px wide (3410, 3630 and
+			// 3840 px in Playwright's WebKit); a 100 or 300 px step misses all three, while the flick's 260 px steps can
+			// land in one. That is how Mac Safari FULL grew a frame or three on a LATER reopen and counted 4 to 6 new
+			// documents (harness #3 and #2 on #3441). So the walk steps 20 px, under the narrowest window, and where more
+			// thumbs show than the pool holds frames it waits for the pool to settle (covered, or at its LITE ceiling).
 			const el = scroller();
 			const bottom = el ? el.scrollHeight - el.clientHeight : 0;
-			for (let y = 0; y <= bottom; y += 100) {
-				jumpTo(y);
-				await frames(2);
-				await quiesced(mounted, 25000, 2, 150);
-				peek();
+			for (let y = 0; y <= bottom + 20; y += 20) {
+				jumpTo(Math.min(y, bottom));
+				await frames(1);
+				if (peek() > mounted()) await quiesced(mounted, 25000, 3, 150);
 			}
-			jumpTo(bottom);
 			jumpTo(0);
 			await quiesced(mounted);
 		}
