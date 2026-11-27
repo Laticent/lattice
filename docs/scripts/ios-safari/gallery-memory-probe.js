@@ -68,7 +68,17 @@ function latticeGalleryInstall() {
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
 async function latticeGalleryCycle(cycle) {
 	const sel = LATTICE_GALLERY_SCROLLER;
-	const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+	// One animation frame, or 100 ms if no frame comes: a page Safari stops painting (a simulator screen
+	// that sleeps, a tab it puts in the background) delivers no frames, and an unbounded wait would hang
+	// the probe until WebDriver's 360 s script limit, once per call.
+	const frame = () =>
+		new Promise((r) => {
+			const t = setTimeout(r, 100);
+			requestAnimationFrame(() => {
+				clearTimeout(t);
+				r();
+			});
+		});
 	const frames = async (n) => {
 		for (let i = 0; i < n; i++) await frame();
 	};
@@ -130,17 +140,18 @@ async function latticeGalleryCycle(cycle) {
 			jumpTo(0);
 			await quiesced(mounted);
 		}
-		// A flick: a continuous rAF scroll to the bottom, the way a person flings the grid.
-		await new Promise((done) => {
+		// A flick: a continuous frame-by-frame scroll to the bottom, the way a person flings the grid. It stops
+		// at the bottom, when a step no longer moves the grid (a fractional scrollHeight can leave it 1 px
+		// short for ever), or after 400 steps, whichever comes first.
+		{
 			const el = scroller();
-			if (!el) return done();
-			const step = () => {
+			for (let n = 0; el && n < 400; n++) {
+				const before = el.scrollTop;
 				el.scrollTop += 260;
-				if (el.scrollTop >= el.scrollHeight - el.clientHeight - 1) done();
-				else requestAnimationFrame(step);
-			};
-			requestAnimationFrame(step);
-		});
+				if (el.scrollTop >= el.scrollHeight - el.clientHeight - 1 || el.scrollTop === before) break;
+				await frame();
+			}
+		}
 		const opened = await quiesced(mounted);
 		// Close: Escape, which the sheet takes from the document; the sheet's Close button if Escape did not close it.
 		const target = document.activeElement || document.body;
