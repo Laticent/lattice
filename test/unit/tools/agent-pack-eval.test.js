@@ -85,13 +85,21 @@ test(
 // `run` takes its network (`fetchImpl` for the price list, `complete` for a chat call), its judge and its
 // clock as `deps`, so these tests count calls and dollars without a socket, a browser or OUR key.
 
-const PRICES = { data: [{ id: 'test/cheap', pricing: { prompt: '0.000001', completion: '0.00001' } }] };
-const pricesFetch = async () => ({ ok: true, json: async () => PRICES });
+// Two providers: the cap must use the dearer one (1e-6 in, 1e-5 out), never the cheap listing.
+const ENDPOINTS = {
+  data: {
+    endpoints: [
+      { pricing: { prompt: '0.0000001', completion: '0.000001' } },
+      { pricing: { prompt: '0.000001', completion: '0.00001' } },
+    ],
+  },
+};
+const pricesFetch = async (url) => (String(url).endsWith('/models/test/cheap/endpoints') ? { ok: true, json: async () => ENDPOINTS } : { ok: false, status: 404 });
 const kitDir = (t) => {
   const dir = tmpDir(t);
-  fs.mkdirSync(path.join(dir, 'agents'));
-  fs.writeFileSync(path.join(dir, 'start.md'), 'NEW START: see [layouts](./agents/layouts.md).\n');
-  fs.writeFileSync(path.join(dir, 'agents', 'layouts.md'), 'LAYOUTS BODY\n');
+  fs.mkdirSync(path.join(dir, 'components'));
+  fs.writeFileSync(path.join(dir, 'start.md'), 'NEW START: see [layouts](./layouts.md).\n');
+  fs.writeFileSync(path.join(dir, 'layouts.md'), 'LAYOUTS BODY\n');
   fs.writeFileSync(path.join(dir, 'secret.txt'), 'x');
   return dir;
 };
@@ -145,13 +153,15 @@ test('ten fixed briefs, unique slugs, the first three unchanged so nights compar
 
 test('readRequests takes READ lines only from a reply that holds no deck; serveKitFiles stays inside the kit', async (t) => {
   const { readRequests, serveKitFiles } = await load();
-  assert.deepEqual(readRequests('READ: ./agents/layouts.md#cards\nREAD: `../secret.txt`'), ['./agents/layouts.md#cards', '../secret.txt']);
-  assert.deepEqual(readRequests(`${deckReply}\nREAD: ./agents/layouts.md`), [], 'a deck with a stray READ line is a deck');
-  const kit = path.join(kitDir(t), 'agents');
-  // The kit is agents/ here, so ../secret.txt is a real file one level up: it must still be refused.
-  const { served, text } = serveKitFiles(['./layouts.md#cards', '../secret.txt', '/etc/passwd', 'missing.md'], kit);
-  assert.deepEqual(served, ['layouts.md']);
-  assert.match(text, /LAYOUTS BODY/);
+  assert.deepEqual(readRequests('READ: ./layouts.md#cards\nREAD: `../secret.txt`'), ['./layouts.md#cards', '../secret.txt']);
+  assert.deepEqual(readRequests(`${deckReply}\nREAD: ./layouts.md`), [], 'a deck with a stray READ line is a deck');
+  const root = kitDir(t);
+  fs.writeFileSync(path.join(root, 'components', 'cards.md'), 'CARDS\n');
+  const kit = path.join(root, 'components');
+  // The kit is components/ here, so ../secret.txt is a real file one level up: it must still be refused.
+  const { served, text } = serveKitFiles(['./cards.md#x', '../secret.txt', '/etc/passwd', 'missing.md'], kit);
+  assert.deepEqual(served, ['cards.md']);
+  assert.match(text, /CARDS/);
   assert.match(text, /\.\.\/secret\.txt\n\n\(not served: outside the kit\)/);
   assert.match(text, /\/etc\/passwd\n\n\(not served: outside the kit\)/);
   assert.match(text, /missing\.md\n\n\(not served: no such file in the kit\)/);
@@ -227,7 +237,7 @@ test('the retrieval arm serves the files the model names, then judges the deck f
   const { run, parseArgs } = await load();
   const calls = [];
   const out = tmpDir(t);
-  const script = (req) => (req.messages.length === 2 ? 'READ: ./agents/layouts.md' : deckReply);
+  const script = (req) => (req.messages.length === 2 ? 'READ: ./layouts.md' : deckReply);
   const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--limit', '1', '--out', out]), deps(t, calls, { script }));
   assert.equal(code, 0);
   assert.equal(calls.length, 2);
@@ -235,7 +245,7 @@ test('the retrieval arm serves the files the model names, then judges the deck f
   assert.deepEqual(calls[1].messages.map((m) => m.role), ['system', 'user', 'assistant', 'user']);
   assert.match(calls[1].messages[3].content, /LAYOUTS BODY/);
   const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
-  assert.deepEqual([s.rows[0].calls, s.rows[0].fetched, s.rows[0].pass], [2, ['agents/layouts.md'], true]);
+  assert.deepEqual([s.rows[0].calls, s.rows[0].fetched, s.rows[0].pass], [2, ['layouts.md'], true]);
   assert.equal(fs.readFileSync(path.join(out, 'retrieval-board-ask-r0.md'), 'utf8'), deckReply);
 });
 
@@ -254,11 +264,31 @@ test('the cap is checked again before a retrieval second turn, and a capped deck
   const { run, parseArgs } = await load();
   const calls = [];
   const out = tmpDir(t);
-  const script = (req) => (req.messages.length === 2 ? 'READ: ./agents/layouts.md' : deckReply);
+  const script = (req) => (req.messages.length === 2 ? 'READ: ./layouts.md' : deckReply);
   // The first call fits (0 + ~0.0603 <= 0.105) and reports 0.05; the second's ceiling (~0.0604) would cross 0.105.
   const code = await run(parseArgs(['--arm', 'retrieval', '--model', 'test/cheap', '--max-usd', '0.105', '--out', out]), deps(t, calls, { cost: 0.05, script }));
   assert.equal(code, 3);
   assert.equal(calls.length, 1, 'the second turn never went');
   const s = JSON.parse(fs.readFileSync(path.join(out, 'summary.json'), 'utf8'));
   assert.deepEqual([s.rows.length, s.rows[0].capped, s.rows[0].pass, s.failed, s.aggregate.table.length], [1, true, null, 0, 0]);
+});
+
+test('a READ of a folder is answered with a note, not a crash that books a failed deck', async (t) => {
+  const { serveKitFiles } = await load();
+  const kit = kitDir(t);
+  const { served, text } = serveKitFiles(['./components/', 'components', '.'], kit);
+  assert.deepEqual(served, []);
+  assert.equal(text.match(/not served: no such file in the kit/g).length, 3);
+});
+
+test('the cap is priced from the dearest provider, and a price that could void it stops the run before any call', async (t) => {
+  const { loadPrice, run, parseArgs } = await load();
+  assert.deepEqual(await loadPrice('test/cheap', pricesFetch), { in: 0.000001, out: 0.00001 });
+  for (const bad of ['-1', 'n/a', undefined]) {
+    const calls = [];
+    const d = deps(t, calls);
+    d.fetchImpl = async () => ({ ok: true, json: async () => ({ data: { endpoints: [{ pricing: { prompt: bad, completion: '0.00001' } }] } }) });
+    assert.equal(await run(parseArgs(['--arm', 'start', '--model', 'test/cheap', '--out', tmpDir(t)]), d), 2, `price ${bad}`);
+    assert.equal(calls.length, 0);
+  }
 });

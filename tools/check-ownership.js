@@ -10228,7 +10228,7 @@ const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/g
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
   '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
-  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — ten two-turn decks on Haiku 5.5 or DeepSeek (alternating), ~USD 0.02–0.06/night priced 2026-11-27, hard cap --max-usd 0.25; fails loud without the secret (2026-11-17-agent-pack.md §4.5, §4.9)
+  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — ten two-turn decks on Haiku 5.5 or DeepSeek (alternating), ~USD 0.02–0.06/night at the cheapest provider (priced 2026-11-27), hard cap --max-usd 0.25 priced at the dearest; fails loud without the secret (2026-11-17-agent-pack.md §4.5, §4.9)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines

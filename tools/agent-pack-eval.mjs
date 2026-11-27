@@ -9,7 +9,7 @@
  *   start      dist/agent-kit/start.md                            one turn  (default anthropic/claude-sonnet-5.5)
  *   small      dist/agent-kit/paste/lattice-instructions-solo.md  one turn  (default anthropic/claude-haiku-5.5)
  *   retrieval  dist/agent-kit/start.md                            two turns: the model may name up to six kit
- *              files start.md links to (`READ: ./agents/layouts.md`), the harness serves them from
+ *              files start.md links to (`READ: ./layouts.md`), the harness serves them from
  *              dist/agent-kit, and the model then writes the deck  (default anthropic/claude-sonnet-5.5)
  *
  * A deck PASSES when it lints with zero errors and zero warnings, renders, reports no overflow,
@@ -23,11 +23,11 @@
  *           (judge one deck, no model call; its PDF goes to --out, never beside the deck)
  *         node tools/agent-pack-eval.mjs --nightly-model   (print tonight's model: Haiku and DeepSeek by day parity)
  *
- *   --max-usd   a hard cap, USD 1 by default. Before each deck (each PAIR in paired mode) the tool adds the
- *               worst case of its calls, priced from OpenRouter's public /api/v1/models list, to what
- *               OpenRouter reported spending so far, and stops if that would cross the cap. The worst case
- *               counts every 2 bytes of prompt as a token and every reply as max_tokens long, so a stop
- *               comes early, never late.
+ *   --max-usd   a hard cap, USD 1 by default. Before every call the tool adds that call's worst case to what
+ *               OpenRouter reported spending so far, and stops if the sum would cross the cap (a pair's
+ *               first calls are checked together). The worst case counts every 2 bytes of prompt as a token,
+ *               every reply as max_tokens long, and the price of the DEAREST provider OpenRouter lists for
+ *               the model, so a stop comes early, not late, while OpenRouter charges its listed prices.
  *   --old       PAIRED mode: each brief and repeat runs once on the old start.md and once on the new one
  *               (--new, default dist/agent-kit/start.md), on the SAME model; one model per run, never mixed.
  *               The arm must be start or retrieval. The retrieval arm serves the CURRENT kit to both.
@@ -36,8 +36,8 @@
  *   --probe     one max_tokens-1 call per system file: what the prompt costs in tokens on this model (R0).
  *               Anthropic and Gemini have free token counters; use this only where none exists.
  *
- * Per-release check on a capable model (10 decks, about USD 0.45; RELEASE.md): dispatch the nightly
- * workflow with arm=retrieval model=anthropic/claude-sonnet-5.5 max_usd=0.75.
+ * Per-release check on a capable model (10 decks; cost and cap in RELEASE.md): dispatch the nightly
+ * workflow with arm=retrieval model=anthropic/claude-sonnet-5.5 max_usd=1.75.
  *
  * Spends OUR OpenRouter key (HARD RULE #24): opt-in only, never on the PR path. Without
  * OPENROUTER_ALLOW_SPEND=1 it prints its plan and worst-case cost and exits 0. CI runs it from
@@ -48,7 +48,7 @@
  * 3 stopped at the --max-usd cap before the plan finished.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classEntries } from '../lib/core/class-entries.mjs';
@@ -252,7 +252,7 @@ export function serveKitFiles(asks, kitDir = KIT) {
     const full = path.resolve(kitDir, rel);
     const inside = path.relative(kitDir, full);
     if (!rel || inside.startsWith('..') || path.isAbsolute(inside)) return `## ${ask}\n\n(not served: outside the kit)`;
-    if (!existsSync(full)) return `## ${ask}\n\n(not served: no such file in the kit)`;
+    if (!existsSync(full) || !statSync(full).isFile()) return `## ${ask}\n\n(not served: no such file in the kit)`;
     let body = readFileSync(full, 'utf8');
     const bytes = Buffer.from(body);
     if (bytes.length > budget) body = `${bytes.subarray(0, budget).toString('utf8')}\n\n(cut: the served files reached ${SERVE_MAX_BYTES} bytes)`;
@@ -263,12 +263,22 @@ export function serveKitFiles(asks, kitDir = KIT) {
   return { served, text: `${parts.join('\n\n')}\n\nNow write the deck. ${DECK_ASK}` };
 }
 
-/** OpenRouter's public price list (no key needed): model id → USD per prompt and per completion token. */
-export async function loadPrices(fetchImpl = fetch) {
-  const res = await fetchImpl(`${API}/models`);
-  if (!res.ok) throw new Error(`OpenRouter /models ${res.status}`);
-  const j = await res.json();
-  return new Map(j.data.map((m) => [m.id, { in: Number(m.pricing.prompt), out: Number(m.pricing.completion) }]));
+/**
+ * The price a call is capped at: the DEAREST provider OpenRouter lists for the model (its public
+ * `/models/<id>/endpoints`, no key needed), because routing can fall back from the cheapest one. A
+ * DeepSeek V4.1 Flash call can cost about 30 times its cheapest listing (2026-11-27). The request asks for
+ * the cheapest provider first (`provider.sort: 'price'`), so the real spend is usually far below the cap.
+ * A price that is not a finite number of at least 0 (a router id lists -1) is refused: it would void the cap.
+ */
+export async function loadPrice(model, fetchImpl = fetch) {
+  const res = await fetchImpl(`${API}/models/${model}/endpoints`);
+  if (!res.ok) throw new Error(`OpenRouter /models/${model}/endpoints ${res.status}`);
+  const endpoints = (await res.json()).data?.endpoints ?? [];
+  if (!endpoints.length) throw new Error(`${model} has no endpoints in OpenRouter's list: check the id`);
+  const prices = endpoints.map((e) => ({ in: Number(e.pricing?.prompt), out: Number(e.pricing?.completion) }));
+  const bad = prices.some((p) => !Number.isFinite(p.in) || !Number.isFinite(p.out) || p.in < 0 || p.out < 0);
+  if (bad) throw new Error(`${model} lists a price that is not a number of at least 0: the cap could not hold`);
+  return { in: Math.max(...prices.map((p) => p.in)), out: Math.max(...prices.map((p) => p.out)) };
 }
 
 const bytesOf = (messages) => messages.reduce((n, m) => n + Buffer.byteLength(m.content), 0);
@@ -283,7 +293,17 @@ export async function complete({ model, messages, maxTokens = MAX_TOKENS, temper
   const res = await fetchImpl(`${API}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPEN_ROUTER_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature, ...(seed === undefined ? {} : { seed }), usage: { include: true } }),
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+      ...(seed === undefined ? {} : { seed }),
+      provider: { sort: 'price' },
+      usage: { include: true },
+    }),
+    // A hung call fails its deck after three minutes instead of holding the job to its timeout.
+    signal: AbortSignal.timeout(180_000),
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
@@ -568,18 +588,12 @@ export async function run(opts, deps = {}) {
   const units = plan(opts, d.kitDir);
   const jobs = units.flat();
   const models = [...new Set(jobs.map((j) => j.model))];
-  let prices;
+  const prices = new Map();
   try {
-    prices = await loadPrices(d.fetchImpl);
+    for (const m of models) prices.set(m, await loadPrice(m, d.fetchImpl));
   } catch (e) {
     console.error(`cannot price the run (${e.message}): without prices there is no cap, so nothing ran.`);
     return 2;
-  }
-  for (const m of models) {
-    if (!prices.has(m)) {
-      console.error(`${m} is not in OpenRouter's model list: check the id.`);
-      return 2;
-    }
   }
   const worst = jobs.reduce((a, j) => a + jobWorstCase(j, prices.get(j.model)), 0);
   d.log(
