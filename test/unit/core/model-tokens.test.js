@@ -85,6 +85,48 @@ const DECKS = execSync("git ls-files 'examples/*.md' 'examples/**/*.md' '*.galle
 
 const md = engineLike();
 
+test('the editors’ inline parser (deckInlineParser) reads every committed deck as the adapter’s, read off the engine’s markdown-it, does', () => {
+	const { deckInlineParser, deckModel: editorModel } = require('../../../lib/core/deck-model.mjs');
+	const { inlineSlide } = require('@laticent/segno-languages/markdown');
+	const ours = deckInlineParser();
+	const engine = parsersFor(md).inline;
+	assert.notEqual(ours, engine);
+	const same = (a, b, at) => {
+		if (a.length !== b.length || a.src !== b.src) return `${at}: ${a.length} tokens against ${b.length}`;
+		for (let i = 0; i < a.length * 7; i++) if (a.tape[i] !== b.tape[i]) return `${at}: token ${Math.floor(i / 7)} differs`;
+		if (a.links.join() !== b.links.join()) return `${at}: links differ`;
+		for (let c = 0; c < a.children.length; c++) {
+			const d = same(a.children[c], b.children[c], `${at} alt ${c}`);
+			if (d) return d;
+		}
+		return null;
+	};
+	const bad = [];
+	let leaves = 0;
+	for (const f of DECKS) {
+		const m = editorModel(fs.readFileSync(path.join(ROOT, f), 'utf8'));
+		for (let seg = 0; seg < m.segs.length; seg++) {
+			const a = inlineSlide(m, seg, ours);
+			const b = inlineSlide(m, seg, engine);
+			for (let i = 0; i < a.length; i++) {
+				const d = same(a[i].tape, b[i].tape, `${f} slide ${seg} leaf ${i}`);
+				if (d) bad.push(d);
+			}
+			leaves += a.length;
+		}
+	}
+	assert.deepEqual(bad.slice(0, 5), []);
+	assert.ok(leaves > 20000, `leaves compared: ${leaves}`);
+	// The failing arm: a parser without the GFM `~~` rule reads a leaf differently, and the comparison sees it.
+	const { InlineParser } = require('@laticent/segno-languages/markdown');
+	const plain = new InlineParser({ namedEntity: () => true, strikethrough: false });
+	const m = editorModel('a ~~b~~ c\n');
+	assert.ok(same(inlineSlide(m, 0, plain)[0].tape, inlineSlide(m, 0, engine)[0].tape, 'arm'));
+	// Legacy entity prefixes, which markdown-it's `unescapeAll` decodes and its entity rule does not: no corpus deck has one.
+	const ents = editorModel('a &ampx; b &notit; c &frac12x; d &amp; e &gt1;\n');
+	assert.equal(same(inlineSlide(ents, 0, ours)[0].tape, inlineSlide(ents, 0, engine)[0].tape, 'entities'), null);
+});
+
 test('every committed deck and plugin fixture: the adapter’s tokens are markdown-it’s, field for field', () => {
 	assert.ok(DECKS.length > 400, `expected the corpus, found ${DECKS.length} files`);
 	const bad = [];

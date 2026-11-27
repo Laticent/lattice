@@ -1325,3 +1325,39 @@ cannot hold that, so P5 ships in three, each on its own branch from `main` after
    css-comments.mjs, css-scan with its two gates and the import gate, layout/ai.js, plugin-css.mjs. Each gets a seeded
    differential, the inliner and rehost browser oracles, and one checker. No sanitizer's behavior changes; if one must,
    REPORT first and run the trio.
+
+## P4b, step one: CodeMirror reads the model (2026-11-27)
+
+**What changed.** The Studio's deck editor builds its syntax tree from the deck model, not from `@lezer/markdown`'s
+grammar. `docs/src/lib/deck-language/deck-language.ts` is a Lezer `Parser` whose tree is read off the model's tape:
+blocks from each slide's detail parse (the columns give every marker's position), inline nodes from the leaves the model
+keeps with each slide. `Editor.tsx` installs `deckMarkdown()` where it installed `yamlFrontmatter({ content: markdown() })`.
+
+**What the editor now reads as the engine does.** Math (`$a*b*c$` was emphasis inside it), `~~strikethrough~~` and GFM
+tables (both plain text before, because the editor ran lang-markdown's CommonMark base), and the front matter, which is
+the engine's (`FRONT_MATTER_FENCE`) rather than lang-yaml's frontmatter grammar. The YAML inside is still parsed by
+lang-yaml, as a nested parse.
+
+**The node names are Lezer Markdown's.** The tree uses the node set of `markdown({ base: markdownLanguage })`, so the
+highlight style, the fold props, heading folds, HTML completion and the `Enter` / `Backspace` list keymap read it
+unchanged. Five names are added: `Frontmatter`, `FrontmatterMark` and `FrontmatterContent` for the front matter, and
+`LatticeBlock` and `LatticeInline` for plugin tokens (math's `$$` and `$`, the code record). Link reference
+definitions get no node yet: the model records them, but nothing in the editor reads them.
+
+**The inline parser.** `deckInlineParser()` (lib/core/deck-model.mjs) is S2 configured as the engine's markdown-it:
+`html`, `~~`, and every plugin inline rule at its manifest's anchor and triggers. The token adapter reads its
+configuration off a markdown-it instance; an editor has none to read. `model-tokens.test.js` holds the two parsers to
+the same tapes on every committed deck.
+
+**Incremental, counted (HARD RULE #32).** Each slide's subtree is kept with the model's segment for that slide, which
+`updateDeckModel` reuses when the edit is elsewhere, and the model rides on the tree, so the next parse finds it in
+CodeMirror's fragments. A keystroke in the gallery's middle slide (60 KB, 120 slides) costs one model update, no parse
+from nothing, one slide subtree built (38 of the tree's 4,071 nodes) and 119 reused. `deckTreeStats` counts these and
+`deck-language.test.ts` holds them.
+
+**Proof.** `deck-language.test.ts`: on 603 committed decks the tree is well formed, and every block range and inline
+structure the model holds is a node with its range; 60 random edits on the gallery give the tree a build from nothing
+gives; the keystroke counts above. `e2e/deck-language.spec.ts` drives the real Studio at 1440, 820 and 390 px:
+highlighting and the list and quote keymap.
+
+**Step two** builds Compose's document from the model and removes Compose's own markdown-it.
