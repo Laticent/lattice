@@ -155,3 +155,13 @@ prices its whole input at the full input rate, an upper bound, because the provi
 **Verified.** `architect-agent.chat.test.ts` drives the real wiring with a scripted backend (no network, no spend): a Stop
 before any token is charged and listed; a missing cache report reads as unknown. `direct-providers.test.ts` streams a
 1-hour write and a cache read through the Anthropic transport. Each test goes red with its source at `origin/main`.
+
+**The prompt trim (#3533, owner's D4: "fix the wrong instructions and any stray gunk").** The chat's static prefix described
+every front-matter key. Fourteen are export and preview switches or raw-CSS escape hatches the agent has no reason to set on an
+edit (`ON_REQUEST_KEYS` in `architect-agent.ts`), and `lexicon:` and `acronyms:` were rows of their own for two older spellings
+of `terms:`. The prompt now lists the fourteen by name on one line, names the two spellings on the `terms:` row, and cuts a long
+row at a word instead of inside one. Measured with `gpt-tokenizer` (o200k): the static prefix goes from 7,901 to 7,489 tokens,
+**−412 on every request** in every mode. Nothing is lost: `read_front_matter` serves the whole table, and
+`e2e/chat-model-facing-strings.spec.ts` has the model ask for one of the fourteen and reads the full description in what the
+built Studio sent back. That case found a defect on the way: `read_front_matter` lowercased the key before matching, so the
+five camelCase keys (`backgroundColor` and the rest) had always read as "not a front-matter key". It now matches without case.

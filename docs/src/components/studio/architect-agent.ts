@@ -267,7 +267,7 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 	const index = [...byBucket.entries()]
 		.map(([b, list]) => `${b}: ${list.sort((x, y) => x.name.localeCompare(y.name)).map((c) => `${c.name} — ${oneLine(c.summary || c.description)}`).join('; ')}`)
 		.join('\n');
-	const fm = opts.frontMatterKeys.map((k) => `- ${k.key}: ${oneLine(k.info, 140)}`).join('\n');
+	const fm = promptFrontMatter(opts.frontMatterKeys);
 	const finishes = opts.finishes.map((f) => f.name).join(', ');
 	const guides = Object.entries(GUIDE_TOPICS).map(([k, v]) => `- ${k} — ${v}`).join('\n');
 	// The same authoring rules the one-shot primer carries, verbatim, so the agent and the
@@ -295,7 +295,32 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 
 function oneLine(s: unknown, n = 110): string {
 	const t = String(s ?? '').replace(/\s+/g, ' ').trim();
-	return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+	if (t.length <= n) return t;
+	// At a word, not inside one: a cut mid-word ("…the Studio sets it at e…") reads as a typo and carries nothing (#3533).
+	const cut = t.slice(0, n - 1);
+	const space = cut.lastIndexOf(' ');
+	return `${(space > n / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:·—–-]+$/, '')}…`;
+}
+
+/**
+ * Keys the chat's static prompt names but does not describe: export and preview switches the chat agent has no reason to set
+ * on an edit, and the raw-CSS escape hatches. Their rows cost about 395 tokens on every request (o200k, #3533) and several were
+ * cut mid-row. read_front_matter still serves each one in full, because the toolbox reads the whole table, and the prompt still
+ * lists their names, so the model knows they exist.
+ */
+export const ON_REQUEST_KEYS: ReadonlySet<string> = new Set(['present', 'read', 'fluid', 'player', 'debug', 'font-embedding', 'images', 'style', 'color', 'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize']);
+
+/** Older spellings the `terms:` row absorbs (lib/core/glossary-auto.mjs, set_terms): named on that row, not given their own. */
+export const TERM_ALIASES: readonly string[] = ['lexicon', 'acronyms'];
+
+/** The FRONT MATTER block's rows: one per key the chat may set, then the on-request keys by name. */
+export function promptFrontMatter(keys: readonly { key: string; info: string }[]): string {
+	const rows = keys
+		.filter((k) => !ON_REQUEST_KEYS.has(k.key) && !TERM_ALIASES.includes(k.key))
+		.map((k) => `- ${k.key}: ${oneLine(k.info, 140)}${k.key === 'terms' ? ` (${TERM_ALIASES.map((a) => `\`${a}:\``).join(' and ')} are older names for it, read the same way)` : ''}`);
+	const onRequest = keys.filter((k) => ON_REQUEST_KEYS.has(k.key)).map((k) => k.key);
+	if (onRequest.length) rows.push(`- Also read, for export, preview and raw CSS (read_front_matter describes each): ${onRequest.join(', ')}.`);
+	return rows.join('\n');
 }
 
 /** The per-turn brief: front matter, an outline with word counts against the budget, and
@@ -550,10 +575,13 @@ export function createToolbox(opts: {
 	}
 
 	async function readFrontMatter(keyRaw: unknown): Promise<string> {
-		const key = String(keyRaw ?? '').trim().replace(/:$/, '').toLowerCase();
-		const info = opts.frontMatterKeys.find((k) => k.key === key);
+		const asked = String(keyRaw ?? '').trim().replace(/:$/, '');
+		// Matched without case, then read under its own spelling: lowercasing the question alone made the five camelCase keys
+		// (backgroundColor, backgroundImage, …) unreadable, "not a front-matter key" (#3533).
+		const info = opts.frontMatterKeys.find((k) => k.key.toLowerCase() === asked.toLowerCase());
+		const key = info?.key ?? asked.toLowerCase();
 		const regs = await opts.library.registersDoc().catch(() => null);
-		const needle = `\`${key}:`;
+		const needle = `\`${key.toLowerCase()}:`;
 		const sec = regs ? mdSections(regs).find((s) => s.heading.toLowerCase().includes(needle)) : undefined;
 		if (!info && !sec) return `"${key}" is not a front-matter key Lattice reads. Known keys are listed in your system prompt.`;
 		note(`read how the ${key} setting works`);
