@@ -1871,8 +1871,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			webOrigins?: string[];
 			/** Internal: this render is the retry after the measured split FAILED for this slide. It draws each
 			 *  chart for the room its key insight takes (`measured: false`), as Present does, and runs only the
-			 *  structural split. Set by renderInto itself, never by a host. */
-			unmeasured?: boolean;
+			 *  structural split. It carries the failed render's start time and coalesce count, so the perf overlay
+			 *  reports the whole wait. Set by renderInto itself, never by a host. */
+			unmeasured?: { tStart: number; coalesced: number };
 		},
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
@@ -1910,7 +1911,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					canvas,
 					pending: false,
 					rerender: () => {
-						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown });
+						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown, unmeasured: undefined });
 					},
 				};
 				if (prev?.pending) prev.pending = false;
@@ -1938,7 +1939,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const mode = modeOverride ?? docMode;
 		// Perf-overlay timing: whole edit→paint span starts here (includes the
 		// usually-warm theme ensure below); per-stage deltas are taken inline.
-		const tStart = performance.now();
+		// An unmeasured retry keeps the failed render's start, so the overlay counts the measuring wait too.
+		const tStart = opts?.unmeasured?.tStart ?? performance.now();
 		// Consume the coalesce count DeckPreview stamped on the host for this render
 		// (edits collapsed by the debounce), synchronously here so it's bound to THIS
 		// render. Reset to 1 so a follow-up palette/rising-edge render (which doesn't
@@ -1958,7 +1960,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const claim = () => {
 			liveHost.__latticeOwnerGen = Math.max(liveHost.__latticeOwnerGen ?? 0, renderGen);
 		};
-		const coalesced = liveHost.__latticeCoalesce ?? 1;
+		const coalesced = opts?.unmeasured?.coalesced ?? liveHost.__latticeCoalesce ?? 1;
 		liveHost.__latticeCoalesce = 1;
 		// The perf overlay's SOURCE-BYTES figure means "how much markdown produced the slide on
 		// screen". Under deck context `markdown` is the whole deck, so reporting its length would
@@ -2364,7 +2366,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						if (measured) r = measured;
 						else if (mayMeasure && ms.measuredSplitWanted(slideSource)) measuredFailed = true;
 					}
-					if (measuredFailed) return renderInto(host, entryMarkdown, drawn, paletteOverride, extra, modeOverride, extraCss, { ...entryOpts, unmeasured: true });
+					if (measuredFailed) {
+						// The retry re-enters with a fresh turn, so `newerOwns` alone would let it paint over a newer render of
+						// this host (checker, 2026-11-27): stand down if one has started. DeckPreview never overlaps two renders on
+						// one host (its scheduler awaits each render), so there this never fires: a slow slide paints, then the
+						// queued render of the slide the author moved to follows. It guards a host that calls renderInto unqueued.
+						if (newerOwns() || liveHost.__latticeRenderGen !== renderGen) return { ok: false, slides: 0, error: 'renderer disposed' };
+						return renderInto(host, entryMarkdown, drawn, paletteOverride, extra, modeOverride, extraCss, { ...entryOpts, unmeasured: { tStart, coalesced } });
+					}
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);

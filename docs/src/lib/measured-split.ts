@@ -383,6 +383,13 @@ function noteUnmeasurable(k: string): void {
 	while (unmeasurable.size > PLAN_CACHE_CAP) unmeasurable.delete(unmeasurable.values().next().value as string);
 }
 
+// The layouts whose pause measurement read a fallback face and already settled the preview once.
+const fallbackSettled = new Set<string>();
+function noteFallbackSettled(k: string): void {
+	fallbackSettled.add(k);
+	while (fallbackSettled.size > PLAN_CACHE_CAP) fallbackSettled.delete(fallbackSettled.values().next().value as string);
+}
+
 /** How long the author must pause before an edited `fit: pack` slide is measured again (§17). */
 const MEASURE_SETTLE_MS = 700;
 /** The pending pause measurement per preview host; a newer render marks the old one stale. */
@@ -427,10 +434,11 @@ export async function studioPlan<S extends object>(o: {
 	source: string;
 	layout: string;
 	split: (plan: Record<string, unknown>) => S;
-	measure: (isCanceled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean }) | null>;
+	/** Null is a measurement that FAILED; undefined is one the preview called off (neither marks the layout). */
+	measure: (isCanceled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean }) | null | undefined>;
 	alive: () => boolean;
 }): Promise<Planned<S> | null> {
-	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean } | null) => {
+	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean } | null | undefined) => {
 		if (!m) return;
 		// A plan measured with a fallback face is used for this render only: the next render of this
 		// layout measures again, once the face has loaded (checker, 2026-11-05). Its MEMORY is not kept
@@ -460,9 +468,11 @@ export async function studioPlan<S extends object>(o: {
 	if (!last) {
 		const m = await o.measure(() => false);
 		if (!o.alive()) return null;
-		if (!m) noteUnmeasurable(o.layout);
+		// Only a real failure marks the layout: a measurement called off (the host torn down, even if it is back
+		// now) says nothing about whether this text can be measured (checker, 2026-11-27).
+		if (m === null) noteUnmeasurable(o.layout);
 		keep(m);
-		return m;
+		return m ?? null;
 	}
 	const entry = { timer: 0 as unknown as ReturnType<typeof setTimeout>, stale: false };
 	const ready = () => !entry.stale && o.alive();
@@ -476,6 +486,13 @@ export async function studioPlan<S extends object>(o: {
 			o.measure(() => entry.stale).then((m) => {
 				if (!ready() || !m) return;
 				keep(m);
+				// A plan read with a fallback face is not cached, so the re-render below finds the last plan and schedules
+				// this pass again: while a face never loads, that loop would measure every pause. Settle the preview once
+				// per layout with it; an edit, a resize or a theme change is a new layout (checker, 2026-11-27).
+				if (m.fontsLoaded === false) {
+					if (fallbackSettled.has(o.layout)) return;
+					noteFallbackSettled(o.layout);
+				}
 				o.host.dispatchEvent(new Event('lattice:measured-split-ready'));
 			});
 		const idle = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
@@ -549,7 +566,8 @@ export async function previewPlan(o: {
 		measure: (isCanceled) =>
 			measuredSplitInFrame({ html, split: cut, buildDoc, runtimeUrl: o.runtimeUrl, scriptNonce: o.scriptNonce, verdictConfig, width, height, memory: fitMemoryFor(key, source), cancelled: () => !alive() || isCanceled() }).catch((e) => {
 				// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
-				if (!isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
+				if (isCanceledMeasure(e)) return undefined;
+				console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
 				return null;
 			}),
 	});

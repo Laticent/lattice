@@ -132,6 +132,32 @@ describe('studioPlan', () => {
 		await studioPlan(edited);
 		expect(measure).toHaveBeenCalledTimes(2);
 	});
+
+	it('a measurement called off is not a failure: the next render measures again', async () => {
+		const { o, measure } = harness(fresh(), 'text A');
+		measure.mockResolvedValueOnce(undefined as never);
+		expect(await studioPlan(o)).toBeNull();
+		await studioPlan(o);
+		expect(measure).toHaveBeenCalledTimes(2);
+	});
+
+	it('a pause measurement that read a fallback face settles the preview once, not at every pause', async () => {
+		const key = fresh();
+		await studioPlan(harness(key, 'v1').o);
+		const { o, host, measure } = harness(key, 'v2');
+		measure.mockResolvedValue({ html: 'm', plan: plan([1, 3]), memory: {}, fontsLoaded: false });
+		const ready = vi.fn();
+		host.addEventListener('lattice:measured-split-ready', ready);
+		// The first pause settles the preview with the fallback plan...
+		await studioPlan(o);
+		await vi.runAllTimersAsync();
+		expect(ready).toHaveBeenCalledTimes(1);
+		// ...and the re-render that event fires (the plan is not cached) measures again, but does not fire it again.
+		await studioPlan(o);
+		await vi.runAllTimersAsync();
+		expect(measure).toHaveBeenCalledTimes(2);
+		expect(ready).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('isCanceledMeasure', () => {
