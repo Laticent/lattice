@@ -59,7 +59,8 @@ describe('buildLatticePrimer — the authoring dossier', () => {
   test('lists a layout’s variants with a compose example', async () => {
     const { buildLatticePrimer } = await load();
     const p = buildLatticePrimer(SAMPLE);
-    assert.match(p, /Variants: banner-tag \(append to the class, e\.g\. `decision banner-tag`\)\./);
+    // Variants go in the record's `class=` since writers emit `@meta` (#3433); "append to the class" taught the comment form.
+    assert.match(p, /Variants: banner-tag \(add to `class=`, e\.g\. `@meta\{layout=decision, class=banner-tag\}`\)\./);
   });
 
   test('carries real slot contracts but skips generic "Slide heading." slots', async () => {
@@ -117,7 +118,7 @@ describe('buildLatticePrimer — the authoring dossier', () => {
     // base list-tabular skeleton (numbered/nested) still present …
     assert.match(p, /````\n<!-- _class: list-tabular -->[\s\S]*1\. First entry\n {3}- Description\./);
     // … plus the metric variant's distinct grammar (numbered + `value` pill).
-    assert.match(p, /`list-tabular metric` is authored differently — Values in tiles\.:/);
+    assert.match(p, /`list-tabular` with `class=metric` is authored differently — Values in tiles\.:/);
     assert.match(p, /````\n<!-- _class: list-tabular metric -->[\s\S]*1\. Build path `334 \/ 334`/);
     // the rule that primes the model to expect per-variant structure.
     assert.match(p, /variant can change a layout’s authoring STRUCTURE/);

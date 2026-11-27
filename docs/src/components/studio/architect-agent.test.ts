@@ -4,7 +4,7 @@ import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, buildAgentSystem, CANON_CARD_LINE, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
@@ -72,6 +72,18 @@ describe('the system prompt', () => {
 		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
 		for (const n of ['@note{…}', '@say{…}', '@alt{…}', '@handout{…}']) expect(sys).toContain(`<!-- ${n} -->`);
 		expect(sys).not.toContain(['<!--', 'note:'].join(' '));
+	});
+
+	it('states the card-nesting rule once: the contract keeps it, the shorter canon copy is dropped (#3531)', async () => {
+		const { deckCanon } = await loadArchitectAuthoring();
+		const canon = String(deckCanon.DECK_CANON);
+		// The filter is keyed on the canon's own line: if the canon rewords it, this goes red instead of duplicating again.
+		expect(canon.split('\n').some((l) => l.startsWith(CANON_CARD_LINE))).toBe(true);
+		const sys = buildAgentSystem({ canon, catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		expect(sys).not.toContain(CANON_CARD_LINE);
+		expect(sys).toContain('NESTED bullets');
+		// The rest of the canon still rides along.
+		expect(sys).toContain('HOW A BOARDROOM DECK WORKS');
 	});
 
 	it('is byte-stable for the same inputs (the cache prefix)', () => {

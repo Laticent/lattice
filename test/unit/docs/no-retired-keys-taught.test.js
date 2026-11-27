@@ -75,10 +75,6 @@ const SANCTIONED = {
     why: "the diagnostics table names what each rule reports: `stray-overflow-marker`'s retired key, and `say:` as an unknown `terms:` field",
     keys: { 'overflow-marker': 1, say: 1 },
   },
-  'lib/use-cases/preview_speech/preview_speech.use-case.json': {
-    why: "the `say:` wording waits on the owner's decision D4 (#3531); leave it until that lands",
-    keys: { say: 2 },
-  },
 };
 
 // Phrases that mark a mention as history rather than instruction. Deliberately narrow: a common word such as "was",

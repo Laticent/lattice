@@ -255,6 +255,9 @@ const PURPOSE = [
 	'- Be economical. Answer in a few short paragraphs at most; use lists only when they carry structure.',
 ].join('\n');
 
+/** How the deck canon's card-nesting line starts (lib/authoring/deck-canon.js). */
+export const CANON_CARD_LINE = '• CARD-style layouts nest';
+
 /** The always-on reference: the authoring contract, what exists, and where to read more.
  *  Byte-stable for a given catalog (the cache prefix). */
 export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[]; frontMatterKeys: { key: string; info: string }[]; themes: string[]; finishes: { name: string; blurb?: string }[] }): string {
@@ -274,10 +277,17 @@ export function buildAgentSystem(opts: { canon: string; catalog: AgentComponent[
 	// The same authoring rules the one-shot primer carries, verbatim, so the agent and the
 	// on-device path cannot drift on the contract.
 	const rules = (AUTHORING_RULES as string[]).map((r) => `- ${r}`).join('\n');
+	// The canon's one-line card-nesting rule is a shorter copy of the AUTHORING CONTRACT's (which adds the 3-space
+	// indent under `1.`), so the agent reads it once. The one-shot paths keep it: they carry no contract.
+	const canon = opts.canon
+		.trim()
+		.split('\n')
+		.filter((l) => !l.startsWith(CANON_CARD_LINE))
+		.join('\n');
 	return [
 		PURPOSE,
 		`AUTHORING CONTRACT\n${rules.trim()}\n- A slide has four notes, each a comment after the slide's content whose whole body is \`@name{…}\`: \`<!-- @note{…} -->\` (speaker notes, for the presenter; detail cut from a slide goes here), \`<!-- @say{…} -->\` (the exact words the voice and the captions read), \`<!-- @alt{…} -->\` (alt text, for someone who cannot see the slide) and \`<!-- @handout{…} -->\` (for someone reading the deck alone, later). Braces in a note must balance. A plain comment reaches nothing; never write one as a note. Read the speaker-notes guide only for \`@say\`, review comments or the notes rubric.`,
-		opts.canon.trim(),
+		canon,
 		`COMPONENTS — the value of \`layout=\` in \`<!-- @meta{layout=NAME} -->\`. read_component gives the skeleton, variants and budget.\n${index}`,
 		`FRONT MATTER — deck-level keys in the leading \`---\` block. read_front_matter gives a key's values and behavior.\n${fm}`,
 		`THEMES (\`theme:\`): ${opts.themes.join(', ')}`,
