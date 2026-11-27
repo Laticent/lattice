@@ -333,17 +333,22 @@ test('a blank slide in a deck with a front matter header and page numbers is a t
 
 /**
  * Start the walk's jump to the last slide and leave the frame RESTING between where it started and where it was going,
- * in one task, so nothing that follows races the jump's smooth scroll. The frame's own End keydown is the jump (the shell
- * key, `onDeckKey`); an instant `scrollTo` straight after it cancels that scroll, as a scroll that stamps no input does.
+ * in one task. The page runs with REDUCED MOTION (`emulateMedia`), so the jump is an instant scroll and there is no
+ * animation for anything to race: a smooth one starts on the next frame and, under load, still ran on to the last slide
+ * after a `scrollTo` meant to cancel it (1 run in 10 at `--workers=4`). The guard holds an instant jump exactly as it holds
+ * a smooth one, because it compares where the frame is with where the jump was going. The frame's own End keydown is the
+ * jump (the shell key, `onDeckKey`); an instant `scrollTo` in the same task moves the frame back off the target, as a
+ * scroll that stamps no input does, so the one scroll event that follows reports a frame between the two.
  * Then the clock freezes a little past the jump's own stamp (`armedAt`): the guard's ceiling can never pass, so only a
  * reader's input can release it.
  */
 async function jumpAndRest(page: Page): Promise<number> {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
 	const total = Number((await walkPos(page)).split('/')[1]);
 	await page.evaluate(() => {
 		const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window;
 		w.document.dispatchEvent(new (w as unknown as typeof globalThis).KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
-		w.scrollTo({ top: w.scrollY + 300, behavior: 'instant' });
+		w.scrollTo({ top: w.scrollY - 300, behavior: 'instant' });
 	});
 	await expect.poll(() => walkPos(page)).toBe(`${total} / ${total}`);
 	await page.clock.setFixedTime(Date.now() + 50);
@@ -381,7 +386,9 @@ test('a key that scrolls the preview mid-jump hands the walk to the reader, not 
 	await mapOn(page);
 	const total = await jumpAndRest(page);
 	await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
-	await page.keyboard.press(' ');
+	// Shift+Space scrolls UP, away from the jump's target: a scroll that reached the target would release the guard by
+	// arrival, and the test would pass without the stamp it is about.
+	await page.keyboard.press('Shift+ ');
 	await barFollowsReader(page, total);
 });
 
@@ -415,7 +422,8 @@ test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not
 		expect(thumb.width, 'this browser draws a classic scrollbar').toBeGreaterThan(0);
 		await page.mouse.move(thumb.x, thumb.y);
 		await page.mouse.down();
-		await page.mouse.move(thumb.x, thumb.y + 60, { steps: 4 });
+		// Up, away from the jump's target, for the reason the key test gives.
+		await page.mouse.move(thumb.x, thumb.y - 60, { steps: 4 });
 		await page.mouse.up();
 		await barFollowsReader(page, total);
 	} finally {
