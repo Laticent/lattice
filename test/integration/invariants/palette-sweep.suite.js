@@ -97,13 +97,16 @@ const DECKS = [
     id: 'gallery',
     deck: path.join(ROOT, 'test/integration/baseline-decks/gallery.md'),
     // See UNSWEPT below — these are per-deck because the drop set is a property of what
-    // the deck renders, not of the sweep.
-    unswept: 11, foreign: 5, ambiguous: 6, sheets: 1, minRows: 400,
+    // the deck renders, not of the sweep. `foreign` was 5 until #3496: four of those runs were
+    // flowchart NODE labels, which Mermaid inked itself. Flowchart node labels now take
+    // `--text-heading` from our sheet (mermaid.styles.css "FLOWCHART NODES"), so they follow the
+    // swap and are scored, and `no palette exceeds its recorded ceiling` holds them.
+    unswept: 7, foreign: 1, ambiguous: 6, sheets: 1, minRows: 400,
   },
   {
     id: 'gallery-jargon',
     deck: path.join(ROOT, 'examples/gallery-jargon.md'),
-    unswept: 10, foreign: 5, ambiguous: 5, sheets: 1, minRows: 400,
+    unswept: 6, foreign: 1, ambiguous: 5, sheets: 1, minRows: 400,
   },
 ];
 
@@ -233,8 +236,8 @@ const CEILING = {
 /**
  * Runs dropped from the per-palette scores, pinned so the coverage given up stays visible.
  *
- * FIVE because a third-party stylesheet inside an `<svg>` paints one of their channels —
- * Mermaid's baked edge-label pills — and SIX because their `runKey` (`page|tag|class|text`)
+ * ONE because a third-party stylesheet inside an `<svg>` paints one of its channels —
+ * Mermaid's baked edge-label pill — and SIX because their `runKey` (`page|tag|class|text`)
  * is not unique and the colliding members paint differently, so a per-key verdict describes
  * neither of them.
  *
@@ -380,7 +383,8 @@ function defineSweep(deckId) {
      * a page emits only the sets it references, a hue-carried render carries neither, and
      * the count is exactly the one genuinely third-party sheet.
      *
-     * The proof that nothing was lost is in the NEXT test, not this one: `foreign` (5) and
+     * The proof that nothing was lost is in the NEXT test, not this one: `foreign` (5 then;
+     * 1 since #3496 inks flowchart node labels from our sheet) and
      * `ambiguous` (6/5) are unchanged on both decks across the same 32-palette sweep. Had
      * either of our sheets been supplying paint, dropping it from the disable set would
      * have moved those numbers.
