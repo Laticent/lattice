@@ -5,7 +5,7 @@ recorded: 2026-11-23
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §HARD RULES #33 and #34
-deferred: blocked — every await in the stretch is now bounded and logged (the shipped fix); which one stalled the nightly needs the next failing run's trace, which now names it
+deferred: blocked — every await in the stretch is bounded and logged (the shipped fix); the nightly trace rules out a network stall, and which in-page await stalled needs the next failing trace, which now names it
 source: https://github.com/Laticent/lattice/pull/3457
 ---
 
@@ -71,9 +71,15 @@ two renders — switching narration audio on starts the panel's quote, a full de
             `player-core` loads after the click are the quote's render finishing, not the export's. The export's own
             render is the one that stalls. No lock or shared single-flight between the two was found in
             render-engine.ts, theme-fetch.ts, ensure-charts.ts or the code-package door.
-not named — the nightly trace's network list was not re-read for a `themes/lattice.css` request left open. If the next
-            failing run's trace shows `load the theme: started` with no `done`, the cause is that fetch, and the next
-            fix is the full sheet's fetch itself (a fetch with no answer, on a 1.2 MB file the page fetches once). Today
-            a retry in the same tab waits on that same memoized, never-settling fetch, which is why the error says to
-            reload. Still unbounded, outside this stretch: `buildFontEmbedCss` under "Embedding fonts…".
-
+nightly   — re-read 2026-11-27 (artifact studio-e2e-45159654897-shard-2, the gecko trace of the failing "Retry-After
+            exposed" arm, by HTTP range reads): `themes/lattice.css` answered 200 in 62 ms, 3.3 s BEFORE the click, and
+            NO request of any kind was left open. After the click the only requests are the quote's `font-embed` and
+            `player-core`, then the Studio's idle warm queue at +3.2 s. So the held-back `lattice.css` reproduces the
+            shape, not the cause. Nothing on the export's path made a request: the stall is an await with no network
+            behind it (a memoized promise that never settles, or a loader that waits on an event that never fires), or
+            the click never reached `shareHtmlPlayer` at all.
+not named — which of those. The next failing trace now answers it: no `lattice export … status “Rendering the deck…”`
+            line means the click never started the export (look at ShareSheet `run` and the panel's `launch`); a
+            `<step>: started` with no `done` names the await. A retry in the same tab waits on the same never-settling
+            promise, which is why the error says to reload. Still unbounded, outside this stretch: `buildFontEmbedCss`
+            under "Embedding fonts…".

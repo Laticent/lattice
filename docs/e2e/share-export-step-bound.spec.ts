@@ -8,14 +8,15 @@
 //
 // Here the whole base sheet (`themes/lattice.css`) is never answered. The Studio's own preview draws from the style
 // loader's subset and never needs it; the export asks for the whole sheet, so its "load the theme" step waits on a
-// request that never ends. That is the one held-back wait that reproduced the nightly trace exactly: no `deck-export`
-// request and no capture document. The test waits for the page to report that it started that step (a signal, not a
+// request that never ends: no `deck-export` request and no capture document follow, the nightly trace's shape. It is a
+// way to hold one step back on demand, not the nightly's cause: in that trace the sheet had answered 200 before the
+// click (followups.d/3457). The test waits for the page to report that it started that step (a signal, not a
 // duration), then moves the page's clock past the bound, and reads the toast.
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 const DECK = '---\ntheme: indaco\n---\n\n# Bounded\n\n---\n\n## Second slide\n\nA line of text.\n';
 
-test('@gecko a Webpage export whose theme never arrives stops with an error naming the step', async ({ page, context }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a Webpage export whose theme never arrives stops with an error naming the step', async ({ page, context }) => {
 	const held: string[] = [];
 	// Never answered and never aborted: the request stays open, as a stalled fetch does.
 	await context.route(
@@ -35,6 +36,9 @@ test('@gecko a Webpage export whose theme never arrives stops with an error nami
 	// Time flows as normal until `fastForward`; the clock only lets the test reach the bound without waiting it out.
 	await page.clock.install();
 	await gotoStudio(page);
+	// What is under test is the export's waits, not a layout: every project drives it at a desktop box, where the editor is in
+	// view (a phone box hides it behind the Read pane), as share-narration-rate-limit.spec.ts does. The engines stay real.
+	await page.setViewportSize({ width: 1440, height: 900 });
 	await setEditorContent(page, DECK);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await page.getByRole('button', { name: /Webpage/ }).click();
@@ -49,4 +53,9 @@ test('@gecko a Webpage export whose theme never arrives stops with an error nami
 	expect(progress.some((l) => /load the theme: failed/.test(l)), 'the progress log names the stalled step').toBe(true);
 	expect(progress.some((l) => l.includes('render the deck: started')), 'nothing past the stalled step ran').toBe(false);
 	expect(exporterRequests, 'the exporter was never loaded').toEqual([]);
+	// The message says to try again, so the button must be free to press: enabled, and not under the toast. A trial click
+	// runs Playwright's actionability checks, including that nothing covers the point it would press.
+	const again = page.getByRole('button', { name: /Download webpage/ });
+	await expect(again).toBeEnabled();
+	await again.click({ trial: true });
 });
