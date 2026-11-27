@@ -19,8 +19,12 @@ const TOOL_ROUND = (usage: Record<string, unknown>) => [
 ];
 const ANSWER = 'Slide one opens on the claim it should.';
 
-async function connect(page: Page) {
-	await page.setViewportSize({ width: 1440, height: 900 });
+/** Every test runs at the three widths the Studio ships to (desktop, tablet, phone): the dialog and the menu change form. */
+const WIDTHS = [1440, 820, 390] as const;
+const HEIGHT: Record<number, number> = { 1440: 900, 820: 1180, 390: 844 };
+
+async function connect(page: Page, width: number) {
+	await page.setViewportSize({ width, height: HEIGHT[width] });
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -66,100 +70,102 @@ async function metrics(page: Page) {
 	return menu;
 }
 
-test('a normal turn: each call shows its cached share, and the total is exact @crosswidth @webkit-phone @gecko', async ({ page }) => {
-	test.setTimeout(90_000);
-	await connect(page);
-	await twoRounds(page, { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 } }, { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006, prompt_tokens_details: { cached_tokens: 16500 } });
-	await gotoStudio(page);
-	await openChatAtWidth(page, 1440);
-	await ask(page, 'does slide one open well?');
-	await expect(page.getByText(ANSWER)).toBeVisible({ timeout: 30_000 });
+for (const width of WIDTHS) {
+	test(`a normal turn at ${width}px: each call shows its cached share, and the total is exact @crosswidth @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(90_000);
+		await connect(page, width);
+		await twoRounds(page, { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 } }, { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006, prompt_tokens_details: { cached_tokens: 16500 } });
+		await gotoStudio(page);
+		await openChatAtWidth(page, width);
+		await ask(page, 'does slide one open well?');
+		await expect(page.getByText(ANSWER)).toBeVisible({ timeout: 30_000 });
 
-	const menu = await metrics(page);
-	await menu.getByRole('button', { name: 'Context window: show details' }).click();
-	// 16.5K of the last call's 18.4K came from cache.
-	await expect(menu.getByText('90%', { exact: true })).toBeVisible();
-	await page.keyboard.press('Escape');
+		const menu = await metrics(page);
+		await menu.getByRole('button', { name: 'Context window: show details' }).click();
+		// 16.5K of the last call's 18.4K came from cache.
+		await expect(menu.getByText('90%', { exact: true })).toBeVisible();
+		await page.keyboard.press('Escape');
 
-	const { rows, total } = await ledger(page);
-	await expect(rows).toHaveText(['$0.011 · 17K in (16K cached) · 80 out', '$0.006 · 18K in (17K cached) · 60 out']);
-	await expect(total).toHaveText(/^Total \$0\.017 · 35K input over 2 calls, 18K at most in one$/);
-	await page.screenshot({ path: test.info().outputPath('ledger-normal.png'), animations: 'disabled' });
-});
-
-test('a turn with no cache report: the ledger and the menu say "unknown", never 0 @crosswidth @webkit-phone @gecko', async ({ page }) => {
-	test.setTimeout(90_000);
-	await connect(page);
-	// No `prompt_tokens_details` in either usage block: the provider said nothing about its cache.
-	await twoRounds(page, { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011 }, { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006 });
-	await gotoStudio(page);
-	await openChatAtWidth(page, 1440);
-	await ask(page, 'does slide one open well?');
-	await expect(page.getByText(ANSWER)).toBeVisible({ timeout: 30_000 });
-
-	const menu = await metrics(page);
-	await menu.getByRole('button', { name: 'Context window: show details' }).click();
-	const cacheRow = menu.getByText('Read from cache').locator('..');
-	await expect(cacheRow).toContainText('unknown');
-	await expect(cacheRow).not.toContainText('0%');
-	await page.keyboard.press('Escape');
-
-	const { rows } = await ledger(page);
-	await expect(rows).toHaveText(['$0.011 · 17K in (cache unknown) · 80 out', '$0.006 · 18K in (cache unknown) · 60 out']);
-	await page.screenshot({ path: test.info().outputPath('ledger-unknown.png'), animations: 'disabled' });
-});
-
-test('a turn stopped mid-stream: the stopped call is charged as an estimate and marked as one @crosswidth @webkit-phone @gecko', async ({ page }) => {
-	test.setTimeout(90_000);
-	await connect(page);
-	await page.route('https://openrouter.ai/**', async (route) => {
-		const url = route.request().url();
-		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+		const { rows, total } = await ledger(page);
+		await expect(rows).toHaveText(['$0.011 · 17K in (16K cached) · 80 out', '$0.006 · 18K in (17K cached) · 60 out']);
+		await expect(total).toHaveText(/^Total \$0\.017 · 35K input over 2 calls, 18K at most in one$/);
+		await page.screenshot({ path: test.info().outputPath(`ledger-normal-${width}.png`), animations: 'disabled' });
 	});
-	// The completions stream lives in the page: page.route answers a request whole, and a Stop needs a stream the provider is
-	// still sending. Round 1 answers in full; round 2 sends one chunk and then waits, until the author's Stop aborts it.
-	await page.addInitScript(
-		({ round1 }) => {
-			const real = window.fetch.bind(window);
-			let n = 0;
-			window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-				const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-				if (!url.startsWith('https://openrouter.ai/api/v1/chat/completions')) return real(input, init);
-				n++;
-				if (n === 1) return new Response(round1, { status: 200, headers: { 'content-type': 'text/event-stream' } });
-				const signal = init?.signal;
-				const chunk = new TextEncoder().encode(`data: ${JSON.stringify({ id: 'g2', choices: [{ index: 0, delta: { content: 'Tightening slide two' } }] })}\n\n`);
-				const body = new ReadableStream<Uint8Array>({
-					start(c) {
-						c.enqueue(chunk);
-						signal?.addEventListener('abort', () => c.error(new DOMException('The user aborted a request.', 'AbortError')));
-					},
-				});
-				return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
-			};
-		},
-		{ round1: sse(TOOL_ROUND({ prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 } })) },
-	);
-	await gotoStudio(page);
-	await openChatAtWidth(page, 1440);
-	await ask(page, 'tighten slide two');
-	// The second call is streaming: its first words are on screen and the turn is still open.
-	await expect(page.getByText('Tightening slide two')).toBeVisible({ timeout: 30_000 });
-	await page.getByRole('button', { name: 'Stop' }).click();
-	await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
 
-	const menu = await metrics(page);
-	await menu.getByRole('button', { name: 'This session: show details' }).click();
-	// The reply's cost includes the stopped call's estimate, and the menu says so.
-	await expect(menu.getByText('Last reply').locator('..')).toContainText('≈ $');
-	await page.keyboard.press('Escape');
+	test(`a turn with no cache report at ${width}px: the ledger and the menu say "unknown", never 0 @crosswidth @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(90_000);
+		await connect(page, width);
+		// No `prompt_tokens_details` in either usage block: the provider said nothing about its cache.
+		await twoRounds(page, { prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011 }, { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 18460, cost: 0.006 });
+		await gotoStudio(page);
+		await openChatAtWidth(page, width);
+		await ask(page, 'does slide one open well?');
+		await expect(page.getByText(ANSWER)).toBeVisible({ timeout: 30_000 });
 
-	const { dialog, rows, total } = await ledger(page);
-	await expect(rows).toHaveCount(2);
-	await expect(rows.nth(0)).toHaveText('$0.011 · 17K in (16K cached) · 80 out');
-	// Round 2 never reported its usage: our estimate, at the full input rate, with no cache figure to show.
-	await expect(rows.nth(1)).toHaveText(/^≈ \$\d+\.\d+ · ≈ [\d.]+K in \(cache unknown\) · \d+ out$/);
-	await expect(dialog.getByText('stopped, estimated')).toBeVisible();
-	await expect(total).toHaveText(/^Total ≈ \$\d/);
-	await page.screenshot({ path: test.info().outputPath('ledger-stopped.png'), animations: 'disabled' });
-});
+		const menu = await metrics(page);
+		await menu.getByRole('button', { name: 'Context window: show details' }).click();
+		const cacheRow = menu.getByText('Read from cache').locator('..');
+		await expect(cacheRow).toContainText('unknown');
+		await expect(cacheRow).not.toContainText('0%');
+		await page.keyboard.press('Escape');
+
+		const { rows } = await ledger(page);
+		await expect(rows).toHaveText(['$0.011 · 17K in (cache unknown) · 80 out', '$0.006 · 18K in (cache unknown) · 60 out']);
+		await page.screenshot({ path: test.info().outputPath(`ledger-unknown-${width}.png`), animations: 'disabled' });
+	});
+
+	test(`a turn stopped mid-stream at ${width}px: the stopped call is charged as an estimate and marked as one @crosswidth @webkit-phone @gecko`, async ({ page }) => {
+		test.setTimeout(90_000);
+		await connect(page, width);
+		await page.route('https://openrouter.ai/**', async (route) => {
+			const url = route.request().url();
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+		});
+		// The completions stream lives in the page: page.route answers a request whole, and a Stop needs a stream the provider is
+		// still sending. Round 1 answers in full; round 2 sends one chunk and then waits, until the author's Stop aborts it.
+		await page.addInitScript(
+			({ round1 }) => {
+				const real = window.fetch.bind(window);
+				let n = 0;
+				window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+					const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+					if (!url.startsWith('https://openrouter.ai/api/v1/chat/completions')) return real(input, init);
+					n++;
+					if (n === 1) return new Response(round1, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+					const signal = init?.signal;
+					const chunk = new TextEncoder().encode(`data: ${JSON.stringify({ id: 'g2', choices: [{ index: 0, delta: { content: 'Tightening slide two' } }] })}\n\n`);
+					const body = new ReadableStream<Uint8Array>({
+						start(c) {
+							c.enqueue(chunk);
+							signal?.addEventListener('abort', () => c.error(new DOMException('The user aborted a request.', 'AbortError')));
+						},
+					});
+					return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+				};
+			},
+			{ round1: sse(TOOL_ROUND({ prompt_tokens: 17000, completion_tokens: 80, total_tokens: 17080, cost: 0.011, prompt_tokens_details: { cached_tokens: 16000 } })) },
+		);
+		await gotoStudio(page);
+		await openChatAtWidth(page, width);
+		await ask(page, 'tighten slide two');
+		// The second call is streaming: its first words are on screen and the turn is still open.
+		await expect(page.getByText('Tightening slide two')).toBeVisible({ timeout: 30_000 });
+		await page.getByRole('button', { name: 'Stop' }).click();
+		await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
+
+		const menu = await metrics(page);
+		await menu.getByRole('button', { name: 'This session: show details' }).click();
+		// The reply's cost includes the stopped call's estimate, and the menu says so.
+		await expect(menu.getByText('Last reply').locator('..')).toContainText('≈ $');
+		await page.keyboard.press('Escape');
+
+		const { dialog, rows, total } = await ledger(page);
+		await expect(rows).toHaveCount(2);
+		await expect(rows.nth(0)).toHaveText('$0.011 · 17K in (16K cached) · 80 out');
+		// Round 2 never reported its usage: our estimate, at the full input rate, with no cache figure to show.
+		await expect(rows.nth(1)).toHaveText(/^≈ \$\d+\.\d+ · ≈ [\d.]+K in \(cache unknown\) · \d+ out$/);
+		await expect(dialog.getByText('stopped, estimated')).toBeVisible();
+		await expect(total).toHaveText(/^Total ≈ \$\d/);
+		await page.screenshot({ path: test.info().outputPath(`ledger-stopped-${width}.png`), animations: 'disabled' });
+	});
+}
