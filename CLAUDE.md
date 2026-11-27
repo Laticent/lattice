@@ -422,7 +422,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     path. A follow-up is never the home for a defect in a surface this PR tells authors to
     use: a lint that steers authors into a broken form ships the form's fix, not a
     warning and a follow-up.
-  *(discipline — no automated gate; the test is whether a reviewer can point at a
+  *(partly gated, `checkFollowups`; the test is whether a reviewer can point at a
   surface that regressed across your change, or a known defect you walked past and left
   unrecorded.)*
 - **#19 — A performance change ships with evidence, not a claim.** Any change that
