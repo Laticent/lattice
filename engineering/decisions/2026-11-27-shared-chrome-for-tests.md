@@ -262,10 +262,18 @@ launching their own Chrome, as they do today. None of arms (a) to (d) will be bu
 the suite, the CLI or CI changes. `tools/shared-chrome-lab/` stays, because its baseline arm times every
 launch and can serve if the launch timeout is chased again.
 
-The decision is about sharing only. The calco-chips launch timeout that started this note is still
-open. PR #3577 hunted it under HARD RULE #33 and could not reproduce it in 4,469 timed launches, so the
-test now reports the machine's state if it times out again, and the cause is tracked in
-`followups.d/3577-p1-calco-chips-launch-timeout-cause.md`.
+The decision is about sharing only.
+
+**Still open: the calco-chips launch timeout.** PR #3577 hunted it under HARD RULE #33 and could not
+reproduce it. Its 4,469 timed launches, with calco-chips' exact options, never failed and never took
+longer than 1.93 s. They covered a quiet machine, an `npm run build` loop, that loop plus
+`test:integration:pr`, and twice the release desk's overlap: a `git clone --no-hardlinks` plus `npm ci`
+beside the tier. On that sandbox it ruled out D-Bus (no socket, so it fails fast), fontconfig, disk space,
+`/dev/shm` and leaked temp profiles. calco-chips now launches through `launchOrExplain`
+(`test/helpers/chrome.js`). On the next failure, that helper appends the wait, load, free memory, live Chrome
+processes and temp space to the error, and that line is where to start. It names the cause only if the
+cause shows in those fields. The test stays owned by the flake desk's claim
+(`claim:test:test/integration/export/calco-chips.test.js#before`) until the cause is fixed.
 
 ## Recommendation (as written before the decision)
 
