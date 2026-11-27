@@ -1,4 +1,4 @@
-import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
+import { expect, gotoStudio, openArchitect, openChatAtWidth, test } from './studio-fixture';
 
 // WHAT THE MODEL READS, ON THE REAL SURFACE (#3531). The unit tests hold the strings in their builders; this reads
 // the request the BUILT Studio sends, so a string that a unit test pins but the shipped bundle never carries still
@@ -12,6 +12,9 @@ import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 //   · a full-slide photo is `image` with `class=spotlight`; there is no `bleed` layout.
 //   · the deck canon names no `escalateTo` field, which the model never sees.
 //   · the language directive keeps `@meta{…}` records untranslated, not `_class` directives.
+//   · `glossary:` is built from `terms:`, which absorbs `acronyms:`.
+//   · the edit-block protocol (the Coach's finding fix, not the chat agent) asks for the slide from its `@meta{…}` line
+//     and names no ```chart fence.
 
 const MODELS = [{ id: 'test/model', name: 'Test Model', context_length: 100000, pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: ['text'] }, top_provider: { max_completion_tokens: 8000 } }];
 const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
@@ -74,7 +77,51 @@ test('the chat request carries the corrected tool descriptions and system prompt
 	expect(system).not.toContain('skeleton below');
 	expect(system).toContain('`@meta{…}` records exactly as given');
 	expect(system).not.toContain('`_class` directives exactly as given');
+	expect(system).toContain('built from the terms: definitions');
+	expect(system).not.toContain('acronyms: definitions');
 
 	await test.info().attach('chat-request.json', { body: JSON.stringify(bodies[0], null, 2), contentType: 'application/json' });
 	await page.screenshot({ path: test.info().outputPath('chat-model-facing-strings-1440.png') });
+});
+
+test('the Coach finding fix carries the corrected edit-block protocol @crosswidth @webkit-phone @gecko', async ({ page }) => {
+	// The edit protocol rides the one-shot paths (architect-fix.js, deckSystem), never the chat agent, so the first
+	// test cannot see it. A finding fix on the seeded deck is the request that carries it.
+	test.setTimeout(90_000);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-or-model', 'test/model');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	});
+	const bodies: { messages: Msg[] }[] = [];
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+			return;
+		}
+		const body = JSON.parse(route.request().postData() || '{}');
+		bodies.push(body);
+		const reply = 'The slide already reads well; no change.';
+		if (body.stream) await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse([{ id: 'f1', choices: [{ index: 0, delta: { content: reply } }] }, { id: 'f1', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: USAGE }]) });
+		else await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'f1', choices: [{ index: 0, message: { role: 'assistant', content: reply }, finish_reason: 'stop' }], usage: USAGE }) });
+	});
+	await gotoStudio(page);
+	await openArchitect(page);
+	await page.getByRole('button', { name: /^Fix (≈|·)/ }).first().click();
+	await expect.poll(() => bodies.length, { timeout: 30_000 }).toBeGreaterThan(0);
+
+	const system = bodies[0].messages.filter((m) => m.role === 'system').map((m) => text(m.content)).join('\n');
+	expect(system).toContain('give the WHOLE slide (its `@meta{…}` line through its last line)');
+	expect(system).not.toContain('the `_class` line through');
+	expect(system).toContain('```mermaid / ```math fences');
+	expect(system).not.toContain('```chart fences');
+	// The primer rides this request too: its variant line is the record form.
+	expect(system).toMatch(/Variants: [^\n]*\(add to `class=`, e\.g\. `@meta\{layout=/);
+	await test.info().attach('fix-request.json', { body: JSON.stringify(bodies[0], null, 2), contentType: 'application/json' });
 });
