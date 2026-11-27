@@ -329,7 +329,7 @@ test('a probe makes one max_tokens-1 call, judges nothing, and the table shows n
   assert.match(fs.readFileSync(path.join(out, 'summary.md'), 'utf8'), /\| test\/cheap \| retrieval \| current \| 1 \| — \|/);
 });
 
-test('every call sends a fixed reasoning effort, low by default, and reads the reasoning tokens back', async () => {
+test('complete sends the effort it is given, none by default, and reads the reasoning tokens back', async () => {
   const { complete, parseArgs } = await load();
   const bodies = [];
   const fetchImpl = async (_url, init) => {
@@ -342,14 +342,14 @@ test('every call sends a fixed reasoning effort, low by default, and reads the r
       }),
     };
   };
-  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }] }, { fetchImpl, now: () => 0 });
+  const r = await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: 'low' }, { fetchImpl, now: () => 0 });
   assert.deepEqual(bodies[0].reasoning, { effort: 'low' });
   assert.equal(r.reasoningTokens, 5990);
-  await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }], reasoning: 'default' }, { fetchImpl, now: () => 0 });
-  assert.equal('reasoning' in bodies[1], false, '--reasoning default sends no reasoning object');
-  assert.equal(parseArgs([]).reasoning, 'low');
+  await complete({ model: 'test/cheap', messages: [{ role: 'user', content: 'x' }] }, { fetchImpl, now: () => 0 });
+  assert.equal('reasoning' in bodies[1], false, 'no effort given sends no reasoning object');
+  assert.equal(parseArgs([]).reasoning, 'auto');
   assert.equal(parseArgs(['--reasoning', 'high']).reasoning, 'high');
-  assert.throws(() => parseArgs(['--reasoning', 'none']), /one of low/, 'none is refused: a model that must reason rejects it');
+  assert.throws(() => parseArgs(['--reasoning', 'none']), /one of auto, low/, 'none is refused: a model that must reason rejects it');
 });
 
 test('a reply that reasoned through the whole budget fails as "no deck was written", and the run passes its effort on', async (t) => {
@@ -367,4 +367,20 @@ test('a reply that reasoned through the whole budget fails as "no deck was writt
   assert.equal(summary.reasoning, 'medium');
   assert.equal(summary.rows[0].reasoningTokens, 6000);
   assert.match(summary.rows[0].problems[0], /reasoning spent the whole max_tokens budget \(6000 of 6000 tokens\): no deck was written/);
+});
+
+test('auto sends low only to a model that reasons by default, and a probe never asks for reasoning', async (t) => {
+  const { effortFor, MODELS, run, parseArgs } = await load();
+  assert.equal(effortFor(MODELS.deepseek, 'auto'), 'low');
+  assert.equal(effortFor(MODELS.haiku, 'auto'), 'default', 'Haiku thinks only when asked: auto must not switch it on');
+  assert.equal(effortFor(MODELS.haiku, 'high'), 'high');
+  assert.equal(effortFor(MODELS.deepseek, 'high', true), 'default', 'a probe allows 1 output token');
+  // The stub prices every model like test/cheap, so the run reaches its calls.
+  const anyPrice = async () => ({ ok: true, json: async () => ENDPOINTS });
+  const calls = [];
+  await run(parseArgs(['--arm', 'start', '--model', MODELS.haiku, '--limit', '1', '--out', tmpDir(t)]), { ...deps(t, calls), fetchImpl: anyPrice });
+  assert.equal(calls[0].reasoning, 'default');
+  const probe = [];
+  await run(parseArgs(['--arm', 'retrieval', '--model', MODELS.deepseek, '--probe', '--out', tmpDir(t)]), { ...deps(t, probe), fetchImpl: anyPrice });
+  assert.equal(probe[0].reasoning, 'default');
 });

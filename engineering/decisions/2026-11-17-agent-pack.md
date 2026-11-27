@@ -217,8 +217,11 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
 - **Records.** Every deck's row holds model, arm, old or new, brief, repeat, lint errors and
   warnings, pass or fail, tokens in and out, OpenRouter's cost and latency, in `summary.json`, and
   `summary.md` tabulates them with each row's sample size.
-- **A fixed reasoning effort.** Every call sends `reasoning: { effort: 'low' }` unless `--reasoning`
-  says otherwise. Reasoning tokens come out of `max_tokens`, and the first live DeepSeek V4.1 Flash
+- **A fixed reasoning effort.** `--reasoning auto`, the default, sends `reasoning: { effort: 'low' }`
+  to a model that reasons by default (`REASONS_BY_DEFAULT`, today DeepSeek V4.1 Flash) and no
+  reasoning object to the rest. Asking Haiku for an effort would switch its thinking on, which
+  Anthropic refuses at temperature 0, and would change what earlier Haiku nights measured. A probe
+  never sends one: it allows a single output token. The workflow takes a `reasoning` input. Reasoning tokens come out of `max_tokens`, and the first live DeepSeek V4.1 Flash
   run (46068425702, 2026-11-27) spent all 6,000 of them reasoning on every deck and returned no
   text: ten FAILs for USD 0.0193, with nothing judged. A fixed effort also keeps old and new
   `start.md` on equal terms. `none` is refused, because a model that must reason rejects it. A row

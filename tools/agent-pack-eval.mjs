@@ -33,11 +33,12 @@
  *               The arm must be start or retrieval. The retrieval arm serves the CURRENT kit to both.
  *   --repeat    runs each brief n times, with seed = repeat index; pass --temperature above 0, or the
  *               repeats only measure the provider's own nondeterminism.
- *   --reasoning the reasoning effort sent to every call: low (default), minimal, medium, high, or
- *               default to send none and leave it to the model. Reasoning tokens come out of max_tokens,
- *               so a model left to reason as it likes can spend the whole budget thinking and return no
- *               deck (DeepSeek V4.1 Flash did, run 46068425702). `none` is refused: a model that must
- *               reason rejects it. Old and new start.md always get the same effort.
+ *   --reasoning the reasoning effort sent to every deck call. auto (default) sends low to a model that
+ *               reasons by default (REASONS_BY_DEFAULT) and nothing to the rest; low, minimal, medium or
+ *               high sends that; default sends nothing. Reasoning tokens come out of max_tokens, so a
+ *               model left to reason as it likes can spend the whole budget thinking and return no deck
+ *               (DeepSeek V4.1 Flash did, run 46068425702). `none` is refused: a model that must reason
+ *               rejects it. A probe never sends one. Old and new start.md always get the same effort.
  *   --probe     one max_tokens-1 call per system file: what the prompt costs in tokens on this model (R0).
  *               Anthropic and Gemini have free token counters; use this only where none exists.
  *
@@ -78,7 +79,19 @@ export const ARMS = {
 };
 
 /** Reasoning efforts --reasoning takes. `none` is left out on purpose: a model that must reason rejects it. */
-export const REASONING = ['low', 'minimal', 'medium', 'high', 'default'];
+export const REASONING = ['auto', 'low', 'minimal', 'medium', 'high', 'default'];
+/**
+ * Models that reason unless told otherwise, so `auto` sends them `low`. Every other model gets no
+ * reasoning object: asking Haiku for an effort would switch its thinking on, which Anthropic refuses
+ * at temperature 0 and below 1,024 tokens, and would change what the nightly measures.
+ */
+export const REASONS_BY_DEFAULT = new Set([MODELS.deepseek]);
+/** The effort a call sends: a probe never asks for reasoning (it allows 1 output token); `auto` follows the model. */
+export function effortFor(model, effort, probe = false) {
+  if (probe) return 'default';
+  if (effort !== 'auto') return effort;
+  return REASONS_BY_DEFAULT.has(model) ? 'low' : 'default';
+}
 const MAX_TOKENS = 6000;
 /** The retrieval arm serves at most this many files, and at most this many bytes of them in all. */
 export const SERVE_MAX_FILES = 6;
@@ -308,7 +321,7 @@ export function worstCase(promptTokens, maxTokens, price) {
 }
 
 /** One chat completion. Returns what OpenRouter reported; a call cut at max_tokens returns, so its cost still counts. */
-export async function complete({ model, messages, maxTokens = MAX_TOKENS, temperature = 0, seed, reasoning = 'low' }, { fetchImpl = fetch, now = Date.now } = {}) {
+export async function complete({ model, messages, maxTokens = MAX_TOKENS, temperature = 0, seed, reasoning = 'default' }, { fetchImpl = fetch, now = Date.now } = {}) {
   const t0 = now();
   const res = await fetchImpl(`${API}/chat/completions`, {
     method: 'POST',
@@ -412,7 +425,7 @@ export function parseArgs(argv, date = new Date()) {
     limit: num('--limit', BRIEFS.length, (v) => Number.isInteger(v) && v >= 1),
     repeat: num('--repeat', 1, (v) => Number.isInteger(v) && v >= 1),
     temperature: num('--temperature', 0, (v) => v >= 0 && v <= 2),
-    reasoning: reasoningOf(val('--reasoning', 'low')),
+    reasoning: reasoningOf(val('--reasoning', 'auto')),
     maxUsd: num('--max-usd', 1, (v) => v > 0),
     old: old ? path.resolve(old) : null,
     new: val('--new') ? path.resolve(val('--new')) : null,
@@ -488,7 +501,7 @@ async function runJob(job, opts, deps, spent) {
     if (spent.usd + ceiling > opts.maxUsd) throw new CapStop(`USD ${spent.usd.toFixed(4)} spent; the next call could cost up to USD ${ceiling.toFixed(4)}, past the USD ${opts.maxUsd} cap`);
     let r;
     try {
-      r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat, reasoning: opts.reasoning }, deps);
+      r = await deps.complete({ model: job.model, messages, maxTokens, temperature: opts.temperature, seed: job.repeat, reasoning: effortFor(job.model, opts.reasoning, job.probe) }, deps);
     } catch (err) {
       // A call that failed or timed out may still have been billed for what it generated: count its ceiling.
       row.cost += ceiling;

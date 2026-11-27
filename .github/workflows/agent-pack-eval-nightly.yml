@@ -39,6 +39,10 @@ on:
         description: 'Sampling temperature.'
         required: false
         default: '0'
+      reasoning:
+        description: 'Reasoning effort: auto (low for a model that reasons by default, none sent to the rest), low, minimal, medium, high, or default.'
+        required: false
+        default: 'auto'
       max_usd:
         description: 'Hard cap in USD; the run stops before a call could cross it.'
         required: false
@@ -116,6 +120,7 @@ jobs:
           MODEL: ${{ inputs.model }}
           REPEAT: ${{ inputs.repeat }}
           TEMPERATURE: ${{ inputs.temperature }}
+          REASONING: ${{ inputs.reasoning }}
           MAX_USD: ${{ inputs.max_usd }}
           OLD_REF: ${{ inputs.old_ref }}
           PROBE: ${{ inputs.probe }}
@@ -124,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           args=(--out eval-out --arm "${ARM:-retrieval}" --model "${MODEL:-nightly}" --repeat "${REPEAT:-1}"
-                --temperature "${TEMPERATURE:-0}" --max-usd "${MAX_USD:-0.25}")
+                --temperature "${TEMPERATURE:-0}" --reasoning "${REASONING:-auto}" --max-usd "${MAX_USD:-0.25}")
           if [ -n "${OLD_REF:-}" ]; then args+=(--old "$RUNNER_TEMP/old-start.md"); fi
           if [ "${PROBE:-false}" = 'true' ]; then args+=(--probe); fi
           node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
