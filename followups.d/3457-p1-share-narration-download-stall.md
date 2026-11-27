@@ -5,7 +5,7 @@ recorded: 2026-11-23
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §HARD RULES #33 and #34
-deferred: blocked — narrowed from a failing trace to one stretch of shareHtmlPlayer, but not to one await; needs a failing run that records the export's progress
+deferred: blocked — every await in the stretch is now bounded and logged (the shipped fix); which one stalled the nightly needs the next failing run's trace, which now names it
 source: https://github.com/Laticent/lattice/pull/3457
 ---
 
@@ -39,3 +39,33 @@ done when — the stalled await is named. Have the test record each `onStatus` m
 evidence  — a failing run (nightly or loaded gecko) whose trace carries the export's progress messages.
 verify    — tier 1, since the change would touch the export pipeline: a checker, plus the export sign-off if the
             exported bytes can change.
+
+## 2026-11-27 — bounded and logged (the fix that shipped)
+
+shipped   — `shareHtmlPlayer` runs every wait from its start through the player tools' imports through `exportStep`
+            (share-export.ts): load the engine, load the math fonts, load the theme, read the Library photos, render the
+            deck, load the exporter, load the player tools. Each is bounded at `EXPORT_STEP_MS` (60 s) and ends in a
+            toast naming the step ("Webpage failed: the step “load the theme” did not finish within 60 s…"). Each logs
+            `lattice export +<ms> ms: <step>: started / done / failed`, and every progress line, to `console.debug`,
+            which a trace keeps. `e2e/share-export-step-bound.spec.ts` pins the error; `share-export.test.ts` pins the
+            bound.
+measured  — each wait held back in turn on gecko, the narrated 30-slide deck, 40 s after the click:
+            - the theme-step request `themes/lattice.css`, held from page load: NO download, NO `deck-export` request,
+              NO capture document, no speech request. That is the nightly trace's shape. The Studio's preview never
+              needs that file (it draws from the style loader's subset). The export asks for the whole sheet, and in a
+              quiet sandbox the page's idle backstop has usually fetched it before the click. Holding it only from the
+              click changed nothing, because it was already cached.
+            - `themes/indaco.css` from the click: no effect (cached before the click).
+            - `deck-export`, `font-embed`, `player-core` chunks from the click: NO download, but `deck-export` WAS
+              requested, which is not the nightly's shape.
+            - `font-embed` and `player-core` load at +30–80 ms after the click from the Studio's warm queue
+              (`warmNarrationProjection`), not from `shareHtmlPlayer`. So their loading in the nightly trace says
+              nothing about how far the export got.
+            Under load, unfixed and fixed: gecko 20 of 20 green (`--workers=4 --repeat-each=10`, 4 CPU-burning loops
+            alongside); webkit-phone: see the PR.
+not named — the nightly trace's network list was not re-read for a `themes/lattice.css` request left open. If the next
+            failing run's trace shows `load the theme: started` with no `done`, the cause is that fetch, and the next
+            fix is the full sheet's fetch itself (a fetch with no answer, on a 1.2 MB file the page fetches once). Today
+            a retry in the same tab waits on that same memoized, never-settling fetch, which is why the error says to
+            reload. Still unbounded, outside this stretch: `buildFontEmbedCss` under "Embedding fonts…".
+

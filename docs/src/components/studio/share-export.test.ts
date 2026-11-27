@@ -180,3 +180,52 @@ describe('the code-package stamp an export writes (#3292)', () => {
 		expect(withoutStampNonce('.a { color: red }')).toBe('.a { color: red }');
 	});
 });
+
+// The bound on the first stretch of a Webpage export (followups.d/3457): a step that never answers ends in an error
+// naming it, and the progress log records each step's start and end.
+describe('exportStep', () => {
+	const clock = () => 0;
+
+	it('passes the step’s value through and logs its start and end', async () => {
+		const { exportStep } = await import('./share-export');
+		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		await expect(exportStep('load the theme', async () => 'indaco', clock)).resolves.toBe('indaco');
+		expect(log.mock.calls.map((c) => c[0])).toEqual(['lattice export +0 ms: load the theme: started', 'lattice export +0 ms: load the theme: done']);
+		log.mockRestore();
+	});
+
+	it('rejects with an error naming the step when the step never answers', async () => {
+		const { exportStep, ExportStepTimeoutError, EXPORT_STEP_MS } = await import('./share-export');
+		vi.useFakeTimers();
+		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		try {
+			const stalled = exportStep('load the theme', () => new Promise<never>(() => {}), clock);
+			const caught = stalled.catch((e: unknown) => e);
+			await vi.advanceTimersByTimeAsync(EXPORT_STEP_MS - 1);
+			expect(vi.getTimerCount(), 'still waiting one millisecond before the bound').toBe(1);
+			await vi.advanceTimersByTimeAsync(1);
+			const e = (await caught) as InstanceType<typeof ExportStepTimeoutError>;
+			expect(e).toBeInstanceOf(ExportStepTimeoutError);
+			expect(e.step).toBe('load the theme');
+			expect(e.message).toMatch(/^the step “load the theme” did not finish within 60 s, so the export stopped\./);
+			expect(log.mock.calls.at(-1)?.[0]).toMatch(/load the theme: failed/);
+		} finally {
+			log.mockRestore();
+			vi.useRealTimers();
+		}
+	});
+
+	it('passes a step’s own failure through unchanged and clears its timer', async () => {
+		const { exportStep } = await import('./share-export');
+		vi.useFakeTimers();
+		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		try {
+			const boom = new Error('theme indaco (500)');
+			await expect(exportStep('load the theme', () => Promise.reject(boom), clock)).rejects.toBe(boom);
+			expect(vi.getTimerCount(), 'no bound left running').toBe(0);
+		} finally {
+			log.mockRestore();
+			vi.useRealTimers();
+		}
+	});
+});
