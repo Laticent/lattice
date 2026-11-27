@@ -2565,12 +2565,17 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    surface the change reaches and the command for each: the Playwright engines
    (Chromium at three widths, `webkit-phone`, `webkit-tablet`, `gecko`), the
    PR render slice (`test:integration:pr`, which PR CI no longer runs: §Merge queue — the
-   facts), and a `workflow_dispatch` of the matching macOS / Windows / iOS
-   Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
-   "Not installed" is not a stop (#23).
-   When a platform suite needs more than one round, use the **warm harness** rather
-   than re-dispatching: it builds once and takes `/harness` commands from the PR
-   (`engineering/development.md` §Platform suites).
+   facts), and, as an `optional` row, a `workflow_dispatch` of the matching macOS /
+   Windows / iOS Simulator platform suites. Run every `local` row and dispatch every
+   `dispatch` row. "Not installed" is not a stop (#23).
+   **The platform suites are dispatch-only and never a card-grade requirement** (owner,
+   2026-11-27: off the merge path, nightly paused, because they were too flaky to run
+   unattended). The checker does not hold the grade below `VERY HIGH` for a suite that did
+   not run, and the loop does not dispatch one to raise the card. A claim about a real
+   macOS, Windows or iOS device stays **UNVERIFIED** (#23) unless a dispatched suite went
+   green, and the card says so under `left behind`. If you do dispatch one and it needs more
+   than one round, use the **warm harness** rather than re-dispatching: it builds once and
+   takes `/harness` commands from the PR (`engineering/development.md` §Platform suites).
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.

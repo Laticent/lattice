@@ -31,7 +31,7 @@ the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps
 ## Nightly
 
 1. **Read** the latest runs of the nightly workflows (`*-nightly.yml`), `golden-bless.yml`,
-   `platform-suites.yml`, and `ci.yml` on `main`. Route by kind: a `perf-nightly`
+   `platform-suites.yml` (dispatch-only since 2026-11-27, so only a run someone dispatched), and `ci.yml` on `main`. Route by kind: a `perf-nightly`
    regression goes to `/desk-optimize`, a `skillspector-nightly` red to
    `/desk-security`, a red `ci.yml` on `main` that is not a test is yours to fix.
 2. **A red test** goes to `/desk-flaky` (HARD RULE #33 makes the first session after a
