@@ -111,7 +111,10 @@ export function reasons(f) {
   if (f.session && (f.commitMessages || []).some((m) => m.includes(`/${f.session}`))) {
     out.push(`#${pr} has commits from this night session (no self-approval)`);
   }
-  const ci = (f.checks || []).find((c) => c.name === 'ci' && c.app === 'github-actions');
+  // A head can carry several \`ci\` runs (a skipped draft run, a re-run): the newest one decides.
+  const ci = (f.checks || [])
+    .filter((c) => c.name === 'ci' && c.app === 'github-actions')
+    .sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')))[0];
   if (!ci) out.push(`no \`ci\` check from GitHub Actions on head ${short}`);
   else if (ci.conclusion !== 'success') out.push(`\`ci\` on head ${short} is ${ci.conclusion || ci.status}`);
   for (const red of f.redOnMain || []) out.push(`the latest ${red} run on main is red, so nothing merges tonight`);
@@ -209,7 +212,7 @@ export async function facts(pr, session, token) {
     files: files.map((f) => ({ filename: f.filename, previous: f.previous_filename })),
     breakingFragments,
     commitMessages: commits.map((c) => c.commit?.message || ''),
-    checks: checks.check_runs.map((c) => ({ name: c.name, app: c.app?.slug, status: c.status, conclusion: c.conclusion })),
+    checks: checks.check_runs.map((c) => ({ name: c.name, app: c.app?.slug, status: c.status, conclusion: c.conclusion, startedAt: c.started_at })),
     redOnMain: red,
     comments: comments.map((c) => ({ body: c.body || '', author: c.user?.login, createdAt: c.created_at, updatedAt: c.updated_at })),
   };

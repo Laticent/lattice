@@ -140,3 +140,11 @@ test('250 or more commits, the most GitHub lists, cannot all be read: no', () =>
   assert.match(why({ commitMessages: Array(250).fill('fix: x') }), /250 or more commits/);
   assert.deepEqual(reasons(good({ commitMessages: Array(249).fill('fix: x') })), []);
 });
+
+test('with several `ci` runs on the head, the newest decides, whatever order GitHub lists them in', () => {
+  const ok = { name: 'ci', app: 'github-actions', status: 'completed', conclusion: 'success', startedAt: '2026-11-21T22:00:00Z' };
+  const bad = { name: 'ci', app: 'github-actions', status: 'completed', conclusion: 'failure', startedAt: '2026-11-21T23:00:00Z' };
+  assert.match(why({ checks: [ok, bad] }), /`ci` on head abcdef1 is failure/);
+  assert.match(why({ checks: [bad, ok] }), /`ci` on head abcdef1 is failure/);
+  assert.deepEqual(reasons(good({ checks: [{ ...bad, startedAt: '2026-11-21T21:00:00Z' }, ok] })), []);
+});
