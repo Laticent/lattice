@@ -365,3 +365,53 @@ test('a key that scrolls the preview mid-jump hands the walk to the reader, not 
 		})
 		.toBe('follows');
 });
+
+test('a drag on the preview scrollbar mid-jump hands the walk to the reader, not to the jump', async ({ playwright }, testInfo) => {
+	// The same rule as the key test above, for the other input that scrolls the frame by itself: the reader dragging its
+	// scrollbar (`onDeckPress`, PlaygroundApp.tsx). Playwright's Chromium hides scrollbars by default
+	// (`--hide-scrollbars`), and so do its Firefox and WebKit here, so this one browser keeps them: a press on a real
+	// 15px scrollbar lands on the frame's <html> past its client width, which is what the stamp keys on.
+	const use = testInfo.project.use;
+	const browser = await playwright.chromium.launch({ ...use.launchOptions, ignoreDefaultArgs: ['--hide-scrollbars'] });
+	try {
+		const context = await browser.newContext({ baseURL: use.baseURL, viewport: use.viewport ?? null, storageState: use.storageState });
+		const page = await context.newPage();
+		await openExplore(page);
+		await mapOn(page);
+		const total = Number((await walkPos(page)).split('/')[1]);
+		// Where the frame's scrollbar is, in page coordinates: right of the document's client width, near the top.
+		const bar = await page.evaluate(() => {
+			const f = document.getElementById('preview') as HTMLIFrameElement;
+			const r = f.getBoundingClientRect();
+			const root = (f.contentDocument as Document).documentElement;
+			return { x: r.left + root.clientWidth + (f.clientWidth - root.clientWidth) / 2, y: r.top + 20, width: f.clientWidth - root.clientWidth };
+		});
+		expect(bar.width, 'this browser draws a classic scrollbar').toBeGreaterThan(0);
+		await page.mouse.move(bar.x, bar.y);
+		// End inside the frame is the jump; the clock freezes between the two (see the key test for why), then the drag.
+		await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.focus());
+		await page.keyboard.press('End');
+		await page.clock.setFixedTime(Date.now() + 50);
+		await page.mouse.down();
+		await page.mouse.move(bar.x, bar.y + 120, { steps: 4 });
+		await page.mouse.up();
+		await expect
+			.poll(async () => {
+				const at = (await walkPos(page)).split('/')[0].trim();
+				const shown = await page.evaluate(() => {
+					const f = document.getElementById('preview') as HTMLIFrameElement;
+					const h = (f.contentWindow as Window).innerHeight;
+					return Array.from(f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]') ?? [])
+						.filter((el) => {
+							const r = el.getBoundingClientRect();
+							return r.bottom > 0 && r.top < h;
+						})
+						.map((el) => el.getAttribute('data-lattice-slide') ?? '');
+				});
+				return at !== String(total) && shown.includes(at) ? 'follows' : `bar ${at}, on screen ${shown.join(',')}`;
+			})
+			.toBe('follows');
+	} finally {
+		await browser.close();
+	}
+});
