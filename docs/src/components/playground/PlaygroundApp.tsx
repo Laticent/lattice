@@ -1848,7 +1848,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *
 	 * NOT "still moving": a blocked main thread stops a smooth scroll between two looks, and that stillness is the
 	 * very case this exists for (tried, and the flake came back: 2 in 144). What lets go of a scroll the READER
-	 * cancelled is the input clock: the native scroll keys and a press on the frame's scrollbar stamp it
+	 * canceled is the input clock: the native scroll keys and a press on the frame's scrollbar stamp it
 	 * (`onDeckKey`, `onDeckPress`), so their scroll releases the guard as a wheel's does. `hardUntil` is the ceiling
 	 * over the rest: a scroll that never arrives does not hold the observer shut for good.
 	 */
