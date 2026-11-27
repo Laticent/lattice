@@ -232,7 +232,9 @@ whole effort, and real evidence over claims. So `tools/agent-pack-eval.mjs` chan
   Every other model gets `effort: 'minimal'`, because for an effort-only model OpenRouter only picks
   an effort from a token budget. The decks that passed wrote their text in about 800 to 1,500
   tokens, so 4,500 is enough room. `max_tokens` stays at 6,000, so the cost ceiling does not move.
-  `none` is refused, because a model that must reason rejects it. A probe never sends a setting.
+  A Claude model given a budget is sent no temperature, since Anthropic refuses one while thinking.
+  `--reasoning none` switches reasoning off. It is never the default, because a model that must
+  reason rejects it. A probe never sends a setting.
   Old and new `start.md` always get the same one. The workflow takes a `reasoning` input, a row
   records its reasoning tokens, and a reply that reasoned through its whole budget fails as "no deck
   was written". Whether `minimal` holds DeepSeek inside the budget is UNVERIFIED until the next run.

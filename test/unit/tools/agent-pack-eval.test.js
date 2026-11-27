@@ -349,7 +349,8 @@ test('complete sends the effort it is given, none by default, and reads the reas
   assert.equal('reasoning' in bodies[1], false, 'no effort given sends no reasoning object');
   assert.equal(parseArgs([]).reasoning, 'auto');
   assert.equal(parseArgs(['--reasoning', 'high']).reasoning, 'high');
-  assert.throws(() => parseArgs(['--reasoning', 'none']), /one of auto, low/, 'none is refused: a model that must reason rejects it');
+  assert.equal(parseArgs(['--reasoning', 'none']).reasoning, 'none', 'none is an explicit opt-in, never the default');
+  assert.throws(() => parseArgs(['--reasoning', 'off']), /one of auto, none/);
 });
 
 test('a reply that reasoned through the whole budget fails as "no deck was written", and the run passes its effort on', async (t) => {
@@ -385,4 +386,20 @@ test('auto bounds reasoning the way each provider honors it, and a probe never a
   const probe = [];
   await run(parseArgs(['--arm', 'retrieval', '--model', MODELS.deepseek, '--probe', '--out', tmpDir(t)]), { ...deps(t, probe), fetchImpl: anyPrice });
   assert.equal(probe[0].reasoning, null);
+});
+
+test('a reasoning budget goes to a Claude model without a temperature; an effort keeps it', async () => {
+  const { complete, REASONING_BUDGET } = await load();
+  const bodies = [];
+  const fetchImpl = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { cost: 0 } }) };
+  };
+  const msg = [{ role: 'user', content: 'x' }];
+  await complete({ model: 'anthropic/claude-haiku-5.5', messages: msg, reasoning: { max_tokens: REASONING_BUDGET } }, { fetchImpl, now: () => 0 });
+  await complete({ model: 'deepseek/deepseek-v4.1-flash', messages: msg, reasoning: { effort: 'minimal' } }, { fetchImpl, now: () => 0 });
+  await complete({ model: 'anthropic/claude-haiku-5.5', messages: msg }, { fetchImpl, now: () => 0 });
+  assert.equal('temperature' in bodies[0], false, 'Anthropic refuses a temperature change while thinking');
+  assert.equal(bodies[1].temperature, 0);
+  assert.equal(bodies[2].temperature, 0);
 });

@@ -38,8 +38,10 @@
  *               (runs 46068425702, 46073230172, 46073233625). auto (default) gives an Anthropic model a
  *               hard budget of REASONING_BUDGET tokens, the one control OpenRouter passes through exactly,
  *               and any other model effort minimal; low, minimal, medium or high sends that effort; default
- *               sends nothing. `none` is refused: a model that must reason rejects it. A probe never sends
- *               one. Old and new start.md always get the same setting.
+ *               sends nothing; none switches reasoning off. none is never the default: a model that must
+ *               reason rejects it, and each refused call still counts its ceiling against --max-usd. A
+ *               reasoning budget goes to a Claude model without a temperature, which Anthropic refuses
+ *               while thinking. A probe never sends a setting. Old and new start.md get the same one.
  *   --probe     one max_tokens-1 call per system file: what the prompt costs in tokens on this model (R0).
  *               Anthropic and Gemini have free token counters; use this only where none exists.
  *
@@ -79,8 +81,8 @@ export const ARMS = {
   retrieval: { file: 'start.md', model: process.env.AGENT_PACK_MODEL || MODELS.sonnet, turns: 2 },
 };
 
-/** Reasoning efforts --reasoning takes. `none` is left out on purpose: a model that must reason rejects it. */
-export const REASONING = ['auto', 'low', 'minimal', 'medium', 'high', 'default'];
+/** Reasoning settings --reasoning takes. `none` switches reasoning off; it is never the default, because a model that must reason rejects it. */
+export const REASONING = ['auto', 'none', 'low', 'minimal', 'medium', 'high', 'default'];
 /**
  * The reasoning budget `auto` gives an Anthropic model. OpenRouter uses `reasoning.max_tokens` directly
  * for Anthropic (minimum 1,024); for an effort-only model it only picks an effort from it, so those
@@ -332,7 +334,8 @@ export async function complete({ model, messages, maxTokens = MAX_TOKENS, temper
       model,
       messages,
       max_tokens: maxTokens,
-      temperature,
+      // Anthropic refuses a temperature change while thinking is on, so a reasoning budget to a Claude model goes without one.
+      ...(reasoning?.max_tokens && String(model).startsWith('anthropic/') ? {} : { temperature }),
       ...(seed === undefined ? {} : { seed }),
       ...(reasoning ? { reasoning } : {}),
       provider: { sort: 'price' },
