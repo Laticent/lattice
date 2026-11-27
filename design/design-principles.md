@@ -112,7 +112,7 @@ Accent colors for categories, levels, or themes extend this palette — they don
 - Optional subtle box-shadow (blur 8-16px, opacity 0.03-0.06)
 - Diagram containers: at least 0.8" margin from slide edges
 - Cards never touch slide edges — always padded inside
-- Card headers are auto-bolded by CSS on all card layouts — no `**...**` required in the Markdown. Writing `**text**` still works as a compatibility shim (it becomes a `<strong>` which CSS suppresses the redundant bold on)
+- Card headers are auto-bolded by CSS on all card layouts — no `**...**` required in the Markdown. Bold is emphasis, never structure: a `**bold**` word in a header is emphasis inside it, and it never splits a title or makes one (`lint:deck --fix` rewrites a bold lead to the nested form)
 - Card body is regular weight
 
 ## 1.9 Centering & Alignment

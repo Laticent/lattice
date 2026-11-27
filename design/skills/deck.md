@@ -192,6 +192,12 @@ RULE #5):
 - **Ingest.** Captures invoices from email.  ❌ card-style-inline-title lint error
 ```
 
+**Bold is emphasis, never structure.** No layout reads `**bold**` as a title,
+label, value or term — the item's own first line is. `- **Build** in region`
+on `decision` tags "Build in region"; a `math theorem` card's label is its
+`> ### Theorem.` heading. A bold lead on a structural layout is a `bold-lead`
+warning, and `npm run lint:deck -- --fix deck.md` rewrites it.
+
 ---
 
 ## What good looks like

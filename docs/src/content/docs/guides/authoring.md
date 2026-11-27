@@ -70,7 +70,7 @@ with one Markdown file per layout under `/agents/components/`.
 Some components offer several interchangeable looks over one authored content
 shape — you change one class and the same Markdown re-renders a different way,
 no re-authoring. The **`inventory`** component (an eyebrow, a title, a bulleted
-list with bold leads, and a closing insight) is the clearest example: its
+list of leads with their detail nested under each, and a closing insight) is the clearest example: its
 default is a numbered **ledger**, and three variants restyle the identical
 content:
 
