@@ -70,6 +70,25 @@ test('lattice lint --fix keeps CRLF line endings', (t) => {
   assert.doesNotMatch(out.replace(/\r\n/g, ''), /\n/, 'every line still ends in CRLF');
 });
 
+test('lattice lint --fix keeps a byte-order mark', (t) => {
+  const file = deckIn(t, `\uFEFF${OLD_DECK}`);
+  assert.equal(run('--fix', file).status, 0);
+  const out = fs.readFileSync(file, 'utf8');
+  assert.ok(out.startsWith('\uFEFF---\n'), 'the BOM is still the first character');
+  assert.match(out, /^chart-finish: tone ink$/m);
+});
+
+test('a missing file or an unknown option is a usage error, never a clean run', (t) => {
+  const file = deckIn(t, OLD_DECK);
+  const missing = run(path.join(path.dirname(file), 'nope.md'), file);
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /no such file: .*nope\.md/);
+  const typo = run('--fxi', file);
+  assert.equal(typo.status, 2);
+  assert.match(typo.stderr, /unknown option --fxi/);
+  assert.equal(fs.readFileSync(file, 'utf8'), OLD_DECK, 'a refused run writes nothing');
+});
+
 test('--json prints the findings as JSON', (t) => {
   const file = deckIn(t, OLD_DECK);
   const r = run('--json', file);

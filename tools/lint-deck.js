@@ -95,7 +95,7 @@ function narrationText(source) {
     .replace(/<!--\s*(?:@meta)?\{(?:(?!-->)[\s\S])*?-->/g, (rec) => rec.replace(/[\w-]+\s*=/g, ' '));
 }
 
-const main = (argv) => core.main(argv, { name: 'lint:deck', root: ROOT, discover: discoverDecks, exempt, narrationText });
+const main = (argv) => core.main(argv, { name: 'lint:deck', usage: 'npm run lint:deck --', root: ROOT, discover: discoverDecks, exempt, narrationText });
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(

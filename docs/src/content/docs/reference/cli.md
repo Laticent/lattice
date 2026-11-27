@@ -211,7 +211,8 @@ endings and a byte-order mark stay as the file had them.
 | `--no-review` | Leave out the advisory presentation suggestions |
 
 Exit codes: 0 when there is no error (no warning either, under `--strict`), 1
-when there is, 2 when no file matched. A suggestion never changes the exit code.
+when there is, 2 for a usage error: no file matched, a named file does not
+exist, or an option is unknown. A suggestion never changes the exit code.
 The Studio shows the same findings in its editor, and **Fix all** applies the
 same fixes.
 
