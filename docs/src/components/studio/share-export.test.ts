@@ -188,7 +188,7 @@ describe('exportStep', () => {
 
 	it('passes the step’s value through and logs its start and end', async () => {
 		const { exportStep } = await import('./share-export');
-		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const log = vi.spyOn(console, 'info').mockImplementation(() => {});
 		await expect(exportStep('load the theme', async () => 'indaco', clock)).resolves.toBe('indaco');
 		expect(log.mock.calls.map((c) => c[0])).toEqual(['lattice export +0 ms: load the theme: started', 'lattice export +0 ms: load the theme: done']);
 		log.mockRestore();
@@ -197,7 +197,7 @@ describe('exportStep', () => {
 	it('rejects with an error naming the step when the step never answers', async () => {
 		const { exportStep, ExportStepTimeoutError, EXPORT_STEP_MS } = await import('./share-export');
 		vi.useFakeTimers();
-		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const log = vi.spyOn(console, 'info').mockImplementation(() => {});
 		try {
 			const stalled = exportStep('load the theme', () => new Promise<never>(() => {}), clock);
 			const caught = stalled.catch((e: unknown) => e);
@@ -218,7 +218,7 @@ describe('exportStep', () => {
 	it('passes a step’s own failure through unchanged and clears its timer', async () => {
 		const { exportStep } = await import('./share-export');
 		vi.useFakeTimers();
-		const log = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		const log = vi.spyOn(console, 'info').mockImplementation(() => {});
 		try {
 			const boom = new Error('theme indaco (500)');
 			await expect(exportStep('load the theme', () => Promise.reject(boom), clock)).rejects.toBe(boom);

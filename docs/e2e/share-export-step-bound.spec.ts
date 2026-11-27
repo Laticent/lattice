@@ -4,7 +4,7 @@
 // the math faces, the Library photos, the render, the exporter's import. None of them was bounded, so one that never
 // answered left the author on "Rendering the deck…" with no error, and the nightly trace could not say which wait it was
 // (followups.d/3457; Studio e2e nightly run 45159654897). Each is now bounded by `exportStep`, and logs its start and end
-// to `console.debug`, which a trace keeps.
+// to `console.info`, which a trace keeps.
 //
 // Here the whole base sheet (`themes/lattice.css`) is never answered. The Studio's own preview draws from the style
 // loader's subset and never needs it; the export asks for the whole sheet, so its "load the theme" step waits on a
@@ -24,9 +24,9 @@ test('@gecko a Webpage export whose theme never arrives stops with an error nami
 			held.push(route.request().url());
 		},
 	);
-	const debug: string[] = [];
+	const progress: string[] = [];
 	page.on('console', (m) => {
-		if (m.type() === 'debug' && m.text().startsWith('lattice export')) debug.push(m.text());
+		if (m.type() === 'info' && m.text().startsWith('lattice export')) progress.push(m.text());
 	});
 	const exporterRequests: string[] = [];
 	page.on('request', (r) => {
@@ -40,13 +40,13 @@ test('@gecko a Webpage export whose theme never arrives stops with an error nami
 	await page.getByRole('button', { name: /Webpage/ }).click();
 	await page.getByRole('button', { name: /Download webpage/ }).click();
 
-	await expect.poll(() => debug.some((l) => l.includes('load the theme: started')), { message: 'the export reached its theme step' }).toBe(true);
+	await expect.poll(() => progress.some((l) => l.includes('load the theme: started')), { message: 'the export reached its theme step' }).toBe(true);
 	// The step logs its start BEFORE it fetches, so the request may land a moment after the log line: poll, don't read once.
 	await expect.poll(() => held.length, { message: 'the export asked for the whole base sheet' }).toBeGreaterThan(0);
 	await page.clock.fastForward(61_000);
 
 	await expect(page.getByText(/Webpage failed: the step “load the theme” did not finish within 60 s/)).toBeVisible();
-	expect(debug.some((l) => /load the theme: failed/.test(l)), 'the progress log names the stalled step').toBe(true);
-	expect(debug.some((l) => l.includes('render the deck: started')), 'nothing past the stalled step ran').toBe(false);
+	expect(progress.some((l) => /load the theme: failed/.test(l)), 'the progress log names the stalled step').toBe(true);
+	expect(progress.some((l) => l.includes('render the deck: started')), 'nothing past the stalled step ran').toBe(false);
 	expect(exporterRequests, 'the exporter was never loaded').toEqual([]);
 });

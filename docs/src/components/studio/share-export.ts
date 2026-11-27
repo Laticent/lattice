@@ -115,22 +115,23 @@ type ExportClock = () => number;
 
 /**
  * Run one export step under a bound, and log its start and its end with the time since the export began. The log goes
- * to `console.debug`, which a Playwright trace keeps, so a run that stalls names the step it stalled in. The bound
+ * to `console.info`, which a Playwright trace keeps, so a run that stalls names the step it stalled in. Not
+ * `console.debug`: a WebKit trace of a failing run kept its info, log and warning lines and none at debug. The bound
  * rejects with `ExportStepTimeoutError`; the step's own work is not cancelled (a fetch or an import cannot be), but
  * nothing waits on it any more.
  */
 export async function exportStep<T>(step: string, work: () => Promise<T>, clock: ExportClock, ms = EXPORT_STEP_MS): Promise<T> {
-	console.debug(`lattice export +${clock()} ms: ${step}: started`);
+	console.info(`lattice export +${clock()} ms: ${step}: started`);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const bound = new Promise<never>((_, reject) => {
 		timer = setTimeout(() => reject(new ExportStepTimeoutError(step, ms)), ms);
 	});
 	try {
 		const value = await Promise.race([work(), bound]);
-		console.debug(`lattice export +${clock()} ms: ${step}: done`);
+		console.info(`lattice export +${clock()} ms: ${step}: done`);
 		return value;
 	} catch (e) {
-		console.debug(`lattice export +${clock()} ms: ${step}: failed (${(e as Error)?.message ?? e})`);
+		console.info(`lattice export +${clock()} ms: ${step}: failed (${(e as Error)?.message ?? e})`);
 		throw e;
 	} finally {
 		clearTimeout(timer);
@@ -547,14 +548,14 @@ export async function shareHtmlPlayer(
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
 ): Promise<string | undefined> {
-	// THE PROGRESS LOG. Every status line, and every step up to the exporter's own import, goes to `console.debug` with the
+	// THE PROGRESS LOG. Every status line, and every step up to the exporter's own import, goes to `console.info` with the
 	// time since the click, and each of those steps is bounded (`exportStep`): before, one that never answered stalled
 	// the export with no error and a trace that could not say where (followups.d/3457).
 	const began = performance.now();
 	const clock = () => Math.round(performance.now() - began);
 	const shown = onStatus;
 	onStatus = (m: string) => {
-		console.debug(`lattice export +${clock()} ms: status “${m}”`);
+		console.info(`lattice export +${clock()} ms: status “${m}”`);
 		shown?.(m);
 	};
 	const step: StepBound = (name, work) => exportStep(name, work, clock);

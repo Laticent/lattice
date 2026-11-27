@@ -33,7 +33,7 @@ ruled out — `document.fonts.ready` in `ensureFontsLoaded` (font-embed.js). A r
             that wait is not where this stalls. Load alone does not explain it either: the export takes 32–107 s here
             under every load tried, and a sentence needs 9 refusals to fail, where the mock sends 6.
 done when — the stalled await is named. Have the test record each `onStatus` message with a timestamp: the panel's
-            progress line, or a `console.debug` from `shareHtmlPlayer`, which the trace keeps. Then fix it at its cause,
+            progress line, or a `console.info` from `shareHtmlPlayer`, which the trace keeps. Then fix it at its cause,
             or bound that await with a visible error as deck-export.js bounds its own, and add the HARD RULE #34
             evidence.
 evidence  — a failing run (nightly or loaded gecko) whose trace carries the export's progress messages.
@@ -46,7 +46,7 @@ shipped   — `shareHtmlPlayer` runs every wait from its start through the playe
             (share-export.ts): load the engine, load the math fonts, load the theme, read the Library photos, render the
             deck, load the exporter, load the player tools. Each is bounded at `EXPORT_STEP_MS` (60 s) and ends in a
             toast naming the step ("Webpage failed: the step “load the theme” did not finish within 60 s…"). Each logs
-            `lattice export +<ms> ms: <step>: started / done / failed`, and every progress line, to `console.debug`,
+            `lattice export +<ms> ms: <step>: started / done / failed`, and every progress line, to `console.info`,
             which a trace keeps. `e2e/share-export-step-bound.spec.ts` pins the error; `share-export.test.ts` pins the
             bound.
 measured  — each wait held back in turn on gecko, the narrated 30-slide deck, 40 s after the click:
