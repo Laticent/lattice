@@ -33,7 +33,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a Webpage export whose the
 	page.on('request', (r) => {
 		if (/\/deck-export\.[^/]*\.js$/.test(new URL(r.url()).pathname)) exporterRequests.push(r.url());
 	});
-	// Time flows as normal until `fastForward`; the clock only lets the test reach the bound without waiting it out.
+	// Time flows as normal until `pauseAt` below; the clock only lets the test reach the bound without waiting it out.
 	await page.clock.install();
 	await gotoStudio(page);
 	// The deck is typed at a desktop box, where the editor is in view (a phone box hides it behind the Read pane), as
