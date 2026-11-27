@@ -2,6 +2,5 @@
   jump to the last slide followed by "previous" could leave the walk bar on the last slide, or on a slide the reader
   never picked, and "first" then "next" could stay on slide 1. On a loaded page the first jump's smooth scroll ran past
   the time the walk waited for it, so the walk renamed itself from wherever the scroll was passing, the next step
-  started from that slide, and the scroll then landed somewhere else. The walk now waits for its own scroll until the
-  scroll arrives, up to four times the usual wait, and a jump always aims the preview at its slide, even when the
-  walk already names it.
+  started from that slide, and the scroll then landed somewhere else. The walk now waits for its own scroll while that
+  scroll is still moving toward its slide, up to four times the usual wait.

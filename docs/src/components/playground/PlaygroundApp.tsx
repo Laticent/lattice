@@ -411,7 +411,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  observer stops deferring to it. Cleared the moment the frame actually arrives.
 	 *  `from` and `to` are the offsets it left and is going to, and `hardUntil` is the latest
 	 *  the guard may hold while the scroll is still between the two: see `walkEnRoute`. */
-	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number; from: number; to: number; hardUntil: number } | null>(null);
+	const walkScrollRef = React.useRef<{ index: number; until: number; armedAt: number; from: number; to: number; hardUntil: number; lastY: number } | null>(null);
 	/** Fires when the guard above expires. The guard cannot be released by "the next scroll
 	 *  event" alone: a single jumping scroll inside the window is never followed by one, so
 	 *  the index stays where the step aimed while a different slide fills the pane. */
@@ -1842,14 +1842,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 * let go at 1.2s, the observer renamed the walk to slide 11 from the offset the scroll was passing, and the next
 	 * step started from there while the scroll went on to slide 14 — the bar read "14 / 14" after "Map, previous
 	 * slide", or "1 / 14" after "Next". So the window decides only once the scroll has stopped being ours. The same
-	 * rule as the Edit sync's `enRoute` (lib/playground-sync.ts), for the same failure. `hardUntil` is the ceiling:
-	 * a scroll that never arrives (a clamp, a cancelled animation) does not hold the observer shut for good.
+	 * rule as the Edit sync's `enRoute` (lib/playground-sync.ts), for the same failure.
+	 *
+	 * STILL MOVING, too, measured since the last time this asked. A native scroll that stamps no input (a scrollbar
+	 * drag, an arrow key or Space inside the frame) can cancel ours and leave the frame resting between the two
+	 * offsets; without this the guard would hold it for the whole ceiling, four times the window it used to hold. So
+	 * past the window the guard looks again every `SCROLL_IDLE_MS`, and lets go at the first look that finds the
+	 * frame where the last one left it. A page too busy to look is a page whose scroll moved by the next look.
+	 * `hardUntil` is the ceiling over all of it. Records the offset it read, so it is not a pure question.
 	 */
-	const walkEnRoute = React.useCallback((p: { armedAt: number; from: number; to: number; hardUntil: number }) => {
+	const walkEnRoute = React.useCallback((p: { armedAt: number; from: number; to: number; hardUntil: number; lastY: number }) => {
 		if (Date.now() >= p.hardUntil || userInputAtRef.current > p.armedAt) return false;
 		const y = frameRef.current?.contentWindow?.scrollY;
 		if (y == null) return false;
-		return Math.abs(y - p.to) >= 1 && y >= Math.min(p.from, p.to) - 1 && y <= Math.max(p.from, p.to) + 1;
+		const moved = Math.abs(y - p.lastY) >= 1;
+		p.lastY = y;
+		return moved && Math.abs(y - p.to) >= 1 && y >= Math.min(p.from, p.to) - 1 && y <= Math.max(p.from, p.to) + 1;
 	}, []);
 	const scrollWalk = React.useCallback((smooth: boolean) => {
 		const frame = frameRef.current;
@@ -1870,7 +1878,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 		const window_ms = animated ? 1200 : 400;
 		// `to` is filled in below, once the destination is computed; until then nothing reads it.
-		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now, from: win.scrollY, to: win.scrollY, hardUntil: now + window_ms * WALK_GUARD_CEILING };
+		walkScrollRef.current = { index: w.index, until: now + window_ms, armedAt: now, from: win.scrollY, to: win.scrollY, hardUntil: now + window_ms * WALK_GUARD_CEILING, lastY: win.scrollY };
 		// ARM A TIMER TOO, not just a deadline other code checks when it happens to run. The
 		// deadline alone is only ever read from `onDeckScroll`, so it needs a LATER scroll to
 		// take effect — and the case it exists for is precisely a scroll with no successor
@@ -1885,7 +1893,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// STILL ON ITS WAY: the window is a guess at how long the scroll takes, and a loaded page
 			// takes longer. Hold, and look again, until the scroll arrives or the ceiling passes.
 			if (walkEnRoute(p)) {
-				guardTimerRef.current = setTimeout(expire, Math.min(window_ms, Math.max(40, p.hardUntil - Date.now())));
+				guardTimerRef.current = setTimeout(expire, Math.min(SCROLL_IDLE_MS, Math.max(40, p.hardUntil - Date.now())));
 				return;
 			}
 			walkScrollRef.current = null;
@@ -2091,19 +2099,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			userInputAtRef.current = Date.now(); // Home/End and the Step list are the reader too
 			const count = w.kind === 'plan' ? w.plan.slides.length : w.count;
 			const ni = Math.max(0, Math.min(count - 1, i));
-			// A JUMP NAMES A SLIDE, so it scrolls there even when the index already names it. The index and the frame
-			// are not always in the same place: a step's smooth scroll that outlives its 1200ms guard (a loaded page)
-			// is renamed from the frame mid-flight, and it goes on traveling. Measured on the built Playground at
-			// `?c=kpi` with the map open, the page stalled 250ms in every 500: "Map, last slide" set 14 / 14 and
-			// scrolled toward slide 14; 1.6s later, still short of it, the observer renamed the walk to slide 13;
-			// "Map, previous slide" then asked for slide 13, found the index already there and returned without a
-			// scroll, and the old scroll arrived on slide 14 and took the bar back to "14 / 14". The step was gone,
-			// in 2 runs of 48 (`playground-map.spec.ts`, "first, last, previous and next"). Re-aiming costs nothing
-			// when the frame is already there: the scroll goes to where it is.
-			if (ni === w.index) {
-				scrollWalk(true);
-				return;
-			}
+			if (ni === w.index) return;
 			const moved: Walk = { ...w, index: ni };
 			setWalk(moved);
 			walkRef.current = moved;
