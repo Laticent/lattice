@@ -65,7 +65,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`typing in flight 
 			el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerType: 'mouse' }));
 			(el as HTMLElement).click();
 		});
-		await expect.poll(() => editorDoc(page), { message: 'the settings write landed without the last keystrokes, or not at all' }).toMatch(/paginate: false[\s\S]*KEEPTOO/);
+		await expect.poll(() => editorDoc(page), { message: 'the settings write landed without the last keystrokes, or not at all' }).toMatch(/pagination: false[\s\S]*KEEPTOO/);
 	});
 
 	test('leaving the page right after typing saves the last keystrokes', async ({ page, browserName }) => {

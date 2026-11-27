@@ -175,17 +175,51 @@ library's API settle. Only `@laticent/lattice` makes the 1.0 promise.
 
 ## The first release: 1.0.0
 
-The first npm release **bumps nothing.** The engine ships at the `1.0.0` it
-carries and each library at its `0.1.0`. `tools/release.js` recognizes it by
-asking npm: the engine is `1.0.0`, `npm view @laticent/lattice@1.0.0` returns
-404, and no `@laticent/lattice@1.0.0` tag exists. Any other unpublished engine
-version is refused, because it means the previous release never finished.
+The first npm release **bumps nothing.** The engine ships at the version it
+carries (`1.0.0`, or a candidate `1.0.0-rc.N`; see below) and each library at its
+`0.1.0`. `tools/release.js` recognizes it by asking npm and git: the engine is
+`1.0.0` or `1.0.0-rc.N`, npm returns 404 for that version, and no
+`@laticent/lattice@*` tag exists at all. Any other unpublished engine version is
+refused, because it means the previous release never finished, and so is a
+hand-set `1.0.0` or `1.0.0-rc.2` once any engine version has shipped.
 
 For that release, Release (prepare) archives every pending fragment and
 changeset into `changelog/pre-release-archive.md` (1.0.0's notes are the curated
 `release-notes/1.0.0.md`) and writes each package's first `CHANGELOG.md` section.
 Release (publish) refuses to publish while the August `v1.0.0` tag still exists,
 before anything reaches npm.
+
+### The release candidate: 1.0.0-rc.1
+
+The owner's ruling (#3518, answer 1) puts a candidate first: the engine at
+`1.0.0-rc.1` and each library at its `0.1.0`, all under npm's **`next`** tag. We never point
+`latest` at the candidate ourselves (see the unverified note below). The engine's `package.json` carries `1.0.0-rc.1` on `main`, and
+`tools/release.js` treats `1.0.0-rc.N` exactly like `1.0.0`: a bootstrap that bumps
+nothing. On top of that a pre-release engine changes three things:
+
+- `changeset publish --tag next` for the whole run (the libraries ship with it).
+- The GitHub Release `v1.0.0-rc.1` is marked **pre-release** and never "Latest";
+  its notes open with a release-candidate line, then the curated `release-notes/1.0.0.md`.
+- It needs no retired August tag: it never touches `v1.0.0`. Release-day step 3
+  is due before the real `1.0.0`, not before the candidate.
+
+The candidate's release-day steps are the list below with three changes: step 3
+is optional (the curated notes say the August tag was renamed `v0.9.0`, so doing
+it on the day keeps them true); the release PR is `release: v1.0.0-rc.1` and the
+GitHub Release `v1.0.0-rc.1`; and step 6 runs `npx @laticent/lattice@next deck.md deck.pdf`.
+
+**After rc.1, the real 1.0.0.** Once `1.0.0-rc.1` is on npm, the next Release
+(prepare) is an ordinary version run: any pending engine changeset, `major`, `minor`
+or `patch`, takes `1.0.0-rc.1` to `1.0.0` (semver drops the pre-release before it
+bumps anything), and library changesets bump their libraries as usual. The renames
+carry `major` changesets, so they supply it. A library changeset alone cannot do
+it: when a library leaves the engine's `^0.1.0` range, Changesets patches the
+engine, and the patch of `1.0.0-rc.1` is `1.0.0`. `tools/release.js` refuses that
+run, so the real `1.0.0` only ever ships on an engine changeset.
+`1.0.0` publishes under `latest`, and its publish still refuses until the August
+`v1.0.0` tag is retired. *Unverified:* whether npm also points `latest` at a
+brand-new package's first version published under `next`; if it does, `npx
+@laticent/lattice` resolves to the candidate until `1.0.0` ships.
 
 **Release-day steps (issue #3449):**
 

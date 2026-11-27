@@ -21,7 +21,7 @@ Steps, in order:
 1. After #3410 merges, cut a fresh branch from `main` (do not stack on the old one; HARD RULE #17) and
    carry `185f3a3e`'s plumbing over, converted to the per-preset folders.
 2. Build the five presets. Strategy House and Earnings use `spectrum: solid left band`; the cover
-   compositions come from `cover:`; marks use `marks: tone ink|accent` (#3349, merged).
+   compositions come from `cover:`; the chart finish uses `chart-finish: tone ink|accent` (#3349, merged; `marks:` split into `chart-finish:` and `color-intensity:` in #3510).
 3. Ask the owner the three open gaps from the study, with visuals: G2 (heading size and weight, they want
    a scalable mechanism), G3 (Museum's accent hue), G4 (cover sizes). G1 is solved by #3410's weight axis.
 4. Gates from the brief: the overflow guard; `preset-gate`; two blind judges (one `checker`, one

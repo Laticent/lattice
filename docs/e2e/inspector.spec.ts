@@ -27,7 +27,7 @@ async function openChromeTab(page: Page): Promise<void> {
 	await openSection(page, CHROME.deckTab.chrome);
 }
 
-test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
+test('page-numbers toggle writes pagination front-matter', async ({ page }) => {
 	await openChromeTab(page);
 	// Page numbers are on by default (no front-matter), so the first click turns them OFF
 	// and writes `pagination: false`; a second click removes the directive again. The unit
@@ -39,7 +39,7 @@ test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
 	await expect.poll(() => persistedSource(page)).toContain('pagination: false');
 	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'true');
-	await expect.poll(() => persistedSource(page)).not.toContain('paginate');
+	await expect.poll(() => persistedSource(page)).not.toContain('pagination:');
 });
 
 test('the Header field declares running-header text into front-matter', async ({ page }) => {

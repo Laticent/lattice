@@ -4,22 +4,22 @@ size: 16:9
 theme: carbone
 pagination: true
 header: "Marks · tone source"
-marks: tone ink
+chart-finish: tone ink
 ---
 
-<!-- @meta{layout=title, header="", footer=marks: tone ink · one word picks the hue tone draws in} -->
+<!-- @meta{layout=title, header="", footer=chart-finish: tone ink · one word picks the hue tone draws in} -->
 
 
 
 # One word picks the hue tone draws its charts in
 
-`Charts · marks: tone ink · tone accent`
+`Charts · chart-finish: tone ink · tone accent`
 
 Tone draws one hue in eight steps. Until now that hue was always chart color one; now a deck can draw it in its own heading ink, or in the theme's accent.
 
 ---
 
-<!-- @meta{layout=bar, footer="marks: tone ink · one ink, eight steps, on the light slide"} -->
+<!-- @meta{layout=bar, footer="chart-finish: tone ink · one ink, eight steps, on the light slide"} -->
 
 
 `Tone in the heading ink · light`
@@ -41,7 +41,7 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=bar, class=dark, footer=marks: tone ink · the same chart on a dark slide: the ink is light here} -->
+<!-- @meta{layout=bar, class=dark, footer=chart-finish: tone ink · the same chart on a dark slide: the ink is light here} -->
 
 
 `Tone in the heading ink · dark`
@@ -63,7 +63,7 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=piechart, class=donut marks-accent, footer="_class: marks-accent · one slide draws in the accent instead"} -->
+<!-- @meta{layout=piechart, class=donut chart-finish-accent, footer="_class: chart-finish-accent · one slide draws in the accent instead"} -->
 
 
 `Tone in the accent · light`
@@ -78,7 +78,7 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=heatmap, class=dark marks-accent, footer="_class: marks-accent · a ramp takes the source too; each value picks its own ink"} -->
+<!-- @meta{layout=heatmap, class=dark chart-finish-accent, footer="_class: chart-finish-accent · a ramp takes the source too; each value picks its own ink"} -->
 
 
 `Tone in the accent · dark`
@@ -94,7 +94,7 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=bar, class=marks-etch, footer="_class: marks-etch · light: a pale body under a doubled edge, as before"} -->
+<!-- @meta{layout=bar, class=chart-finish-etch, footer="_class: chart-finish-etch · light: a pale body under a doubled edge, as before"} -->
 
 
 `Etch · light`
@@ -116,7 +116,7 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=bar, class=dark marks-etch, footer="_class: marks-etch · dark: the body now clears 3:1 against the slide (it was 1.1 to 1.6:1)"} -->
+<!-- @meta{layout=bar, class=dark chart-finish-etch, footer="_class: chart-finish-etch · dark: the body now clears 3:1 against the slide (it was 1.1 to 1.6:1)"} -->
 
 
 `Etch · dark`
@@ -138,10 +138,10 @@ Tone draws one hue in eight steps. Until now that hue was always chart color one
 
 ---
 
-<!-- @meta{layout=closing, header="", footer=marks: tone ink · tone accent · etch on dark} -->
+<!-- @meta{layout=closing, header="", footer=chart-finish: tone ink · tone accent · etch on dark} -->
 
 
 
 # Pick the hue once, in the front matter
 
-`marks: tone ink` draws every chart in the deck's own ink. `marks: tone accent` draws it in the theme's accent.
+`chart-finish: tone ink` draws every chart in the deck's own ink. `chart-finish: tone accent` draws it in the theme's accent.

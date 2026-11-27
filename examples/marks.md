@@ -18,7 +18,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=bar, footer="no marks: key · a finish is always on, and the default is pigment"} -->
+<!-- @meta{layout=bar, footer="no chart-finish: key · a finish is always on, and the default is pigment"} -->
 
 
 `Pigment · identity in the body`
@@ -40,7 +40,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=bar, class=marks-etch, footer="_class: marks-etch · one slide overrides the deck"} -->
+<!-- @meta{layout=bar, class=chart-finish-etch, footer="_class: chart-finish-etch · one slide overrides the deck"} -->
 
 
 `Etch · identity in the line`
@@ -62,7 +62,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=bar, class=marks-tone, footer="_class: marks-tone · one hue in stepped shades"} -->
+<!-- @meta{layout=bar, class=chart-finish-tone, footer="_class: chart-finish-tone · one hue in stepped shades"} -->
 
 
 `Tone · identity in value`
@@ -84,7 +84,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=piechart, class=donut marks-tone, footer=The key repaints with the wedges it names} -->
+<!-- @meta{layout=piechart, class=donut chart-finish-tone, footer=The key repaints with the wedges it names} -->
 
 
 `H1 2026 · 1,840 person-hours`
@@ -99,7 +99,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=heatmap, class=marks-etch, footer=Each value picks black or white from its own cell} -->
+<!-- @meta{layout=heatmap, class=chart-finish-etch, footer=Each value picks black or white from its own cell} -->
 
 
 `Retention · 2026 cohorts`
@@ -133,7 +133,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- @meta{layout=progress, class=marks-vivid, footer="_class: marks-vivid · every status rich, done an emerald, the same white text"} -->
+<!-- @meta{layout=progress, class=color-intensity-vivid, footer="_class: color-intensity-vivid · every status rich, done an emerald, the same white text"} -->
 
 
 `H1 2026 · readiness`
@@ -168,6 +168,6 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 
 
-`marks: pigment · etch · tone`
+`chart-finish: pigment · etch · tone`
 
 ## Omit the key and every chart wears pigment.

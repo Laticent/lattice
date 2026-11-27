@@ -85,29 +85,29 @@ Acts on: the slide. Not offered. Pick one.
 
 - `sketch` · `sketch-clean-body` · `boardroom`
 
-### Marks — `marks`
+### Chart finish — `chart-finish`
 
 How a chart spends color on its marks.
 
 Acts on: chart-marks. Pick one.
 
-- `marks-pigment` · `marks-etch` · `marks-tone`
+- `chart-finish-pigment` · `chart-finish-etch` · `chart-finish-tone`
 
-### Marks intensity — `marks-intensity`
+### Color intensity — `color-intensity`
 
-How strong the chart marks read.
+How strong the status colors read.
 
 Acts on: chart-marks. Pick one.
 
-- `marks-muted` · `marks-vivid`
+- `color-intensity-muted` · `color-intensity-vivid`
 
-### Marks source — `marks-source`
+### Chart finish source — `chart-finish-source`
 
-The one hue `marks: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `marks:`.
+The one hue `chart-finish: tone` draws in: the heading ink or the accent. Not offered: a deck names it in `chart-finish:`.
 
 Acts on: chart-marks. Not offered. Pick one.
 
-- `marks-ink` · `marks-accent`
+- `chart-finish-ink` · `chart-finish-accent`
 
 ### Headline — `headline`
 
@@ -487,7 +487,8 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `backdrop:` | `backdrop` |  |
 | `tag:` | `card-tag` |  |
 | `agenda:` | `agenda` |  |
-| `marks:` | `marks`, `marks-intensity`, `marks-source` |  |
+| `chart-finish:` | `chart-finish`, `chart-finish-source` |  |
+| `color-intensity:` | `color-intensity` |  |
 | `logo-finish:` | `logo` |  |
 | `progress-rail:` | `progress-rail` |  |
 | `theme:` | — | Loads a stylesheet; it stamps no class word. |
