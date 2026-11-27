@@ -420,6 +420,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	walkRef.current = walk;
 	const exploreSourceRef = React.useRef<string | null>(null);
 	const planCacheRef = React.useRef(new Map<string, Plan>());
+	// Components whose plan the server ANSWERED for and that answer was not a plan (a 404 after a deploy, a malformed
+	// file). A thrown fetch never lands here: a reload aborts the fetch in flight, and treating that as "missing" would
+	// undo the reader's pick while the page unloads.
+	const planMissingRef = React.useRef(new Set<string>());
 	const urlSyncReadyRef = React.useRef(false);
 	// Ref-indirected: render() (defined above the walk machinery) lands the walk
 	// position after each paint; the real scroller is assigned below. Same for
@@ -1843,9 +1847,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (!plansBase) return null;
 			try {
 				const res = await fetch(`${plansBase}${encodeURIComponent(name)}.json`);
-				if (!res.ok) return null;
+				if (!res.ok) {
+					planMissingRef.current.add(name);
+					return null;
+				}
 				const p = readPlan(await res.text());
 				if (p) planCacheRef.current.set(name, p);
+				else planMissingRef.current.add(name);
 				return p;
 			} catch {
 				return null;
@@ -2153,12 +2161,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// 390px, red under load).
 			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
-				// A pick wrote the pointer before its plan loaded (`onPickComponent`), so the pointer goes back to the component
-				// last settled: a reload then opens it, and the picker names it. A newer pick already returned above, so this
-				// never undoes one. When NO walk is on screen (the pick came before the boot's own walk landed, and superseded
-				// it), that component is walked again, so the reader is not left with an empty Explore and an address that
-				// lost its `?c=`.
-				if (revertTo !== undefined && revertTo !== name) {
+				// A PICK THE SERVER SAID IS NOT THERE puts the pointer back. A pick wrote the pointer before its plan loaded
+				// (`onPickComponent`), so it goes back to the component last settled: a reload then opens it, and the picker
+				// names it. A newer pick already returned above, so this never undoes one. When NO walk is on screen (the pick
+				// came before the boot's own walk landed, and superseded it), that component is walked again, so the reader is
+				// not left with an empty Explore and an address that lost its `?c=`. ONLY on an answer (`planMissingRef`): a
+				// fetch that threw is most often the reload itself aborting it, and putting the pointer back then would write
+				// the old component as the page unloads, the very race the early write closes (playground-state.spec.ts, #3586).
+				if (revertTo !== undefined && revertTo !== name && planMissingRef.current.has(name)) {
 					rememberComponent(revertTo);
 					if (walkRef.current === null) void startWalkRef.current(revertTo, null, { warm: viewRef.current !== 'read' });
 				}
@@ -2636,20 +2646,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const write = () => {
 			const { pathname, hash, search } = window.location;
 			if (view === 'read' && walk?.kind === 'plan') {
-				// A PICK IN FLIGHT names the pick. The pointer moves when a component is picked and the walk only when its plan
-				// lands, so until then the walk on screen is the one before (the warm-up walk behind the editor, at first). Naming
-				// it wrote `?c=<previous>` over the pick, and a reload or a shared link in that window opened the previous
-				// component, since the address outranks the stored pointer at boot (playground-state.spec.ts). The step
-				// belongs to the walk on screen, so a pick in flight writes none.
-				const inFlight = walk.plan.name !== readerComponent;
-				const s = inFlight ? null : (walk.plan.slides[walk.index]?.kind ?? null);
+				// A PICK WHOSE PLAN IS STILL ON THE WIRE owns the address. The pick records `readerComponent` at once
+				// and flips to Explore, but `walk` is the previous component's plan until the new one lands, so this
+				// wrote `?c=<previous>` — and a reload in that window honored the URL over the stored pick and came back
+				// on the old component (playground-state.spec.ts at 390px under load). Name the pick, from its first
+				// slide; the landing re-runs this effect with the real position.
+				const pending = walk.plan.name !== readerComponent;
+				const s = pending ? null : (walk.plan.slides[walk.index]?.kind ?? null);
+				const c = pending ? readerComponent : walk.plan.name;
 				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
 				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
-				window.history.replaceState(
-					window.history.state,
-					'',
-					pathname + withPlaygroundQuery(search, { c: inFlight ? readerComponent : walk.plan.name, view: 'read', s }) + hash,
-				);
+				window.history.replaceState(window.history.state, '', pathname + withPlaygroundQuery(search, { c, view: 'read', s }) + hash);
 			} else if (search) {
 				// Strip the Playground's keys only: a key it does not own (`?tier=`) is someone else's to keep.
 				const rest = withPlaygroundQuery(search, {});

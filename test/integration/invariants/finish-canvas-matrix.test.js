@@ -37,7 +37,7 @@ const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 // The canvas modifiers a slide can carry alongside a component class. `''` = none.
-// `cover-light` is the light cover (`cover: light`, lib/core/resolve-cover.js): unlike `light` it
+// `cover-light` is the light cover (`cover-layout: light`, lib/core/resolve-cover-layout.js): unlike `light` it
 // REPLACES the title and closing canvas with `var(--bg)`, as `divider light` does. Its pairs with the
 // scheme registers are listed so a dark deck's light cover is measured too.
 const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'cover-light', 'cover-light dark', 'cover-light print', 'cover-light color-system'];
