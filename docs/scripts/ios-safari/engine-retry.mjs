@@ -25,7 +25,9 @@
 //      Studio there, and the engine must load.
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
 
+import dns from 'node:dns/promises';
 import http from 'node:http';
+import net from 'node:net';
 
 /** True for a request the proxy treats as an engine sub-file (the entry, `engine.js`, is never failed). */
 export function isEngineSubFile(url) {
@@ -49,15 +51,55 @@ export function engineRetryVerdict(r) {
 	return { ok: false, path: 'none', error: `the engine loaded neither after Reload (${r.afterReload ?? 'not run'}) nor in a new tab (${r.newTab ?? 'not run'})` };
 }
 
+/**
+ * The address `hostname` answers on, found once. A fresh socket per request (below) means a fresh lookup per request, and
+ * for `localhost` Node 22 races ::1 against 127.0.0.1 with 250 ms per attempt: on the starved iPad runner that budget ran
+ * out and the proxy's own connects failed ETIMEDOUT on /_astro/react.js and jsx-runtime.js, so the Studio never hydrated
+ * (run 45475994893). Resolving once, to the address that accepts a connection, takes the race out of every request.
+ */
+export async function reachableAddress(hostname, port, { lookup = dns.lookup, connect = net.connect, timeoutMs = 2000 } = {}) {
+	if (net.isIP(hostname)) return hostname;
+	// A lookup that fails falls back to the name, as before this resolved once: the proxy still starts and each request reports.
+	const all = await lookup(hostname, { all: true }).catch(() => []);
+	for (const { address } of all) {
+		const ok = await new Promise((resolve) => {
+			// A connect that neither connects nor errors gives up after `timeoutMs`, so the proxy still starts and the probe
+			// reports, rather than holding the job until its cap.
+			const timer = setTimeout(() => {
+				s.destroy();
+				resolve(false);
+			}, timeoutMs);
+			const s = connect({ host: address, port }, () => {
+				clearTimeout(timer);
+				s.destroy();
+				resolve(true);
+			});
+			s.on('error', () => {
+				clearTimeout(timer);
+				resolve(false);
+			});
+		});
+		if (ok) return address;
+	}
+	return hostname;
+}
+
 /** A proxy to `target` that cuts engine sub-file requests while `state.fail` is on. Resolves once it listens. */
-export function startFaultProxy(target, mode = 'drop') {
+export async function startFaultProxy(target, mode = 'drop') {
 	const up = new URL(target);
+	const address = await reachableAddress(up.hostname, Number(up.port) || 80);
 	const state = { fail: false, cut: 0, subFiles: 0, seen: [] };
 	const server = http.createServer((req, res) => {
 		// Every engine-side request and what the proxy did with it, so a card that did not come from the fault can be traced
 		// to the gate that failed (followups.d/3368-p1: which request never came, or came back bad).
 		const note = (status) => {
-			if (/\/playground\/v\/|\/sw\.js/.test(String(req.url)) && state.seen.length < 60) state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
+			// The LAST 60, not the first: a stall after Reload or in a new tab comes after the first load's requests.
+			// An /_astro/ chunk only when it did not come back 200: one failed island chunk leaves the Studio unhydrated with no
+			// card (iPad, run 45460220846), and Safari keeps the failure in its module map, so astro's one retry cannot recover.
+			const astroBad = /^\/_astro\//.test(String(req.url)) && status !== 200;
+			if (!astroBad && !/\/playground\/v\/|\/sw\.js/.test(String(req.url))) return;
+			state.seen.push(`${String(req.url).replace(/^\/playground\/v\/[^/]+\//, '…/')} ${status}`);
+			if (state.seen.length > 60) state.seen.shift();
 		};
 		if (isEngineSubFile(req.url)) {
 			state.subFiles++;
@@ -71,7 +113,10 @@ export function startFaultProxy(target, mode = 'drop') {
 				return;
 			}
 		}
-		const fwd = http.request({ hostname: up.hostname, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host } }, (r) => {
+		// `agent: false`: a fresh upstream socket per request. Node 22's global agent pools keep-alive sockets, and on a starved
+		// runner it reused one the docs server had already closed; the server reset engine.js and chunks.json together, before
+		// anything was cut (iPad, run 45453722865). Pooling buys nothing on loopback, and a reset it causes is not the fault.
+		const fwd = http.request({ hostname: address, port: up.port, path: req.url, method: req.method, headers: { ...req.headers, host: up.host }, agent: false }, (r) => {
 			note(r.statusCode || 502);
 			res.writeHead(r.statusCode || 502, r.headers);
 			r.pipe(res);
@@ -159,6 +204,19 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 	};
 	/** A mark on this document, so a wait can tell the reloaded page from the one the press left. */
 	const markDocument = () => wd('POST', `/session/${id}/execute/sync`, { script: 'window.__engineRetryOldDoc = true;', args: [] });
+	/** What reached the proxy, what Safari fetched for the engine, and how far the page got: the trace that names the gate of
+	 *  a stalled page (followups.d/3368-p1). `where` names the step; `what` says what was seen there. */
+	const trace = async (where, what) => {
+		const page = await wd('POST', `/session/${id}/execute/sync`, { script: `return 'readyState ' + document.readyState + '; engine ' + (window.LatticePlayground ? 'loaded' : 'absent') + '; preview ' + (document.querySelector('${PREVIEW}') ? 'present' : 'absent') + '; frames ' + document.querySelectorAll('${PREVIEW} iframe').length + '; modulepreload ' + [...document.querySelectorAll('link[rel=modulepreload]')].filter((l) => /\\/playground\\/v\\//.test(l.href)).length;`, args: [] }).catch((e) => `page unreadable: ${String(e).slice(0, 80)}`);
+		// The Studio's own boot: an island Astro has not hydrated still carries `ssr`; a script or modulepreload the page names
+		// but Resource Timing never logged was never fetched (or is still pending); a slow one names a stalled worker fetch.
+		// The browser keeps 250 resource entries by default and the Studio fetches more, so a full list drops later fetches:
+		// on a healthy WebKit load it listed 12 chunks as "not fetched" and left out engine.js. A full list says so, and the
+		// "not fetched" field reads unknown rather than naming files that did load.
+		const islands = await wd('POST', `/session/${id}/execute/sync`, { script: `const isl = [...document.querySelectorAll('astro-island')]; const ent = performance.getEntriesByType('resource'); const full = ent.length >= 250; const names = new Set(ent.map((e) => e.name)); const short = (u) => String(u).replace(/^.*\\/_astro\\//, ''); const want = [...document.querySelectorAll('script[src*="/_astro/"], link[rel=modulepreload][href*="/_astro/"]')].map((e) => e.src || e.href); const astro = ent.filter((e) => /\\/_astro\\//.test(e.name)); return 'islands ' + isl.length + ' (unhydrated: ' + (isl.filter((i) => i.hasAttribute('ssr')).map((i) => short(i.getAttribute('component-url') || '?')).join(', ') || 'none') + '); _astro fetched ' + astro.length + (full ? '+ (list full)' : '') + '; named but not fetched: ' + (full ? 'unknown (resource list full at ' + ent.length + ': later fetches are not listed)' : want.filter((u) => !names.has(u)).map(short).slice(0, 12).join(', ') || 'none') + '; over 3 s: ' + (astro.filter((e) => e.duration > 3000).map((e) => short(e.name) + ' ' + Math.round(e.duration) + 'ms').join(', ') || (full ? 'none listed (list full)' : 'none'));`, args: [] }).catch((e) => `islands unreadable: ${String(e).slice(0, 80)}`);
+		const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `const all = performance.getEntriesByType('resource'); return (all.length >= 250 ? 'resource list FULL at ' + all.length + ' (later fetches, the engine included, are not listed; a missing file proves nothing) || ' : 'resource list ' + all.length + ' || ') + all.filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
+		console.log(`engine retry ${mode}, ${where}: ${what}. Page: ${page}. Boot: ${islands}. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
+	};
 	const r = { card: false, cut: 0, afterRetry: 'none', afterReload: null, newTab: null };
 	try {
 		proxy.state.fail = true;
@@ -168,12 +226,12 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		r.cut = proxy.state.cut;
 		// What the card said, so a card that did not come from the fault names its own cause.
 		const said = r.card ? await wd('POST', `/session/${id}/execute/sync`, { script: `return (document.querySelector('${PREVIEW} .nacre-failed__text')?.textContent || '').slice(0, 160);`, args: [] }).catch(() => '') : '';
-		if (r.card && !r.cut) {
-			// Trace a card the fault did not cause: what reached the proxy, and what Safari's own resource timing says it fetched
-			// for the engine (a request served by the service worker or a cache never reaches the proxy).
-			const timing = await wd('POST', `/session/${id}/execute/sync`, { script: `return performance.getEntriesByType('resource').filter((e) => /\\/playground\\/v\\/|sw\\.js/.test(e.name)).slice(0, 40).map((e) => e.name.replace(/^.*\\/playground\\/v\\/[^/]+\\//, '…/') + ' ' + Math.round(e.duration) + 'ms ' + (e.responseStatus ?? '?') + ' ' + (e.transferSize ?? '?') + 'B').join(' | ') + ' || sw: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'none');`, args: [] }).catch((e) => `timing unreadable: ${String(e).slice(0, 80)}`);
-			console.log(`engine retry ${mode}: the card came without a cut. Proxy saw: ${proxy.state.seen.join(' | ') || 'nothing'}. Safari timing: ${timing}`);
-		}
+		// Trace a card the fault did not cause, AND a page that showed neither a card nor the engine (`first` is 'none'): the
+		// first-render stall, followups.d/3368-p1. Run 45404438471 on PR #2988 stalled there with 0 sub-file requests and
+		// said nothing about why. What reached the proxy, what Safari's own resource timing says it fetched for the engine (a
+		// request served by the service worker or a cache never reaches the proxy), and how far the page got name the gate.
+		const stalled = first !== 'loaded' && !r.card;
+		if ((r.card && !r.cut) || stalled) await trace('first load', stalled ? 'neither the card nor the engine came' : 'the card came without a cut');
 		step('sub-files cut: the failure card appears', r.card && r.cut > 0, `${first}; ${r.cut} sub-file requests cut${r.card ? `; the card: "${said}"` : ''}${r.card && !r.cut ? ' (NOTHING was cut, so this card did not come from the fault)' : ''}`);
 		if (!r.card || !r.cut) return finish();
 
@@ -195,6 +253,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 		if (reloaded !== 'none' && (await wd('POST', `/session/${id}/execute/sync`, { script: 'return !!window.__engineRetryOldDoc;', args: [] }))) {
 			step('Reload: the button reloaded the page', false, 'the page the press left is still loaded');
 		}
+		if (reloaded === 'none') await trace('after Reload', 'neither the card nor the engine came on the reloaded page');
 		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'closetab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
 		if (r.afterReload === 'loaded') return finish();
@@ -213,6 +272,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 			await wd('POST', `/session/${id}/window`, { handle: win.handle });
 			await wd('POST', `/session/${id}/url`, { url: `${proxy.origin}/studio/` });
 			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'closetab'`, 150000);
+			if (tab === 'none') await trace('new tab', 'neither the card nor the engine came in the new tab');
 			r.newTab = tab === 'loaded' ? 'loaded' : tab === 'none' ? 'none' : 'failed';
 			step('a tab the person opens: the engine loads there', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
 		} catch (e) {

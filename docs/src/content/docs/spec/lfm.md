@@ -156,7 +156,7 @@ starts with `"` is a JSON string. Any other line is a finding (`meta-block-line`
 a letter, then letters, digits and hyphens.
 
 **Unknown fields.** A field this spec and its registries do not name is ignored by a renderer and kept by a writer
-(§2.1). A field with a prefix (`acme.tally=3`) is reserved for the plugin of that name ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)).
+(§2.1). A field with a prefix (`acme.tally=3`) is reserved for the plugin of that name ([EXTENDING §4](https://github.com/Laticent/lattice/blob/main/spec/EXTENDING-1.0.md)), and in 1.0 a reader refuses it, as Segno 1.0 refuses a dotted name (`bad-name`, [SEGNO §8](https://github.com/Laticent/lattice/blob/main/spec/SEGNO-1.0.md)).
 
 The field registry is `dist/schemas/front-matter.schema.json`: a record field and a front-matter key are one name
 for one setting, so a deck-wide setting and a one-slide override use the same word. The shared cases are

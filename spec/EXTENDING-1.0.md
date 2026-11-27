@@ -67,12 +67,17 @@ only when its core or a profile's rules change, never because a registry grew.
 A name with no prefix (`finish`, `@note`, `unknown-key`) is reserved for the spec and its registries. Anyone else
 who adds a front-matter key, a record field, a note or a rule ID gives it a prefix that names its owner:
 
-| Kind | Example |
-|---|---|
-| front-matter key | `acme.tally: 3` |
-| `@meta` record field | `@meta{layout=cards, acme.tally=3}` |
-| note | `@acme.recap{…}` |
-| rule ID | `acme/tally-missing` |
+| Kind | Example | In 1.0 |
+|---|---|---|
+| front-matter key | `acme.tally: 3` | works |
+| rule ID | `acme/tally-missing` | works |
+| `@meta` record field | `@meta{layout=cards, acme.tally=3}` | reserved |
+| note | `@acme.recap{…}` | reserved |
+
+**Reserved** means the form is set aside for owners and a 1.0 reader does not accept it yet. A record's body is
+Segno notation, and Segno 1.0 refuses a name with a dot in it (`bad-name`, [SEGNO §8](./SEGNO-1.0.md)), so a 1.0
+reader refuses a prefixed record field and does not open a prefixed note. A later 1.x MAY admit both, because that
+only makes readable what 1.0 refused (§7). The owner chose this on 2026-11-27.
 
 The prefix is the name of the plugin that owns the name: `acme.tally` belongs to the plugin `acme`. A spec's own
 registries never use a prefix.
@@ -80,11 +85,6 @@ registries never use a prefix.
 The separator is `.` because `:` already separates a name from its value in front matter and in a record's block
 lines. A prefixed name is otherwise an ordinary name: a letter, then letters, digits and hyphens, on each side of
 the dot.
-
-<!-- Not yet true of the reference implementation (Segno desk, 2026-11-27): Segno's name rule refuses a dot
-(`isName`, docs/src/lib/segno/notation.ts:98, and schema.ts's fast bind), and only `@meta{` opens a record or a
-note door (`isRecordOpener`, lib/core/meta-door.mjs:79). The LFM 1.0 PR does not ratify §4 until both accept it;
-the Segno desk owns the first, the meta step E session the second. -->
 
 ### 4.1 A prefixed value is untrusted, and only a sanitizer lets it reach a rendered document
 

@@ -12,7 +12,8 @@
  * that marpit. The marpit is held by package.json `overrides`; without them npm shares the repo's newest marpit with every alias,
  * and the build would silently model a Marp no release ships. (2) What each modeled Marp writes ahead of a theme is the
  * snapshot in fixtures/marp-vscode-earlier-rules.frozen.json, taken from these aliases and checked equal, rule for rule, to the
- * copies inside Marp for VS Code 3.0.0, 3.3.0, 3.5.1 and 3.6.1 (2026-11-10). Only marpit is pinned per alias; the rest of an
+ * copies inside Marp for VS Code 3.0.0, 3.3.0, 3.5.1 and 3.6.1 (2026-11-10). Only marpit is pinned per alias to its release's
+ * version; katex is pinned to the ROOT's (not the release's 0.16/0.17, which npm audit flags), and the rest of an
  * alias's tree (postcss, postcss-selector-parser) is shared with the root, so a root bump that changed what an alias writes
  * would make the build model a Marp no release ships. This catches that. A deliberate change re-takes the snapshot, after the
  * same check against the releases. (3) The pin itself, on a one-rule theme: `margin` ties the old reset and is pinned,
@@ -37,8 +38,13 @@ test('each modeled Marp is the marp-core and marpit its Marp for VS Code release
     assert.equal(versionOf(alias, root), row.core, `${alias} resolves to marp-core ${row.core}`);
     assert.equal(versionOf('@marp-team/marpit', coreDir), row.marpit, `marp-core ${row.core} runs marpit ${row.marpit} (Marp for VS Code ${row.vscode})`);
     assert.equal(manifest.devDependencies[alias], `npm:@marp-team/marp-core@${row.core}`, `${alias} is an exact devDependency`);
-    assert.deepEqual(manifest.overrides[alias], { '@marp-team/marpit': row.marpit }, `${alias}'s marpit is pinned by overrides`);
+    assert.deepEqual(manifest.overrides[alias], { '@marp-team/marpit': row.marpit, katex: '$katex' }, `${alias}'s marpit is pinned by overrides, and its katex is the root's`);
+    assert.equal(versionOf('katex', coreDir), versionOf('katex', root), `marp-core ${row.core} runs the root's katex`);
   }
+  // The root marp-core takes the root's katex too: marp-core 4.x asks for katex 0.16/0.17, which npm audit flags
+  // (GHSA-238p-pmpm-9mq7). The build only packs CSS with it, and the snapshot test below proves the packed rules are
+  // the releases' own.
+  assert.deepEqual(manifest.overrides['@marp-team/marp-core'], { katex: '$katex' }, "the root marp-core's katex is the root's");
   const older = (v) => { const [a, b, c] = v.split('.').map(Number); return a < 3 || (a === 3 && (b < 2 || (b === 2 && c < 2))); };
   assert.ok(VSCODE_CORES.some((r) => older(r.marpit)), 'at least one modeled release writes the older, stronger h1 reset');
 });

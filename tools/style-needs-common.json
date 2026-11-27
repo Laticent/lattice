@@ -55,7 +55,7 @@
   "head:base.tokens#rest~2": "6d72e4ad4b9adc89b2afb1ded322e85a1118cd9e754ccef8a7821016fa711e4f",
   "head:base.elements": "5db682cd9d688893dffc16b3506df3f51e0976465e16b13bf65fb73e14e75df3",
   "head:scaffold": "ca4244fba5e943e64c888a54d22c280875b7e281a914ec4b31e4206d42ffd388",
-  "katex": "2310dd9bdd27ce92ebe0b3f692ce809b88730bc571daba511ef7540c7905c785",
+  "katex": "9520dd5780c2fb2f1ac3b9fd2c7be0c0a91f5cdbd7a7f31b28fdd6eed162cec8",
   "component:scene": "4d193149e7b5a37b3d2efa952c5912c55e0eb2ff2a4038f3b21c05b7b20a3464",
   "base:modifiers#head": "1e63f95b957ee1f47b5330bc2d909780db0a6bd80c4a83c5689f75e42dd7fa79",
   "base:modifiers#rest": "a4a3b61cae8d95d9166e03ab276066518afd5c417cebc3f784954cdf53984d1e",
@@ -96,7 +96,7 @@
   "tail:progress": "bdc340b192a2b8d2df82c8e047e684da4c167ea94570b507e9bbbd41ea67993e",
   "tail:watermark": "04811124e45f36bc450e87c4687a075a67fe1bc08ecfc8f53b208176f5451b75",
   "tail:code.styles": "0381bf9ea36914e27154eb919ba6d594d02863f603c06678656c9f1492e86961",
-  "tail:mermaid.styles": "91b7518e3e07cf80f3b17eec2a0427e67a4313f6e03f26fe7d2c2a8623c38273",
+  "tail:mermaid.styles": "ca7563e469ea4d4185910257a2354de57d2e2eebcf73f51bd6ac2285402dc03f",
   "tail:chart-family.styles.generated": "531afae3c896d67b1ff61e628ec9cb63ae3d4f41146d6013e7fabd693a4da89b",
   "tail:base.fluid-view": "daa6ac4f5f4a35ff09b01ff3a19b1f36b205d86fb8b1215dba2c19bbc89dc997",
   "generated:slicing": "8161a9a66a79460912608688e1f3eec1f29f28f1b9782a4aa1530efd4333d257"

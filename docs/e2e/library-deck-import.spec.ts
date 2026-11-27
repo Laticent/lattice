@@ -126,10 +126,8 @@ test('a .lattice imported through the Library lands on Files and opens as a deck
 /**
  * The import's toast stands ABOVE the phone Library's search, not on it. The toaster sits at the bottom center and so
  * does the phone panel's dock (PanelDock), so "Added 1 reference file." covered the field (toast y 774-828, search
- * 801-823 at 390px) right after the import this PR asks phone readers to make. A CSS rule used to lift a phone toast
- * 4.5rem while a dock was open; since PR 3559 a toast that leaves on its own stands at the top below 1024px
- * (ui/sonner.tsx, note 5), so it clears the dock by place. The check below still holds either way: the toast's bottom
- * edge must clear the search field.
+ * 801-823 at 390px) right after the import this PR asks phone readers to make. While a dock is open, one CSS rule
+ * lifts a phone toast 4.5rem (styles/tailwind.css, "THE TOAST CLEARS THE DOCK").
  */
 test('at a phone\'s width, the import toast stands above the Library\'s search field @mobile @webkit-phone', async ({ page }) => {
 	const bytes = await latticeBytes();

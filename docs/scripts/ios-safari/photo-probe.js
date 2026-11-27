@@ -21,14 +21,18 @@ async function latticePhotoProbe() {
 	const BRIGHT =
 		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
 	const SLIDES = [
-		['<!-- _class: image statement image-card-clear -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![A bright harbor](${BRIGHT})`],
-		['<!-- _class: image spotlight image-card-clear -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![A dark lake](sample:photo-wide.svg)'],
+		['<!-- @meta{layout=image, class="statement image-card-clear"} -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![A bright harbor](${BRIGHT})`],
+		['<!-- @meta{layout=image, class="spotlight image-card-clear"} -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![A dark lake](sample:photo-wide.svg)'],
 		['## Next steps', 'A plain slide after the photos.'],
 	];
 	// No front matter: a select-all-and-insert in WebKit can leave a blank first line, and front matter that does not start the
 	// document is a slide of its own, which would shift every slide this probe counts.
 	const DECK = `${SLIDES.map((s) => s.join('\n\n')).join('\n\n---\n\n')}\n`;
 	const HEADINGS = ['A quiet harbor.', 'A dark photo.', 'Next steps'];
+	// Slide 1's record once the Coach's fix lands: the same match the desktop spec makes.
+	const SLIDE1_FIXED = /@meta\{layout=image, class=statement image-card-clear image-card-dark\}/;
+	// Slide 2's record as seeded: the fix on slide 1 leaves it as it was, so the editor's warning sits on this line.
+	const SLIDE2_RECORD = '@meta{layout=image, class="spotlight image-card-clear"}';
 
 	const result = { ua: navigator.userAgent, width: innerWidth, steps: [], ok: false };
 	const step = (name, pass, detail) => {
@@ -336,7 +340,9 @@ async function latticePhotoProbe() {
 		})();
 		const t0 = performance.now();
 		(await until(coachButton, 10000, 'the Coach button')).click();
-		await until(() => editorText().includes('image statement image-card-clear image-card-dark'), 15000, 'image-card-dark written on slide 1');
+		// The class tokens the fix writes on slide 1, in the record the Studio writes since #3497 (`@meta{layout=…, class=…}`),
+		// as docs/e2e/photo-contrast-coach.spec.ts reads them. The old `_class: image statement …` spelling is never written now.
+		await until(() => SLIDE1_FIXED.test(editorText()), 15000, 'image-card-dark written on slide 1');
 		await until(() => !coachFinding(), 20000, 'the Coach finding to clear');
 		await sleep(1500);
 		watching = false;
@@ -368,7 +374,7 @@ async function latticePhotoProbe() {
 		const said2 = finding2.textContent.trim();
 		const button2 = coachButton()?.textContent.trim();
 		step('slide 2: the Coach flags the thin card and offers a card ink', /^Set card ink (light|dark)$/.test(button2 ?? ''), `${said2} [${button2}]`);
-		const tip2 = await editorTooltip('_class: image spotlight image-card-clear');
+		const tip2 = await editorTooltip(SLIDE2_RECORD);
 		step('slide 2: the editor tooltip says what the Coach says', tip2.text.includes(said2), tip2.text);
 		step('slide 2: the editor tooltip offers the same button', tip2.button === button2, `${tip2.button} vs ${button2}`);
 

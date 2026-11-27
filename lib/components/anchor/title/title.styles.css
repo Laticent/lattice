@@ -126,8 +126,8 @@ section.title-lede.spectrum::before { display: none; }
 section.title-lede > .title-lede-page > p + p { padding-top: var(--sp-md); }
 
 /* ── COVER COMPOSITIONS — `cover-masthead` … `cover-poster` (component variants) ─────────────
- * How the heading block sits on the cover. The deck writes them through the `cover:` register's
- * composition axis (`cover: light column`, lib/core/resolve-cover.js), which stamps the class on
+ * How the heading block sits on the cover. The deck writes them through the `cover-layout:` register's
+ * composition axis (`cover-layout: light column`, lib/core/resolve-cover-layout.js), which stamps the class on
  * title and closing alike; a slide may also name one in `_class:`. closing.styles.css mirrors this
  * block rule for rule, so the front and back cover always compose the same way.
  *

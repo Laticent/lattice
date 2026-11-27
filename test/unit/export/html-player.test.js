@@ -652,7 +652,7 @@ test('a BOOKEND keeps the dark canvas even when it is also pinned light', () => 
 });
 
 test('a LIGHT COVER (`cover-light`) is never forced dark, and is restored to light in the dark scheme', () => {
-	// `cover: light` (lib/core/resolve-cover.js) paints title and closing on the light canvas in
+	// `cover-layout: light` (lib/core/resolve-cover-layout.js) paints title and closing on the light canvas in
 	// every scheme, as `divider light` does. The engine carves `.cover-light` out of its force-dark
 	// bookend rule; the player must too, or a light cover takes the dark token block (dark ground,
 	// on-light ink). Asserted with the browser's matcher, as the bookend test above is.
@@ -1866,7 +1866,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// not to the pointerup's own point. Mobile Safari reported (0, 0) on every touch pointerup (iOS 26.5 simulator,
 	// platform suite run 44013499171), so a tap read as a drag to the page corner and could turn the slide. Script
 	// only: one pointermove listener and two variables; the one-finger swipe and the pinch guard behave as before.
-	// RE-BLESSED for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js).
+	// RE-BLESSED for the light cover (`cover-layout: light` → `cover-light`, lib/core/resolve-cover-layout.js).
 	// The player's scheme pins learn the new class: `:not(.cover-light)` joins the title and
 	// closing force-dark arms and the unpinned-section exclusion, and `.cover-light` joins the
 	// light-pin restores, and the script's `pinsOpposite` leaves a light cover's classes alone when
